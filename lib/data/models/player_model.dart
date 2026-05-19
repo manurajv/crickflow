@@ -16,6 +16,13 @@ class PlayerStatsModel extends Equatable {
     this.matchesPlayed = 0,
     this.inningsPlayed = 0,
     this.dismissals = 0,
+    this.highScore = 0,
+    this.thirties = 0,
+    this.fifties = 0,
+    this.hundreds = 0,
+    this.ducks = 0,
+    this.threeWickets = 0,
+    this.fiveWickets = 0,
   });
 
   final int runs;
@@ -31,6 +38,13 @@ class PlayerStatsModel extends Equatable {
   final int matchesPlayed;
   final int inningsPlayed;
   final int dismissals;
+  final int highScore;
+  final int thirties;
+  final int fifties;
+  final int hundreds;
+  final int ducks;
+  final int threeWickets;
+  final int fiveWickets;
 
   factory PlayerStatsModel.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const PlayerStatsModel();
@@ -48,6 +62,13 @@ class PlayerStatsModel extends Equatable {
       matchesPlayed: map['matchesPlayed'] as int? ?? 0,
       inningsPlayed: map['inningsPlayed'] as int? ?? 0,
       dismissals: map['dismissals'] as int? ?? 0,
+      highScore: map['highScore'] as int? ?? 0,
+      thirties: map['thirties'] as int? ?? 0,
+      fifties: map['fifties'] as int? ?? 0,
+      hundreds: map['hundreds'] as int? ?? 0,
+      ducks: map['ducks'] as int? ?? 0,
+      threeWickets: map['threeWickets'] as int? ?? 0,
+      fiveWickets: map['fiveWickets'] as int? ?? 0,
     );
   }
 
@@ -65,6 +86,13 @@ class PlayerStatsModel extends Equatable {
         'matchesPlayed': matchesPlayed,
         'inningsPlayed': inningsPlayed,
         'dismissals': dismissals,
+        'highScore': highScore,
+        'thirties': thirties,
+        'fifties': fifties,
+        'hundreds': hundreds,
+        'ducks': ducks,
+        'threeWickets': threeWickets,
+        'fiveWickets': fiveWickets,
       };
 
   @override

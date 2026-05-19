@@ -5,6 +5,7 @@ const { updateTournamentStandings } = require('../utils/tournament');
 const { notifyMatchTopic, createUserNotification } = require('../utils/messaging');
 const {
   applyPlayerStats,
+  applyPlayerHighScores,
   collectPlayerAgg,
   applyTeamResult,
 } = require('../utils/stats');
@@ -70,6 +71,7 @@ exports.onMatchCompleted = onDocumentUpdated(
     });
 
     await batch.commit();
+    await applyPlayerHighScores(db, playerAgg);
 
     if (after.tournamentId) {
       await updateTournamentStandings(db, after.tournamentId, after);

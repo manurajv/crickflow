@@ -7,6 +7,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/shell_tab_scaffold.dart';
 import '../../../shared/widgets/location_filter_bar.dart';
 import '../../../shared/widgets/scoreboard_card.dart';
 
@@ -42,24 +43,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isViewer = role == UserRole.viewer;
     final canCreate = canCreateMatches(role);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('CrickFlow'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => context.push('/notifications'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push('/profile'),
-          ),
-        ],
-      ),
+    return ShellTabScaffold(
+      title: const Text('CrickFlow'),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/match/create'),
+              backgroundColor: AppColors.gold,
+              foregroundColor: Colors.black,
+              icon: const Icon(Icons.add),
+              label: const Text('New Match'),
+            )
+          : null,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () => context.push('/notifications'),
+        ),
+        IconButton(
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => context.push('/settings'),
+        ),
+      ],
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(matchesProvider);
@@ -201,37 +205,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton: canCreate
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/match/create'),
-              backgroundColor: AppColors.gold,
-              foregroundColor: Colors.black,
-              icon: const Icon(Icons.add),
-              label: const Text('New Match'),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (i) {
-          switch (i) {
-            case 0:
-              break;
-            case 1:
-              context.push('/tournaments');
-            case 2:
-              context.push('/teams');
-            case 3:
-              context.push('/analytics');
-          }
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(
-              icon: Icon(Icons.emoji_events), label: 'Tournaments'),
-          NavigationDestination(icon: Icon(Icons.groups), label: 'Teams'),
-          NavigationDestination(icon: Icon(Icons.analytics), label: 'Stats'),
-        ],
-      ),
     );
   }
 
@@ -257,6 +230,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   'Tournament',
                   Icons.emoji_events,
                   () => context.push('/tournaments'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
+          Row(
+            children: [
+              Expanded(
+                child: _actionCard(
+                  context,
+                  'Teams',
+                  Icons.groups,
+                  () => context.push('/teams'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _actionCard(
+                  context,
+                  'Players',
+                  Icons.person,
+                  () => context.push('/players'),
                 ),
               ),
             ],

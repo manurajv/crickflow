@@ -1,0 +1,141 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimens.dart';
+import '../../../../shared/providers/my_cricket_ui_provider.dart';
+import '../../../../shared/providers/providers.dart';
+import '../../../../shared/widgets/location_filter_bar.dart';
+import '../../../../shared/widgets/tournament_list_card.dart';
+
+enum _TournamentScope { yours, all }
+
+class MyCricketTournamentsTab extends ConsumerStatefulWidget {
+  const MyCricketTournamentsTab({super.key});
+
+  @override
+  ConsumerState<MyCricketTournamentsTab> createState() =>
+      _MyCricketTournamentsTabState();
+}
+
+class _MyCricketTournamentsTabState
+    extends ConsumerState<MyCricketTournamentsTab> {
+  _TournamentScope _scope = _TournamentScope.yours;
+  String _country = '';
+  String _city = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final tournamentsAsync = ref.watch(tournamentsProvider);
+    final search = ref.watch(myCricketSearchProvider);
+    final uid = ref.watch(authStateProvider).value?.uid;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: AppColors.surfaceElevated,
+          child: ListTile(
+            dense: true,
+            title: const Text('Want to host a tournament?'),
+            trailing: FilledButton(
+              onPressed: () => context.push('/tournaments'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Register'),
+            ),
+          ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.spaceMd,
+            AppDimens.spaceSm,
+            AppDimens.spaceMd,
+            0,
+          ),
+          child: Row(
+            children: [
+              _scopeChip('Your', _TournamentScope.yours),
+              const SizedBox(width: AppDimens.spaceXs),
+              _scopeChip('All', _TournamentScope.all),
+            ],
+          ),
+        ),
+        LocationFilterBar(
+          onFilterChanged: (c, city) => setState(() {
+            _country = c;
+            _city = city;
+          }),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async => ref.invalidate(tournamentsProvider),
+            child: tournamentsAsync.when(
+              data: (all) {
+                var list = all.where((t) {
+                  if (!locationMatchesFilter(t.location, _country, _city)) {
+                    return false;
+                  }
+                  if (_scope == _TournamentScope.yours && uid != null) {
+                    return t.createdBy == uid;
+                  }
+                  return true;
+                }).toList();
+
+                if (search.isNotEmpty) {
+                  final q = search.toLowerCase();
+                  list = list
+                      .where((t) => t.name.toLowerCase().contains(q))
+                      .toList();
+                }
+
+                if (list.isEmpty) {
+                  return ListView(
+                    children: const [
+                      SizedBox(height: 48),
+                      Center(child: Text('No tournaments in this filter')),
+                    ],
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: list.length,
+                  itemBuilder: (_, i) => TournamentListCard(
+                    tournament: list[i],
+                    onTap: () => context.push('/tournaments'),
+                    trailing: TextButton(
+                      onPressed: () => context.push('/tournaments'),
+                      child: const Text('Manage'),
+                    ),
+                  ),
+                );
+              },
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('$e')),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _scopeChip(String label, _TournamentScope scope) {
+    final selected = _scope == scope;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(() => _scope = scope),
+      selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
+      checkmarkColor: AppColors.gold,
+      labelStyle: TextStyle(
+        color: selected ? AppColors.gold : AppColors.textSecondary,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+      ),
+    );
+  }
+}

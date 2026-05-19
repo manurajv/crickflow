@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/badge_gallery.dart';
+import '../../../shared/widgets/shell_tab_scaffold.dart';
 import '../../../shared/widgets/location_fields.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -18,8 +21,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(currentUserProfileProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+    return ShellTabScaffold(
+      title: const Text('Profile'),
       body: profileAsync.when(
         data: (user) {
           if (user == null) {
@@ -83,9 +86,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: const Text('Matches Scored'),
                 trailing: Text('${user.stats.matchesScored}'),
               ),
+              Text('Badges', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: AppDimens.spaceSm),
+              BadgeGallery(badgeIds: user.badgeIds),
+              const SizedBox(height: AppDimens.spaceLg),
+              Text('Explore', style: Theme.of(context).textTheme.titleMedium),
               ListTile(
-                title: const Text('Badges'),
-                trailing: Text('${user.badgeIds.length}'),
+                leading: const Icon(Icons.analytics_outlined),
+                title: const Text('Analytics'),
+                subtitle: const Text('Matches, teams, tournaments by location'),
+                onTap: () => context.push('/analytics'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('Players'),
+                subtitle: const Text('Rosters and career stats'),
+                onTap: () => context.push('/players'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.workspace_premium_outlined),
+                title: const Text('CrickFlow PRO'),
+                subtitle: const Text('Premium features (coming soon)'),
+                onTap: () => context.push('/store'),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<UserRole>(

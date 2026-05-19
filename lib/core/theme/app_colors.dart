@@ -24,6 +24,19 @@ class AppColors {
   static const Color liveIndicator = Color(0xFFE53935);
   static const Color border = Color(0xFF2A3F5F);
 
+  /// Chrome surfaces — app bar + bottom nav share these for visual consistency.
+  static const Color chromeBackground = surface;
+  static const Color chromeForeground = textPrimary;
+  static const Color navSelected = gold;
+  static const Color navUnselected = textSecondary;
+  static const Color navIndicator = Color(0x402196F3);
+
+  static const LinearGradient appBarGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFF1A2744), surface],
+  );
+
   static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,

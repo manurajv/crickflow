@@ -1,6 +1,7 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { notifyMatchTopic } = require('../utils/messaging');
+const { refreshFantasyForMatch } = require('../fantasy/refreshFantasyForMatch');
 
 /**
  * Push FCM for highlights and persist highlight docs for analytics.
@@ -61,5 +62,11 @@ exports.onBallEventCreated = onDocumentCreated(
       eventType: type,
       sequence: String(data.sequence || ''),
     });
+
+    try {
+      await refreshFantasyForMatch(matchId);
+    } catch (err) {
+      console.error('fantasy refresh failed', matchId, err);
+    }
   },
 );

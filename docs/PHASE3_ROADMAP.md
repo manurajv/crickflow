@@ -71,7 +71,7 @@ See [FANTASY.md](FANTASY.md).
 - [x] Points engine from `ball_events`
 - [x] Join code, squad picker, leaderboard
 - [ ] Tournament multi-match leagues
-- [ ] CF auto-scoring on each ball
+- [x] CF auto-scoring on each ball
 
 ---
 

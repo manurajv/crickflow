@@ -87,6 +87,10 @@ final teamsProvider = StreamProvider<List<TeamModel>>((ref) {
   return ref.watch(teamRepositoryProvider).watchTeams(createdBy: uid);
 });
 
+final allTeamsProvider = StreamProvider<List<TeamModel>>((ref) {
+  return ref.watch(teamRepositoryProvider).watchTeams();
+});
+
 final tournamentsProvider = StreamProvider<List<TournamentModel>>((ref) {
   return ref.watch(tournamentRepositoryProvider).watchTournaments();
 });

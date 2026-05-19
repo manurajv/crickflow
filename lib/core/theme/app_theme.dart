@@ -86,15 +86,26 @@ class AppTheme {
       iconTheme: const IconThemeData(size: AppDimens.iconMd),
       primaryIconTheme: const IconThemeData(size: AppDimens.iconMd),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: AppColors.chromeBackground,
+        foregroundColor: AppColors.chromeForeground,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         toolbarHeight: AppDimens.appBarHeight,
         titleTextStyle: textTheme.titleLarge,
-        iconTheme: const IconThemeData(size: AppDimens.iconMd),
-        actionsIconTheme: const IconThemeData(size: AppDimens.iconMd),
+        iconTheme: const IconThemeData(
+          size: AppDimens.iconMd,
+          color: AppColors.chromeForeground,
+        ),
+        actionsIconTheme: const IconThemeData(
+          size: AppDimens.iconMd,
+          color: AppColors.chromeForeground,
+        ),
         systemOverlayStyle: SystemUiOverlayStyle.light,
+        shape: const Border(
+          bottom: BorderSide(color: AppColors.border, width: 0.5),
+        ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.card,
@@ -219,21 +230,27 @@ class AppTheme {
         unselectedIconTheme: const IconThemeData(size: AppDimens.iconSm),
       ),
       navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.chromeBackground,
+        indicatorColor: AppColors.navIndicator,
+        elevation: 0,
         height: AppDimens.bottomNavHeight,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? AppColors.navSelected : AppColors.navUnselected,
+            size: selected ? AppDimens.iconMd : AppDimens.iconSm,
+          );
+        }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
-            fontSize: 11,
+            fontSize: selected ? 11 : 10,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? AppColors.navSelected : AppColors.navUnselected,
           );
         }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          return IconThemeData(
-            size: states.contains(WidgetState.selected)
-                ? AppDimens.iconMd
-                : AppDimens.iconSm,
-          );
-        }),
+        surfaceTintColor: Colors.transparent,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,

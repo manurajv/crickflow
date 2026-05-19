@@ -33,6 +33,12 @@ class PlayerRepository {
     await _col.doc(playerId).delete();
   }
 
+  Future<PlayerModel?> getPlayer(String playerId) async {
+    final doc = await _col.doc(playerId).get();
+    if (!doc.exists) return null;
+    return PlayerModel.fromMap(doc.id, doc.data()!);
+  }
+
   Future<PlayerModel?> getPlayerByUserId(String userId) async {
     final doc = await _col.doc(userId).get();
     if (!doc.exists) return null;

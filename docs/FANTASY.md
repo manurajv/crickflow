@@ -7,6 +7,10 @@ Phase **3.5** — pick squads from match rosters and earn points from live ball 
 - `fantasy_leagues/{leagueId}` — name, `joinCode`, `matchId`, `status` (`open` | `locked` | `closed`), multipliers
 - `fantasy_leagues/{leagueId}/entries/{entryId}` — `userId`, `playerIds`, captain / vice, `totalPoints`
 
+## Auto-scoring
+
+Cloud Function `onBallEventCreated` recalculates all entry `totalPoints` for leagues tied to the match after each ball (see `functions/src/fantasy/`).
+
 ## Points (MVP)
 
 | Event | Points |

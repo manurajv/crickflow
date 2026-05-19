@@ -10,11 +10,13 @@
 | Token | Hex | Usage |
 |-------|-----|-------|
 | Background | `#0A0E17` | Scaffold |
-| Surface | `#141B2D` | Cards, app bar |
-| Primary Blue | `#1E88E5` | CTAs, scoreboard |
-| Gold | `#FFC107` | Accents, highlights, FAB |
+| Surface / chrome | `#141B2D` | Cards, **app bar**, **bottom nav** |
+| Primary Blue | `#1E88E5` | CTAs, scoreboard, nav indicator |
+| Gold | `#FFC107` | Accents, **selected nav**, FAB |
 | Accent Red | `#E53935` | Live indicator, wickets |
 | Scoreboard BG | `#0D47A1` | Scorebug gradient |
+
+**Chrome rule:** App bar and bottom navigation both use `chromeBackground` with **gold** selected icons/labels and **grey** unselected — never mix mismatched accent colors.
 
 ## Typography
 
@@ -33,6 +35,9 @@ Global `visualDensity: compact` and reduced control heights (~40px buttons).
 
 ## Components
 
+- `ShellTabScaffold` — tab roots with **drawer** + hamburger in `CfChromeAppBar`
+- `CfAppDrawer` — side menu (profile header, start match, fantasy, settings)
+- `MatchListCard` — matches tab list rows (status chip, meta, quick links)
 - `ScoreboardCard` — primary live score display
 - `CfButton` — full-width primary actions
 - `MatchRulesEditor` — segmented format + numeric rule fields

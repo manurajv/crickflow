@@ -77,7 +77,30 @@ class SettingsScreen extends ConsumerWidget {
             leading: const Icon(Icons.cloud_sync),
             title: const Text('Offline Sync'),
             subtitle: const Text('Firestore persistence enabled'),
-            onTap: () {},
+            onTap: () {
+              showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Offline sync'),
+                  content: const Text(
+                    'CrickFlow caches Firestore data on your device. '
+                    'Scores and match updates sync automatically when you reconnect. '
+                    'No extra setup is required.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.analytics_outlined),
+            title: const Text('Analytics'),
+            onTap: () => context.push('/analytics'),
           ),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),

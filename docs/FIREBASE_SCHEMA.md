@@ -116,6 +116,19 @@ Real-time overlay payload for stream graphics.
 | viceCaptainId | string? |
 | totalPoints | number |
 
+### `community_posts/{postId}`
+| Field | Type |
+|-------|------|
+| authorId | string |
+| authorName | string |
+| authorRole | string? |
+| category | string |
+| title | string |
+| body | string |
+| location | map |
+| createdAt | string |
+| updatedAt | string |
+
 ### `notifications/{notificationId}`
 | Field | Type |
 |-------|------|

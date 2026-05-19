@@ -1,20 +1,33 @@
 # CrickFlow — Implementation Status (Agent Handoff)
 
-> **Full catalog:** [FULL_IMPLEMENTATION.md](FULL_IMPLEMENTATION.md) — all features, routes, repositories, services, domain logic, Cloud Functions, and pending work.
 
 
 
-**Last updated:** Phase 3.5 fantasy MVP  
+**Last updated:** Completion pass (Discover, Analytics, players, badges, fantasy CF)  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
-
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
 
 ---
 
+## Latest (ecosystem UX)
 
+| Item | Status |
+|------|--------|
+| 5-tab bottom shell (Home · Discover · Matches · Community · Profile) | Done |
+| Match hub tabs (Summary · Scorecard · Comms · Insights · Squads · MVP · Highlights) | Done |
+| Match insights (hero, top bat/bowl, milestones, live MVP points) | Done (client-side) |
+| Match squads (dual-column rosters, C/VC badges) | Done |
+| Community posts (`community_posts`, feed, create, filters) | Done |
+| Discover → Community category deep links | Done |
+| Unified app bar + bottom nav colors (gold selected, surface chrome) | Done |
+| Compact design tokens (`app_dimens.dart`) | Done |
+| CricHeroes-style references (19 screens) | Inspiration only — not cloned |
+
+---
 
 ## Phases 1 & 2 — Complete ✅
 
@@ -29,8 +42,8 @@ See [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md).
 | 3.2+ | HLS restream | Pending |
 | 3.3 | WebRTC signaling + beta viewer | Done (media peer TBD) |
 | 3.4 | Multi-camera (dual YouTube URLs) | Done |
-| 3.5 | Fantasy leagues (join code, squad, leaderboard) | Done (MVP) |
-| 3.6 | Ball tracking / AI | Not started |
+| 3.5 | Fantasy leagues (join code, squad, leaderboard) | Done (MVP + CF scoring) |
+| 3.6 | Ball tracking / AI | Not started — see [REMAINING_FEATURES.md](REMAINING_FEATURES.md) |
 
 ---
 

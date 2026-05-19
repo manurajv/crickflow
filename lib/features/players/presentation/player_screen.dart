@@ -48,6 +48,7 @@ class PlayerScreen extends ConsumerWidget {
                             p.stats.ballsFaced,
                           );
                           return ListTile(
+                            onTap: () => context.push('/players/${p.id}'),
                             leading: CircleAvatar(
                               backgroundColor: AppColors.primaryBlue,
                               child: Text(

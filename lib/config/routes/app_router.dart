@@ -3,28 +3,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/analytics/presentation/analytics_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/community/presentation/community_screen.dart';
+import '../../features/discover/presentation/discover_screen.dart';
+import '../../features/fantasy/presentation/fantasy_league_screen.dart';
+import '../../features/fantasy/presentation/fantasy_screen.dart';
+import '../../features/fantasy/presentation/fantasy_squad_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/matches/presentation/create_match_screen.dart';
-import '../../features/matches/presentation/match_center_screen.dart';
 import '../../features/matches/presentation/match_highlights_screen.dart';
+import '../../features/matches/presentation/match_hub_screen.dart';
+import '../../features/matches/presentation/matches_list_screen.dart';
 import '../../features/matches/presentation/scorecard_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/overlay/presentation/live_overlay_screen.dart';
-import '../../features/teams/presentation/team_detail_screen.dart';
+import '../../features/players/presentation/player_detail_screen.dart';
 import '../../features/players/presentation/player_screen.dart';
+import '../../features/store/presentation/store_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/scoring/presentation/live_scoring_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
-import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/shell/presentation/main_shell_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/streaming/presentation/live_stream_screen.dart';
 import '../../features/streaming/presentation/webrtc_viewer_screen.dart';
-import '../../features/fantasy/presentation/fantasy_screen.dart';
-import '../../features/fantasy/presentation/fantasy_league_screen.dart';
-import '../../features/fantasy/presentation/fantasy_squad_screen.dart';
+import '../../features/teams/presentation/team_detail_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_screen.dart';
-import '../../core/constants/enums.dart';
 import '../../core/utils/match_permissions.dart';
 import '../../shared/providers/providers.dart';
 
@@ -60,7 +65,53 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return MainShellScaffold(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (_, __) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/discover',
+                builder: (_, __) => const DiscoverScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/matches',
+                builder: (_, __) => const MatchesListScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/community',
+                builder: (_, __) => const CommunityScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (_, __) => const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
       GoRoute(
         path: '/match/create',
         builder: (_, __) => const CreateMatchScreen(),
@@ -68,7 +119,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/match/:id',
         builder: (_, state) =>
-            MatchCenterScreen(matchId: state.pathParameters['id']!),
+            MatchHubScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/match/:id/score',
@@ -115,9 +166,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const NotificationsScreen(),
       ),
       GoRoute(path: '/players', builder: (_, __) => const PlayerScreen()),
-      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
-      GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
+      GoRoute(
+        path: '/players/:id',
+        builder: (_, state) =>
+            PlayerDetailScreen(playerId: state.pathParameters['id']!),
+      ),
+      GoRoute(path: '/store', builder: (_, __) => const StoreScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
       GoRoute(path: '/fantasy', builder: (_, __) => const FantasyScreen()),
       GoRoute(
         path: '/fantasy/:id',

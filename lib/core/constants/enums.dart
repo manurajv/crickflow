@@ -52,3 +52,16 @@ enum BadgeType {
 enum StreamStatus { idle, connecting, live, ended, error }
 
 enum StreamDestination { youtube, customRtmp }
+
+/// Recruitment / marketplace posts on the Community tab.
+enum CommunityPostCategory {
+  lookingForPlayer,
+  lookingForScorer,
+  lookingForUmpire,
+  lookingForStreamer,
+  lookingForCommentator,
+  practiceMatch,
+  groundAvailable,
+  tournamentNeed,
+  general,
+}
