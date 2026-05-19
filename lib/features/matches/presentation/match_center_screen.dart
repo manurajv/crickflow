@@ -47,7 +47,7 @@ class MatchCenterScreen extends ConsumerWidget {
           final canManage = canManageMatch(
             match: match,
             userId: uid,
-            role: profile?.role ?? UserRole.viewer,
+            role: profile?.role ?? UserRole.organizer,
           );
 
           return ListView(

@@ -2,31 +2,19 @@ import '../../core/constants/enums.dart';
 import '../../data/models/match_model.dart';
 
 /// Who can score, stream, or complete a match.
+/// All signed-in users except [UserRole.viewer] may organize and score.
 bool canManageMatch({
   required MatchModel match,
   required String? userId,
   required UserRole role,
 }) {
-  if (userId == null) return false;
-  if (role == UserRole.viewer || role == UserRole.player) return false;
-  if (role == UserRole.organizer || role == UserRole.scorer || role == UserRole.umpire) {
-    if (match.createdBy == userId) return true;
-    if (match.scorerIds.contains(userId)) return true;
-    return role == UserRole.organizer || role == UserRole.scorer;
-  }
-  return false;
+  if (userId == null || role == UserRole.viewer) return false;
+  if (match.createdBy == userId) return true;
+  if (match.scorerIds.contains(userId)) return true;
+  return role != UserRole.viewer;
 }
 
-bool canCreateMatches(UserRole role) =>
-    role == UserRole.organizer ||
-    role == UserRole.scorer ||
-    role == UserRole.umpire;
+/// Viewer is read-only; everyone else (including players) can create matches.
+bool canCreateMatches(UserRole role) => role != UserRole.viewer;
 
-String homeRouteForRole(UserRole role) {
-  switch (role) {
-    case UserRole.player:
-      return '/players';
-    default:
-      return '/home';
-  }
-}
+String homeRouteForRole(UserRole role) => '/home';

@@ -23,7 +23,7 @@ Live cricket scoring & YouTube streaming for Sri Lanka — tennis & standard for
 CrickFlow is built for local cricket in Sri Lanka: ball-by-ball scoring, live scorecards, tournaments, and optional YouTube RTMP streaming with on-screen overlays.
 
 **Features**
-- Google & phone sign-in with Organizer, Player, and Viewer roles
+- Google & phone sign-in — one account to score, play, and stream
 - Create matches with custom rules (overs, wides, tennis ball, etc.)
 - Teams, squads, and invite links
 - League and knockout tournaments with brackets
@@ -54,7 +54,7 @@ Upload `build/app/outputs/bundle/release/app-release.aab` to Play Console.
 
 ## Screenshots (capture on device)
 
-1. Login + role picker
+1. Login (Google / phone)
 2. Home / match list
 3. Live scoring
 4. Scorecard

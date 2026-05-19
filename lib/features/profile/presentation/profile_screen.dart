@@ -90,21 +90,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<UserRole>(
-                value: user.role,
-                decoration: const InputDecoration(labelText: 'Role'),
-                items: UserRole.values
-                    .map((r) => DropdownMenuItem(
-                          value: r,
-                          child: Text(r.name),
-                        ))
-                    .toList(),
+                value: user.role == UserRole.viewer
+                    ? UserRole.viewer
+                    : UserRole.organizer,
+                decoration: const InputDecoration(
+                  labelText: 'App mode',
+                  helperText:
+                      'Member: score, stream, and join squads. Viewer: browse only.',
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: UserRole.organizer,
+                    child: Text('Member (score & play)'),
+                  ),
+                  DropdownMenuItem(
+                    value: UserRole.viewer,
+                    child: Text('Viewer (browse only)'),
+                  ),
+                ],
                 onChanged: (role) async {
                   if (role == null) return;
                   await ref
                       .read(userRepositoryProvider)
                       .updateUser(user.copyWith(role: role));
-                  if (role == UserRole.player) {
-                    await ref.read(playerRepositoryProvider).ensurePlayerProfileForUser(
+                  if (role == UserRole.organizer) {
+                    await ref
+                        .read(playerRepositoryProvider)
+                        .ensurePlayerProfileForUser(
                           userId: user.id,
                           displayName: user.displayName,
                           photoUrl: user.photoUrl,

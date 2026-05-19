@@ -40,7 +40,7 @@ class UserModel extends Equatable {
     this.displayName = '',
     this.phoneNumber,
     this.photoUrl,
-    this.role = UserRole.viewer,
+    this.role = UserRole.organizer,
     this.location = const LocationModel(),
     this.stats = const UserStatsModel(),
     this.badgeIds = const [],
@@ -71,7 +71,7 @@ class UserModel extends Equatable {
       photoUrl: map['photoUrl'] as String?,
       role: UserRole.values.firstWhere(
         (e) => e.name == map['role'],
-        orElse: () => UserRole.viewer,
+        orElse: () => UserRole.organizer,
       ),
       location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
       stats: UserStatsModel.fromMap(map['stats'] as Map<String, dynamic>?),

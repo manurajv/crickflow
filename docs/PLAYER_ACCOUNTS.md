@@ -1,19 +1,19 @@
 # Player accounts
 
-## Current behavior
+## One login for everyone
 
-- **Onboarding** — first launch walkthrough → login.
-- **Login** — choose **Player**, **Scorer/Organizer**, or **Viewer** before Google/Phone sign-in.
-- **Add to squad** (organizer):
-  - **Existing players** — search global directory, no duplicate profiles.
+- **Login** — single flow: Google or Phone only (no role picker).
+- Every new account is a **Member** with full access: create matches, score, stream, join squads.
+- **Viewer mode** is optional in Profile → App mode (browse-only).
+
+## Squads
+
+- **Add to squad** (team screen):
+  - **Existing players** — search global directory.
   - **New player** — walk-in without an app account.
-- **Team invite** — share from team screen → `crickflow://teams/{id}` → **Join team** banner for recipients.
-- **Player role** — creates `players/{userId}` linked to Firebase Auth uid.
+- **Team invite** — share link → **Join team** for any signed-in member (not in viewer mode).
+- Each member gets a linked `players/{userId}` record for roster and stats.
 
-## Planned enhancements
+## Legacy roles
 
-- Player self-service: batting style, availability, stats edit.
-- Organizer approval flow for join requests.
-- Push notification when added to a team.
-
-Organizers: use **Existing players** for registered users; **New player** only for guests.
+Older accounts may still have `player` in Firestore. They are treated like members (can score and organize). Profile shows **Member (score & play)**.

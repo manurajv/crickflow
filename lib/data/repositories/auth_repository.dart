@@ -29,7 +29,7 @@ class AuthRepository {
     return _userRepository.getUser(user.uid);
   }
 
-  Future<UserModel> signInWithGoogle({UserRole? intendedRole}) async {
+  Future<UserModel> signInWithGoogle() async {
     final googleUser = await _googleSignIn.signIn();
     if (googleUser == null) {
       throw Exception('Google sign-in cancelled');
@@ -40,7 +40,7 @@ class AuthRepository {
       idToken: googleAuth.idToken,
     );
     final result = await _auth.signInWithCredential(credential);
-    return _ensureProfile(result.user!, intendedRole: intendedRole);
+    return _ensureProfile(result.user!);
   }
 
   Future<void> signInWithPhone({
@@ -62,40 +62,33 @@ class AuthRepository {
   Future<UserModel> verifyPhoneOtp({
     required String verificationId,
     required String smsCode,
-    UserRole? intendedRole,
   }) async {
     final credential = PhoneAuthProvider.credential(
       verificationId: verificationId,
       smsCode: smsCode,
     );
     final result = await _auth.signInWithCredential(credential);
-    return _ensureProfile(result.user!, intendedRole: intendedRole);
+    return _ensureProfile(result.user!);
   }
 
-  Future<UserModel> _ensureProfile(
-    User user, {
-    UserRole? intendedRole,
-  }) async {
+  Future<UserModel> _ensureProfile(User user) async {
     var profile = await _userRepository.getUser(user.uid);
     if (profile == null) {
-      final role = intendedRole ?? UserRole.organizer;
       profile = UserModel(
         id: user.uid,
         email: user.email ?? '',
         displayName: user.displayName ?? 'CrickFlow User',
         phoneNumber: user.phoneNumber,
         photoUrl: user.photoURL,
-        role: role,
+        role: UserRole.organizer,
       );
       await _userRepository.createUser(profile);
-      if (role == UserRole.player) {
-        await PlayerRepository().ensurePlayerProfileForUser(
-          userId: user.uid,
-          displayName: profile.displayName,
-          photoUrl: profile.photoUrl,
-          email: profile.email,
-        );
-      }
+      await PlayerRepository().ensurePlayerProfileForUser(
+        userId: user.uid,
+        displayName: profile.displayName,
+        photoUrl: profile.photoUrl,
+        email: profile.email,
+      );
     }
     return profile;
   }

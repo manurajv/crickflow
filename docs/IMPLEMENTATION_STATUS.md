@@ -2,7 +2,7 @@
 
 
 
-**Last updated:** Account deletion + release keystore script  
+**Last updated:** Single login; Member can score & organize  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -43,7 +43,7 @@
 
 | RTMP (`rtmp_broadcaster`) | Done |
 
-| Viewer / player read-only UX | Done |
+| Single login + Member/Viewer app mode | Done |
 
 | Web admin (hosted `/admin`) | Done |
 

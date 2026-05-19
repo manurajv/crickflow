@@ -80,7 +80,7 @@ Full matrix: [DEVICE_QA.md](DEVICE_QA.md)
 - [ ] Google Sign-In (iOS device)
 - [ ] Phone OTP (Android)
 - [ ] Phone OTP (iOS)
-- [ ] Role picker: Organizer / Player / Viewer on first sign-up
+- [ ] Single login (no role picker); optional Viewer mode in Profile
 
 ---
 
@@ -95,7 +95,7 @@ Full matrix: [DEVICE_QA.md](DEVICE_QA.md)
 - [ ] Tournaments: league fixtures + knockout bracket + winner advance
 - [ ] Scorecard share includes deep link
 - [ ] Notifications inbox
-- [ ] Profile role change → Player creates `players/{uid}`
+- [ ] Profile → Member ensures `players/{uid}` exists
 
 ---
 

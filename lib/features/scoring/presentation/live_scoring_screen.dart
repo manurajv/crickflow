@@ -285,7 +285,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           if (!canManageMatch(
             match: match,
             userId: uid,
-            role: profile?.role ?? UserRole.viewer,
+            role: profile?.role ?? UserRole.organizer,
           )) {
             return Center(
               child: Padding(

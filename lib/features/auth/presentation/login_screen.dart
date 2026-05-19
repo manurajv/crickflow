@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../core/constants/enums.dart';
 import '../../../core/routing/deep_link_handler.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/user_model.dart';
-import '../../../shared/providers/auth_intent_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
 
@@ -34,10 +32,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _googleSignIn() async {
     setState(() => _isLoading = true);
     try {
-      final role = ref.read(signUpRoleProvider);
-      final profile = await ref
-          .read(authRepositoryProvider)
-          .signInWithGoogle(intendedRole: role);
+      final profile =
+          await ref.read(authRepositoryProvider).signInWithGoogle();
       await _goAfterAuth(profile);
     } catch (e) {
       if (mounted) {
@@ -81,11 +77,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (_verificationId == null) return;
     setState(() => _isLoading = true);
     try {
-      final role = ref.read(signUpRoleProvider);
       final profile = await ref.read(authRepositoryProvider).verifyPhoneOtp(
             verificationId: _verificationId!,
             smsCode: _otpController.text.trim(),
-            intendedRole: role,
           );
       await _goAfterAuth(profile);
     } catch (e) {
@@ -97,41 +91,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Widget _rolePicker() {
-    final selected = ref.watch(signUpRoleProvider);
-
-    Widget chip(UserRole role, String label, IconData icon) {
-      final isSelected = selected == role;
-      return Expanded(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: ChoiceChip(
-            label: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 20, color: isSelected ? Colors.black : null),
-                const SizedBox(height: 4),
-                Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
-              ],
-            ),
-            selected: isSelected,
-            selectedColor: AppColors.gold,
-            onSelected: (_) =>
-                ref.read(signUpRoleProvider.notifier).state = role,
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        chip(UserRole.organizer, 'Scorer /\nOrganizer', Icons.scoreboard),
-        chip(UserRole.player, 'Player', Icons.sports),
-        chip(UserRole.viewer, 'Viewer', Icons.visibility),
-      ],
-    );
   }
 
   @override
@@ -155,19 +114,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Professional cricket scoring for Sri Lanka',
+                  'Score matches, join squads, and stream live — one account.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 32),
-                const Text(
-                  'I am signing in as',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 12),
-                _rolePicker(),
-                const SizedBox(height: 24),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
@@ -226,6 +177,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                   ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Spectator-only mode can be enabled later in Profile → App mode.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                 ),
               ],
             ),

@@ -71,3 +71,11 @@ android {
 flutter {
     source = "../.."
 }
+
+// rtmp_broadcaster pulls legacy support libraries; keep AndroidX-only classpath.
+configurations.configureEach {
+    exclude(group = "com.android.support", module = "support-compat")
+    exclude(group = "com.android.support", module = "support-core-utils")
+    exclude(group = "com.android.support", module = "support-core-ui")
+    exclude(group = "com.android.support", module = "support-fragment")
+}

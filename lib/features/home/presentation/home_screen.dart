@@ -37,7 +37,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final matchesAsync = ref.watch(matchesProvider);
     final profileAsync = ref.watch(currentUserProfileProvider);
-    final role = profileAsync.valueOrNull?.role ?? UserRole.viewer;
+    final role = profileAsync.valueOrNull?.role ?? UserRole.organizer;
+    final isViewer = role == UserRole.viewer;
     final canCreate = canCreateMatches(role);
 
     return Scaffold(
@@ -95,30 +96,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            if (!canCreate)
+            if (isViewer)
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: ListTile(
-                  leading: Icon(
-                    role == UserRole.player ? Icons.sports : Icons.visibility,
-                    color: AppColors.gold,
+                  leading: const Icon(Icons.visibility, color: AppColors.gold),
+                  title: const Text('Viewer mode'),
+                  subtitle: const Text(
+                    'Browse live scores and scorecards. Change mode in Profile.',
                   ),
-                  title: Text(
-                    role == UserRole.player
-                        ? 'Player mode'
-                        : 'Viewer mode',
+                  trailing: TextButton(
+                    onPressed: () => context.push('/profile'),
+                    child: const Text('Profile'),
                   ),
-                  subtitle: Text(
-                    role == UserRole.player
-                        ? 'Browse matches and squads. Scoring is for organizers.'
-                        : 'Browse live scores and scorecards.',
-                  ),
-                  trailing: role == UserRole.player
-                      ? TextButton(
-                          onPressed: () => context.push('/players'),
-                          child: const Text('My squads'),
-                        )
-                      : null,
                 ),
               ),
             if (canCreate) _quickActions(context),

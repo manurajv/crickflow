@@ -31,8 +31,8 @@ class TeamJoinBanner extends ConsumerWidget {
         team.playerIds.contains(uid);
     if (alreadyOnSquad) return const SizedBox.shrink();
 
-    final isPlayer =
-        profile?.role == UserRole.player || profile?.role == UserRole.viewer;
+    final isViewer = profile?.role == UserRole.viewer;
+    if (isViewer) return const SizedBox.shrink();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -43,7 +43,7 @@ class TeamJoinBanner extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              isPlayer ? 'Join ${team.name}?' : 'Add yourself to this squad?',
+              'Join ${team.name}?',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,

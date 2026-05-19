@@ -25,13 +25,13 @@ Run on **physical** Android and iOS devices before release.
 
 1. Login → enter `+94XXXXXXXXX` → **Send OTP**
 2. Enter SMS code → **Verify OTP**
-3. New user profile created with chosen role
+3. New user lands on Home as a **Member** (full access)
 
 **Fail:** SMS not received → enable Phone auth, check quota, test with test numbers in Firebase.
 
 ### RTMP
 
-1. Sign in as **Scorer/Organizer**
+1. Sign in (any member account)
 2. Create match → Match Center → **Go Live**
 3. YouTube Studio → copy RTMP URL + stream key
 4. **Go Live** → grant camera/mic → status **LIVE**
@@ -64,15 +64,15 @@ Same flow as Android; confirm camera/mic prompts.
 2. User lands on login; `users/{uid}` and linked `players/{uid}` removed from Firestore
 3. If Google shows “requires recent login”: sign out, sign in, retry
 
-## Role matrix (quick)
+## App mode matrix (quick)
 
-| Action | Organizer | Player | Viewer |
-|--------|-----------|--------|--------|
-| Create match | Yes | No | No |
-| Live scoring | Yes | No | No |
-| View scorecard | Yes | Yes | Yes |
-| Join team via link | Yes | Yes | Yes |
-| RTMP stream | Yes | No | No |
+| Action | Member (default) | Viewer (Profile setting) |
+|--------|------------------|---------------------------|
+| Create match | Yes | No |
+| Live scoring | Yes | No |
+| View scorecard | Yes | Yes |
+| Join team via link | Yes | No |
+| RTMP stream | Yes | No |
 
 ## Deep links
 
