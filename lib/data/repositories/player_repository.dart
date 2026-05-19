@@ -29,6 +29,10 @@ class PlayerRepository {
     await _col.doc(player.id).update(player.toMap());
   }
 
+  Future<void> deletePlayer(String playerId) async {
+    await _col.doc(playerId).delete();
+  }
+
   Future<PlayerModel?> getPlayerByUserId(String userId) async {
     final doc = await _col.doc(userId).get();
     if (!doc.exists) return null;

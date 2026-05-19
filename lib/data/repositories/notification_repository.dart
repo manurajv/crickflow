@@ -34,4 +34,17 @@ class NotificationRepository {
     }
     await batch.commit();
   }
+
+  /// Removes inbox notifications for account deletion (batched).
+  Future<void> deleteAllForUser(String userId) async {
+    while (true) {
+      final snap = await _col.where('userId', isEqualTo: userId).limit(100).get();
+      if (snap.docs.isEmpty) break;
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
 }

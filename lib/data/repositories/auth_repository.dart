@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/constants/enums.dart';
 import '../models/user_model.dart';
+import 'notification_repository.dart';
 import 'player_repository.dart';
 import 'user_repository.dart';
 
@@ -101,5 +102,26 @@ class AuthRepository {
 
   Future<void> signOut() async {
     await Future.wait([_auth.signOut(), _googleSignIn.signOut()]);
+  }
+
+  /// Deletes Firestore profile data and the Firebase Auth account.
+  /// Throws [FirebaseAuthException] with code `requires-recent-login` when re-auth is needed.
+  Future<void> deleteAccount() async {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('Not signed in');
+    }
+
+    final uid = user.uid;
+    await NotificationRepository().deleteAllForUser(uid);
+
+    final player = await PlayerRepository().getPlayerByUserId(uid);
+    if (player != null) {
+      await PlayerRepository().deletePlayer(player.id);
+    }
+
+    await _userRepository.deleteUser(uid);
+    await user.delete();
+    await _googleSignIn.signOut();
   }
 }

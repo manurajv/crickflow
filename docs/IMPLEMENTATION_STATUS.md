@@ -2,7 +2,7 @@
 
 
 
-**Last updated:** Hosting deep links + privacy + App Links (Firebase site)  
+**Last updated:** Account deletion + release keystore script  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -48,6 +48,8 @@
 | Web admin (hosted `/admin`) | Done |
 
 | Release signing scaffold | Done |
+| GitHub Actions (`flutter analyze` + test) | Done |
+| Store listing doc + release build script | Done |
 
 
 
@@ -102,7 +104,8 @@
 
 | Signing | `android/app/build.gradle.kts`, `key.properties.example` |
 
-| Scripts | `scripts/deploy-firebase.ps1`, `scripts/get-android-sha.ps1`, `scripts/update-assetlinks-sha.ps1` |
+| Scripts | `deploy-firebase.ps1`, `get-android-sha.ps1`, `update-assetlinks-sha.ps1`, `build-release.ps1`, `create-release-keystore.ps1` |
+| CI | `.github/workflows/flutter.yml` |
 
 
 
@@ -138,6 +141,8 @@ flutter run
 
 |-------|---------|
 
+| Account deletion | Settings UI, auth repo, Firestore rules |
+| Ship prep | GitHub CI, STORE_LISTING, IOS_SETUP, build-release.ps1, README |
 | Hosting links | Firebase site root, HTTPS rewrites, privacy page, debug assetlinks, iOS associated domain |
 | Ship-prep | Onboarding, hosting, admin, signing, join team, full checklists |
 

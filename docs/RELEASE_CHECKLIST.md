@@ -48,6 +48,10 @@ After hosting, open Firebase Console → Hosting → note URL (e.g. `https://cri
 
 Follow [ANDROID_RELEASE_SIGNING.md](ANDROID_RELEASE_SIGNING.md).
 
+```powershell
+.\scripts\create-release-keystore.ps1
+```
+
 - [ ] Keystore created
 - [ ] `android/key.properties` configured (not committed)
 - [ ] Release SHA added to Firebase
@@ -117,8 +121,11 @@ cd backend && npm install && npm run dev
 
 ## 9. Store listing prep
 
+See [STORE_LISTING.md](STORE_LISTING.md).
+
 - [ ] App name, description, screenshots
 - [ ] Privacy policy URL
+- [ ] Account deletion works (Settings → Delete Account)
 - [ ] Version bumped in `pubspec.yaml`
 - [ ] Upload AAB (Play) / IPA (App Store Connect)
 

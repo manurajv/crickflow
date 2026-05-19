@@ -2,11 +2,21 @@
 
 ## 1. Create a keystore (once)
 
+**Windows (recommended):**
+
+```powershell
+.\scripts\create-release-keystore.ps1
+```
+
+Creates `android/crickflow-release.keystore` (gitignored) and copies `key.properties.example` → `key.properties`.
+
+**Manual:**
+
 ```bash
 keytool -genkey -v -keystore crickflow-release.keystore -alias crickflow -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Store the keystore outside the repo (e.g. `C:\Users\You\keys\crickflow-release.keystore`).
+Store the keystore outside the repo if you prefer (e.g. `C:\Users\You\keys\crickflow-release.keystore`).
 
 ## 2. Configure Gradle
 

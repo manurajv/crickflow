@@ -25,6 +25,10 @@ class UserRepository {
     await _col.doc(user.id).update(user.toMap());
   }
 
+  Future<void> deleteUser(String id) async {
+    await _col.doc(id).delete();
+  }
+
   Stream<UserModel?> watchUser(String id) {
     return _col.doc(id).snapshots().map((doc) {
       if (!doc.exists) return null;

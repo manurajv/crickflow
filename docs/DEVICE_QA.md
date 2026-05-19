@@ -43,9 +43,12 @@ Run on **physical** Android and iOS devices before release.
 
 1. Open `ios/Runner.xcworkspace` in Xcode
 2. Signing & Capabilities → select Team
-3. Enable **Associated Domains**: `applinks:crickflow.app` (see `Runner.entitlements`)
-4. `pod install` in `ios/` if needed
-5. `flutter run` on device
+3. Enable **Associated Domains** (see `Runner.entitlements`):
+   - `applinks:crickflow-b06bc.web.app`
+   - `applinks:crickflow.app` (optional)
+4. Add `GoogleService-Info.plist` — see [IOS_SETUP.md](IOS_SETUP.md)
+5. `pod install` in `ios/` if needed
+6. `flutter run` on device
 
 ### Google Sign-In
 
@@ -54,6 +57,12 @@ Same as Android; add iOS URL scheme from `GoogleService-Info.plist` in Firebase.
 ### RTMP
 
 Same flow as Android; confirm camera/mic prompts.
+
+## Account deletion
+
+1. Settings → **Delete Account** → confirm
+2. User lands on login; `users/{uid}` and linked `players/{uid}` removed from Firestore
+3. If Google shows “requires recent login”: sign out, sign in, retry
 
 ## Role matrix (quick)
 
