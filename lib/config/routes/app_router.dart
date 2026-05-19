@@ -1,0 +1,123 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../features/analytics/presentation/analytics_screen.dart';
+import '../../features/auth/presentation/login_screen.dart';
+import '../../features/home/presentation/home_screen.dart';
+import '../../features/matches/presentation/create_match_screen.dart';
+import '../../features/matches/presentation/match_center_screen.dart';
+import '../../features/matches/presentation/scorecard_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/overlay/presentation/live_overlay_screen.dart';
+import '../../features/teams/presentation/team_detail_screen.dart';
+import '../../features/players/presentation/player_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/scoring/presentation/live_scoring_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/splash/presentation/splash_screen.dart';
+import '../../features/streaming/presentation/live_stream_screen.dart';
+import '../../features/teams/presentation/team_screen.dart';
+import '../../features/tournaments/presentation/tournament_screen.dart';
+import '../../core/constants/enums.dart';
+import '../../core/utils/match_permissions.dart';
+import '../../shared/providers/providers.dart';
+
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateProvider);
+
+  return GoRouter(
+    initialLocation: '/splash',
+    refreshListenable: GoRouterRefreshStream(
+      ref.watch(authRepositoryProvider).authStateChanges,
+    ),
+    redirect: (context, state) {
+      final isLoggedIn = authState.valueOrNull != null;
+      final path = state.matchedLocation;
+      final isAuthRoute = path == '/login';
+      final isSplash = path == '/splash';
+      final isOnboarding = path == '/onboarding';
+
+      if (isSplash || isOnboarding) return null;
+      if (!isLoggedIn && !isAuthRoute) return '/login';
+      if (isLoggedIn && isAuthRoute) return '/home';
+
+      if (isLoggedIn && path == '/match/create') {
+        final profile = ref.read(currentUserProfileProvider).valueOrNull;
+        if (profile != null && !canCreateMatches(profile.role)) {
+          return '/home';
+        }
+      }
+
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+      GoRoute(
+        path: '/match/create',
+        builder: (_, __) => const CreateMatchScreen(),
+      ),
+      GoRoute(
+        path: '/match/:id',
+        builder: (_, state) =>
+            MatchCenterScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/match/:id/score',
+        builder: (_, state) =>
+            LiveScoringScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/match/:id/scorecard',
+        builder: (_, state) =>
+            ScorecardScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/match/:id/stream',
+        builder: (_, state) =>
+            LiveStreamScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/match/:id/overlay',
+        builder: (_, state) =>
+            LiveOverlayScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/tournaments',
+        builder: (_, __) => const TournamentScreen(),
+      ),
+      GoRoute(path: '/teams', builder: (_, __) => const TeamScreen()),
+      GoRoute(
+        path: '/teams/:id',
+        builder: (_, state) =>
+            TeamDetailScreen(teamId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (_, __) => const NotificationsScreen(),
+      ),
+      GoRoute(path: '/players', builder: (_, __) => const PlayerScreen()),
+      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+      GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
+      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+    ],
+  );
+});
+
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+  }
+
+  late final dynamic _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}

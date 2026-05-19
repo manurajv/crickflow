@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CrickFlow Admin</title>
+  <style>
+    :root { --bg: #0a1628; --card: #132238; --gold: #d4af37; --text: #e8e8e8; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 24px; }
+    h1 { color: var(--gold); }
+    .card { background: var(--card); border-radius: 12px; padding: 20px; margin: 16px 0; max-width: 640px; }
+    a { color: var(--gold); }
+    code { background: #1a2d4a; padding: 2px 6px; border-radius: 4px; }
+    .ok { color: #4ade80; }
+    .err { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>CrickFlow Admin</h1>
+  <p>Lightweight ops dashboard (MVP). Use Firebase Console for full data management.</p>
+
+  <div class="card">
+    <h2>API health</h2>
+    <p id="api-status">Checking…</p>
+    <p><small>Set <code>API_BASE</code> below to your Express API URL.</small></p>
+  </div>
+
+  <div class="card">
+    <h2>Quick links</h2>
+    <ul>
+      <li><a href="https://console.firebase.google.com/project/crickflow-b06bc" target="_blank">Firebase Console</a></li>
+      <li><a href="https://console.firebase.google.com/project/crickflow-b06bc/firestore" target="_blank">Firestore</a></li>
+      <li><a href="https://console.firebase.google.com/project/crickflow-b06bc/authentication/users" target="_blank">Auth users</a></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Deep links test</h2>
+    <p>After <code>firebase deploy --only hosting</code>:</p>
+    <ul>
+      <li><code>/.well-known/assetlinks.json</code></li>
+      <li><code>/apple-app-site-association</code></li>
+    </ul>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000';
+    fetch(API_BASE + '/health')
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('api-status').innerHTML =
+          '<span class="ok">OK</span> — ' + JSON.stringify(d);
+      })
+      .catch(e => {
+        document.getElementById('api-status').innerHTML =
+          '<span class="err">Offline</span> — run <code>cd backend && npm run dev</code><br>' + e;
+      });
+  </script>
+</body>
+</html>

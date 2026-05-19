@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CrickFlow</title>
+  <meta name="description" content="Professional cricket scoring and live broadcasting for Sri Lanka." />
+  <style>
+    :root { --bg: #0a1628; --card: #132238; --gold: #d4af37; --text: #e8e8e8; --muted: #94a3b8; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(160deg, #0a1628 0%, #132238 50%, #0a1628 100%);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .logo { font-size: 3rem; margin-bottom: 8px; }
+    h1 { color: var(--gold); margin: 0 0 8px; letter-spacing: 0.05em; }
+    .tagline { color: var(--muted); margin: 0 0 32px; }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 28px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    .card p { margin: 0 0 20px; line-height: 1.5; font-size: 15px; }
+    a.btn {
+      display: inline-block;
+      background: var(--gold);
+      color: #0a1628;
+      text-decoration: none;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 8px;
+      margin: 6px;
+    }
+    a.link {
+      color: var(--gold);
+      text-decoration: none;
+      font-size: 14px;
+    }
+    a.link:hover { text-decoration: underline; }
+    footer { margin-top: 40px; font-size: 12px; color: var(--muted); }
+    ul { text-align: left; padding-left: 20px; margin: 16px 0 0; font-size: 14px; color: var(--muted); }
+    code { background: #1a2d4a; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🏏</div>
+    <h1>CrickFlow</h1>
+    <p class="tagline">Score • Stream • Shine</p>
+    <p>This site hosts deep-link verification and admin tools. Install the <strong>CrickFlow</strong> mobile app to score matches and broadcast live.</p>
+    <a class="btn" href="/admin/">Admin dashboard</a>
+    <p style="margin-top: 12px;">
+      <a class="link" href="/privacy.html">Privacy Policy</a>
+    </p>
+    <p style="margin-top: 20px;">
+      <a class="link" href="https://console.firebase.google.com/project/crickflow-b06bc" target="_blank" rel="noopener">Firebase Console</a>
+    </p>
+    <ul>
+      <li>App scheme: <code>crickflow://match/…</code></li>
+      <li>Android verification: <code>/.well-known/assetlinks.json</code></li>
+    </ul>
+  </div>
+  <footer>CrickFlow · Sri Lanka cricket</footer>
+</body>
+</html>

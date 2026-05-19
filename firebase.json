@@ -1,0 +1,75 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [{ "key": "Content-Type", "value": "application/json" }]
+      },
+      {
+        "source": "/apple-app-site-association",
+        "headers": [{ "key": "Content-Type", "value": "application/json" }]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/match/**",
+        "destination": "/open-app.html"
+      },
+      {
+        "source": "/teams/**",
+        "destination": "/open-app.html"
+      },
+      {
+        "source": "/admin",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/admin/**",
+        "destination": "/admin/index.html"
+      }
+    ],
+    "cleanUrls": true
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "crickflow-b06bc",
+          "appId": "1:202403125129:android:feae8423682b0b9c37b358",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "crickflow-b06bc",
+          "configurations": {
+            "android": "1:202403125129:android:feae8423682b0b9c37b358",
+            "ios": "1:202403125129:ios:031dba2e4db98d7237b358"
+          }
+        }
+      }
+    }
+  }
+}

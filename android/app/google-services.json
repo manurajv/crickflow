@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "202403125129",
+    "project_id": "crickflow-b06bc",
+    "storage_bucket": "crickflow-b06bc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:202403125129:android:feae8423682b0b9c37b358",
+        "android_client_info": {
+          "package_name": "com.mavixas.crickflow"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "202403125129-i25q82hre5c1ejeu26gtbkertv4bts8i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mavixas.crickflow",
+            "certificate_hash": "765f118763f486fd133e1a5f6033ee8023a9fdd1"
+          }
+        },
+        {
+          "client_id": "202403125129-vnidfiidc4dj9tks4btugh9ncnhn8oi5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHRvYTM7weKV8MhiBcEQ16LNH6Hd0Csq8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "202403125129-vnidfiidc4dj9tks4btugh9ncnhn8oi5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "202403125129-710maflgfdh2hgdbuh6hqq2hfddr0m6f.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mavixas.crickflow"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mavixas.crickflow",
+      "sha256_cert_fingerprints": [
+        "93:0F:11:8A:85:DD:A4:11:4A:9C:CB:5C:61:89:45:FB:28:F8:61:FC:9C:F3:3E:0A:59:DA:E6:52:33:95:8B:79"
+      ]
+    }
+  }
+]
