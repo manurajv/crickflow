@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
@@ -100,13 +101,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         decoration: const BoxDecoration(gradient: AppColors.heroGradient),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppDimens.spaceLg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 48),
                 Icon(Icons.sports_cricket, size: 64, color: AppColors.gold),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppDimens.spaceMd),
                 Text(
                   AppConstants.appName,
                   textAlign: TextAlign.center,
@@ -118,10 +119,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppDimens.spaceXl),
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(AppDimens.spaceLg),
                     child: Column(
                       children: [
                         CfButton(
@@ -130,16 +131,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           isLoading: _isLoading && !_showOtp,
                           onPressed: _googleSignIn,
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: AppDimens.spaceLg),
                         const Row(children: [
                           Expanded(child: Divider()),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
                             child: Text('OR'),
                           ),
                           Expanded(child: Divider()),
                         ]),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: AppDimens.spaceLg),
                         if (!_showOtp) ...[
                           TextField(
                             controller: _phoneController,
@@ -149,7 +150,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             keyboardType: TextInputType.phone,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppDimens.spaceMd),
                           CfButton(
                             label: 'Send OTP',
                             icon: Icons.sms,
@@ -166,7 +167,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             keyboardType: TextInputType.number,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppDimens.spaceMd),
                           CfButton(
                             label: 'Verify OTP',
                             isLoading: _isLoading,
@@ -178,7 +179,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppDimens.spaceMd),
                 Text(
                   'Spectator-only mode can be enabled later in Profile → App mode.',
                   textAlign: TextAlign.center,

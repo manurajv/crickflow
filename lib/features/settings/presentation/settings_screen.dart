@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -109,7 +110,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _confirmDeleteAccount(context, ref),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppDimens.spaceMd),
             child: Text(
               '${AppConstants.appName} v${AppConstants.appVersion} (${AppConstants.appBuildNumber})',
               textAlign: TextAlign.center,

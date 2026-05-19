@@ -18,7 +18,18 @@
 
 ## Typography
 
-Material 3 `TextTheme` — display for scores, title for section headers, body for commentary.
+Compact Material 3 `TextTheme` (see `app_theme.dart` + `app_dimens.dart`):
+
+| Token | Size | Use |
+|-------|------|-----|
+| displayLarge | 26 | Hero scores, overlay |
+| displayMedium | 24 | Scoreboard runs |
+| headlineMedium | 18 | Section headers |
+| titleLarge | 16 | Screen sections |
+| bodyLarge | 14 | Primary body |
+| bodyMedium | 12 | Secondary / captions |
+
+Global `visualDensity: compact` and reduced control heights (~40px buttons).
 
 ## Components
 

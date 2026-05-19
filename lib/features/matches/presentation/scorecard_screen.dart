@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_colors.dart';
@@ -41,9 +42,9 @@ class ScorecardScreen extends ConsumerWidget {
               ScoreboardCard(match: match, innings: match.currentInnings),
               ...match.innings.map((inn) {
                 return Card(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(AppDimens.spaceMd),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppDimens.spaceMd),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -86,7 +87,7 @@ class ScorecardScreen extends ConsumerWidget {
               }),
               if (match.resultSummary.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppDimens.spaceMd),
                   child: Text(
                     match.resultSummary,
                     style: const TextStyle(fontSize: 16),
@@ -121,7 +122,7 @@ class ScorecardScreen extends ConsumerWidget {
     }
 
     buffer.writeln();
-    buffer.writeln('View scorecard: ${DeepLinkUtils.httpsScorecardUri(match.id)}');
+    buffer.writeln('Live web: ${DeepLinkUtils.publicLiveScorecardUri(match.id)}');
     buffer.writeln('Open in app: ${DeepLinkUtils.scorecardUri(match.id)}');
 
     Share.share(buffer.toString());

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/providers/providers.dart';
@@ -14,10 +15,11 @@ class AnalyticsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Analytics')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppDimens.spaceMd),
         children: [
           matchesAsync.when(
             data: (matches) => _statCard(
+              context,
               'Total Matches',
               '${matches.length}',
               Icons.sports_cricket,
@@ -28,6 +30,7 @@ class AnalyticsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           teamsAsync.when(
             data: (teams) => _statCard(
+              context,
               'Teams',
               '${teams.length}',
               Icons.groups,
@@ -35,28 +38,31 @@ class AnalyticsScreen extends ConsumerWidget {
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
-          const SizedBox(height: 24),
-          const Text(
+          const SizedBox(height: AppDimens.spaceLg),
+          Text(
             'Location-based analytics',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
-          const Text(
+          const SizedBox(height: AppDimens.spaceSm),
+          Text(
             'Filter by country, state, and city across users, teams, players, matches, and tournaments. Full filtering UI ships in Phase 2.',
-            style: TextStyle(color: AppColors.textSecondary),
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppDimens.spaceLg),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppDimens.spaceMd),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Performance Tracking',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  const Text(
+                  Text(
+                    'Performance Tracking',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: AppDimens.spaceSm),
+                  Text(
                     'Player and team stats update automatically after each completed match via Firebase Cloud Functions.',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -67,18 +73,21 @@ class AnalyticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statCard(String title, String value, IconData icon) {
+  Widget _statCard(
+    BuildContext context,
+    String title,
+    String value,
+    IconData icon,
+  ) {
     return Card(
       child: ListTile(
-        leading: Icon(icon, color: AppColors.gold, size: 32),
-        title: Text(title),
+        leading: Icon(icon, color: AppColors.gold, size: AppDimens.iconLg),
+        title: Text(title, style: Theme.of(context).textTheme.bodyLarge),
         trailing: Text(
           value,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primaryBlueLight,
-          ),
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: AppColors.primaryBlueLight,
+              ),
         ),
       ),
     );

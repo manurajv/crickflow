@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -15,7 +16,7 @@ Future<WicketType?> showWicketPickerSheet(BuildContext context) {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(AppDimens.spaceMd),
             child: Text(
               'Wicket type',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),

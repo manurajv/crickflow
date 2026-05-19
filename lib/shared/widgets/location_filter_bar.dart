@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_dimens.dart';
 import '../../data/models/location_model.dart';
 
 /// Filters lists by country / city (client-side).
@@ -46,7 +47,12 @@ class _LocationFilterBarState extends State<LocationFilterBar> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spaceMd,
+        AppDimens.spaceSm,
+        AppDimens.spaceMd,
+        0,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -67,7 +73,7 @@ class _LocationFilterBarState extends State<LocationFilterBar> {
               decoration: const InputDecoration(
                 labelText: 'City',
                 isDense: true,
-                prefixIcon: Icon(Icons.location_city, size: 20),
+                prefixIcon: Icon(Icons.location_city, size: AppDimens.iconSm),
               ),
               onChanged: (_) => _notify(),
             ),

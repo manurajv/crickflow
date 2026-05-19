@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/cricket_math.dart';
@@ -50,7 +51,7 @@ class LiveOverlayScreen extends ConsumerWidget {
                 left: 16,
                 right: 16,
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppDimens.spaceMd),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -94,11 +95,9 @@ class LiveOverlayScreen extends ConsumerWidget {
                       const SizedBox(height: 8),
                       Text(
                         '${overlay.scoreDisplay} (${overlay.oversDisplay} ov)',
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                              color: Colors.white,
+                            ),
                       ),
                       Text(
                         'RR ${overlay.runRate.toStringAsFixed(2)}'

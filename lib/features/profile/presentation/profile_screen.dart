@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/location_fields.dart';
 
@@ -26,11 +27,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           }
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: AppDimens.listPadding,
             children: [
               Center(
                 child: CircleAvatar(
-                  radius: 48,
+                  radius: 36,
                   backgroundColor: AppColors.primaryBlue,
                   backgroundImage: user.photoUrl != null
                       ? NetworkImage(user.photoUrl!)
@@ -40,7 +41,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           user.displayName.isNotEmpty
                               ? user.displayName[0].toUpperCase()
                               : '?',
-                          style: const TextStyle(fontSize: 32),
+                          style: Theme.of(context).textTheme.displayLarge,
                         )
                       : null,
                 ),
@@ -56,14 +57,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.textSecondary),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppDimens.spaceSm),
               Chip(
                 label: Text(user.role.name.toUpperCase()),
                 backgroundColor: AppColors.gold.withValues(alpha: 0.2),
               ),
-              const SizedBox(height: 24),
-              const Text('Location',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: AppDimens.spaceLg),
+              Text('Location', style: Theme.of(context).textTheme.titleMedium),
               LocationFields(
                 location: user.location,
                 onChanged: (loc) async {
@@ -73,9 +73,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ref.invalidate(currentUserProfileProvider);
                 },
               ),
-              const SizedBox(height: 24),
-              const Text('Stats',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: AppDimens.spaceLg),
+              Text('Stats', style: Theme.of(context).textTheme.titleMedium),
               ListTile(
                 title: const Text('Matches Played'),
                 trailing: Text('${user.stats.matchesPlayed}'),

@@ -6,6 +6,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/matches/presentation/create_match_screen.dart';
 import '../../features/matches/presentation/match_center_screen.dart';
+import '../../features/matches/presentation/match_highlights_screen.dart';
 import '../../features/matches/presentation/scorecard_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/overlay/presentation/live_overlay_screen.dart';
@@ -17,6 +18,10 @@ import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/streaming/presentation/live_stream_screen.dart';
+import '../../features/streaming/presentation/webrtc_viewer_screen.dart';
+import '../../features/fantasy/presentation/fantasy_screen.dart';
+import '../../features/fantasy/presentation/fantasy_league_screen.dart';
+import '../../features/fantasy/presentation/fantasy_squad_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_screen.dart';
 import '../../core/constants/enums.dart';
@@ -76,9 +81,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             ScorecardScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
+        path: '/match/:id/highlights',
+        builder: (_, state) =>
+            MatchHighlightsScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
         path: '/match/:id/stream',
         builder: (_, state) =>
             LiveStreamScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/match/:id/webrtc',
+        builder: (_, state) =>
+            WebrtcViewerScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/match/:id/overlay',
@@ -103,6 +118,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
       GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: '/fantasy', builder: (_, __) => const FantasyScreen()),
+      GoRoute(
+        path: '/fantasy/:id',
+        builder: (_, state) =>
+            FantasyLeagueScreen(leagueId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/fantasy/:id/squad',
+        builder: (_, state) =>
+            FantasySquadScreen(leagueId: state.pathParameters['id']!),
+      ),
     ],
   );
 });

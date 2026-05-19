@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Scorecard — CrickFlow</title>
+  <style>
+    :root { --bg: #0a1628; --card: #132238; --gold: #d4af37; --text: #e8e8e8; --muted: #94a3b8; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 16px; max-width: 640px; margin-inline: auto; }
+    h1 { color: var(--gold); font-size: 1.25rem; margin: 0 0 4px; }
+    .meta { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+    .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .score { font-size: 1.75rem; font-weight: 700; }
+    .live { display: inline-block; background: #e11; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+    .btn { display: inline-block; background: var(--gold); color: #0a1628; text-decoration: none; font-weight: 600; padding: 10px 20px; border-radius: 8px; margin-top: 8px; }
+    iframe { width: 100%; aspect-ratio: 16/9; border: 0; border-radius: 8px; margin-top: 12px; }
+    #err { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1 id="title">CrickFlow</h1>
+  <p class="meta" id="teams"></p>
+  <p class="meta" id="status"></p>
+  <p id="err"></p>
+
+  <div class="card" id="live-card">
+    <div id="live-score" class="score"></div>
+    <p id="live-detail" class="meta" style="margin-bottom:0"></p>
+  </div>
+
+  <div id="innings"></div>
+  <div id="yt-wrap"></div>
+
+  <p><a id="app-link" class="btn" href="#">Open in CrickFlow app</a></p>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyCHRvYTM7weKV8MhiBcEQ16LNH6Hd0Csq8",
+      authDomain: "crickflow-b06bc.firebaseapp.com",
+      projectId: "crickflow-b06bc",
+    });
+    var db = firebase.firestore();
+
+    function matchIdFromPath() {
+      var parts = location.pathname.split("/").filter(Boolean);
+      if (parts[0] === "live" && parts[1]) return parts[1];
+      return new URLSearchParams(location.search).get("m");
+    }
+
+    function formatOvers(balls, bpo) {
+      return Math.floor(balls / bpo) + "." + (balls % bpo);
+    }
+
+    function ytEmbed(url) {
+      if (!url) return "";
+      var m = url.match(/(?:v=|\/live\/|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+      if (!m) return "";
+      return '<iframe src="https://www.youtube.com/embed/' + m[1] + '?rel=0" allowfullscreen></iframe>';
+    }
+
+    var matchId = matchIdFromPath();
+    document.getElementById("app-link").href = "crickflow://match/" + (matchId || "") + "/scorecard";
+
+    if (!matchId) {
+      document.getElementById("err").textContent = "Missing match id. Use /live/MATCH_ID";
+    } else {
+      db.collection("matches").doc(matchId).collection("public").doc("scorecard")
+        .onSnapshot(function (snap) {
+          if (!snap.exists) {
+            document.getElementById("err").textContent =
+              "Scorecard not published yet. Score the match in the app first.";
+            return;
+          }
+          document.getElementById("err").textContent = "";
+          var d = snap.data();
+          document.getElementById("title").textContent = d.title || "Match";
+          document.getElementById("teams").textContent =
+            (d.teamAName || "Team A") + " vs " + (d.teamBName || "Team B");
+          var st = document.getElementById("status");
+          st.textContent = (d.venue ? d.venue + " · " : "") + (d.status || "");
+          if (d.status === "live") st.innerHTML += '<span class="live">LIVE</span>';
+
+          var o = d.overlay || {};
+          var bpo = (d.rules && d.rules.ballsPerOver) || 6;
+          var live = document.getElementById("live-score");
+          if (o.battingTeamName) {
+            live.textContent = o.battingTeamName + " " + (o.totalRuns || 0) + "/" + (o.totalWickets || 0);
+            document.getElementById("live-detail").textContent =
+              formatOvers(o.legalBalls || 0, bpo) + " ov · RR " + (o.runRate || 0).toFixed(2) +
+              (o.strikerName ? " · " + o.strikerName + " " + o.strikerRuns + "*" : "");
+          } else if (d.innings && d.innings.length) {
+            var cur = d.innings[d.innings.length - 1];
+            live.textContent = cur.totalRuns + "/" + cur.totalWickets;
+            document.getElementById("live-detail").textContent =
+              formatOvers(cur.legalBalls, bpo) + " ov";
+          }
+
+          var innHtml = "";
+          (d.innings || []).forEach(function (inn) {
+            innHtml += '<div class="card"><strong>Innings ' + inn.inningsNumber + '</strong><br>' +
+              inn.totalRuns + "/" + inn.totalWickets + " (" + formatOvers(inn.legalBalls, bpo) + " ov)</div>";
+          });
+          document.getElementById("innings").innerHTML = innHtml;
+
+          if (d.stream && d.stream.youtubeWatchUrl) {
+            var ytHtml = '<div class="card"><strong>Watch live</strong>' + ytEmbed(d.stream.youtubeWatchUrl);
+            if (d.stream.secondaryYoutubeWatchUrl) {
+              ytHtml += '<p class="meta">' + (d.stream.cameraALabel || 'Main') + ' + ' +
+                (d.stream.cameraBLabel || 'Camera 2') + '</p>' +
+                ytEmbed(d.stream.secondaryYoutubeWatchUrl);
+            }
+            document.getElementById("yt-wrap").innerHTML = ytHtml + '</div>';
+          }
+          if (d.resultSummary) {
+            document.getElementById("innings").innerHTML +=
+              '<div class="card"><strong>Result</strong><br>' + d.resultSummary + '</div>';
+          }
+        });
+    }
+  </script>
+</body>
+</html>

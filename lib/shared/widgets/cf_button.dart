@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_dimens.dart';
 
 class CfButton extends StatelessWidget {
   const CfButton({
@@ -26,6 +27,10 @@ class CfButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         icon: _icon(),
         label: Text(label),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, AppDimens.buttonHeight),
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
+        ),
       );
     }
 
@@ -34,12 +39,13 @@ class CfButton extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: isGold ? AppColors.gold : AppColors.primaryBlue,
         foregroundColor: isGold ? Colors.black : Colors.white,
-        minimumSize: const Size(double.infinity, 48),
+        minimumSize: const Size(double.infinity, AppDimens.buttonHeight),
+        padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
       ),
       icon: isLoading
           ? const SizedBox(
-              width: 20,
-              height: 20,
+              width: 16,
+              height: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : _icon() ?? const SizedBox.shrink(),
@@ -49,6 +55,6 @@ class CfButton extends StatelessWidget {
 
   Widget? _icon() {
     if (icon == null || isLoading) return null;
-    return Icon(icon, size: 20);
+    return Icon(icon, size: AppDimens.iconSm);
   }
 }

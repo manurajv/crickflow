@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/lineup_player.dart';
 
@@ -87,7 +88,7 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
       return const Card(
         margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(AppDimens.spaceLg),
           child: Center(child: CircularProgressIndicator()),
         ),
       );
@@ -97,7 +98,7 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
       return Card(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppDimens.spaceMd),
           child: Text(
             'Add players to teams in Firestore, or link team IDs on this match.',
             style: TextStyle(color: AppColors.textSecondary),

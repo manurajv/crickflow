@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
@@ -42,12 +43,12 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
               controller: nameController,
               decoration: const InputDecoration(labelText: 'Team Name'),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.spaceMd),
             LocationFields(
               location: location,
               onChanged: (l) => location = l,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.spaceMd),
             CfButton(
               label: 'Create Team',
               onPressed: () async {
@@ -62,7 +63,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                 if (ctx.mounted) Navigator.pop(ctx);
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppDimens.spaceLg),
           ],
         ),
       ),

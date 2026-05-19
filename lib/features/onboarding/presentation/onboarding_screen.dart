@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_constants.dart';
@@ -70,29 +71,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   itemBuilder: (_, i) {
                     final p = _pages[i];
                     return Padding(
-                      padding: const EdgeInsets.all(32),
+                      padding: const EdgeInsets.all(AppDimens.spaceXl),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(p.$1, size: 72, color: AppColors.gold),
-                          const SizedBox(height: 32),
+                          Icon(p.$1, size: 52, color: AppColors.gold),
+                          const SizedBox(height: AppDimens.spaceXl),
                           Text(
                             p.$2,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  color: Colors.white,
+                                ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppDimens.spaceMd),
                           Text(
                             p.$3,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              height: 1.4,
-                            ),
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: AppColors.textSecondary,
+                                  height: 1.35,
+                                ),
                           ),
                         ],
                       ),
@@ -116,7 +115,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(AppDimens.spaceLg),
                 child: CfButton(
                   label: _page == _pages.length - 1
                       ? 'Get started'

@@ -47,6 +47,11 @@ class StreamMetadataModel extends Equatable {
     this.viewerCount = 0,
     this.startedAt,
     this.lastHeartbeatAt,
+    this.youtubeWatchUrl,
+    this.secondaryYoutubeWatchUrl,
+    this.cameraALabel = 'Main camera',
+    this.cameraBLabel = 'Camera 2',
+    this.webrtcEnabled = false,
   });
 
   final StreamStatus status;
@@ -56,6 +61,14 @@ class StreamMetadataModel extends Equatable {
   final int viewerCount;
   final DateTime? startedAt;
   final DateTime? lastHeartbeatAt;
+  /// Public YouTube watch URL for in-app embed (from Studio after going live).
+  final String? youtubeWatchUrl;
+  /// Second angle (drone / stump cam) — separate YouTube live link.
+  final String? secondaryYoutubeWatchUrl;
+  final String cameraALabel;
+  final String cameraBLabel;
+  /// Experimental low-latency WebRTC room (Phase 3.3).
+  final bool webrtcEnabled;
 
   factory StreamMetadataModel.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const StreamMetadataModel();
@@ -74,6 +87,11 @@ class StreamMetadataModel extends Equatable {
       startedAt: DateTime.tryParse(map['startedAt']?.toString() ?? ''),
       lastHeartbeatAt:
           DateTime.tryParse(map['lastHeartbeatAt']?.toString() ?? ''),
+      youtubeWatchUrl: map['youtubeWatchUrl'] as String?,
+      secondaryYoutubeWatchUrl: map['secondaryYoutubeWatchUrl'] as String?,
+      cameraALabel: map['cameraALabel'] as String? ?? 'Main camera',
+      cameraBLabel: map['cameraBLabel'] as String? ?? 'Camera 2',
+      webrtcEnabled: map['webrtcEnabled'] as bool? ?? false,
     );
   }
 
@@ -86,6 +104,12 @@ class StreamMetadataModel extends Equatable {
         if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
         if (lastHeartbeatAt != null)
           'lastHeartbeatAt': lastHeartbeatAt!.toIso8601String(),
+        if (youtubeWatchUrl != null) 'youtubeWatchUrl': youtubeWatchUrl,
+        if (secondaryYoutubeWatchUrl != null)
+          'secondaryYoutubeWatchUrl': secondaryYoutubeWatchUrl,
+        'cameraALabel': cameraALabel,
+        'cameraBLabel': cameraBLabel,
+        'webrtcEnabled': webrtcEnabled,
       };
 
   StreamMetadataModel copyWith({
@@ -96,6 +120,11 @@ class StreamMetadataModel extends Equatable {
     int? viewerCount,
     DateTime? startedAt,
     DateTime? lastHeartbeatAt,
+    String? youtubeWatchUrl,
+    String? secondaryYoutubeWatchUrl,
+    String? cameraALabel,
+    String? cameraBLabel,
+    bool? webrtcEnabled,
   }) {
     return StreamMetadataModel(
       status: status ?? this.status,
@@ -105,11 +134,17 @@ class StreamMetadataModel extends Equatable {
       viewerCount: viewerCount ?? this.viewerCount,
       startedAt: startedAt ?? this.startedAt,
       lastHeartbeatAt: lastHeartbeatAt ?? this.lastHeartbeatAt,
+      youtubeWatchUrl: youtubeWatchUrl ?? this.youtubeWatchUrl,
+      secondaryYoutubeWatchUrl:
+          secondaryYoutubeWatchUrl ?? this.secondaryYoutubeWatchUrl,
+      cameraALabel: cameraALabel ?? this.cameraALabel,
+      cameraBLabel: cameraBLabel ?? this.cameraBLabel,
+      webrtcEnabled: webrtcEnabled ?? this.webrtcEnabled,
     );
   }
 
   @override
-  List<Object?> get props => [status, rtmpUrl, lastHeartbeatAt];
+  List<Object?> get props => [status, rtmpUrl, lastHeartbeatAt, webrtcEnabled];
 }
 
 class MatchModel extends Equatable {

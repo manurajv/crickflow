@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -38,7 +39,7 @@ class TeamJoinBanner extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 16),
       color: AppColors.primaryBlue.withValues(alpha: 0.35),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppDimens.spaceMd),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

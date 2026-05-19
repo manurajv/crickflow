@@ -30,7 +30,13 @@ Stored on `match.stream`:
 - `rtmpUrl`, `streamKey`
 - `viewerCount`, `startedAt`
 
-## Phase 2+
+## Phase 3.2 (viewers)
+
+- Broadcaster pastes **YouTube watch URL** in Go Live → saved as `match.stream.youtubeWatchUrl`
+- **Match Center** embeds `youtube.com/embed/{videoId}` via WebView for signed-in viewers
+- **Highlights** show `Stream mm:ss` offset when `stream.startedAt` is set
+
+## Phase 3.3+
 
 - WebRTC for ultra-low latency
 - Multi-camera switching

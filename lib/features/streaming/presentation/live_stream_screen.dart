@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rtmp_broadcaster/camera.dart';
@@ -26,9 +27,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     text: 'rtmp://a.rtmp.youtube.com/live2',
   );
   final _streamKeyController = TextEditingController();
+  final _youtubeWatchUrlController = TextEditingController();
+  final _secondaryYoutubeController = TextEditingController();
   StreamDestination _destination = StreamDestination.youtube;
   bool _cameraLoading = true;
   String? _cameraError;
+  bool _webrtcBeta = false;
   Timer? _streamHeartbeatTimer;
 
   @override
@@ -97,6 +101,8 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _rtmpUrlController.dispose();
     _streamKeyController.dispose();
+    _youtubeWatchUrlController.dispose();
+    _secondaryYoutubeController.dispose();
     super.dispose();
   }
 
@@ -104,17 +110,38 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     if (match == null) return;
 
+    final watchUrl = _youtubeWatchUrlController.text.trim();
+    final secondaryUrl = _secondaryYoutubeController.text.trim();
     final stream = StreamMetadataModel(
       status: status,
       destination: _destination,
       rtmpUrl: _rtmpUrlController.text.trim(),
       streamKey: _streamKeyController.text.trim(),
       startedAt: status == StreamStatus.live ? DateTime.now() : match.stream.startedAt,
+      youtubeWatchUrl: watchUrl.isEmpty ? match.stream.youtubeWatchUrl : watchUrl,
+      secondaryYoutubeWatchUrl: secondaryUrl.isEmpty
+          ? match.stream.secondaryYoutubeWatchUrl
+          : secondaryUrl,
+      cameraALabel: match.stream.cameraALabel,
+      cameraBLabel: match.stream.cameraBLabel,
+      webrtcEnabled: _webrtcBeta,
     );
 
     await ref.read(matchRepositoryProvider).updateMatch(
           match.copyWith(stream: stream),
         );
+  }
+
+  Future<void> _syncWebrtcRoom(StreamStatus status) async {
+    final signaling = ref.read(webrtcSignalingProvider);
+    if (status == StreamStatus.live && _webrtcBeta) {
+      final uid = ref.read(authStateProvider).value?.uid;
+      if (uid != null) {
+        await signaling.openRoom(matchId: widget.matchId, publisherId: uid);
+      }
+    } else if (status == StreamStatus.ended) {
+      await signaling.closeRoom(widget.matchId);
+    }
   }
 
   Future<void> _goLive() async {
@@ -133,6 +160,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
             streamKey: key,
           );
       await _persistStreamMeta(StreamStatus.live);
+      await _syncWebrtcRoom(StreamStatus.live);
       _startStreamHeartbeat();
       if (mounted) setState(() {});
     } catch (e) {
@@ -149,6 +177,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     _stopStreamHeartbeat();
     await ref.read(streamServiceProvider).stopStream();
     await _persistStreamMeta(StreamStatus.ended);
+    await _syncWebrtcRoom(StreamStatus.ended);
     if (mounted) setState(() {});
   }
 
@@ -173,6 +202,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
               match.stream.streamKey != null) {
             _streamKeyController.text = match.stream.streamKey!;
           }
+          if (_youtubeWatchUrlController.text.isEmpty &&
+              match.stream.youtubeWatchUrl != null) {
+            _youtubeWatchUrlController.text = match.stream.youtubeWatchUrl!;
+          }
+          if (_secondaryYoutubeController.text.isEmpty &&
+              match.stream.secondaryYoutubeWatchUrl != null) {
+            _secondaryYoutubeController.text =
+                match.stream.secondaryYoutubeWatchUrl!;
+          }
+          _webrtcBeta = match.stream.webrtcEnabled;
 
           return Row(
             children: [
@@ -196,7 +235,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
               Expanded(
                 child: Container(
                   color: AppColors.surface,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppDimens.spaceMd),
                   child: ListView(
                     children: [
                       const Text(
@@ -214,7 +253,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppDimens.spaceMd),
                       DropdownButtonFormField<StreamDestination>(
                         initialValue: _destination,
                         decoration:
@@ -246,6 +285,37 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                         ),
                         obscureText: true,
                       ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _youtubeWatchUrlController,
+                        decoration: const InputDecoration(
+                          labelText: 'YouTube watch link (main camera)',
+                          hintText: 'https://youtube.com/watch?v=...',
+                          helperText:
+                              'Paste your live video URL from YouTube Studio',
+                        ),
+                        keyboardType: TextInputType.url,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _secondaryYoutubeController,
+                        decoration: const InputDecoration(
+                          labelText: '2nd camera YouTube link (optional)',
+                          hintText: 'Drone / stump cam live URL',
+                          helperText:
+                              'Use a second YouTube live stream for another angle',
+                        ),
+                        keyboardType: TextInputType.url,
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('WebRTC beta (signaling)'),
+                        subtitle: const Text(
+                          'Opens a low-latency room for viewers. Video peer next release.',
+                        ),
+                        value: _webrtcBeta,
+                        onChanged: (v) => setState(() => _webrtcBeta = v),
+                      ),
                       if (_cameraError != null) ...[
                         const SizedBox(height: 12),
                         Text(
@@ -253,7 +323,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                           style: const TextStyle(color: Colors.redAccent),
                         ),
                       ],
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppDimens.spaceLg),
                       if (status != StreamStatus.live)
                         CfButton(
                           label: 'Go Live',

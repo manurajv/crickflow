@@ -21,6 +21,10 @@
     ],
     "rewrites": [
       {
+        "source": "/live/**",
+        "destination": "/scorecard/index.html"
+      },
+      {
         "source": "/match/**",
         "destination": "/open-app.html"
       },

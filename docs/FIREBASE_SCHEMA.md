@@ -93,6 +93,29 @@ Real-time overlay payload for stream graphics.
 | playerId / teamId / matchId | string? |
 | earnedAt | string |
 
+### `fantasy_leagues/{leagueId}`
+| Field | Type |
+|-------|------|
+| name | string |
+| joinCode | string (6 chars, unique) |
+| matchId | string |
+| matchTitle | string |
+| createdBy | string |
+| status | open \| locked \| closed |
+| squadSize | number (default 11) |
+| captainMultiplier | number |
+| viceCaptainMultiplier | number |
+
+#### Subcollection: `fantasy_leagues/{leagueId}/entries/{entryId}`
+| Field | Type |
+|-------|------|
+| userId | string |
+| displayName | string |
+| playerIds | array |
+| captainId | string? |
+| viceCaptainId | string? |
+| totalPoints | number |
+
 ### `notifications/{notificationId}`
 | Field | Type |
 |-------|------|

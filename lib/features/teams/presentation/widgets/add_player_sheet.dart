@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -153,7 +154,7 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppDimens.spaceMd),
           child: TextField(
             controller: _searchController,
             decoration: const InputDecoration(
@@ -164,7 +165,7 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
           ),
         ),
         const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
           child: Text(
             'Pick a registered player profile. Walk-ins without an account can be added under New player.',
             style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
@@ -214,7 +215,7 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
 
   Widget _newPlayerTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppDimens.spaceMd),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -222,7 +223,7 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
             'For players without a CrickFlow account yet (guest / walk-in).',
             style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppDimens.spaceMd),
           TextField(
             controller: _nameController,
             decoration: const InputDecoration(labelText: 'Player name *'),

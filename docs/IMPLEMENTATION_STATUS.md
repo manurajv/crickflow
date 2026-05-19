@@ -1,8 +1,10 @@
 # CrickFlow — Implementation Status (Agent Handoff)
 
+> **Full catalog:** [FULL_IMPLEMENTATION.md](FULL_IMPLEMENTATION.md) — all features, routes, repositories, services, domain logic, Cloud Functions, and pending work.
 
 
-**Last updated:** Single login; Member can score & organize  
+
+**Last updated:** Phase 3.5 fantasy MVP  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -14,7 +16,25 @@
 
 
 
-## MVP feature status — Complete
+## Phases 1 & 2 — Complete ✅
+
+Ship when [PLAY_STORE_READINESS.md](PLAY_STORE_READINESS.md) manual steps are done.
+
+## Phase 3 — In progress
+
+See [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md).
+
+| 3.1 | Match highlights + auto commentary | Done |
+| 3.2 | YouTube viewer + public web scorecard `/live/{id}` | Done |
+| 3.2+ | HLS restream | Pending |
+| 3.3 | WebRTC signaling + beta viewer | Done (media peer TBD) |
+| 3.4 | Multi-camera (dual YouTube URLs) | Done |
+| 3.5 | Fantasy leagues (join code, squad, leaderboard) | Done (MVP) |
+| 3.6 | Ball tracking / AI | Not started |
+
+---
+
+## MVP feature status (Phases 1–2)
 
 
 

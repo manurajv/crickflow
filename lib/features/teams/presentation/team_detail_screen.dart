@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/utils/deep_link_utils.dart';
@@ -44,7 +45,7 @@ class TeamDetailScreen extends ConsumerWidget {
           if (team == null) return const Center(child: Text('Team not found'));
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppDimens.spaceMd),
             children: [
               Row(
                 children: [
@@ -59,20 +60,20 @@ class TeamDetailScreen extends ConsumerWidget {
                       child: team.logoUrl == null
                           ? Text(
                               team.name.isNotEmpty ? team.name[0].toUpperCase() : '?',
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: Theme.of(context).textTheme.displayMedium,
                             )
                           : null,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: AppDimens.spaceMd),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(team.name, style: const TextStyle(fontSize: 22)),
+                        Text(
+                          team.name,
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
                         Text(team.location.displayLabel),
                         TextButton.icon(
                           onPressed: () => _uploadLogo(context, ref, team),
@@ -88,9 +89,9 @@ class TeamDetailScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _statChip('Played', '${team.stats.matchesPlayed}'),
-                  _statChip('Won', '${team.stats.matchesWon}'),
-                  _statChip('Points', '${team.stats.points}'),
+                  _statChip(context, 'Played', '${team.stats.matchesPlayed}'),
+                  _statChip(context, 'Won', '${team.stats.matchesWon}'),
+                  _statChip(context, 'Points', '${team.stats.points}'),
                 ],
               ),
               const Divider(height: 32),
@@ -109,7 +110,7 @@ class TeamDetailScreen extends ConsumerWidget {
                       ),
                       if (players.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.all(24),
+                          padding: EdgeInsets.all(AppDimens.spaceLg),
                           child: Text('No players yet. Tap + to add.'),
                         )
                       else
@@ -229,13 +230,17 @@ class TeamDetailScreen extends ConsumerWidget {
     }
   }
 
-  Widget _statChip(String label, String value) {
+  Widget _statChip(BuildContext context, String label, String value) {
     return Column(
       children: [
-        Text(value,
-            style: const TextStyle(
-                fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.gold)),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.gold,
+              ),
+        ),
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
       ],
     );
   }

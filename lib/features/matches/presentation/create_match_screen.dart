@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
@@ -95,7 +96,7 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
       appBar: AppBar(title: const Text('Create Match')),
       body: teamsAsync.when(
         data: (teams) => ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppDimens.spaceMd),
           children: [
             TextField(
               controller: _titleController,
@@ -121,7 +122,7 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
               },
               onCustomNameChanged: (v) => _teamANameController.text = v,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.spaceMd),
             TeamSelector(
               label: 'Team B',
               teams: teams,
@@ -143,12 +144,12 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                   style: TextStyle(fontSize: 12),
                 ),
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.spaceMd),
             TextField(
               controller: _venueController,
               decoration: const InputDecoration(labelText: 'Venue'),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppDimens.spaceLg),
             const Text('Location',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
@@ -156,7 +157,7 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
               location: _location,
               onChanged: (l) => setState(() => _location = l),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppDimens.spaceLg),
             const Text('Match Rules',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
@@ -164,7 +165,7 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
               rules: _rules,
               onChanged: (r) => setState(() => _rules = r),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppDimens.spaceXl),
             CfButton(
               label: 'Create Match',
               icon: Icons.check,

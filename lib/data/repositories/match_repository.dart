@@ -6,22 +6,28 @@ import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/overlay_state_model.dart';
+import '../../core/utils/highlight_utils.dart';
 import '../../domain/services/badge_service.dart';
+import '../../domain/services/commentary_service.dart';
 import '../../domain/services/scoring_engine.dart';
+import '../services/public_scorecard_sync.dart';
 
 class MatchRepository {
   MatchRepository({
     FirebaseFirestore? firestore,
     ScoringEngine? scoringEngine,
     BadgeService? badgeService,
+    PublicScorecardSync? publicScorecardSync,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _scoringEngine = scoringEngine ?? ScoringEngine(),
         _badgeService = badgeService ?? BadgeService(),
+        _publicSync = publicScorecardSync ?? PublicScorecardSync(),
         _uuid = const Uuid();
 
   final FirebaseFirestore _firestore;
   final ScoringEngine _scoringEngine;
   final BadgeService _badgeService;
+  final PublicScorecardSync _publicSync;
   final Uuid _uuid;
 
   CollectionReference<Map<String, dynamic>> get _matches =>
@@ -41,6 +47,18 @@ class MatchRepository {
 
   Future<void> updateMatch(MatchModel match) async {
     await _matches.doc(match.id).update(match.toMap());
+    await _syncPublicScorecard(match);
+  }
+
+  Future<void> _syncPublicScorecard(
+    MatchModel match, {
+    OverlayStateModel? overlay,
+  }) async {
+    try {
+      await _publicSync.syncFromMatch(match, overlay: overlay);
+    } catch (_) {
+      // Non-fatal; Cloud Function may also sync.
+    }
   }
 
   /// Partial update so live scoring writes are not overwritten during RTMP.
@@ -120,6 +138,11 @@ class MatchRepository {
     );
 
     final eventId = _uuid.v4();
+    final highlight = HighlightUtils.classify(result.event);
+    final commentary = result.event.commentary.trim().isEmpty
+        ? CommentaryService.forEvent(result.event)
+        : result.event.commentary;
+
     final event = BallEventModel(
       id: eventId,
       matchId: match.id,
@@ -138,8 +161,10 @@ class MatchRepository {
       wicketType: result.event.wicketType,
       dismissedPlayerId: result.event.dismissedPlayerId,
       fielderId: result.event.fielderId,
-      commentary: result.event.commentary,
+      commentary: commentary,
       sequence: sequence,
+      isHighlight: highlight.isHighlight,
+      highlightTag: highlight.tag,
     );
 
     await _commitMatchState(
@@ -177,6 +202,7 @@ class MatchRepository {
       overlay.toMap(),
     );
     await batch.commit();
+    await _syncPublicScorecard(replayed, overlay: overlay);
 
     return replayed;
   }
@@ -339,6 +365,8 @@ class MatchRepository {
       overlay.toMap(),
     );
     await batch.commit();
+    final match = MatchModel.fromMap(matchId, matchData);
+    await _syncPublicScorecard(match, overlay: overlay);
   }
 
   Stream<OverlayStateModel?> watchOverlay(String matchId) {
@@ -359,6 +387,13 @@ class MatchRepository {
         .map((snap) => snap.docs
             .map((d) => BallEventModel.fromMap(d.id, d.data()))
             .toList());
+  }
+
+  Future<List<BallEventModel>> getBallEvents(String matchId) async {
+    final snap = await _ballEvents(matchId).orderBy('sequence').get();
+    return snap.docs
+        .map((d) => BallEventModel.fromMap(d.id, d.data()))
+        .toList();
   }
 
   Future<void> startMatch(

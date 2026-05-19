@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../shared/providers/providers.dart';
@@ -64,14 +65,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ref.invalidate(matchesProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.only(bottom: 100),
+          padding: const EdgeInsets.only(bottom: 88),
           children: [
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
+              margin: const EdgeInsets.all(AppDimens.spaceMd),
+              padding: AppDimens.cardPadding,
               decoration: BoxDecoration(
                 gradient: AppColors.heroGradient,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppDimens.cardRadius,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,26 +80,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   profileAsync.when(
                     data: (p) => Text(
                       'Welcome, ${p?.displayName ?? 'Scorer'}',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            color: Colors.white,
+                          ),
                     ),
                     loading: () => const Text('Welcome'),
                     error: (_, __) => const Text('Welcome'),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  const SizedBox(height: AppDimens.spaceSm),
+                  Text(
                     'Create matches, score live, and stream to your fans.',
-                    style: TextStyle(color: AppColors.textSecondary),
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
             ),
             if (isViewer)
               Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
+                margin: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
                 child: ListTile(
                   leading: const Icon(Icons.visibility, color: AppColors.gold),
                   title: const Text('Viewer mode'),
@@ -120,17 +119,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 });
               },
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text('Recent Matches',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w600)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+              ),
+              child: Text(
+                'Recent Matches',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
             matchesAsync.when(
               data: (matches) {
                 if (matches.isEmpty) {
                   return const Padding(
-                    padding: EdgeInsets.all(32),
+                    padding: EdgeInsets.all(AppDimens.spaceXl),
                     child: Center(
                       child: Text('No matches yet. Create your first match!'),
                     ),
@@ -146,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 if (filtered.isEmpty) {
                   return const Padding(
-                    padding: EdgeInsets.all(32),
+                    padding: EdgeInsets.all(AppDimens.spaceXl),
                     child: Center(child: Text('No matches match your filters.')),
                   );
                 }
@@ -166,7 +171,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           if (m.scheduledAt != null)
                             Padding(
                               padding: const EdgeInsets.only(
-                                  left: 16, right: 16, bottom: 8),
+                                left: AppDimens.spaceMd,
+                                right: AppDimens.spaceMd,
+                                bottom: AppDimens.spaceSm,
+                              ),
                               child: Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
@@ -186,7 +194,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
               error: (e, _) => Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppDimens.spaceMd),
                 child: Text('Error loading matches: $e'),
               ),
             ),
@@ -229,25 +237,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _quickActions(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
+      child: Column(
         children: [
-          Expanded(
-            child: _actionCard(
-              context,
-              'Single Match',
-              Icons.sports_cricket,
-              () => context.push('/match/create'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _actionCard(
+                  context,
+                  'Single Match',
+                  Icons.sports_cricket,
+                  () => context.push('/match/create'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _actionCard(
+                  context,
+                  'Tournament',
+                  Icons.emoji_events,
+                  () => context.push('/tournaments'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _actionCard(
-              context,
-              'Tournament',
-              Icons.emoji_events,
-              () => context.push('/tournaments'),
-            ),
+          const SizedBox(height: AppDimens.spaceMd),
+          _actionCard(
+            context,
+            'Fantasy Cricket',
+            Icons.sports_esports,
+            () => context.push('/fantasy'),
+            fullWidth: true,
           ),
         ],
       ),
@@ -258,23 +278,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BuildContext context,
     String title,
     IconData icon,
-    VoidCallback onTap,
-  ) {
-    return Card(
+    VoidCallback onTap, {
+    bool fullWidth = false,
+  }) {
+    final card = Card(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppDimens.cardRadius,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Icon(icon, color: AppColors.primaryBlueLight, size: 32),
-              const SizedBox(height: 8),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-            ],
-          ),
+          padding: AppDimens.cardPadding,
+          child: fullWidth
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: AppColors.primaryBlueLight, size: AppDimens.iconLg),
+                    const SizedBox(width: AppDimens.spaceMd),
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  ],
+                )
+              : Column(
+                  children: [
+                    Icon(icon, color: AppColors.primaryBlueLight, size: AppDimens.iconLg),
+                    const SizedBox(height: AppDimens.spaceSm),
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  ],
+                ),
         ),
       ),
     );
+    return fullWidth ? card : Expanded(child: card);
   }
 }

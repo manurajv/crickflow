@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../shared/providers/providers.dart';
+import 'package:flutter/services.dart';
+import '../../../core/utils/deep_link_utils.dart';
 import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/scoreboard_card.dart';
+import '../../../shared/widgets/multi_camera_watch_section.dart';
 
 class MatchCenterScreen extends ConsumerWidget {
   const MatchCenterScreen({super.key, required this.matchId});
@@ -26,6 +30,17 @@ class MatchCenterScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Match Center'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.link),
+            tooltip: 'Copy web scorecard link',
+            onPressed: () {
+              final url = DeepLinkUtils.publicLiveScorecardUri(matchId).toString();
+              Clipboard.setData(ClipboardData(text: url));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Copied: $url')),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.table_chart),
             onPressed: () => context.push('/match/$matchId/scorecard'),
@@ -58,6 +73,26 @@ class MatchCenterScreen extends ConsumerWidget {
                 innings: match.currentInnings,
                 isLive: isLive,
               ),
+              if (match.stream.status == StreamStatus.live ||
+                  match.stream.status == StreamStatus.connecting) ...[
+                MultiCameraWatchSection(
+                  primaryUrl: match.stream.youtubeWatchUrl,
+                  secondaryUrl: match.stream.secondaryYoutubeWatchUrl,
+                  primaryLabel: match.stream.cameraALabel,
+                  secondaryLabel: match.stream.cameraBLabel,
+                ),
+                if (match.stream.webrtcEnabled)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: CfButton(
+                      label: 'Low latency (beta)',
+                      icon: Icons.speed,
+                      isOutlined: true,
+                      onPressed: () =>
+                          context.push('/match/$matchId/webrtc'),
+                    ),
+                  ),
+              ],
               if (target != null && match.currentInningsIndex >= 1)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -80,17 +115,17 @@ class MatchCenterScreen extends ConsumerWidget {
                       leading: Icon(Icons.visibility, color: AppColors.gold),
                       title: Text('Spectator view'),
                       subtitle: Text(
-                        'Scorecard and live overlay only. Sign in as Scorer/Organizer to manage.',
+                        'Scorecard and highlights only. Enable Member mode in Profile to score.',
                       ),
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppDimens.spaceMd),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
                 child: Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                  spacing: AppDimens.spaceSm,
+                  runSpacing: AppDimens.spaceSm,
                   children: [
                     if (!canManage)
                       CfButton(
@@ -133,6 +168,19 @@ class MatchCenterScreen extends ConsumerWidget {
                         isGold: !isBreak,
                         onPressed: () => context.push('/match/$matchId/score'),
                       ),
+                    CfButton(
+                      label: 'Highlights',
+                      icon: Icons.auto_awesome,
+                      isOutlined: true,
+                      onPressed: () =>
+                          context.push('/match/$matchId/highlights'),
+                    ),
+                    CfButton(
+                      label: 'Fantasy',
+                      icon: Icons.sports_esports,
+                      isOutlined: true,
+                      onPressed: () => _openFantasy(context, ref, match, canManage),
+                    ),
                     CfButton(
                       label: 'Overlay',
                       icon: Icons.layers,
@@ -285,5 +333,58 @@ class MatchCenterScreen extends ConsumerWidget {
         subtitle: Text(reason),
       ),
     );
+  }
+}
+
+Future<void> _openFantasy(
+  BuildContext context,
+  WidgetRef ref,
+  MatchModel match,
+  bool canManage,
+) async {
+  if (!canManage) {
+    context.push('/fantasy');
+    return;
+  }
+
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.add),
+            title: const Text('Create fantasy league'),
+            onTap: () => Navigator.pop(ctx, 'create'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.vpn_key),
+            title: const Text('Join with code'),
+            onTap: () => Navigator.pop(ctx, 'join'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.list),
+            title: const Text('My fantasy leagues'),
+            onTap: () => Navigator.pop(ctx, 'list'),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  if (!context.mounted) return;
+
+  if (action == 'create') {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return;
+    final leagueId =
+        await ref.read(fantasyRepositoryProvider).createLeagueForMatch(
+              match: match,
+              createdBy: uid,
+            );
+    if (context.mounted) context.push('/fantasy/$leagueId');
+  } else if (action == 'join' || action == 'list') {
+    context.push('/fantasy');
   }
 }

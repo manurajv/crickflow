@@ -23,6 +23,8 @@ class BallEventModel extends Equatable {
     this.commentary = '',
     this.timestamp,
     this.sequence = 0,
+    this.isHighlight = false,
+    this.highlightTag,
   });
 
   final String id;
@@ -45,6 +47,8 @@ class BallEventModel extends Equatable {
   final String commentary;
   final DateTime? timestamp;
   final int sequence;
+  final bool isHighlight;
+  final String? highlightTag;
 
   factory BallEventModel.fromMap(String id, Map<String, dynamic> map) {
     return BallEventModel(
@@ -99,6 +103,8 @@ class BallEventModel extends Equatable {
         'commentary': commentary,
         'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
         'sequence': sequence,
+        'isHighlight': isHighlight,
+        if (highlightTag != null) 'highlightTag': highlightTag,
       };
 
   @override

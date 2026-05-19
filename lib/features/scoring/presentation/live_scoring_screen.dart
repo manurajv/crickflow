@@ -4,21 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../core/utils/cricket_math.dart';
-import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/lineup_player.dart';
 import '../../../domain/services/scoring_engine.dart';
 import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/player_lineup_picker.dart';
 import '../../../shared/widgets/scoreboard_card.dart';
+import '../../../domain/services/commentary_service.dart';
 import '../../../shared/widgets/wicket_picker_sheet.dart';
-
-final _ballEventsProvider =
-    StreamProvider.family<List<BallEventModel>, String>((ref, matchId) {
-  return ref.watch(matchRepositoryProvider).watchBallEvents(matchId);
-});
 
 void _noopLineup({
   required String strikerId,
@@ -226,26 +222,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
-  String _defaultCommentary(BallEventInput input) {
-    switch (input.type) {
-      case BallEventType.runs:
-        if (input.runs == 4) return 'FOUR!';
-        if (input.runs == 6) return 'SIX!';
-        return '${input.runs} run(s)';
-      case BallEventType.wide:
-        return 'Wide';
-      case BallEventType.noBall:
-        return 'No ball';
-      case BallEventType.bye:
-        return 'Bye';
-      case BallEventType.legBye:
-        return 'Leg bye';
-      case BallEventType.wicket:
-        return 'WICKET!';
-      case BallEventType.penalty:
-        return 'Penalty runs';
-    }
-  }
+  String _defaultCommentary(BallEventInput input) => CommentaryService.forBall(
+        type: input.type,
+        runs: input.runs,
+        wicketType: input.wicketType,
+      );
 
   @override
   void dispose() {
@@ -257,7 +238,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   Widget build(BuildContext context) {
     final matchAsync = ref.watch(matchProvider(widget.matchId));
     final squadsAsync = ref.watch(matchLineupSquadsProvider(widget.matchId));
-    final eventsAsync = ref.watch(_ballEventsProvider(widget.matchId));
+    final eventsAsync = ref.watch(ballEventsProvider(widget.matchId));
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final uid = ref.watch(authStateProvider).value?.uid;
 
@@ -510,17 +491,22 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             ? AppColors.gold
             : AppColors.surfaceElevated;
     return SizedBox(
-      width: 56,
-      height: 56,
+      width: AppDimens.runButtonSize,
+      height: AppDimens.runButtonSize,
       child: ElevatedButton(
         onPressed: _isRecording ? null : onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: runs == 6 ? Colors.black : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: AppDimens.buttonRadius),
         ),
-        child: Text('$runs',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        child: Text(
+          '$runs',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
       ),
     );
   }
@@ -530,7 +516,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       onPressed: _isRecording ? null : onTap,
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.spaceMd,
+          vertical: AppDimens.spaceSm,
+        ),
       ),
       child: Text(label),
     );

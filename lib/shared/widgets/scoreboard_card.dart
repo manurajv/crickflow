@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_dimens.dart';
 import '../../core/utils/cricket_math.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
@@ -20,24 +21,31 @@ class ScoreboardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final inn = innings ?? match.currentInnings;
     final rules = match.rules;
+    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        );
 
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppDimens.spaceMd,
+        vertical: AppDimens.spaceXs,
+      ),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.scoreboardBg, Color(0xFF1565C0)],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppDimens.cardRadius,
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryBlue.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: AppColors.primaryBlue.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: AppDimens.cardPadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -45,49 +53,54 @@ class ScoreboardCard extends StatelessWidget {
               children: [
                 if (isLive) ...[
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.liveIndicator,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
+                    child: Text(
                       'LIVE',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 9,
+                          ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppDimens.spaceSm),
                 ],
                 Expanded(
                   child: Text(
                     match.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: titleStyle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.spaceMd),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _teamScore(match.teamAName, inn, match.teamAId),
-                const Text('vs',
-                    style: TextStyle(color: AppColors.gold, fontSize: 18)),
-                _teamScore(match.teamBName, inn, match.teamBId),
+                _teamScore(context, match.teamAName, inn, match.teamAId),
+                Text(
+                  'vs',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppColors.gold,
+                      ),
+                ),
+                _teamScore(context, match.teamBName, inn, match.teamBId),
               ],
             ),
             if (inn != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppDimens.spaceSm),
               Text(
                 '${CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver)} ov • RR ${CricketMath.runRate(inn.totalRuns, inn.legalBalls, rules.ballsPerOver).toStringAsFixed(2)}',
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
           ],
@@ -96,26 +109,35 @@ class ScoreboardCard extends StatelessWidget {
     );
   }
 
-  Widget _teamScore(String name, InningsModel? inn, String? teamId) {
+  Widget _teamScore(
+    BuildContext context,
+    String name,
+    InningsModel? inn,
+    String? teamId,
+  ) {
     final isBatting = inn != null && inn.battingTeamId == teamId;
     final score = isBatting ? '${inn.totalRuns}/${inn.totalWickets}' : '—';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(name,
-            style: TextStyle(
-              color: isBatting ? AppColors.gold : Colors.white70,
-              fontWeight: FontWeight.w600,
-            )),
-        Text(
-          score,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+    return Flexible(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            name,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: isBatting ? AppColors.gold : Colors.white70,
+                  fontWeight: FontWeight.w600,
+                ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
+          Text(
+            score,
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  color: Colors.white,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }

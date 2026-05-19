@@ -38,7 +38,7 @@
 
 
 
-## Phase 1.5 — Pre-Production
+## Phase 1.5 — Pre-Production ✅
 
 
 
@@ -70,7 +70,7 @@
 
 
 
-## Phase 2 — Growth (1–2 months)
+## Phase 2 — Growth ✅
 
 - [x] Location filter UI (home matches)
 - [x] Team logo upload (Firebase Storage)
@@ -87,19 +87,30 @@
 
 
 
-## Phase 3 — Advanced
+## Phase 3 — Advanced (in progress)
 
+**Plan:** [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md)
 
+### 3.1 Highlights & commentary ✅
+- [x] Rule-based highlights (4, 6, wicket)
+- [x] Auto-commentary templates
+- [x] Match Highlights screen + share + stream timestamps
+- [x] CF `highlights` subcollection
 
-- [ ] AI highlights & auto commentary
+### 3.2 In-app viewing ✅
+- [x] YouTube embed on Match Center
+- [x] Public web scorecard (`/live/{matchId}`)
 
-- [ ] Multi-camera / drone integration
+### 3.3 WebRTC (in progress)
+- [x] Signaling room + beta UI
+- [ ] Peer media (`flutter_webrtc`)
 
-- [ ] Ball tracking
+### 3.4 Multi-camera ✅
+- [x] Second YouTube angle + viewer switcher
 
+### 3.5–3.6 (not started)
 - [ ] Fantasy cricket
-
-- [ ] WebRTC low-latency stream
+- [ ] Ball tracking
 
 
 

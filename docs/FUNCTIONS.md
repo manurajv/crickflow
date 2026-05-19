@@ -10,7 +10,9 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 |--------|---------|---------|
 | `onMatchCompleted` | `matches/{id}` updated → `status: completed` | Player/team stats, badges, hero, tournament table, idempotent via `statsProcessed` |
 | `onMatchLive` | `matches/{id}` updated → `status: live` | FCM topic `match_{id}` — match started |
-| `onBallEventCreated` | `matches/{id}/ball_events/{eventId}` created | FCM for wicket, four, six |
+| `onBallEventCreated` | `matches/{id}/ball_events/{eventId}` created | FCM + `highlights` doc for wicket, four, six |
+| `syncPublicScorecard` | `matches/{id}` written | Public `public/scorecard` (no stream keys) |
+| `syncPublicOverlay` | `matches/{id}/overlay/{docId}` written | Merges live overlay into public scorecard |
 
 ## Module layout
 

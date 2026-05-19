@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_constants.dart';
@@ -47,7 +48,7 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                   controller: nameController,
                   decoration: const InputDecoration(labelText: 'Tournament Name'),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppDimens.spaceMd),
                 DropdownButtonFormField<TournamentFormat>(
                   value: format,
                   decoration: const InputDecoration(labelText: 'Format'),
@@ -61,12 +62,12 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                     if (v != null) setModalState(() => format = v);
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppDimens.spaceMd),
                 LocationFields(
                   location: location,
                   onChanged: (l) => location = l,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppDimens.spaceMd),
                 CfButton(
                   label: 'Create Tournament',
                   isGold: true,
@@ -85,7 +86,7 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppDimens.spaceLg),
               ],
             ),
           ),

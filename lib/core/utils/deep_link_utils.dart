@@ -12,6 +12,9 @@ class DeepLinkUtils {
 
   static String scorecardPath(String matchId) => '/match/$matchId/scorecard';
 
+  /// Public web scorecard (no app required).
+  static String publicLivePath(String matchId) => '/live/$matchId';
+
   static String teamPath(String teamId) => '/teams/$teamId';
 
   static Uri matchUri(String matchId) =>
@@ -45,6 +48,9 @@ class DeepLinkUtils {
         host: useCustomDomain ? httpsHost : firebaseHostingHost,
         path: scorecardPath(matchId),
       );
+
+  static Uri publicLiveScorecardUri(String matchId, {bool useCustomDomain = false}) =>
+      hostedUri(publicLivePath(matchId), useCustomDomain: useCustomDomain);
 
   /// Normalizes `crickflow://` and `https://…` into a GoRouter path.
   static String? pathFromUri(Uri uri) {
