@@ -15,7 +15,6 @@ class OverCompleteDialog extends StatelessWidget {
     required this.innings,
     required this.rules,
     required this.onStartNextOver,
-    required this.onContinueOver,
   });
 
   final int overNumber;
@@ -24,7 +23,6 @@ class OverCompleteDialog extends StatelessWidget {
   final InningsModel innings;
   final MatchRulesModel rules;
   final VoidCallback onStartNextOver;
-  final VoidCallback onContinueOver;
 
   @override
   Widget build(BuildContext context) {
@@ -119,14 +117,7 @@ class OverCompleteDialog extends StatelessWidget {
                 foregroundColor: Colors.black,
                 minimumSize: const Size(double.infinity, 48),
               ),
-              child: const Text('Start next over'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onContinueOver();
-              },
-              child: const Text('Continue this over'),
+              child: const Text('Select bowler for next over'),
             ),
           ],
         ),

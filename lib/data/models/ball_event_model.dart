@@ -25,6 +25,7 @@ class BallEventModel extends Equatable {
     this.sequence = 0,
     this.isHighlight = false,
     this.highlightTag,
+    this.noBallRunsMode,
   });
 
   final String id;
@@ -49,6 +50,7 @@ class BallEventModel extends Equatable {
   final int sequence;
   final bool isHighlight;
   final String? highlightTag;
+  final NoBallRunsMode? noBallRunsMode;
 
   factory BallEventModel.fromMap(String id, Map<String, dynamic> map) {
     return BallEventModel(
@@ -80,6 +82,12 @@ class BallEventModel extends Equatable {
       commentary: map['commentary'] as String? ?? '',
       timestamp: DateTime.tryParse(map['timestamp']?.toString() ?? ''),
       sequence: map['sequence'] as int? ?? 0,
+      noBallRunsMode: map['noBallRunsMode'] != null
+          ? NoBallRunsMode.values.firstWhere(
+              (e) => e.name == map['noBallRunsMode'],
+              orElse: () => NoBallRunsMode.bat,
+            )
+          : null,
     );
   }
 
@@ -105,6 +113,7 @@ class BallEventModel extends Equatable {
         'sequence': sequence,
         'isHighlight': isHighlight,
         if (highlightTag != null) 'highlightTag': highlightTag,
+        if (noBallRunsMode != null) 'noBallRunsMode': noBallRunsMode!.name,
       };
 
   @override

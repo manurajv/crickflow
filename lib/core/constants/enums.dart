@@ -43,6 +43,9 @@ enum BallEventType {
   penalty,
 }
 
+/// How runs off a no-ball are scored (from bat, bye, or leg bye).
+enum NoBallRunsMode { bat, bye, legBye }
+
 enum WicketType {
   bowled,
   caught,

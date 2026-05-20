@@ -1,66 +1,87 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../shared/widgets/scoring_ui_kit.dart';
 
 class ScoringQuickOptionsSheet extends StatelessWidget {
   const ScoringQuickOptionsSheet({
     super.key,
     required this.onEditLineup,
-    required this.onUndo,
     required this.onEndInnings,
     required this.onScorecard,
     required this.onMatchRules,
   });
 
   final VoidCallback onEditLineup;
-  final VoidCallback onUndo;
   final VoidCallback onEndInnings;
   final VoidCallback onScorecard;
   final VoidCallback onMatchRules;
 
   @override
   Widget build(BuildContext context) {
+    final shortcuts = [
+      _Shortcut(Icons.help_outline, 'Need help', () {}),
+      _Shortcut(Icons.rule, 'Match rules', onMatchRules),
+      _Shortcut(Icons.swap_horiz, 'Change scorer', () {}),
+      _Shortcut(Icons.group_outlined, 'Change squad', onEditLineup),
+      _Shortcut(Icons.table_chart_outlined, 'Full scorecard', onScorecard),
+      _Shortcut(Icons.edit_outlined, 'Match overs', () {}),
+      _Shortcut(Icons.sync, 'Replace batters', onEditLineup),
+      _Shortcut(Icons.add_circle_outline, 'Bonus runs', () {}),
+    ];
+
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 8, bottom: 4),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(AppDimens.spaceMd),
-            child: Text(
-              'Quick options',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.gold,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ScoringSheetHeader(title: 'Select a shortcut'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
+                  childAspectRatio: 0.85,
+                ),
+                itemCount: shortcuts.length,
+                itemBuilder: (context, i) {
+                  final s = shortcuts[i];
+                  return ScoringShortcutTile(
+                    icon: s.icon,
+                    label: s.label,
+                    onTap: () {
+                      Navigator.pop(context);
+                      s.onTap();
+                    },
+                  );
+                },
               ),
             ),
-          ),
-          const Divider(height: 1),
-          _tile(Icons.people_outline, 'Change lineup', onEditLineup),
-          _tile(Icons.undo, 'Undo last ball', onUndo),
-          _tile(Icons.rule, 'Match rules', onMatchRules),
-          _tile(Icons.scoreboard, 'View scorecard', onScorecard),
-          _tile(Icons.stop_circle_outlined, 'End innings', onEndInnings),
-          const SizedBox(height: AppDimens.spaceMd),
-        ],
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onEndInnings();
+              },
+              child: const Text(
+                'End innings',
+                style: TextStyle(color: AppColors.textMuted),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _tile(IconData icon, String label, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: AppColors.gold),
-      title: Text(label),
-      onTap: onTap,
-    );
-  }
+class _Shortcut {
+  const _Shortcut(this.icon, this.label, this.onTap);
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 }

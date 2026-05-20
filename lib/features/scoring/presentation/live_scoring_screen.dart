@@ -23,6 +23,7 @@ import 'widgets/live_scoring_players_strip.dart'
 import 'widgets/over_complete_dialog.dart';
 import 'widgets/scoring_extra_dialogs.dart';
 import 'widgets/scoring_quick_options_sheet.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
 import 'widgets/select_bowler_sheet.dart';
 
 class LiveScoringScreen extends ConsumerStatefulWidget {
@@ -76,6 +77,22 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (inn?.strikerId == null || inn?.nonStrikerId == null) {
       if (mounted) {
         await _fillVacantCrease(match, inn!);
+      }
+      return;
+    }
+
+    final events =
+        ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
+    if (ScoringDisplayUtils.needsNextOverBowler(
+      inn!,
+      match.rules.ballsPerOver,
+      events,
+    )) {
+      if (mounted) {
+        final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+        final overNum =
+            fresh.currentInnings!.legalBalls ~/ fresh.rules.ballsPerOver + 1;
+        await _pickBowlerForNextOver(fresh, overNum);
       }
       return;
     }
@@ -146,8 +163,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         overEvents: overEvents,
         innings: innings,
         rules: match.rules,
-        onStartNextOver: () => _pickBowlerForNextOver(match, overNum + 1),
-        onContinueOver: () {},
+        onStartNextOver: () {
+          final fresh =
+              ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+          _pickBowlerForNextOver(fresh, overNum + 1);
+        },
       ),
     );
   }
@@ -161,12 +181,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
     if (squads == null || squads.bowling.isEmpty) return;
 
+    final events =
+        ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
     final inn = match.currentInnings!;
     final excluded = <String>{};
     if (excludeLastOverBowler) {
-      final id = ScoringDisplayUtils.bowlerExcludedForNextOver(
-        inn,
-        match.rules.ballsPerOver,
+      final id = ScoringDisplayUtils.bowlerWhoFinishedLastOver(
+        inn: inn,
+        events: events,
+        ballsPerOver: match.rules.ballsPerOver,
       );
       if (id != null) excluded.add(id);
     }
@@ -183,18 +206,28 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         ballsPerOver: match.rules.ballsPerOver,
         excludedBowlerIds: excluded,
         onSelected: (p) async {
-          final inn = match.currentInnings!;
+          final latest =
+              ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+          final latestInn = latest.currentInnings;
+          if (latestInn == null ||
+              latestInn.strikerId == null ||
+              latestInn.nonStrikerId == null) {
+            return;
+          }
           await ref.read(matchRepositoryProvider).updateLineup(
                 matchId: widget.matchId,
-                strikerId: inn.strikerId!,
-                strikerName: ScoringDisplayUtils.batsman(inn, inn.strikerId)
-                        ?.playerName ??
+                strikerId: latestInn.strikerId!,
+                strikerName: ScoringDisplayUtils.batsman(
+                      latestInn,
+                      latestInn.strikerId,
+                    )?.playerName ??
                     '',
-                nonStrikerId: inn.nonStrikerId!,
-                nonStrikerName:
-                    ScoringDisplayUtils.batsman(inn, inn.nonStrikerId)
-                            ?.playerName ??
-                        '',
+                nonStrikerId: latestInn.nonStrikerId!,
+                nonStrikerName: ScoringDisplayUtils.batsman(
+                      latestInn,
+                      latestInn.nonStrikerId,
+                    )?.playerName ??
+                    '',
                 bowlerId: p.id,
                 bowlerName: p.name,
               );
@@ -356,6 +389,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Future<void> _undo() async {
+    final confirmed = await ScoringUiKit.confirmAction(
+      context,
+      title: 'Undo?',
+      message: 'Undo last ball?',
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() => _isRecording = true);
     try {
       await ref.read(matchRepositoryProvider).undoLastBall(widget.matchId);
@@ -491,7 +531,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     await _pickBowlerForNextOver(
       match,
       overNum,
-      excludeLastOverBowler: atOverStart,
+      excludeLastOverBowler: atOverStart && inn.legalBalls > 0,
     );
   }
 
@@ -546,16 +586,12 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   void _openQuickOptions(MatchModel match) {
-    showModalBottomSheet(
-      context: context,
+    ScoringUiKit.showSheet(
+      context,
       builder: (ctx) => ScoringQuickOptionsSheet(
         onEditLineup: () {
           Navigator.pop(ctx);
           _openLineupSheet(match);
-        },
-        onUndo: () {
-          Navigator.pop(ctx);
-          _undo();
         },
         onEndInnings: () {
           Navigator.pop(ctx);

@@ -2,57 +2,76 @@ import 'package:flutter/material.dart';
 import 'package:crickflow/core/theme/app_dimens.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_colors.dart';
+import 'scoring_ui_kit.dart';
 
-/// Bottom sheet to pick dismissal type before recording a wicket.
+/// Bottom sheet to pick dismissal type (reference-style grid).
 Future<WicketType?> showWicketPickerSheet(BuildContext context) {
-  return showModalBottomSheet<WicketType>(
-    context: context,
-    backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(AppDimens.spaceMd),
-            child: Text(
-              'Wicket type',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
+  return ScoringUiKit.showSheet<WicketType>(
+    context,
+    builder: (ctx) {
+      final types = [
+        _WicketOption(WicketType.bowled, Icons.sports_baseball, 'Bowled'),
+        _WicketOption(WicketType.caught, Icons.back_hand, 'Caught'),
+        _WicketOption(WicketType.caught, Icons.person_outline, 'Caught behind'),
+        _WicketOption(WicketType.caught, Icons.sports, 'Caught & bowled'),
+        _WicketOption(WicketType.runOut, Icons.directions_run, 'Run out'),
+        _WicketOption(WicketType.lbw, Icons.accessibility_new, 'LBW'),
+        _WicketOption(WicketType.stumped, Icons.pan_tool_alt, 'Stumped'),
+        _WicketOption(WicketType.retired, Icons.healing, 'Retired hurt'),
+      ];
+
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ScoringSheetHeader(title: 'Select out type'),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.78,
+                  ),
+                  itemCount: types.length,
+                  itemBuilder: (context, i) {
+                    final opt = types[i];
+                    return ScoringShortcutTile(
+                      icon: opt.icon,
+                      iconColor: AppColors.accentRed,
+                      label: opt.label,
+                      onTap: () => Navigator.pop(ctx, opt.type),
+                    );
+                  },
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  'Show more',
+                  style: TextStyle(
+                    color: AppColors.gold,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-          ...WicketType.values.map((type) {
-            return ListTile(
-              leading: const Icon(Icons.sports_cricket, color: AppColors.accentRed),
-              title: Text(_label(type)),
-              onTap: () => Navigator.pop(ctx, type),
-            );
-          }),
-          const SizedBox(height: 8),
-        ],
-      ),
-    ),
+        ),
+      );
+    },
   );
 }
 
-String _label(WicketType type) {
-  switch (type) {
-    case WicketType.bowled:
-      return 'Bowled';
-    case WicketType.caught:
-      return 'Caught';
-    case WicketType.lbw:
-      return 'LBW';
-    case WicketType.runOut:
-      return 'Run out';
-    case WicketType.stumped:
-      return 'Stumped';
-    case WicketType.hitWicket:
-      return 'Hit wicket';
-    case WicketType.retired:
-      return 'Retired';
-    case WicketType.other:
-      return 'Other';
-  }
+class _WicketOption {
+  const _WicketOption(this.type, this.icon, this.label);
+  final WicketType type;
+  final IconData icon;
+  final String label;
 }

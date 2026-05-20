@@ -165,6 +165,7 @@ class MatchRepository {
       sequence: sequence,
       isHighlight: highlight.isHighlight,
       highlightTag: highlight.tag,
+      noBallRunsMode: result.event.noBallRunsMode,
     );
 
     await _commitMatchState(
@@ -186,7 +187,10 @@ class MatchRepository {
     if (events.isEmpty) return match;
 
     final last = events.removeLast();
-    final base = _scoringEngine.baseInningsFrom(match.currentInnings!);
+    final base = _scoringEngine.baseInningsFrom(
+      match.currentInnings!,
+      events: events,
+    );
     final replayed = _scoringEngine.replayInnings(
       match: match,
       baseInnings: base,

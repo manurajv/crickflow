@@ -43,10 +43,15 @@ class LiveScoringPlayersStrip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          color: AppColors.surfaceElevated,
           padding: const EdgeInsets.symmetric(
-            vertical: 6,
+            vertical: 8,
             horizontal: AppDimens.spaceSm,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceElevated,
+            border: Border(
+              bottom: BorderSide(color: AppColors.border, width: 0.5),
+            ),
           ),
           child: Row(
             children: [
@@ -55,7 +60,13 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                   name: striker?.playerName ?? 'Striker',
                   score: ScoringDisplayUtils.batsmanScoreLine(striker),
                   isOnStrike: true,
-                  onReplace: onReplaceStriker,
+                  onReplace: onReplaceStriker != null &&
+                          !ScoringDisplayUtils.batsmanHasFacedBall(
+                            innings,
+                            innings.strikerId,
+                          )
+                      ? onReplaceStriker
+                      : null,
                 ),
               ),
               Container(
@@ -68,7 +79,13 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                   name: nonStriker?.playerName ?? 'Non-striker',
                   score: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
                   isOnStrike: false,
-                  onReplace: onReplaceNonStriker,
+                  onReplace: onReplaceNonStriker != null &&
+                          !ScoringDisplayUtils.batsmanHasFacedBall(
+                            innings,
+                            innings.nonStrikerId,
+                          )
+                      ? onReplaceNonStriker
+                      : null,
                 ),
               ),
             ],
@@ -87,19 +104,14 @@ class LiveScoringPlayersStrip extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.sports_baseball_outlined,
-                    size: 20,
-                    color: AppColors.primaryBlue.withValues(alpha: 0.9),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       bowler?.playerName ?? 'Select bowler',
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                        fontSize: 14,
                         color: AppColors.textPrimary,
                       ),
                       maxLines: 1,
@@ -107,21 +119,28 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    ScoringDisplayUtils.bowlerFigures(bowler, rules.ballsPerOver),
+                    ScoringDisplayUtils.bowlerFigures(
+                      bowler,
+                      rules.ballsPerOver,
+                    ),
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
-                  if (onReplaceBowler != null) ...[
+                  if (onReplaceBowler != null &&
+                      !ScoringDisplayUtils.bowlerHasBowledBall(
+                        innings,
+                        innings.currentBowlerId,
+                      )) ...[
                     const SizedBox(width: 8),
                     _ReplaceLink(label: 'Change', onTap: onReplaceBowler!),
                   ],
                 ],
               ),
-              const SizedBox(height: AppDimens.spaceMd),
+              const SizedBox(height: 10),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -156,7 +175,10 @@ class LiveScoringPlayersStrip extends StatelessWidget {
               ),
               if (overEvents.isNotEmpty) ...[
                 const SizedBox(height: AppDimens.spaceSm),
-                _OverTimeline(events: overEvents),
+                _OverTimeline(
+                  events: overEvents,
+                  overExtras: ScoringDisplayUtils.currentOverExtras(overEvents),
+                ),
               ],
             ],
           ),
@@ -277,8 +299,8 @@ class _BowlingSideOption extends StatelessWidget {
   final VoidCallback onTap;
 
   static const _iconH = 40.0;
-  static const _lineGap = 3.0;
-  static const _lineW = 2.5;
+  static const _lineGap = 2.0;
+  static const _lineW = 2.0;
 
   @override
   Widget build(BuildContext context) {
@@ -322,21 +344,19 @@ class _BowlingSideOption extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: TextStyle(
-                    fontSize: 10,
-                    height: 1.2,
-                    fontWeight:
-                        selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected
-                        ? AppColors.textPrimary
-                        : AppColors.textMuted,
-                  ),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                softWrap: true,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  height: 1.15,
+                  fontWeight:
+                      selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected
+                      ? AppColors.textPrimary
+                      : AppColors.textMuted,
                 ),
               ),
             ],
@@ -348,48 +368,102 @@ class _BowlingSideOption extends StatelessWidget {
 }
 
 class _OverTimeline extends StatelessWidget {
-  const _OverTimeline({required this.events});
+  const _OverTimeline({
+    required this.events,
+    required this.overExtras,
+  });
 
   final List<BallEventModel> events;
+  final int overExtras;
+
+  static const _ballSize = 36.0;
+  static const _ballGap = 8.0;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: events.map((e) {
-          final isWicket = e.eventType == BallEventType.wicket;
-          final isBoundary =
-              e.runs >= 4 && e.eventType == BallEventType.runs;
-          return Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: Container(
-              width: 30,
-              height: 30,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isWicket
-                    ? AppColors.accentRed
-                    : isBoundary
-                        ? AppColors.gold.withValues(alpha: 0.35)
-                        : AppColors.surfaceElevated,
-                border: Border.all(
-                  color: isBoundary ? AppColors.gold : AppColors.border,
-                ),
-              ),
-              child: Text(
-                ScoringDisplayUtils.ballBubbleLabel(e),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'This over',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMuted,
               ),
             ),
-          );
-        }).toList(),
-      ),
+            if (overExtras > 0) ...[
+              const Spacer(),
+              Text(
+                'Extras $overExtras',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.gold,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: _ballSize + 4,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: events.map((e) {
+                final isWicket = e.eventType == BallEventType.wicket;
+                final isBoundary =
+                    e.runs >= 4 && e.eventType == BallEventType.runs;
+                final isExtra = e.eventType == BallEventType.wide ||
+                    e.eventType == BallEventType.noBall ||
+                    e.eventType == BallEventType.bye ||
+                    e.eventType == BallEventType.legBye;
+                return Padding(
+                  padding: const EdgeInsets.only(right: _ballGap),
+                  child: Container(
+                    width: _ballSize,
+                    height: _ballSize,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isWicket
+                          ? AppColors.accentRed
+                          : isBoundary
+                              ? AppColors.gold.withValues(alpha: 0.35)
+                              : isExtra
+                                  ? AppColors.primaryBlue.withValues(alpha: 0.25)
+                                  : AppColors.surfaceElevated,
+                      border: Border.all(
+                        color: isWicket
+                            ? AppColors.accentRed
+                            : isBoundary
+                                ? AppColors.gold
+                                : isExtra
+                                    ? AppColors.primaryBlue
+                                    : AppColors.border,
+                      ),
+                    ),
+                    child: Text(
+                      ScoringDisplayUtils.ballBubbleLabel(e),
+                      style: TextStyle(
+                        fontSize: e.eventType == BallEventType.wide ||
+                                e.eventType == BallEventType.noBall
+                            ? 9
+                            : 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

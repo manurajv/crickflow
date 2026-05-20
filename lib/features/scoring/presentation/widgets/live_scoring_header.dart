@@ -26,10 +26,8 @@ class LiveScoringHeader extends StatelessWidget {
     final tossLine = ScoringDisplayUtils.tossSummaryLine(match);
     final ppLabel =
         ScoringDisplayUtils.activePowerplayLabel(match, innings);
-    final oversDone = innings.legalBalls / rules.ballsPerOver;
-    final oversText = oversDone == oversDone.roundToDouble()
-        ? '${oversDone.toInt()}'
-        : oversDone.toStringAsFixed(1);
+    final oversText =
+        ScoringDisplayUtils.inningsOversDisplay(innings, rules);
     final crr = ScoringDisplayUtils.currentRunRate(innings, rules);
     final chase = ScoringDisplayUtils.chaseDisplay(match, innings, rules);
 
@@ -116,14 +114,37 @@ class LiveScoringHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    'CRR ${crr.toStringAsFixed(2)}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'CRR ${crr.toStringAsFixed(2)}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      if (innings.extras > 0) ...[
+                        Text(
+                          '  ·  ',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textMuted.withValues(alpha: 0.8),
+                          ),
+                        ),
+                        Text(
+                          'Extras ${innings.extras}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   if (chase != null && chase.isChasing) ...[
                     const SizedBox(height: 8),

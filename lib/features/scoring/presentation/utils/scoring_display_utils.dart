@@ -45,6 +45,20 @@ class ScoringDisplayUtils {
     return '$winnerName won the toss and elected to $elected';
   }
 
+  /// True once this batter has faced at least one legal delivery (not a bye).
+  static bool batsmanHasFacedBall(InningsModel inn, String? playerId) {
+    if (playerId == null) return false;
+    final b = batsman(inn, playerId);
+    return b != null && b.balls > 0;
+  }
+
+  /// True once this bowler has bowled at least one legal delivery.
+  static bool bowlerHasBowledBall(InningsModel inn, String? playerId) {
+    if (playerId == null) return false;
+    final b = bowler(inn, playerId);
+    return b != null && b.oversBowledBalls > 0;
+  }
+
   static bool isPlayerOut(InningsModel inn, String playerId) {
     for (final b in inn.batsmen) {
       if (b.playerId == playerId) return b.isOut;
@@ -66,13 +80,48 @@ class ScoringDisplayUtils {
     }).toList();
   }
 
-  /// Bowler who completed the last over (cannot bowl the immediate next over).
-  static String? bowlerExcludedForNextOver(InningsModel inn, int ballsPerOver) {
+  /// Bowler who completed the last over (from ball events, not [currentBowlerId]).
+  static String? bowlerWhoFinishedLastOver({
+    required InningsModel inn,
+    required List<BallEventModel> events,
+    required int ballsPerOver,
+  }) {
     if (inn.legalBalls == 0 || inn.legalBalls % ballsPerOver != 0) {
       return null;
     }
+    final overIndex = (inn.legalBalls ~/ ballsPerOver) - 1;
+    final overEvents = events
+        .where(
+          (e) =>
+              e.inningsNumber == inn.inningsNumber &&
+              e.overNumber == overIndex,
+        )
+        .toList()
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+    if (overEvents.isNotEmpty) {
+      return overEvents.last.bowlerId;
+    }
     return inn.currentBowlerId;
   }
+
+  /// After an over ends, scorer must pick a different bowler before the next ball.
+  static bool needsNextOverBowler(
+    InningsModel inn,
+    int ballsPerOver,
+    List<BallEventModel> events,
+  ) {
+    final lastOverBowler = bowlerWhoFinishedLastOver(
+      inn: inn,
+      events: events,
+      ballsPerOver: ballsPerOver,
+    );
+    if (lastOverBowler == null) return false;
+    final current = inn.currentBowlerId;
+    return current == null || current == lastOverBowler;
+  }
+
+  static int currentOverExtras(List<BallEventModel> overEvents) =>
+      overExtras(overEvents);
 
   static String? activePowerplayLabel(MatchModel match, InningsModel inn) {
     final slots = match.rules.powerplaySlots;
@@ -150,9 +199,13 @@ class ScoringDisplayUtils {
   }
 
   static String oversLabel(InningsModel inn, MatchRulesModel rules) {
-    final overs = inn.legalBalls / rules.ballsPerOver;
-    final total = rules.totalOvers;
-    return '(${overs.toStringAsFixed(1)}/$total)';
+    final overs = CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver);
+    return '($overs/${rules.totalOvers})';
+  }
+
+  /// Overs.balls for scoreboard header, e.g. `0.2` of `20` overs.
+  static String inningsOversDisplay(InningsModel inn, MatchRulesModel rules) {
+    return CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver);
   }
 
   static BatsmanInningsModel? batsman(InningsModel inn, String? id) {
@@ -224,7 +277,11 @@ class ScoringDisplayUtils {
       return e.runs > 1 ? 'Wd+${e.runs - e.extraRuns}' : 'Wd';
     }
     if (e.eventType == BallEventType.noBall) {
-      return e.batsmanRuns > 0 ? 'Nb+${e.batsmanRuns}' : 'Nb';
+      final add = e.runs - e.extraRuns;
+      if (add <= 0) return 'Nb';
+      if (e.noBallRunsMode == NoBallRunsMode.bye) return 'Nb B$add';
+      if (e.noBallRunsMode == NoBallRunsMode.legBye) return 'Nb Lb$add';
+      return 'Nb+${e.batsmanRuns}';
     }
     if (e.eventType == BallEventType.bye) return e.runs > 0 ? 'B${e.runs}' : 'B';
     if (e.eventType == BallEventType.legBye) return e.runs > 0 ? 'Lb${e.runs}' : 'Lb';
