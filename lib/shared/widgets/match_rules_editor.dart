@@ -52,8 +52,37 @@ class _MatchRulesEditorState extends State<MatchRulesEditor> {
             } else if (f == MatchFormat.standard) {
               _update(MatchRulesModel.standardT20());
             } else {
-              _update(_rules.copyWith(format: f));
+              _update(
+                _rules.copyWith(
+                  format: f,
+                  ballType: MatchRulesModel.defaultBallTypeFor(f),
+                ),
+              );
             }
+          },
+        ),
+        const SizedBox(height: 12),
+        const Text('Ball type',
+            style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        SegmentedButton<CricketBallType>(
+          segments: const [
+            ButtonSegment(
+              value: CricketBallType.leather,
+              label: Text('Leather'),
+            ),
+            ButtonSegment(
+              value: CricketBallType.tennis,
+              label: Text('Tennis'),
+            ),
+            ButtonSegment(
+              value: CricketBallType.indoor,
+              label: Text('Indoor'),
+            ),
+          ],
+          selected: {_rules.resolvedBallType},
+          onSelectionChanged: (s) {
+            _update(_rules.copyWith(ballType: s.first));
           },
         ),
         const SizedBox(height: 20),

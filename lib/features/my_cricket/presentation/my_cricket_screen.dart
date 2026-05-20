@@ -88,6 +88,7 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
             Tab(text: 'Tournaments'),
             Tab(text: 'Teams'),
             Tab(text: 'Stats'),
+            Tab(text: 'Highlights'),
           ],
         ),
       ),

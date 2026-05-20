@@ -2,6 +2,9 @@ enum UserRole { player, scorer, umpire, organizer, viewer }
 
 enum MatchFormat { standard, tennis, custom }
 
+/// Ball / game type for stats breakdown (Sri Lankan formats).
+enum CricketBallType { leather, tennis, indoor }
+
 enum MatchType { single, tournament }
 
 enum MatchStatus {

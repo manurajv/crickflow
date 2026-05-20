@@ -6,12 +6,13 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/match_permissions.dart';
 import '../../../../data/models/match_model.dart';
+import '../../../../data/models/player_model.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
+import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/location_filter_bar.dart';
 import '../../../../shared/widgets/match_list_card.dart';
-
-enum _MatchScope { yours, live, played, all }
+import '../../my_cricket_filters.dart';
 
 class MyCricketMatchesTab extends ConsumerStatefulWidget {
   const MyCricketMatchesTab({super.key});
@@ -22,7 +23,7 @@ class MyCricketMatchesTab extends ConsumerStatefulWidget {
 }
 
 class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
-  _MatchScope _scope = _MatchScope.yours;
+  MyCricketListScope _scope = MyCricketListScope.yours;
   String _country = '';
   String _city = '';
 
@@ -45,6 +46,9 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
     final matchesAsync = ref.watch(matchesProvider);
     final search = ref.watch(myCricketSearchProvider);
     final uid = ref.watch(authStateProvider).value?.uid;
+    final player = ref.watch(myPlayerProvider).valueOrNull;
+    final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
+    final userTeamIds = userTeams.map((t) => t.id).toSet();
     final canCreate = canCreateMatches(
       ref.watch(currentUserProfileProvider).valueOrNull?.role ??
           UserRole.organizer,
@@ -69,26 +73,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
               ),
             ),
           ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(
-            AppDimens.spaceMd,
-            AppDimens.spaceSm,
-            AppDimens.spaceMd,
-            0,
-          ),
-          child: Row(
-            children: [
-              _scopeChip('Your', _MatchScope.yours),
-              const SizedBox(width: AppDimens.spaceXs),
-              _scopeChip('Live', _MatchScope.live),
-              const SizedBox(width: AppDimens.spaceXs),
-              _scopeChip('Played', _MatchScope.played),
-              const SizedBox(width: AppDimens.spaceXs),
-              _scopeChip('All', _MatchScope.all),
-            ],
-          ),
-        ),
+        _scopeChips(),
         LocationFilterBar(
           initialCountry: _country,
           initialCity: _city,
@@ -102,7 +87,12 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
             onRefresh: () async => ref.invalidate(matchesProvider),
             child: matchesAsync.when(
               data: (matches) {
-                var list = _filter(matches, uid);
+                var list = _filter(
+                  matches,
+                  uid: uid,
+                  player: player,
+                  userTeamIds: userTeamIds,
+                );
                 if (search.isNotEmpty) {
                   final q = search.toLowerCase();
                   list = list
@@ -138,25 +128,46 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
     );
   }
 
-  List<MatchModel> _filter(List<MatchModel> matches, String? uid) {
+  Widget _scopeChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spaceMd,
+        AppDimens.spaceSm,
+        AppDimens.spaceMd,
+        0,
+      ),
+      child: Row(
+        children: [
+          _scopeChip('Your', MyCricketListScope.yours),
+          const SizedBox(width: AppDimens.spaceXs),
+          _scopeChip('Played', MyCricketListScope.played),
+          const SizedBox(width: AppDimens.spaceXs),
+          _scopeChip('All', MyCricketListScope.all),
+        ],
+      ),
+    );
+  }
+
+  List<MatchModel> _filter(
+    List<MatchModel> matches, {
+    String? uid,
+    PlayerModel? player,
+    required Set<String> userTeamIds,
+  }) {
     return matches.where((m) {
       if (!locationMatchesFilter(m.location, _country, _city)) return false;
-      switch (_scope) {
-        case _MatchScope.live:
-          return m.status == MatchStatus.live ||
-              m.status == MatchStatus.inningsBreak;
-        case _MatchScope.played:
-          return m.status == MatchStatus.completed;
-        case _MatchScope.yours:
-          return uid != null &&
-              (m.createdBy == uid || m.scorerIds.contains(uid));
-        case _MatchScope.all:
-          return true;
-      }
+      return filterMatchByScope(
+        m,
+        _scope,
+        uid: uid,
+        player: player,
+        userTeamIds: userTeamIds,
+      );
     }).toList();
   }
 
-  Widget _scopeChip(String label, _MatchScope scope) {
+  Widget _scopeChip(String label, MyCricketListScope scope) {
     final selected = _scope == scope;
     return FilterChip(
       label: Text(label),
@@ -164,6 +175,10 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
       onSelected: (_) => setState(() => _scope = scope),
       selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
       checkmarkColor: AppColors.gold,
+      labelStyle: TextStyle(
+        color: selected ? AppColors.gold : AppColors.textSecondary,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+      ),
     );
   }
 }

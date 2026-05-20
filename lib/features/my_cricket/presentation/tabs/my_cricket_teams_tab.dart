@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../shared/providers/team_ui_provider.dart';
 import '../../../../shared/widgets/location_filter_bar.dart';
 
 enum _TeamScope { yours, all }
@@ -39,10 +40,13 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
             dense: true,
             title: const Text('Want to create a new team?'),
             trailing: FilledButton(
-              onPressed: () => context.push('/teams'),
+              onPressed: () {
+                ref.read(teamsInitialTabProvider.notifier).state = 2;
+                context.push('/teams?tab=2');
+              },
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.gold,
+                foregroundColor: Colors.black,
               ),
               child: const Text('Create'),
             ),

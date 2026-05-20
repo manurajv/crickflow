@@ -1,16 +1,18 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../core/utils/deep_link_utils.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dimens.dart';
+import '../../../core/utils/deep_link_utils.dart';
 import '../../../data/models/player_model.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
-import 'widgets/add_player_sheet.dart';
+import '../../../shared/widgets/cf_underlined_field.dart';
 import 'widgets/team_join_banner.dart';
+import 'widgets/team_logo_picker.dart';
+import 'widgets/team_player_tile.dart';
 
 class TeamDetailScreen extends ConsumerWidget {
   const TeamDetailScreen({super.key, required this.teamId});
@@ -24,136 +26,90 @@ class TeamDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Team'),
+        title: teamAsync.when(
+          data: (t) => Text(t?.name ?? 'Team'),
+          loading: () => const Text('Team'),
+          error: (_, __) => const Text('Team'),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Invite to team',
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit team',
             onPressed: () {
               final team = teamAsync.valueOrNull;
-              if (team != null) _shareTeamInvite(team);
+              if (team != null) _showEditTeam(context, ref, team);
             },
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddPlayer(context, ref),
-        child: const Icon(Icons.person_add),
       ),
       body: teamAsync.when(
         data: (team) {
           if (team == null) return const Center(child: Text('Team not found'));
 
-          return ListView(
-            padding: const EdgeInsets.all(AppDimens.spaceMd),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => _uploadLogo(context, ref, team),
-                    child: CircleAvatar(
-                      radius: 36,
-                      backgroundColor: AppColors.primaryBlue,
-                      backgroundImage: team.logoUrl != null
-                          ? CachedNetworkImageProvider(team.logoUrl!)
-                          : null,
-                      child: team.logoUrl == null
-                          ? Text(
-                              team.name.isNotEmpty ? team.name[0].toUpperCase() : '?',
-                              style: Theme.of(context).textTheme.displayMedium,
+              Material(
+                color: AppColors.primaryBlue.withValues(alpha: 0.35),
+                child: ListTile(
+                  leading: const Icon(Icons.flag_outlined, color: AppColors.gold),
+                  title: const Text('Squad banners'),
+                  subtitle: const Text('Share match highlights with your team'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Squad banners — coming soon')),
+                    );
+                  },
+                ),
+              ),
+              Expanded(
+                child: playersAsync.when(
+                  data: (players) {
+                    return RefreshIndicator(
+                      onRefresh: () async {
+                        ref.invalidate(_teamProvider(teamId));
+                        ref.invalidate(teamPlayersProvider(teamId));
+                      },
+                      child: ListView(
+                        padding: const EdgeInsets.only(
+                          top: AppDimens.spaceSm,
+                          bottom: AppDimens.spaceXl,
+                        ),
+                        children: [
+                          TeamJoinBanner(
+                            team: team,
+                            teamId: teamId,
+                            squad: players,
+                          ),
+                          if (players.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(AppDimens.spaceXl),
+                              child: Center(
+                                child: Text(
+                                  'No players yet.\nTap Add player below.',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: AppDimens.spaceMd),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          team.name,
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        Text(team.location.displayLabel),
-                        TextButton.icon(
-                          onPressed: () => _uploadLogo(context, ref, team),
-                          icon: const Icon(Icons.upload, size: 18),
-                          label: const Text('Upload logo'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _statChip(context, 'Played', '${team.stats.matchesPlayed}'),
-                  _statChip(context, 'Won', '${team.stats.matchesWon}'),
-                  _statChip(context, 'Points', '${team.stats.points}'),
-                ],
-              ),
-              const Divider(height: 32),
-              const Text('Squad',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              playersAsync.when(
-                data: (players) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TeamJoinBanner(
-                        team: team,
-                        teamId: teamId,
-                        squad: players,
-                      ),
-                      if (players.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(AppDimens.spaceLg),
-                          child: Text('No players yet. Tap + to add.'),
-                        )
-                      else
-                        ...players
-                        .map(
-                          (p) => ListTile(
-                            leading: GestureDetector(
-                              onTap: () => _uploadPlayerPhoto(context, ref, p),
-                              child: CircleAvatar(
-                                backgroundImage: p.photoUrl != null
-                                    ? CachedNetworkImageProvider(p.photoUrl!)
-                                    : null,
-                                child: p.photoUrl == null
-                                    ? Text(
-                                        p.jerseyNumber?.toString() ??
-                                            (p.name.isNotEmpty
-                                                ? p.name[0].toUpperCase()
-                                                : '?'),
-                                      )
-                                    : null,
+                          else
+                            ...players.map(
+                              (p) => TeamPlayerTile(
+                                player: p,
+                                team: team,
+                                isCaptain: team.captainId == p.id,
+                                onPhotoTap: () =>
+                                    _uploadPlayerPhoto(context, ref, p),
                               ),
                             ),
-                            title: Text(p.name),
-                            subtitle: Text(
-                              [
-                                if (p.role.isNotEmpty) p.role,
-                                if (p.battingStyle.isNotEmpty) p.battingStyle,
-                              ].join(' • '),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.camera_alt, size: 20),
-                              tooltip: 'Upload photo',
-                              onPressed: () =>
-                                  _uploadPlayerPhoto(context, ref, p),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    ],
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Text('Error: $e'),
+                        ],
+                      ),
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('$e')),
+                ),
               ),
             ],
           );
@@ -161,7 +117,221 @@ class TeamDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
       ),
+      bottomNavigationBar: teamAsync.maybeWhen(
+        data: (team) {
+          if (team == null) return null;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+                AppDimens.spaceMd,
+                AppDimens.spaceMd,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _showTeamProfile(context, ref, team),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 52),
+                        foregroundColor: AppColors.textSecondary,
+                        side: const BorderSide(color: AppColors.border),
+                      ),
+                      child: const Text(
+                        'Profile',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimens.spaceMd),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () =>
+                          context.push('/teams/$teamId/add-players'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 52),
+                        backgroundColor: AppColors.primaryBlue,
+                      ),
+                      child: const Text(
+                        'Add player',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        orElse: () => null,
+      ),
     );
+  }
+
+  void _showTeamProfile(BuildContext context, WidgetRef ref, TeamModel team) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        maxChildSize: 0.85,
+        builder: (_, scroll) => SingleChildScrollView(
+          controller: scroll,
+          padding: const EdgeInsets.all(AppDimens.spaceLg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: TeamLogoPicker(
+                  logoUrl: team.logoUrl,
+                  teamName: team.name,
+                  size: 96,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _uploadLogo(context, ref, team);
+                  },
+                ),
+              ),
+              const SizedBox(height: AppDimens.spaceMd),
+              Text(
+                team.name,
+                textAlign: TextAlign.center,
+                style: Theme.of(ctx).textTheme.headlineMedium,
+              ),
+              Text(
+                team.location.displayLabel,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: AppDimens.spaceLg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _stat(ctx, 'Played', '${team.stats.matchesPlayed}'),
+                  _stat(ctx, 'Won', '${team.stats.matchesWon}'),
+                  _stat(ctx, 'Points', '${team.stats.points}'),
+                ],
+              ),
+              const SizedBox(height: AppDimens.spaceLg),
+              OutlinedButton.icon(
+                onPressed: () {
+                  final link = DeepLinkUtils.httpsTeamUri(team.id).toString();
+                  Share.share('Join ${team.name} on CrickFlow.\n$link');
+                },
+                icon: const Icon(Icons.share_outlined),
+                label: const Text('Share team invite'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(BuildContext context, String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.gold,
+              ),
+        ),
+        Text(label),
+      ],
+    );
+  }
+
+  Future<void> _showEditTeam(
+    BuildContext context,
+    WidgetRef ref,
+    TeamModel team,
+  ) async {
+    final nameController = TextEditingController(text: team.name);
+    final cityController = TextEditingController(text: team.location.city);
+    final captainController = TextEditingController(text: team.coachName ?? '');
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          left: AppDimens.spaceLg,
+          right: AppDimens.spaceLg,
+          top: AppDimens.spaceLg,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Edit team', style: Theme.of(ctx).textTheme.titleLarge),
+            const SizedBox(height: AppDimens.spaceLg),
+            CfUnderlinedField(
+              controller: nameController,
+              label: 'Team name',
+              required: true,
+            ),
+            const SizedBox(height: AppDimens.spaceLg),
+            CfUnderlinedField(
+              controller: cityController,
+              label: 'City / town',
+              required: true,
+            ),
+            const SizedBox(height: AppDimens.spaceLg),
+            CfUnderlinedField(
+              controller: captainController,
+              label: 'Captain name',
+            ),
+            const SizedBox(height: AppDimens.spaceLg),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+                backgroundColor: AppColors.gold,
+                foregroundColor: Colors.black,
+              ),
+              child: const Text('Save'),
+            ),
+            const SizedBox(height: AppDimens.spaceLg),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true) return;
+
+    final updated = TeamModel(
+      id: team.id,
+      name: nameController.text.trim(),
+      logoUrl: team.logoUrl,
+      captainId: team.captainId,
+      viceCaptainId: team.viceCaptainId,
+      coachName: captainController.text.trim().isEmpty
+          ? null
+          : captainController.text.trim(),
+      playerIds: team.playerIds,
+      location: team.location.copyWith(city: cityController.text.trim()),
+      stats: team.stats,
+      badgeIds: team.badgeIds,
+      createdBy: team.createdBy,
+      createdAt: team.createdAt,
+    );
+    await ref.read(teamRepositoryProvider).updateTeam(updated);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Team updated')),
+      );
+    }
   }
 
   Future<void> _uploadPlayerPhoto(
@@ -199,7 +369,8 @@ class TeamDetailScreen extends ConsumerWidget {
     TeamModel team,
   ) async {
     try {
-      final url = await ref.read(storageServiceProvider).pickAndUploadTeamLogo(team.id);
+      final url =
+          await ref.read(storageServiceProvider).pickAndUploadTeamLogo(team.id);
       if (url == null) return;
       final updated = TeamModel(
         id: team.id,
@@ -228,37 +399,6 @@ class TeamDetailScreen extends ConsumerWidget {
         );
       }
     }
-  }
-
-  Widget _statChip(BuildContext context, String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.gold,
-              ),
-        ),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-      ],
-    );
-  }
-
-  void _shareTeamInvite(TeamModel team) {
-    final link = DeepLinkUtils.teamUri(team.id);
-    Share.share(
-      'Join ${team.name} on CrickFlow.\n'
-      'Open: $link',
-    );
-  }
-
-  void _showAddPlayer(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => AddPlayerSheet(teamId: teamId),
-    );
   }
 }
 

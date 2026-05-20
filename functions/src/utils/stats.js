@@ -1,33 +1,51 @@
 const { FieldValue } = require('firebase-admin/firestore');
 
+function resolveBallType(rules) {
+  if (!rules) return 'leather';
+  if (rules.ballType) return rules.ballType;
+  if (rules.format === 'tennis') return 'tennis';
+  if (rules.format === 'custom') return 'indoor';
+  return 'leather';
+}
+
+function statsIncrements(agg, matchesDelta = 1) {
+  return {
+    runs: FieldValue.increment(agg.runs || 0),
+    ballsFaced: FieldValue.increment(agg.ballsFaced || 0),
+    fours: FieldValue.increment(agg.fours || 0),
+    sixes: FieldValue.increment(agg.sixes || 0),
+    wickets: FieldValue.increment(agg.wickets || 0),
+    oversBowledBalls: FieldValue.increment(agg.oversBowledBalls || 0),
+    runsConceded: FieldValue.increment(agg.runsConceded || 0),
+    matchesPlayed: FieldValue.increment(matchesDelta),
+    inningsPlayed: FieldValue.increment(agg.inningsPlayed || 0),
+    dismissals: FieldValue.increment(agg.dismissals || 0),
+    ducks: FieldValue.increment(agg.ducks || 0),
+    thirties: FieldValue.increment(agg.thirties || 0),
+    fifties: FieldValue.increment(agg.fifties || 0),
+    hundreds: FieldValue.increment(agg.hundreds || 0),
+    threeWickets: FieldValue.increment(agg.threeWickets || 0),
+    fiveWickets: FieldValue.increment(agg.fiveWickets || 0),
+  };
+}
+
 /**
  * Aggregate player stats once per player per completed match.
  */
-function applyPlayerStats(batch, db, playerAgg) {
+function applyPlayerStats(batch, db, playerAgg, ballType) {
+  const prefix = `statsByBallType.${ballType}`;
   for (const [playerId, agg] of playerAgg.entries()) {
     if (!playerId || playerId.startsWith('guest_')) continue;
     const ref = db.collection('players').doc(playerId);
+    const typed = {};
+    for (const [key, value] of Object.entries(statsIncrements(agg))) {
+      typed[`${prefix}.${key}`] = value;
+    }
     batch.set(
       ref,
       {
-        stats: {
-          runs: FieldValue.increment(agg.runs || 0),
-          ballsFaced: FieldValue.increment(agg.ballsFaced || 0),
-          fours: FieldValue.increment(agg.fours || 0),
-          sixes: FieldValue.increment(agg.sixes || 0),
-          wickets: FieldValue.increment(agg.wickets || 0),
-          oversBowledBalls: FieldValue.increment(agg.oversBowledBalls || 0),
-          runsConceded: FieldValue.increment(agg.runsConceded || 0),
-          matchesPlayed: FieldValue.increment(1),
-          inningsPlayed: FieldValue.increment(agg.inningsPlayed || 0),
-          dismissals: FieldValue.increment(agg.dismissals || 0),
-          ducks: FieldValue.increment(agg.ducks || 0),
-          thirties: FieldValue.increment(agg.thirties || 0),
-          fifties: FieldValue.increment(agg.fifties || 0),
-          hundreds: FieldValue.increment(agg.hundreds || 0),
-          threeWickets: FieldValue.increment(agg.threeWickets || 0),
-          fiveWickets: FieldValue.increment(agg.fiveWickets || 0),
-        },
+        stats: statsIncrements(agg),
+        ...typed,
         updatedAt: new Date().toISOString(),
       },
       { merge: true },
@@ -35,18 +53,24 @@ function applyPlayerStats(batch, db, playerAgg) {
   }
 }
 
-/** Update career high score if this match beat it. */
-async function applyPlayerHighScores(db, playerAgg) {
+/** Update career high score (overall + per ball type). */
+async function applyPlayerHighScores(db, playerAgg, ballType) {
   for (const [playerId, agg] of playerAgg.entries()) {
     if (!playerId || playerId.startsWith('guest_') || !agg.highScore) continue;
     const ref = db.collection('players').doc(playerId);
     const snap = await ref.get();
-    const cur = snap.data()?.stats?.highScore || 0;
-    if (agg.highScore > cur) {
-      await ref.set(
-        { stats: { highScore: agg.highScore }, updatedAt: new Date().toISOString() },
-        { merge: true },
-      );
+    const data = snap.data() || {};
+    const curOverall = data.stats?.highScore || 0;
+    const curTyped = data.statsByBallType?.[ballType]?.highScore || 0;
+    const patch = { updatedAt: new Date().toISOString() };
+    if (agg.highScore > curOverall) {
+      patch.stats = { highScore: agg.highScore };
+    }
+    if (agg.highScore > curTyped) {
+      patch[`statsByBallType.${ballType}.highScore`] = agg.highScore;
+    }
+    if (patch.stats || patch[`statsByBallType.${ballType}.highScore`]) {
+      await ref.set(patch, { merge: true });
     }
   }
 }
@@ -127,6 +151,7 @@ function applyTeamResult(batch, db, teamId, { won, lost, tied, played = 1 }) {
 }
 
 module.exports = {
+  resolveBallType,
   applyPlayerStats,
   applyPlayerHighScores,
   collectPlayerAgg,

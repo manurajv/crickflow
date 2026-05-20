@@ -52,19 +52,61 @@ class DeepLinkUtils {
   static Uri publicLiveScorecardUri(String matchId, {bool useCustomDomain = false}) =>
       hostedUri(publicLivePath(matchId), useCustomDomain: useCustomDomain);
 
-  /// Normalizes `crickflow://` and `https://…` into a GoRouter path.
+  /// HTTPS team invite (App Links / universal links).
+  static Uri httpsTeamUri(String teamId, {bool useCustomDomain = false}) =>
+      hostedUri(teamPath(teamId), useCustomDomain: useCustomDomain);
+
+  /// Normalizes `crickflow://`, `https://…`, or raw location strings to a GoRouter path.
   static String? pathFromUri(Uri uri) {
     if (uri.scheme == customScheme) {
-      final host = uri.host;
-      final path = uri.path;
-      if (host.isEmpty) return path.isEmpty ? null : path;
-      return '/$host$path';
+      return _pathFromCustomScheme(uri);
     }
 
     if (uri.scheme == 'https' &&
         (uri.host == httpsHost || uri.host == firebaseHostingHost)) {
       final path = uri.path;
-      return path.isEmpty ? null : path;
+      if (path.isEmpty) return null;
+      return path.startsWith('/') ? path : '/$path';
+    }
+
+    return null;
+  }
+
+  /// Handles platform routes like `crickflow://teams/<id>` passed as [location].
+  static String? normalizeLocation(String location) {
+    final trimmed = location.trim();
+    if (trimmed.isEmpty) return null;
+
+    if (trimmed.startsWith('$customScheme://')) {
+      return pathFromUri(Uri.parse(trimmed));
+    }
+
+    if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+      return pathFromUri(Uri.parse(trimmed));
+    }
+
+    if (trimmed.startsWith('/')) return trimmed;
+    return null;
+  }
+
+  static String? _pathFromCustomScheme(Uri uri) {
+    final host = uri.host;
+    var path = uri.path;
+
+    if (host.isNotEmpty) {
+      if (path.isEmpty && uri.pathSegments.length == 1) {
+        path = '/${uri.pathSegments.first}';
+      }
+      if (!path.startsWith('/')) path = '/$path';
+      return '/$host$path';
+    }
+
+    if (path.isNotEmpty) {
+      return path.startsWith('/') ? path : '/$path';
+    }
+
+    if (uri.pathSegments.isNotEmpty) {
+      return '/${uri.pathSegments.join('/')}';
     }
 
     return null;

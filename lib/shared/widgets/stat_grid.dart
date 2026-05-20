@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_dimens.dart';
 
 class StatCellData {
   const StatCellData({required this.value, required this.label});

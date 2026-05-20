@@ -7,8 +7,7 @@ import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/location_filter_bar.dart';
 import '../../../../shared/widgets/tournament_list_card.dart';
-
-enum _TournamentScope { yours, all }
+import '../../my_cricket_filters.dart';
 
 class MyCricketTournamentsTab extends ConsumerStatefulWidget {
   const MyCricketTournamentsTab({super.key});
@@ -20,7 +19,7 @@ class MyCricketTournamentsTab extends ConsumerStatefulWidget {
 
 class _MyCricketTournamentsTabState
     extends ConsumerState<MyCricketTournamentsTab> {
-  _TournamentScope _scope = _TournamentScope.yours;
+  MyCricketListScope _scope = MyCricketListScope.yours;
   String _country = '';
   String _city = '';
 
@@ -29,6 +28,8 @@ class _MyCricketTournamentsTabState
     final tournamentsAsync = ref.watch(tournamentsProvider);
     final search = ref.watch(myCricketSearchProvider);
     final uid = ref.watch(authStateProvider).value?.uid;
+    final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
+    final userTeamIds = userTeams.map((t) => t.id).toSet();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -58,9 +59,11 @@ class _MyCricketTournamentsTabState
           ),
           child: Row(
             children: [
-              _scopeChip('Your', _TournamentScope.yours),
+              _scopeChip('Your', MyCricketListScope.yours),
               const SizedBox(width: AppDimens.spaceXs),
-              _scopeChip('All', _TournamentScope.all),
+              _scopeChip('Played', MyCricketListScope.played),
+              const SizedBox(width: AppDimens.spaceXs),
+              _scopeChip('All', MyCricketListScope.all),
             ],
           ),
         ),
@@ -79,10 +82,12 @@ class _MyCricketTournamentsTabState
                   if (!locationMatchesFilter(t.location, _country, _city)) {
                     return false;
                   }
-                  if (_scope == _TournamentScope.yours && uid != null) {
-                    return t.createdBy == uid;
-                  }
-                  return true;
+                  return filterTournamentByScope(
+                    t,
+                    _scope,
+                    uid: uid,
+                    userTeamIds: userTeamIds,
+                  );
                 }).toList();
 
                 if (search.isNotEmpty) {
@@ -124,7 +129,7 @@ class _MyCricketTournamentsTabState
     );
   }
 
-  Widget _scopeChip(String label, _TournamentScope scope) {
+  Widget _scopeChip(String label, MyCricketListScope scope) {
     final selected = _scope == scope;
     return FilterChip(
       label: Text(label),

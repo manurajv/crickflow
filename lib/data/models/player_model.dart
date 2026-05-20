@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../core/constants/enums.dart';
 import 'location_model.dart';
 
 class PlayerStatsModel extends Equatable {
@@ -112,6 +113,7 @@ class PlayerModel extends Equatable {
     this.role = '',
     this.location = const LocationModel(),
     this.stats = const PlayerStatsModel(),
+    this.statsByBallType = const {},
     this.badgeIds = const [],
     this.createdBy,
     this.createdAt,
@@ -129,9 +131,13 @@ class PlayerModel extends Equatable {
   final String role;
   final LocationModel location;
   final PlayerStatsModel stats;
+  final Map<CricketBallType, PlayerStatsModel> statsByBallType;
   final List<String> badgeIds;
   final String? createdBy;
   final DateTime? createdAt;
+
+  PlayerStatsModel statsForBallType(CricketBallType type) =>
+      statsByBallType[type] ?? const PlayerStatsModel();
 
   factory PlayerModel.fromMap(String id, Map<String, dynamic> map) {
     return PlayerModel(
@@ -146,10 +152,27 @@ class PlayerModel extends Equatable {
       role: map['role'] as String? ?? '',
       location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
       stats: PlayerStatsModel.fromMap(map['stats'] as Map<String, dynamic>?),
+      statsByBallType: _statsByBallTypeFromMap(
+        map['statsByBallType'] as Map<String, dynamic>?,
+      ),
       badgeIds: List<String>.from(map['badgeIds'] as List? ?? []),
       createdBy: map['createdBy'] as String?,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
     );
+  }
+
+  static Map<CricketBallType, PlayerStatsModel> _statsByBallTypeFromMap(
+    Map<String, dynamic>? map,
+  ) {
+    if (map == null) return {};
+    final out = <CricketBallType, PlayerStatsModel>{};
+    for (final type in CricketBallType.values) {
+      final raw = map[type.name];
+      if (raw is Map<String, dynamic>) {
+        out[type] = PlayerStatsModel.fromMap(raw);
+      }
+    }
+    return out;
   }
 
   Map<String, dynamic> toMap() => {
@@ -163,6 +186,10 @@ class PlayerModel extends Equatable {
         'role': role,
         'location': location.toMap(),
         'stats': stats.toMap(),
+        if (statsByBallType.isNotEmpty)
+          'statsByBallType': {
+            for (final e in statsByBallType.entries) e.key.name: e.value.toMap(),
+          },
         'badgeIds': badgeIds,
         if (createdBy != null) 'createdBy': createdBy,
         'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),

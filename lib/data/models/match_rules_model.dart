@@ -5,6 +5,7 @@ import '../../core/constants/enums.dart';
 class MatchRulesModel extends Equatable {
   const MatchRulesModel({
     this.format = MatchFormat.standard,
+    this.ballType,
     this.totalOvers = 20,
     this.ballsPerOver = 6,
     this.wideRuns = 1,
@@ -23,6 +24,8 @@ class MatchRulesModel extends Equatable {
   });
 
   final MatchFormat format;
+  /// Leather / tennis / indoor — defaults from [format] when null.
+  final CricketBallType? ballType;
   final int totalOvers;
   final int ballsPerOver;
   final int wideRuns;
@@ -41,8 +44,20 @@ class MatchRulesModel extends Equatable {
 
   int get totalBalls => totalOvers * ballsPerOver;
 
+  static CricketBallType defaultBallTypeFor(MatchFormat format) {
+    return switch (format) {
+      MatchFormat.tennis => CricketBallType.tennis,
+      MatchFormat.custom => CricketBallType.indoor,
+      MatchFormat.standard => CricketBallType.leather,
+    };
+  }
+
+  CricketBallType get resolvedBallType =>
+      ballType ?? defaultBallTypeFor(format);
+
   factory MatchRulesModel.tennisCricket() => const MatchRulesModel(
         format: MatchFormat.tennis,
+        ballType: CricketBallType.tennis,
         totalOvers: 6,
         ballsPerOver: 6,
         wideRuns: 1,
@@ -53,6 +68,7 @@ class MatchRulesModel extends Equatable {
 
   factory MatchRulesModel.standardT20() => const MatchRulesModel(
         format: MatchFormat.standard,
+        ballType: CricketBallType.leather,
         totalOvers: 20,
         ballsPerOver: 6,
       );
@@ -64,6 +80,7 @@ class MatchRulesModel extends Equatable {
         (e) => e.name == map['format'],
         orElse: () => MatchFormat.standard,
       ),
+      ballType: _ballTypeFromString(map['ballType'] as String?),
       totalOvers: map['totalOvers'] as int? ?? 20,
       ballsPerOver: map['ballsPerOver'] as int? ?? 6,
       wideRuns: map['wideRuns'] as int? ?? 1,
@@ -82,8 +99,17 @@ class MatchRulesModel extends Equatable {
     );
   }
 
+  static CricketBallType? _ballTypeFromString(String? raw) {
+    if (raw == null) return null;
+    return CricketBallType.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => CricketBallType.leather,
+    );
+  }
+
   Map<String, dynamic> toMap() => {
         'format': format.name,
+        'ballType': resolvedBallType.name,
         'totalOvers': totalOvers,
         'ballsPerOver': ballsPerOver,
         'wideRuns': wideRuns,
@@ -103,6 +129,7 @@ class MatchRulesModel extends Equatable {
 
   MatchRulesModel copyWith({
     MatchFormat? format,
+    CricketBallType? ballType,
     int? totalOvers,
     int? ballsPerOver,
     int? wideRuns,
@@ -121,6 +148,7 @@ class MatchRulesModel extends Equatable {
   }) {
     return MatchRulesModel(
       format: format ?? this.format,
+      ballType: ballType ?? this.ballType,
       totalOvers: totalOvers ?? this.totalOvers,
       ballsPerOver: ballsPerOver ?? this.ballsPerOver,
       wideRuns: wideRuns ?? this.wideRuns,

@@ -301,6 +301,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
-    return fullWidth ? card : Expanded(child: card);
+    return card;
   }
 }

@@ -4,12 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../shared/providers/my_player_provider.dart';
+import '../../../../shared/providers/my_player_stats_breakdown_provider.dart';
+import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
-
-enum _StatsMode { batting, bowling, fielding }
 
 class MyCricketStatsTab extends ConsumerStatefulWidget {
   const MyCricketStatsTab({super.key});
@@ -19,19 +18,23 @@ class MyCricketStatsTab extends ConsumerStatefulWidget {
 }
 
 class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
-  _StatsMode _mode = _StatsMode.batting;
+  PlayerStatViewMode _mode = PlayerStatViewMode.batting;
 
   @override
   Widget build(BuildContext context) {
-    final playerAsync = ref.watch(myPlayerProvider);
+    final breakdownAsync = ref.watch(myPlayerStatsBreakdownProvider);
 
-    return playerAsync.when(
-      data: (player) {
-        if (player == null) {
+    return breakdownAsync.when(
+      data: (breakdown) {
+        if (breakdown == null) {
           return _noPlayer(context);
         }
+        final player = ref.watch(myPlayerProvider).value!;
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(myPlayerProvider),
+          onRefresh: () async {
+            ref.invalidate(myPlayerProvider);
+            ref.invalidate(myPlayerStatsBreakdownProvider);
+          },
           child: ListView(
             padding: AppDimens.listPadding,
             children: [
@@ -39,34 +42,25 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
               const SizedBox(height: AppDimens.spaceSm),
               _analyzeBanner(context, player),
               const SizedBox(height: AppDimens.spaceMd),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _modeChip('Batting', _StatsMode.batting),
-                    const SizedBox(width: AppDimens.spaceXs),
-                    _modeChip('Bowling', _StatsMode.bowling),
-                    const SizedBox(width: AppDimens.spaceXs),
-                    _modeChip('Fielding', _StatsMode.fielding),
-                  ],
-                ),
-              ),
+              _modeChips(),
               const SizedBox(height: AppDimens.spaceMd),
-              Row(
-                children: [
-                  Text('Overall', style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => context.push('/players/${player.id}'),
-                    child: const Text('Full profile'),
+              _sectionHeader(context, 'Overall'),
+              StatGrid(
+                cells: playerStatCells(breakdown.overall, _mode),
+              ),
+              ...breakdown.typedSections.expand(
+                (section) => [
+                  const SizedBox(height: AppDimens.spaceLg),
+                  _sectionHeader(context, section.title),
+                  StatGrid(
+                    cells: playerStatCells(section.stats, _mode),
                   ),
                 ],
               ),
-              const SizedBox(height: AppDimens.spaceSm),
-              StatGrid(cells: _cellsForMode(player, _mode)),
               const SizedBox(height: AppDimens.spaceLg),
               Text(
-                'Stats update when matches you play are completed.',
+                'Type sections appear after you complete a match in that format. '
+                'Set ball type when creating a match (Leather / Tennis / Indoor).',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -75,6 +69,27 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
+      child: Row(
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
+          if (title == 'Overall') ...[
+            const Spacer(),
+            TextButton(
+              onPressed: () {
+                final p = ref.read(myPlayerProvider).valueOrNull;
+                if (p != null) context.push('/players/${p.id}');
+              },
+              child: const Text('Full profile'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -183,7 +198,22 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
     );
   }
 
-  Widget _modeChip(String label, _StatsMode mode) {
+  Widget _modeChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _modeChip('Batting', PlayerStatViewMode.batting),
+          const SizedBox(width: AppDimens.spaceXs),
+          _modeChip('Bowling', PlayerStatViewMode.bowling),
+          const SizedBox(width: AppDimens.spaceXs),
+          _modeChip('Fielding', PlayerStatViewMode.fielding),
+        ],
+      ),
+    );
+  }
+
+  Widget _modeChip(String label, PlayerStatViewMode mode) {
     final selected = _mode == mode;
     return FilterChip(
       label: Text(label),
@@ -196,58 +226,5 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
       ),
     );
-  }
-
-  List<StatCellData> _cellsForMode(PlayerModel player, _StatsMode mode) {
-    final s = player.stats;
-    final notOuts = (s.inningsPlayed - s.dismissals).clamp(0, 999);
-    final avg = CricketMath.battingAverage(s.runs, s.dismissals);
-    final sr = CricketMath.strikeRate(s.runs, s.ballsFaced);
-    final overs = CricketMath.formatOvers(s.oversBowledBalls, 6);
-    final econ = CricketMath.economyRate(s.runsConceded, s.oversBowledBalls, 6);
-    final bowlAvg = CricketMath.bowlingAverage(s.runsConceded, s.wickets);
-
-    return switch (mode) {
-      _StatsMode.batting => [
-        StatCellData(value: '${s.matchesPlayed}', label: 'Mat'),
-        StatCellData(value: '${s.inningsPlayed}', label: 'Inns'),
-        StatCellData(value: '$notOuts', label: 'NO'),
-        StatCellData(value: '${s.runs}', label: 'Runs'),
-        StatCellData(
-          value: s.highScore > 0 ? '${s.highScore}' : '—',
-          label: 'HS',
-        ),
-        StatCellData(value: avg.toStringAsFixed(2), label: 'Avg'),
-        StatCellData(value: sr.toStringAsFixed(2), label: 'SR'),
-        StatCellData(value: '${s.thirties}', label: '30s'),
-        StatCellData(value: '${s.fifties}', label: '50s'),
-        StatCellData(value: '${s.hundreds}', label: '100s'),
-        StatCellData(value: '${s.fours}', label: '4s'),
-        StatCellData(value: '${s.sixes}', label: '6s'),
-        StatCellData(value: '${s.ducks}', label: 'Ducks'),
-      ],
-      _StatsMode.bowling => [
-        StatCellData(value: '${s.matchesPlayed}', label: 'Mat'),
-        StatCellData(value: overs, label: 'Ov'),
-        StatCellData(value: '0', label: 'Mdns'),
-        StatCellData(value: '${s.runsConceded}', label: 'Runs'),
-        StatCellData(value: '${s.wickets}', label: 'Wkts'),
-        StatCellData(value: econ.toStringAsFixed(2), label: 'Econ'),
-        StatCellData(value: bowlAvg.toStringAsFixed(2), label: 'Avg'),
-        StatCellData(value: '${s.threeWickets}', label: '3W'),
-        StatCellData(value: '${s.fiveWickets}', label: '5W'),
-      ],
-      _StatsMode.fielding => [
-        StatCellData(value: '${s.catches}', label: 'Catches'),
-        StatCellData(value: '${s.runOuts}', label: 'Run outs'),
-        StatCellData(value: '${s.stumpings}', label: 'Stumpings'),
-        StatCellData(
-          value: '${s.catches + s.runOuts + s.stumpings}',
-          label: 'Total',
-        ),
-        StatCellData(value: '${s.matchesPlayed}', label: 'Mat'),
-        StatCellData(value: '${s.dismissals}', label: 'Dismissals'),
-      ],
-    };
   }
 }

@@ -4,6 +4,7 @@ const { evaluateInningsBadges, pickMatchHero } = require('../utils/badges');
 const { updateTournamentStandings } = require('../utils/tournament');
 const { notifyMatchTopic, createUserNotification } = require('../utils/messaging');
 const {
+  resolveBallType,
   applyPlayerStats,
   applyPlayerHighScores,
   collectPlayerAgg,
@@ -27,7 +28,8 @@ exports.onMatchCompleted = onDocumentUpdated(
 
     const batch = db.batch();
     const playerAgg = collectPlayerAgg(innings);
-    applyPlayerStats(batch, db, playerAgg);
+    const ballType = resolveBallType(after.rules);
+    applyPlayerStats(batch, db, playerAgg, ballType);
 
     const winner = after.winnerTeamId;
     const teamA = after.teamAId;
@@ -71,7 +73,7 @@ exports.onMatchCompleted = onDocumentUpdated(
     });
 
     await batch.commit();
-    await applyPlayerHighScores(db, playerAgg);
+    await applyPlayerHighScores(db, playerAgg, ballType);
 
     if (after.tournamentId) {
       await updateTournamentStandings(db, after.tournamentId, after);

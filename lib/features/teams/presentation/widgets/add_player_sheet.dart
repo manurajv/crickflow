@@ -9,7 +9,8 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/team_players_provider.dart';
 import '../../../../shared/widgets/cf_button.dart';
 
-/// Add squad members from the global player directory or create a walk-in profile.
+/// Legacy bottom sheet — prefer [TeamAddPlayersScreen] full-screen flow.
+@Deprecated('Use TeamAddPlayersScreen via /teams/:id/add-players')
 class AddPlayerSheet extends ConsumerStatefulWidget {
   const AddPlayerSheet({super.key, required this.teamId});
 

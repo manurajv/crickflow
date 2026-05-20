@@ -27,9 +27,14 @@ import '../../features/shell/presentation/main_shell_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/streaming/presentation/live_stream_screen.dart';
 import '../../features/streaming/presentation/webrtc_viewer_screen.dart';
+import '../../features/teams/presentation/team_add_player_directory_screen.dart';
+import '../../features/teams/presentation/team_add_player_quick_screen.dart';
+import '../../features/teams/presentation/team_add_players_screen.dart';
 import '../../features/teams/presentation/team_detail_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_screen.dart';
+import '../../core/routing/deep_link_handler.dart';
+import '../../core/utils/deep_link_utils.dart';
 import '../../core/utils/match_permissions.dart';
 import '../../shared/providers/providers.dart';
 
@@ -42,6 +47,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       ref.watch(authRepositoryProvider).authStateChanges,
     ),
     redirect: (context, state) {
+      // Android/iOS may pass `crickflow://teams/<id>` as the platform route.
+      final incomingUri = state.uri;
+      String? deepPath;
+      if (incomingUri.scheme == DeepLinkUtils.customScheme) {
+        deepPath = DeepLinkUtils.pathFromUri(incomingUri);
+      } else {
+        deepPath = DeepLinkUtils.normalizeLocation(state.matchedLocation);
+      }
+
+      if (deepPath != null &&
+          deepPath != state.matchedLocation &&
+          deepPath != incomingUri.path) {
+        final isLoggedIn = authState.valueOrNull != null;
+        if (!isLoggedIn) {
+          DeepLinkHandler.pendingPath = deepPath;
+        }
+        return deepPath;
+      }
+
       final isLoggedIn = authState.valueOrNull != null;
       final path = state.matchedLocation;
       final isAuthRoute = path == '/login';
@@ -60,6 +84,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       return null;
+    },
+    onException: (context, state, router) {
+      final path = DeepLinkUtils.pathFromUri(state.uri) ??
+          DeepLinkUtils.normalizeLocation(state.uri.toString());
+      if (path != null) {
+        router.go(path);
+        return;
+      }
+      router.go('/home');
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
@@ -155,11 +188,39 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/tournaments',
         builder: (_, __) => const TournamentScreen(),
       ),
-      GoRoute(path: '/teams', builder: (_, __) => const TeamScreen()),
+      GoRoute(
+        path: '/teams',
+        builder: (_, state) {
+          final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
+          return TeamScreen(initialTab: tab.clamp(0, 2));
+        },
+      ),
       GoRoute(
         path: '/teams/:id',
         builder: (_, state) =>
             TeamDetailScreen(teamId: state.pathParameters['id']!),
+        routes: [
+          GoRoute(
+            path: 'add-players',
+            builder: (_, state) => TeamAddPlayersScreen(
+              teamId: state.pathParameters['id']!,
+            ),
+            routes: [
+              GoRoute(
+                path: 'quick',
+                builder: (_, state) => TeamAddPlayerQuickScreen(
+                  teamId: state.pathParameters['id']!,
+                ),
+              ),
+              GoRoute(
+                path: 'directory',
+                builder: (_, state) => TeamAddPlayerDirectoryScreen(
+                  teamId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: '/notifications',
