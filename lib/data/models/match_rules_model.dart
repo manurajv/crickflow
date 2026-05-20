@@ -5,9 +5,11 @@ import '../../core/constants/enums.dart';
 class MatchRulesModel extends Equatable {
   const MatchRulesModel({
     this.format = MatchFormat.standard,
+    this.cricketMatchType = CricketMatchType.limitedOvers,
     this.ballType,
     this.totalOvers = 20,
     this.ballsPerOver = 6,
+    this.oversPerBowler = 4,
     this.wideRuns = 1,
     this.noBallRuns = 1,
     this.freeHitEnabled = true,
@@ -15,6 +17,16 @@ class MatchRulesModel extends Equatable {
     this.maxWickets = 10,
     this.superOverEnabled = false,
     this.powerplayOvers,
+    this.powerplaySlots = const [[], [], []],
+    this.wagonWheelEnabled = true,
+    this.wagonWheelDots = true,
+    this.wagonWheelRuns123 = true,
+    this.wagonWheelShotSelection = true,
+    this.wideCountsAsLegalDelivery = false,
+    this.noBallCountsAsLegalDelivery = false,
+    this.impactPlayerEnabled = false,
+    this.pitchType,
+    this.matchOfficials = const [],
     this.pointsPerWin = 2,
     this.pointsPerTie = 1,
     this.pointsPerLoss = 0,
@@ -24,17 +36,30 @@ class MatchRulesModel extends Equatable {
   });
 
   final MatchFormat format;
-  /// Leather / tennis / indoor — defaults from [format] when null.
+  final CricketMatchType cricketMatchType;
   final CricketBallType? ballType;
   final int totalOvers;
   final int ballsPerOver;
+  final int oversPerBowler;
   final int wideRuns;
   final int noBallRuns;
   final bool freeHitEnabled;
   final int maxInnings;
   final int maxWickets;
   final bool superOverEnabled;
+  /// Legacy single powerplay length (optional).
   final int? powerplayOvers;
+  /// Up to three powerplays; each inner list is selected over numbers.
+  final List<List<int>> powerplaySlots;
+  final bool wagonWheelEnabled;
+  final bool wagonWheelDots;
+  final bool wagonWheelRuns123;
+  final bool wagonWheelShotSelection;
+  final bool wideCountsAsLegalDelivery;
+  final bool noBallCountsAsLegalDelivery;
+  final bool impactPlayerEnabled;
+  final PitchType? pitchType;
+  final List<MatchOfficialRole> matchOfficials;
   final int pointsPerWin;
   final int pointsPerTie;
   final int pointsPerLoss;
@@ -44,6 +69,16 @@ class MatchRulesModel extends Equatable {
 
   int get totalBalls => totalOvers * ballsPerOver;
 
+  int get activePowerplayCount =>
+      powerplaySlots.where((s) => s.isNotEmpty).length;
+
+  bool get isIndoor => cricketMatchType == CricketMatchType.indoor;
+
+  bool get isTestMatch => cricketMatchType == CricketMatchType.testMatch;
+
+  bool get wagonWheelActive =>
+      wagonWheelDots || wagonWheelRuns123 || wagonWheelShotSelection;
+
   static CricketBallType defaultBallTypeFor(MatchFormat format) {
     return switch (format) {
       MatchFormat.tennis => CricketBallType.tennis,
@@ -52,12 +87,52 @@ class MatchRulesModel extends Equatable {
     };
   }
 
+  static MatchFormat formatForMatchType(CricketMatchType type) {
+    return switch (type) {
+      CricketMatchType.indoor => MatchFormat.tennis,
+      _ => MatchFormat.standard,
+    };
+  }
+
+  static CricketBallType ballTypeForMatchType(CricketMatchType type) {
+    return switch (type) {
+      CricketMatchType.indoor => CricketBallType.indoor,
+      CricketMatchType.limitedOvers => CricketBallType.leather,
+      CricketMatchType.testMatch => CricketBallType.leather,
+    };
+  }
+
+  static MatchRulesModel forMatchType(CricketMatchType type) {
+    return switch (type) {
+      CricketMatchType.indoor => const MatchRulesModel(
+          cricketMatchType: CricketMatchType.indoor,
+          format: MatchFormat.tennis,
+          ballType: CricketBallType.indoor,
+          totalOvers: 6,
+          maxInnings: 1,
+          wagonWheelEnabled: false,
+          wagonWheelDots: false,
+          wagonWheelRuns123: false,
+          wagonWheelShotSelection: false,
+        ),
+      CricketMatchType.testMatch => const MatchRulesModel(
+          cricketMatchType: CricketMatchType.testMatch,
+          totalOvers: 50,
+          maxInnings: 2,
+        ),
+      CricketMatchType.limitedOvers => MatchRulesModel.standardT20().copyWith(
+            cricketMatchType: CricketMatchType.limitedOvers,
+          ),
+    };
+  }
+
   CricketBallType get resolvedBallType =>
-      ballType ?? defaultBallTypeFor(format);
+      ballType ?? ballTypeForMatchType(cricketMatchType);
 
   factory MatchRulesModel.tennisCricket() => const MatchRulesModel(
         format: MatchFormat.tennis,
-        ballType: CricketBallType.tennis,
+        cricketMatchType: CricketMatchType.indoor,
+        ballType: CricketBallType.indoor,
         totalOvers: 6,
         ballsPerOver: 6,
         wideRuns: 1,
@@ -68,6 +143,7 @@ class MatchRulesModel extends Equatable {
 
   factory MatchRulesModel.standardT20() => const MatchRulesModel(
         format: MatchFormat.standard,
+        cricketMatchType: CricketMatchType.limitedOvers,
         ballType: CricketBallType.leather,
         totalOvers: 20,
         ballsPerOver: 6,
@@ -80,9 +156,13 @@ class MatchRulesModel extends Equatable {
         (e) => e.name == map['format'],
         orElse: () => MatchFormat.standard,
       ),
+      cricketMatchType: _cricketMatchTypeFromString(
+        map['cricketMatchType'] as String?,
+      ),
       ballType: _ballTypeFromString(map['ballType'] as String?),
       totalOvers: map['totalOvers'] as int? ?? 20,
       ballsPerOver: map['ballsPerOver'] as int? ?? 6,
+      oversPerBowler: map['oversPerBowler'] as int? ?? 4,
       wideRuns: map['wideRuns'] as int? ?? 1,
       noBallRuns: map['noBallRuns'] as int? ?? 1,
       freeHitEnabled: map['freeHitEnabled'] as bool? ?? true,
@@ -90,6 +170,21 @@ class MatchRulesModel extends Equatable {
       maxWickets: map['maxWickets'] as int? ?? 10,
       superOverEnabled: map['superOverEnabled'] as bool? ?? false,
       powerplayOvers: map['powerplayOvers'] as int?,
+      powerplaySlots: _powerplaySlotsFromMap(map),
+      wagonWheelEnabled: map['wagonWheelEnabled'] as bool? ?? true,
+      wagonWheelDots: map['wagonWheelDots'] as bool? ??
+          (map['wagonWheelEnabled'] as bool? ?? true),
+      wagonWheelRuns123: map['wagonWheelRuns123'] as bool? ??
+          (map['wagonWheelEnabled'] as bool? ?? true),
+      wagonWheelShotSelection: map['wagonWheelShotSelection'] as bool? ??
+          (map['wagonWheelEnabled'] as bool? ?? true),
+      wideCountsAsLegalDelivery:
+          map['wideCountsAsLegalDelivery'] as bool? ?? false,
+      noBallCountsAsLegalDelivery:
+          map['noBallCountsAsLegalDelivery'] as bool? ?? false,
+      impactPlayerEnabled: map['impactPlayerEnabled'] as bool? ?? false,
+      pitchType: _pitchFromString(map['pitchType'] as String?),
+      matchOfficials: _officialsFromFirestore(map['matchOfficials']),
       pointsPerWin: map['pointsPerWin'] as int? ?? 2,
       pointsPerTie: map['pointsPerTie'] as int? ?? 1,
       pointsPerLoss: map['pointsPerLoss'] as int? ?? 0,
@@ -97,6 +192,81 @@ class MatchRulesModel extends Equatable {
       lastManStanding: map['lastManStanding'] as bool? ?? false,
       notes: map['notes'] as String?,
     );
+  }
+
+  static List<List<int>> _powerplaySlotsFromMap(Map<String, dynamic> map) {
+    final slot1 = map['powerplaySlot1'];
+    final slot2 = map['powerplaySlot2'];
+    final slot3 = map['powerplaySlot3'];
+    if (slot1 is List || slot2 is List || slot3 is List) {
+      return [
+        _oversListFromFirestore(slot1),
+        _oversListFromFirestore(slot2),
+        _oversListFromFirestore(slot3),
+      ];
+    }
+    // Legacy nested array (not valid in Firestore; only in-memory / old exports).
+    final raw = map['powerplaySlots'] as List?;
+    if (raw != null) {
+      return List.generate(3, (i) {
+        if (i >= raw.length) return <int>[];
+        final slot = raw[i];
+        if (slot is! List) return <int>[];
+        return slot.map((e) => (e as num).toInt()).toList()..sort();
+      });
+    }
+    final legacy = map['powerplayOvers'] as int?;
+    if (legacy != null && legacy > 0) {
+      return [List.generate(legacy, (i) => i + 1), [], []];
+    }
+    return const [[], [], []];
+  }
+
+  static List<int> _oversListFromFirestore(Object? raw) {
+    if (raw is! List) return [];
+    return raw.map((e) => (e as num).toInt()).toList()..sort();
+  }
+
+  static Map<String, List<int>> _powerplaySlotsToMap(List<List<int>> slots) {
+    final s0 = slots.isNotEmpty ? slots[0] : <int>[];
+    final s1 = slots.length > 1 ? slots[1] : <int>[];
+    final s2 = slots.length > 2 ? slots[2] : <int>[];
+    return {
+      'powerplaySlot1': s0,
+      'powerplaySlot2': s1,
+      'powerplaySlot3': s2,
+    };
+  }
+
+  static PitchType? _pitchFromString(String? raw) {
+    if (raw == null) return null;
+    return PitchType.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => PitchType.turf,
+    );
+  }
+
+  static List<MatchOfficialRole> _officialsFromFirestore(Object? raw) {
+    if (raw is! List) return [];
+    return raw
+        .map(
+          (e) => MatchOfficialRole.values.firstWhere(
+            (r) => r.name == e.toString(),
+            orElse: () => MatchOfficialRole.others,
+          ),
+        )
+        .toList();
+  }
+
+  static CricketMatchType _cricketMatchTypeFromString(String? raw) {
+    return switch (raw) {
+      'boxTurf' => CricketMatchType.indoor,
+      'pairCricket' || 'theHundred' => CricketMatchType.limitedOvers,
+      _ => CricketMatchType.values.firstWhere(
+          (e) => e.name == raw,
+          orElse: () => CricketMatchType.limitedOvers,
+        ),
+    };
   }
 
   static CricketBallType? _ballTypeFromString(String? raw) {
@@ -108,10 +278,12 @@ class MatchRulesModel extends Equatable {
   }
 
   Map<String, dynamic> toMap() => {
-        'format': format.name,
+        'format': formatForMatchType(cricketMatchType).name,
+        'cricketMatchType': cricketMatchType.name,
         'ballType': resolvedBallType.name,
         'totalOvers': totalOvers,
         'ballsPerOver': ballsPerOver,
+        'oversPerBowler': oversPerBowler,
         'wideRuns': wideRuns,
         'noBallRuns': noBallRuns,
         'freeHitEnabled': freeHitEnabled,
@@ -119,6 +291,16 @@ class MatchRulesModel extends Equatable {
         'maxWickets': maxWickets,
         'superOverEnabled': superOverEnabled,
         if (powerplayOvers != null) 'powerplayOvers': powerplayOvers,
+        ..._powerplaySlotsToMap(powerplaySlots),
+        'wagonWheelEnabled': wagonWheelActive,
+        'wagonWheelDots': wagonWheelDots,
+        'wagonWheelRuns123': wagonWheelRuns123,
+        'wagonWheelShotSelection': wagonWheelShotSelection,
+        'wideCountsAsLegalDelivery': wideCountsAsLegalDelivery,
+        'noBallCountsAsLegalDelivery': noBallCountsAsLegalDelivery,
+        'impactPlayerEnabled': impactPlayerEnabled,
+        if (pitchType != null) 'pitchType': pitchType!.name,
+        'matchOfficials': matchOfficials.map((e) => e.name).toList(),
         'pointsPerWin': pointsPerWin,
         'pointsPerTie': pointsPerTie,
         'pointsPerLoss': pointsPerLoss,
@@ -129,9 +311,11 @@ class MatchRulesModel extends Equatable {
 
   MatchRulesModel copyWith({
     MatchFormat? format,
+    CricketMatchType? cricketMatchType,
     CricketBallType? ballType,
     int? totalOvers,
     int? ballsPerOver,
+    int? oversPerBowler,
     int? wideRuns,
     int? noBallRuns,
     bool? freeHitEnabled,
@@ -139,6 +323,16 @@ class MatchRulesModel extends Equatable {
     int? maxWickets,
     bool? superOverEnabled,
     int? powerplayOvers,
+    List<List<int>>? powerplaySlots,
+    bool? wagonWheelEnabled,
+    bool? wagonWheelDots,
+    bool? wagonWheelRuns123,
+    bool? wagonWheelShotSelection,
+    bool? wideCountsAsLegalDelivery,
+    bool? noBallCountsAsLegalDelivery,
+    bool? impactPlayerEnabled,
+    PitchType? pitchType,
+    List<MatchOfficialRole>? matchOfficials,
     int? pointsPerWin,
     int? pointsPerTie,
     int? pointsPerLoss,
@@ -147,10 +341,12 @@ class MatchRulesModel extends Equatable {
     String? notes,
   }) {
     return MatchRulesModel(
-      format: format ?? this.format,
+      format: format ?? formatForMatchType(cricketMatchType ?? this.cricketMatchType),
+      cricketMatchType: cricketMatchType ?? this.cricketMatchType,
       ballType: ballType ?? this.ballType,
       totalOvers: totalOvers ?? this.totalOvers,
       ballsPerOver: ballsPerOver ?? this.ballsPerOver,
+      oversPerBowler: oversPerBowler ?? this.oversPerBowler,
       wideRuns: wideRuns ?? this.wideRuns,
       noBallRuns: noBallRuns ?? this.noBallRuns,
       freeHitEnabled: freeHitEnabled ?? this.freeHitEnabled,
@@ -158,6 +354,19 @@ class MatchRulesModel extends Equatable {
       maxWickets: maxWickets ?? this.maxWickets,
       superOverEnabled: superOverEnabled ?? this.superOverEnabled,
       powerplayOvers: powerplayOvers ?? this.powerplayOvers,
+      powerplaySlots: powerplaySlots ?? this.powerplaySlots,
+      wagonWheelEnabled: wagonWheelEnabled ?? this.wagonWheelEnabled,
+      wagonWheelDots: wagonWheelDots ?? this.wagonWheelDots,
+      wagonWheelRuns123: wagonWheelRuns123 ?? this.wagonWheelRuns123,
+      wagonWheelShotSelection:
+          wagonWheelShotSelection ?? this.wagonWheelShotSelection,
+      wideCountsAsLegalDelivery:
+          wideCountsAsLegalDelivery ?? this.wideCountsAsLegalDelivery,
+      noBallCountsAsLegalDelivery:
+          noBallCountsAsLegalDelivery ?? this.noBallCountsAsLegalDelivery,
+      impactPlayerEnabled: impactPlayerEnabled ?? this.impactPlayerEnabled,
+      pitchType: pitchType ?? this.pitchType,
+      matchOfficials: matchOfficials ?? this.matchOfficials,
       pointsPerWin: pointsPerWin ?? this.pointsPerWin,
       pointsPerTie: pointsPerTie ?? this.pointsPerTie,
       pointsPerLoss: pointsPerLoss ?? this.pointsPerLoss,
@@ -169,13 +378,12 @@ class MatchRulesModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        format,
+        cricketMatchType,
         totalOvers,
         ballsPerOver,
-        wideRuns,
-        noBallRuns,
-        freeHitEnabled,
-        maxInnings,
-        maxWickets,
+        oversPerBowler,
+        powerplaySlots,
+        wagonWheelEnabled,
+        pitchType,
       ];
 }

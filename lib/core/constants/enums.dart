@@ -2,6 +2,17 @@ enum UserRole { player, scorer, umpire, organizer, viewer }
 
 enum MatchFormat { standard, tennis, custom }
 
+/// Start-match “Match type” (reference-style).
+enum CricketMatchType {
+  limitedOvers,
+  indoor,
+  testMatch,
+}
+
+enum PitchType { rough, cement, turf, astroturf, matting }
+
+enum MatchOfficialRole { umpires, scorers, liveStreamer, others }
+
 /// Ball / game type for stats breakdown (Sri Lankan formats).
 enum CricketBallType { leather, tennis, indoor }
 

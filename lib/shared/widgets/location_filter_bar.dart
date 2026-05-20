@@ -60,8 +60,7 @@ class _LocationFilterBarState extends State<LocationFilterBar> {
               controller: _countryController,
               decoration: const InputDecoration(
                 labelText: 'Country',
-                isDense: true,
-                prefixIcon: Icon(Icons.public, size: 20),
+                prefixIcon: Icon(Icons.public, size: 22),
               ),
               onChanged: (_) => _notify(),
             ),
@@ -72,8 +71,7 @@ class _LocationFilterBarState extends State<LocationFilterBar> {
               controller: _cityController,
               decoration: const InputDecoration(
                 labelText: 'City',
-                isDense: true,
-                prefixIcon: Icon(Icons.location_city, size: AppDimens.iconSm),
+                prefixIcon: Icon(Icons.location_city, size: 22),
               ),
               onChanged: (_) => _notify(),
             ),

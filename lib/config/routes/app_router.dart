@@ -9,7 +9,15 @@ import '../../features/fantasy/presentation/fantasy_league_screen.dart';
 import '../../features/fantasy/presentation/fantasy_screen.dart';
 import '../../features/fantasy/presentation/fantasy_squad_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
-import '../../features/matches/presentation/create_match_screen.dart';
+import '../../features/matches/presentation/add_match_official_screen.dart';
+import '../../features/matches/presentation/match_officials_screen.dart';
+import '../../features/matches/presentation/match_team_roles_screen.dart';
+import '../../features/matches/presentation/match_toss_screen.dart';
+import '../../features/matches/presentation/powerplay_overs_screen.dart';
+import '../../features/matches/presentation/select_match_squad_screen.dart';
+import '../../features/matches/presentation/select_team_for_match_screen.dart';
+import '../../features/matches/presentation/start_match_flow_screen.dart';
+import '../../data/models/match_setup_draft_models.dart';
 import '../../features/matches/presentation/match_highlights_screen.dart';
 import '../../features/matches/presentation/match_hub_screen.dart';
 import '../../features/matches/presentation/matches_list_screen.dart';
@@ -147,7 +155,85 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/match/create',
-        builder: (_, __) => const CreateMatchScreen(),
+        builder: (_, __) => const StartMatchFlowScreen(),
+        routes: [
+          GoRoute(
+            path: 'select-team',
+            builder: (_, state) {
+              final slot = state.uri.queryParameters['slot'] ?? 'a';
+              return SelectTeamForMatchScreen(
+                slotLabel: slot == 'b' ? 'team B' : 'team A',
+              );
+            },
+          ),
+          GoRoute(
+            path: 'squad/:teamSlot',
+            builder: (_, state) => SelectMatchSquadScreen(
+              teamSlot: state.pathParameters['teamSlot'] ?? 'a',
+            ),
+          ),
+          GoRoute(
+            path: 'roles/:teamSlot',
+            builder: (_, state) => MatchTeamRolesScreen(
+              teamSlot: state.pathParameters['teamSlot'] ?? 'a',
+            ),
+          ),
+          GoRoute(
+            path: 'officials',
+            builder: (_, __) => const MatchOfficialsScreen(),
+            routes: [
+              GoRoute(
+                path: 'add',
+                builder: (_, state) {
+                  final extra = state.extra;
+                  var title = 'Add official';
+                  var slotLabel = '';
+                  MatchOfficialEntry? initial;
+                  if (extra is Map<String, dynamic>) {
+                    title = extra['title'] as String? ?? title;
+                    slotLabel = extra['slotLabel'] as String? ?? slotLabel;
+                    initial = extra['initial'] as MatchOfficialEntry?;
+                  }
+                  return AddMatchOfficialScreen(
+                    title: title,
+                    slotLabel: slotLabel,
+                    initial: initial,
+                  );
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'toss',
+            builder: (_, __) => const MatchTossScreen(),
+          ),
+          GoRoute(
+            path: 'powerplay',
+            builder: (_, state) {
+              final extra = state.extra;
+              var totalOvers = 20;
+              var slots = <List<int>>[[], [], []];
+              if (extra is Map<String, dynamic>) {
+                totalOvers = extra['totalOvers'] as int? ?? 20;
+                final raw = extra['slots'];
+                if (raw is List<List<int>>) {
+                  slots = raw;
+                } else if (raw is List) {
+                  slots = raw
+                      .map((e) => List<int>.from(e as List))
+                      .toList(growable: false);
+                }
+              }
+              while (slots.length < 3) {
+                slots = [...slots, <int>[]];
+              }
+              return PowerplayOversScreen(
+                totalOvers: totalOvers,
+                initialSlots: slots.take(3).toList(),
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/match/:id',

@@ -1,0 +1,221 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/constants/enums.dart';
+import '../../core/utils/match_media_naming.dart';
+import '../../data/models/location_model.dart';
+import '../../data/models/match_rules_model.dart';
+import '../../data/models/match_setup_draft_models.dart';
+import '../../data/models/team_model.dart';
+
+class MatchDraftMedia {
+  const MatchDraftMedia({
+    required this.code,
+    required this.downloadUrl,
+    this.localPath,
+  });
+
+  final String code;
+  final String downloadUrl;
+  final String? localPath;
+}
+
+class StartMatchDraft {
+  StartMatchDraft({
+    required this.matchId,
+    this.teamA,
+    this.teamB,
+    this.teamAName = '',
+    this.teamBName = '',
+    MatchRulesModel? rules,
+    this.location = const LocationModel(country: AppConstants.defaultCountry),
+    this.venue = '',
+    this.scheduledAt,
+    this.media = const [],
+    this.setup = const MatchSetupData(),
+  }) : rules = rules ?? MatchRulesModel.standardT20();
+
+  final String matchId;
+  final TeamModel? teamA;
+  final TeamModel? teamB;
+  final String teamAName;
+  final String teamBName;
+  final MatchRulesModel rules;
+  final LocationModel location;
+  final String venue;
+  final DateTime? scheduledAt;
+  final List<MatchDraftMedia> media;
+  final MatchSetupData setup;
+
+  String get resolvedTeamAName =>
+      teamA?.name ?? (teamAName.isNotEmpty ? teamAName : '');
+  String get resolvedTeamBName =>
+      teamB?.name ?? (teamBName.isNotEmpty ? teamBName : '');
+
+  bool get hasBothTeams =>
+      resolvedTeamAName.isNotEmpty && resolvedTeamBName.isNotEmpty;
+
+  bool get canProceedToSquad =>
+      hasBothTeams && venue.trim().isNotEmpty && location.city.trim().isNotEmpty;
+
+  int get nextMediaIndex =>
+      MatchMediaNaming.nextIndex(media.map((m) => m.code));
+
+  StartMatchDraft copyWith({
+    TeamModel? teamA,
+    TeamModel? teamB,
+    bool clearTeamA = false,
+    bool clearTeamB = false,
+    String? teamAName,
+    String? teamBName,
+    MatchRulesModel? rules,
+    LocationModel? location,
+    String? venue,
+    DateTime? scheduledAt,
+    List<MatchDraftMedia>? media,
+    MatchSetupData? setup,
+  }) {
+    return StartMatchDraft(
+      matchId: matchId,
+      teamA: clearTeamA ? null : (teamA ?? this.teamA),
+      teamB: clearTeamB ? null : (teamB ?? this.teamB),
+      teamAName: teamAName ?? this.teamAName,
+      teamBName: teamBName ?? this.teamBName,
+      rules: rules ?? this.rules,
+      location: location ?? this.location,
+      venue: venue ?? this.venue,
+      scheduledAt: scheduledAt ?? this.scheduledAt,
+      media: media ?? this.media,
+      setup: setup ?? this.setup,
+    );
+  }
+}
+
+class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
+  StartMatchDraftNotifier()
+      : super(
+          StartMatchDraft(
+            matchId: const Uuid().v4(),
+            rules: MatchRulesModel.standardT20(),
+            scheduledAt: DateTime.now(),
+          ),
+        );
+
+  void reset() {
+    state = StartMatchDraft(
+      matchId: const Uuid().v4(),
+      rules: MatchRulesModel.standardT20(),
+      scheduledAt: DateTime.now(),
+    );
+  }
+
+  void setTeamA(TeamModel? team, {String? customName}) {
+    state = state.copyWith(
+      teamA: team,
+      clearTeamA: team == null,
+      teamAName: team?.name ?? customName ?? '',
+      setup: const MatchSetupData(),
+    );
+  }
+
+  void setTeamB(TeamModel? team, {String? customName}) {
+    state = state.copyWith(
+      teamB: team,
+      clearTeamB: team == null,
+      teamBName: team?.name ?? customName ?? '',
+      setup: state.setup.copyWith(
+        teamBSquadIds: [],
+        teamBSquadNames: {},
+        teamBCaptainId: null,
+        teamBWicketKeeperId: null,
+      ),
+    );
+  }
+
+  void setSquad({
+    required bool isTeamA,
+    required List<String> playerIds,
+    required Map<String, String> playerNames,
+  }) {
+    final setup = isTeamA
+        ? state.setup.copyWith(
+            teamASquadIds: playerIds,
+            teamASquadNames: playerNames,
+            teamACaptainId: null,
+            teamAWicketKeeperId: null,
+          )
+        : state.setup.copyWith(
+            teamBSquadIds: playerIds,
+            teamBSquadNames: playerNames,
+            teamBCaptainId: null,
+            teamBWicketKeeperId: null,
+          );
+    state = state.copyWith(setup: setup);
+  }
+
+  void setTeamRoles({
+    required bool isTeamA,
+    required String captainId,
+    required String wicketKeeperId,
+  }) {
+    final setup = isTeamA
+        ? state.setup.copyWith(
+            teamACaptainId: captainId,
+            teamAWicketKeeperId: wicketKeeperId,
+          )
+        : state.setup.copyWith(
+            teamBCaptainId: captainId,
+            teamBWicketKeeperId: wicketKeeperId,
+          );
+    state = state.copyWith(setup: setup);
+  }
+
+  void updateOfficials(MatchSetupData setup) {
+    state = state.copyWith(setup: setup);
+  }
+
+  void setToss({
+    required bool winnerIsTeamA,
+    required bool winnerBatsFirst,
+    String? coinResult,
+  }) {
+    state = state.copyWith(
+      setup: state.setup.copyWith(
+        tossWinnerIsTeamA: winnerIsTeamA,
+        tossWinnerBatsFirst: winnerBatsFirst,
+        coinResult: coinResult,
+      ),
+    );
+  }
+
+  void addMedia(MatchDraftMedia item) {
+    state = state.copyWith(media: [...state.media, item]);
+  }
+
+  void removeMedia(String code) {
+    state = state.copyWith(
+      media: state.media.where((m) => m.code != code).toList(),
+    );
+  }
+
+  void updateRules(MatchRulesModel rules) {
+    state = state.copyWith(rules: rules);
+  }
+
+  void updateLocation(LocationModel location) {
+    state = state.copyWith(location: location);
+  }
+
+  void updateVenue(String venue) {
+    state = state.copyWith(venue: venue);
+  }
+
+  void updateScheduledAt(DateTime when) {
+    state = state.copyWith(scheduledAt: when);
+  }
+}
+
+final startMatchDraftProvider =
+    StateNotifierProvider<StartMatchDraftNotifier, StartMatchDraft>(
+  (ref) => StartMatchDraftNotifier(),
+);

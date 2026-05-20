@@ -234,10 +234,7 @@ class _TeamAddPlayerDirectoryScreenState
                     ),
                     DropdownButtonFormField<String>(
                       initialValue: _newPlayerRole,
-                      decoration: CfUnderlinedField.decoration(
-                        context,
-                        label: 'Role',
-                      ),
+                      decoration: const InputDecoration(labelText: 'Role'),
                       items: const [
                         'Player',
                         'Captain',

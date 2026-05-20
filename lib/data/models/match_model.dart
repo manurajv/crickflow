@@ -3,6 +3,7 @@ import '../../core/constants/enums.dart';
 import 'innings_model.dart';
 import 'location_model.dart';
 import 'match_rules_model.dart';
+import 'match_setup_draft_models.dart';
 
 class MatchHeroModel extends Equatable {
   const MatchHeroModel({
@@ -177,7 +178,9 @@ class MatchModel extends Equatable {
     this.badgeIds = const [],
     this.stream = const StreamMetadataModel(),
     this.overlayVersion = 0,
+    this.mediaByCode = const {},
     this.createdAt,
+    this.setup,
   });
 
   final String id;
@@ -208,7 +211,11 @@ class MatchModel extends Equatable {
   final List<String> badgeIds;
   final StreamMetadataModel stream;
   final int overlayVersion;
+  /// Match photos/videos keyed by code (CM1, CM2, …).
+  final Map<String, String> mediaByCode;
   final DateTime? createdAt;
+  /// Squad, roles, officials, and toss captured at match start.
+  final MatchSetupData? setup;
 
   InningsModel? get currentInnings =>
       innings.isNotEmpty && currentInningsIndex < innings.length
@@ -234,12 +241,12 @@ class MatchModel extends Equatable {
       tournamentId: map['tournamentId'] as String?,
       bracketRound: map['bracketRound'] as int?,
       bracketSlot: map['bracketSlot'] as int?,
-      rules: MatchRulesModel.fromMap(map['rules'] as Map<String, dynamic>?),
+      rules: MatchRulesModel.fromMap(_asStringMap(map['rules'])),
       innings: (map['innings'] as List? ?? [])
-          .map((e) => InningsModel.fromMap(e as Map<String, dynamic>))
+          .map((e) => InningsModel.fromMap(_asStringMap(e)!))
           .toList(),
       currentInningsIndex: map['currentInningsIndex'] as int? ?? 0,
-      location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
+      location: LocationModel.fromMap(_asStringMap(map['location'])),
       venue: map['venue'] as String? ?? '',
       scheduledAt: DateTime.tryParse(map['scheduledAt']?.toString() ?? ''),
       startedAt: DateTime.tryParse(map['startedAt']?.toString() ?? ''),
@@ -248,17 +255,26 @@ class MatchModel extends Equatable {
       scorerIds: List<String>.from(map['scorerIds'] as List? ?? []),
       winnerTeamId: map['winnerTeamId'] as String?,
       resultSummary: map['resultSummary'] as String? ?? '',
-      matchHero: map['matchHero'] != null
-          ? MatchHeroModel.fromMap(map['matchHero'] as Map<String, dynamic>)
+      matchHero: _asStringMap(map['matchHero']) != null
+          ? MatchHeroModel.fromMap(_asStringMap(map['matchHero']))
           : null,
       playerOfMatchId: map['playerOfMatchId'] as String?,
       badgeIds: List<String>.from(map['badgeIds'] as List? ?? []),
-      stream: StreamMetadataModel.fromMap(
-        map['stream'] as Map<String, dynamic>?,
-      ),
+      stream: StreamMetadataModel.fromMap(_asStringMap(map['stream'])),
       overlayVersion: map['overlayVersion'] as int? ?? 0,
+      mediaByCode: _mediaByCodeFromMap(_asStringMap(map['mediaByCode'])),
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
     );
+  }
+
+  static Map<String, dynamic>? _asStringMap(Object? value) {
+    if (value is! Map) return null;
+    return value.map((k, v) => MapEntry(k.toString(), v));
+  }
+
+  static Map<String, String> _mediaByCodeFromMap(Map<String, dynamic>? map) {
+    if (map == null) return {};
+    return map.map((k, v) => MapEntry(k, v.toString()));
   }
 
   Map<String, dynamic> toMap() => {
@@ -289,8 +305,10 @@ class MatchModel extends Equatable {
         'badgeIds': badgeIds,
         'stream': stream.toMap(),
         'overlayVersion': overlayVersion,
+        if (mediaByCode.isNotEmpty) 'mediaByCode': mediaByCode,
         'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
+        if (setup != null) ...setup!.toMap(),
       };
 
   MatchModel copyWith({
@@ -314,6 +332,8 @@ class MatchModel extends Equatable {
     List<String>? badgeIds,
     StreamMetadataModel? stream,
     int? overlayVersion,
+    Map<String, String>? mediaByCode,
+    MatchSetupData? setup,
   }) {
     return MatchModel(
       id: id,
@@ -342,7 +362,9 @@ class MatchModel extends Equatable {
       badgeIds: badgeIds ?? this.badgeIds,
       stream: stream ?? this.stream,
       overlayVersion: overlayVersion ?? this.overlayVersion,
+      mediaByCode: mediaByCode ?? this.mediaByCode,
       createdAt: createdAt,
+      setup: setup ?? this.setup,
     );
   }
 

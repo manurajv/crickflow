@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app_colors.dart';
 import 'app_dimens.dart';
+import 'cf_input_theme.dart';
 
 class AppTheme {
   AppTheme._();
@@ -184,29 +185,7 @@ class AppTheme {
         extendedPadding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
         extendedTextStyle: textTheme.titleMedium?.copyWith(color: Colors.black),
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: AppColors.surfaceElevated,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppDimens.spaceMd,
-          vertical: AppDimens.spaceSm,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: AppDimens.buttonRadius,
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: AppDimens.buttonRadius,
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: AppDimens.buttonRadius,
-          borderSide: const BorderSide(color: AppColors.primaryBlue, width: 1.5),
-        ),
-        labelStyle: textTheme.bodyMedium,
-        hintStyle: textTheme.bodySmall,
-      ),
+      inputDecorationTheme: CfInputTheme.decorationTheme(textTheme),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surfaceElevated,
         labelStyle: textTheme.bodyMedium!,

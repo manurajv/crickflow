@@ -16,9 +16,16 @@ class AppDimens {
   static const double radiusMd = 10;
   static const double radiusLg = 12;
 
+  // Form fields (reference underline style)
+  static const double fieldPaddingVertical = 18;
+  static const double fieldPaddingVerticalCompact = 14;
+  static const double fieldSpacing = 20;
+  static const double fontInput = 16;
+
   // Controls
   static const double buttonHeight = 40;
   static const double buttonHeightDense = 36;
+  static const double buttonHeightLarge = 52;
   static const double runButtonSize = 44;
   static const double appBarHeight = 48;
   static const double bottomNavHeight = 60;

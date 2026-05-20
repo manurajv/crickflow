@@ -54,7 +54,35 @@
 | teamAId, teamBId | string? |
 | teamAName, teamBName | string |
 | tournamentId | string? |
-| rules | map | Full customizable rules |
+| rules | map | See **Match rules** below |
+| mediaByCode | map? | CM1, CM2… media URLs |
+| scheduledAt | string? | ISO8601 |
+| createdBy | string | Creator uid |
+| scorerIds | array | Uids allowed to score |
+
+#### Match rules (`rules` map)
+| Field | Type | Notes |
+|-------|------|-------|
+| cricketMatchType | string | `limitedOvers`, `indoor`, `testMatch` (legacy: `boxTurf` → indoor) |
+| format | string | `standard`, `tennis`, `custom` |
+| ballType | string | `leather`, `tennis`, `indoor` |
+| totalOvers | number | |
+| ballsPerOver | number | |
+| oversPerBowler | number | |
+| wideRuns, noBallRuns | number | |
+| wideCountsAsLegalDelivery | boolean | |
+| noBallCountsAsLegalDelivery | boolean | |
+| freeHitEnabled | boolean | |
+| maxInnings, maxWickets | number | |
+| powerplaySlot1 | array | Over numbers for powerplay 1 |
+| powerplaySlot2 | array | Over numbers for powerplay 2 |
+| powerplaySlot3 | array | Over numbers for powerplay 3 |
+| wagonWheelDots | boolean | |
+| wagonWheelRuns123 | boolean | |
+| wagonWheelShotSelection | boolean | Off when `indoor` |
+| impactPlayerEnabled | boolean | |
+| pitchType | string? | `rough`, `cement`, `turf`, `astroturf`, `matting` |
+| matchOfficials | array | `umpires`, `scorers`, `liveStreamer`, `others` |
 | innings | array | Embedded innings snapshots |
 | currentInningsIndex | number |
 | location | map |

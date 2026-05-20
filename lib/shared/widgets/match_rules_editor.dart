@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/enums.dart';
+import '../../core/theme/app_dimens.dart';
 import '../../data/models/match_rules_model.dart';
 
 class MatchRulesEditor extends StatefulWidget {
@@ -119,17 +120,14 @@ class _MatchRulesEditorState extends State<MatchRulesEditor> {
   }
 
   Widget _numField(String label, int value, ValueChanged<int> onChanged) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        initialValue: value.toString(),
-        decoration: InputDecoration(labelText: label),
-        keyboardType: TextInputType.number,
-        onChanged: (t) {
-          final v = int.tryParse(t);
-          if (v != null) onChanged(v);
-        },
-      ),
+    return TextFormField(
+      initialValue: value.toString(),
+      decoration: InputDecoration(labelText: label),
+      keyboardType: TextInputType.number,
+      onChanged: (t) {
+        final v = int.tryParse(t);
+        if (v != null) onChanged(v);
+      },
     );
   }
 }

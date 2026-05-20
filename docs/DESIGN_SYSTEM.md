@@ -33,6 +33,12 @@ Compact Material 3 `TextTheme` (see `app_theme.dart` + `app_dimens.dart`):
 
 Global `visualDensity: compact` and reduced control heights (~40px buttons).
 
+## Form fields
+
+- **Underline style app-wide** — full-width labels, 16px input text, ~18px vertical padding (`CfInputTheme` / `inputDecorationTheme`).
+- Gold focus underline; optional `CfUnderlinedField`, `CfFormFieldGroup`, `CfPickerField` for forms.
+- Primary actions on forms: 52px height (`AppDimens.buttonHeightLarge`).
+
 ## Components
 
 - `ShellTabScaffold` — tab roots with **drawer** + hamburger in `CfChromeAppBar`

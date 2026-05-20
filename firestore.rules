@@ -24,6 +24,101 @@ service cloud.firestore {
       );
     }
 
+    // --- Match document validation (start-match + scoring fields) ---
+
+    function validCricketMatchType(t) {
+      // App supports limitedOvers | indoor | testMatch; legacy values kept for old docs.
+      return t in [
+        'limitedOvers',
+        'indoor',
+        'testMatch',
+        'boxTurf',
+        'pairCricket',
+        'theHundred',
+      ];
+    }
+
+    function validPitchType(t) {
+      return t in ['rough', 'cement', 'turf', 'astroturf', 'matting'];
+    }
+
+    function validMatchOfficialRole(r) {
+      return r in ['umpires', 'scorers', 'liveStreamer', 'others'];
+    }
+
+    function validPowerplaySlot(slot) {
+      return slot is list && slot.size() <= 50;
+    }
+
+    function validMatchRules(rules) {
+      return rules is map
+        && rules.keys().hasOnly([
+          'format',
+          'cricketMatchType',
+          'ballType',
+          'totalOvers',
+          'ballsPerOver',
+          'oversPerBowler',
+          'wideRuns',
+          'noBallRuns',
+          'freeHitEnabled',
+          'maxInnings',
+          'maxWickets',
+          'superOverEnabled',
+          'powerplayOvers',
+          'powerplaySlot1',
+          'powerplaySlot2',
+          'powerplaySlot3',
+          'wagonWheelEnabled',
+          'wagonWheelDots',
+          'wagonWheelRuns123',
+          'wagonWheelShotSelection',
+          'wideCountsAsLegalDelivery',
+          'noBallCountsAsLegalDelivery',
+          'impactPlayerEnabled',
+          'pitchType',
+          'matchOfficials',
+          'pointsPerWin',
+          'pointsPerTie',
+          'pointsPerLoss',
+          'extrasCountToBowler',
+          'lastManStanding',
+          'notes',
+        ])
+        && (!('cricketMatchType' in rules) || validCricketMatchType(rules.cricketMatchType))
+        && (!('pitchType' in rules) || validPitchType(rules.pitchType))
+        && (!('matchOfficials' in rules)
+            || (rules.matchOfficials is list
+                && rules.matchOfficials.size() <= 8))
+        && (!('powerplaySlot1' in rules) || validPowerplaySlot(rules.powerplaySlot1))
+        && (!('powerplaySlot2' in rules) || validPowerplaySlot(rules.powerplaySlot2))
+        && (!('powerplaySlot3' in rules) || validPowerplaySlot(rules.powerplaySlot3))
+        && (!('totalOvers' in rules) || (rules.totalOvers is int && rules.totalOvers > 0 && rules.totalOvers <= 200))
+        && (!('ballsPerOver' in rules) || (rules.ballsPerOver is int && rules.ballsPerOver >= 1 && rules.ballsPerOver <= 12))
+        && (!('oversPerBowler' in rules) || (rules.oversPerBowler is int && rules.oversPerBowler >= 1 && rules.oversPerBowler <= 50))
+        && (!('wideRuns' in rules) || (rules.wideRuns is int && rules.wideRuns >= 0 && rules.wideRuns <= 10))
+        && (!('noBallRuns' in rules) || (rules.noBallRuns is int && rules.noBallRuns >= 0 && rules.noBallRuns <= 10));
+    }
+
+    function validMatchCreate() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['title', 'teamAName', 'teamBName', 'rules', 'createdBy'])
+        && data.createdBy == request.auth.uid
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 200
+        && data.teamAName is string
+        && data.teamBName is string
+        && validMatchRules(data.rules)
+        && (!('mediaByCode' in data) || data.mediaByCode is map);
+    }
+
+    function validMatchUpdate() {
+      let data = request.resource.data;
+      return (!('rules' in data) || validMatchRules(data.rules))
+        && (!('mediaByCode' in data) || data.mediaByCode is map);
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId);
@@ -48,9 +143,9 @@ service cloud.firestore {
 
     match /matches/{matchId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isMatchScorer(matchId) || isMatchCreator(matchId);
+      allow create: if isSignedIn() && validMatchCreate();
+      allow update: if (isMatchScorer(matchId) || isMatchCreator(matchId))
+        && validMatchUpdate();
       allow delete: if isMatchCreator(matchId);
 
       match /ball_events/{eventId} {

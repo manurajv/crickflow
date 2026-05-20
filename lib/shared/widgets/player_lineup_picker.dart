@@ -173,7 +173,7 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
       padding: const EdgeInsets.only(bottom: 8),
       child: DropdownButtonFormField<LineupPlayer>(
         value: options.contains(value) ? value : options.first,
-        decoration: InputDecoration(labelText: label, isDense: true),
+        decoration: InputDecoration(labelText: label),
         items: options
             .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
             .toList(),

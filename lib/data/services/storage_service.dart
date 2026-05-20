@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/utils/match_media_naming.dart';
 
 class StorageService {
   StorageService({FirebaseStorage? storage})
@@ -49,6 +50,52 @@ class StorageService {
     await ref.putFile(
       file,
       SettableMetadata(contentType: 'image/jpeg'),
+    );
+    return ref.getDownloadURL();
+  }
+
+  /// Picks image or video for match setup; [mediaCode] must be CM1, CM2, …
+  Future<({File file, bool isVideo})?> pickMatchMedia({
+    ImageSource source = ImageSource.gallery,
+    bool preferVideo = false,
+  }) async {
+    if (preferVideo) {
+      final video = await _picker.pickVideo(source: source);
+      if (video == null) return null;
+      return (file: File(video.path), isVideo: true);
+    }
+    final image = await _picker.pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 88,
+    );
+    if (image == null) return null;
+    return (file: File(image.path), isVideo: false);
+  }
+
+  /// Uploads to `matches/{matchId}/media/CM{n}.jpg` (or .mp4).
+  Future<String> uploadMatchMedia({
+    required String matchId,
+    required String mediaCode,
+    required File file,
+    bool isVideo = false,
+  }) async {
+    if (!mediaCode.startsWith(MatchMediaNaming.prefix)) {
+      throw ArgumentError('Media code must be CM1, CM2, … got $mediaCode');
+    }
+    final ext = isVideo ? 'mp4' : 'jpg';
+    final contentType = isVideo ? 'video/mp4' : 'image/jpeg';
+    final ref = _storage.ref().child('matches/$matchId/media/$mediaCode.$ext');
+    await ref.putFile(
+      file,
+      SettableMetadata(
+        contentType: contentType,
+        customMetadata: {
+          'mediaCode': mediaCode,
+          'originalName': '$mediaCode.$ext',
+        },
+      ),
     );
     return ref.getDownloadURL();
   }

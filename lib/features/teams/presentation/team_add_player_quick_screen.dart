@@ -110,10 +110,7 @@ class _TeamAddPlayerQuickScreenState
                       ),
                       DropdownButtonFormField<String>(
                         initialValue: _role,
-                        decoration: CfUnderlinedField.decoration(
-                          context,
-                          label: 'Role',
-                        ),
+                        decoration: const InputDecoration(labelText: 'Role'),
                         items: const [
                           'Player',
                           'Captain',

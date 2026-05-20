@@ -62,8 +62,7 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
           child: TextField(
             decoration: const InputDecoration(
               hintText: 'Quick search',
-              prefixIcon: Icon(Icons.search, size: 20),
-              isDense: true,
+              prefixIcon: Icon(Icons.search, size: 22),
             ),
             onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
           ),
