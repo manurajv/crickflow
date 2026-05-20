@@ -40,56 +40,56 @@ class LiveScoringPlayersStrip extends StatelessWidget {
     final bowler = ScoringDisplayUtils.bowler(innings, innings.currentBowlerId);
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          color: const Color(0xFF2A3142),
+          color: AppColors.surfaceElevated,
           padding: const EdgeInsets.symmetric(
-            vertical: AppDimens.spaceMd,
-            horizontal: AppDimens.spaceLg,
+            vertical: 6,
+            horizontal: AppDimens.spaceSm,
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                Expanded(
-                  child: _BatsmanCell(
-                    name: striker?.playerName ?? 'Striker',
-                    score: ScoringDisplayUtils.batsmanScoreLine(striker),
-                    isOnStrike: true,
-                    onReplace: onReplaceStriker,
-                  ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _BatsmanCell(
+                  name: striker?.playerName ?? 'Striker',
+                  score: ScoringDisplayUtils.batsmanScoreLine(striker),
+                  isOnStrike: true,
+                  onReplace: onReplaceStriker,
                 ),
-                VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: Colors.white.withValues(alpha: 0.12),
+              ),
+              Container(
+                width: 1,
+                height: 44,
+                color: AppColors.border,
+              ),
+              Expanded(
+                child: _BatsmanCell(
+                  name: nonStriker?.playerName ?? 'Non-striker',
+                  score: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
+                  isOnStrike: false,
+                  onReplace: onReplaceNonStriker,
                 ),
-                Expanded(
-                  child: _BatsmanCell(
-                    name: nonStriker?.playerName ?? 'Non-striker',
-                    score: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
-                    isOnStrike: false,
-                    onReplace: onReplaceNonStriker,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         Container(
-          color: const Color(0xFF232B3A),
+          color: AppColors.card,
           padding: const EdgeInsets.fromLTRB(
             AppDimens.spaceMd,
             AppDimens.spaceMd,
             AppDimens.spaceMd,
-            AppDimens.spaceSm,
+            0,
           ),
+          margin: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
                   Icon(
-                    Icons.sports_cricket,
+                    Icons.sports_baseball_outlined,
                     size: 20,
                     color: AppColors.primaryBlue.withValues(alpha: 0.9),
                   ),
@@ -100,7 +100,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -111,7 +111,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFB0BEC5),
+                      color: AppColors.textSecondary,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -123,26 +123,34 @@ class LiveScoringPlayersStrip extends StatelessWidget {
               ),
               const SizedBox(height: AppDimens.spaceMd),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _BowlingSideOption(
-                    label: 'Over the\nwicket',
-                    selected: bowlingSide == BowlingSide.over,
-                    lineAlign: Alignment.centerLeft,
-                    onTap: () => onBowlingSideChanged?.call(BowlingSide.over),
+                  Expanded(
+                    child: _BowlingSideOption(
+                      label: 'Over the wicket',
+                      selected: bowlingSide == BowlingSide.over,
+                      activeLineIndex: 0,
+                      onTap: () =>
+                          onBowlingSideChanged?.call(BowlingSide.over),
+                    ),
                   ),
-                  _BowlingSideOption(
-                    label: 'Between\nthe wicket',
-                    selected: bowlingSide == BowlingSide.between,
-                    lineAlign: Alignment.center,
-                    onTap: () =>
-                        onBowlingSideChanged?.call(BowlingSide.between),
+                  Expanded(
+                    child: _BowlingSideOption(
+                      label: 'Between the wicket',
+                      selected: bowlingSide == BowlingSide.between,
+                      activeLineIndex: 1,
+                      onTap: () =>
+                          onBowlingSideChanged?.call(BowlingSide.between),
+                    ),
                   ),
-                  _BowlingSideOption(
-                    label: 'Round the\nwicket',
-                    selected: bowlingSide == BowlingSide.round,
-                    lineAlign: Alignment.centerRight,
-                    onTap: () => onBowlingSideChanged?.call(BowlingSide.round),
+                  Expanded(
+                    child: _BowlingSideOption(
+                      label: 'Round the wicket',
+                      selected: bowlingSide == BowlingSide.round,
+                      activeLineIndex: 2,
+                      onTap: () =>
+                          onBowlingSideChanged?.call(BowlingSide.round),
+                    ),
                   ),
                 ],
               ),
@@ -174,41 +182,58 @@ class _BatsmanCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent =
-        isOnStrike ? AppColors.primaryBlue : const Color(0xFF90A4AE);
+        isOnStrike ? AppColors.gold : AppColors.textMuted;
 
-    return Column(
-      children: [
-        Icon(
-          Icons.sports_cricket,
-          size: 18,
-          color: accent,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          name,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: Colors.white,
-            height: 1.2,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.sports_cricket, size: 15, color: accent),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      score,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    if (onReplace != null) ...[
+                      Text(
+                        ' · ',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      _ReplaceLink(label: 'Replace', onTap: onReplace!),
+                    ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          score,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.white.withValues(alpha: 0.7),
-          ),
-        ),
-        if (onReplace != null) ...[
-          const SizedBox(height: 4),
-          _ReplaceLink(label: 'Replace', onTap: onReplace!),
         ],
-      ],
+      ),
     );
   }
 }
@@ -228,9 +253,9 @@ class _ReplaceLink extends StatelessWidget {
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: AppColors.primaryBlue,
+          color: AppColors.gold,
           decoration: TextDecoration.underline,
-          decorationColor: AppColors.primaryBlue,
+          decorationColor: AppColors.gold,
         ),
       ),
     );
@@ -241,90 +266,85 @@ class _BowlingSideOption extends StatelessWidget {
   const _BowlingSideOption({
     required this.label,
     required this.selected,
-    required this.lineAlign,
+    required this.activeLineIndex,
     required this.onTap,
   });
 
   final String label;
   final bool selected;
-  final Alignment lineAlign;
+  /// 0 = left line, 1 = middle, 2 = right.
+  final int activeLineIndex;
   final VoidCallback onTap;
+
+  static const _iconH = 40.0;
+  static const _lineGap = 3.0;
+  static const _lineW = 2.5;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          SizedBox(
-            width: 56,
-            height: 40,
-            child: CustomPaint(
-              painter: _StumpsLinePainter(
-                align: lineAlign,
-                color: selected
-                    ? AppColors.primaryBlue
-                    : Colors.white.withValues(alpha: 0.25),
+    final activeColor =
+        selected ? AppColors.gold : AppColors.textMuted.withValues(alpha: 0.5);
+    final idleColor = AppColors.textMuted.withValues(alpha: 0.22);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: _iconH,
+                width: double.infinity,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < 3; i++) ...[
+                        if (i > 0) const SizedBox(width: _lineGap),
+                        Container(
+                          width: _lineW,
+                          margin: const EdgeInsets.symmetric(vertical: 5),
+                          decoration: BoxDecoration(
+                            color: i == activeLineIndex
+                                ? activeColor
+                                : idleColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1.2,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected
+                        ? AppColors.textPrimary
+                        : AppColors.textMuted,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 9,
-              height: 1.15,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? Colors.white : const Color(0xFF78909C),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
-}
-
-class _StumpsLinePainter extends CustomPainter {
-  _StumpsLinePainter({required this.align, required this.color});
-
-  final Alignment align;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    final cx = size.width / 2;
-    final stumpW = 4.0;
-    for (var i = -1; i <= 1; i++) {
-      final x = cx + i * stumpW * 2.5;
-      canvas.drawLine(Offset(x, 4), Offset(x, size.height - 4), paint);
-    }
-
-    final linePaint = Paint()
-      ..color = color
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    final dx = switch (align) {
-      Alignment.centerLeft => size.width * 0.15,
-      Alignment.centerRight => size.width * 0.85,
-      _ => size.width / 2,
-    };
-    canvas.drawLine(
-      Offset(dx, size.height * 0.35),
-      Offset(dx, size.height * 0.9),
-      linePaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _StumpsLinePainter old) =>
-      old.color != color || old.align != align;
 }
 
 class _OverTimeline extends StatelessWidget {
@@ -353,9 +373,9 @@ class _OverTimeline extends StatelessWidget {
                     ? AppColors.accentRed
                     : isBoundary
                         ? AppColors.gold.withValues(alpha: 0.35)
-                        : const Color(0xFF3A4556),
+                        : AppColors.surfaceElevated,
                 border: Border.all(
-                  color: isBoundary ? AppColors.gold : const Color(0xFF4A5568),
+                  color: isBoundary ? AppColors.gold : AppColors.border,
                 ),
               ),
               child: Text(
@@ -363,7 +383,7 @@ class _OverTimeline extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: isWicket ? Colors.white : Colors.white,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),

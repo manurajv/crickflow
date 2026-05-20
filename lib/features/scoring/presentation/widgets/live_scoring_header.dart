@@ -6,7 +6,7 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../utils/scoring_display_utils.dart';
 
-/// Scoreboard header with toss line and powerplay badge (reference-style).
+/// Scoreboard header — centered, CrickFlow theme.
 class LiveScoringHeader extends StatelessWidget {
   const LiveScoringHeader({
     super.key,
@@ -30,115 +30,166 @@ class LiveScoringHeader extends StatelessWidget {
     final oversText = oversDone == oversDone.roundToDouble()
         ? '${oversDone.toInt()}'
         : oversDone.toStringAsFixed(1);
+    final crr = ScoringDisplayUtils.currentRunRate(innings, rules);
+    final chase = ScoringDisplayUtils.chaseDisplay(match, innings, rules);
 
     return Container(
       width: double.infinity,
+      height: double.infinity,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF121820),
-            Color(0xFF1A2332),
-            AppColors.surface,
-          ],
-        ),
+        gradient: AppColors.heroGradient,
       ),
       child: Stack(
         children: [
           Positioned(
-            right: 24,
+            right: 16,
             top: 8,
             child: Icon(
-              Icons.fence_outlined,
-              size: 72,
-              color: Colors.white.withValues(alpha: 0.06),
+              Icons.sports_cricket,
+              size: 80,
+              color: AppColors.gold.withValues(alpha: 0.08),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppDimens.spaceMd,
-              AppDimens.spaceSm,
-              AppDimens.spaceMd,
-              AppDimens.spaceMd,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (ppLabel != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryBlue,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      ppLabel,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.spaceMd,
+                vertical: AppDimens.spaceMd,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        if (ppLabel != null) ...[
+                          Container(
+                            margin: const EdgeInsets.only(right: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBlue,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.gold.withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: Text(
+                              ppLabel,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.gold,
+                              ),
+                            ),
+                          ),
+                        ],
+                        Text(
+                          '${innings.totalRuns}/${innings.totalWickets}',
+                          style: const TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            height: 1,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '($oversText/${rules.totalOvers})',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: AppDimens.spaceSm),
-                ],
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
+                  const SizedBox(height: 10),
+                  Text(
+                    'CRR ${crr.toStringAsFixed(2)}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  if (chase != null && chase.isChasing) ...[
+                    const SizedBox(height: 8),
                     Text(
-                      '${innings.totalRuns}/${innings.totalWickets}',
+                      'Need ${chase.runsNeeded} runs in ${chase.ballsRemaining} balls',
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        height: 1,
-                        letterSpacing: -0.5,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.gold,
+                        height: 1.25,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(height: 4),
                     Text(
-                      '($oversText/${rules.totalOvers})',
+                      'CRR ${chase.currentRunRate.toStringAsFixed(2)} · '
+                      'RRR ${chase.requiredRunRate.toStringAsFixed(2)}',
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFFB0BEC5),
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ] else if (chase != null && !chase.isChasing) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Target ${chase.target} reached',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accentGreen,
                       ),
                     ),
                   ],
-                ),
-                if (tossLine != null) ...[
-                  const SizedBox(height: AppDimens.spaceSm),
-                  Text(
-                    tossLine,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                      height: 1.3,
+                  if (tossLine != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      tossLine,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                      ),
                     ),
-                  ),
-                ],
-                if (innings.isFreeHitActive) ...[
-                  const SizedBox(height: 6),
-                  const Text(
-                    'FREE HIT',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.gold,
-                      letterSpacing: 1.2,
+                  ],
+                  if (innings.isFreeHitActive) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'FREE HIT',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.gold,
+                        letterSpacing: 1.2,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],

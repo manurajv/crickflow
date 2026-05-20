@@ -6,6 +6,7 @@ import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/innings_model.dart';
+import '../../../data/models/lineup_player.dart';
 import '../../../data/models/match_model.dart';
 import '../../../domain/services/commentary_service.dart';
 import '../../../domain/services/scoring_engine.dart';
@@ -63,12 +64,18 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (match == null) return;
 
     final inn = match.currentInnings;
-    if (inn?.strikerId == null || inn?.currentBowlerId == null) {
+    if (inn?.currentBowlerId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Set lineup before scoring')),
         );
         _openLineupSheet(match);
+      }
+      return;
+    }
+    if (inn?.strikerId == null || inn?.nonStrikerId == null) {
+      if (mounted) {
+        await _fillVacantCrease(match, inn!);
       }
       return;
     }
@@ -145,10 +152,24 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     );
   }
 
-  Future<void> _pickBowlerForNextOver(MatchModel match, int overNumber) async {
+  Future<void> _pickBowlerForNextOver(
+    MatchModel match,
+    int overNumber, {
+    bool excludeLastOverBowler = true,
+  }) async {
     final squads =
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
     if (squads == null || squads.bowling.isEmpty) return;
+
+    final inn = match.currentInnings!;
+    final excluded = <String>{};
+    if (excludeLastOverBowler) {
+      final id = ScoringDisplayUtils.bowlerExcludedForNextOver(
+        inn,
+        match.rules.ballsPerOver,
+      );
+      if (id != null) excluded.add(id);
+    }
 
     await showModalBottomSheet<void>(
       context: context,
@@ -156,10 +177,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => SelectBowlerSheet(
         match: match,
-        innings: match.currentInnings!,
+        innings: inn,
         bowlingSquad: squads.bowling,
         overNumber: overNumber,
         ballsPerOver: match.rules.ballsPerOver,
+        excludedBowlerIds: excluded,
         onSelected: (p) async {
           final inn = match.currentInnings!;
           await ref.read(matchRepositoryProvider).updateLineup(
@@ -188,6 +210,142 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       type: BallEventType.wicket,
       wicketType: type,
     ));
+    if (!mounted) return;
+    final updated = ref.read(matchProvider(widget.matchId)).valueOrNull;
+    final inn = updated?.currentInnings;
+    if (updated != null && inn != null) {
+      await _fillVacantCrease(updated, inn);
+    }
+  }
+
+  Future<void> _fillVacantCrease(MatchModel match, InningsModel inn) async {
+    if (inn.strikerId != null && inn.nonStrikerId != null) return;
+
+    final needStriker = inn.strikerId == null;
+    await _pickBatsman(
+      match,
+      inn,
+      forStriker: needStriker,
+      title: needStriker ? 'Select striker' : 'Select non-striker',
+    );
+
+    if (!mounted) return;
+    final after = ref.read(matchProvider(widget.matchId)).valueOrNull;
+    final afterInn = after?.currentInnings;
+    if (after != null &&
+        afterInn != null &&
+        (afterInn.strikerId == null || afterInn.nonStrikerId == null)) {
+      await _pickBatsman(
+        after,
+        afterInn,
+        forStriker: afterInn.strikerId == null,
+        title: afterInn.strikerId == null
+            ? 'Select striker'
+            : 'Select non-striker',
+      );
+    }
+  }
+
+  Future<void> _pickBatsman(
+    MatchModel match,
+    InningsModel inn, {
+    required bool forStriker,
+    required String title,
+  }) async {
+    final squads =
+        ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
+    if (squads == null) return;
+
+    final otherId = forStriker ? inn.nonStrikerId : inn.strikerId;
+    final eligible = ScoringDisplayUtils.eligibleBatters(
+      inn,
+      squads.batting,
+      idOf: (p) => p.id,
+      excludePlayerId: otherId,
+    );
+
+    if (eligible.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No batters available')),
+        );
+      }
+      return;
+    }
+
+    final picked = await showModalBottomSheet<LineupPlayer>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                title,
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: eligible.length,
+                itemBuilder: (_, i) {
+                  final p = eligible[i];
+                  return ListTile(
+                    leading: const Icon(Icons.sports_cricket),
+                    title: Text(p.name),
+                    onTap: () => Navigator.pop(ctx, p),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (picked == null || !mounted) return;
+
+    final latest = ref.read(matchProvider(widget.matchId)).valueOrNull;
+    final latestInn = latest?.currentInnings;
+    if (latest == null || latestInn == null) return;
+
+    try {
+      await ref.read(matchRepositoryProvider).updateLineup(
+            matchId: widget.matchId,
+            strikerId: forStriker
+                ? picked.id
+                : (latestInn.strikerId ?? picked.id),
+            strikerName: forStriker
+                ? picked.name
+                : ScoringDisplayUtils.batsman(latestInn, latestInn.strikerId)
+                        ?.playerName ??
+                    picked.name,
+            nonStrikerId: forStriker
+                ? (latestInn.nonStrikerId ?? picked.id)
+                : picked.id,
+            nonStrikerName: forStriker
+                ? ScoringDisplayUtils.batsman(
+                        latestInn, latestInn.nonStrikerId)
+                    ?.playerName ??
+                    picked.name
+                : picked.name,
+            bowlerId: latestInn.currentBowlerId!,
+            bowlerName: ScoringDisplayUtils.bowler(
+                  latestInn,
+                  latestInn.currentBowlerId,
+                )?.playerName ??
+                '',
+          );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
+    }
   }
 
   Future<void> _recordExtra(
@@ -265,19 +423,36 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final inn = match.currentInnings;
     if (squads == null || inn == null) return;
 
-    final picked = await showModalBottomSheet<String>(
+    final eligible = ScoringDisplayUtils.eligibleBatters(
+      inn,
+      squads.batting,
+      idOf: (p) => p.id,
+      excludePlayerId: striker ? inn.nonStrikerId : inn.strikerId,
+    );
+
+    if (eligible.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No available batters (out players cannot bat again)'),
+          ),
+        );
+      }
+      return;
+    }
+
+    final picked = await showModalBottomSheet<LineupPlayer>(
       context: context,
       backgroundColor: AppColors.surface,
       builder: (ctx) => SafeArea(
         child: ListView(
           shrinkWrap: true,
-          children: squads.batting
-              .where((p) =>
-                  p.id != (striker ? inn.nonStrikerId : inn.strikerId))
+          children: eligible
               .map(
                 (p) => ListTile(
+                  leading: const Icon(Icons.sports_cricket),
                   title: Text(p.name),
-                  onTap: () => Navigator.pop(ctx, p.id),
+                  onTap: () => Navigator.pop(ctx, p),
                 ),
               )
               .toList(),
@@ -286,15 +461,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     );
     if (picked == null || !mounted) return;
 
-    final player = squads.batting.firstWhere((p) => p.id == picked);
+    final player = picked;
     await ref.read(matchRepositoryProvider).updateLineup(
           matchId: widget.matchId,
-          strikerId: striker ? picked : inn.strikerId!,
+          strikerId: striker ? picked.id : inn.strikerId!,
           strikerName: striker
               ? player.name
               : ScoringDisplayUtils.batsman(inn, inn.strikerId)?.playerName ??
                   '',
-          nonStrikerId: striker ? inn.nonStrikerId! : picked,
+          nonStrikerId: striker ? inn.nonStrikerId! : picked.id,
           nonStrikerName: striker
               ? ScoringDisplayUtils.batsman(inn, inn.nonStrikerId)
                       ?.playerName ??
@@ -310,14 +485,28 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   Future<void> _replaceBowler(MatchModel match) async {
     final inn = match.currentInnings;
     if (inn == null) return;
-    final overNum = inn.legalBalls ~/ match.rules.ballsPerOver + 1;
-    await _pickBowlerForNextOver(match, overNum);
+    final bpo = match.rules.ballsPerOver;
+    final overNum = inn.legalBalls ~/ bpo + 1;
+    final atOverStart = inn.legalBalls % bpo == 0;
+    await _pickBowlerForNextOver(
+      match,
+      overNum,
+      excludeLastOverBowler: atOverStart,
+    );
   }
 
   void _openLineupSheet(MatchModel match) {
     final squadsAsync = ref.read(matchLineupSquadsProvider(widget.matchId));
     final inn = match.currentInnings;
     squadsAsync.whenData((squads) {
+      final inn = match.currentInnings;
+      final batting = inn == null
+          ? squads.batting
+          : ScoringDisplayUtils.eligibleBatters(
+              inn,
+              squads.batting,
+              idOf: (p) => p.id,
+            );
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -326,7 +515,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
           child: PlayerLineupPicker(
-            battingSquad: squads.batting,
+            battingSquad: batting,
             bowlingSquad: squads.bowling,
             initialStrikerId: inn?.strikerId,
             initialNonStrikerId: inn?.nonStrikerId,
@@ -415,10 +604,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final uid = ref.watch(authStateProvider).value?.uid;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A2332),
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.chromeBackground,
+        foregroundColor: AppColors.chromeForeground,
         elevation: 0,
         title: matchAsync.when(
           data: (m) {
@@ -434,6 +623,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
                 letterSpacing: 0.3,
+                color: AppColors.textPrimary,
               ),
             );
           },
@@ -442,7 +632,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.ios_share_outlined, color: Colors.white),
+            icon: const Icon(
+              Icons.ios_share_outlined,
+              color: AppColors.chromeForeground,
+            ),
             tooltip: 'Share',
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -451,7 +644,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+            icon: const Icon(
+              Icons.settings_outlined,
+              color: AppColors.chromeForeground,
+            ),
             onPressed: () {
               final m = matchAsync.valueOrNull;
               if (m != null) _openMatchRules(m);
@@ -494,14 +690,20 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
           return Column(
             children: [
-              LiveScoringHeader(
-                match: match,
-                innings: inn,
-                rules: match.rules,
+              Flexible(
+                flex: 30,
+                fit: FlexFit.tight,
+                child: LiveScoringHeader(
+                  match: match,
+                  innings: inn,
+                  rules: match.rules,
+                ),
               ),
               if (needsLineup)
                 MaterialBanner(
-                  content: const Text('Tap to set striker, non-striker & bowler'),
+                  content: const Text(
+                    'Tap to set striker, non-striker & bowler',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => _openLineupSheet(match),
@@ -521,69 +723,79 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                 onReplaceNonStriker: needsLineup
                     ? null
                     : () => _replaceBatsman(match, striker: false),
-                onReplaceBowler: needsLineup
-                    ? null
-                    : () => _replaceBowler(match),
+                onReplaceBowler:
+                    needsLineup ? null : () => _replaceBowler(match),
               ),
-              Expanded(
-                child: LiveScoringKeypad(
-                  isBusy: _isRecording,
-                  onRun: (r) => _record(
-                    BallEventInput(type: BallEventType.runs, runs: r),
-                  ),
-                  onWide: () => _recordExtra(
-                    () => ScoringExtraDialogs.showWide(
-                      context,
-                      rules: match.rules,
-                    ),
-                  ),
-                  onNoBall: () => _recordExtra(
-                    () => ScoringExtraDialogs.showNoBall(
-                      context,
-                      rules: match.rules,
-                    ),
-                  ),
-                  onBye: () async {
-                    final input = await ScoringExtraDialogs.showBye(context);
-                    if (input != null) await _record(input);
-                  },
-                  onLegBye: () async {
-                    final input =
-                        await ScoringExtraDialogs.showLegBye(context);
-                    if (input != null) await _record(input);
-                  },
-                  onOut: _recordWicket,
-                  onUndo: _undo,
-                ),
-              ),
-              InkWell(
-                onTap: () => _openQuickOptions(match),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE8EAED),
-                    border: Border(
-                      top: BorderSide(color: Color(0xFFD0D5DC)),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Scoring shortcuts',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: Color(0xFF607D8B),
+              Flexible(
+                flex: 40,
+                fit: FlexFit.tight,
+                child: LayoutBuilder(
+                  builder: (context, keypadConstraints) {
+                    return LiveScoringKeypad(
+                      height: keypadConstraints.maxHeight,
+                      isBusy: _isRecording,
+                      onRun: (r) => _record(
+                        BallEventInput(type: BallEventType.runs, runs: r),
+                      ),
+                      onWide: () => _recordExtra(
+                        () => ScoringExtraDialogs.showWide(
+                          context,
+                          rules: match.rules,
                         ),
                       ),
-                      Icon(
-                        Icons.keyboard_arrow_up,
-                        color: Color(0xFF90A4AE),
-                        size: 22,
+                      onNoBall: () => _recordExtra(
+                        () => ScoringExtraDialogs.showNoBall(
+                          context,
+                          rules: match.rules,
+                        ),
                       ),
-                    ],
+                      onBye: () async {
+                        final input =
+                            await ScoringExtraDialogs.showBye(context);
+                        if (input != null) await _record(input);
+                      },
+                      onLegBye: () async {
+                        final input =
+                            await ScoringExtraDialogs.showLegBye(context);
+                        if (input != null) await _record(input);
+                      },
+                      onOut: _recordWicket,
+                      onUndo: _undo,
+                    );
+                  },
+                ),
+              ),
+              SizedBox(
+                height: 46,
+                child: InkWell(
+                  onTap: () => _openQuickOptions(match),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      border: Border(
+                        top: BorderSide(color: AppColors.border),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Scoring shortcuts',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Icon(
+                          Icons.keyboard_arrow_up,
+                          color: AppColors.gold,
+                          size: 22,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

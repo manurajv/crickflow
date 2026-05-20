@@ -143,11 +143,20 @@ class ScoringEngine {
       isFreeHit = true;
     }
 
+    var strikerId = innings.strikerId;
+    var nonStrikerId = innings.nonStrikerId;
+
     if (event.eventType == BallEventType.wicket) {
       if (!(event.isFreeHit && event.wicketType != WicketType.runOut)) {
         totalWickets++;
         partnershipRuns = 0;
         partnershipBalls = 0;
+        final dismissedId =
+            event.dismissedPlayerId ?? event.strikerId ?? strikerId;
+        if (dismissedId != null) {
+          if (dismissedId == strikerId) strikerId = null;
+          if (dismissedId == nonStrikerId) nonStrikerId = null;
+        }
       }
     }
 
@@ -169,10 +178,24 @@ class ScoringEngine {
       );
     }
 
+    if (event.eventType == BallEventType.wicket &&
+        !(event.isFreeHit && event.wicketType != WicketType.runOut)) {
+      final dismissedId =
+          event.dismissedPlayerId ?? event.strikerId ?? innings.strikerId;
+      if (dismissedId != null) {
+        batsmen = _markBatsmanOut(
+          batsmen,
+          dismissedId,
+          event.wicketType?.name ?? 'out',
+        );
+      }
+    }
+
     // Strike rotation on odd runs
-    var strikerId = innings.strikerId;
-    var nonStrikerId = innings.nonStrikerId;
-    if (event.batsmanRuns.isOdd && event.isLegalDelivery) {
+    if (event.batsmanRuns.isOdd &&
+        event.isLegalDelivery &&
+        strikerId != null &&
+        nonStrikerId != null) {
       final temp = strikerId;
       strikerId = nonStrikerId;
       nonStrikerId = temp;
@@ -181,7 +204,9 @@ class ScoringEngine {
     // End of over rotation
     if (event.isLegalDelivery &&
         legalBalls % rules.ballsPerOver == 0 &&
-        legalBalls > 0) {
+        legalBalls > 0 &&
+        strikerId != null &&
+        nonStrikerId != null) {
       final temp = strikerId;
       strikerId = nonStrikerId;
       nonStrikerId = temp;
@@ -235,6 +260,36 @@ class ScoringEngine {
       legalBalls: legalBalls,
       extras: extras,
     );
+  }
+
+  List<BatsmanInningsModel> _markBatsmanOut(
+    List<BatsmanInningsModel> list,
+    String playerId,
+    String dismissal,
+  ) {
+    final idx = list.indexWhere((b) => b.playerId == playerId);
+    if (idx >= 0) {
+      final b = list[idx];
+      list[idx] = BatsmanInningsModel(
+        playerId: b.playerId,
+        playerName: b.playerName,
+        runs: b.runs,
+        balls: b.balls,
+        fours: b.fours,
+        sixes: b.sixes,
+        isOut: true,
+        dismissalInfo: dismissal,
+      );
+    } else {
+      list.add(
+        BatsmanInningsModel(
+          playerId: playerId,
+          isOut: true,
+          dismissalInfo: dismissal,
+        ),
+      );
+    }
+    return list;
   }
 
   List<BatsmanInningsModel> _updateBatsman(

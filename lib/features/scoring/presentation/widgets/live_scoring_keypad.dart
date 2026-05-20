@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimens.dart';
 
-/// Reference-style keypad: extras + undo/out on the left, runs on the right.
+/// Extras row + left column (UNDO / 5,7 / OUT) + run grid (0–6).
+/// Run rows are 1.5× the height of side keys; all keys share the same width.
 class LiveScoringKeypad extends StatelessWidget {
   const LiveScoringKeypad({
     super.key,
+    required this.height,
     required this.onRun,
     required this.onWide,
     required this.onNoBall,
@@ -16,6 +17,7 @@ class LiveScoringKeypad extends StatelessWidget {
     required this.isBusy,
   });
 
+  final double height;
   final void Function(int runs) onRun;
   final VoidCallback onWide;
   final VoidCallback onNoBall;
@@ -25,100 +27,201 @@ class LiveScoringKeypad extends StatelessWidget {
   final VoidCallback onUndo;
   final bool isBusy;
 
-  static const _keyBg = Color(0xFFFFFFFF);
-  static const _panelBg = Color(0xFFF0F2F5);
-  static const _border = Color(0xFFE0E4EA);
-  static const _textDark = Color(0xFF263238);
+  static const _cols = 4;
+  static const _gap = 1.0;
+  static const _runRowMultiplier = 1.5;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: _panelBg,
-      padding: const EdgeInsets.all(6),
-      child: Column(
-        children: [
-          Expanded(
+    final bodyH = height - (isBusy ? 3.0 : 0);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final colW =
+            (constraints.maxWidth - _gap * (_cols + 1)) / _cols;
+        final extrasH = (bodyH * 0.22).clamp(36.0, 48.0);
+        final mainH = bodyH - extrasH - _gap * 2;
+        final sideKeyH = (mainH - _gap * 2) / 3;
+        final runRowH = sideKeyH * _runRowMultiplier;
+
+        Widget cell({
+          required String label,
+          required VoidCallback onTap,
+          required double w,
+          required double h,
+          Color? accent,
+          bool bold = false,
+          String? sublabel,
+          double labelSize = 22,
+        }) {
+          return SizedBox(
+            width: w,
+            height: h,
+            child: _Key(
+              label: label,
+              onTap: onTap,
+              accent: accent,
+              bold: bold,
+              sublabel: sublabel,
+              fontSize: labelSize,
+            ),
+          );
+        }
+
+        Widget gapW() => SizedBox(width: _gap);
+        Widget gapH() => SizedBox(height: _gap);
+
+        Widget extrasRow() {
+          return SizedBox(
+            height: extrasH,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Column(
+                gapW(),
+                cell(label: 'WD', onTap: onWide, w: colW, h: extrasH, labelSize: 14),
+                gapW(),
+                cell(label: 'NB', onTap: onNoBall, w: colW, h: extrasH, labelSize: 14),
+                gapW(),
+                cell(label: 'BYE', onTap: onBye, w: colW, h: extrasH, labelSize: 14),
+                gapW(),
+                cell(label: 'LB', onTap: onLegBye, w: colW, h: extrasH, labelSize: 14),
+                gapW(),
+              ],
+            ),
+          );
+        }
+
+        return ColoredBox(
+          color: AppColors.card,
+          child: SizedBox(
+            height: bodyH,
+            child: Column(
+              children: [
+                gapH(),
+                extrasRow(),
+                gapH(),
+                SizedBox(
+                  height: mainH,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: _LeftKey('WD', onTap: onWide),
-                      ),
-                      Expanded(
-                        child: _LeftKey('NB', onTap: onNoBall),
-                      ),
-                      Expanded(
-                        child: _LeftKey('BYE', onTap: onBye),
-                      ),
-                      Expanded(
-                        child: _LeftKey('LB', onTap: onLegBye),
-                      ),
-                      Expanded(
-                        child: _LeftKey(
-                          'UNDO',
-                          accent: AppColors.primaryBlue,
-                          onTap: onUndo,
-                        ),
-                      ),
-                      Expanded(
-                        child: _LeftKey(
-                          '5, 7',
-                          onTap: () => _showOddRuns(context),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: _LeftKey(
-                          'OUT',
-                          accent: AppColors.accentRed,
-                          bold: true,
-                          onTap: onOut,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  flex: 4,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Row(
+                      gapW(),
+                      SizedBox(
+                        width: colW,
+                        child: Column(
                           children: [
-                            _RunKey('0', onTap: () => onRun(0)),
-                            _RunKey('1', onTap: () => onRun(1)),
-                            _RunKey('2', onTap: () => onRun(2)),
+                            cell(
+                              label: 'UNDO',
+                              onTap: onUndo,
+                              w: colW,
+                              h: sideKeyH,
+                              accent: AppColors.gold,
+                              labelSize: 13,
+                            ),
+                            gapH(),
+                            cell(
+                              label: '5, 7',
+                              onTap: () => _showOddRuns(context),
+                              w: colW,
+                              h: sideKeyH,
+                              labelSize: 13,
+                            ),
+                            gapH(),
+                            cell(
+                              label: 'OUT',
+                              onTap: onOut,
+                              w: colW,
+                              h: sideKeyH,
+                              accent: AppColors.accentRed,
+                              bold: true,
+                              labelSize: 14,
+                            ),
                           ],
                         ),
                       ),
+                      gapW(),
                       Expanded(
-                        child: Row(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _RunKey('3', onTap: () => onRun(3)),
-                            _RunKey('4', sublabel: 'Four', onTap: () => onRun(4)),
-                            _RunKey('6', sublabel: 'Six', onTap: () => onRun(6)),
+                            SizedBox(
+                              height: runRowH,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  cell(
+                                    label: '0',
+                                    onTap: () => onRun(0),
+                                    w: colW,
+                                    h: runRowH,
+                                  ),
+                                  gapW(),
+                                  cell(
+                                    label: '1',
+                                    onTap: () => onRun(1),
+                                    w: colW,
+                                    h: runRowH,
+                                  ),
+                                  gapW(),
+                                  cell(
+                                    label: '2',
+                                    onTap: () => onRun(2),
+                                    w: colW,
+                                    h: runRowH,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            gapH(),
+                            SizedBox(
+                              height: runRowH,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  cell(
+                                    label: '3',
+                                    onTap: () => onRun(3),
+                                    w: colW,
+                                    h: runRowH,
+                                  ),
+                                  gapW(),
+                                  cell(
+                                    label: '4',
+                                    onTap: () => onRun(4),
+                                    w: colW,
+                                    h: runRowH,
+                                    accent: AppColors.primaryBlue,
+                                    sublabel: 'Four',
+                                  ),
+                                  gapW(),
+                                  cell(
+                                    label: '6',
+                                    onTap: () => onRun(6),
+                                    w: colW,
+                                    h: runRowH,
+                                    accent: AppColors.goldDark,
+                                    sublabel: 'Six',
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
+                      gapW(),
                     ],
                   ),
                 ),
+                if (isBusy)
+                  const LinearProgressIndicator(
+                    minHeight: 2,
+                    color: AppColors.primaryBlue,
+                  ),
               ],
             ),
           ),
-          if (isBusy)
-            const Padding(
-              padding: EdgeInsets.only(top: 4),
-              child: LinearProgressIndicator(
-                minHeight: 2,
-                color: AppColors.primaryBlue,
-              ),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -128,7 +231,7 @@ class LiveScoringKeypad extends StatelessWidget {
       backgroundColor: AppColors.surface,
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(AppDimens.spaceMd),
+          padding: const EdgeInsets.all(16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -137,9 +240,6 @@ class LiveScoringKeypad extends StatelessWidget {
                   Navigator.pop(ctx);
                   onRun(5);
                 },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
-                ),
                 child: const Text('5 runs'),
               ),
               FilledButton(
@@ -147,9 +247,6 @@ class LiveScoringKeypad extends StatelessWidget {
                   Navigator.pop(ctx);
                   onRun(7);
                 },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
-                ),
                 child: const Text('7 runs'),
               ),
             ],
@@ -160,105 +257,70 @@ class LiveScoringKeypad extends StatelessWidget {
   }
 }
 
-class _RunKey extends StatelessWidget {
-  const _RunKey(
-    this.value, {
-    this.sublabel,
+class _Key extends StatelessWidget {
+  const _Key({
+    required this.label,
     required this.onTap,
-  });
-
-  final String value;
-  final String? sublabel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isFour = value == '4';
-    final isSix = value == '6';
-
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(3),
-        child: Material(
-          color: LiveScoringKeypad._keyBg,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-            side: const BorderSide(color: LiveScoringKeypad._border),
-          ),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(4),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: isSix
-                          ? AppColors.goldDark
-                          : isFour
-                              ? AppColors.primaryBlue
-                              : LiveScoringKeypad._textDark,
-                    ),
-                  ),
-                  if (sublabel != null)
-                    Text(
-                      sublabel!,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF78909C),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LeftKey extends StatelessWidget {
-  const _LeftKey(
-    this.label, {
+    this.fontSize = 22,
+    this.sublabel,
     this.accent,
     this.bold = false,
-    required this.onTap,
   });
 
   final String label;
+  final VoidCallback onTap;
+  final double fontSize;
+  final String? sublabel;
   final Color? accent;
   final bool bold;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(3),
-      child: Material(
-        color: LiveScoringKeypad._keyBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-          side: const BorderSide(color: LiveScoringKeypad._border),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(4),
-          child: Center(
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: bold ? 17 : label.length <= 3 ? 15 : 12,
-                fontWeight: bold ? FontWeight.w800 : FontWeight.w700,
-                color: accent ?? LiveScoringKeypad._textDark,
-                letterSpacing: label == 'UNDO' ? 0.5 : 0,
-              ),
+    return Material(
+      color: AppColors.surfaceElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: sublabel == null
+                  ? Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight:
+                            bold ? FontWeight.w800 : FontWeight.w700,
+                        color: accent ?? AppColors.textPrimary,
+                      ),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: fontSize,
+                            fontWeight: FontWeight.w700,
+                            color: accent ?? AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          sublabel!,
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),

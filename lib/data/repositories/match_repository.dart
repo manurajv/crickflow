@@ -225,6 +225,9 @@ class MatchRepository {
 
     void upsertBatsman(String id, String name) {
       final idx = batsmen.indexWhere((b) => b.playerId == id);
+      if (idx >= 0 && batsmen[idx].isOut) {
+        throw StateError('Player is out and cannot bat again this innings');
+      }
       if (idx >= 0) {
         final b = batsmen[idx];
         batsmen[idx] = BatsmanInningsModel(

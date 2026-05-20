@@ -1,8 +1,28 @@
 import '../../../../core/constants/enums.dart';
+import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
+
+/// Chase target stats for 2nd (or later) innings.
+class InningsChaseDisplay {
+  const InningsChaseDisplay({
+    required this.target,
+    required this.runsNeeded,
+    required this.ballsRemaining,
+    required this.currentRunRate,
+    required this.requiredRunRate,
+  });
+
+  final int target;
+  final int runsNeeded;
+  final int ballsRemaining;
+  final double currentRunRate;
+  final double requiredRunRate;
+
+  bool get isChasing => runsNeeded > 0;
+}
 
 /// Labels and over grouping for live scoring UI.
 class ScoringDisplayUtils {
@@ -18,7 +38,40 @@ class ScoringDisplayUtils {
     final winnerName =
         setup.tossWinnerIsTeamA! ? match.teamAName : match.teamBName;
     final elected = setup.tossWinnerBatsFirst! ? 'bat' : 'bowl';
+    final coin = setup.coinResult;
+    if (coin != null && coin.isNotEmpty) {
+      return '$winnerName won the toss and elected to $elected · $coin';
+    }
     return '$winnerName won the toss and elected to $elected';
+  }
+
+  static bool isPlayerOut(InningsModel inn, String playerId) {
+    for (final b in inn.batsmen) {
+      if (b.playerId == playerId) return b.isOut;
+    }
+    return false;
+  }
+
+  /// Batting squad members who may still bat this innings.
+  static List<T> eligibleBatters<T>(
+    InningsModel inn,
+    List<T> squad, {
+    required String Function(T) idOf,
+    String? excludePlayerId,
+  }) {
+    return squad.where((p) {
+      final id = idOf(p);
+      if (id == excludePlayerId) return false;
+      return !isPlayerOut(inn, id);
+    }).toList();
+  }
+
+  /// Bowler who completed the last over (cannot bowl the immediate next over).
+  static String? bowlerExcludedForNextOver(InningsModel inn, int ballsPerOver) {
+    if (inn.legalBalls == 0 || inn.legalBalls % ballsPerOver != 0) {
+      return null;
+    }
+    return inn.currentBowlerId;
   }
 
   static String? activePowerplayLabel(MatchModel match, InningsModel inn) {
@@ -41,6 +94,59 @@ class ScoringDisplayUtils {
     if (inn.battingTeamId == match.teamAId) return match.teamAName;
     if (inn.battingTeamId == match.teamBId) return match.teamBName;
     return match.teamAName;
+  }
+
+  static InningsModel? _firstInnings(MatchModel match) {
+    for (final i in match.innings) {
+      if (i.inningsNumber == 1) return i;
+    }
+    if (match.innings.isNotEmpty && match.innings.first.inningsNumber == 1) {
+      return match.innings.first;
+    }
+    return null;
+  }
+
+  static InningsChaseDisplay? chaseDisplay(
+    MatchModel match,
+    InningsModel inn,
+    MatchRulesModel rules,
+  ) {
+    if (inn.inningsNumber < 2) return null;
+    final first = _firstInnings(match);
+    if (first == null) return null;
+
+    final target = first.totalRuns + 1;
+    final runsNeeded = target - inn.totalRuns;
+    final ballsRemaining =
+        (rules.totalBalls - inn.legalBalls).clamp(0, rules.totalBalls);
+    final crr = CricketMath.runRate(
+      inn.totalRuns,
+      inn.legalBalls,
+      rules.ballsPerOver,
+    );
+    final rrr = runsNeeded > 0 && ballsRemaining > 0
+        ? CricketMath.requiredRunRate(
+            runsNeeded: runsNeeded,
+            ballsRemaining: ballsRemaining,
+            ballsPerOver: rules.ballsPerOver,
+          )
+        : 0.0;
+
+    return InningsChaseDisplay(
+      target: target,
+      runsNeeded: runsNeeded,
+      ballsRemaining: ballsRemaining,
+      currentRunRate: crr,
+      requiredRunRate: rrr,
+    );
+  }
+
+  static double currentRunRate(InningsModel inn, MatchRulesModel rules) {
+    return CricketMath.runRate(
+      inn.totalRuns,
+      inn.legalBalls,
+      rules.ballsPerOver,
+    );
   }
 
   static String oversLabel(InningsModel inn, MatchRulesModel rules) {

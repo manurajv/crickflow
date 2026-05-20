@@ -15,6 +15,7 @@ class SelectBowlerSheet extends StatelessWidget {
     required this.overNumber,
     required this.onSelected,
     required this.ballsPerOver,
+    this.excludedBowlerIds = const {},
   });
 
   final MatchModel match;
@@ -22,6 +23,7 @@ class SelectBowlerSheet extends StatelessWidget {
   final List<LineupPlayer> bowlingSquad;
   final int overNumber;
   final int ballsPerOver;
+  final Set<String> excludedBowlerIds;
   final void Function(LineupPlayer player) onSelected;
 
   String get _battingLabel {
@@ -62,6 +64,19 @@ class SelectBowlerSheet extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
+              if (excludedBowlerIds.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimens.spaceMd,
+                  ),
+                  child: Text(
+                    'Previous over bowler cannot bowl again immediately',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
               Expanded(
                 child: ListView.separated(
                   controller: controller,
@@ -69,6 +84,7 @@ class SelectBowlerSheet extends StatelessWidget {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
                     final p = bowlingSquad[i];
+                    final excluded = excludedBowlerIds.contains(p.id);
                     BowlerInningsModel? stats;
                     for (final b in innings.bowlers) {
                       if (b.playerId == p.id) {
@@ -84,26 +100,43 @@ class SelectBowlerSheet extends StatelessWidget {
                         : '0.0';
                     final selected = innings.currentBowlerId == p.id;
                     return ListTile(
+                      enabled: !excluded,
                       leading: CircleAvatar(
-                        backgroundColor: selected
-                            ? AppColors.primaryBlue
-                            : AppColors.surfaceElevated,
-                        child: Text(
-                          p.name.isNotEmpty ? p.name[0] : '?',
-                          style: TextStyle(
-                            color: selected ? AppColors.gold : null,
-                          ),
+                        backgroundColor: excluded
+                            ? AppColors.surface
+                            : selected
+                                ? AppColors.primaryBlue
+                                : AppColors.surfaceElevated,
+                        child: Icon(
+                          Icons.sports_baseball_outlined,
+                          size: 20,
+                          color: excluded
+                              ? AppColors.textMuted
+                              : selected
+                                  ? AppColors.gold
+                                  : AppColors.textSecondary,
                         ),
                       ),
-                      title: Text(p.name),
-                      subtitle: Text('$overs over(s)'),
-                      trailing: selected
+                      title: Text(
+                        p.name,
+                        style: TextStyle(
+                          color: excluded ? AppColors.textMuted : null,
+                        ),
+                      ),
+                      subtitle: Text(
+                        excluded
+                            ? 'Bowled last over'
+                            : '$overs over(s)',
+                      ),
+                      trailing: selected && !excluded
                           ? const Icon(Icons.check_circle, color: AppColors.gold)
                           : null,
-                      onTap: () {
-                        onSelected(p);
-                        Navigator.pop(context);
-                      },
+                      onTap: excluded
+                          ? null
+                          : () {
+                              onSelected(p);
+                              Navigator.pop(context);
+                            },
                     );
                   },
                 ),
