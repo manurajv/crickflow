@@ -295,13 +295,20 @@ class ScoringDisplayUtils {
   static int overWickets(List<BallEventModel> overEvents) =>
       overEvents.where((e) => e.eventType == BallEventType.wicket).length;
 
+  /// Runs that count as extras for this ball (not credited to the batsman).
+  static int extrasOnBall(BallEventModel e) {
+    switch (e.eventType) {
+      case BallEventType.wide:
+      case BallEventType.noBall:
+        return e.runs - e.batsmanRuns;
+      case BallEventType.bye:
+      case BallEventType.legBye:
+        return e.runs;
+      default:
+        return 0;
+    }
+  }
+
   static int overExtras(List<BallEventModel> overEvents) => overEvents
-      .where(
-        (e) =>
-            e.eventType == BallEventType.wide ||
-            e.eventType == BallEventType.noBall ||
-            e.eventType == BallEventType.bye ||
-            e.eventType == BallEventType.legBye,
-      )
-      .fold(0, (s, e) => s + e.runs);
+      .fold(0, (s, e) => s + extrasOnBall(e));
 }

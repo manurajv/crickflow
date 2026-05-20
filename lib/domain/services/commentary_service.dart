@@ -23,7 +23,7 @@ class CommentaryService {
       case BallEventType.wide:
         return 'Wide — extra run to the batting side.';
       case BallEventType.noBall:
-        return 'No ball — free hit may apply.';
+        return 'No ball';
       case BallEventType.bye:
         return 'Bye — $runs run${runs == 1 ? '' : 's'}.';
       case BallEventType.legBye:
@@ -38,9 +38,23 @@ class CommentaryService {
     }
   }
 
-  static String forEvent(BallEventModel event) => forBall(
-        type: event.eventType,
-        runs: event.runs,
-        wicketType: event.wicketType,
-      );
+  static String forEvent(BallEventModel event) {
+    if (event.eventType == BallEventType.noBall) {
+      final add = event.runs - event.extraRuns;
+      final mode = event.noBallRunsMode ?? NoBallRunsMode.bat;
+      if (add == 0) return 'No ball';
+      return switch (mode) {
+        NoBallRunsMode.bat when add >= 6 => 'No ball — SIX! ($add off the bat)',
+        NoBallRunsMode.bat when add == 4 => 'No ball — FOUR!',
+        NoBallRunsMode.bat => 'No ball — $add off the bat',
+        NoBallRunsMode.bye => 'No ball — $add bye${add == 1 ? '' : 's'}',
+        NoBallRunsMode.legBye => 'No ball — $add leg bye${add == 1 ? '' : 's'}',
+      };
+    }
+    return forBall(
+      type: event.eventType,
+      runs: event.runs,
+      wicketType: event.wicketType,
+    );
+  }
 }

@@ -166,6 +166,8 @@ class MatchRepository {
       isHighlight: highlight.isHighlight,
       highlightTag: highlight.tag,
       noBallRunsMode: result.event.noBallRunsMode,
+      noBallByeRuns: result.event.noBallByeRuns,
+      noBallLegByeRuns: result.event.noBallLegByeRuns,
     );
 
     await _commitMatchState(

@@ -103,6 +103,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       type: input.type,
       runs: input.runs,
       wicketType: input.wicketType,
+      dismissedPlayerId: input.dismissedPlayerId,
+      fielderId: input.fielderId,
+      noBallRunsMode: input.noBallRunsMode,
       commentary: CommentaryService.forBall(
         type: input.type,
         runs: input.runs,

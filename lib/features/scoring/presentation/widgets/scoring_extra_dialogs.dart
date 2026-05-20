@@ -22,13 +22,31 @@ class ScoringExtraDialogs {
     );
   }
 
+  /// Opens no-ball details (runs grid + how runs were scored). Always use for NB.
   static Future<BallEventInput?> showNoBall(
     BuildContext context, {
     required MatchRulesModel rules,
+    int? additionalRuns,
+  }) {
+    return showNoBallDetails(
+      context,
+      rules: rules,
+      additionalRuns: additionalRuns,
+    );
+  }
+
+  static Future<BallEventInput?> showNoBallDetails(
+    BuildContext context, {
+    required MatchRulesModel rules,
+    int? additionalRuns,
   }) {
     return ScoringUiKit.showSheet<BallEventInput>(
       context,
-      builder: (ctx) => _NoBallSheet(rules: rules),
+      isScrollControlled: true,
+      builder: (ctx) => _NoBallDetailsSheet(
+        rules: rules,
+        additionalRuns: additionalRuns,
+      ),
     );
   }
 
@@ -445,29 +463,57 @@ class _RunningRunsInputSheetState extends State<_RunningRunsInputSheet> {
   }
 }
 
-class _NoBallSheet extends StatefulWidget {
-  const _NoBallSheet({required this.rules});
+/// No-ball runs grid + mandatory "how runs were scored" type (reference flow).
+class _NoBallDetailsSheet extends StatefulWidget {
+  const _NoBallDetailsSheet({
+    required this.rules,
+    this.additionalRuns,
+  });
 
   final MatchRulesModel rules;
+  final int? additionalRuns;
 
   @override
-  State<_NoBallSheet> createState() => _NoBallSheetState();
+  State<_NoBallDetailsSheet> createState() => _NoBallDetailsSheetState();
 }
 
-class _NoBallSheetState extends State<_NoBallSheet> {
-  NoBallRunsMode _mode = NoBallRunsMode.bat;
+class _NoBallDetailsSheetState extends State<_NoBallDetailsSheet> {
   int? _selectedRuns;
 
-  void _pick(int runs) {
-    setState(() => _selectedRuns = runs);
+  @override
+  void initState() {
+    super.initState();
+    final preset = widget.additionalRuns;
+    if (preset != null && preset > 0) {
+      _selectedRuns = preset;
+    }
+  }
+
+  bool get _needsRunType => (_selectedRuns ?? 0) > 0;
+
+  void _commit(int additionalRuns, NoBallRunsMode mode) {
     Navigator.pop(
       context,
       BallEventInput(
         type: BallEventType.noBall,
-        runs: runs,
-        noBallRunsMode: _mode,
+        runs: additionalRuns,
+        noBallRunsMode: mode,
       ),
     );
+  }
+
+  void _onRunsPicked(int additional) {
+    if (additional == 0) {
+      _commit(0, NoBallRunsMode.bat);
+      return;
+    }
+    setState(() => _selectedRuns = additional);
+  }
+
+  void _onRunTypePicked(NoBallRunsMode mode) {
+    final runs = _selectedRuns;
+    if (runs == null || runs <= 0) return;
+    _commit(runs, mode);
   }
 
   @override
@@ -479,85 +525,32 @@ class _NoBallSheetState extends State<_NoBallSheet> {
     final cellH = cellW * 0.72;
     final nb = widget.rules.noBallRuns;
 
-    Widget gridCell(String label, int extra) {
+    Widget gridCell(String label, int additional) {
       return SizedBox(
         width: cellW,
         height: cellH,
         child: ScoringGridButton(
           label: label,
-          selected: _selectedRuns == extra,
-          onTap: () => _pick(extra),
+          selected: _selectedRuns == additional,
+          onTap: () => _onRunsPicked(additional),
         ),
       );
     }
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 10, bottom: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimens.spaceMd,
-                  ),
-                  child: Row(
-                    children: [
-                      const Expanded(child: _HeaderLine()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'No ball',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              ' (NB=$nb)',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textMuted.withValues(alpha: 0.9),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            const Flexible(child: _HeaderLine()),
-                            IconButton(
-                              icon: const Icon(Icons.settings_outlined, size: 20),
-                              color: AppColors.textMuted,
-                              onPressed: () => Navigator.pop(context),
-                              tooltip: 'Close',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppDimens.spaceMd),
-              ],
+            ScoringSheetHeader(
+              title: 'No ball (NB=$nb)',
+              trailing: IconButton(
+                icon: const Icon(Icons.settings_outlined, size: 20),
+                color: AppColors.textMuted,
+                onPressed: () => Navigator.pop(context),
+                tooltip: 'Close',
+              ),
             ),
             Wrap(
               spacing: gap,
@@ -572,33 +565,39 @@ class _NoBallSheetState extends State<_NoBallSheet> {
                     label: '+',
                     onTap: () async {
                       final extra = await _showCustomRuns(context);
-                      if (extra != null && mounted) _pick(extra);
+                      if (extra != null && mounted) _onRunsPicked(extra);
                     },
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppDimens.spaceMd),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _NoBallModeOption(
-                  label: 'From bat',
-                  selected: _mode == NoBallRunsMode.bat,
-                  onTap: () => setState(() => _mode = NoBallRunsMode.bat),
-                ),
-                _NoBallModeOption(
-                  label: 'Bye',
-                  selected: _mode == NoBallRunsMode.bye,
-                  onTap: () => setState(() => _mode = NoBallRunsMode.bye),
-                ),
-                _NoBallModeOption(
-                  label: 'Leg bye',
-                  selected: _mode == NoBallRunsMode.legBye,
-                  onTap: () => setState(() => _mode = NoBallRunsMode.legBye),
-                ),
-              ],
-            ),
+            if (_needsRunType) ...[
+              const SizedBox(height: AppDimens.spaceMd),
+              const Divider(height: 1, color: AppColors.border),
+              const SizedBox(height: AppDimens.spaceSm),
+              Row(
+                children: [
+                  Expanded(
+                    child: _NoBallRunTypeChip(
+                      label: 'From bat',
+                      onTap: () => _onRunTypePicked(NoBallRunsMode.bat),
+                    ),
+                  ),
+                  Expanded(
+                    child: _NoBallRunTypeChip(
+                      label: 'Bye',
+                      onTap: () => _onRunTypePicked(NoBallRunsMode.bye),
+                    ),
+                  ),
+                  Expanded(
+                    child: _NoBallRunTypeChip(
+                      label: 'Leg bye',
+                      onTap: () => _onRunTypePicked(NoBallRunsMode.legBye),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -606,20 +605,12 @@ class _NoBallSheetState extends State<_NoBallSheet> {
   }
 }
 
-class _HeaderLine extends StatelessWidget {
-  const _HeaderLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(height: 1, color: AppColors.border);
-  }
-}
-
-class _NoBallModeOption extends StatelessWidget {
-  const _NoBallModeOption({
+/// Horizontal run-type choice (reference: From bat · Bye · Leg bye).
+class _NoBallRunTypeChip extends StatelessWidget {
+  const _NoBallRunTypeChip({
     required this.label,
-    required this.selected,
     required this.onTap,
+    this.selected = false,
   });
 
   final String label;
@@ -628,31 +619,37 @@ class _NoBallModeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off,
-              size: 20,
-              color: selected ? AppColors.gold : AppColors.textMuted,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                size: 20,
+                color: selected ? AppColors.gold : AppColors.textMuted,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

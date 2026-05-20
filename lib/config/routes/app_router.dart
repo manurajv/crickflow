@@ -13,6 +13,7 @@ import '../../features/matches/presentation/add_match_official_screen.dart';
 import '../../features/matches/presentation/match_officials_screen.dart';
 import '../../features/matches/presentation/match_team_roles_screen.dart';
 import '../../features/matches/presentation/match_toss_screen.dart';
+import '../../features/matches/presentation/start_innings_screen.dart';
 import '../../features/matches/presentation/powerplay_overs_screen.dart';
 import '../../features/matches/presentation/select_match_squad_screen.dart';
 import '../../features/matches/presentation/select_team_for_match_screen.dart';
@@ -239,6 +240,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/match/:id',
         builder: (_, state) =>
             MatchHubScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/match/:id/start-innings',
+        builder: (_, state) =>
+            StartInningsScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/match/:id/score',

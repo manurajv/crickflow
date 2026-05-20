@@ -26,6 +26,8 @@ class BallEventModel extends Equatable {
     this.isHighlight = false,
     this.highlightTag,
     this.noBallRunsMode,
+    this.noBallByeRuns = 0,
+    this.noBallLegByeRuns = 0,
   });
 
   final String id;
@@ -51,6 +53,10 @@ class BallEventModel extends Equatable {
   final bool isHighlight;
   final String? highlightTag;
   final NoBallRunsMode? noBallRunsMode;
+  /// Additional runs on a no-ball scored as byes (excludes NB penalty).
+  final int noBallByeRuns;
+  /// Additional runs on a no-ball scored as leg byes (excludes NB penalty).
+  final int noBallLegByeRuns;
 
   factory BallEventModel.fromMap(String id, Map<String, dynamic> map) {
     return BallEventModel(
@@ -88,6 +94,8 @@ class BallEventModel extends Equatable {
               orElse: () => NoBallRunsMode.bat,
             )
           : null,
+      noBallByeRuns: map['noBallByeRuns'] as int? ?? 0,
+      noBallLegByeRuns: map['noBallLegByeRuns'] as int? ?? 0,
     );
   }
 
@@ -114,6 +122,8 @@ class BallEventModel extends Equatable {
         'isHighlight': isHighlight,
         if (highlightTag != null) 'highlightTag': highlightTag,
         if (noBallRunsMode != null) 'noBallRunsMode': noBallRunsMode!.name,
+        if (noBallByeRuns > 0) 'noBallByeRuns': noBallByeRuns,
+        if (noBallLegByeRuns > 0) 'noBallLegByeRuns': noBallLegByeRuns,
       };
 
   @override

@@ -84,8 +84,7 @@ class ScoringEngine {
         extraRuns = rules.noBallRuns;
         runs = extraRuns + input.runs;
         final nbMode = input.noBallRunsMode ?? NoBallRunsMode.bat;
-        batsmanRuns =
-            nbMode == NoBallRunsMode.bat ? input.runs : 0;
+        batsmanRuns = nbMode == NoBallRunsMode.bat ? input.runs : 0;
       case BallEventType.bye:
       case BallEventType.legBye:
         batsmanRuns = 0;
@@ -98,6 +97,12 @@ class ScoringEngine {
       case BallEventType.penalty:
         break;
     }
+
+    final nbMode = input.type == BallEventType.noBall
+        ? (input.noBallRunsMode ?? NoBallRunsMode.bat)
+        : null;
+    final nbByeRuns = nbMode == NoBallRunsMode.bye ? input.runs : 0;
+    final nbLegByeRuns = nbMode == NoBallRunsMode.legBye ? input.runs : 0;
 
     return BallEventModel(
       id: '',
@@ -119,9 +124,9 @@ class ScoringEngine {
       fielderId: input.fielderId,
       commentary: input.commentary,
       sequence: sequence,
-      noBallRunsMode: input.type == BallEventType.noBall
-          ? (input.noBallRunsMode ?? NoBallRunsMode.bat)
-          : null,
+      noBallRunsMode: nbMode,
+      noBallByeRuns: nbByeRuns,
+      noBallLegByeRuns: nbLegByeRuns,
     );
   }
 
@@ -136,7 +141,7 @@ class ScoringEngine {
     var extras = innings.extras;
     var partnershipRuns = innings.partnershipRuns + event.runs;
     var partnershipBalls = innings.partnershipBalls;
-    var isFreeHit = false;
+    var isFreeHit = innings.isFreeHitActive;
 
     if (event.isLegalDelivery) {
       legalBalls++;
@@ -145,13 +150,10 @@ class ScoringEngine {
           event.eventType == BallEventType.legBye) {
         extras += event.runs;
       }
+      // Free hit consumed on the next legal delivery.
+      isFreeHit = false;
     } else {
-      extras += event.extraRuns;
-      if (event.eventType == BallEventType.noBall &&
-          event.noBallRunsMode != null &&
-          event.noBallRunsMode != NoBallRunsMode.bat) {
-        extras += event.runs - event.extraRuns;
-      }
+      extras += _illegalDeliveryExtras(event);
     }
 
     if (event.eventType == BallEventType.noBall && rules.freeHitEnabled) {
@@ -180,7 +182,12 @@ class ScoringEngine {
 
     if (event.strikerId != null) {
       if (event.batsmanRuns > 0) {
-        batsmen = _updateBatsman(batsmen, event.strikerId!, event.batsmanRuns);
+        batsmen = _updateBatsman(
+          batsmen,
+          event.strikerId!,
+          event.batsmanRuns,
+          countBallFaced: _countsAsBallFaced(event),
+        );
       } else if (_strikerFacedDelivery(event)) {
         batsmen = _incrementBatsmanBall(batsmen, event.strikerId!);
       }
@@ -195,6 +202,7 @@ class ScoringEngine {
         event.isLegalDelivery,
         event.eventType == BallEventType.wicket &&
             event.wicketType != WicketType.runOut,
+        isNoBall: event.eventType == BallEventType.noBall,
       );
     }
 
@@ -307,6 +315,10 @@ class ScoringEngine {
       }
     } else {
       extras = (extras - event.extraRuns).clamp(0, 999);
+      if (event.eventType == BallEventType.noBall) {
+        extras = (extras - event.noBallByeRuns - event.noBallLegByeRuns)
+            .clamp(0, 999);
+      }
     }
 
     if (event.eventType == BallEventType.wicket &&
@@ -352,23 +364,36 @@ class ScoringEngine {
     return list;
   }
 
+  /// Extras on wides / no-balls: total minus batsman; bye/LB on NB are not batsman runs.
+  static int _illegalDeliveryExtras(BallEventModel event) {
+    switch (event.eventType) {
+      case BallEventType.wide:
+      case BallEventType.noBall:
+        return event.runs - event.batsmanRuns;
+      default:
+        return event.extraRuns;
+    }
+  }
+
   static int _runsAgainstBowler(BallEventModel event) {
     if (event.eventType == BallEventType.bye ||
         event.eventType == BallEventType.legBye) {
       return 0;
     }
-    if (event.eventType == BallEventType.noBall &&
-        event.noBallRunsMode != null &&
-        event.noBallRunsMode != NoBallRunsMode.bat) {
-      return event.extraRuns;
-    }
+    // No-ball: all runs (penalty + bat/bye/LB) count against bowler.
     return event.runs;
+  }
+
+  static bool _countsAsBallFaced(BallEventModel event) {
+    if (!event.isLegalDelivery) return false;
+    return event.eventType != BallEventType.wide &&
+        event.eventType != BallEventType.noBall;
   }
 
   static bool _strikerFacedDelivery(BallEventModel event) {
     if (!event.isLegalDelivery) return false;
-    return event.eventType != BallEventType.bye &&
-        event.eventType != BallEventType.wide;
+    return event.eventType != BallEventType.wide &&
+        event.eventType != BallEventType.noBall;
   }
 
   List<BatsmanInningsModel> _incrementBatsmanBall(
@@ -395,8 +420,9 @@ class ScoringEngine {
   List<BatsmanInningsModel> _updateBatsman(
     List<BatsmanInningsModel> list,
     String playerId,
-    int runs,
-  ) {
+    int runs, {
+    required bool countBallFaced,
+  }) {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
       final b = list[idx];
@@ -404,7 +430,7 @@ class ScoringEngine {
         playerId: b.playerId,
         playerName: b.playerName,
         runs: b.runs + runs,
-        balls: b.balls + 1,
+        balls: b.balls + (countBallFaced ? 1 : 0),
         fours: b.fours + (runs == 4 ? 1 : 0),
         sixes: b.sixes + (runs == 6 ? 1 : 0),
         isOut: b.isOut,
@@ -419,8 +445,9 @@ class ScoringEngine {
     String playerId,
     int runs,
     bool legalBall,
-    bool wicket,
-  ) {
+    bool wicket, {
+    bool isNoBall = false,
+  }) {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
       final b = list[idx];
@@ -431,7 +458,7 @@ class ScoringEngine {
         runsConceded: b.runsConceded + runs,
         wickets: b.wickets + (wicket ? 1 : 0),
         wides: b.wides,
-        noBalls: b.noBalls,
+        noBalls: b.noBalls + (isNoBall ? 1 : 0),
       );
     }
     return list;
@@ -579,7 +606,8 @@ class ScoringEngine {
     final runs = switch (e.eventType) {
       BallEventType.runs => e.batsmanRuns,
       BallEventType.wide => e.runs - e.extraRuns,
-      BallEventType.noBall => e.batsmanRuns,
+      BallEventType.noBall =>
+        e.batsmanRuns + e.noBallByeRuns + e.noBallLegByeRuns,
       BallEventType.bye || BallEventType.legBye => e.runs,
       _ => e.runs,
     };

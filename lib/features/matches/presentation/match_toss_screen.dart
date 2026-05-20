@@ -116,26 +116,6 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     final bowlingTeamId =
         battingIsTeamA ? (draft.teamB?.id ?? 'team_b') : (draft.teamA?.id ?? 'team_a');
 
-    final squadIds =
-        battingIsTeamA ? setup.teamASquadIds : setup.teamBSquadIds;
-    final names =
-        battingIsTeamA ? setup.teamASquadNames : setup.teamBSquadNames;
-    final captainId =
-        battingIsTeamA ? setup.teamACaptainId : setup.teamBCaptainId;
-
-    var strikerId = squadIds.first;
-    var nonStrikerId = squadIds.length > 1 ? squadIds[1] : squadIds.first;
-    if (captainId != null && squadIds.contains(captainId)) {
-      strikerId = captainId;
-      nonStrikerId = squadIds.firstWhere(
-        (id) => id != captainId,
-        orElse: () => squadIds.first,
-      );
-    }
-
-    final strikerName = names[strikerId] ?? '';
-    final nonStrikerName = names[nonStrikerId] ?? '';
-
     final match = MatchModel(
       id: draft.matchId,
       title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
@@ -157,30 +137,18 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
       inningsNumber: 1,
       battingTeamId: battingTeamId,
       bowlingTeamId: bowlingTeamId,
-      status: InningsStatus.inProgress,
-      strikerId: strikerId,
-      nonStrikerId: nonStrikerId,
-      batsmen: [
-        BatsmanInningsModel(
-          playerId: strikerId,
-          playerName: strikerName,
-        ),
-        BatsmanInningsModel(
-          playerId: nonStrikerId,
-          playerName: nonStrikerName,
-        ),
-      ],
+      status: InningsStatus.notStarted,
     );
 
     try {
-      await ref.read(matchRepositoryProvider).createMatch(match);
-      await ref.read(matchRepositoryProvider).startMatch(
-            draft.matchId,
-            firstInnings,
-            scorerId: uid,
+      await ref.read(matchRepositoryProvider).createMatch(
+            match.copyWith(
+              innings: [firstInnings],
+              currentInningsIndex: 0,
+            ),
           );
       ref.read(startMatchDraftProvider.notifier).reset();
-      if (mounted) context.go('/match/${draft.matchId}/score');
+      if (mounted) context.go('/match/${draft.matchId}/start-innings');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
