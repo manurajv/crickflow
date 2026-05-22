@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,8 +9,9 @@ import '../../../data/models/match_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import 'widgets/cf_selection_card.dart';
+import 'widgets/toss_coin_flip.dart';
 
-/// Toss: winner, bat/bowl, coin flip, then create match and start scoring.
+/// Toss: coin flip, then winner, bat/bowl, then create match and start scoring.
 class MatchTossScreen extends ConsumerStatefulWidget {
   const MatchTossScreen({super.key});
 
@@ -24,8 +23,9 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
   bool? _winnerIsTeamA;
   bool? _winnerBatsFirst;
   String? _coinResult;
-  bool _flipping = false;
   bool _saving = false;
+
+  bool get _tossChoicesEnabled => _coinResult != null;
 
   @override
   void initState() {
@@ -41,37 +41,24 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     });
   }
 
-  Future<void> _flipCoin() async {
-    if (_flipping) return;
-    if (_winnerIsTeamA == null || _winnerBatsFirst == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Select toss winner and bat or bowl first'),
-        ),
-      );
-      return;
-    }
-    setState(() => _flipping = true);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    final heads = Random().nextBool();
-    final result = heads ? 'heads' : 'tails';
+  void _onCoinResult(String result) {
+    ref.read(startMatchDraftProvider.notifier).setCoinResult(result);
+    setState(() => _coinResult = result);
+  }
+
+  void _syncTossDraft() {
+    if (_winnerIsTeamA == null || _winnerBatsFirst == null) return;
     ref.read(startMatchDraftProvider.notifier).setToss(
-          winnerIsTeamA: _winnerIsTeamA ?? true,
-          winnerBatsFirst: _winnerBatsFirst ?? true,
-          coinResult: result,
+          winnerIsTeamA: _winnerIsTeamA!,
+          winnerBatsFirst: _winnerBatsFirst!,
+          coinResult: _coinResult,
         );
-    if (mounted) {
-      setState(() {
-        _coinResult = result;
-        _flipping = false;
-      });
-    }
   }
 
   bool get _canPlay =>
+      _coinResult != null &&
       _winnerIsTeamA != null &&
       _winnerBatsFirst != null &&
-      _coinResult != null &&
       !_saving;
 
   Future<void> _letsPlay() async {
@@ -86,15 +73,15 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
       );
       return;
     }
-    if (_winnerIsTeamA == null || _winnerBatsFirst == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select toss winner and bat or bowl')),
-      );
-      return;
-    }
     if (_coinResult == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Flip the coin first')),
+      );
+      return;
+    }
+    if (_winnerIsTeamA == null || _winnerBatsFirst == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select toss winner and bat or bowl')),
       );
       return;
     }
@@ -160,6 +147,17 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     }
   }
 
+  Widget _lockedSection({required Widget child}) {
+    return AnimatedOpacity(
+      opacity: _tossChoicesEnabled ? 1 : 0.42,
+      duration: const Duration(milliseconds: 250),
+      child: IgnorePointer(
+        ignoring: !_tossChoicesEnabled,
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(startMatchDraftProvider);
@@ -222,119 +220,85 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
       body: ListView(
         padding: AppDimens.listPadding,
         children: [
-          const _SectionTitle('Who won the toss?'),
+          const _SectionTitle('Flip the coin'),
           const SizedBox(height: AppDimens.spaceSm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              CfSelectionCard(
-                label: draft.resolvedTeamAName.toUpperCase(),
-                avatarLetter: draft.resolvedTeamAName.isNotEmpty
-                    ? draft.resolvedTeamAName[0].toUpperCase()
-                    : 'A',
-                selected: _winnerIsTeamA == true,
-                onTap: () => setState(() => _winnerIsTeamA = true),
-              ),
-              CfSelectionCard(
-                label: draft.resolvedTeamBName.toUpperCase(),
-                avatarLetter: draft.resolvedTeamBName.isNotEmpty
-                    ? draft.resolvedTeamBName[0].toUpperCase()
-                    : 'B',
-                selected: _winnerIsTeamA == false,
-                onTap: () => setState(() => _winnerIsTeamA = false),
-              ),
-            ],
+          Text(
+            _tossChoicesEnabled
+                ? 'Record who won and what they chose.'
+                : 'Flip first, then select the toss winner and bat or bowl.',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
-          const SizedBox(height: AppDimens.spaceXl),
-          const _SectionTitle('Winner of the toss elected to?'),
-          const SizedBox(height: AppDimens.spaceSm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              CfSelectionCard(
-                label: 'Bat',
-                icon: Icons.sports_cricket,
-                selected: _winnerBatsFirst == true,
-                onTap: () => setState(() => _winnerBatsFirst = true),
-              ),
-              CfSelectionCard(
-                label: 'Bowl',
-                icon: Icons.sports_baseball,
-                selected: _winnerBatsFirst == false,
-                onTap: () => setState(() => _winnerBatsFirst = false),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.spaceXl),
-          _SectionTitle(
-            _coinResult == null
-                ? 'Tap the coin to flip'
-                : "It's ${_coinResult!}!",
-          ),
-          const SizedBox(height: AppDimens.spaceMd),
+          const SizedBox(height: AppDimens.spaceLg),
           Center(
-            child: GestureDetector(
-              onTap: _flipCoin,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.surfaceElevated,
-                      AppColors.surface,
-                    ],
-                  ),
-                  border: Border.all(
-                    color: _flipping ? AppColors.gold : AppColors.border,
-                    width: 3,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
+            child: TossCoinFlip(
+              result: _coinResult,
+              onResult: _onCoinResult,
+            ),
+          ),
+          const SizedBox(height: AppDimens.spaceXl),
+          _lockedSection(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SectionTitle('Who won the toss?'),
+                const SizedBox(height: AppDimens.spaceSm),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    CfSelectionCard(
+                      label: draft.resolvedTeamAName.toUpperCase(),
+                      avatarLetter: draft.resolvedTeamAName.isNotEmpty
+                          ? draft.resolvedTeamAName[0].toUpperCase()
+                          : 'A',
+                      selected: _winnerIsTeamA == true,
+                      onTap: () {
+                        setState(() => _winnerIsTeamA = true);
+                        _syncTossDraft();
+                      },
+                    ),
+                    CfSelectionCard(
+                      label: draft.resolvedTeamBName.toUpperCase(),
+                      avatarLetter: draft.resolvedTeamBName.isNotEmpty
+                          ? draft.resolvedTeamBName[0].toUpperCase()
+                          : 'B',
+                      selected: _winnerIsTeamA == false,
+                      onTap: () {
+                        setState(() => _winnerIsTeamA = false);
+                        _syncTossDraft();
+                      },
                     ),
                   ],
                 ),
-                child: _flipping
-                    ? const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: CircularProgressIndicator(
-                          color: AppColors.gold,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'CRICKFLOW',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.gold.withValues(alpha: 0.9),
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const Icon(
-                            Icons.sports_cricket,
-                            size: 36,
-                            color: AppColors.gold,
-                          ),
-                          Text(
-                            (_coinResult ?? 'FLIP').toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
+                const SizedBox(height: AppDimens.spaceXl),
+                const _SectionTitle('Winner of the toss elected to?'),
+                const SizedBox(height: AppDimens.spaceSm),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    CfSelectionCard(
+                      label: 'Bat',
+                      icon: Icons.sports_cricket,
+                      selected: _winnerBatsFirst == true,
+                      onTap: () {
+                        setState(() => _winnerBatsFirst = true);
+                        _syncTossDraft();
+                      },
+                    ),
+                    CfSelectionCard(
+                      label: 'Bowl',
+                      icon: Icons.sports_baseball,
+                      selected: _winnerBatsFirst == false,
+                      onTap: () {
+                        setState(() => _winnerBatsFirst = false);
+                        _syncTossDraft();
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppDimens.spaceXl),

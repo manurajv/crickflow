@@ -118,7 +118,7 @@ class ScoringEngine {
       isFreeHit: isFreeHit,
       strikerId: innings.strikerId,
       nonStrikerId: innings.nonStrikerId,
-      bowlerId: innings.currentBowlerId,
+      bowlerId: input.bowlerId ?? innings.currentBowlerId,
       wicketType: input.wicketType,
       dismissedPlayerId: input.dismissedPlayerId,
       fielderId: input.fielderId,
@@ -488,8 +488,15 @@ class ScoringEngine {
     int? target;
     double? requiredRunRate;
     if (innings.inningsNumber >= 2 && match.innings.isNotEmpty) {
-      final first = match.innings.first;
-      target = first.totalRuns + 1;
+      InningsModel? firstInnings;
+      for (final inn in match.innings) {
+        if (inn.inningsNumber == 1) {
+          firstInnings = inn;
+          break;
+        }
+      }
+      firstInnings ??= match.innings.first;
+      target = firstInnings.totalRuns + 1;
       final runsNeeded = target - innings.totalRuns;
       final ballsRemaining = rules.totalBalls - innings.legalBalls;
       if (runsNeeded > 0 && ballsRemaining > 0) {
@@ -537,12 +544,17 @@ class ScoringEngine {
     required InningsModel baseInnings,
     required List<BallEventModel> events,
   }) {
+    final inningsEvents = events
+        .where((e) => e.inningsNumber == baseInnings.inningsNumber)
+        .toList()
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+
     var working = match.copyWith(
       innings: _replaceInnings(match, baseInnings),
       overlayVersion: 0,
     );
 
-    for (final e in events) {
+    for (final e in inningsEvents) {
       final input = _inputFromEvent(e);
       final result = recordBall(
         match: working,
@@ -561,10 +573,14 @@ class ScoringEngine {
     var strikerId = current.strikerId;
     var nonStrikerId = current.nonStrikerId;
     var bowlerId = current.currentBowlerId;
+
     if (events.isNotEmpty) {
-      strikerId ??= events.first.strikerId;
-      nonStrikerId ??= events.first.nonStrikerId;
-      bowlerId ??= events.first.bowlerId;
+      final sorted = [...events]..sort((a, b) => a.sequence.compareTo(b.sequence));
+      final first = sorted.first;
+      strikerId = first.strikerId ?? strikerId;
+      nonStrikerId = first.nonStrikerId ?? nonStrikerId;
+      // Do not use [current.currentBowlerId] — it may hold the next-over pick.
+      bowlerId = first.bowlerId ?? bowlerId;
     }
 
     return InningsModel(
@@ -619,6 +635,7 @@ class ScoringEngine {
       fielderId: e.fielderId,
       commentary: e.commentary,
       noBallRunsMode: e.noBallRunsMode,
+      bowlerId: e.bowlerId,
     );
   }
 
@@ -642,6 +659,7 @@ class BallEventInput {
     this.fielderId,
     this.commentary = '',
     this.noBallRunsMode,
+    this.bowlerId,
   });
 
   final BallEventType type;
@@ -651,6 +669,8 @@ class BallEventInput {
   final String? fielderId;
   final String commentary;
   final NoBallRunsMode? noBallRunsMode;
+  /// When replaying stored balls, preserves the original bowler on the event.
+  final String? bowlerId;
 }
 
 class ScoringInput {

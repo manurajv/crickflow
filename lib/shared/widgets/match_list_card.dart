@@ -4,6 +4,7 @@ import '../../core/constants/enums.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/utils/date_utils.dart';
+import '../../core/utils/match_score_display.dart';
 import '../../data/models/match_model.dart';
 
 /// Compact match row card for list screens (reference-inspired layout).
@@ -197,11 +198,10 @@ class _LiveScoreLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inn = match.currentInnings;
-    if (inn == null) return const SizedBox.shrink();
+    final line = MatchScoreDisplay.liveScoreSubtitle(match);
+    if (line == null) return const SizedBox.shrink();
     return Text(
-      '${inn.battingTeamId == match.teamAId ? match.teamAName : match.teamBName}: '
-      '${inn.totalRuns}/${inn.totalWickets}',
+      line,
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
             color: AppColors.gold,
           ),

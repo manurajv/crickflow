@@ -174,6 +174,12 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
     state = state.copyWith(setup: setup);
   }
 
+  void setCoinResult(String coinResult) {
+    state = state.copyWith(
+      setup: state.setup.copyWith(coinResult: coinResult),
+    );
+  }
+
   void setToss({
     required bool winnerIsTeamA,
     required bool winnerBatsFirst,

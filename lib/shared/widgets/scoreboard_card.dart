@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/enums.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/utils/cricket_math.dart';
+import '../../core/utils/match_score_display.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 
@@ -19,8 +21,10 @@ class ScoreboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inn = innings ?? match.currentInnings;
+    final cur = innings ?? match.currentInnings;
     final rules = match.rules;
+    final firstSummary = MatchScoreDisplay.completedFirstInnings(match);
+    final chase = MatchScoreDisplay.chaseLine(match);
     final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
           color: Colors.white,
           fontWeight: FontWeight.w600,
@@ -51,21 +55,27 @@ class ScoreboardCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                if (isLive) ...[
+                if (isLive || match.status == MatchStatus.inningsBreak) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.liveIndicator,
+                      color: match.status == MatchStatus.inningsBreak
+                          ? AppColors.gold
+                          : AppColors.liveIndicator,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'LIVE',
+                      match.status == MatchStatus.inningsBreak
+                          ? 'INN BREAK'
+                          : 'LIVE',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: match.status == MatchStatus.inningsBreak
+                                ? Colors.black
+                                : Colors.white,
                             fontSize: 9,
                           ),
                     ),
@@ -85,21 +95,66 @@ class ScoreboardCard extends StatelessWidget {
             const SizedBox(height: AppDimens.spaceMd),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _teamScore(context, match.teamAName, inn, match.teamAId),
+                _teamScore(context, match.teamAName, match.teamAId),
                 Text(
                   'vs',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppColors.gold,
                       ),
                 ),
-                _teamScore(context, match.teamBName, inn, match.teamBId),
+                _teamScore(
+                  context,
+                  match.teamBName,
+                  match.teamBId,
+                  alignEnd: true,
+                ),
               ],
             ),
-            if (inn != null) ...[
+            if (firstSummary != null) ...[
               const SizedBox(height: AppDimens.spaceSm),
               Text(
-                '${CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver)} ov • RR ${CricketMath.runRate(inn.totalRuns, inn.legalBalls, rules.ballsPerOver).toStringAsFixed(2)}',
+                '1st inn — ${firstSummary.battingTeamName}: '
+                '${firstSummary.runs}/${firstSummary.wickets} '
+                '(${firstSummary.overs} ov) · RR ${firstSummary.runRate.toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.92),
+                    ),
+              ),
+              Text(
+                'Target ${firstSummary.target}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.gold,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+            if (cur != null &&
+                cur.status == InningsStatus.inProgress &&
+                cur.inningsNumber >= 2) ...[
+              const SizedBox(height: AppDimens.spaceSm),
+              Text(
+                '${MatchScoreDisplay.battingTeamName(match, cur)} batting · '
+                '${CricketMath.formatOvers(cur.legalBalls, rules.ballsPerOver)} ov · '
+                'CRR ${MatchScoreDisplay.runRateFor(cur, rules).toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (chase != null)
+                Text(
+                  chase,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.gold,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+            ] else if (cur != null &&
+                cur.status == InningsStatus.inProgress &&
+                firstSummary == null) ...[
+              const SizedBox(height: AppDimens.spaceSm),
+              Text(
+                '${CricketMath.formatOvers(cur.legalBalls, rules.ballsPerOver)} ov · '
+                'RR ${MatchScoreDisplay.runRateFor(cur, rules).toStringAsFixed(2)}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -112,14 +167,15 @@ class ScoreboardCard extends StatelessWidget {
   Widget _teamScore(
     BuildContext context,
     String name,
-    InningsModel? inn,
-    String? teamId,
-  ) {
-    final isBatting = inn != null && inn.battingTeamId == teamId;
-    final score = isBatting ? '${inn.totalRuns}/${inn.totalWickets}' : '—';
+    String? teamId, {
+    bool alignEnd = false,
+  }) {
+    final inn = MatchScoreDisplay.inningsBattingTeam(match, teamId);
+    final isBatting = MatchScoreDisplay.isTeamBattingNow(match, teamId);
     return Flexible(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Text(
             name,
@@ -129,13 +185,26 @@ class ScoreboardCard extends StatelessWidget {
                 ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            textAlign: alignEnd ? TextAlign.end : TextAlign.start,
           ),
-          Text(
-            score,
-            style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                  color: Colors.white,
-                ),
-          ),
+          if (inn != null)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+              child: Text(
+                '${inn.totalRuns}/${inn.totalWickets}',
+                style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      color: Colors.white,
+                    ),
+              ),
+            )
+          else
+            Text(
+              '—',
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                    color: Colors.white,
+                  ),
+            ),
         ],
       ),
     );

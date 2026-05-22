@@ -35,9 +35,6 @@ class MatchSummaryTab extends ConsumerWidget {
         final isBreak = match.status == MatchStatus.inningsBreak;
         final multiInnings = match.rules.maxInnings > 1;
         final canNext = multiInnings && repo.canStartNextInnings(match);
-        final target = match.innings.length >= 2
-            ? repo.firstInningsTarget(match)
-            : null;
         final canManage = canManageMatch(
           match: match,
           userId: uid,
@@ -50,7 +47,7 @@ class MatchSummaryTab extends ConsumerWidget {
             ScoreboardCard(
               match: match,
               innings: match.currentInnings,
-              isLive: isLive,
+              isLive: isLive || isBreak,
             ),
             if (match.stream.status == StreamStatus.live ||
                 match.stream.status == StreamStatus.connecting) ...[
@@ -73,16 +70,6 @@ class MatchSummaryTab extends ConsumerWidget {
                   ),
                 ),
             ],
-            if (target != null && match.currentInningsIndex >= 1)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
-                child: Text(
-                  'Target: ${target.target} (${target.runs}/${target.wickets} in 1st inn.)',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.gold,
-                      ),
-                ),
-              ),
             if (match.location.displayLabel.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.location_on, color: AppColors.gold),

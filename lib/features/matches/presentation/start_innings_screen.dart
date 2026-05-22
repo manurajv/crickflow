@@ -31,7 +31,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
   bool _starting = false;
 
   String _battingTeamName(MatchModel match) {
-    final inn = match.innings.isNotEmpty ? match.innings.first : null;
+    final inn = match.currentInnings ?? match.innings.firstOrNull;
     if (inn == null) return match.teamAName;
     if (inn.battingTeamId == match.teamAId) return match.teamAName;
     if (inn.battingTeamId == match.teamBId) return match.teamBName;
@@ -39,7 +39,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
   }
 
   String _bowlingTeamName(MatchModel match) {
-    final inn = match.innings.isNotEmpty ? match.innings.first : null;
+    final inn = match.currentInnings ?? match.innings.firstOrNull;
     if (inn == null) return match.teamBName;
     if (inn.bowlingTeamId == match.teamAId) return match.teamAName;
     if (inn.bowlingTeamId == match.teamBId) return match.teamBName;
@@ -164,8 +164,10 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
             return const Center(child: Text('Match not found'));
           }
 
-          final inn = match.innings.firstOrNull;
+          final inn = match.currentInnings ?? match.innings.firstOrNull;
           if (inn != null &&
+              match.status == MatchStatus.live &&
+              inn.status == InningsStatus.inProgress &&
               inn.strikerId != null &&
               inn.nonStrikerId != null &&
               inn.currentBowlerId != null) {

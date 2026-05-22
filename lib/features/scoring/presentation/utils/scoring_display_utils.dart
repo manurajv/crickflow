@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../../../../core/constants/enums.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/ball_event_model.dart';
@@ -311,4 +313,72 @@ class ScoringDisplayUtils {
 
   static int overExtras(List<BallEventModel> overEvents) => overEvents
       .fold(0, (s, e) => s + extrasOnBall(e));
+
+  /// Playing XI size for the batting side (from match setup squads).
+  static int battingPlayingSquadSize(MatchModel match, InningsModel inn) {
+    final setup = match.setup;
+    if (setup == null) return 11;
+    final isTeamA = inn.battingTeamId == match.teamAId;
+    final ids = setup.squadIdsForTeam(isTeamA);
+    return ids.isNotEmpty ? ids.length : 11;
+  }
+
+  /// Selected squad ids for the batting side in this innings.
+  static List<String> battingSquadIds(MatchModel match, InningsModel inn) {
+    final setup = match.setup;
+    if (setup == null) return const [];
+    final isTeamA = inn.battingTeamId == match.teamAId;
+    return setup.squadIdsForTeam(isTeamA);
+  }
+
+  /// Wickets that end the innings (e.g. 10 when 11 players selected).
+  static int maxDismissals(MatchModel match, InningsModel inn) {
+    final squadSize = battingPlayingSquadSize(match, inn);
+    final fromSquad = squadSize > 0 ? squadSize - 1 : 10;
+    return min(match.rules.maxWickets, fromSquad);
+  }
+
+  /// True when the crease needs a batter and no playing-squad member can fill it.
+  static bool noBattersAvailable(MatchModel match, InningsModel inn) {
+    final squadIds = battingSquadIds(match, inn);
+    if (squadIds.isEmpty) return false;
+
+    final notOut =
+        squadIds.where((id) => !isPlayerOut(inn, id)).toSet();
+    if (notOut.isEmpty) return true;
+
+    if (inn.strikerId != null && inn.nonStrikerId != null) return false;
+
+    final onCrease = {
+      if (inn.strikerId != null) inn.strikerId!,
+      if (inn.nonStrikerId != null) inn.nonStrikerId!,
+    };
+    return notOut.difference(onCrease).isEmpty;
+  }
+
+  static bool isAllOut(MatchModel match, InningsModel inn) {
+    if (inn.totalWickets >= maxDismissals(match, inn)) return true;
+    return noBattersAvailable(match, inn);
+  }
+
+  static bool isOversComplete(MatchModel match, InningsModel inn) {
+    final maxBalls = match.rules.totalOvers * match.rules.ballsPerOver;
+    return inn.legalBalls >= maxBalls;
+  }
+
+  static bool isInningsComplete(MatchModel match, InningsModel inn) =>
+      isAllOut(match, inn) || isOversComplete(match, inn);
+
+  static String inningsCompleteReason(MatchModel match, InningsModel inn) {
+    if (isAllOut(match, inn)) return 'All out';
+    if (isOversComplete(match, inn)) return 'Overs complete';
+    return '';
+  }
+
+  static bool canUndoInnings(MatchModel match) {
+    if (match.status == MatchStatus.inningsBreak) return false;
+    final inn = match.currentInnings;
+    if (inn == null) return false;
+    return inn.status != InningsStatus.completed;
+  }
 }

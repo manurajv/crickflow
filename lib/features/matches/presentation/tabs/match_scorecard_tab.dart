@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/enums.dart';
+import '../../../../core/utils/match_score_display.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cricket_math.dart';
@@ -23,8 +25,16 @@ class MatchScorecardTab extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
           children: [
-            ScoreboardCard(match: match, innings: match.currentInnings),
+            ScoreboardCard(
+              match: match,
+              innings: match.currentInnings,
+              isLive: match.status == MatchStatus.live ||
+                  match.status == MatchStatus.inningsBreak,
+            ),
             ...match.innings.map((inn) {
+              final batting = MatchScoreDisplay.battingTeamName(match, inn);
+              final bowling = MatchScoreDisplay.bowlingTeamName(match, inn);
+              final rr = MatchScoreDisplay.runRateFor(inn, rules);
               return Card(
                 child: Padding(
                   padding: AppDimens.cardPadding,
@@ -36,9 +46,18 @@ class MatchScorecardTab extends ConsumerWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       Text(
-                        '${inn.totalRuns}/${inn.totalWickets} (${CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver)} ov)',
+                        '$batting vs $bowling',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                      ),
+                      Text(
+                        '${inn.totalRuns}/${inn.totalWickets} '
+                        '(${CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver)} ov) · '
+                        'RR ${rr.toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: AppColors.gold,
+                              fontWeight: FontWeight.w600,
                             ),
                       ),
                       const Divider(),

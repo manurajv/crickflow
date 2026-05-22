@@ -185,19 +185,46 @@ class MatchRepository {
     final match = await getMatch(matchId);
     if (match == null || match.currentInnings == null) return null;
 
-    final events = await fetchBallEvents(matchId);
-    if (events.isEmpty) return match;
+    if (match.status == MatchStatus.inningsBreak) {
+      throw StateError('Cannot undo after innings is marked complete');
+    }
+    if (match.currentInnings!.status == InningsStatus.completed) {
+      throw StateError('Cannot undo after innings is marked complete');
+    }
 
-    final last = events.removeLast();
+    final allEvents = await fetchBallEvents(matchId);
+    if (allEvents.isEmpty) return match;
+
+    final currentInn = match.currentInnings!;
+    final last = allEvents.last;
+    if (last.inningsNumber != currentInn.inningsNumber) {
+      throw StateError('Nothing to undo in current innings');
+    }
+
+    allEvents.removeLast();
+    final inningsEvents = allEvents
+        .where((e) => e.inningsNumber == currentInn.inningsNumber)
+        .toList();
+
+    final preservedPriorInnings = List<InningsModel>.from(match.innings);
     final base = _scoringEngine.baseInningsFrom(
-      match.currentInnings!,
-      events: events,
+      currentInn,
+      events: inningsEvents,
     );
-    final replayed = _scoringEngine.replayInnings(
+    var replayed = _scoringEngine.replayInnings(
       match: match,
       baseInnings: base,
-      events: events,
+      events: inningsEvents,
     );
+
+    // Never mutate completed prior innings during current-innings replay.
+    if (match.currentInningsIndex > 0) {
+      final inningsList = List<InningsModel>.from(replayed.innings);
+      for (var i = 0; i < match.currentInningsIndex; i++) {
+        inningsList[i] = preservedPriorInnings[i];
+      }
+      replayed = replayed.copyWith(innings: inningsList);
+    }
     final overlay = _scoringEngine.buildOverlayForMatch(replayed);
 
     final batch = _firestore.batch();
@@ -503,8 +530,15 @@ class MatchRepository {
   }
 
   InningsScoreSummary? firstInningsTarget(MatchModel match) {
-    if (match.innings.isEmpty) return null;
-    final first = match.innings.first;
+    InningsModel? first;
+    for (final inn in match.innings) {
+      if (inn.inningsNumber == 1) {
+        first = inn;
+        break;
+      }
+    }
+    first ??= match.innings.isNotEmpty ? match.innings.first : null;
+    if (first == null || first.status != InningsStatus.completed) return null;
     return InningsScoreSummary(
       runs: first.totalRuns,
       wickets: first.totalWickets,

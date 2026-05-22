@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/lineup_player.dart';
 import '../../data/models/match_model.dart';
@@ -45,11 +46,40 @@ final matchLineupSquadsProvider =
   final battingName = _teamDisplayName(match, battingTeamId, isA: true);
   final bowlingName = _teamDisplayName(match, bowlingTeamId, isA: false);
 
-  final batting = await loadSquad(battingTeamId, battingName);
-  final bowling = await loadSquad(bowlingTeamId, bowlingName);
+  final batting = _matchPlayingSquad(
+    match: match,
+    teamId: battingTeamId,
+    loaded: await loadSquad(battingTeamId, battingName),
+  );
+  final bowling = _matchPlayingSquad(
+    match: match,
+    teamId: bowlingTeamId,
+    loaded: await loadSquad(bowlingTeamId, bowlingName),
+  );
 
   return MatchLineupSquads(batting: batting, bowling: bowling);
 });
+
+/// Only players picked in match setup squads may bat or bowl in this match.
+List<LineupPlayer> _matchPlayingSquad({
+  required MatchModel match,
+  required String? teamId,
+  required List<LineupPlayer> loaded,
+}) {
+  final setup = match.setup;
+  if (setup == null || teamId == null || teamId.isEmpty) return loaded;
+
+  final isTeamA = teamId == match.teamAId;
+  final ids = setup.squadIdsForTeam(isTeamA);
+  if (ids.isEmpty) return loaded;
+
+  final names = setup.squadNamesForTeam(isTeamA);
+  return [
+    for (final id in ids)
+      loaded.where((p) => p.id == id).firstOrNull ??
+          LineupPlayer(id: id, name: names[id] ?? 'Player'),
+  ];
+}
 
 String _teamDisplayName(MatchModel match, String? teamId, {required bool isA}) {
   if (teamId == match.teamAId) return match.teamAName;

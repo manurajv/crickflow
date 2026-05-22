@@ -32,7 +32,9 @@ class OverCompleteDialog extends StatelessWidget {
     final striker = ScoringDisplayUtils.batsman(innings, innings.strikerId);
     final nonStriker =
         ScoringDisplayUtils.batsman(innings, innings.nonStrikerId);
-    final bowler = ScoringDisplayUtils.bowler(innings, innings.currentBowlerId);
+    final finishedBowlerId =
+        overEvents.isNotEmpty ? overEvents.last.bowlerId : innings.currentBowlerId;
+    final bowler = ScoringDisplayUtils.bowler(innings, finishedBowlerId);
 
     return AlertDialog(
       backgroundColor: AppColors.card,

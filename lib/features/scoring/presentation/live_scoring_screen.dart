@@ -16,6 +16,7 @@ import '../../../shared/widgets/player_lineup_picker.dart';
 import '../../../shared/widgets/wicket_picker_sheet.dart';
 import '../../matches/presentation/match_scoring_rules_screen.dart';
 import 'utils/scoring_display_utils.dart';
+import 'widgets/innings_break_dialog.dart';
 import 'widgets/live_scoring_header.dart';
 import 'widgets/live_scoring_keypad.dart';
 import 'widgets/live_scoring_players_strip.dart'
@@ -39,6 +40,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   int _ballSequence = 0;
   bool _isRecording = false;
   bool _sequenceLoaded = false;
+  bool _inningsBreakDialogOpen = false;
+  bool _suppressInningsBreakCheck = false;
   BowlingSide _bowlingSide = BowlingSide.over;
 
   @override
@@ -81,10 +84,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       return;
     }
 
+    if (_inningsBreakDialogOpen ||
+        ScoringDisplayUtils.isInningsComplete(match, inn!) ||
+        match.status == MatchStatus.inningsBreak) {
+      return;
+    }
+
     final events =
         ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
     if (ScoringDisplayUtils.needsNextOverBowler(
-      inn!,
+      inn,
       match.rules.ballsPerOver,
       events,
     )) {
@@ -124,15 +133,20 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
       final updated = ref.read(matchProvider(widget.matchId)).valueOrNull;
       final updatedInn = updated?.currentInnings;
-      if (updated != null &&
-          updatedInn != null &&
-          fullInput.type != BallEventType.wide &&
-          fullInput.type != BallEventType.noBall) {
-        final bpo = updated.rules.ballsPerOver;
-        if (updatedInn.legalBalls > 0 &&
-            updatedInn.legalBalls % bpo == 0 &&
-            mounted) {
-          await _showOverComplete(updated, updatedInn);
+      if (updated != null && updatedInn != null && mounted) {
+        if (ScoringDisplayUtils.isInningsComplete(updated, updatedInn)) {
+          await _showInningsBreakDialog(
+            updated,
+            updatedInn,
+            allowUndo: true,
+          );
+        } else if (fullInput.type != BallEventType.wide &&
+            fullInput.type != BallEventType.noBall) {
+          final bpo = updated.rules.ballsPerOver;
+          if (updatedInn.legalBalls > 0 &&
+              updatedInn.legalBalls % bpo == 0) {
+            await _showOverComplete(updated, updatedInn);
+          }
         }
       }
     } catch (e) {
@@ -155,7 +169,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       ballsPerOver: match.rules.ballsPerOver,
     );
     final overNum = innings.legalBalls ~/ match.rules.ballsPerOver;
-    final bowler = ScoringDisplayUtils.bowler(innings, innings.currentBowlerId);
+    final finishedBowlerId = overEvents.isNotEmpty
+        ? overEvents.last.bowlerId
+        : ScoringDisplayUtils.bowlerWhoFinishedLastOver(
+            inn: innings,
+            events: events,
+            ballsPerOver: match.rules.ballsPerOver,
+          );
+    final bowler = ScoringDisplayUtils.bowler(
+      innings,
+      finishedBowlerId ?? innings.currentBowlerId,
+    );
 
     await showDialog<void>(
       context: context,
@@ -249,13 +273,30 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (!mounted) return;
     final updated = ref.read(matchProvider(widget.matchId)).valueOrNull;
     final inn = updated?.currentInnings;
-    if (updated != null && inn != null) {
+    if (updated != null &&
+        inn != null &&
+        !ScoringDisplayUtils.isInningsComplete(updated, inn)) {
       await _fillVacantCrease(updated, inn);
+    }
+  }
+
+  Future<void> _showInningsCompleteIfNeeded(
+    MatchModel match,
+    InningsModel inn,
+  ) async {
+    if (!mounted || _inningsBreakDialogOpen) return;
+    if (ScoringDisplayUtils.isInningsComplete(match, inn)) {
+      await _showInningsBreakDialog(match, inn, allowUndo: true);
     }
   }
 
   Future<void> _fillVacantCrease(MatchModel match, InningsModel inn) async {
     if (inn.strikerId != null && inn.nonStrikerId != null) return;
+
+    if (ScoringDisplayUtils.isInningsComplete(match, inn)) {
+      await _showInningsCompleteIfNeeded(match, inn);
+      return;
+    }
 
     final needStriker = inn.strikerId == null;
     await _pickBatsman(
@@ -271,6 +312,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (after != null &&
         afterInn != null &&
         (afterInn.strikerId == null || afterInn.nonStrikerId == null)) {
+      if (ScoringDisplayUtils.isInningsComplete(after, afterInn)) {
+        await _showInningsCompleteIfNeeded(after, afterInn);
+        return;
+      }
       await _pickBatsman(
         after,
         afterInn,
@@ -279,6 +324,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             ? 'Select striker'
             : 'Select non-striker',
       );
+    }
+
+    if (!mounted) return;
+    final latest = ref.read(matchProvider(widget.matchId)).valueOrNull;
+    final latestInn = latest?.currentInnings;
+    if (latest != null && latestInn != null) {
+      await _showInningsCompleteIfNeeded(latest, latestInn);
     }
   }
 
@@ -301,11 +353,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     );
 
     if (eligible.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No batters available')),
-        );
-      }
+      await _showInningsCompleteIfNeeded(match, inn);
       return;
     }
 
@@ -391,15 +439,136 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (input != null) await _record(input);
   }
 
-  Future<void> _undo() async {
-    final confirmed = await ScoringUiKit.confirmAction(
-      context,
-      title: 'Undo?',
-      message: 'Undo last ball?',
-    );
-    if (confirmed != true || !mounted) return;
+  Future<void> _showInningsBreakDialog(
+    MatchModel match,
+    InningsModel innings, {
+    required bool allowUndo,
+  }) async {
+    if (_inningsBreakDialogOpen || !mounted) return;
+    setState(() => _inningsBreakDialogOpen = true);
 
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => InningsBreakDialog(
+        match: match,
+        innings: innings,
+        allowUndo: allowUndo,
+        onUndo: () async {
+          Navigator.pop(ctx);
+          setState(() => _inningsBreakDialogOpen = false);
+          await _performUndo(showConfirm: false);
+          if (!mounted) return;
+          final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
+          final freshInn = fresh?.currentInnings;
+          if (fresh != null &&
+              freshInn != null &&
+              fresh.status == MatchStatus.live &&
+              ScoringDisplayUtils.isInningsComplete(fresh, freshInn)) {
+            await _showInningsBreakDialog(fresh, freshInn, allowUndo: true);
+          }
+        },
+        onConfirm: () async {
+          Navigator.pop(ctx);
+          setState(() => _inningsBreakDialogOpen = false);
+          await _confirmInningsBreak(match, innings);
+        },
+      ),
+    );
+
+    if (mounted) setState(() => _inningsBreakDialogOpen = false);
+  }
+
+  Future<void> _confirmInningsBreak(
+    MatchModel match,
+    InningsModel innings,
+  ) async {
     setState(() => _isRecording = true);
+    try {
+      final repo = ref.read(matchRepositoryProvider);
+      final hasNext = innings.inningsNumber < match.rules.maxInnings;
+
+      if (innings.status == InningsStatus.inProgress) {
+        await repo.endCurrentInnings(widget.matchId);
+      }
+
+      if (!hasNext) {
+        final completed = await repo.completeMatch(widget.matchId);
+        if (completed != null) {
+          await ref
+              .read(tournamentRepositoryProvider)
+              .advanceKnockoutFromMatch(completed);
+        }
+        if (mounted) context.go('/match/${widget.matchId}');
+        return;
+      }
+
+      final fresh = await repo.getMatch(widget.matchId);
+      if (fresh != null && fresh.innings.length == innings.inningsNumber) {
+        await repo.startNextInnings(widget.matchId);
+      }
+      if (mounted) context.go('/match/${widget.matchId}/start-innings');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not continue: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRecording = false);
+    }
+  }
+
+  void _handleInningsBreakState(MatchModel match) {
+    if (_inningsBreakDialogOpen || _suppressInningsBreakCheck || !mounted) {
+      return;
+    }
+    final inn = match.currentInnings;
+    if (inn == null) return;
+
+    if (match.status == MatchStatus.inningsBreak &&
+        inn.status == InningsStatus.completed) {
+      _showInningsBreakDialog(match, inn, allowUndo: false);
+      return;
+    }
+
+    if (match.status == MatchStatus.live &&
+        inn.status == InningsStatus.inProgress &&
+        ScoringDisplayUtils.isInningsComplete(match, inn)) {
+      _showInningsBreakDialog(match, inn, allowUndo: true);
+    }
+  }
+
+  Future<void> _undo() async {
+    await _performUndo(showConfirm: true);
+  }
+
+  Future<void> _performUndo({required bool showConfirm}) async {
+    final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
+    if (match != null && !ScoringDisplayUtils.canUndoInnings(match)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot undo after innings is marked complete'),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (showConfirm) {
+      final confirmed = await ScoringUiKit.confirmAction(
+        context,
+        title: 'Undo?',
+        message: 'Undo last ball?',
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    setState(() {
+      _isRecording = true;
+      _suppressInningsBreakCheck = true;
+    });
     try {
       await ref.read(matchRepositoryProvider).undoLastBall(widget.matchId);
       final seq = await ref
@@ -413,7 +582,20 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isRecording = false);
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _suppressInningsBreakCheck = false;
+        });
+        final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
+        final freshInn = fresh?.currentInnings;
+        if (fresh != null &&
+            freshInn != null &&
+            fresh.status == MatchStatus.live &&
+            ScoringDisplayUtils.isInningsComplete(fresh, freshInn)) {
+          _handleInningsBreakState(fresh);
+        }
+      }
     }
   }
 
@@ -452,11 +634,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       return;
     }
 
+    final inn = match.currentInnings;
+    if (inn != null && ScoringDisplayUtils.isInningsComplete(match, inn)) {
+      await _showInningsBreakDialog(match, inn, allowUndo: true);
+      return;
+    }
+
     await ref.read(matchRepositoryProvider).endCurrentInnings(widget.matchId);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Innings ended')),
-      );
+      final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
+      final ended = fresh?.currentInnings;
+      if (fresh != null && ended != null) {
+        await _showInningsBreakDialog(fresh, ended, allowUndo: false);
+      }
     }
   }
 
@@ -474,13 +664,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     );
 
     if (eligible.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No available batters (out players cannot bat again)'),
-          ),
-        );
-      }
+      await _showInningsCompleteIfNeeded(match, inn);
       return;
     }
 
@@ -641,6 +825,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final eventsAsync = ref.watch(ballEventsProvider(widget.matchId));
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final uid = ref.watch(authStateProvider).value?.uid;
+
+    ref.listen<AsyncValue<MatchModel?>>(matchProvider(widget.matchId), (prev, next) {
+      next.whenData((match) {
+        if (match != null && mounted && _sequenceLoaded) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _handleInningsBreakState(match);
+          });
+        }
+      });
+    });
 
     return Scaffold(
       backgroundColor: AppColors.background,

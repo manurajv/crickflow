@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/match_score_display.dart';
 import '../../../core/utils/cricket_math.dart';
 import '../../../data/models/match_model.dart';
 import '../../../core/utils/deep_link_utils.dart';
@@ -39,8 +41,16 @@ class ScorecardScreen extends ConsumerWidget {
 
           return ListView(
             children: [
-              ScoreboardCard(match: match, innings: match.currentInnings),
+              ScoreboardCard(
+                match: match,
+                innings: match.currentInnings,
+                isLive: match.status == MatchStatus.live ||
+                    match.status == MatchStatus.inningsBreak,
+              ),
               ...match.innings.map((inn) {
+                final batting = MatchScoreDisplay.battingTeamName(match, inn);
+                final bowling = MatchScoreDisplay.bowlingTeamName(match, inn);
+                final rr = MatchScoreDisplay.runRateFor(inn, rules);
                 return Card(
                   margin: const EdgeInsets.all(AppDimens.spaceMd),
                   child: Padding(
@@ -56,7 +66,13 @@ class ScorecardScreen extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          '${inn.totalRuns}/${inn.totalWickets} (${CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver)} ov)',
+                          '$batting vs $bowling',
+                          style: const TextStyle(color: AppColors.textSecondary),
+                        ),
+                        Text(
+                          '${inn.totalRuns}/${inn.totalWickets} '
+                          '(${CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver)} ov) · '
+                          'RR ${rr.toStringAsFixed(2)}',
                           style: const TextStyle(color: AppColors.gold),
                         ),
                         const Divider(),

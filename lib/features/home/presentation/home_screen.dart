@@ -170,7 +170,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ScoreboardCard(
                             match: m,
                             innings: m.currentInnings,
-                            isLive: isLive,
+                            isLive: isLive ||
+                                m.status == MatchStatus.inningsBreak,
                           ),
                           if (m.scheduledAt != null)
                             Padding(
