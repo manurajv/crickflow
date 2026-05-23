@@ -1,11 +1,10 @@
-import 'dart:math';
-
 import '../../../../core/constants/enums.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
+import '../../../../domain/scoring/innings_completion_policy.dart';
 
 /// Chase target stats for 2nd (or later) innings.
 class InningsChaseDisplay {
@@ -40,11 +39,36 @@ class ScoringDisplayUtils {
     final winnerName =
         setup.tossWinnerIsTeamA! ? match.teamAName : match.teamBName;
     final elected = setup.tossWinnerBatsFirst! ? 'bat' : 'bowl';
-    final coin = setup.coinResult;
-    if (coin != null && coin.isNotEmpty) {
-      return '$winnerName won the toss and elected to $elected · $coin';
-    }
     return '$winnerName won the toss and elected to $elected';
+  }
+
+  /// Show toss line under the main score during the first 3 overs of innings 1.
+  static bool showTossLineDuringFirstInnings(
+    MatchModel match,
+    InningsModel inn,
+    MatchRulesModel rules,
+  ) {
+    if (inn.inningsNumber != 1 || inn.isSuperOver) return false;
+    if (tossSummaryLine(match) == null) return false;
+    return inn.legalBalls < 3 * rules.ballsPerOver;
+  }
+
+  /// Scorer may correct toss election only before the first ball of innings 1.
+  static bool isFirstInningsInitialState(MatchModel match, InningsModel inn) {
+    if (inn.inningsNumber != 1 || inn.isSuperOver) return false;
+    if (inn.status == InningsStatus.completed) return false;
+    return inn.legalBalls == 0 &&
+        inn.totalRuns == 0 &&
+        inn.totalWickets == 0 &&
+        inn.extras == 0;
+  }
+
+  static bool canEditTossDecision(MatchModel match) {
+    if (match.status == MatchStatus.completed) return false;
+    final setup = match.setup;
+    if (setup == null || !setup.tossReady) return false;
+    if (match.innings.length != 1) return false;
+    return isFirstInningsInitialState(match, match.innings.first);
   }
 
   /// True once this batter has faced at least one legal delivery (not a bye).
@@ -147,39 +171,28 @@ class ScoringDisplayUtils {
     return match.teamAName;
   }
 
-  static InningsModel? _firstInnings(MatchModel match) {
-    for (final i in match.innings) {
-      if (i.inningsNumber == 1) return i;
-    }
-    if (match.innings.isNotEmpty && match.innings.first.inningsNumber == 1) {
-      return match.innings.first;
-    }
-    return null;
-  }
-
   static InningsChaseDisplay? chaseDisplay(
     MatchModel match,
     InningsModel inn,
     MatchRulesModel rules,
   ) {
-    if (inn.inningsNumber < 2) return null;
-    final first = _firstInnings(match);
-    if (first == null) return null;
+    if (inn.inningsNumber < 2 && !inn.isSuperOver) return null;
+    final target = InningsCompletionPolicy.chaseTarget(match, inn);
+    if (target <= 0) return null;
 
-    final target = first.totalRuns + 1;
-    final runsNeeded = target - inn.totalRuns;
-    final ballsRemaining =
-        (rules.totalBalls - inn.legalBalls).clamp(0, rules.totalBalls);
+    final runsNeeded = InningsCompletionPolicy.remainingRuns(match, inn);
+    final ballsRemaining = InningsCompletionPolicy.remainingBalls(match, inn);
+    final effective = InningsCompletionPolicy.effectiveRules(match, inn);
     final crr = CricketMath.runRate(
       inn.totalRuns,
       inn.legalBalls,
-      rules.ballsPerOver,
+      effective.ballsPerOver,
     );
     final rrr = runsNeeded > 0 && ballsRemaining > 0
         ? CricketMath.requiredRunRate(
             runsNeeded: runsNeeded,
             ballsRemaining: ballsRemaining,
-            ballsPerOver: rules.ballsPerOver,
+            ballsPerOver: effective.ballsPerOver,
           )
         : 0.0;
 
@@ -332,11 +345,8 @@ class ScoringDisplayUtils {
   }
 
   /// Wickets that end the innings (e.g. 10 when 11 players selected).
-  static int maxDismissals(MatchModel match, InningsModel inn) {
-    final squadSize = battingPlayingSquadSize(match, inn);
-    final fromSquad = squadSize > 0 ? squadSize - 1 : 10;
-    return min(match.rules.maxWickets, fromSquad);
-  }
+  static int maxDismissals(MatchModel match, InningsModel inn) =>
+      InningsCompletionPolicy.maxDismissals(match, inn);
 
   /// True when the crease needs a batter and no playing-squad member can fill it.
   static bool noBattersAvailable(MatchModel match, InningsModel inn) {
@@ -356,24 +366,20 @@ class ScoringDisplayUtils {
     return notOut.difference(onCrease).isEmpty;
   }
 
-  static bool isAllOut(MatchModel match, InningsModel inn) {
-    if (inn.totalWickets >= maxDismissals(match, inn)) return true;
-    return noBattersAvailable(match, inn);
-  }
+  static bool isAllOut(MatchModel match, InningsModel inn) =>
+      InningsCompletionPolicy.isAllOut(match, inn);
 
-  static bool isOversComplete(MatchModel match, InningsModel inn) {
-    final maxBalls = match.rules.totalOvers * match.rules.ballsPerOver;
-    return inn.legalBalls >= maxBalls;
-  }
+  static bool isOversComplete(MatchModel match, InningsModel inn) =>
+      InningsCompletionPolicy.isOversComplete(match, inn);
+
+  static bool isTargetReached(MatchModel match, InningsModel inn) =>
+      InningsCompletionPolicy.isTargetReached(match, inn);
 
   static bool isInningsComplete(MatchModel match, InningsModel inn) =>
-      isAllOut(match, inn) || isOversComplete(match, inn);
+      InningsCompletionPolicy.isInningsComplete(match, inn);
 
-  static String inningsCompleteReason(MatchModel match, InningsModel inn) {
-    if (isAllOut(match, inn)) return 'All out';
-    if (isOversComplete(match, inn)) return 'Overs complete';
-    return '';
-  }
+  static String inningsCompleteReason(MatchModel match, InningsModel inn) =>
+      InningsCompletionPolicy.endReasonLabel(match, inn);
 
   static bool canUndoInnings(MatchModel match) {
     if (match.status == MatchStatus.inningsBreak) return false;

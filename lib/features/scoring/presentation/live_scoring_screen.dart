@@ -10,11 +10,13 @@ import '../../../data/models/lineup_player.dart';
 import '../../../data/models/match_model.dart';
 import '../../../domain/services/commentary_service.dart';
 import '../../../domain/services/scoring_engine.dart';
+import '../../../domain/scoring/match_completion_policy.dart';
 import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/player_lineup_picker.dart';
 import '../../../shared/widgets/wicket_picker_sheet.dart';
 import '../../matches/presentation/match_scoring_rules_screen.dart';
+import '../../matches/presentation/widgets/edit_toss_decision_sheet.dart';
 import 'utils/scoring_display_utils.dart';
 import 'widgets/innings_break_dialog.dart';
 import 'widgets/live_scoring_header.dart';
@@ -123,7 +125,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     );
 
     try {
-      await ref.read(matchRepositoryProvider).recordBall(
+      final result = await ref.read(matchRepositoryProvider).recordBall(
             match: match,
             input: fullInput,
             sequence: sequence,
@@ -131,9 +133,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       setState(() => _ballSequence = sequence);
       HapticFeedback.lightImpact();
 
-      final updated = ref.read(matchProvider(widget.matchId)).valueOrNull;
-      final updatedInn = updated?.currentInnings;
-      if (updated != null && updatedInn != null && mounted) {
+      final updated = result.match;
+      final updatedInn = updated.currentInnings;
+      if (updatedInn != null && mounted) {
         if (ScoringDisplayUtils.isInningsComplete(updated, updatedInn)) {
           await _showInningsBreakDialog(
             updated,
@@ -486,11 +488,29 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     setState(() => _isRecording = true);
     try {
       final repo = ref.read(matchRepositoryProvider);
-      final hasNext = innings.inningsNumber < match.rules.maxInnings;
 
       if (innings.status == InningsStatus.inProgress) {
         await repo.endCurrentInnings(widget.matchId);
       }
+
+      final fresh = await repo.getMatch(widget.matchId) ?? match;
+      final ended = fresh.innings.length > innings.inningsNumber - 1
+          ? fresh.innings[innings.inningsNumber - 1]
+          : innings;
+
+      if (MatchCompletionPolicy.shouldOfferSuperOver(fresh) ||
+          MatchCompletionPolicy.isTiedChaseComplete(fresh, ended)) {
+        await repo.startSuperOver(widget.matchId);
+        if (mounted) context.go('/match/${widget.matchId}/start-innings');
+        return;
+      }
+
+      final superOvers = fresh.innings.where((i) => i.isSuperOver).length;
+      final regularCount =
+          fresh.innings.where((i) => !i.isSuperOver).length;
+      final hasNext = ended.isSuperOver
+          ? superOvers < 2
+          : regularCount < fresh.rules.maxInnings;
 
       if (!hasNext) {
         final completed = await repo.completeMatch(widget.matchId);
@@ -499,12 +519,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               .read(tournamentRepositoryProvider)
               .advanceKnockoutFromMatch(completed);
         }
-        if (mounted) context.go('/match/${widget.matchId}');
+        if (mounted) {
+          context.go('/match/${widget.matchId}');
+        }
         return;
       }
 
-      final fresh = await repo.getMatch(widget.matchId);
-      if (fresh != null && fresh.innings.length == innings.inningsNumber) {
+      if (fresh.innings.length == ended.inningsNumber) {
         await repo.startNextInnings(widget.matchId);
       }
       if (mounted) context.go('/match/${widget.matchId}/start-innings');
@@ -630,6 +651,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               .read(tournamentRepositoryProvider)
               .advanceKnockoutFromMatch(completed);
         }
+        if (mounted) {
+          context.go('/match/${widget.matchId}');
+        }
       }
       return;
     }
@@ -641,12 +665,12 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
 
     await ref.read(matchRepositoryProvider).endCurrentInnings(widget.matchId);
-    if (mounted) {
-      final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
-      final ended = fresh?.currentInnings;
-      if (fresh != null && ended != null) {
-        await _showInningsBreakDialog(fresh, ended, allowUndo: false);
-      }
+    if (!mounted) return;
+
+    final fresh = await ref.read(matchRepositoryProvider).getMatch(widget.matchId);
+    final ended = fresh?.currentInnings;
+    if (fresh != null && ended != null && mounted) {
+      await _showInningsBreakDialog(fresh, ended, allowUndo: false);
     }
   }
 
@@ -773,35 +797,34 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   void _openQuickOptions(MatchModel match) {
+    final canEditToss = ScoringDisplayUtils.canEditTossDecision(match);
     ScoringUiKit.showSheet(
       context,
       builder: (ctx) => ScoringQuickOptionsSheet(
-        onEditLineup: () {
-          Navigator.pop(ctx);
-          _openLineupSheet(match);
-        },
-        onEndInnings: () {
-          Navigator.pop(ctx);
-          _endInnings();
-        },
-        onScorecard: () {
-          Navigator.pop(ctx);
-          context.push('/match/${widget.matchId}/scorecard');
-        },
+        onEditLineup: () => _openLineupSheet(match),
+        onEndInnings: () => _endInnings(),
+        onScorecard: () => context.push('/match/${widget.matchId}/scorecard'),
         onMatchRules: () async {
-          Navigator.pop(ctx);
           final updated = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) =>
                   MatchScoringRulesScreen(initialRules: match.rules),
             ),
           );
-          if (updated != null) {
+          if (updated != null && mounted) {
             await ref.read(matchRepositoryProvider).updateMatch(
                   match.copyWith(rules: updated),
                 );
           }
         },
+        onEditToss: canEditToss
+            ? () => EditTossDecisionSheet.show(
+                  context,
+                  matchId: widget.matchId,
+                  match: match,
+                  redirectToLineup: true,
+                )
+            : null,
       ),
     );
   }

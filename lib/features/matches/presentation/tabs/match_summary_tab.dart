@@ -33,6 +33,7 @@ class MatchSummaryTab extends ConsumerWidget {
         }
         final isLive = match.status == MatchStatus.live;
         final isBreak = match.status == MatchStatus.inningsBreak;
+        final isCompleted = match.status == MatchStatus.completed;
         final multiInnings = match.rules.maxInnings > 1;
         final canNext = multiInnings && repo.canStartNextInnings(match);
         final canManage = canManageMatch(
@@ -49,6 +50,22 @@ class MatchSummaryTab extends ConsumerWidget {
               innings: match.currentInnings,
               isLive: isLive || isBreak,
             ),
+            if (isCompleted && match.resultSummary.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.spaceMd,
+                  vertical: AppDimens.spaceSm,
+                ),
+                child: Text(
+                  match.resultSummary,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.gold,
+                  ),
+                ),
+              ),
             if (match.stream.status == StreamStatus.live ||
                 match.stream.status == StreamStatus.connecting) ...[
               MultiCameraWatchSection(
@@ -96,22 +113,25 @@ class MatchSummaryTab extends ConsumerWidget {
                 runSpacing: AppDimens.spaceSm,
                 children: [
                   if (canManage &&
+                      !isCompleted &&
                       match.status != MatchStatus.live &&
                       match.status != MatchStatus.completed &&
                       match.status != MatchStatus.inningsBreak)
                     CfButton(
-                      label: 'Start Scoring',
+                      label: match.status == MatchStatus.tossCompleted
+                          ? 'Set lineup'
+                          : 'Start Scoring',
                       icon: Icons.play_arrow,
                       onPressed: () => _startMatch(context, ref, match),
                     ),
-                  if (canManage && isLive)
+                  if (canManage && isLive && !isCompleted)
                     CfButton(
                       label: multiInnings ? 'End Innings' : 'End Match',
                       icon: Icons.stop_circle_outlined,
                       isOutlined: true,
                       onPressed: () => _endInnings(context, ref, match, multiInnings),
                     ),
-                  if (canManage && isBreak && canNext)
+                  if (canManage && isBreak && canNext && !isCompleted)
                     CfButton(
                       label: 'Start 2nd Innings',
                       icon: Icons.skip_next,
@@ -119,6 +139,7 @@ class MatchSummaryTab extends ConsumerWidget {
                       onPressed: () => _startNextInnings(context, ref),
                     ),
                   if (canManage &&
+                      !isCompleted &&
                       (isLive ||
                           isBreak ||
                           match.status == MatchStatus.scheduled))
@@ -128,15 +149,14 @@ class MatchSummaryTab extends ConsumerWidget {
                       isGold: !isBreak,
                       onPressed: () => context.push('/match/$matchId/score'),
                     ),
-                  CfButton(
-                    label: 'Go Live',
-                    icon: Icons.videocam,
-                    isOutlined: true,
-                    onPressed: canManage
-                        ? () => context.push('/match/$matchId/stream')
-                        : null,
-                  ),
-                  if (canManage && (isLive || isBreak))
+                  if (canManage && !isCompleted)
+                    CfButton(
+                      label: 'Go Live',
+                      icon: Icons.videocam,
+                      isOutlined: true,
+                      onPressed: () => context.push('/match/$matchId/stream'),
+                    ),
+                  if (canManage && (isLive || isBreak) && !isCompleted)
                     CfButton(
                       label: 'Complete Match',
                       icon: Icons.flag,
@@ -195,6 +215,10 @@ class MatchSummaryTab extends ConsumerWidget {
     WidgetRef ref,
     MatchModel match,
   ) async {
+    if (match.status == MatchStatus.tossCompleted) {
+      if (context.mounted) context.push('/match/$matchId/start-innings');
+      return;
+    }
     final uid = ref.read(authStateProvider).value?.uid;
     final firstInnings = InningsModel(
       inningsNumber: 1,
@@ -232,7 +256,7 @@ class MatchSummaryTab extends ConsumerWidget {
     try {
       await ref.read(matchRepositoryProvider).startNextInnings(matchId);
       if (context.mounted) {
-        context.push('/match/$matchId/score');
+        context.push('/match/$matchId/start-innings');
       }
     } catch (e) {
       if (context.mounted) {
@@ -269,9 +293,7 @@ class MatchSummaryTab extends ConsumerWidget {
           .advanceKnockoutFromMatch(completed);
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Match completed')),
-      );
+      context.go('/match/$matchId');
     }
   }
 }

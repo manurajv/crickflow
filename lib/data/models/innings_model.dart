@@ -1,6 +1,90 @@
 import 'package:equatable/equatable.dart';
 import '../../core/constants/enums.dart';
 
+/// Closed partnership between two batters.
+class PartnershipRecord extends Equatable {
+  const PartnershipRecord({
+    required this.batterAId,
+    required this.batterBId,
+    this.batterAName = '',
+    this.batterBName = '',
+    this.runs = 0,
+    this.balls = 0,
+  });
+
+  final String batterAId;
+  final String batterBId;
+  final String batterAName;
+  final String batterBName;
+  final int runs;
+  final int balls;
+
+  factory PartnershipRecord.fromMap(Map<String, dynamic> map) {
+    return PartnershipRecord(
+      batterAId: map['batterAId'] as String? ?? '',
+      batterBId: map['batterBId'] as String? ?? '',
+      batterAName: map['batterAName'] as String? ?? '',
+      batterBName: map['batterBName'] as String? ?? '',
+      runs: map['runs'] as int? ?? 0,
+      balls: map['balls'] as int? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'batterAId': batterAId,
+        'batterBId': batterBId,
+        'batterAName': batterAName,
+        'batterBName': batterBName,
+        'runs': runs,
+        'balls': balls,
+      };
+
+  @override
+  List<Object?> get props => [batterAId, batterBId, runs, balls];
+}
+
+/// Fall-of-wicket entry for scorecard.
+class FallOfWicketRecord extends Equatable {
+  const FallOfWicketRecord({
+    required this.wicketNumber,
+    required this.batsmanId,
+    this.batsmanName = '',
+    required this.teamScore,
+    required this.legalBalls,
+    this.dismissal = '',
+  });
+
+  final int wicketNumber;
+  final String batsmanId;
+  final String batsmanName;
+  final int teamScore;
+  final int legalBalls;
+  final String dismissal;
+
+  factory FallOfWicketRecord.fromMap(Map<String, dynamic> map) {
+    return FallOfWicketRecord(
+      wicketNumber: map['wicketNumber'] as int? ?? 0,
+      batsmanId: map['batsmanId'] as String? ?? '',
+      batsmanName: map['batsmanName'] as String? ?? '',
+      teamScore: map['teamScore'] as int? ?? 0,
+      legalBalls: map['legalBalls'] as int? ?? 0,
+      dismissal: map['dismissal'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'wicketNumber': wicketNumber,
+        'batsmanId': batsmanId,
+        'batsmanName': batsmanName,
+        'teamScore': teamScore,
+        'legalBalls': legalBalls,
+        'dismissal': dismissal,
+      };
+
+  @override
+  List<Object?> get props => [wicketNumber, batsmanId, teamScore];
+}
+
 class BatsmanInningsModel extends Equatable {
   const BatsmanInningsModel({
     required this.playerId,
@@ -113,6 +197,10 @@ class InningsModel extends Equatable {
     this.partnershipRuns = 0,
     this.partnershipBalls = 0,
     this.isFreeHitActive = false,
+    this.targetRuns,
+    this.isSuperOver = false,
+    this.partnerships = const [],
+    this.fallOfWickets = const [],
   });
 
   final int inningsNumber;
@@ -131,6 +219,11 @@ class InningsModel extends Equatable {
   final int partnershipRuns;
   final int partnershipBalls;
   final bool isFreeHitActive;
+  /// Chase target set at innings start (2nd innings / super over).
+  final int? targetRuns;
+  final bool isSuperOver;
+  final List<PartnershipRecord> partnerships;
+  final List<FallOfWicketRecord> fallOfWickets;
 
   factory InningsModel.fromMap(Map<String, dynamic> map) {
     return InningsModel(
@@ -157,6 +250,14 @@ class InningsModel extends Equatable {
       partnershipRuns: map['partnershipRuns'] as int? ?? 0,
       partnershipBalls: map['partnershipBalls'] as int? ?? 0,
       isFreeHitActive: map['isFreeHitActive'] as bool? ?? false,
+      targetRuns: map['targetRuns'] as int?,
+      isSuperOver: map['isSuperOver'] as bool? ?? false,
+      partnerships: (map['partnerships'] as List? ?? [])
+          .map((e) => PartnershipRecord.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      fallOfWickets: (map['fallOfWickets'] as List? ?? [])
+          .map((e) => FallOfWicketRecord.fromMap(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -177,6 +278,12 @@ class InningsModel extends Equatable {
         'partnershipRuns': partnershipRuns,
         'partnershipBalls': partnershipBalls,
         'isFreeHitActive': isFreeHitActive,
+        if (targetRuns != null) 'targetRuns': targetRuns,
+        'isSuperOver': isSuperOver,
+        if (partnerships.isNotEmpty)
+          'partnerships': partnerships.map((p) => p.toMap()).toList(),
+        if (fallOfWickets.isNotEmpty)
+          'fallOfWickets': fallOfWickets.map((f) => f.toMap()).toList(),
       };
 
   @override

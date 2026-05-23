@@ -29,6 +29,22 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
   LineupPlayer? _nonStriker;
   LineupPlayer? _bowler;
   bool _starting = false;
+  String? _lineupBattingTeamId;
+  String? _lineupBowlingTeamId;
+
+  void _syncLineupTeamsFromMatch(MatchModel match) {
+    final inn = match.currentInnings ?? match.innings.firstOrNull;
+    if (inn == null) return;
+    if (_lineupBattingTeamId == inn.battingTeamId &&
+        _lineupBowlingTeamId == inn.bowlingTeamId) {
+      return;
+    }
+    _lineupBattingTeamId = inn.battingTeamId;
+    _lineupBowlingTeamId = inn.bowlingTeamId;
+    _striker = null;
+    _nonStriker = null;
+    _bowler = null;
+  }
 
   String _battingTeamName(MatchModel match) {
     final inn = match.currentInnings ?? match.innings.firstOrNull;
@@ -97,13 +113,17 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
       final fresh =
           await ref.read(matchRepositoryProvider).getMatch(widget.matchId);
       final inn = fresh?.currentInnings;
-      if (fresh != null &&
+      final isOpeningInnings = fresh != null &&
           inn != null &&
-          fresh.status != MatchStatus.live) {
+          (fresh.status == MatchStatus.tossCompleted ||
+              (fresh.innings.length == 1 &&
+                  inn.status != InningsStatus.completed));
+
+      if (isOpeningInnings) {
         await ref.read(matchRepositoryProvider).startMatch(
               widget.matchId,
               InningsModel(
-                inningsNumber: inn.inningsNumber,
+                inningsNumber: inn!.inningsNumber,
                 battingTeamId: inn.battingTeamId,
                 bowlingTeamId: inn.bowlingTeamId,
                 status: InningsStatus.inProgress,
@@ -112,6 +132,8 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                 currentBowlerId: inn.currentBowlerId,
                 batsmen: inn.batsmen,
                 bowlers: inn.bowlers,
+                targetRuns: inn.targetRuns,
+                isSuperOver: inn.isSuperOver,
               ),
               scorerId: uid,
             );
@@ -135,6 +157,13 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
   Widget build(BuildContext context) {
     final matchAsync = ref.watch(matchProvider(widget.matchId));
     final squadsAsync = ref.watch(matchLineupSquadsProvider(widget.matchId));
+
+    ref.listen<AsyncValue<MatchModel?>>(matchProvider(widget.matchId), (prev, next) {
+      next.whenData((match) {
+        if (match == null || !mounted) return;
+        setState(() => _syncLineupTeamsFromMatch(match));
+      });
+    });
 
     return Scaffold(
       backgroundColor: AppColors.background,

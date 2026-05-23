@@ -5,6 +5,7 @@ import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/widgets/cf_slide_to_confirm.dart';
+import '../../../../domain/scoring/match_completion_policy.dart';
 import '../utils/scoring_display_utils.dart';
 
 /// Shown when an innings ends (overs or all out) or during an innings break.
@@ -32,13 +33,21 @@ class InningsBreakDialog extends StatelessWidget {
     final reason = ScoringDisplayUtils.inningsCompleteReason(match, innings);
     final team = ScoringDisplayUtils.battingTeamName(match, innings);
     final overs = CricketMath.formatOvers(innings.legalBalls, rules.ballsPerOver);
-    final hasNext = innings.inningsNumber < rules.maxInnings;
-    final target = hasNext ? innings.totalRuns + 1 : null;
+    final tiedSuperOver = MatchCompletionPolicy.isTiedChaseComplete(match, innings);
+    final hasNext = tiedSuperOver ||
+        innings.inningsNumber < rules.maxInnings ||
+        (innings.isSuperOver &&
+            match.innings.where((i) => i.isSuperOver).length < 2);
+    final target = hasNext && !tiedSuperOver
+        ? (innings.targetRuns ?? innings.totalRuns + 1)
+        : null;
 
     final slideLabel = confirmLabel ??
-        (hasNext
-            ? 'Slide to start ${innings.inningsNumber + 1}${_ordinal(innings.inningsNumber + 1)} innings'
-            : 'Slide to complete match');
+        (tiedSuperOver
+            ? 'Slide to start super over'
+            : hasNext
+                ? 'Slide to start ${innings.inningsNumber + 1}${_ordinal(innings.inningsNumber + 1)} innings'
+                : 'Slide to complete match');
 
     return PopScope(
       canPop: false,

@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/lineup_player.dart';
 import '../../data/models/match_model.dart';
+import '../../domain/scoring/toss_team_policy.dart';
 import 'providers.dart';
 
 class MatchLineupSquads {
@@ -16,7 +17,7 @@ class MatchLineupSquads {
 
 final matchLineupSquadsProvider =
     FutureProvider.family<MatchLineupSquads, String>((ref, matchId) async {
-  final match = await ref.read(matchRepositoryProvider).getMatch(matchId);
+  final match = await ref.watch(matchProvider(matchId).future);
   if (match == null) {
     return const MatchLineupSquads(batting: [], bowling: []);
   }
@@ -24,9 +25,15 @@ final matchLineupSquadsProvider =
   final playerRepo = ref.read(playerRepositoryProvider);
   final teamRepo = ref.read(teamRepositoryProvider);
 
-  final inn = match.currentInnings;
-  final battingTeamId = inn?.battingTeamId ?? match.teamAId;
-  final bowlingTeamId = inn?.bowlingTeamId ?? match.teamBId;
+  final inn = match.currentInnings ?? match.innings.firstOrNull;
+  final teams = inn != null
+      ? (
+          battingTeamId: inn.battingTeamId,
+          bowlingTeamId: inn.bowlingTeamId,
+        )
+      : TossTeamPolicy.firstInningsTeams(match);
+  final battingTeamId = teams.battingTeamId;
+  final bowlingTeamId = teams.bowlingTeamId;
 
   Future<List<LineupPlayer>> loadSquad(String? teamId, String fallbackName) async {
     if (teamId == null || teamId.isEmpty || teamId.startsWith('team_')) {

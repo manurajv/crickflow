@@ -5,6 +5,7 @@ import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
 import '../../core/utils/cricket_math.dart';
 import '../../data/models/overlay_state_model.dart';
+import '../../domain/scoring/innings_completion_policy.dart';
 
 /// Pure scoring logic — applies ball events and returns updated match state.
 class ScoringEngine {
@@ -13,14 +14,14 @@ class ScoringEngine {
     required BallEventInput input,
     required int sequence,
   }) {
-    final rules = match.rules;
     var innings = match.currentInnings;
     if (innings == null) {
       throw StateError('No active innings');
     }
+    final effectiveRules = InningsCompletionPolicy.effectiveRules(match, innings);
 
-    final event = _buildEvent(match, innings, input, sequence, rules);
-    innings = _applyEventToInnings(innings, event, rules);
+    final event = _buildEvent(match, innings, input, sequence, effectiveRules);
+    innings = _applyEventToInnings(innings, event, effectiveRules, match);
 
     final updatedInnings = List<InningsModel>.from(match.innings);
     updatedInnings[match.currentInningsIndex] = innings;
@@ -31,7 +32,7 @@ class ScoringEngine {
       overlayVersion: match.overlayVersion + 1,
     );
 
-    final overlay = _buildOverlay(updatedMatch, innings, rules);
+    final overlay = _buildOverlay(updatedMatch, innings, effectiveRules);
     return ScoringInput(
       match: updatedMatch,
       event: event,
@@ -75,12 +76,12 @@ class ScoringEngine {
       case BallEventType.runs:
         break;
       case BallEventType.wide:
-        isLegal = false;
+        isLegal = rules.wideCountsAsLegalDelivery;
         extraRuns = rules.wideRuns;
         runs = extraRuns + input.runs;
         batsmanRuns = 0;
       case BallEventType.noBall:
-        isLegal = false;
+        isLegal = rules.noBallCountsAsLegalDelivery;
         extraRuns = rules.noBallRuns;
         runs = extraRuns + input.runs;
         final nbMode = input.noBallRunsMode ?? NoBallRunsMode.bat;
@@ -134,6 +135,7 @@ class ScoringEngine {
     InningsModel innings,
     BallEventModel event,
     MatchRulesModel rules,
+    MatchModel match,
   ) {
     var totalRuns = innings.totalRuns + event.runs;
     var totalWickets = innings.totalWickets;
@@ -142,6 +144,8 @@ class ScoringEngine {
     var partnershipRuns = innings.partnershipRuns + event.runs;
     var partnershipBalls = innings.partnershipBalls;
     var isFreeHit = innings.isFreeHitActive;
+    var partnerships = List<PartnershipRecord>.from(innings.partnerships);
+    var fallOfWickets = List<FallOfWicketRecord>.from(innings.fallOfWickets);
 
     if (event.isLegalDelivery) {
       legalBalls++;
@@ -166,11 +170,28 @@ class ScoringEngine {
     if (event.eventType == BallEventType.wicket) {
       if (!(event.isFreeHit && event.wicketType != WicketType.runOut)) {
         totalWickets++;
+        partnerships = _closePartnership(
+          partnerships,
+          innings,
+          partnershipRuns,
+          partnershipBalls,
+        );
         partnershipRuns = 0;
         partnershipBalls = 0;
         final dismissedId =
             event.dismissedPlayerId ?? event.strikerId ?? strikerId;
         if (dismissedId != null) {
+          fallOfWickets = [
+            ...fallOfWickets,
+            FallOfWicketRecord(
+              wicketNumber: totalWickets,
+              batsmanId: dismissedId,
+              batsmanName: _batsmanName(innings, dismissedId),
+              teamScore: totalRuns,
+              legalBalls: legalBalls,
+              dismissal: event.wicketType?.name ?? 'out',
+            ),
+          ];
           if (dismissedId == strikerId) strikerId = null;
           if (dismissedId == nonStrikerId) nonStrikerId = null;
         }
@@ -203,6 +224,7 @@ class ScoringEngine {
         event.eventType == BallEventType.wicket &&
             event.wicketType != WicketType.runOut,
         isNoBall: event.eventType == BallEventType.noBall,
+        isWide: event.eventType == BallEventType.wide,
       );
     }
 
@@ -257,7 +279,42 @@ class ScoringEngine {
       partnershipRuns: partnershipRuns,
       partnershipBalls: partnershipBalls,
       isFreeHitActive: isFreeHit,
+      targetRuns: innings.targetRuns,
+      isSuperOver: innings.isSuperOver,
+      partnerships: partnerships,
+      fallOfWickets: fallOfWickets,
     );
+  }
+
+  static List<PartnershipRecord> _closePartnership(
+    List<PartnershipRecord> list,
+    InningsModel innings,
+    int runs,
+    int balls,
+  ) {
+    if (runs <= 0 && balls <= 0) return list;
+    final a = innings.strikerId;
+    final b = innings.nonStrikerId;
+    if (a == null || b == null) return list;
+    final sorted = [a, b]..sort();
+    return [
+      ...list,
+      PartnershipRecord(
+        batterAId: sorted[0],
+        batterBId: sorted[1],
+        batterAName: _batsmanName(innings, sorted[0]),
+        batterBName: _batsmanName(innings, sorted[1]),
+        runs: runs,
+        balls: balls,
+      ),
+    ];
+  }
+
+  static String _batsmanName(InningsModel innings, String id) {
+    for (final b in innings.batsmen) {
+      if (b.playerId == id) return b.playerName;
+    }
+    return '';
   }
 
   /// Runs scored between wickets that can swap striker/non-striker.
@@ -447,6 +504,7 @@ class ScoringEngine {
     bool legalBall,
     bool wicket, {
     bool isNoBall = false,
+    bool isWide = false,
   }) {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
@@ -457,7 +515,7 @@ class ScoringEngine {
         oversBowledBalls: b.oversBowledBalls + (legalBall ? 1 : 0),
         runsConceded: b.runsConceded + runs,
         wickets: b.wickets + (wicket ? 1 : 0),
-        wides: b.wides,
+        wides: b.wides + (isWide ? 1 : 0),
         noBalls: b.noBalls + (isNoBall ? 1 : 0),
       );
     }
@@ -487,24 +545,21 @@ class ScoringEngine {
 
     int? target;
     double? requiredRunRate;
-    if (innings.inningsNumber >= 2 && match.innings.isNotEmpty) {
-      InningsModel? firstInnings;
-      for (final inn in match.innings) {
-        if (inn.inningsNumber == 1) {
-          firstInnings = inn;
-          break;
+    if (innings.inningsNumber >= 2 || innings.isSuperOver) {
+      target = innings.targetRuns ??
+          (innings.inningsNumber >= 2 && !innings.isSuperOver
+              ? _firstInningsRuns(match) + 1
+              : null);
+      if (target != null) {
+        final runsNeeded = target - innings.totalRuns;
+        final ballsRemaining = rules.totalBalls - innings.legalBalls;
+        if (runsNeeded > 0 && ballsRemaining > 0) {
+          requiredRunRate = CricketMath.requiredRunRate(
+            runsNeeded: runsNeeded,
+            ballsRemaining: ballsRemaining,
+            ballsPerOver: rules.ballsPerOver,
+          );
         }
-      }
-      firstInnings ??= match.innings.first;
-      target = firstInnings.totalRuns + 1;
-      final runsNeeded = target - innings.totalRuns;
-      final ballsRemaining = rules.totalBalls - innings.legalBalls;
-      if (runsNeeded > 0 && ballsRemaining > 0) {
-        requiredRunRate = CricketMath.requiredRunRate(
-          runsNeeded: runsNeeded,
-          ballsRemaining: ballsRemaining,
-          ballsPerOver: rules.ballsPerOver,
-        );
       }
     }
 
@@ -536,6 +591,13 @@ class ScoringEngine {
       locationLabel: match.location.displayLabel,
       version: match.overlayVersion,
     );
+  }
+
+  static int _firstInningsRuns(MatchModel match) {
+    for (final inn in match.innings) {
+      if (inn.inningsNumber == 1 && !inn.isSuperOver) return inn.totalRuns;
+    }
+    return match.innings.isNotEmpty ? match.innings.first.totalRuns : 0;
   }
 
   /// Resets innings stats and replays [events] in order (used for undo).
@@ -591,6 +653,8 @@ class ScoringEngine {
       strikerId: strikerId,
       nonStrikerId: nonStrikerId,
       currentBowlerId: bowlerId,
+      targetRuns: current.targetRuns,
+      isSuperOver: current.isSuperOver,
       batsmen: current.batsmen
           .map(
             (b) => BatsmanInningsModel(
@@ -691,6 +755,8 @@ extension _InningsCopy on InningsModel {
     int? totalWickets,
     int? legalBalls,
     int? extras,
+    List<PartnershipRecord>? partnerships,
+    List<FallOfWicketRecord>? fallOfWickets,
   }) {
     return InningsModel(
       inningsNumber: inningsNumber,
@@ -709,6 +775,10 @@ extension _InningsCopy on InningsModel {
       partnershipRuns: partnershipRuns,
       partnershipBalls: partnershipBalls,
       isFreeHitActive: isFreeHitActive,
+      targetRuns: targetRuns,
+      isSuperOver: isSuperOver,
+      partnerships: partnerships ?? this.partnerships,
+      fallOfWickets: fallOfWickets ?? this.fallOfWickets,
     );
   }
 }

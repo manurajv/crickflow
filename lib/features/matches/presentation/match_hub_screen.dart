@@ -42,7 +42,14 @@ class MatchHubScreen extends ConsumerWidget {
           );
         }
 
-        return DefaultTabController(
+        return PopScope(
+          canPop: context.canPop(),
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && context.mounted) {
+              context.go('/home');
+            }
+          },
+          child: DefaultTabController(
           length: _tabs.length,
           child: Scaffold(
             appBar: CfChromeAppBar(
@@ -53,7 +60,13 @@ class MatchHubScreen extends ConsumerWidget {
               ),
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
               ),
               actions: [
                 IconButton(
@@ -87,6 +100,7 @@ class MatchHubScreen extends ConsumerWidget {
               ],
             ),
           ),
+        ),
         );
       },
       loading: () => const Scaffold(

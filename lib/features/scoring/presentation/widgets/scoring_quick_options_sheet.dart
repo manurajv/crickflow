@@ -10,16 +10,20 @@ class ScoringQuickOptionsSheet extends StatelessWidget {
     required this.onEndInnings,
     required this.onScorecard,
     required this.onMatchRules,
+    this.onEditToss,
   });
 
   final VoidCallback onEditLineup;
   final VoidCallback onEndInnings;
   final VoidCallback onScorecard;
   final VoidCallback onMatchRules;
+  final VoidCallback? onEditToss;
 
   @override
   Widget build(BuildContext context) {
     final shortcuts = [
+      if (onEditToss != null)
+        _Shortcut(Icons.monetization_on_outlined, 'Change toss', onEditToss!),
       _Shortcut(Icons.help_outline, 'Need help', () {}),
       _Shortcut(Icons.rule, 'Match rules', onMatchRules),
       _Shortcut(Icons.swap_horiz, 'Change scorer', () {}),

@@ -253,8 +253,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/match/:id/scorecard',
-        builder: (_, state) =>
-            ScorecardScreen(matchId: state.pathParameters['id']!),
+        builder: (_, state) => ScorecardScreen(
+          matchId: state.pathParameters['id']!,
+          exitToHomeOnBack: state.uri.queryParameters['from'] == 'complete',
+        ),
       ),
       GoRoute(
         path: '/match/:id/highlights',

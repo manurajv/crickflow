@@ -129,12 +129,25 @@ class MatchRulesModel extends Equatable {
   CricketBallType get resolvedBallType =>
       ballType ?? ballTypeForMatchType(cricketMatchType);
 
+  /// Maximum legal balls one bowler may bowl in an innings (full match allocation).
+  int get maxBowlerLegalBalls => totalOvers * ballsPerOver;
+
+  /// One-over super over (ICC-style defaults).
+  factory MatchRulesModel.superOver() => const MatchRulesModel(
+        totalOvers: 1,
+        ballsPerOver: 6,
+        maxWickets: 2,
+        maxInnings: 1,
+        freeHitEnabled: true,
+      );
+
   factory MatchRulesModel.tennisCricket() => const MatchRulesModel(
         format: MatchFormat.tennis,
         cricketMatchType: CricketMatchType.indoor,
         ballType: CricketBallType.indoor,
         totalOvers: 6,
         ballsPerOver: 6,
+        oversPerBowler: 6,
         wideRuns: 1,
         noBallRuns: 1,
         maxInnings: 1,

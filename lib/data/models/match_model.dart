@@ -264,6 +264,7 @@ class MatchModel extends Equatable {
       overlayVersion: map['overlayVersion'] as int? ?? 0,
       mediaByCode: _mediaByCodeFromMap(_asStringMap(map['mediaByCode'])),
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
+      setup: MatchSetupData.fromMap(map),
     );
   }
 

@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Completion pass (Discover, Analytics, players, badges, fantasy CF)  
+**Last updated:** Toss edit on live scoring pad (initial 1st inn only)  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -60,6 +60,9 @@ See [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md).
 | Onboarding + splash routing | Done |
 
 | Matches, scoring, undo, innings | Done |
+| Match lifecycle (toss → chase → result, super over) | Done |
+| Toss line under live score (1st inn, first 3 overs) | Done |
+| Scorecard toss decision edit (bat/bowl swap, initial 1st inn) | Done |
 
 | Teams, squads (existing + new players) | Done |
 

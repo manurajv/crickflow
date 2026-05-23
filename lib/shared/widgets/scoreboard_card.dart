@@ -6,6 +6,7 @@ import '../../core/utils/cricket_math.dart';
 import '../../core/utils/match_score_display.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
+import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 
 class ScoreboardCard extends StatelessWidget {
   const ScoreboardCard({
@@ -112,6 +113,22 @@ class ScoreboardCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (cur != null &&
+                ScoringDisplayUtils.showTossLineDuringFirstInnings(
+                  match,
+                  cur,
+                  rules,
+                )) ...[
+              const SizedBox(height: AppDimens.spaceSm),
+              Text(
+                ScoringDisplayUtils.tossSummaryLine(match)!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ],
             if (firstSummary != null) ...[
               const SizedBox(height: AppDimens.spaceSm),
               Text(

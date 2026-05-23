@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
+import '../../../domain/scoring/toss_team_policy.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import 'widgets/cf_selection_card.dart';
@@ -97,17 +98,11 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     final city = draft.location.city.trim();
     final ground = draft.venue.trim();
 
-    final battingIsTeamA = _winnerIsTeamA! == _winnerBatsFirst!;
-    final battingTeamId =
-        battingIsTeamA ? (draft.teamA?.id ?? 'team_a') : (draft.teamB?.id ?? 'team_b');
-    final bowlingTeamId =
-        battingIsTeamA ? (draft.teamB?.id ?? 'team_b') : (draft.teamA?.id ?? 'team_a');
-
     final match = MatchModel(
       id: draft.matchId,
       title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
       matchType: MatchType.single,
-      status: MatchStatus.scheduled,
+      status: MatchStatus.tossCompleted,
       teamAId: draft.teamA?.id,
       teamBId: draft.teamB?.id,
       teamAName: draft.resolvedTeamAName,
@@ -119,6 +114,10 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
       createdBy: uid,
       setup: ref.read(startMatchDraftProvider).setup,
     );
+
+    final teams = TossTeamPolicy.firstInningsTeams(match);
+    final battingTeamId = teams.battingTeamId;
+    final bowlingTeamId = teams.bowlingTeamId;
 
     final firstInnings = InningsModel(
       inningsNumber: 1,

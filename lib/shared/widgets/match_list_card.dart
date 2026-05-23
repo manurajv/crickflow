@@ -148,7 +148,9 @@ class MatchListCard extends StatelessWidget {
           label: 'Live',
           color: AppColors.liveIndicator,
         ),
-      MatchStatus.scheduled || MatchStatus.draft => (
+      MatchStatus.scheduled ||
+      MatchStatus.tossCompleted ||
+      MatchStatus.draft => (
           label: 'Upcoming',
           color: AppColors.gold,
         ),

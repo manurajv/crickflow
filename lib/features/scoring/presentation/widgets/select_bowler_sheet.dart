@@ -98,9 +98,13 @@ class SelectBowlerSheet extends StatelessWidget {
                             ballsPerOver,
                           )
                         : '0.0';
+                    final maxBalls = match.rules.maxBowlerLegalBalls;
+                    final atMaxOvers =
+                        stats != null && stats.oversBowledBalls >= maxBalls;
+                    final disabled = excluded || atMaxOvers;
                     final selected = innings.currentBowlerId == p.id;
                     return ListTile(
-                      enabled: !excluded,
+                      enabled: !disabled,
                       leading: CircleAvatar(
                         backgroundColor: excluded
                             ? AppColors.surface
@@ -126,12 +130,14 @@ class SelectBowlerSheet extends StatelessWidget {
                       subtitle: Text(
                         excluded
                             ? 'Bowled last over'
-                            : '$overs over(s)',
+                            : atMaxOvers
+                                ? 'Max ${match.rules.totalOvers} overs bowled'
+                                : '$overs over(s)',
                       ),
-                      trailing: selected && !excluded
+                      trailing: selected && !disabled
                           ? const Icon(Icons.check_circle, color: AppColors.gold)
                           : null,
-                      onTap: excluded
+                      onTap: disabled
                           ? null
                           : () {
                               onSelected(p);

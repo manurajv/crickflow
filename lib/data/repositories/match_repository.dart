@@ -10,6 +10,9 @@ import '../../core/utils/highlight_utils.dart';
 import '../../domain/services/badge_service.dart';
 import '../../domain/services/commentary_service.dart';
 import '../../domain/services/scoring_engine.dart';
+import '../../domain/scoring/match_completion_policy.dart';
+import '../../domain/scoring/innings_completion_policy.dart';
+import '../../domain/scoring/toss_team_policy.dart';
 import '../services/public_scorecard_sync.dart';
 
 class MatchRepository {
@@ -131,8 +134,12 @@ class MatchRepository {
     required BallEventInput input,
     required int sequence,
   }) async {
+    // Always score against latest persisted state (avoids stale index corrupting innings[0]).
+    var latest = await getMatch(match.id) ?? match;
+    latest = _withChaseTargetBackfill(latest);
+
     final result = _scoringEngine.recordBall(
-      match: match,
+      match: latest,
       input: input,
       sequence: sequence,
     );
@@ -178,6 +185,45 @@ class MatchRepository {
     );
 
     return ScoringInput(match: result.match, event: event, overlay: result.overlay);
+  }
+
+  /// Ensures chase innings have a fixed target from completed 1st innings.
+  MatchModel _withChaseTargetBackfill(MatchModel match) {
+    final cur = match.currentInnings;
+    if (cur == null || cur.inningsNumber < 2 || cur.isSuperOver) return match;
+    if (cur.targetRuns != null && cur.targetRuns! > 0) return match;
+
+    final first = InningsCompletionPolicy.firstInnings(match);
+    if (first == null || first.status != InningsStatus.completed) return match;
+
+    final inningsList = List<InningsModel>.from(match.innings);
+    final idx = match.currentInningsIndex;
+    if (idx < 0 || idx >= inningsList.length) return match;
+
+    inningsList[idx] = InningsModel(
+      inningsNumber: cur.inningsNumber,
+      battingTeamId: cur.battingTeamId,
+      bowlingTeamId: cur.bowlingTeamId,
+      status: cur.status,
+      totalRuns: cur.totalRuns,
+      totalWickets: cur.totalWickets,
+      legalBalls: cur.legalBalls,
+      extras: cur.extras,
+      strikerId: cur.strikerId,
+      nonStrikerId: cur.nonStrikerId,
+      currentBowlerId: cur.currentBowlerId,
+      batsmen: cur.batsmen,
+      bowlers: cur.bowlers,
+      partnershipRuns: cur.partnershipRuns,
+      partnershipBalls: cur.partnershipBalls,
+      isFreeHitActive: cur.isFreeHitActive,
+      targetRuns: first.totalRuns + 1,
+      isSuperOver: cur.isSuperOver,
+      partnerships: cur.partnerships,
+      fallOfWickets: cur.fallOfWickets,
+    );
+
+    return match.copyWith(innings: inningsList);
   }
 
   /// Deletes last ball event and replays remaining events from base innings.
@@ -317,6 +363,10 @@ class MatchRepository {
       partnershipRuns: inn.partnershipRuns,
       partnershipBalls: inn.partnershipBalls,
       isFreeHitActive: inn.isFreeHitActive,
+      targetRuns: inn.targetRuns,
+      isSuperOver: inn.isSuperOver,
+      partnerships: inn.partnerships,
+      fallOfWickets: inn.fallOfWickets,
     );
 
     final inningsList = List<InningsModel>.from(match.innings);
@@ -349,10 +399,10 @@ class MatchRepository {
       badgeIds.addAll(badges.map((b) => b.id));
     }
 
-    final winnerTeamId = _inferWinnerTeamId(match);
+    final result = MatchCompletionPolicy.compute(match);
     final resultSummary = hero != null
         ? '${hero.playerName} — ${hero.reason}'
-        : _resultText(match, winnerTeamId);
+        : result.summary;
 
     final completed = match.copyWith(
       status: MatchStatus.completed,
@@ -360,7 +410,7 @@ class MatchRepository {
       matchHero: hero,
       playerOfMatchId: hero?.playerId,
       badgeIds: badgeIds,
-      winnerTeamId: winnerTeamId,
+      winnerTeamId: result.winnerTeamId,
       resultSummary: resultSummary,
     );
 
@@ -368,23 +418,68 @@ class MatchRepository {
     return completed;
   }
 
-  String? _inferWinnerTeamId(MatchModel match) {
-    if (match.innings.isEmpty) return null;
-    final first = match.innings.first;
-    if (match.innings.length < 2) {
-      return first.battingTeamId;
+  /// After a tied match when [superOverEnabled], start super over innings for team A.
+  Future<void> startSuperOver(String matchId) async {
+    final match = await getMatch(matchId);
+    if (match == null || match.innings.length < 2) return;
+
+    final regular = match.innings.where((i) => !i.isSuperOver).toList();
+    if (regular.length < 2) return;
+
+    final first = regular[0];
+    final second = regular[1];
+    if (first.totalRuns != second.totalRuns) {
+      throw StateError('Super over only available on a tie');
     }
-    final second = match.innings[1];
-    if (second.totalRuns > first.totalRuns) return second.battingTeamId;
-    if (first.totalRuns > second.totalRuns) return first.battingTeamId;
-    return null;
+
+    final battingId = match.teamAId ?? first.battingTeamId;
+    final bowlingId = match.teamBId ?? first.bowlingTeamId;
+
+    final superInnings = InningsModel(
+      inningsNumber: match.innings.length + 1,
+      battingTeamId: battingId,
+      bowlingTeamId: bowlingId,
+      status: InningsStatus.notStarted,
+      isSuperOver: true,
+    );
+
+    await _matchDoc(matchId).update({
+      'innings': [...match.innings.map((i) => i.toMap()), superInnings.toMap()],
+      'currentInningsIndex': match.innings.length,
+      'status': MatchStatus.inningsBreak.name,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
-  String _resultText(MatchModel match, String? winnerId) {
-    if (winnerId == null) return 'Match completed';
-    if (winnerId == match.teamAId) return '${match.teamAName} won';
-    if (winnerId == match.teamBId) return '${match.teamBName} won';
-    return 'Match completed';
+  /// Second super over innings (team B bats).
+  Future<void> startSecondSuperOver(String matchId) async {
+    final match = await getMatch(matchId);
+    if (match == null) return;
+
+    final superOvers = match.innings.where((i) => i.isSuperOver).toList();
+    if (superOvers.isEmpty) return;
+
+    final firstSo = superOvers.first;
+    final target = firstSo.totalRuns + 1;
+
+    final battingId = firstSo.bowlingTeamId;
+    final bowlingId = firstSo.battingTeamId;
+
+    final secondSo = InningsModel(
+      inningsNumber: match.innings.length + 1,
+      battingTeamId: battingId,
+      bowlingTeamId: bowlingId,
+      status: InningsStatus.notStarted,
+      isSuperOver: true,
+      targetRuns: target,
+    );
+
+    await _matchDoc(matchId).update({
+      'innings': [...match.innings.map((i) => i.toMap()), secondSo.toMap()],
+      'currentInningsIndex': match.innings.length,
+      'status': MatchStatus.inningsBreak.name,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<void> _commitMatchState({
@@ -437,6 +532,15 @@ class MatchRepository {
     InningsModel firstInnings, {
     String? scorerId,
   }) async {
+    final existing = await getMatch(matchId);
+    if (existing != null &&
+        (existing.innings.length > 1 ||
+            existing.innings.any((i) => i.status == InningsStatus.completed))) {
+      throw StateError(
+        'Cannot restart match — use lineup update for innings in progress',
+      );
+    }
+
     final data = <String, dynamic>{
       'status': MatchStatus.live.name,
       'startedAt': DateTime.now().toIso8601String(),
@@ -447,6 +551,69 @@ class MatchRepository {
       data['scorerIds'] = FieldValue.arrayUnion([scorerId]);
     }
     await _matchDoc(matchId).update(data);
+  }
+
+  /// Correct toss winner's bat/bowl choice; resets innings 1 with swapped teams.
+  Future<MatchModel> updateTossElection(
+    String matchId, {
+    required bool winnerBatsFirst,
+  }) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+
+    final setup = match.setup;
+    if (setup == null || !setup.tossReady) {
+      throw StateError('Toss has not been recorded');
+    }
+    if (match.status == MatchStatus.completed) {
+      throw StateError('Cannot change toss after the match is completed');
+    }
+    if (match.innings.length != 1) {
+      throw StateError('Toss can only be changed during the first innings');
+    }
+
+    final inn = match.innings.first;
+    if (inn.inningsNumber != 1 ||
+        inn.isSuperOver ||
+        inn.status == InningsStatus.completed) {
+      throw StateError('Toss can only be changed during the first innings');
+    }
+
+    if (inn.legalBalls > 0 ||
+        inn.totalRuns > 0 ||
+        inn.totalWickets > 0 ||
+        inn.extras > 0) {
+      throw StateError(
+        'Toss can only be changed before the first ball is scored',
+      );
+    }
+
+    if (setup.tossWinnerBatsFirst == winnerBatsFirst) {
+      return match;
+    }
+
+    final updatedSetup = setup.copyWith(tossWinnerBatsFirst: winnerBatsFirst);
+    final matchWithToss = match.copyWith(setup: updatedSetup);
+    final teams = TossTeamPolicy.firstInningsTeams(matchWithToss);
+
+    final updatedInn = InningsModel(
+      inningsNumber: 1,
+      battingTeamId: teams.battingTeamId,
+      bowlingTeamId: teams.bowlingTeamId,
+      status: InningsStatus.notStarted,
+    );
+
+    await _matchDoc(matchId).update({
+      'tossWinnerBatsFirst': winnerBatsFirst,
+      'innings': [updatedInn.toMap()],
+      'currentInningsIndex': 0,
+      'status': MatchStatus.tossCompleted.name,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+
+    final fresh = await getMatch(matchId);
+    if (fresh == null) throw StateError('Match not found after toss update');
+    return fresh;
   }
 
   Future<void> addScorer(String matchId, String userId) async {
@@ -480,6 +647,10 @@ class MatchRepository {
       partnershipRuns: inn.partnershipRuns,
       partnershipBalls: inn.partnershipBalls,
       isFreeHitActive: false,
+      targetRuns: inn.targetRuns,
+      isSuperOver: inn.isSuperOver,
+      partnerships: inn.partnerships,
+      fallOfWickets: inn.fallOfWickets,
     );
 
     await _matchDoc(matchId).update({
@@ -495,20 +666,36 @@ class MatchRepository {
     if (match == null || match.innings.isEmpty) return;
 
     final prev = match.innings.last;
+    final superOvers = match.innings.where((i) => i.isSuperOver).length;
+    final regularCount =
+        match.innings.where((i) => !i.isSuperOver).length;
+
+    if (prev.isSuperOver && superOvers == 1) {
+      await startSecondSuperOver(matchId);
+      return;
+    }
+
     final nextNumber = prev.inningsNumber + 1;
     final maxInnings = match.rules.maxInnings;
-    if (nextNumber > maxInnings) {
+    if (!prev.isSuperOver && regularCount >= maxInnings) {
       throw StateError('Maximum innings reached');
     }
 
-    final battingId = prev.bowlingTeamId;
-    final bowlingId = prev.battingTeamId;
+    final chaseTeams = TossTeamPolicy.chaseInningsTeams(prev);
+    final battingId = chaseTeams.battingTeamId;
+    final bowlingId = chaseTeams.bowlingTeamId;
+
+    int? targetRuns;
+    if (!prev.isSuperOver && regularCount == 1) {
+      targetRuns = prev.totalRuns + 1;
+    }
 
     final nextInnings = InningsModel(
       inningsNumber: nextNumber,
       battingTeamId: battingId,
       bowlingTeamId: bowlingId,
-      status: InningsStatus.inProgress,
+      status: InningsStatus.notStarted,
+      targetRuns: targetRuns,
     );
 
     final inningsList = [...match.innings, nextInnings];
@@ -526,7 +713,15 @@ class MatchRepository {
     if (match.innings.isEmpty) return false;
     final last = match.innings.last;
     if (last.status != InningsStatus.completed) return false;
-    return last.inningsNumber < match.rules.maxInnings;
+
+    if (MatchCompletionPolicy.shouldOfferSuperOver(match)) return true;
+
+    final superOvers = match.innings.where((i) => i.isSuperOver).length;
+    if (last.isSuperOver && superOvers == 1) return true;
+
+    final regularCount =
+        match.innings.where((i) => !i.isSuperOver).length;
+    return regularCount < match.rules.maxInnings;
   }
 
   InningsScoreSummary? firstInningsTarget(MatchModel match) {

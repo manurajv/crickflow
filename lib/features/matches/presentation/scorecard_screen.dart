@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -12,17 +13,53 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/scoreboard_card.dart';
 
 class ScorecardScreen extends ConsumerWidget {
-  const ScorecardScreen({super.key, required this.matchId});
+  const ScorecardScreen({
+    super.key,
+    required this.matchId,
+    this.exitToHomeOnBack = false,
+  });
 
   final String matchId;
+  /// When true (post-match flow), back navigates to home instead of live scoring.
+  final bool exitToHomeOnBack;
+
+  static String routeForMatch(String matchId, {bool fromMatchComplete = false}) {
+    if (fromMatchComplete) {
+      return '/match/$matchId/scorecard?from=complete';
+    }
+    return '/match/$matchId/scorecard';
+  }
+
+  void _exit(BuildContext context) {
+    if (exitToHomeOnBack) {
+      context.go('/home');
+    } else {
+      context.pop();
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final matchAsync = ref.watch(matchProvider(matchId));
 
-    return Scaffold(
+    return PopScope(
+      canPop: !exitToHomeOnBack,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && exitToHomeOnBack && context.mounted) {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Scorecard'),
+        leading: exitToHomeOnBack
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Home',
+                onPressed: () => _exit(context),
+              )
+            : null,
+        automaticallyImplyLeading: !exitToHomeOnBack,
         actions: [
           IconButton(
             icon: const Icon(Icons.share),
@@ -116,6 +153,7 @@ class ScorecardScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
       ),
+    ),
     );
   }
 

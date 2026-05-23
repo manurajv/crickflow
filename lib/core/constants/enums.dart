@@ -21,6 +21,8 @@ enum MatchType { single, tournament }
 enum MatchStatus {
   draft,
   scheduled,
+  /// Toss recorded; first innings not yet started.
+  tossCompleted,
   live,
   inningsBreak,
   completed,

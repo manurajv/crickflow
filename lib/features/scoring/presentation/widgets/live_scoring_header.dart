@@ -23,7 +23,10 @@ class LiveScoringHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tossLine = ScoringDisplayUtils.tossSummaryLine(match);
+    final tossLine = ScoringDisplayUtils.showTossLineDuringFirstInnings(
+            match, innings, rules)
+        ? ScoringDisplayUtils.tossSummaryLine(match)
+        : null;
     final ppLabel =
         ScoringDisplayUtils.activePowerplayLabel(match, innings);
     final oversText =
@@ -113,6 +116,21 @@ class LiveScoringHeader extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (tossLine != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      tossLine,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -178,21 +196,6 @@ class LiveScoringHeader extends StatelessWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.accentGreen,
-                      ),
-                    ),
-                  ],
-                  if (tossLine != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      tossLine,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
-                        height: 1.35,
                       ),
                     ),
                   ],
