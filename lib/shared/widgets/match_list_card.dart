@@ -84,6 +84,9 @@ class MatchListCard extends StatelessWidget {
                   match.status == MatchStatus.inningsBreak) ...[
                 const SizedBox(height: AppDimens.spaceSm),
                 _LiveScoreLine(match: match),
+              ] else if (match.status == MatchStatus.completed) ...[
+                const SizedBox(height: AppDimens.spaceSm),
+                _CompletedScoreLine(match: match),
               ],
               const Divider(height: AppDimens.spaceLg),
               if (footer.isNotEmpty)
@@ -133,12 +136,11 @@ class MatchListCard extends StatelessWidget {
   }
 
   String _footerLine(MatchModel m) {
-    if (m.resultSummary.isNotEmpty) return m.resultSummary;
+    if (m.status == MatchStatus.completed) return '';
     if (m.status == MatchStatus.scheduled && m.scheduledAt != null) {
       return 'Scheduled · ${AppDateUtils.formatShort(m.scheduledAt!)}';
     }
     if (m.status == MatchStatus.live) return 'Match in progress';
-    if (m.status == MatchStatus.completed) return 'Tap for full scorecard';
     return '';
   }
 
@@ -207,6 +209,62 @@ class _LiveScoreLine extends StatelessWidget {
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
             color: AppColors.gold,
           ),
+    );
+  }
+}
+
+class _CompletedScoreLine extends StatelessWidget {
+  const _CompletedScoreLine({required this.match});
+
+  final MatchModel match;
+
+  @override
+  Widget build(BuildContext context) {
+    final scoreA = MatchScoreDisplay.scoreForTeam(match, match.teamAId);
+    final scoreB = MatchScoreDisplay.scoreForTeam(match, match.teamBId);
+    final result = MatchScoreDisplay.completedResultLine(match);
+    final winnerA = MatchScoreDisplay.isTeamWinner(match, match.teamAId);
+    final winnerB = MatchScoreDisplay.isTeamWinner(match, match.teamBId);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                scoreA != null ? '${match.teamAName} $scoreA' : match.teamAName,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: winnerA ? FontWeight.w800 : FontWeight.w600,
+                      color: winnerA ? AppColors.gold : AppColors.textPrimary,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              scoreB != null ? '${match.teamBName} $scoreB' : match.teamBName,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: winnerB ? FontWeight.w800 : FontWeight.w600,
+                    color: winnerB ? AppColors.gold : AppColors.textPrimary,
+                  ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+            ),
+          ],
+        ),
+        if (result != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            result,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ],
     );
   }
 }

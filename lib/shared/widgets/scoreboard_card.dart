@@ -24,8 +24,11 @@ class ScoreboardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cur = innings ?? match.currentInnings;
     final rules = match.rules;
-    final firstSummary = MatchScoreDisplay.completedFirstInnings(match);
-    final chase = MatchScoreDisplay.chaseLine(match);
+    final isCompleted = match.status == MatchStatus.completed;
+    final firstSummary =
+        isCompleted ? null : MatchScoreDisplay.completedFirstInnings(match);
+    final chase = isCompleted ? null : MatchScoreDisplay.chaseLine(match);
+    final resultLine = MatchScoreDisplay.completedResultLine(match);
     final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
           color: Colors.white,
           fontWeight: FontWeight.w600,
@@ -77,6 +80,29 @@ class ScoreboardCard extends StatelessWidget {
                             color: match.status == MatchStatus.inningsBreak
                                 ? Colors.black
                                 : Colors.white,
+                            fontSize: 9,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimens.spaceSm),
+                ] else if (isCompleted) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: AppColors.gold.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    child: Text(
+                      'RESULT',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.gold,
                             fontSize: 9,
                           ),
                     ),
@@ -175,6 +201,17 @@ class ScoreboardCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
+            if (isCompleted && resultLine != null) ...[
+              const SizedBox(height: AppDimens.spaceSm),
+              Text(
+                resultLine,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppColors.gold,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
           ],
         ),
       ),
@@ -189,6 +226,7 @@ class ScoreboardCard extends StatelessWidget {
   }) {
     final inn = MatchScoreDisplay.inningsBattingTeam(match, teamId);
     final isBatting = MatchScoreDisplay.isTeamBattingNow(match, teamId);
+    final isWinner = MatchScoreDisplay.isTeamWinner(match, teamId);
     return Flexible(
       child: Column(
         crossAxisAlignment:
@@ -197,8 +235,10 @@ class ScoreboardCard extends StatelessWidget {
           Text(
             name,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isBatting ? AppColors.gold : Colors.white70,
-                  fontWeight: FontWeight.w600,
+                  color: isWinner || isBatting
+                      ? AppColors.gold
+                      : Colors.white70,
+                  fontWeight: isWinner ? FontWeight.w800 : FontWeight.w600,
                 ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

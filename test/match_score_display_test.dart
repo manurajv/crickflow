@@ -73,4 +73,41 @@ void main() {
     expect(summary.battingTeamName, 'Team A');
     expect(summary.runRate, closeTo(7.5, 0.01));
   });
+
+  test('completed result line for finished match', () {
+    final match = MatchModel(
+      id: 'm1',
+      title: 'A vs B',
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      status: MatchStatus.completed,
+      winnerTeamId: 'a',
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          totalRuns: 160,
+          totalWickets: 6,
+        ),
+        InningsModel(
+          inningsNumber: 2,
+          battingTeamId: 'b',
+          bowlingTeamId: 'a',
+          status: InningsStatus.completed,
+          totalRuns: 145,
+          totalWickets: 10,
+        ),
+      ],
+    );
+    expect(
+      MatchScoreDisplay.completedResultLine(match),
+      'Team A won by 15 runs',
+    );
+    expect(MatchScoreDisplay.isTeamWinner(match, 'a'), isTrue);
+    expect(MatchScoreDisplay.isTeamWinner(match, 'b'), isFalse);
+  });
 }

@@ -5,6 +5,7 @@ import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/match_permissions.dart';
+import '../../../../core/utils/match_score_display.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/providers.dart';
@@ -41,6 +42,12 @@ class MatchSummaryTab extends ConsumerWidget {
           userId: uid,
           role: profile?.role ?? UserRole.organizer,
         );
+        final resultLine = MatchScoreDisplay.completedResultLine(match);
+        final heroLine = isCompleted &&
+                match.resultSummary.isNotEmpty &&
+                match.resultSummary != resultLine
+            ? match.resultSummary
+            : null;
 
         return ListView(
           padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
@@ -50,19 +57,19 @@ class MatchSummaryTab extends ConsumerWidget {
               innings: match.currentInnings,
               isLive: isLive || isBreak,
             ),
-            if (isCompleted && match.resultSummary.isNotEmpty)
+            if (heroLine != null)
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppDimens.spaceMd,
                   vertical: AppDimens.spaceSm,
                 ),
                 child: Text(
-                  match.resultSummary,
+                  heroLine,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.gold,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ),

@@ -2,6 +2,7 @@ import '../constants/enums.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
+import '../../domain/scoring/match_completion_policy.dart';
 import 'cricket_math.dart';
 
 /// First innings totals shown during the break / chase.
@@ -74,6 +75,19 @@ class MatchScoreDisplay {
     final cur = match.currentInnings;
     if (cur == null || cur.status != InningsStatus.inProgress) return false;
     return cur.battingTeamId == teamId;
+  }
+
+  static bool isTeamWinner(MatchModel match, String? teamId) {
+    if (match.status != MatchStatus.completed || teamId == null) return false;
+    final winnerId =
+        match.winnerTeamId ?? MatchCompletionPolicy.compute(match).winnerTeamId;
+    return winnerId == teamId;
+  }
+
+  /// e.g. "Team A won by 12 runs" — for completed match cards.
+  static String? completedResultLine(MatchModel match) {
+    if (match.status != MatchStatus.completed) return null;
+    return MatchCompletionPolicy.compute(match).summary;
   }
 
   static bool isFirstInningsComplete(MatchModel match) {
