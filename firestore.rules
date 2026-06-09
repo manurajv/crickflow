@@ -42,6 +42,10 @@ service cloud.firestore {
       return t in ['rough', 'cement', 'turf', 'astroturf', 'matting'];
     }
 
+    function validBallType(t) {
+      return t in ['tennis', 'leather', 'indoor'];
+    }
+
     function validMatchOfficialRole(r) {
       return r in ['umpires', 'scorers', 'liveStreamer', 'others'];
     }
@@ -59,6 +63,7 @@ service cloud.firestore {
           'totalOvers',
           'ballsPerOver',
           'oversPerBowler',
+          'isManualOversPerBowler',
           'wideRuns',
           'noBallRuns',
           'freeHitEnabled',
@@ -86,6 +91,7 @@ service cloud.firestore {
           'notes',
         ])
         && (!('cricketMatchType' in rules) || validCricketMatchType(rules.cricketMatchType))
+        && (!('ballType' in rules) || validBallType(rules.ballType))
         && (!('pitchType' in rules) || validPitchType(rules.pitchType))
         && (!('matchOfficials' in rules)
             || (rules.matchOfficials is list
@@ -96,6 +102,9 @@ service cloud.firestore {
         && (!('totalOvers' in rules) || (rules.totalOvers is int && rules.totalOvers > 0 && rules.totalOvers <= 200))
         && (!('ballsPerOver' in rules) || (rules.ballsPerOver is int && rules.ballsPerOver >= 1 && rules.ballsPerOver <= 12))
         && (!('oversPerBowler' in rules) || (rules.oversPerBowler is int && rules.oversPerBowler >= 1 && rules.oversPerBowler <= 50))
+        && (!('isManualOversPerBowler' in rules) || rules.isManualOversPerBowler is bool)
+        && (!('totalOvers' in rules) || !('oversPerBowler' in rules)
+            || rules.oversPerBowler <= rules.totalOvers)
         && (!('wideRuns' in rules) || (rules.wideRuns is int && rules.wideRuns >= 0 && rules.wideRuns <= 10))
         && (!('noBallRuns' in rules) || (rules.noBallRuns is int && rules.noBallRuns >= 0 && rules.noBallRuns <= 10));
     }

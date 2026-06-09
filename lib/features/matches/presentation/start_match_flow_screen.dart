@@ -217,7 +217,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                 onChanged: (v) {
                   final n = int.tryParse(v);
                   if (n != null && n > 0) {
-                    _onRulesChanged(draft.rules.copyWith(totalOvers: n));
+                    _onRulesChanged(draft.rules.withTotalOvers(n));
                   }
                 },
               ),
@@ -228,11 +228,22 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                 keyboardType: TextInputType.number,
                 onChanged: (v) {
                   final n = int.tryParse(v);
-                  if (n != null && n > 0) {
-                    _onRulesChanged(draft.rules.copyWith(oversPerBowler: n));
+                  if (n != null && n >= 1) {
+                    _onRulesChanged(draft.rules.withManualOversPerBowler(n));
                   }
                 },
               ),
+              if (draft.rules.isManualOversPerBowler)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => _onRulesChanged(
+                      draft.rules.resetOversPerBowlerToAuto(),
+                    ),
+                    icon: const Icon(Icons.autorenew, size: 18),
+                    label: const Text('Reset to Auto'),
+                  ),
+                ),
               const SizedBox(height: AppDimens.spaceLg),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx),

@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../core/constants/enums.dart';
+import 'dismissal_fielder.dart';
 import 'wagon_wheel_data.dart';
 
 class BallEventModel extends Equatable {
@@ -18,9 +19,13 @@ class BallEventModel extends Equatable {
     this.strikerId,
     this.nonStrikerId,
     this.bowlerId,
+    this.bowlerName,
     this.wicketType,
     this.dismissedPlayerId,
     this.fielderId,
+    this.fielderName,
+    this.dismissalText,
+    this.fielders = const [],
     this.commentary = '',
     this.timestamp,
     this.sequence = 0,
@@ -46,20 +51,31 @@ class BallEventModel extends Equatable {
   final String? strikerId;
   final String? nonStrikerId;
   final String? bowlerId;
+  final String? bowlerName;
   final WicketType? wicketType;
   final String? dismissedPlayerId;
   final String? fielderId;
+  final String? fielderName;
+  final String? dismissalText;
+  final List<DismissalFielder> fielders;
   final String commentary;
   final DateTime? timestamp;
   final int sequence;
   final bool isHighlight;
   final String? highlightTag;
   final NoBallRunsMode? noBallRunsMode;
-  /// Additional runs on a no-ball scored as byes (excludes NB penalty).
   final int noBallByeRuns;
-  /// Additional runs on a no-ball scored as leg byes (excludes NB penalty).
   final int noBallLegByeRuns;
   final WagonWheelData? wagonWheel;
+
+  static WicketType? wicketTypeFromString(String? raw) {
+    if (raw == null) return null;
+    if (raw == 'retired') return WicketType.retiredHurt;
+    return WicketType.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => WicketType.other,
+    );
+  }
 
   factory BallEventModel.fromMap(String id, Map<String, dynamic> map) {
     return BallEventModel(
@@ -80,14 +96,13 @@ class BallEventModel extends Equatable {
       strikerId: map['strikerId'] as String?,
       nonStrikerId: map['nonStrikerId'] as String?,
       bowlerId: map['bowlerId'] as String?,
-      wicketType: map['wicketType'] != null
-          ? WicketType.values.firstWhere(
-              (e) => e.name == map['wicketType'],
-              orElse: () => WicketType.other,
-            )
-          : null,
+      bowlerName: map['bowlerName'] as String?,
+      wicketType: wicketTypeFromString(map['wicketType'] as String?),
       dismissedPlayerId: map['dismissedPlayerId'] as String?,
       fielderId: map['fielderId'] as String?,
+      fielderName: map['fielderName'] as String?,
+      dismissalText: map['dismissalText'] as String?,
+      fielders: _fieldersFromMap(map['fielders']),
       commentary: map['commentary'] as String? ?? '',
       timestamp: DateTime.tryParse(map['timestamp']?.toString() ?? ''),
       sequence: map['sequence'] as int? ?? 0,
@@ -107,6 +122,13 @@ class BallEventModel extends Equatable {
     );
   }
 
+  static List<DismissalFielder> _fieldersFromMap(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((e) => DismissalFielder.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Map<String, dynamic> toMap() => {
         'matchId': matchId,
         'inningsNumber': inningsNumber,
@@ -121,9 +143,16 @@ class BallEventModel extends Equatable {
         if (strikerId != null) 'strikerId': strikerId,
         if (nonStrikerId != null) 'nonStrikerId': nonStrikerId,
         if (bowlerId != null) 'bowlerId': bowlerId,
+        if (bowlerName != null && bowlerName!.isNotEmpty) 'bowlerName': bowlerName,
         if (wicketType != null) 'wicketType': wicketType!.name,
         if (dismissedPlayerId != null) 'dismissedPlayerId': dismissedPlayerId,
         if (fielderId != null) 'fielderId': fielderId,
+        if (fielderName != null && fielderName!.isNotEmpty)
+          'fielderName': fielderName,
+        if (dismissalText != null && dismissalText!.isNotEmpty)
+          'dismissalText': dismissalText,
+        if (fielders.isNotEmpty)
+          'fielders': fielders.map((f) => f.toMap()).toList(),
         'commentary': commentary,
         'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
         'sequence': sequence,

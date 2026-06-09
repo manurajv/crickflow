@@ -69,6 +69,7 @@
 | totalOvers | number | |
 | ballsPerOver | number | |
 | oversPerBowler | number | |
+| isManualOversPerBowler | boolean | `false` when auto-calculated (`ceil(totalOvers / 5)`) |
 | wideRuns, noBallRuns | number | |
 | wideCountsAsLegalDelivery | boolean | |
 | noBallCountsAsLegalDelivery | boolean | |

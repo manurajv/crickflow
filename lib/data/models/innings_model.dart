@@ -134,6 +134,44 @@ class BatsmanInningsModel extends Equatable {
   List<Object?> get props => [playerId, runs, balls];
 }
 
+/// Fielding contributions for one player in an innings.
+class FielderInningsModel extends Equatable {
+  const FielderInningsModel({
+    required this.playerId,
+    this.playerName = '',
+    this.catches = 0,
+    this.runOuts = 0,
+    this.stumpings = 0,
+  });
+
+  final String playerId;
+  final String playerName;
+  final int catches;
+  final int runOuts;
+  final int stumpings;
+
+  factory FielderInningsModel.fromMap(Map<String, dynamic> map) {
+    return FielderInningsModel(
+      playerId: map['playerId'] as String? ?? '',
+      playerName: map['playerName'] as String? ?? '',
+      catches: map['catches'] as int? ?? 0,
+      runOuts: map['runOuts'] as int? ?? 0,
+      stumpings: map['stumpings'] as int? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'playerId': playerId,
+        'playerName': playerName,
+        'catches': catches,
+        'runOuts': runOuts,
+        'stumpings': stumpings,
+      };
+
+  @override
+  List<Object?> get props => [playerId, catches, runOuts, stumpings];
+}
+
 class BowlerInningsModel extends Equatable {
   const BowlerInningsModel({
     required this.playerId,
@@ -201,6 +239,7 @@ class InningsModel extends Equatable {
     this.isSuperOver = false,
     this.partnerships = const [],
     this.fallOfWickets = const [],
+    this.fielders = const [],
   });
 
   final int inningsNumber;
@@ -224,6 +263,7 @@ class InningsModel extends Equatable {
   final bool isSuperOver;
   final List<PartnershipRecord> partnerships;
   final List<FallOfWicketRecord> fallOfWickets;
+  final List<FielderInningsModel> fielders;
 
   factory InningsModel.fromMap(Map<String, dynamic> map) {
     return InningsModel(
@@ -258,6 +298,9 @@ class InningsModel extends Equatable {
       fallOfWickets: (map['fallOfWickets'] as List? ?? [])
           .map((e) => FallOfWicketRecord.fromMap(e as Map<String, dynamic>))
           .toList(),
+      fielders: (map['fielders'] as List? ?? [])
+          .map((e) => FielderInningsModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -284,6 +327,8 @@ class InningsModel extends Equatable {
           'partnerships': partnerships.map((p) => p.toMap()).toList(),
         if (fallOfWickets.isNotEmpty)
           'fallOfWickets': fallOfWickets.map((f) => f.toMap()).toList(),
+        if (fielders.isNotEmpty)
+          'fielders': fielders.map((f) => f.toMap()).toList(),
       };
 
   @override

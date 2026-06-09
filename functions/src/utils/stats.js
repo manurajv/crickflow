@@ -26,6 +26,9 @@ function statsIncrements(agg, matchesDelta = 1) {
     hundreds: FieldValue.increment(agg.hundreds || 0),
     threeWickets: FieldValue.increment(agg.threeWickets || 0),
     fiveWickets: FieldValue.increment(agg.fiveWickets || 0),
+    catches: FieldValue.increment(agg.catches || 0),
+    runOuts: FieldValue.increment(agg.runOuts || 0),
+    stumpings: FieldValue.increment(agg.stumpings || 0),
   };
 }
 
@@ -97,6 +100,9 @@ function collectPlayerAgg(innings) {
         highScore: 0,
         threeWickets: 0,
         fiveWickets: 0,
+        catches: 0,
+        runOuts: 0,
+        stumpings: 0,
         matchWickets: 0,
       });
     }
@@ -128,6 +134,13 @@ function collectPlayerAgg(innings) {
       a.oversBowledBalls += bowler.oversBowledBalls || 0;
       a.runsConceded += bowler.runsConceded || 0;
       a.matchWickets += wkts;
+    }
+    for (const fielder of inn.fielders || []) {
+      if (!fielder.playerId) continue;
+      const a = get(fielder.playerId);
+      a.catches += fielder.catches || 0;
+      a.runOuts += fielder.runOuts || 0;
+      a.stumpings += fielder.stumpings || 0;
     }
   }
 

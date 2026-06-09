@@ -10,6 +10,7 @@ class MatchRulesModel extends Equatable {
     this.totalOvers = 20,
     this.ballsPerOver = 6,
     this.oversPerBowler = 4,
+    this.isManualOversPerBowler = false,
     this.wideRuns = 1,
     this.noBallRuns = 1,
     this.freeHitEnabled = true,
@@ -41,6 +42,7 @@ class MatchRulesModel extends Equatable {
   final int totalOvers;
   final int ballsPerOver;
   final int oversPerBowler;
+  final bool isManualOversPerBowler;
   final int wideRuns;
   final int noBallRuns;
   final bool freeHitEnabled;
@@ -79,6 +81,46 @@ class MatchRulesModel extends Equatable {
   /// Primary ON/OFF toggle for wagon wheel capture during scoring.
   bool get wagonWheelActive => wagonWheelEnabled;
 
+  /// `ceil(totalOvers / 5)` — minimum 1.
+  static int calculateOversPerBowler(int totalOvers) {
+    if (totalOvers < 1) return 1;
+    return (totalOvers / 5).ceil();
+  }
+
+  static int clampOversPerBowler(int value, int totalOvers) {
+    final maxOvers = totalOvers < 1 ? 1 : totalOvers;
+    return value.clamp(1, maxOvers);
+  }
+
+  MatchRulesModel withTotalOvers(int totalOvers) {
+    final nextTotal = totalOvers < 1 ? 1 : totalOvers;
+    if (isManualOversPerBowler) {
+      return copyWith(
+        totalOvers: nextTotal,
+        oversPerBowler: clampOversPerBowler(oversPerBowler, nextTotal),
+      );
+    }
+    return copyWith(
+      totalOvers: nextTotal,
+      oversPerBowler: calculateOversPerBowler(nextTotal),
+      isManualOversPerBowler: false,
+    );
+  }
+
+  MatchRulesModel withManualOversPerBowler(int value) {
+    return copyWith(
+      oversPerBowler: clampOversPerBowler(value, totalOvers),
+      isManualOversPerBowler: true,
+    );
+  }
+
+  MatchRulesModel resetOversPerBowlerToAuto() {
+    return copyWith(
+      oversPerBowler: calculateOversPerBowler(totalOvers),
+      isManualOversPerBowler: false,
+    );
+  }
+
   static CricketBallType defaultBallTypeFor(MatchFormat format) {
     return switch (format) {
       MatchFormat.tennis => CricketBallType.tennis,
@@ -104,20 +146,22 @@ class MatchRulesModel extends Equatable {
 
   static MatchRulesModel forMatchType(CricketMatchType type) {
     return switch (type) {
-      CricketMatchType.indoor => const MatchRulesModel(
+      CricketMatchType.indoor => MatchRulesModel(
           cricketMatchType: CricketMatchType.indoor,
           format: MatchFormat.tennis,
-          ballType: CricketBallType.indoor,
+          ballType: CricketBallType.tennis,
           totalOvers: 6,
+          oversPerBowler: calculateOversPerBowler(6),
           maxInnings: 1,
           wagonWheelEnabled: false,
           wagonWheelDots: false,
           wagonWheelRuns123: false,
           wagonWheelShotSelection: false,
         ),
-      CricketMatchType.testMatch => const MatchRulesModel(
+      CricketMatchType.testMatch => MatchRulesModel(
           cricketMatchType: CricketMatchType.testMatch,
           totalOvers: 50,
+          oversPerBowler: calculateOversPerBowler(50),
           maxInnings: 2,
         ),
       CricketMatchType.limitedOvers => MatchRulesModel.standardT20().copyWith(
@@ -154,12 +198,14 @@ class MatchRulesModel extends Equatable {
         maxWickets: 10,
       );
 
-  factory MatchRulesModel.standardT20() => const MatchRulesModel(
+  factory MatchRulesModel.standardT20() => MatchRulesModel(
         format: MatchFormat.standard,
         cricketMatchType: CricketMatchType.limitedOvers,
-        ballType: CricketBallType.leather,
+        ballType: CricketBallType.tennis,
         totalOvers: 20,
         ballsPerOver: 6,
+        oversPerBowler: calculateOversPerBowler(20),
+        isManualOversPerBowler: false,
       );
 
   factory MatchRulesModel.fromMap(Map<String, dynamic>? map) {
@@ -175,7 +221,10 @@ class MatchRulesModel extends Equatable {
       ballType: _ballTypeFromString(map['ballType'] as String?),
       totalOvers: map['totalOvers'] as int? ?? 20,
       ballsPerOver: map['ballsPerOver'] as int? ?? 6,
-      oversPerBowler: map['oversPerBowler'] as int? ?? 4,
+      oversPerBowler: map['oversPerBowler'] as int? ??
+          calculateOversPerBowler(map['totalOvers'] as int? ?? 20),
+      isManualOversPerBowler:
+          map['isManualOversPerBowler'] as bool? ?? false,
       wideRuns: map['wideRuns'] as int? ?? 1,
       noBallRuns: map['noBallRuns'] as int? ?? 1,
       freeHitEnabled: map['freeHitEnabled'] as bool? ?? true,
@@ -297,6 +346,7 @@ class MatchRulesModel extends Equatable {
         'totalOvers': totalOvers,
         'ballsPerOver': ballsPerOver,
         'oversPerBowler': oversPerBowler,
+        'isManualOversPerBowler': isManualOversPerBowler,
         'wideRuns': wideRuns,
         'noBallRuns': noBallRuns,
         'freeHitEnabled': freeHitEnabled,
@@ -329,6 +379,7 @@ class MatchRulesModel extends Equatable {
     int? totalOvers,
     int? ballsPerOver,
     int? oversPerBowler,
+    bool? isManualOversPerBowler,
     int? wideRuns,
     int? noBallRuns,
     bool? freeHitEnabled,
@@ -360,6 +411,8 @@ class MatchRulesModel extends Equatable {
       totalOvers: totalOvers ?? this.totalOvers,
       ballsPerOver: ballsPerOver ?? this.ballsPerOver,
       oversPerBowler: oversPerBowler ?? this.oversPerBowler,
+      isManualOversPerBowler:
+          isManualOversPerBowler ?? this.isManualOversPerBowler,
       wideRuns: wideRuns ?? this.wideRuns,
       noBallRuns: noBallRuns ?? this.noBallRuns,
       freeHitEnabled: freeHitEnabled ?? this.freeHitEnabled,
@@ -395,6 +448,8 @@ class MatchRulesModel extends Equatable {
         totalOvers,
         ballsPerOver,
         oversPerBowler,
+        isManualOversPerBowler,
+        ballType,
         powerplaySlots,
         wagonWheelEnabled,
         pitchType,

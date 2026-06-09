@@ -51,11 +51,18 @@ enum NoBallRunsMode { bat, bye, legBye }
 enum WicketType {
   bowled,
   caught,
+  caughtBehind,
+  caughtAndBowled,
   lbw,
   runOut,
   stumped,
   hitWicket,
-  retired,
+  retiredHurt,
+  retiredOut,
+  obstructingField,
+  timedOut,
+  handledBall,
+  hitBallTwice,
   other,
 }
 

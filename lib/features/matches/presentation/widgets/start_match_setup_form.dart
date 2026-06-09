@@ -34,6 +34,11 @@ class StartMatchSetupForm extends StatelessWidget {
   final ValueChanged<String> onVenueChanged;
   final VoidCallback? onManageOfficials;
 
+  static const _startMatchBallTypes = [
+    CricketBallType.tennis,
+    CricketBallType.leather,
+  ];
+
   static String _matchTypeLabel(CricketMatchType t) => switch (t) {
         CricketMatchType.limitedOvers => 'Limited Overs',
         CricketMatchType.indoor => 'Indoor',
@@ -54,8 +59,24 @@ class StartMatchSetupForm extends StatelessWidget {
         PitchType.matting => 'MATTING',
       };
 
+  static String _ballTypeLabel(CricketBallType t) => switch (t) {
+        CricketBallType.tennis => 'Tennis Ball',
+        CricketBallType.leather => 'Leather Ball',
+        CricketBallType.indoor => 'Tennis Ball',
+      };
+
+  CricketBallType get _selectedBallType {
+    final resolved = rules.resolvedBallType;
+    if (resolved == CricketBallType.leather) {
+      return CricketBallType.leather;
+    }
+    return CricketBallType.tennis;
+  }
+
   void _onMatchTypeSelected(CricketMatchType type) {
-    final next = MatchRulesModel.forMatchType(type).copyWith(
+    final preservedBall = _selectedBallType;
+    var next = MatchRulesModel.forMatchType(type).copyWith(
+      ballType: preservedBall,
       pitchType: rules.pitchType,
       matchOfficials: rules.matchOfficials,
       powerplaySlots: rules.powerplaySlots,
@@ -71,6 +92,15 @@ class StartMatchSetupForm extends StatelessWidget {
           ? false
           : rules.wagonWheelShotSelection,
     );
+    if (rules.isManualOversPerBowler) {
+      next = next.copyWith(
+        oversPerBowler: MatchRulesModel.clampOversPerBowler(
+          rules.oversPerBowler,
+          next.totalOvers,
+        ),
+        isManualOversPerBowler: true,
+      );
+    }
     onRulesChanged(next);
   }
 
@@ -120,42 +150,114 @@ class StartMatchSetupForm extends StatelessWidget {
           selected: rules.cricketMatchType,
           onSelected: _onMatchTypeSelected,
         ),
-        if (showOvers) ...[
-          const SizedBox(height: AppDimens.spaceLg),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                flex: 2,
-                child: CfUnderlinedField(
-                  controller: oversController,
-                  label: 'No. of overs',
-                  required: true,
-                  keyboardType: TextInputType.number,
-                  onChanged: (v) {
-                    final n = int.tryParse(v);
-                    if (n != null && n > 0) {
-                      onRulesChanged(rules.copyWith(totalOvers: n));
-                    }
-                  },
+        const SizedBox(height: AppDimens.spaceLg),
+        const _FormLabel('Ball type'),
+        const SizedBox(height: AppDimens.spaceSm),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _startMatchBallTypes.map((ball) {
+            final selected = _selectedBallType == ball;
+            return FilterChip(
+              label: Text(
+                _ballTypeLabel(ball),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: AppDimens.spaceMd),
+              selected: selected,
+              onSelected: (_) => onRulesChanged(rules.copyWith(ballType: ball)),
+              selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
+              checkmarkColor: AppColors.gold,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: AppDimens.spaceLg),
+        const _FormLabel('Pitch type'),
+        const SizedBox(height: AppDimens.spaceSm),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: PitchType.values.map((p) {
+            final selected = rules.pitchType == p;
+            return FilterChip(
+              label: Text(
+                _pitchLabel(p),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+              selected: selected,
+              onSelected: (_) => onRulesChanged(rules.copyWith(pitchType: p)),
+              selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
+              checkmarkColor: AppColors.gold,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+            );
+          }).toList(),
+        ),
+        if (showOvers) ...[
+          const SizedBox(height: AppDimens.spaceLg),
+          CfUnderlinedField(
+            controller: oversController,
+            label: 'No. of overs',
+            required: true,
+            keyboardType: TextInputType.number,
+            onChanged: (v) {
+              final n = int.tryParse(v);
+              if (n != null && n > 0) {
+                onRulesChanged(rules.withTotalOvers(n));
+              }
+            },
+          ),
+          const SizedBox(height: AppDimens.fieldSpacing),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Expanded(
-                flex: 2,
                 child: CfUnderlinedField(
                   controller: oversPerBowlerController,
                   label: 'Overs per bowler',
                   keyboardType: TextInputType.number,
                   onChanged: (v) {
                     final n = int.tryParse(v);
-                    if (n != null && n > 0) {
-                      onRulesChanged(rules.copyWith(oversPerBowler: n));
+                    if (n != null && n >= 1) {
+                      onRulesChanged(rules.withManualOversPerBowler(n));
                     }
                   },
                 ),
               ),
+              if (rules.isManualOversPerBowler) ...[
+                const SizedBox(width: AppDimens.spaceXs),
+                Padding(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        onRulesChanged(rules.resetOversPerBowlerToAuto()),
+                    icon: const Icon(Icons.autorenew, size: 18),
+                    label: const Text('Reset to Auto'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.gold,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
+                ),
+              ],
             ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              rules.isManualOversPerBowler
+                  ? 'Manually set. Changing total overs will not update this value.'
+                  : 'Automatically calculated as Total Overs ÷ 5 (rounded up). You can override this value.',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
           Align(
             alignment: Alignment.centerRight,
@@ -209,30 +311,6 @@ class StartMatchSetupForm extends StatelessWidget {
           value: wwOn,
           activeThumbColor: AppColors.gold,
           onChanged: wwLocked ? null : _setWagonWheel,
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        const _FormLabel('Pitch type'),
-        const SizedBox(height: AppDimens.spaceSm),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: PitchType.values.map((p) {
-            final selected = rules.pitchType == p;
-            return FilterChip(
-              label: Text(
-                _pitchLabel(p),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-              selected: selected,
-              onSelected: (_) => onRulesChanged(rules.copyWith(pitchType: p)),
-              selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
-              checkmarkColor: AppColors.gold,
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-            );
-          }).toList(),
         ),
         const SizedBox(height: AppDimens.spaceLg),
         const _FormLabel('Match officials'),
@@ -330,4 +408,3 @@ class _MatchTypePicker extends StatelessWidget {
     );
   }
 }
-

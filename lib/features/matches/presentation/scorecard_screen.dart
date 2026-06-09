@@ -11,6 +11,7 @@ import '../../../data/models/match_model.dart';
 import '../../../core/utils/deep_link_utils.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/scoreboard_card.dart';
+import '../../../shared/widgets/scorecard_batting_table.dart';
 
 class ScorecardScreen extends ConsumerWidget {
   const ScorecardScreen({
@@ -115,13 +116,18 @@ class ScorecardScreen extends ConsumerWidget {
                         const Divider(),
                         const Text('Batting',
                             style: TextStyle(fontWeight: FontWeight.w600)),
-                        ...inn.batsmen.map((b) => ListTile(
-                              dense: true,
-                              title: Text(b.playerName.isNotEmpty
-                                  ? b.playerName
-                                  : b.playerId),
-                              trailing: Text('${b.runs} (${b.balls})'),
-                            )),
+                        const SizedBox(height: 4),
+                        ScorecardBattingTable(
+                          batsmen: inn.batsmen,
+                          strikerId: inn.strikerId,
+                          nonStrikerId: inn.nonStrikerId,
+                        ),
+                        const SizedBox(height: 8),
+                        ScorecardFallOfWickets(
+                          entries: inn.fallOfWickets,
+                          ballsPerOver: rules.ballsPerOver,
+                        ),
+                        const SizedBox(height: 12),
                         const Text('Bowling',
                             style: TextStyle(fontWeight: FontWeight.w600)),
                         ...inn.bowlers.map((b) => ListTile(

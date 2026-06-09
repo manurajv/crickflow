@@ -14,6 +14,10 @@ import '../../../domain/scoring/match_completion_policy.dart';
 import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/player_lineup_picker.dart';
+import '../../../data/models/dismissal_fielder.dart';
+import '../../../domain/services/dismissal_formatter.dart';
+import '../../../shared/widgets/dismissed_batter_picker_sheet.dart';
+import '../../../shared/widgets/fielder_picker_sheet.dart';
 import '../../../shared/widgets/wicket_picker_sheet.dart';
 import '../../matches/presentation/match_scoring_rules_screen.dart';
 import '../../matches/presentation/widgets/edit_toss_decision_sheet.dart';
@@ -131,11 +135,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       fielderId: input.fielderId,
       noBallRunsMode: input.noBallRunsMode,
       wagonWheel: wagonWheel,
-      commentary: CommentaryService.forBall(
-        type: input.type,
-        runs: input.runs,
-        wicketType: input.wicketType,
-      ),
+      commentary: input.commentary.isNotEmpty
+          ? input.commentary
+          : CommentaryService.forBall(
+              type: input.type,
+              runs: input.runs,
+              wicketType: input.wicketType,
+              fielderName: input.fielderName,
+              bowlerName: input.bowlerName,
+            ),
     );
 
     try {
@@ -282,17 +290,106 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   Future<void> _recordWicket() async {
     final type = await showWicketPickerSheet(context);
     if (type == null || !mounted) return;
-    await _record(BallEventInput(
-      type: BallEventType.wicket,
-      wicketType: type,
-    ));
+
+    final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
+    final inn = match?.currentInnings;
+    if (match == null || inn == null) return;
+
+    final squads =
+        ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
+    if (squads == null) return;
+
+    final bowlerId = inn.currentBowlerId;
+    final bowlerName = ScoringDisplayUtils.bowler(inn, bowlerId)?.playerName ?? '';
+    final strikerName =
+        ScoringDisplayUtils.batsman(inn, inn.strikerId)?.playerName ?? '';
+    final nonStrikerName =
+        ScoringDisplayUtils.batsman(inn, inn.nonStrikerId)?.playerName ?? '';
+
+    String? dismissedPlayerId;
+    String? fielderId;
+    String? fielderName;
+    List<DismissalFielder> fielders = const [];
+
+    if (type == WicketType.runOut) {
+      dismissedPlayerId = await showDismissedBatterPickerSheet(
+        context,
+        strikerId: inn.strikerId,
+        strikerName: strikerName,
+        nonStrikerId: inn.nonStrikerId,
+        nonStrikerName: nonStrikerName,
+      );
+      if (dismissedPlayerId == null || !mounted) return;
+
+      final fielder = await FielderPickerSheet.show(
+        context,
+        title: DismissalFormatter.fielderPickerTitle(type),
+        players: squads.bowling,
+      );
+      if (fielder == null || !mounted) return;
+      fielderId = fielder.id;
+      fielderName = fielder.name;
+      fielders = [
+        DismissalFielder(playerId: fielder.id, playerName: fielder.name),
+      ];
+    } else if (type == WicketType.caughtAndBowled && bowlerId != null) {
+      dismissedPlayerId = inn.strikerId;
+      fielderId = bowlerId;
+      fielderName = bowlerName;
+      fielders = [
+        DismissalFielder(playerId: bowlerId, playerName: bowlerName),
+      ];
+    } else if (DismissalFormatter.needsFielderPicker(type)) {
+      dismissedPlayerId = inn.strikerId;
+      final fielder = await FielderPickerSheet.show(
+        context,
+        title: DismissalFormatter.fielderPickerTitle(type),
+        players: squads.bowling,
+      );
+      if (fielder == null || !mounted) return;
+      fielderId = fielder.id;
+      fielderName = fielder.name;
+      fielders = [
+        DismissalFielder(playerId: fielder.id, playerName: fielder.name),
+      ];
+    } else {
+      dismissedPlayerId =
+          DismissalFormatter.defaultDismissedPlayerId(
+            type: type,
+            strikerId: inn.strikerId,
+          );
+    }
+
+    final dismissalText = DismissalFormatter.format(
+      type: type,
+      bowlerName: bowlerName,
+      fielderName: fielderName ?? '',
+    );
+
+    await _record(
+      BallEventInput(
+        type: BallEventType.wicket,
+        wicketType: type,
+        dismissedPlayerId: dismissedPlayerId,
+        fielderId: fielderId,
+        fielderName: fielderName,
+        bowlerName: bowlerName.isEmpty ? null : bowlerName,
+        dismissalText: dismissalText,
+        fielders: fielders,
+        commentary: CommentaryService.forWicket(
+          wicketType: type,
+          fielderName: fielderName,
+          bowlerName: bowlerName,
+        ),
+      ),
+    );
     if (!mounted) return;
     final updated = ref.read(matchProvider(widget.matchId)).valueOrNull;
-    final inn = updated?.currentInnings;
+    final updatedInn = updated?.currentInnings;
     if (updated != null &&
-        inn != null &&
-        !ScoringDisplayUtils.isInningsComplete(updated, inn)) {
-      await _fillVacantCrease(updated, inn);
+        updatedInn != null &&
+        !ScoringDisplayUtils.isInningsComplete(updated, updatedInn)) {
+      await _fillVacantCrease(updated, updatedInn);
     }
   }
 

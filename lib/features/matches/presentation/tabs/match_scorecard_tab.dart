@@ -7,6 +7,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/scoreboard_card.dart';
+import '../../../../shared/widgets/scorecard_batting_table.dart';
 
 class MatchScorecardTab extends ConsumerWidget {
   const MatchScorecardTab({super.key, required this.matchId});
@@ -62,15 +63,18 @@ class MatchScorecardTab extends ConsumerWidget {
                       ),
                       const Divider(),
                       Text('Batting', style: Theme.of(context).textTheme.titleMedium),
-                      ...inn.batsmen.map(
-                        (b) => ListTile(
-                          dense: true,
-                          title: Text(
-                            b.playerName.isNotEmpty ? b.playerName : b.playerId,
-                          ),
-                          trailing: Text('${b.runs} (${b.balls})'),
-                        ),
+                      const SizedBox(height: 4),
+                      ScorecardBattingTable(
+                        batsmen: inn.batsmen,
+                        strikerId: inn.strikerId,
+                        nonStrikerId: inn.nonStrikerId,
                       ),
+                      const SizedBox(height: 8),
+                      ScorecardFallOfWickets(
+                        entries: inn.fallOfWickets,
+                        ballsPerOver: rules.ballsPerOver,
+                      ),
+                      const SizedBox(height: 12),
                       Text('Bowling', style: Theme.of(context).textTheme.titleMedium),
                       ...inn.bowlers.map(
                         (b) => ListTile(
