@@ -7,8 +7,10 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/deep_link_utils.dart';
 import '../../../data/models/player_model.dart';
 import '../../../data/models/team_model.dart';
+import '../../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
+import '../../wagon_wheel/presentation/widgets/wagon_wheel_embedded_section.dart';
 import '../../../shared/widgets/cf_underlined_field.dart';
 import 'widgets/team_join_banner.dart';
 import 'widgets/team_logo_picker.dart';
@@ -61,6 +63,16 @@ class TeamDetailScreen extends ConsumerWidget {
                       const SnackBar(content: Text('Squad banners — coming soon')),
                     );
                   },
+                ),
+              ),
+              Padding(
+                padding: AppDimens.listPadding,
+                child: WagonWheelEmbeddedSection(
+                  title: 'Team wagon wheel',
+                  fullViewTitle: '${team.name} — scoring',
+                  baseFilter: WagonWheelFilter(teamId: teamId),
+                  height: 200,
+                  showWhenEmpty: false,
                 ),
               ),
               Expanded(

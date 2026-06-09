@@ -337,6 +337,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/wagon-wheel',
         builder: (_, state) {
           final q = state.uri.queryParameters;
+          WagonWheelRunFilter? runFilter;
+          if (q['runs'] != null) {
+            runFilter = WagonWheelRunFilter.values.firstWhere(
+              (e) => e.name == q['runs'],
+              orElse: () => WagonWheelRunFilter.all,
+            );
+          }
+          WagonWheelViewMode? viewMode;
+          if (q['view'] != null) {
+            viewMode = WagonWheelViewMode.values.firstWhere(
+              (e) => e.name == q['view'],
+              orElse: () => WagonWheelViewMode.lines,
+            );
+          }
           return WagonWheelViewScreen(
             title: q['title'] ?? 'Wagon wheel',
             initialFilter: WagonWheelFilter(
@@ -346,6 +360,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               matchId: q['matchId'],
               tournamentId: q['tournamentId'],
               inningsNumber: int.tryParse(q['innings'] ?? ''),
+              runFilter: runFilter ?? WagonWheelRunFilter.all,
+              viewMode: viewMode ?? WagonWheelViewMode.lines,
+              fromDate: DateTime.tryParse(q['from'] ?? ''),
+              toDate: DateTime.tryParse(q['to'] ?? ''),
             ),
           );
         },

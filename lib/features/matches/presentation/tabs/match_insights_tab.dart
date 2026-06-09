@@ -8,8 +8,9 @@ import '../../../../data/models/match_model.dart';
 import '../../../../domain/services/match_insights_service.dart';
 import '../../../../shared/providers/match_insights_provider.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/providers/wagon_wheel_provider.dart';
-import '../../../wagon_wheel/presentation/widgets/wagon_wheel_chart.dart';
+import '../../../../domain/wagon_wheel/wagon_wheel_filter.dart';
+import '../../../../domain/wagon_wheel/wagon_wheel_navigation.dart';
+import '../../../wagon_wheel/presentation/widgets/wagon_wheel_embedded_section.dart';
 
 class MatchInsightsTab extends ConsumerWidget {
   const MatchInsightsTab({super.key, required this.matchId});
@@ -19,7 +20,6 @@ class MatchInsightsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final insights = ref.watch(matchInsightsProvider(matchId));
-    final wagonWheel = ref.watch(matchWagonWheelProvider(matchId));
     final match = ref.watch(matchProvider(matchId)).valueOrNull;
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final wwEnabled = match?.rules.wagonWheelEnabled ?? false;
@@ -53,7 +53,19 @@ class MatchInsightsTab extends ConsumerWidget {
           Text('Top batters', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppDimens.spaceSm),
           ...insights.topBatters.map(
-            (p) => _PerformerTile(performer: p, icon: Icons.sports_cricket),
+            (p) => _PerformerTile(
+              performer: p,
+              icon: Icons.sports_cricket,
+              onTap: () => context.push(
+                WagonWheelNavigation.path(
+                  filter: WagonWheelFilter(
+                    matchId: matchId,
+                    batterId: p.playerId,
+                  ),
+                  title: '${p.playerName} — wagon wheel',
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: AppDimens.spaceMd),
         ],
@@ -61,40 +73,28 @@ class MatchInsightsTab extends ConsumerWidget {
           Text('Top bowlers', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppDimens.spaceSm),
           ...insights.topBowlers.map(
-            (p) => _PerformerTile(performer: p, icon: Icons.sports_baseball),
+            (p) => _PerformerTile(
+              performer: p,
+              icon: Icons.sports_baseball,
+              onTap: () => context.push(
+                WagonWheelNavigation.path(
+                  filter: WagonWheelFilter(
+                    matchId: matchId,
+                    bowlerId: p.playerId,
+                  ),
+                  title: '${p.playerName} — conceded',
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: AppDimens.spaceMd),
         ],
-        if (wwEnabled || wagonWheel.shots.isNotEmpty) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Wagon wheel',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              if (wagonWheel.shots.isNotEmpty)
-                TextButton(
-                  onPressed: () => context.push(
-                    '/wagon-wheel?matchId=$matchId&title=Match wagon wheel',
-                  ),
-                  child: const Text('Full view'),
-                ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.spaceSm),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: AppDimens.cardPadding,
-              child: WagonWheelChart(
-                shots: wagonWheel.shots,
-                insights: wagonWheel.insights,
-                height: 220,
-                compact: true,
-              ),
-            ),
+        if (wwEnabled) ...[
+          WagonWheelEmbeddedSection(
+            title: 'Wagon wheel',
+            fullViewTitle: 'Match wagon wheel',
+            baseFilter: WagonWheelFilter(matchId: matchId),
+            height: 220,
           ),
           const SizedBox(height: AppDimens.spaceLg),
         ],
@@ -257,10 +257,15 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _PerformerTile extends StatelessWidget {
-  const _PerformerTile({required this.performer, required this.icon});
+  const _PerformerTile({
+    required this.performer,
+    required this.icon,
+    this.onTap,
+  });
 
   final PerformerInsight performer;
   final IconData icon;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -268,6 +273,7 @@ class _PerformerTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppDimens.spaceXs),
       child: ListTile(
         dense: true,
+        onTap: onTap,
         leading: CircleAvatar(
           radius: 18,
           backgroundColor: AppColors.surfaceElevated,

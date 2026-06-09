@@ -6,6 +6,7 @@ import 'package:crickflow/data/models/wagon_wheel_data.dart';
 import 'package:crickflow/domain/services/scoring_engine.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_analytics_service.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_eligibility.dart';
+import 'package:crickflow/domain/wagon_wheel/wagon_wheel_field_geometry.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_filter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -129,6 +130,54 @@ void main() {
       expect(map['wagonWheel'], isNotNull);
       final restored = BallEventModel.fromMap('e1', map);
       expect(restored.wagonWheel?.x, 70);
+    });
+  });
+
+  group('WagonWheelFieldGeometry zones', () {
+    test('singles clamp inside boundary rope', () {
+      // Far outside — beyond Zone C.
+      final clamped = WagonWheelFieldGeometry.clampCoordinate(90, 50, 1);
+      expect(
+        WagonWheelFieldGeometry.zoneAt(clamped.dx, clamped.dy),
+        WagonWheelZone.insideField,
+      );
+      expect(
+        WagonWheelFieldGeometry.distanceFromCenter(clamped.dx, clamped.dy),
+        lessThan(WagonWheelFieldGeometry.boundaryInnerRadiusPercent),
+      );
+    });
+
+    test('triples cannot sit on boundary rope', () {
+      final onRope = WagonWheelFieldGeometry.clampCoordinate(50, 13, 3);
+      expect(
+        WagonWheelFieldGeometry.zoneAt(onRope.dx, onRope.dy),
+        WagonWheelZone.insideField,
+      );
+    });
+
+    test('fours may reach boundary rope', () {
+      final clamped = WagonWheelFieldGeometry.clampCoordinate(50, 10, 4);
+      final zone = WagonWheelFieldGeometry.zoneAt(clamped.dx, clamped.dy);
+      expect(
+        zone == WagonWheelZone.insideField ||
+            zone == WagonWheelZone.boundaryRope,
+        isTrue,
+      );
+    });
+
+    test('sixes may land outside boundary', () {
+      final clamped = WagonWheelFieldGeometry.clampCoordinate(50, 2, 6);
+      expect(
+        WagonWheelFieldGeometry.distanceFromCenter(clamped.dx, clamped.dy),
+        greaterThan(WagonWheelFieldGeometry.boundaryOuterRadiusPercent),
+      );
+    });
+
+    test('striker wicket is below pitch centre', () {
+      expect(
+        WagonWheelFieldGeometry.strikerWicketYPercent,
+        greaterThan(WagonWheelFieldGeometry.groundCenterYPercent),
+      );
     });
   });
 

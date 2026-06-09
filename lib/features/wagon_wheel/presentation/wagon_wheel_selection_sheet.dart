@@ -3,6 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/wagon_wheel_data.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_colors.dart';
+import '../../../domain/wagon_wheel/wagon_wheel_field_geometry.dart';
 import 'widgets/wagon_wheel_ground_painter.dart';
 
 /// Full-screen wagon wheel capture shown after a valid batting shot.
@@ -35,14 +36,33 @@ class WagonWheelSelectionSheet extends StatefulWidget {
 }
 
 class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
-  double _markerX = WagonWheelData.pitchCenterX;
-  double _markerY = 35;
+  late double _markerX;
+  late double _markerY;
+  bool _wasClamped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default landing spot — mid-off inside the field.
+    final initial = WagonWheelFieldGeometry.clampCoordinate(62, 38, widget.batsmanRuns);
+    _markerX = initial.dx;
+    _markerY = initial.dy;
+  }
 
   void _updateMarker(Offset local, Size size) {
-    final pct = percentFromLocal(local, size);
+    final raw = percentFromLocal(local, size);
+    final clamped = WagonWheelFieldGeometry.clampCoordinate(
+      raw.dx,
+      raw.dy,
+      widget.batsmanRuns,
+    );
+    final didClamp = (raw.dx - clamped.dx).abs() > 0.05 ||
+        (raw.dy - clamped.dy).abs() > 0.05;
+
     setState(() {
-      _markerX = pct.dx;
-      _markerY = pct.dy;
+      _markerX = clamped.dx;
+      _markerY = clamped.dy;
+      _wasClamped = didClamp;
     });
   }
 
@@ -64,6 +84,7 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
     final shotType = WagonWheelShotType.fromBatsmanRuns(widget.batsmanRuns);
     final color = WagonWheelColors.forShotType(shotType);
     final height = MediaQuery.sizeOf(context).height * 0.88;
+    final hint = WagonWheelFieldGeometry.hintForRuns(widget.batsmanRuns);
 
     return SizedBox(
       height: height,
@@ -87,12 +108,25 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       Text(
-                        'Tap or drag to mark where the ${widget.batsmanRuns} '
-                        'landed',
+                        hint,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textSecondary,
                             ),
                       ),
+                      if (_wasClamped &&
+                          widget.batsmanRuns >= 1 &&
+                          widget.batsmanRuns <= 3)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Marker adjusted inside the boundary.',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.gold,
+                                      fontSize: 11,
+                                    ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -126,6 +160,7 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                     constraints.maxHeight,
                   );
                   return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTapDown: (d) => _updateMarker(d.localPosition, groundSize),
                     onPanUpdate: (d) =>
                         _updateMarker(d.localPosition, groundSize),
@@ -136,6 +171,7 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                         painter: WagonWheelSelectionPainter(
                           markerX: _markerX,
                           markerY: _markerY,
+                          accentColor: color,
                         ),
                       ),
                     ),

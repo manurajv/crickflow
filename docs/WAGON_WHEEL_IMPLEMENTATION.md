@@ -1,6 +1,6 @@
 # Wagon Wheel — Implementation Progress
 
-**Status:** Phase 1 complete (scoring capture + analytics foundation)  
+**Status:** Phase 2 complete (realism + rendering refinements)  
 **Last updated:** June 2026  
 
 **Related:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · [FIREBASE_SCHEMA.md](FIREBASE_SCHEMA.md)
@@ -28,16 +28,23 @@ Broadcast-style wagon wheel for CrickFlow: scorers mark shot direction on a top-
 | 9 | Run colour system | ✅ Done | `wagon_wheel_colors.dart` |
 | 10 | View modes: lines / scatter / heatmap | ✅ Done | `WagonWheelViewScreen` |
 | 11 | Filters (batter, bowler, team, match, innings, runs) | ✅ Done | `WagonWheelFilter` + provider |
-| 12 | Match insights embed | ✅ Done | `MatchInsightsTab` |
-| 13 | Player career embed | ✅ Done | `PlayerDetailScreen` |
+| 12 | Match insights embed + quick filters | ✅ Done | `WagonWheelEmbeddedSection` |
+| 13 | Player career embed (bat + bowl) | ✅ Done | `PlayerDetailScreen` |
+| 13b | Team wagon wheel embed | ✅ Done | `TeamDetailScreen` |
+| 13c | Full view filter panel | ✅ Done | Batter, bowler, team, innings, runs, date, view mode |
+| 13d | Performer tap → filtered full view | ✅ Done | Match Insights top bat/bowl tiles |
 | 14 | Insights (off/leg %, zones, boundaries) | ✅ Done | `WagonWheelAnalyticsService` |
 | 15 | Unit tests | ✅ Done | `test/wagon_wheel_test.dart` |
 | 16 | Tournament default match settings | ⏳ Pending | `TournamentModel` has no rules field yet |
 | 17 | Bowler / team dedicated screens | ⏳ Pending | Providers exist; UI entry points TBD |
-| 18 | Custom ground image asset | ⏳ Pending | CustomPaint ground used; add `assets/images/wagon_wheel_ground.png` when available |
-| 19 | AI / CV auto-detection | ⏳ Future | Schema supports `source`, `confidence` |
-| 20 | Dot ball / wicket wagon wheel | ⏳ Future | Eligibility hooks ready |
-| 21 | Advanced filters (PP, death, spin vs pace) | ⏳ Future | Filter model extensible |
+| 18 | Custom ground image asset | ⏳ Pending | `WagonWheelGroundRenderer` ready for image overlay |
+| 19 | Zone validation (1–3 inside, 4 rope, 6 outside) | ✅ Done | `wagon_wheel_field_geometry.dart` |
+| 20 | Striker wicket line origin | ✅ Done | Lines from batsman end, not pitch centre |
+| 21 | Pitch length + boundary visuals | ✅ Done | ~33% shorter pitch; dark outside ground |
+| 22 | Six line emphasis | ✅ Done | Thicker + higher opacity |
+| 23 | AI / CV auto-detection | ⏳ Future | Schema supports `source`, `confidence` |
+| 24 | Dot ball / wicket wagon wheel | ⏳ Future | Eligibility hooks ready |
+| 25 | Advanced filters (PP, death, spin vs pace) | ⏳ Future | Filter model extensible |
 
 ---
 
@@ -86,6 +93,8 @@ Coordinates are **always percentages** (0–100), never pixels. Pitch centre: `(
 | Model | `lib/data/models/wagon_wheel_data.dart` |
 | Ball event | `lib/data/models/ball_event_model.dart` |
 | Eligibility | `lib/domain/wagon_wheel/wagon_wheel_eligibility.dart` |
+| Field geometry | `lib/domain/wagon_wheel/wagon_wheel_field_geometry.dart` |
+| Ground renderer | `lib/features/wagon_wheel/presentation/widgets/wagon_wheel_ground_renderer.dart` |
 | Analytics | `lib/domain/wagon_wheel/wagon_wheel_analytics_service.dart` |
 | Selection UI | `lib/features/wagon_wheel/presentation/wagon_wheel_selection_sheet.dart` |
 | Painter | `lib/features/wagon_wheel/presentation/widgets/wagon_wheel_ground_painter.dart` |

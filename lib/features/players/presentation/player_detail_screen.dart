@@ -1,15 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/cricket_math.dart';
 import '../../../shared/providers/badge_provider.dart';
 import '../../../shared/widgets/badge_gallery.dart';
-import '../../../shared/providers/wagon_wheel_provider.dart';
+import '../../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
-import '../../wagon_wheel/presentation/widgets/wagon_wheel_chart.dart';
+import '../../wagon_wheel/presentation/widgets/wagon_wheel_embedded_section.dart';
 
 class PlayerDetailScreen extends ConsumerWidget {
   const PlayerDetailScreen({super.key, required this.playerId});
@@ -19,7 +18,6 @@ class PlayerDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playerAsync = ref.watch(playerDetailProvider(playerId));
-    final wagonWheel = ref.watch(batterWagonWheelProvider(playerId));
 
     return Scaffold(
       appBar: const CfChromeAppBar(title: Text('Player')),
@@ -88,30 +86,22 @@ class PlayerDetailScreen extends ConsumerWidget {
               _statTile(context, 'Wickets', '${player.stats.wickets}'),
               _statTile(context, 'Economy', economy.toStringAsFixed(2)),
               const SizedBox(height: AppDimens.spaceMd),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Wagon wheel',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  if (wagonWheel.shots.isNotEmpty)
-                    TextButton(
-                      onPressed: () => context.push(
-                        '/wagon-wheel?batterId=$playerId&title=${Uri.encodeComponent(player.name)}',
-                      ),
-                      child: const Text('Full view'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppDimens.spaceSm),
-              WagonWheelChart(
-                shots: wagonWheel.shots,
-                insights: wagonWheel.insights,
+              WagonWheelEmbeddedSection(
+                title: 'Batting wagon wheel',
+                fullViewTitle: '${player.name} — batting',
+                baseFilter: WagonWheelFilter(batterId: playerId),
                 height: 200,
-                compact: true,
               ),
+              if (player.stats.wickets > 0) ...[
+                const SizedBox(height: AppDimens.spaceMd),
+                WagonWheelEmbeddedSection(
+                  title: 'Bowling wagon wheel',
+                  fullViewTitle: '${player.name} — conceded',
+                  baseFilter: WagonWheelFilter(bowlerId: playerId),
+                  height: 200,
+                  showWhenEmpty: false,
+                ),
+              ],
               const SizedBox(height: AppDimens.spaceMd),
               Text('Career', style: Theme.of(context).textTheme.titleLarge),
               _statTile(
