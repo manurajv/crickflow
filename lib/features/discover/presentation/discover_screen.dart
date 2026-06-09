@@ -8,7 +8,7 @@ import '../../../data/models/match_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
 import '../../../shared/widgets/location_filter_bar.dart';
-import '../../../shared/widgets/scoreboard_card.dart';
+import '../../../shared/widgets/match_list_card.dart';
 import '../../community/community_post_ui.dart';
 
 /// Location-aware discovery: matches, tournaments, teams, recruitment.
@@ -109,20 +109,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               return Column(
                 children: shown
                     .map(
-                      (m) => Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimens.spaceMd,
-                          vertical: AppDimens.spaceXs,
-                        ),
-                        child: InkWell(
-                          onTap: () => context.push('/match/${m.id}'),
-                          borderRadius: AppDimens.cardRadius,
-                          child: ScoreboardCard(
-                            match: m,
-                            isLive: m.status == MatchStatus.live ||
-                                m.status == MatchStatus.inningsBreak,
-                          ),
-                        ),
+                      (m) => MatchListCard(
+                        match: m,
+                        showQuickLinks: false,
                       ),
                     )
                     .toList(),
@@ -160,7 +149,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               );
             },
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
           _sectionTitle(context, 'Teams nearby'),
           teamsAsync.when(
@@ -192,7 +181,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               );
             },
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
           _sectionTitle(context, 'Find people & services'),
           Padding(

@@ -94,6 +94,7 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
       ),
       floatingActionButton: canCreate && _tabs.index == 0
           ? FloatingActionButton.extended(
+              heroTag: 'my_cricket_start_match_fab',
               onPressed: () => context.push('/match/create'),
               backgroundColor: AppColors.gold,
               foregroundColor: Colors.black,

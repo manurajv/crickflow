@@ -288,6 +288,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                     right: AppDimens.spaceMd,
                     bottom: 88,
                     child: FloatingActionButton(
+                      heroTag: 'start_innings_photo_fab_${widget.matchId}',
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(

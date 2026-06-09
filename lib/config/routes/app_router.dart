@@ -238,8 +238,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/match/:id',
-        builder: (_, state) =>
-            MatchHubScreen(matchId: state.pathParameters['id']!),
+        builder: (_, state) => MatchHubScreen(
+          matchId: state.pathParameters['id']!,
+          initialTab: state.uri.queryParameters['tab'] ?? 'summary',
+        ),
       ),
       GoRoute(
         path: '/match/:id/start-innings',

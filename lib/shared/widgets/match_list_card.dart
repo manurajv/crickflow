@@ -3,268 +3,78 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
-import '../../core/utils/date_utils.dart';
-import '../../core/utils/match_score_display.dart';
 import '../../data/models/match_model.dart';
+import 'match_card_ui.dart';
 
-/// Compact match row card for list screens (reference-inspired layout).
+/// Compact match card for list feeds (Home, My Cricket, Discover).
 class MatchListCard extends StatelessWidget {
   const MatchListCard({
     super.key,
     required this.match,
     this.tournamentLabel,
+    this.showQuickLinks = true,
   });
 
   final MatchModel match;
   final String? tournamentLabel;
+  final bool showQuickLinks;
 
   @override
   Widget build(BuildContext context) {
-    final status = _statusUi(match.status);
-    final meta = _metaLine(match);
-    final footer = _footerLine(match);
+    final isCompleted = match.status == MatchStatus.completed;
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(
         horizontal: AppDimens.spaceMd,
         vertical: AppDimens.spaceXs,
       ),
+      decoration: matchListCardDecoration(match),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.push('/match/${match.id}'),
-        child: Padding(
-          padding: AppDimens.cardPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      tournamentLabel ?? match.title,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  _StatusChip(label: status.label, color: status.color),
-                ],
-              ),
-              if (meta.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  meta,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => context.push('/match/${match.id}'),
+              child: Padding(
+                padding: AppDimens.cardPadding,
+                child: MatchCardContent(
+                  match: match,
+                  tournamentLabel: tournamentLabel,
                 ),
-              ],
-              const SizedBox(height: AppDimens.spaceSm),
-              Text(
-                match.teamAName,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 2),
-              Text(
-                match.teamBName,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (match.status == MatchStatus.live ||
-                  match.status == MatchStatus.inningsBreak) ...[
-                const SizedBox(height: AppDimens.spaceSm),
-                _LiveScoreLine(match: match),
-              ] else if (match.status == MatchStatus.completed) ...[
-                const SizedBox(height: AppDimens.spaceSm),
-                _CompletedScoreLine(match: match),
-              ],
-              const Divider(height: AppDimens.spaceLg),
-              if (footer.isNotEmpty)
-                Text(
-                  footer,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              const SizedBox(height: AppDimens.spaceXs),
-              Row(
+            ),
+          ),
+          if (showQuickLinks) ...[
+            const Divider(height: 1, color: AppColors.border),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   _LinkButton(
                     label: 'Insights',
-                    onTap: () => context.push('/match/${match.id}'),
+                    onTap: () =>
+                        context.push('/match/${match.id}?tab=insights'),
                   ),
                   _LinkButton(
                     label: 'Scorecard',
-                    onTap: () => context.push('/match/${match.id}/scorecard'),
+                    onTap: () =>
+                        context.push('/match/${match.id}?tab=scorecard'),
                   ),
-                  if (match.status == MatchStatus.completed)
+                  if (isCompleted)
                     _LinkButton(
                       label: 'Highlights',
                       onTap: () =>
-                          context.push('/match/${match.id}/highlights'),
+                          context.push('/match/${match.id}?tab=highlights'),
                     ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _metaLine(MatchModel m) {
-    final parts = <String>[];
-    if (m.scheduledAt != null) {
-      parts.add(AppDateUtils.formatShort(m.scheduledAt!));
-    }
-    parts.add('${m.rules.totalOvers} Ov.');
-    if (m.venue.isNotEmpty) {
-      parts.add(m.venue);
-    } else if (m.location.displayLabel.isNotEmpty) {
-      parts.add(m.location.displayLabel);
-    }
-    return parts.join(' | ');
-  }
-
-  String _footerLine(MatchModel m) {
-    if (m.status == MatchStatus.completed) return '';
-    if (m.status == MatchStatus.scheduled && m.scheduledAt != null) {
-      return 'Scheduled · ${AppDateUtils.formatShort(m.scheduledAt!)}';
-    }
-    if (m.status == MatchStatus.live) return 'Match in progress';
-    return '';
-  }
-
-  ({String label, Color color}) _statusUi(MatchStatus status) {
-    return switch (status) {
-      MatchStatus.live || MatchStatus.inningsBreak => (
-          label: 'Live',
-          color: AppColors.liveIndicator,
-        ),
-      MatchStatus.scheduled ||
-      MatchStatus.tossCompleted ||
-      MatchStatus.draft => (
-          label: 'Upcoming',
-          color: AppColors.gold,
-        ),
-      MatchStatus.completed => (
-          label: 'Result',
-          color: AppColors.primaryBlueLight,
-        ),
-      MatchStatus.abandoned => (
-          label: 'Abandoned',
-          color: AppColors.textMuted,
-        ),
-    };
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.6)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 10,
-            ),
-      ),
-    );
-  }
-}
-
-class _LiveScoreLine extends StatelessWidget {
-  const _LiveScoreLine({required this.match});
-
-  final MatchModel match;
-
-  @override
-  Widget build(BuildContext context) {
-    final line = MatchScoreDisplay.liveScoreSubtitle(match);
-    if (line == null) return const SizedBox.shrink();
-    return Text(
-      line,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: AppColors.gold,
-          ),
-    );
-  }
-}
-
-class _CompletedScoreLine extends StatelessWidget {
-  const _CompletedScoreLine({required this.match});
-
-  final MatchModel match;
-
-  @override
-  Widget build(BuildContext context) {
-    final scoreA = MatchScoreDisplay.scoreForTeam(match, match.teamAId);
-    final scoreB = MatchScoreDisplay.scoreForTeam(match, match.teamBId);
-    final result = MatchScoreDisplay.completedResultLine(match);
-    final winnerA = MatchScoreDisplay.isTeamWinner(match, match.teamAId);
-    final winnerB = MatchScoreDisplay.isTeamWinner(match, match.teamBId);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                scoreA != null ? '${match.teamAName} $scoreA' : match.teamAName,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: winnerA ? FontWeight.w800 : FontWeight.w600,
-                      color: winnerA ? AppColors.gold : AppColors.textPrimary,
-                    ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Text(
-              scoreB != null ? '${match.teamBName} $scoreB' : match.teamBName,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: winnerB ? FontWeight.w800 : FontWeight.w600,
-                    color: winnerB ? AppColors.gold : AppColors.textPrimary,
-                  ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
             ),
           ],
-        ),
-        if (result != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            result,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.gold,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -280,7 +90,7 @@ class _LinkButton extends StatelessWidget {
     return TextButton(
       onPressed: onTap,
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -289,6 +99,7 @@ class _LinkButton extends StatelessWidget {
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
               color: AppColors.primaryBlueLight,
               fontWeight: FontWeight.w600,
+              fontSize: 12,
             ),
       ),
     );

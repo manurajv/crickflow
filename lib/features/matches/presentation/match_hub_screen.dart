@@ -14,10 +14,15 @@ import 'tabs/match_squads_tab.dart';
 import 'tabs/match_summary_tab.dart';
 
 /// Multi-tab match experience inspired by broadcast apps — unique CrickFlow UX.
-class MatchHubScreen extends ConsumerWidget {
-  const MatchHubScreen({super.key, required this.matchId});
+class MatchHubScreen extends ConsumerStatefulWidget {
+  const MatchHubScreen({
+    super.key,
+    required this.matchId,
+    this.initialTab = 'summary',
+  });
 
   final String matchId;
+  final String initialTab;
 
   static const _tabs = [
     Tab(text: 'Summary'),
@@ -29,9 +34,53 @@ class MatchHubScreen extends ConsumerWidget {
     Tab(text: 'Highlights'),
   ];
 
+  static int tabIndexFor(String? tab) {
+    return switch (tab?.toLowerCase()) {
+      'scorecard' => 1,
+      'comms' || 'commentary' => 2,
+      'insights' => 3,
+      'squads' => 4,
+      'mvp' => 5,
+      'highlights' => 6,
+      _ => 0,
+    };
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final matchAsync = ref.watch(matchProvider(matchId));
+  ConsumerState<MatchHubScreen> createState() => _MatchHubScreenState();
+}
+
+class _MatchHubScreenState extends ConsumerState<MatchHubScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: MatchHubScreen._tabs.length,
+      vsync: this,
+      initialIndex: MatchHubScreen.tabIndexFor(widget.initialTab),
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _exit(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final matchAsync = ref.watch(matchProvider(widget.matchId));
 
     return matchAsync.when(
       data: (match) {
@@ -49,8 +98,6 @@ class MatchHubScreen extends ConsumerWidget {
               context.go('/home');
             }
           },
-          child: DefaultTabController(
-          length: _tabs.length,
           child: Scaffold(
             appBar: CfChromeAppBar(
               title: Text(
@@ -60,21 +107,16 @@ class MatchHubScreen extends ConsumerWidget {
               ),
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/home');
-                  }
-                },
+                onPressed: () => _exit(context),
               ),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.link),
                   tooltip: 'Copy web scorecard',
                   onPressed: () {
-                    final url =
-                        DeepLinkUtils.publicLiveScorecardUri(matchId).toString();
+                    final url = DeepLinkUtils.publicLiveScorecardUri(
+                      widget.matchId,
+                    ).toString();
                     Clipboard.setData(ClipboardData(text: url));
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Copied: $url')),
@@ -82,25 +124,26 @@ class MatchHubScreen extends ConsumerWidget {
                   },
                 ),
               ],
-              bottom: const TabBar(
+              bottom: TabBar(
+                controller: _tabController,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                tabs: _tabs,
+                tabs: MatchHubScreen._tabs,
               ),
             ),
             body: TabBarView(
+              controller: _tabController,
               children: [
-                MatchSummaryTab(matchId: matchId),
-                MatchScorecardTab(matchId: matchId),
-                MatchCommentaryTab(matchId: matchId),
-                MatchInsightsTab(matchId: matchId),
-                MatchSquadsTab(matchId: matchId),
-                MatchMvpTab(matchId: matchId),
-                MatchHighlightsTab(matchId: matchId),
+                MatchSummaryTab(matchId: widget.matchId),
+                MatchScorecardTab(matchId: widget.matchId),
+                MatchCommentaryTab(matchId: widget.matchId),
+                MatchInsightsTab(matchId: widget.matchId),
+                MatchSquadsTab(matchId: widget.matchId),
+                MatchMvpTab(matchId: widget.matchId),
+                MatchHighlightsTab(matchId: widget.matchId),
               ],
             ),
           ),
-        ),
         );
       },
       loading: () => const Scaffold(
