@@ -71,7 +71,6 @@ class TeamDetailScreen extends ConsumerWidget {
                   title: 'Team wagon wheel',
                   fullViewTitle: '${team.name} — scoring',
                   baseFilter: WagonWheelFilter(teamId: teamId),
-                  height: 200,
                   showWhenEmpty: false,
                 ),
               ),

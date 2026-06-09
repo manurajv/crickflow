@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:crickflow/core/constants/enums.dart';
 import 'package:crickflow/data/models/ball_event_model.dart';
 import 'package:crickflow/data/models/match_model.dart';
@@ -5,10 +7,14 @@ import 'package:crickflow/data/models/match_rules_model.dart';
 import 'package:crickflow/data/models/wagon_wheel_data.dart';
 import 'package:crickflow/domain/services/scoring_engine.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_analytics_service.dart';
+import 'package:crickflow/domain/wagon_wheel/wagon_wheel_coordinate_mapper.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_eligibility.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_field_geometry.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_filter.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+final _fieldSize = WagonWheelCoordinateMapper.referenceSize;
 
 void main() {
   group('WagonWheelEligibility', () {
@@ -134,42 +140,145 @@ void main() {
   });
 
   group('WagonWheelFieldGeometry zones', () {
-    test('singles clamp inside boundary rope', () {
-      // Far outside — beyond Zone C.
-      final clamped = WagonWheelFieldGeometry.clampCoordinate(90, 50, 1);
+    test('singles clamp inside boundary on square field', () {
+      final clamped = WagonWheelFieldGeometry.clampCoordinate(90, 50, 1, _fieldSize);
       expect(
-        WagonWheelFieldGeometry.zoneAt(clamped.dx, clamped.dy),
+        WagonWheelFieldGeometry.zoneAt(clamped.dx, clamped.dy, _fieldSize),
         WagonWheelZone.insideField,
       );
       expect(
-        WagonWheelFieldGeometry.distanceFromCenter(clamped.dx, clamped.dy),
-        lessThan(WagonWheelFieldGeometry.boundaryInnerRadiusPercent),
+        WagonWheelFieldGeometry.boundaryDistance(clamped.dx, clamped.dy, _fieldSize),
+        lessThan(WagonWheelFieldGeometry.zoneAInnerMax),
+      );
+    });
+
+    test('singles clamp inside on wide aspect ratio', () {
+      const wide = Size(400, 300);
+      final clamped = WagonWheelFieldGeometry.clampCoordinate(15, 50, 1, wide);
+      expect(
+        WagonWheelFieldGeometry.boundaryDistance(clamped.dx, clamped.dy, wide),
+        lessThan(WagonWheelFieldGeometry.zoneAInnerMax),
       );
     });
 
     test('triples cannot sit on boundary rope', () {
-      final onRope = WagonWheelFieldGeometry.clampCoordinate(50, 13, 3);
+      final onRope = WagonWheelFieldGeometry.clampCoordinate(50, 13, 3, _fieldSize);
       expect(
-        WagonWheelFieldGeometry.zoneAt(onRope.dx, onRope.dy),
+        WagonWheelFieldGeometry.zoneAt(onRope.dx, onRope.dy, _fieldSize),
         WagonWheelZone.insideField,
       );
     });
 
-    test('fours may reach boundary rope', () {
-      final clamped = WagonWheelFieldGeometry.clampCoordinate(50, 10, 4);
-      final zone = WagonWheelFieldGeometry.zoneAt(clamped.dx, clamped.dy);
+    test('fours may land outside boundary', () {
+      final outside = WagonWheelFieldGeometry.clampCoordinate(50, 1, 4, _fieldSize);
       expect(
-        zone == WagonWheelZone.insideField ||
-            zone == WagonWheelZone.boundaryRope,
-        isTrue,
+        WagonWheelFieldGeometry.boundaryDistance(outside.dx, outside.dy, _fieldSize),
+        greaterThanOrEqualTo(WagonWheelFieldGeometry.zoneBMax),
       );
     });
 
-    test('sixes may land outside boundary', () {
-      final clamped = WagonWheelFieldGeometry.clampCoordinate(50, 2, 6);
+    test('sixes preserve landing distance when outside boundary', () {
+      final mapper = WagonWheelCoordinateMapper(_fieldSize);
+      const angle = 1.2;
+      final exit = mapper.boundaryExitDistancePixels(angle);
+      final nearOutside = mapper.pixelToPercentUnclamped(
+        Offset(
+          mapper.strikerWicketPixel.dx + (exit + 12) * math.cos(angle),
+          mapper.strikerWicketPixel.dy + (exit + 12) * math.sin(angle),
+        ),
+      );
+      final deepOutside = mapper.pixelToPercentUnclamped(
+        Offset(
+          mapper.strikerWicketPixel.dx + (exit + 48) * math.cos(angle),
+          mapper.strikerWicketPixel.dy + (exit + 48) * math.sin(angle),
+        ),
+      );
       expect(
-        WagonWheelFieldGeometry.distanceFromCenter(clamped.dx, clamped.dy),
-        greaterThan(WagonWheelFieldGeometry.boundaryOuterRadiusPercent),
+        WagonWheelFieldGeometry.boundaryDistance(
+          nearOutside.dx,
+          nearOutside.dy,
+          _fieldSize,
+        ),
+        greaterThan(WagonWheelFieldGeometry.zoneBMax),
+      );
+      final placedNear = WagonWheelFieldGeometry.clampCoordinate(
+        nearOutside.dx,
+        nearOutside.dy,
+        6,
+        _fieldSize,
+      );
+      final placedDeep = WagonWheelFieldGeometry.clampCoordinate(
+        deepOutside.dx,
+        deepOutside.dy,
+        6,
+        _fieldSize,
+      );
+      expect(
+        WagonWheelFieldGeometry.boundaryDistance(
+          placedNear.dx,
+          placedNear.dy,
+          _fieldSize,
+        ),
+        greaterThan(WagonWheelFieldGeometry.zoneBMax),
+      );
+      expect(
+        WagonWheelFieldGeometry.boundaryDistance(
+          placedDeep.dx,
+          placedDeep.dy,
+          _fieldSize,
+        ),
+        greaterThan(
+          WagonWheelFieldGeometry.boundaryDistance(
+            placedNear.dx,
+            placedNear.dy,
+            _fieldSize,
+          ),
+        ),
+      );
+      expect(placedNear.dx, closeTo(nearOutside.dx, 0.01));
+      expect(placedNear.dy, closeTo(nearOutside.dy, 0.01));
+      expect(
+        WagonWheelFieldGeometry.boundaryDistance(
+          placedDeep.dx,
+          placedDeep.dy,
+          _fieldSize,
+        ),
+        greaterThan(
+          WagonWheelFieldGeometry.boundaryDistance(
+            placedNear.dx,
+            placedNear.dy,
+            _fieldSize,
+          ),
+        ),
+      );
+    });
+
+    test('sixes inside boundary snap to nearest outside along angle', () {
+      final mapper = WagonWheelCoordinateMapper(_fieldSize);
+      const angle = 0.9;
+      final insideTap = mapper.pixelToPercentUnclamped(
+        Offset(
+          mapper.strikerWicketPixel.dx + 40 * math.cos(angle),
+          mapper.strikerWicketPixel.dy + 40 * math.sin(angle),
+        ),
+      );
+      final placed = WagonWheelFieldGeometry.clampCoordinate(
+        insideTap.dx,
+        insideTap.dy,
+        6,
+        _fieldSize,
+      );
+      expect(
+        WagonWheelFieldGeometry.zoneAt(placed.dx, placed.dy, _fieldSize),
+        WagonWheelZone.outsideBoundary,
+      );
+      expect(
+        WagonWheelFieldGeometry.boundaryDistance(placed.dx, placed.dy, _fieldSize),
+        greaterThan(WagonWheelFieldGeometry.zoneBMax),
+      );
+      expect(
+        mapper.angleFromStriker(placed.dx, placed.dy),
+        closeTo(angle, 0.05),
       );
     });
 
@@ -178,6 +287,18 @@ void main() {
         WagonWheelFieldGeometry.strikerWicketYPercent,
         greaterThan(WagonWheelFieldGeometry.groundCenterYPercent),
       );
+    });
+
+    test('same percent maps to same pixel ratio on any width', () {
+      const x = 67.2;
+      const y = 24.1;
+      for (final width in [200.0, 300.0, 400.0]) {
+        final size = WagonWheelFieldGeometry.fieldSizeFromWidth(width);
+        final mapper = WagonWheelCoordinateMapper(size);
+        final p = mapper.percentToPixel(x, y);
+        expect(p.dx / size.width, closeTo(x / 100, 0.001));
+        expect(p.dy / size.height, closeTo(y / 100, 0.001));
+      }
     });
   });
 

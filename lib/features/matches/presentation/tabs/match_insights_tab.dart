@@ -94,7 +94,6 @@ class MatchInsightsTab extends ConsumerWidget {
             title: 'Wagon wheel',
             fullViewTitle: 'Match wagon wheel',
             baseFilter: WagonWheelFilter(matchId: matchId),
-            height: 220,
           ),
           const SizedBox(height: AppDimens.spaceLg),
         ],

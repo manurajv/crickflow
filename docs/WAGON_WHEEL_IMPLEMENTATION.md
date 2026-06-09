@@ -1,6 +1,6 @@
 # Wagon Wheel — Implementation Progress
 
-**Status:** Phase 2 complete (realism + rendering refinements)  
+**Status:** Phase 3 complete (visual consistency + validation)  
 **Last updated:** June 2026  
 
 **Related:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · [FIREBASE_SCHEMA.md](FIREBASE_SCHEMA.md)
@@ -41,7 +41,13 @@ Broadcast-style wagon wheel for CrickFlow: scorers mark shot direction on a top-
 | 19 | Zone validation (1–3 inside, 4 rope, 6 outside) | ✅ Done | `wagon_wheel_field_geometry.dart` |
 | 20 | Striker wicket line origin | ✅ Done | Lines from batsman end, not pitch centre |
 | 21 | Pitch length + boundary visuals | ✅ Done | ~33% shorter pitch; dark outside ground |
-| 22 | Six line emphasis | ✅ Done | Thicker + higher opacity |
+| 22 | Six line emphasis | ✅ Superseded | Phase 3: uniform line style for all runs |
+| 23 | Uniform shot lines (colour only) | ✅ Done | `shotLineWidth`, `shotEndpointRadius` |
+| 24 | Pixel-accurate boundary validation | ✅ Done | `WagonWheelCoordinateMapper` |
+| 25 | Sixes outside only; 4s anywhere | ✅ Done | Zone A/B/C matrix |
+| 26b | Six manual placement outside boundary only | ✅ Done | Inside taps snap along angle |
+| 26 | Shared `WagonWheelRenderer` + fixed aspect | ✅ Done | No drift between screens |
+| 27 | Simplified full-view filters | ✅ Done | Batter/bowler/team/innings/runs only |
 | 23 | AI / CV auto-detection | ⏳ Future | Schema supports `source`, `confidence` |
 | 24 | Dot ball / wicket wagon wheel | ⏳ Future | Eligibility hooks ready |
 | 25 | Advanced filters (PP, death, spin vs pace) | ⏳ Future | Filter model extensible |

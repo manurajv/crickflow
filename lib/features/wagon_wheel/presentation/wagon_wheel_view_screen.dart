@@ -102,9 +102,7 @@ class _WagonWheelViewScreenState extends ConsumerState<WagonWheelViewScreen> {
           ],
           WagonWheelChart(
             shots: data.shots,
-            viewMode: _filter.viewMode,
             insights: data.insights,
-            height: 340,
           ),
           const SizedBox(height: AppDimens.spaceSm),
           const WagonWheelRunLegend(),
@@ -180,9 +178,6 @@ class _WagonWheelViewScreenState extends ConsumerState<WagonWheelViewScreen> {
     }
     if (_filter.runFilter != WagonWheelRunFilter.all) {
       labels.add(_filter.runFilter.label);
-    }
-    if (_filter.fromDate != null || _filter.toDate != null) {
-      labels.add('Date range');
     }
     return labels;
   }

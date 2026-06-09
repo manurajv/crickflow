@@ -21,15 +21,6 @@ class WagonWheelNavigation {
     if (filter.runFilter != WagonWheelRunFilter.all) {
       q['runs'] = filter.runFilter.name;
     }
-    if (filter.viewMode != WagonWheelViewMode.lines) {
-      q['view'] = filter.viewMode.name;
-    }
-    if (filter.fromDate != null) {
-      q['from'] = filter.fromDate!.toIso8601String();
-    }
-    if (filter.toDate != null) {
-      q['to'] = filter.toDate!.toIso8601String();
-    }
     final query = q.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
     return '/wagon-wheel?$query';
   }

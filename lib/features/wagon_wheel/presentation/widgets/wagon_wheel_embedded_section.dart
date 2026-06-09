@@ -17,14 +17,12 @@ class WagonWheelEmbeddedSection extends ConsumerStatefulWidget {
     required this.title,
     required this.baseFilter,
     required this.fullViewTitle,
-    this.height = 220,
     this.showWhenEmpty = true,
   });
 
   final String title;
   final WagonWheelFilter baseFilter;
   final String fullViewTitle;
-  final double height;
   final bool showWhenEmpty;
 
   @override
@@ -49,7 +47,6 @@ class _WagonWheelEmbeddedSectionState
       _filter = widget.baseFilter.copyWith(
         runFilter: _filter.runFilter,
         inningsNumber: _filter.inningsNumber,
-        viewMode: _filter.viewMode,
       );
     }
   }
@@ -154,9 +151,7 @@ class _WagonWheelEmbeddedSectionState
               children: [
                 WagonWheelChart(
                   shots: data.shots,
-                  viewMode: _filter.viewMode,
                   insights: data.insights,
-                  height: widget.height,
                   compact: true,
                 ),
                 if (data.shots.isNotEmpty) ...[

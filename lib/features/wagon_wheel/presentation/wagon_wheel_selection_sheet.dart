@@ -3,8 +3,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/wagon_wheel_data.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_colors.dart';
+import '../../../domain/wagon_wheel/wagon_wheel_coordinate_mapper.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_field_geometry.dart';
-import 'widgets/wagon_wheel_ground_painter.dart';
+import 'widgets/wagon_wheel_renderer.dart';
 
 /// Full-screen wagon wheel capture shown after a valid batting shot.
 class WagonWheelSelectionSheet extends StatefulWidget {
@@ -39,22 +40,32 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
   late double _markerX;
   late double _markerY;
   bool _wasClamped = false;
+  Size _fieldSize = WagonWheelCoordinateMapper.referenceSize;
 
   @override
   void initState() {
     super.initState();
-    // Default landing spot — mid-off inside the field.
-    final initial = WagonWheelFieldGeometry.clampCoordinate(62, 38, widget.batsmanRuns);
+    final initial = WagonWheelFieldGeometry.clampCoordinate(
+      62,
+      38,
+      widget.batsmanRuns,
+      _fieldSize,
+    );
     _markerX = initial.dx;
     _markerY = initial.dy;
   }
 
-  void _updateMarker(Offset local, Size size) {
-    final raw = percentFromLocal(local, size);
+  void _updateMarker(Offset local, Size fieldSize) {
+    _fieldSize = fieldSize;
+    final mapper = WagonWheelCoordinateMapper(fieldSize);
+    final raw = widget.batsmanRuns == 6
+        ? mapper.pixelToPercentUnclamped(local)
+        : mapper.pixelToPercent(local);
     final clamped = WagonWheelFieldGeometry.clampCoordinate(
       raw.dx,
       raw.dy,
       widget.batsmanRuns,
+      fieldSize,
     );
     final didClamp = (raw.dx - clamped.dx).abs() > 0.05 ||
         (raw.dy - clamped.dy).abs() > 0.05;
@@ -113,18 +124,22 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                               color: AppColors.textSecondary,
                             ),
                       ),
-                      if (_wasClamped &&
-                          widget.batsmanRuns >= 1 &&
-                          widget.batsmanRuns <= 3)
+                      if (_wasClamped)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
-                            'Marker adjusted inside the boundary.',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppColors.gold,
-                                      fontSize: 11,
-                                    ),
+                            widget.batsmanRuns == 6
+                                ? 'Sixes must land beyond the boundary.'
+                                : widget.batsmanRuns <= 3
+                                    ? 'Marker adjusted inside the boundary.'
+                                    : 'Marker adjusted to valid area.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: AppColors.gold,
+                                  fontSize: 11,
+                                ),
                           ),
                         ),
                     ],
@@ -155,23 +170,28 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
               padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final groundSize = Size(
-                    constraints.maxWidth,
-                    constraints.maxHeight,
-                  );
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTapDown: (d) => _updateMarker(d.localPosition, groundSize),
-                    onPanUpdate: (d) =>
-                        _updateMarker(d.localPosition, groundSize),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: CustomPaint(
-                        size: groundSize,
-                        painter: WagonWheelSelectionPainter(
-                          markerX: _markerX,
-                          markerY: _markerY,
-                          accentColor: color,
+                  final fieldWidth = constraints.maxWidth;
+                  final fieldHeight =
+                      fieldWidth / WagonWheelFieldGeometry.fieldAspectRatio;
+                  final fieldSize = Size(fieldWidth, fieldHeight);
+                  return Center(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (d) =>
+                          _updateMarker(d.localPosition, fieldSize),
+                      onPanUpdate: (d) =>
+                          _updateMarker(d.localPosition, fieldSize),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(
+                          width: fieldWidth,
+                          height: fieldHeight,
+                          child: WagonWheelFieldCanvas(
+                            markerX: _markerX,
+                            markerY: _markerY,
+                            accentColor: color,
+                            maxWidth: fieldWidth,
+                          ),
                         ),
                       ),
                     ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_filter.dart';
@@ -32,7 +31,7 @@ class WagonWheelLockedFilters {
   }
 }
 
-/// Full and compact filter controls for wagon wheel analytics.
+/// Filter controls: batter, bowler, team, innings, run type.
 class WagonWheelFilterPanel extends StatelessWidget {
   const WagonWheelFilterPanel({
     super.key,
@@ -41,7 +40,6 @@ class WagonWheelFilterPanel extends StatelessWidget {
     required this.onChanged,
     this.locked = const WagonWheelLockedFilters(),
     this.compact = false,
-    this.showViewMode = true,
     this.onReset,
   });
 
@@ -50,7 +48,6 @@ class WagonWheelFilterPanel extends StatelessWidget {
   final ValueChanged<WagonWheelFilter> onChanged;
   final WagonWheelLockedFilters locked;
   final bool compact;
-  final bool showViewMode;
   final VoidCallback? onReset;
 
   @override
@@ -129,7 +126,7 @@ class WagonWheelFilterPanel extends StatelessWidget {
           ),
         ],
         const SizedBox(height: AppDimens.spaceSm),
-        Text('Runs', style: Theme.of(context).textTheme.bodySmall),
+        Text('Run type', style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 4),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -149,54 +146,6 @@ class WagonWheelFilterPanel extends StatelessWidget {
             }).toList(),
           ),
         ),
-        if (!compact && options.minDate != null && options.maxDate != null) ...[
-          const SizedBox(height: AppDimens.spaceSm),
-          Row(
-            children: [
-              Expanded(
-                child: _dateButton(
-                  context,
-                  label: 'From',
-                  date: filter.fromDate,
-                  onPick: (d) => onChanged(filter.copyWith(fromDate: d)),
-                  onClear: () => onChanged(filter.copyWith(clearFromDate: true)),
-                ),
-              ),
-              const SizedBox(width: AppDimens.spaceSm),
-              Expanded(
-                child: _dateButton(
-                  context,
-                  label: 'To',
-                  date: filter.toDate,
-                  onPick: (d) => onChanged(filter.copyWith(toDate: d)),
-                  onClear: () => onChanged(filter.copyWith(clearToDate: true)),
-                ),
-              ),
-            ],
-          ),
-        ],
-        if (showViewMode) ...[
-          const SizedBox(height: AppDimens.spaceSm),
-          SegmentedButton<WagonWheelViewMode>(
-            segments: const [
-              ButtonSegment(
-                value: WagonWheelViewMode.lines,
-                label: Text('Lines', style: TextStyle(fontSize: 11)),
-              ),
-              ButtonSegment(
-                value: WagonWheelViewMode.scatter,
-                label: Text('Scatter', style: TextStyle(fontSize: 11)),
-              ),
-              ButtonSegment(
-                value: WagonWheelViewMode.heatmap,
-                label: Text('Heat', style: TextStyle(fontSize: 11)),
-              ),
-            ],
-            selected: {filter.viewMode},
-            onSelectionChanged: (s) =>
-                onChanged(filter.copyWith(viewMode: s.first)),
-          ),
-        ],
       ],
     );
   }
@@ -244,7 +193,8 @@ class WagonWheelFilterPanel extends StatelessWidget {
         decoration: InputDecoration(
           labelText: label,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
         items: [
           const DropdownMenuItem<String?>(
@@ -259,36 +209,6 @@ class WagonWheelFilterPanel extends StatelessWidget {
           ),
         ],
         onChanged: onSelected,
-      ),
-    );
-  }
-
-  Widget _dateButton(
-    BuildContext context, {
-    required String label,
-    required DateTime? date,
-    required ValueChanged<DateTime> onPick,
-    required VoidCallback onClear,
-  }) {
-    final fmt = DateFormat('d MMM yy');
-    return OutlinedButton(
-      onPressed: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: date ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime.now().add(const Duration(days: 1)),
-        );
-        if (picked != null) onPick(picked);
-      },
-      onLongPress: date != null ? onClear : null,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      ),
-      child: Text(
-        date != null ? '$label: ${fmt.format(date)}' : label,
-        style: const TextStyle(fontSize: 11),
-        overflow: TextOverflow.ellipsis,
       ),
     );
   }

@@ -1,68 +1,69 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'wagon_wheel_coordinate_mapper.dart';
 
 /// Broadcast-style field zones for shot validation.
 enum WagonWheelZone {
-  /// Zone A — inside the boundary rope.
   insideField,
-
-  /// Zone B — on the boundary rope band.
   boundaryRope,
-
-  /// Zone C — outside the boundary.
   outsideBoundary,
 }
 
-/// Centralized cricket ground geometry (percentage + render fractions).
-///
-/// All wagon wheel painters and validators read from here so future stadium
-/// templates / custom ground images can swap dimensions without touching analytics.
+/// Centralized cricket ground geometry — single source of truth for every screen.
 class WagonWheelFieldGeometry {
   WagonWheelFieldGeometry._();
 
-  // ── Percentage coordinate anchors (storage space 0–100) ──────────────────
+  // ── Fixed aspect ratio (prevents drift between Insights / Full View) ─────
+
+  static const double fieldAspectRatio = 1.0;
+  static const double referenceFieldExtent = 300.0;
+
+  // ── Percentage anchors ───────────────────────────────────────────────────
 
   static const double groundCenterXPercent = 50.0;
   static const double groundCenterYPercent = 50.0;
-
-  /// Striker's wicket — line origin for all shot rendering.
   static const double strikerWicketXPercent = 50.0;
 
-  // ── Pitch proportions (render fractions of ground size) ──────────────────
+  // ── Pitch proportions ────────────────────────────────────────────────────
 
-  /// Pitch width as fraction of ground width (~8%).
   static const double pitchWidthFraction = 0.08;
-
-  /// Pitch length — reduced ~33% from original 0.42 for broadcast proportions.
   static const double pitchLengthFraction = 0.28;
-
-  /// Striker crease sits near the batsman end (larger Y in top-down view).
   static const double strikerCreasePitchFraction = 0.44;
 
   static double get strikerWicketYPercent =>
       groundCenterYPercent +
       pitchLengthFraction * 50 * strikerCreasePitchFraction;
 
-  // ── Boundary circle (distance from ground centre in %-units) ─────────────
+  // ── Boundary zones (normalized: 1.0 = boundary rope radius) ──────────────
 
-  /// Inner edge of boundary rope — Zone A ends here.
-  static const double boundaryInnerRadiusPercent = 33.0;
+  /// Zone A — strictly inside field (not on rope).
+  static const double zoneAInnerMax = 0.868;
 
-  /// Outer edge of boundary rope — Zone B ends here.
-  static const double boundaryOuterRadiusPercent = 37.0;
+  /// Zone B — outer edge of boundary rope.
+  static const double zoneBMax = 1.0;
 
-  /// Max selectable radius for sixes (Zone C).
-  static const double outsideMaxRadiusPercent = 47.0;
+  /// Zone C — max selectable distance for 4s and 6s beyond rope.
+  static const double zoneCMax = 1.24;
 
-  /// Minimum margin from ground edge when clamping.
+  /// Minimum push past the rope when a six tap lands inside the field.
+  static const double sixMinimumOutsideFraction = 0.008;
+
   static const double groundEdgeMarginPercent = 2.0;
 
-  // ── Render fractions (pixel space) ───────────────────────────────────────
+  // ── Render fractions ─────────────────────────────────────────────────────
 
   static const double boundaryRadiusFraction = 0.38;
   static const double innerCircleRadiusFraction = 0.22;
   static const double boundaryRopeStrokeWidth = 3.0;
   static const double boundaryRopeGlowWidth = 5.5;
+
+  // ── Uniform shot styling (colour only varies) ──────────────────────────
+
+  static const double shotLineWidth = 2.0;
+  static const double shotLineOpacity = 0.82;
+  static const double shotEndpointRadius = 4.0;
+
+  static const double selectionMarkerRadius = 12.0;
+  static const double selectionMarkerCoreRadius = 6.0;
 
   // ── Colours ──────────────────────────────────────────────────────────────
 
@@ -75,103 +76,131 @@ class WagonWheelFieldGeometry {
   static const Color pitchColor = Color(0xFF8D6E63);
   static const Color wicketColor = Color(0xFFECEFF1);
 
-  // ── Shot line / marker styling ───────────────────────────────────────────
-
-  static const double sixLineWidth = 3.2;
-  static const double sixLineOpacity = 0.95;
-  static const double fourLineWidth = 2.4;
-  static const double defaultLineWidth = 1.5;
-  static const double defaultLineOpacity = 0.75;
-  static const double selectionMarkerRadius = 12.0;
-  static const double selectionMarkerCoreRadius = 6.0;
-
-  // ── Coordinate math ──────────────────────────────────────────────────────
-
-  static double distanceFromCenter(double x, double y) {
-    final dx = x - groundCenterXPercent;
-    final dy = y - groundCenterYPercent;
-    return math.sqrt(dx * dx + dy * dy);
-  }
-
-  static double angleFromCenter(double x, double y) {
-    return math.atan2(
-      y - groundCenterYPercent,
-      x - groundCenterXPercent,
-    );
-  }
-
-  static WagonWheelZone zoneAt(double x, double y) {
-    final d = distanceFromCenter(x, y);
-    if (d < boundaryInnerRadiusPercent) return WagonWheelZone.insideField;
-    if (d <= boundaryOuterRadiusPercent) return WagonWheelZone.boundaryRope;
-    return WagonWheelZone.outsideBoundary;
-  }
+  // ── Validation ─────────────────────────────────────────────────────────────
 
   static bool isZoneAllowed(WagonWheelZone zone, int batsmanRuns) {
     return switch (batsmanRuns) {
       1 || 2 || 3 || 5 => zone == WagonWheelZone.insideField,
-      4 => zone == WagonWheelZone.insideField ||
-          zone == WagonWheelZone.boundaryRope,
-      6 => true,
+      4 => true,
+      6 => zone == WagonWheelZone.outsideBoundary,
       _ => zone == WagonWheelZone.insideField,
     };
   }
 
-  static double maxRadiusPercentForRuns(int batsmanRuns) {
-    return switch (batsmanRuns) {
-      1 || 2 || 3 || 5 => boundaryInnerRadiusPercent - 0.8,
-      4 => boundaryOuterRadiusPercent,
-      6 => outsideMaxRadiusPercent,
-      _ => boundaryInnerRadiusPercent - 0.8,
-    };
-  }
+  /// Clamps to the nearest valid point for [batsmanRuns] using pixel-accurate
+  /// circular boundary distance and striker-wicket ray snapping.
+  ///
+  /// Sixes accept any point outside the boundary rope; inside taps are pushed
+  /// to the nearest valid point along the same angle.
+  static Offset clampCoordinate(
+    double x,
+    double y,
+    int batsmanRuns, [
+    Size? fieldSize,
+  ]) {
+    final size = fieldSize ?? WagonWheelCoordinateMapper.referenceSize;
+    final mapper = WagonWheelCoordinateMapper(size);
 
-  /// Clamps a tap/drag to the nearest valid point for [batsmanRuns].
-  static Offset clampCoordinate(double x, double y, int batsmanRuns) {
+    if (batsmanRuns == 6) {
+      x = x.clamp(0.0, 100.0);
+      y = y.clamp(0.0, 100.0);
+      final angle = mapper.angleFromStriker(x, y);
+      final zone = mapper.zoneAt(x, y);
+      if (zone == WagonWheelZone.outsideBoundary &&
+          _withinMaxDistance(mapper, x, y, batsmanRuns)) {
+        return Offset(x, y);
+      }
+      return _clampSix(mapper, x, y, angle);
+    }
+
     x = x.clamp(groundEdgeMarginPercent, 100 - groundEdgeMarginPercent);
     y = y.clamp(groundEdgeMarginPercent, 100 - groundEdgeMarginPercent);
 
-    final maxR = maxRadiusPercentForRuns(batsmanRuns);
-    final dist = distanceFromCenter(x, y);
-    final angle = angleFromCenter(x, y);
-    final zone = zoneAt(x, y);
+    final angle = mapper.angleFromStriker(x, y);
 
-    if (dist <= maxR && isZoneAllowed(zone, batsmanRuns)) {
+    final zone = mapper.zoneAt(x, y);
+    if (isZoneAllowed(zone, batsmanRuns) &&
+        _withinMaxDistance(mapper, x, y, batsmanRuns)) {
       return Offset(x, y);
     }
 
-    final targetR = dist > maxR ? maxR : _nearestAllowedRadius(zone, batsmanRuns);
-    return _pointOnRadius(angle, targetR);
-  }
-
-  static double _nearestAllowedRadius(WagonWheelZone zone, int batsmanRuns) {
     return switch (batsmanRuns) {
-      4 when zone == WagonWheelZone.outsideBoundary =>
-        boundaryOuterRadiusPercent,
-      6 => boundaryOuterRadiusPercent + 3,
-      _ => boundaryInnerRadiusPercent - 0.8,
+      1 || 2 || 3 || 5 => mapper.percentAlongStrikerRay(
+          angle,
+          mapper.maxInsideDistancePixels(angle) * 0.98,
+        ),
+      4 => _clampFour(mapper, x, y, angle),
+      _ => mapper.percentAlongStrikerRay(
+          angle,
+          mapper.maxInsideDistancePixels(angle) * 0.98,
+        ),
     };
   }
 
-  static Offset _pointOnRadius(double angle, double radius) {
-    return Offset(
-      (groundCenterXPercent + radius * math.cos(angle))
-          .clamp(groundEdgeMarginPercent, 100 - groundEdgeMarginPercent),
-      (groundCenterYPercent + radius * math.sin(angle))
-          .clamp(groundEdgeMarginPercent, 100 - groundEdgeMarginPercent),
+  static bool _withinMaxDistance(
+    WagonWheelCoordinateMapper mapper,
+    double x,
+    double y,
+    int batsmanRuns,
+  ) {
+    final d = mapper.boundaryDistance(x, y);
+    return switch (batsmanRuns) {
+      1 || 2 || 3 || 5 => d < zoneAInnerMax,
+      4 => d <= zoneCMax,
+      6 => d > zoneBMax && d <= zoneCMax,
+      _ => d < zoneAInnerMax,
+    };
+  }
+
+  static Offset _clampSix(
+    WagonWheelCoordinateMapper mapper,
+    double x,
+    double y,
+    double angle,
+  ) {
+    final d = mapper.boundaryDistance(x, y);
+    if (d > zoneCMax) {
+      return mapper.percentAlongStrikerRayUnclamped(
+        angle,
+        mapper.maxSixDistancePixels(angle),
+      );
+    }
+    return mapper.nearestOutsideAlongAngle(angle);
+  }
+
+  static Offset _clampFour(
+    WagonWheelCoordinateMapper mapper,
+    double x,
+    double y,
+    double angle,
+  ) {
+    final d = mapper.boundaryDistance(x, y);
+    if (d <= zoneCMax) return Offset(x, y);
+    return mapper.percentAlongStrikerRay(
+      angle,
+      mapper.boundaryExitDistancePixels(angle),
     );
   }
 
-  // ── Render helpers (pixel space) ─────────────────────────────────────────
+  static WagonWheelZone zoneAt(double x, double y, [Size? fieldSize]) {
+    final mapper = WagonWheelCoordinateMapper(
+      fieldSize ?? WagonWheelCoordinateMapper.referenceSize,
+    );
+    return mapper.zoneAt(x, y);
+  }
 
-  static Offset strikerWicketOffset(Size size) => Offset(
-        size.width * strikerWicketXPercent / 100,
-        size.height * strikerWicketYPercent / 100,
-      );
+  static double boundaryDistance(double x, double y, [Size? fieldSize]) {
+    final mapper = WagonWheelCoordinateMapper(
+      fieldSize ?? WagonWheelCoordinateMapper.referenceSize,
+    );
+    return mapper.boundaryDistance(x, y);
+  }
 
-  static Offset percentToOffset(Size size, double x, double y) => Offset(
-        size.width * x / 100,
-        size.height * y / 100,
+  // ── Render helpers ───────────────────────────────────────────────────────
+
+  static Size fieldSizeFromWidth(double width) => Size(
+        width,
+        width / fieldAspectRatio,
       );
 
   static Rect pitchRect(Size size) {
@@ -190,8 +219,8 @@ class WagonWheelFieldGeometry {
   static String hintForRuns(int runs) => switch (runs) {
         1 || 2 || 3 =>
           'Singles, doubles and triples must finish inside the boundary.',
-        4 => 'Tap on the field or along the boundary rope.',
-        6 => 'Sixes can be marked beyond the boundary rope.',
+        4 => 'Fours can land on or beyond the boundary rope.',
+        6 => 'Mark where the six landed — beyond the boundary rope.',
         _ => 'Tap or drag to mark where the ball landed.',
       };
 }

@@ -2,31 +2,28 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_analytics_service.dart';
-import '../../../../domain/wagon_wheel/wagon_wheel_filter.dart';
-import 'wagon_wheel_ground_painter.dart';
+import 'wagon_wheel_renderer.dart';
 
 /// Reusable wagon wheel visualization with optional insights footer.
 class WagonWheelChart extends StatelessWidget {
   const WagonWheelChart({
     super.key,
     required this.shots,
-    this.viewMode = WagonWheelViewMode.lines,
     this.insights,
-    this.height = 280,
+    this.maxWidth,
     this.compact = false,
   });
 
   final List<WagonWheelShotPoint> shots;
-  final WagonWheelViewMode viewMode;
   final WagonWheelInsights? insights;
-  final double height;
+  final double? maxWidth;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     if (shots.isEmpty) {
       return SizedBox(
-        height: height,
+        height: maxWidth ?? 200,
         child: Center(
           child: Text(
             'No wagon wheel data yet.\nEnable tracking in match settings.',
@@ -42,15 +39,9 @@ class WagonWheelChart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          height: height,
-          child: CustomPaint(
-            painter: WagonWheelGroundPainter(
-              shots: shots,
-              viewMode: viewMode,
-            ),
-            child: const SizedBox.expand(),
-          ),
+        WagonWheelFieldCanvas(
+          shots: shots,
+          maxWidth: maxWidth,
         ),
         if (!compact && insights != null && insights!.totalShots > 0) ...[
           const SizedBox(height: AppDimens.spaceSm),
