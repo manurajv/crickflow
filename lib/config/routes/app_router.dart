@@ -42,6 +42,8 @@ import '../../features/teams/presentation/team_add_players_screen.dart';
 import '../../features/teams/presentation/team_detail_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_screen.dart';
+import '../../features/wagon_wheel/presentation/wagon_wheel_view_screen.dart';
+import '../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../core/routing/deep_link_handler.dart';
 import '../../core/utils/deep_link_utils.dart';
 import '../../core/utils/match_permissions.dart';
@@ -331,6 +333,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/store', builder: (_, __) => const StoreScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
+      GoRoute(
+        path: '/wagon-wheel',
+        builder: (_, state) {
+          final q = state.uri.queryParameters;
+          return WagonWheelViewScreen(
+            title: q['title'] ?? 'Wagon wheel',
+            initialFilter: WagonWheelFilter(
+              batterId: q['batterId'],
+              bowlerId: q['bowlerId'],
+              teamId: q['teamId'],
+              matchId: q['matchId'],
+              tournamentId: q['tournamentId'],
+              inningsNumber: int.tryParse(q['innings'] ?? ''),
+            ),
+          );
+        },
+      ),
       GoRoute(path: '/fantasy', builder: (_, __) => const FantasyScreen()),
       GoRoute(
         path: '/fantasy/:id',

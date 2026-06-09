@@ -175,6 +175,7 @@ class MatchRepository {
       noBallRunsMode: result.event.noBallRunsMode,
       noBallByeRuns: result.event.noBallByeRuns,
       noBallLegByeRuns: result.event.noBallLegByeRuns,
+      wagonWheel: input.wagonWheel ?? result.event.wagonWheel,
     );
 
     await _commitMatchState(

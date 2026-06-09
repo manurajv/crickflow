@@ -115,6 +115,21 @@ class _MatchRulesEditorState extends State<MatchRulesEditor> {
           value: _rules.lastManStanding,
           onChanged: (v) => _update(_rules.copyWith(lastManStanding: v)),
         ),
+        SwitchListTile(
+          title: const Text('Enable wagon wheel tracking'),
+          subtitle: const Text('Capture shot direction for runs 1–6'),
+          value: _rules.wagonWheelEnabled,
+          onChanged: _rules.isIndoor
+              ? null
+              : (v) => _update(
+                    _rules.copyWith(
+                      wagonWheelEnabled: v,
+                      wagonWheelDots: v,
+                      wagonWheelRuns123: v,
+                      wagonWheelShotSelection: v,
+                    ),
+                  ),
+        ),
       ],
     );
   }

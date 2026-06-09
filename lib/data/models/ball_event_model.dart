@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../core/constants/enums.dart';
+import 'wagon_wheel_data.dart';
 
 class BallEventModel extends Equatable {
   const BallEventModel({
@@ -28,6 +29,7 @@ class BallEventModel extends Equatable {
     this.noBallRunsMode,
     this.noBallByeRuns = 0,
     this.noBallLegByeRuns = 0,
+    this.wagonWheel,
   });
 
   final String id;
@@ -57,6 +59,7 @@ class BallEventModel extends Equatable {
   final int noBallByeRuns;
   /// Additional runs on a no-ball scored as leg byes (excludes NB penalty).
   final int noBallLegByeRuns;
+  final WagonWheelData? wagonWheel;
 
   factory BallEventModel.fromMap(String id, Map<String, dynamic> map) {
     return BallEventModel(
@@ -96,6 +99,11 @@ class BallEventModel extends Equatable {
           : null,
       noBallByeRuns: map['noBallByeRuns'] as int? ?? 0,
       noBallLegByeRuns: map['noBallLegByeRuns'] as int? ?? 0,
+      wagonWheel: map['wagonWheel'] != null
+          ? WagonWheelData.fromMap(
+              map['wagonWheel'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 
@@ -124,6 +132,7 @@ class BallEventModel extends Equatable {
         if (noBallRunsMode != null) 'noBallRunsMode': noBallRunsMode!.name,
         if (noBallByeRuns > 0) 'noBallByeRuns': noBallByeRuns,
         if (noBallLegByeRuns > 0) 'noBallLegByeRuns': noBallLegByeRuns,
+        if (wagonWheel != null) 'wagonWheel': wagonWheel!.toMap(),
       };
 
   @override

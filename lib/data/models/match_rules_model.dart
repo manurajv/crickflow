@@ -18,10 +18,10 @@ class MatchRulesModel extends Equatable {
     this.superOverEnabled = false,
     this.powerplayOvers,
     this.powerplaySlots = const [[], [], []],
-    this.wagonWheelEnabled = true,
-    this.wagonWheelDots = true,
-    this.wagonWheelRuns123 = true,
-    this.wagonWheelShotSelection = true,
+    this.wagonWheelEnabled = false,
+    this.wagonWheelDots = false,
+    this.wagonWheelRuns123 = false,
+    this.wagonWheelShotSelection = false,
     this.wideCountsAsLegalDelivery = false,
     this.noBallCountsAsLegalDelivery = false,
     this.impactPlayerEnabled = false,
@@ -76,8 +76,8 @@ class MatchRulesModel extends Equatable {
 
   bool get isTestMatch => cricketMatchType == CricketMatchType.testMatch;
 
-  bool get wagonWheelActive =>
-      wagonWheelDots || wagonWheelRuns123 || wagonWheelShotSelection;
+  /// Primary ON/OFF toggle for wagon wheel capture during scoring.
+  bool get wagonWheelActive => wagonWheelEnabled;
 
   static CricketBallType defaultBallTypeFor(MatchFormat format) {
     return switch (format) {
@@ -184,13 +184,13 @@ class MatchRulesModel extends Equatable {
       superOverEnabled: map['superOverEnabled'] as bool? ?? false,
       powerplayOvers: map['powerplayOvers'] as int?,
       powerplaySlots: _powerplaySlotsFromMap(map),
-      wagonWheelEnabled: map['wagonWheelEnabled'] as bool? ?? true,
+      wagonWheelEnabled: map['wagonWheelEnabled'] as bool? ?? false,
       wagonWheelDots: map['wagonWheelDots'] as bool? ??
-          (map['wagonWheelEnabled'] as bool? ?? true),
+          (map['wagonWheelEnabled'] as bool? ?? false),
       wagonWheelRuns123: map['wagonWheelRuns123'] as bool? ??
-          (map['wagonWheelEnabled'] as bool? ?? true),
+          (map['wagonWheelEnabled'] as bool? ?? false),
       wagonWheelShotSelection: map['wagonWheelShotSelection'] as bool? ??
-          (map['wagonWheelEnabled'] as bool? ?? true),
+          (map['wagonWheelEnabled'] as bool? ?? false),
       wideCountsAsLegalDelivery:
           map['wideCountsAsLegalDelivery'] as bool? ?? false,
       noBallCountsAsLegalDelivery:
@@ -305,7 +305,7 @@ class MatchRulesModel extends Equatable {
         'superOverEnabled': superOverEnabled,
         if (powerplayOvers != null) 'powerplayOvers': powerplayOvers,
         ..._powerplaySlotsToMap(powerplaySlots),
-        'wagonWheelEnabled': wagonWheelActive,
+        'wagonWheelEnabled': wagonWheelEnabled,
         'wagonWheelDots': wagonWheelDots,
         'wagonWheelRuns123': wagonWheelRuns123,
         'wagonWheelShotSelection': wagonWheelShotSelection,

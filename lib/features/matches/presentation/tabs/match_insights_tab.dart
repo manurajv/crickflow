@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
@@ -7,6 +8,8 @@ import '../../../../data/models/match_model.dart';
 import '../../../../domain/services/match_insights_service.dart';
 import '../../../../shared/providers/match_insights_provider.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../shared/providers/wagon_wheel_provider.dart';
+import '../../../wagon_wheel/presentation/widgets/wagon_wheel_chart.dart';
 
 class MatchInsightsTab extends ConsumerWidget {
   const MatchInsightsTab({super.key, required this.matchId});
@@ -16,8 +19,10 @@ class MatchInsightsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final insights = ref.watch(matchInsightsProvider(matchId));
+    final wagonWheel = ref.watch(matchWagonWheelProvider(matchId));
     final match = ref.watch(matchProvider(matchId)).valueOrNull;
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+    final wwEnabled = match?.rules.wagonWheelEnabled ?? false;
 
     return ListView(
       padding: AppDimens.listPadding,
@@ -59,6 +64,39 @@ class MatchInsightsTab extends ConsumerWidget {
             (p) => _PerformerTile(performer: p, icon: Icons.sports_baseball),
           ),
           const SizedBox(height: AppDimens.spaceMd),
+        ],
+        if (wwEnabled || wagonWheel.shots.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Wagon wheel',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              if (wagonWheel.shots.isNotEmpty)
+                TextButton(
+                  onPressed: () => context.push(
+                    '/wagon-wheel?matchId=$matchId&title=Match wagon wheel',
+                  ),
+                  child: const Text('Full view'),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: AppDimens.cardPadding,
+              child: WagonWheelChart(
+                shots: wagonWheel.shots,
+                insights: wagonWheel.insights,
+                height: 220,
+                compact: true,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimens.spaceLg),
         ],
         if (insights.milestones.isNotEmpty) ...[
           Text('Milestones', style: Theme.of(context).textTheme.titleLarge),

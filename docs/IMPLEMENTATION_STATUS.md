@@ -3,13 +3,26 @@
 
 
 
-**Last updated:** Toss edit on live scoring pad (initial 1st inn only)  
+**Last updated:** Wagon wheel scoring capture + analytics (Phase 1)  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (wagon wheel)
+
+| Item | Status |
+|------|--------|
+| Wagon wheel toggle (default OFF) at match creation / rules | Done |
+| Popup after runs 1–6 and NB from bat | Done |
+| `ball_events.wagonWheel` { x%, y%, shotType } | Done |
+| Lines / scatter / heatmap + filters | Done |
+| Match Insights + Player profile embed | Done |
+| Progress tracker | [WAGON_WHEEL_IMPLEMENTATION.md](WAGON_WHEEL_IMPLEMENTATION.md) |
 
 ---
 

@@ -41,44 +41,30 @@ class _MatchScoringRulesScreenState extends State<MatchScoringRulesScreen> {
         children: [
           _SectionTitle('Wagon wheel'),
           _RuleSwitch(
-            label: 'Show wagon wheel for dot balls',
-            value: _rules.wagonWheelDots,
+            label: 'Enable wagon wheel tracking',
+            value: _rules.wagonWheelEnabled,
             enabled: !wwLocked,
-            onChanged: (v) => _update(_rules.copyWith(wagonWheelDots: v)),
-          ),
-          _RuleSwitch(
-            label: 'Show wagon wheel for 1s, 2s & 3s',
-            value: _rules.wagonWheelRuns123,
-            enabled: !wwLocked,
-            onChanged: (v) => _update(_rules.copyWith(wagonWheelRuns123: v)),
-          ),
-          _RuleSwitch(
-            label: 'Shot selection',
-            value: _rules.wagonWheelShotSelection,
-            enabled: !wwLocked,
-            onChanged: (v) =>
-                _update(_rules.copyWith(wagonWheelShotSelection: v)),
-          ),
-          if (wwLocked)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
-              child: Text(
-                'Wagon wheel is off for indoor matches.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontStyle: FontStyle.italic,
-                    ),
+            onChanged: (v) => _update(
+              _rules.copyWith(
+                wagonWheelEnabled: v,
+                wagonWheelDots: v,
+                wagonWheelRuns123: v,
+                wagonWheelShotSelection: v,
               ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
-              child: Text(
-                '* WW and shot selection stay on for boundaries and wickets.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontStyle: FontStyle.italic,
-                    ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+            child: Text(
+              wwLocked
+                  ? 'Wagon wheel is off for indoor matches.'
+                  : 'When on, scorers mark shot direction for runs 1–6 '
+                      'and no-ball off the bat. Wide, bye, leg bye, and '
+                      'penalty runs are skipped.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontStyle: FontStyle.italic,
+                  ),
             ),
           ),
           _SectionTitle('Wide / no ball rules'),

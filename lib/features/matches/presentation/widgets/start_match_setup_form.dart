@@ -97,6 +97,7 @@ class StartMatchSetupForm extends StatelessWidget {
     if (rules.isIndoor) return;
     onRulesChanged(
       rules.copyWith(
+        wagonWheelEnabled: enabled,
         wagonWheelDots: enabled,
         wagonWheelRuns123: enabled,
         wagonWheelShotSelection: enabled,
@@ -192,11 +193,14 @@ class StartMatchSetupForm extends StatelessWidget {
         const SizedBox(height: AppDimens.spaceLg),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Wagon wheel', style: TextStyle(fontSize: 15)),
+          title: const Text(
+            'Enable wagon wheel tracking',
+            style: TextStyle(fontSize: 15),
+          ),
           subtitle: Text(
             wwLocked
                 ? 'Off for indoor matches'
-                : 'Show wagon wheel for all scoring events',
+                : 'Capture shot direction for runs 1–6 after each scoring shot',
             style: const TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary,

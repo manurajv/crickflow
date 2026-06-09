@@ -1,5 +1,6 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/ball_event_model.dart';
+import '../../data/models/wagon_wheel_data.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
@@ -128,6 +129,7 @@ class ScoringEngine {
       noBallRunsMode: nbMode,
       noBallByeRuns: nbByeRuns,
       noBallLegByeRuns: nbLegByeRuns,
+      wagonWheel: input.wagonWheel,
     );
   }
 
@@ -700,6 +702,7 @@ class ScoringEngine {
       commentary: e.commentary,
       noBallRunsMode: e.noBallRunsMode,
       bowlerId: e.bowlerId,
+      wagonWheel: e.wagonWheel,
     );
   }
 
@@ -724,6 +727,7 @@ class BallEventInput {
     this.commentary = '',
     this.noBallRunsMode,
     this.bowlerId,
+    this.wagonWheel,
   });
 
   final BallEventType type;
@@ -735,6 +739,7 @@ class BallEventInput {
   final NoBallRunsMode? noBallRunsMode;
   /// When replaying stored balls, preserves the original bowler on the event.
   final String? bowlerId;
+  final WagonWheelData? wagonWheel;
 }
 
 class ScoringInput {

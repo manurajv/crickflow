@@ -77,9 +77,10 @@
 | powerplaySlot1 | array | Over numbers for powerplay 1 |
 | powerplaySlot2 | array | Over numbers for powerplay 2 |
 | powerplaySlot3 | array | Over numbers for powerplay 3 |
-| wagonWheelDots | boolean | |
-| wagonWheelRuns123 | boolean | |
-| wagonWheelShotSelection | boolean | Off when `indoor` |
+| wagonWheelEnabled | boolean | Default `false` — master ON/OFF for shot capture |
+| wagonWheelDots | boolean | Legacy; synced with `wagonWheelEnabled` |
+| wagonWheelRuns123 | boolean | Legacy; synced with `wagonWheelEnabled` |
+| wagonWheelShotSelection | boolean | Legacy; off when `indoor` |
 | impactPlayerEnabled | boolean | |
 | pitchType | string? | `rough`, `cement`, `turf`, `astroturf`, `matting` |
 | matchOfficials | array | `umpires`, `scorers`, `liveStreamer`, `others` |
@@ -97,6 +98,14 @@
 
 #### Subcollection: `matches/{matchId}/ball_events/{eventId}`
 Ball-by-ball audit trail with sequence ordering.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| sequence | number | Monotonic per match |
+| eventType | string | `runs`, `wide`, `noBall`, … |
+| runs, batsmanRuns, extraRuns | number | |
+| strikerId, bowlerId | string? | |
+| wagonWheel | map? | `{ enabled, x, y, shotType?, source?, confidence? }` — x/y are **percentages** 0–100 |
 
 #### Subcollection: `matches/{matchId}/overlay/current`
 Real-time overlay payload for stream graphics.

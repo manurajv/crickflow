@@ -28,6 +28,9 @@ import 'widgets/scoring_extra_dialogs.dart';
 import 'widgets/scoring_quick_options_sheet.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import 'widgets/select_bowler_sheet.dart';
+import '../../../data/models/wagon_wheel_data.dart';
+import '../../../domain/wagon_wheel/wagon_wheel_eligibility.dart';
+import '../../wagon_wheel/presentation/wagon_wheel_selection_sheet.dart';
 
 class LiveScoringScreen extends ConsumerStatefulWidget {
   const LiveScoringScreen({super.key, required this.matchId});
@@ -108,6 +111,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       return;
     }
 
+    WagonWheelData? wagonWheel;
+    if (WagonWheelEligibility.shouldCapture(input, match.rules) && mounted) {
+      final batsmanRuns = WagonWheelEligibility.batsmanRunsForShot(input);
+      wagonWheel = await WagonWheelSelectionSheet.show(
+        context,
+        batsmanRuns: batsmanRuns,
+      );
+      if (wagonWheel == null) return;
+    }
+
     setState(() => _isRecording = true);
     final sequence = _ballSequence + 1;
     final fullInput = BallEventInput(
@@ -117,6 +130,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       dismissedPlayerId: input.dismissedPlayerId,
       fielderId: input.fielderId,
       noBallRunsMode: input.noBallRunsMode,
+      wagonWheel: wagonWheel,
       commentary: CommentaryService.forBall(
         type: input.type,
         runs: input.runs,
