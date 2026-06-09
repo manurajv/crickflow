@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../core/constants/enums.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/match_score_display.dart';
-import '../../../core/utils/cricket_math.dart';
-import '../../../data/models/match_model.dart';
+
 import '../../../core/utils/deep_link_utils.dart';
+import '../../../data/models/match_model.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/widgets/scoreboard_card.dart';
-import '../../../shared/widgets/scorecard_batting_table.dart';
+import 'widgets/match_scorecard_view.dart';
 
 class ScorecardScreen extends ConsumerWidget {
   const ScorecardScreen({
@@ -21,6 +16,7 @@ class ScorecardScreen extends ConsumerWidget {
   });
 
   final String matchId;
+
   /// When true (post-match flow), back navigates to home instead of live scoring.
   final bool exitToHomeOnBack;
 
@@ -51,115 +47,36 @@ class ScorecardScreen extends ConsumerWidget {
         }
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Scorecard'),
-        leading: exitToHomeOnBack
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: 'Home',
-                onPressed: () => _exit(context),
-              )
-            : null,
-        automaticallyImplyLeading: !exitToHomeOnBack,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              matchAsync.whenData((match) {
-                if (match != null) _shareScorecard(match);
-              });
-            },
-          ),
-        ],
+        appBar: AppBar(
+          title: const Text('Scorecard'),
+          leading: exitToHomeOnBack
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Home',
+                  onPressed: () => _exit(context),
+                )
+              : null,
+          automaticallyImplyLeading: !exitToHomeOnBack,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.share),
+              onPressed: () {
+                matchAsync.whenData((match) {
+                  if (match != null) _shareScorecard(match);
+                });
+              },
+            ),
+          ],
+        ),
+        body: matchAsync.when(
+          data: (match) {
+            if (match == null) return const Center(child: Text('Not found'));
+            return MatchScorecardView(match: match);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('$e')),
+        ),
       ),
-      body: matchAsync.when(
-        data: (match) {
-          if (match == null) return const Center(child: Text('Not found'));
-          final rules = match.rules;
-
-          return ListView(
-            children: [
-              ScoreboardCard(
-                match: match,
-                innings: match.currentInnings,
-                isLive: match.status == MatchStatus.live ||
-                    match.status == MatchStatus.inningsBreak,
-              ),
-              ...match.innings.map((inn) {
-                final batting = MatchScoreDisplay.battingTeamName(match, inn);
-                final bowling = MatchScoreDisplay.bowlingTeamName(match, inn);
-                final rr = MatchScoreDisplay.runRateFor(inn, rules);
-                return Card(
-                  margin: const EdgeInsets.all(AppDimens.spaceMd),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppDimens.spaceMd),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Innings ${inn.inningsNumber}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '$batting vs $bowling',
-                          style: const TextStyle(color: AppColors.textSecondary),
-                        ),
-                        Text(
-                          '${inn.totalRuns}/${inn.totalWickets} '
-                          '(${CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver)} ov) · '
-                          'RR ${rr.toStringAsFixed(2)}',
-                          style: const TextStyle(color: AppColors.gold),
-                        ),
-                        const Divider(),
-                        const Text('Batting',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        ScorecardBattingTable(
-                          batsmen: inn.batsmen,
-                          strikerId: inn.strikerId,
-                          nonStrikerId: inn.nonStrikerId,
-                        ),
-                        const SizedBox(height: 8),
-                        ScorecardFallOfWickets(
-                          entries: inn.fallOfWickets,
-                          ballsPerOver: rules.ballsPerOver,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text('Bowling',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                        ...inn.bowlers.map((b) => ListTile(
-                              dense: true,
-                              title: Text(b.playerName.isNotEmpty
-                                  ? b.playerName
-                                  : b.playerId),
-                              trailing: Text(
-                                '${CricketMath.formatOvers(b.oversBowledBalls, rules.ballsPerOver)}-${b.runsConceded}-${b.wickets}',
-                              ),
-                            )),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-              if (match.resultSummary.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(AppDimens.spaceMd),
-                  child: Text(
-                    match.resultSummary,
-                    style: const TextStyle(fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
-      ),
-    ),
     );
   }
 

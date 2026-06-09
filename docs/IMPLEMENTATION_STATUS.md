@@ -3,13 +3,25 @@
 
 
 
-**Last updated:** Wagon wheel scoring capture + analytics (Phase 1)  
+**Last updated:** Scorecard UI redesign (reference layout, theme tokens)  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (scorecard UI)
+
+| Item | Status |
+|------|--------|
+| Collapsible innings cards (one expanded at a time) | Done |
+| Batting / bowling tables (R B 4s 6s SR Min · O M R W Eco) | Done |
+| Extras breakdown, total + CRR, to bat, fall of wickets | Done |
+| Professional dismissal notation display | Done |
+| Theme-only styling (`MatchScorecardView`) — no top match card | Done |
 
 ---
 
