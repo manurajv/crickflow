@@ -33,7 +33,14 @@ void main() {
           type: WicketType.runOut,
           fielderName: 'Kasun Perera',
         ),
-        'run out (Kasun Perera)',
+        'run out Kasun Perera',
+      );
+      expect(
+        DismissalFormatter.format(
+          type: WicketType.runOut,
+          fielderName: 'Shivam Chowdhry/Himanshu',
+        ),
+        'run out Shivam Chowdhry / Himanshu',
       );
       expect(
         DismissalFormatter.format(

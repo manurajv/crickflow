@@ -1,4 +1,6 @@
 import '../../core/constants/enums.dart';
+import '../../data/models/ball_event_model.dart';
+import '../../data/models/dismissal_fielder.dart';
 
 /// Professional dismissal text for scorecards and fall-of-wickets.
 class DismissalFormatter {
@@ -69,8 +71,7 @@ class DismissalFormatter {
       WicketType.caughtAndBowled =>
         bowler.isEmpty ? 'c & b' : 'c & b $bowler',
       WicketType.lbw => bowler.isEmpty ? 'lbw' : 'lbw b $bowler',
-      WicketType.runOut =>
-        fielder.isEmpty ? 'run out' : 'run out ($fielder)',
+      WicketType.runOut => formatRunOut(fielder),
       WicketType.stumped => bowler.isEmpty
           ? (fielder.isEmpty ? 'stumped' : 'st $fielder')
           : (fielder.isEmpty ? 'st b $bowler' : 'st $fielder b $bowler'),
@@ -90,5 +91,103 @@ class DismissalFormatter {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return '';
     return trimmed;
+  }
+
+  /// Broadcast-style run out: `run out Kasun / Himanshu` (no parentheses).
+  static String formatRunOut(String fielderNames) {
+    if (fielderNames.trim().isEmpty) return 'run out';
+    final parts = fielderNames
+        .split('/')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty);
+    return 'run out ${parts.join(' / ')}';
+  }
+
+  /// Normalizes legacy/stored text for scorecard display.
+  static String normalizeScorecardDismissal(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return trimmed;
+
+    final lower = trimmed.toLowerCase();
+    if (lower.startsWith('run out (')) {
+      final start = trimmed.indexOf('(');
+      final end = trimmed.lastIndexOf(')');
+      if (start >= 0 && end > start) {
+        return formatRunOut(trimmed.substring(start + 1, end));
+      }
+    }
+    if (lower.startsWith('run out ') && trimmed.contains('/')) {
+      return formatRunOut(trimmed.substring(8));
+    }
+    return trimmed;
+  }
+
+  /// Builds scorecard dismissal from Firestore wicket metadata.
+  static String fromWicketEvent(BallEventModel event) {
+    final fielderLabel = fielderNamesFromEvent(event);
+    final bowler = event.bowlerName ?? '';
+    final built = normalizeScorecardDismissal(
+      format(
+        type: event.wicketType,
+        bowlerName: bowler,
+        fielderName: fielderLabel,
+      ),
+    );
+
+    final stored = normalizeScorecardDismissal(
+      event.dismissalText?.trim() ?? '',
+    );
+    if (!isGenericLabel(built) && built.isNotEmpty) return built;
+    if (stored.isNotEmpty && !isGenericLabel(stored)) return stored;
+    return built.isNotEmpty ? built : stored;
+  }
+
+  static String fielderNamesFromEvent(BallEventModel event) {
+    return fielderNames(
+      primaryName: event.fielderName ?? '',
+      fielders: event.fielders,
+    );
+  }
+
+  static String fielderNames({
+    String primaryName = '',
+    List<DismissalFielder> fielders = const [],
+  }) {
+    final names = <String>[];
+    for (final f in fielders) {
+      final n = f.playerName.trim();
+      if (n.isNotEmpty) names.add(n);
+    }
+    if (names.isEmpty) {
+      final single = primaryName.trim();
+      if (single.isNotEmpty) names.add(single);
+    }
+    return names.join('/');
+  }
+
+  /// True when text is an enum label or empty notation without player names.
+  static bool isGenericLabel(String text) {
+    final t = text.trim().toLowerCase();
+    if (t.isEmpty) return true;
+    const generic = {
+      'caught',
+      'caught out',
+      'caught behind',
+      'runout',
+      'run out',
+      'bowled',
+      'lbw',
+      'stumped',
+      'hit wicket',
+      'hitwicket',
+      'out',
+      'other',
+      'c -',
+      'c & b',
+      'c & b -',
+    };
+    if (generic.contains(t)) return true;
+    if (t == 'run out ()') return true;
+    return RegExp(r'^c\s*[-–]?\s*b?\s*[-–]?\s*$').hasMatch(t);
   }
 }

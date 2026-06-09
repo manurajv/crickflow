@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'app_colors.dart';
 import 'app_dimens.dart';
 import 'cf_input_theme.dart';
+import 'scorecard_theme_extension.dart';
 
 class AppTheme {
   AppTheme._();
@@ -16,6 +17,13 @@ class AppTheme {
       onPrimary: Colors.white,
       onSecondary: Colors.black,
       onSurface: AppColors.textPrimary,
+      onSurfaceVariant: AppColors.textSecondary,
+      outline: AppColors.border,
+      surfaceContainerLowest: AppColors.background,
+      surfaceContainerLow: AppColors.card,
+      surfaceContainer: AppColors.surfaceElevated,
+      surfaceContainerHigh: AppColors.surfaceElevated,
+      surfaceContainerHighest: AppColors.card,
     );
 
     final textTheme = TextTheme(
@@ -266,6 +274,7 @@ class AppTheme {
           textStyle: WidgetStateProperty.all(textTheme.bodyMedium),
         ),
       ),
+      extensions: const [ScorecardTheme.dark],
     );
   }
 }

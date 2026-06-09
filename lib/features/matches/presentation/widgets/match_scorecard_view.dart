@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/scorecard_theme_extension.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../core/utils/match_score_display.dart';
 import '../../../../data/models/ball_event_model.dart';
@@ -80,10 +81,7 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
     }
 
     return ListView.builder(
-      padding: EdgeInsets.only(
-        top: AppDimens.spaceSm,
-        bottom: widget.bottomPadding,
-      ),
+      padding: EdgeInsets.only(bottom: widget.bottomPadding),
       itemCount: match.innings.length,
       itemBuilder: (context, index) {
         final inn = match.innings[index];
@@ -127,81 +125,86 @@ class _InningsScorecardCard extends StatelessWidget {
     final scoreLine =
         '${innings.totalRuns}/${innings.totalWickets} ($overs Ov)';
 
-    final headerBg = isExpanded
-        ? colorScheme.surfaceContainerHigh
-        : colorScheme.surfaceContainerLow;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spaceMd,
-        vertical: AppDimens.spaceXs,
-      ),
-      child: Material(
-        color: colorScheme.surface,
-        borderRadius: AppDimens.cardRadius,
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            InkWell(
-              onTap: onHeaderTap,
-              child: Container(
-                color: headerBg,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spaceMd,
-                  vertical: AppDimens.spaceMd,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        teamName,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: colorScheme.surface,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              InkWell(
+                onTap: onHeaderTap,
+                child: ColoredBox(
+                  color: isExpanded
+                      ? _scorecardTheme(context)
+                          .inningsHeaderExpandedBackground
+                      : _scorecardTheme(context).inningsHeaderBackground,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spaceMd,
+                      vertical: AppDimens.spaceMd,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            teamName,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
                         ),
-                      ),
+                        Text(
+                          scoreLine,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        const SizedBox(width: AppDimens.spaceXs),
+                        Icon(
+                          isExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                          size: AppDimens.iconMd,
+                        ),
+                      ],
                     ),
-                    Text(
-                      scoreLine,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: AppDimens.spaceXs),
-                    Icon(
-                      isExpanded
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      color: colorScheme.onSurfaceVariant,
-                      size: AppDimens.iconMd,
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-            if (isExpanded)
-              _ScorecardTableScope(
-                child: _InningsExpandedBody(
-                  match: match,
-                  innings: innings,
-                  rules: rules,
-                  events: events,
+              if (isExpanded)
+                _ScorecardTableScope(
+                  child: _InningsExpandedBody(
+                    match: match,
+                    innings: innings,
+                    rules: rules,
+                    events: events,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-      ),
+        Divider(
+          height: 1,
+          thickness: 1,
+          color: _subtleDividerColor(colorScheme),
+        ),
+      ],
     );
   }
 }
 
-/// Horizontal scroll on narrow screens to avoid column clipping.
 class _ScorecardTableScope extends StatelessWidget {
   const _ScorecardTableScope({required this.child});
 
   final Widget child;
 
-  static const double _minTableWidth = 340;
+  static const double _minTableWidth = 360;
 
   @override
   Widget build(BuildContext context) {
@@ -245,12 +248,17 @@ class _InningsExpandedBody extends StatelessWidget {
     final crr = MatchScoreDisplay.runRateFor(innings, rules);
     final overs =
         CricketMath.formatOvers(innings.legalBalls, rules.ballsPerOver);
+    final wicketByBatsman = ScorecardDisplayService.wicketEventsByBatsman(
+      innings: innings,
+      events: events,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _BattingSection(
           innings: innings,
+          wicketByBatsman: wicketByBatsman,
           strikerId: innings.strikerId,
           nonStrikerId: innings.nonStrikerId,
         ),
@@ -261,7 +269,6 @@ class _InningsExpandedBody extends StatelessWidget {
           crr: crr,
         ),
         if (toBat.isNotEmpty) _ToBatSection(names: toBat),
-        const SizedBox(height: AppDimens.spaceSm),
         _BowlingSection(innings: innings, rules: rules),
         _FallOfWicketsSection(
           entries: innings.fallOfWickets,
@@ -285,11 +292,80 @@ const double _kColM = 30;
 const double _kColBowR = 30;
 const double _kColW = 30;
 const double _kColEco = 42;
+const double _kFowScoreCol = 96;
+
+const double _kStatsBlockWidth =
+    _kColR + _kColB + _kCol4s + _kCol6s + _kColSr + _kColMin;
+
+const double _kBowlingStatsWidth =
+    _kColO + _kColM + _kColBowR + _kColW + _kColEco;
 
 const EdgeInsets _kRowPadding = EdgeInsets.symmetric(
   horizontal: AppDimens.spaceMd,
-  vertical: 10,
+  vertical: 11,
 );
+
+Color _subtleDividerColor(ColorScheme scheme) =>
+    scheme.outline.withValues(alpha: 0.22);
+
+ScorecardTheme _scorecardTheme(BuildContext context) =>
+    Theme.of(context).extension<ScorecardTheme>() ?? ScorecardTheme.dark;
+
+/// Theme-derived scorecard text styles (no hardcoded colors).
+class _ScorecardStyles {
+  _ScorecardStyles(this.context);
+
+  final BuildContext context;
+  late final ThemeData _theme = Theme.of(context);
+  late final ColorScheme _cs = _theme.colorScheme;
+  late final ScorecardTheme _sc = _scorecardTheme(context);
+
+  Color get dataRowBg => _sc.dataRowBackground;
+
+  Color get sectionHeaderBg => _sc.sectionHeaderBackground;
+
+  Color get summaryRowBg => _sc.summaryRowBackground;
+
+  TextStyle get sectionLabel => _theme.textTheme.labelMedium!.copyWith(
+        fontWeight: FontWeight.w600,
+        color: _cs.onSurfaceVariant,
+        letterSpacing: 0.1,
+      );
+
+  TextStyle get statHeader => _theme.textTheme.labelSmall!.copyWith(
+        fontWeight: FontWeight.w600,
+        color: _cs.onSurfaceVariant,
+        letterSpacing: 0.15,
+      );
+
+  TextStyle get playerName => _theme.textTheme.bodyLarge!.copyWith(
+        fontWeight: FontWeight.w600,
+        color: _cs.primary,
+        height: 1.15,
+      );
+
+  TextStyle get dismissal => _theme.textTheme.bodySmall!.copyWith(
+        color: _cs.onSurfaceVariant,
+        height: 1.25,
+      );
+
+  TextStyle get statValue => _theme.textTheme.bodyMedium!.copyWith(
+        color: _cs.onSurface,
+        fontWeight: FontWeight.w500,
+        fontFeatures: const [FontFeature.tabularFigures()],
+        height: 1.25,
+      );
+
+  TextStyle get statValueBold => statValue.copyWith(fontWeight: FontWeight.w700);
+
+  TextStyle get bodyPrimary => _theme.textTheme.bodyMedium!.copyWith(
+        color: _cs.onSurface,
+      );
+
+  TextStyle get bodyMuted => _theme.textTheme.labelSmall!.copyWith(
+        color: _cs.onSurfaceVariant,
+      );
+}
 
 class _SectionHeaderBar extends StatelessWidget {
   const _SectionHeaderBar({required this.label, this.trailing});
@@ -299,9 +375,9 @@ class _SectionHeaderBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final styles = _ScorecardStyles(context);
     return Container(
-      color: theme.colorScheme.surfaceContainerHighest,
+      color: styles.sectionHeaderBg,
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimens.spaceMd,
         vertical: AppDimens.spaceSm + 2,
@@ -309,13 +385,7 @@ class _SectionHeaderBar extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+            child: Text(label, style: styles.sectionLabel),
           ),
           ?trailing,
         ],
@@ -331,17 +401,12 @@ class _StatHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall?.copyWith(
-      fontWeight: FontWeight.w700,
-      color: theme.colorScheme.onSurfaceVariant,
-      letterSpacing: 0.2,
-    );
+    final style = _ScorecardStyles(context).statHeader;
     return Row(
       children: columns
           .map(
             (w) => DefaultTextStyle(
-              style: style ?? const TextStyle(),
+              style: style,
               textAlign: TextAlign.end,
               child: w,
             ),
@@ -359,7 +424,31 @@ class _RowDivider extends StatelessWidget {
     return Divider(
       height: 1,
       thickness: 0.5,
-      color: Theme.of(context).dividerColor,
+      color: _subtleDividerColor(Theme.of(context).colorScheme),
+    );
+  }
+}
+
+/// Single highlighted data row (batters, bowlers, fall of wickets, extras).
+class _DataRow extends StatelessWidget {
+  const _DataRow({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = _ScorecardStyles(context).dataRowBg;
+    return Column(
+      children: [
+        ColoredBox(
+          color: bg,
+          child: Padding(
+            padding: _kRowPadding,
+            child: child,
+          ),
+        ),
+        const _RowDivider(),
+      ],
     );
   }
 }
@@ -377,16 +466,13 @@ class _StatCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final styles = _ScorecardStyles(context);
     return SizedBox(
       width: width,
       child: Text(
         value,
         textAlign: TextAlign.end,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
+        style: emphasize ? styles.statValueBold : styles.statValue,
       ),
     );
   }
@@ -395,11 +481,13 @@ class _StatCell extends StatelessWidget {
 class _BattingSection extends StatelessWidget {
   const _BattingSection({
     required this.innings,
+    required this.wicketByBatsman,
     this.strikerId,
     this.nonStrikerId,
   });
 
   final InningsModel innings;
+  final Map<String, BallEventModel> wicketByBatsman;
   final String? strikerId;
   final String? nonStrikerId;
 
@@ -439,7 +527,11 @@ class _BattingSection extends StatelessWidget {
           ...batsmen.map((b) {
             final onCrease =
                 b.playerId == strikerId || b.playerId == nonStrikerId;
-            return _BattingRow(batsman: b, onCrease: onCrease);
+            return _BattingRow(
+              batsman: b,
+              onCrease: onCrease,
+              wicketEvent: wicketByBatsman[b.playerId],
+            );
           }),
       ],
     );
@@ -450,71 +542,73 @@ class _BattingRow extends StatelessWidget {
   const _BattingRow({
     required this.batsman,
     required this.onCrease,
+    this.wicketEvent,
   });
 
   final BatsmanInningsModel batsman;
   final bool onCrease;
+  final BallEventModel? wicketEvent;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final styles = _ScorecardStyles(context);
     final name = batsman.playerName.isNotEmpty
         ? batsman.playerName
         : batsman.playerId;
     final dismissal = ScorecardDisplayService.batsmanDismissalText(
       batsman,
       onCrease: onCrease,
+      wicketEvent: wicketEvent,
     );
     final sr = CricketMath.strikeRate(batsman.runs, batsman.balls);
 
-    return Column(
-      children: [
-        Padding(
-          padding: _kRowPadding,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.onSurface,
-                        height: 1.2,
-                      ),
-                    ),
-                    if (dismissal.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        dismissal,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ],
+    return _DataRow(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: styles.playerName,
                 ),
-              ),
-              _StatCell(
-                value: '${batsman.runs}',
-                width: _kColR,
-                emphasize: true,
-              ),
-              _StatCell(value: '${batsman.balls}', width: _kColB),
-              _StatCell(value: '${batsman.fours}', width: _kCol4s),
-              _StatCell(value: '${batsman.sixes}', width: _kCol6s),
-              _StatCell(value: sr.toStringAsFixed(1), width: _kColSr),
-              _StatCell(value: '-', width: _kColMin),
-            ],
+                if (dismissal.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    dismissal,
+                    maxLines: 2,
+                    softWrap: true,
+                    style: styles.dismissal,
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
-        const _RowDivider(),
-      ],
+          SizedBox(
+            width: _kStatsBlockWidth,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _StatCell(
+                  value: '${batsman.runs}',
+                  width: _kColR,
+                  emphasize: true,
+                ),
+                _StatCell(value: '${batsman.balls}', width: _kColB),
+                _StatCell(value: '${batsman.fours}', width: _kCol4s),
+                _StatCell(value: '${batsman.sixes}', width: _kCol6s),
+                _StatCell(value: sr.toStringAsFixed(1), width: _kColSr),
+                _StatCell(value: '-', width: _kColMin),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -530,45 +624,45 @@ class _ExtrasRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final styles = _ScorecardStyles(context);
 
-    return Column(
-      children: [
-        Padding(
-          padding: _kRowPadding,
-          child: Row(
-            children: [
-              Text(
-                'Extras',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${extras.total}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              if (extrasDetail.isNotEmpty) ...[
-                const SizedBox(width: AppDimens.spaceSm),
-                Flexible(
-                  child: Text(
-                    extrasDetail,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ],
+    final rightLabel = extrasDetail.isEmpty
+        ? '${extras.total}'
+        : '${extras.total} $extrasDetail';
+
+    return _DataRow(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'Extras',
+            style: styles.bodyPrimary.copyWith(fontWeight: FontWeight.w500),
           ),
-        ),
-        const _RowDivider(),
-      ],
+          Expanded(
+            child: extrasDetail.isEmpty
+                ? Text(
+                    rightLabel,
+                    textAlign: TextAlign.end,
+                    style: styles.statValueBold,
+                  )
+                : Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '${extras.total}',
+                          style: styles.statValueBold,
+                        ),
+                        TextSpan(
+                          text: ' $extrasDetail',
+                          style: styles.bodyMuted,
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -584,39 +678,35 @@ class _TotalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final styles = _ScorecardStyles(context);
 
     return Column(
       children: [
-        Padding(
-          padding: _kRowPadding,
-          child: Row(
-            children: [
-              Text(
-                'Total',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+        ColoredBox(
+          color: styles.summaryRowBg,
+          child: Padding(
+            padding: _kRowPadding,
+            child: Row(
+              children: [
+                Text(
+                  'Total',
+                  style: styles.statValueBold,
                 ),
-              ),
-              const Spacer(),
-              Text(
-                totalLine,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                const Spacer(),
+                Text(
+                  totalLine,
+                  style: styles.statValueBold,
                 ),
-              ),
-              const SizedBox(width: AppDimens.spaceMd),
-              Text(
-                'CRR ${crr.toStringAsFixed(2)}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                const SizedBox(width: AppDimens.spaceMd),
+                Text(
+                  'CRR ${crr.toStringAsFixed(2)}',
+                  style: styles.bodyMuted.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const _RowDivider(),
@@ -640,7 +730,7 @@ class _ToBatSection extends StatelessWidget {
         AppDimens.spaceMd,
         AppDimens.spaceSm,
         AppDimens.spaceMd,
-        AppDimens.spaceMd,
+        AppDimens.spaceSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -648,21 +738,16 @@ class _ToBatSection extends StatelessWidget {
           Text(
             'To bat:',
             style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: AppDimens.spaceXs),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 96),
-            child: SingleChildScrollView(
-              child: Text(
-                names.join(', '),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
+          Text(
+            names.join(', '),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+              height: 1.45,
             ),
           ),
         ],
@@ -729,8 +814,7 @@ class _BowlingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final styles = _ScorecardStyles(context);
     final name =
         bowler.playerName.isNotEmpty ? bowler.playerName : bowler.playerId;
     final overs =
@@ -741,36 +825,40 @@ class _BowlingRow extends StatelessWidget {
       rules.ballsPerOver,
     );
 
-    return Column(
-      children: [
-        Padding(
-          padding: _kRowPadding,
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-              _StatCell(value: overs, width: _kColO),
-              _StatCell(value: '0', width: _kColM),
-              _StatCell(value: '${bowler.runsConceded}', width: _kColBowR),
-              _StatCell(
-                value: '${bowler.wickets}',
-                width: _kColW,
-                emphasize: bowler.wickets > 0,
-              ),
-              _StatCell(value: eco.toStringAsFixed(2), width: _kColEco),
-            ],
+    return _DataRow(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: styles.playerName,
+            ),
           ),
-        ),
-        const _RowDivider(),
-      ],
+          SizedBox(
+            width: _kBowlingStatsWidth,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _StatCell(value: overs, width: _kColO),
+                _StatCell(value: '0', width: _kColM),
+                _StatCell(
+                  value: '${bowler.runsConceded}',
+                  width: _kColBowR,
+                ),
+                _StatCell(
+                  value: '${bowler.wickets}',
+                  width: _kColW,
+                  emphasize: bowler.wickets > 0,
+                ),
+                _StatCell(value: eco.toStringAsFixed(2), width: _kColEco),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -788,19 +876,19 @@ class _FallOfWicketsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (entries.isEmpty) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final styles = _ScorecardStyles(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SectionHeaderBar(
           label: 'Fall of wickets',
-          trailing: Text(
-            'Score (Over)',
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurfaceVariant,
+          trailing: SizedBox(
+            width: _kFowScoreCol,
+            child: Text(
+              'Score (Over)',
+              textAlign: TextAlign.end,
+              style: styles.statHeader,
             ),
           ),
         ),
@@ -823,50 +911,48 @@ class _FallOfWicketRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final styles = _ScorecardStyles(context);
     final name = entry.batsmanName.isNotEmpty
         ? entry.batsmanName
         : entry.batsmanId;
     final over = CricketMath.formatOvers(entry.legalBalls, ballsPerOver);
 
-    return Column(
-      children: [
-        Padding(
-          padding: _kRowPadding,
-          child: Row(
-            children: [
-              SizedBox(
-                width: 24,
-                child: Text(
-                  '${entry.wicketNumber}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
+    return _DataRow(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 28,
+            child: Text(
+              '${entry.wicketNumber}',
+              style: styles.bodyMuted.copyWith(
+                fontWeight: FontWeight.w500,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-              Expanded(
-                child: Text(
-                  name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              Text(
-                '${entry.teamScore} ($over Ov)',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        const _RowDivider(),
-      ],
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: styles.playerName.copyWith(
+                fontSize: Theme.of(context).textTheme.bodyMedium?.fontSize,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: _kFowScoreCol,
+            child: Text(
+              '${entry.teamScore} ($over Ov)',
+              textAlign: TextAlign.end,
+              style: styles.bodyMuted.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

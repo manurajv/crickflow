@@ -3,6 +3,7 @@ import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
+import '../../domain/services/dismissal_formatter.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 
 /// Read-only helpers for scorecard presentation (no scoring changes).
@@ -84,25 +85,53 @@ class ScorecardDisplayService {
         .toList();
   }
 
-  /// Professional dismissal line for scorecard rows.
+  /// Wicket ball events keyed by dismissed batter id.
+  static Map<String, BallEventModel> wicketEventsByBatsman({
+    required InningsModel innings,
+    required List<BallEventModel> events,
+  }) {
+    final map = <String, BallEventModel>{};
+    for (final e in events) {
+      if (e.inningsNumber != innings.inningsNumber) continue;
+      if (e.eventType != BallEventType.wicket) continue;
+      final id = e.dismissedPlayerId;
+      if (id != null && id.isNotEmpty) map[id] = e;
+    }
+    return map;
+  }
+
+  /// Professional dismissal line using Firestore wicket metadata first.
   static String batsmanDismissalText(
     BatsmanInningsModel batsman, {
     required bool onCrease,
+    BallEventModel? wicketEvent,
   }) {
     if (!batsman.isOut) {
       return onCrease ? 'not out' : '';
     }
-    return normalizeDismissalText(batsman.dismissalInfo);
+
+    if (wicketEvent != null) {
+      final fromEvent = DismissalFormatter.fromWicketEvent(wicketEvent);
+      if (fromEvent.isNotEmpty && !DismissalFormatter.isGenericLabel(fromEvent)) {
+        return DismissalFormatter.normalizeScorecardDismissal(fromEvent);
+      }
+    }
+
+    final stored = batsman.dismissalInfo.trim();
+    if (stored.isNotEmpty && !DismissalFormatter.isGenericLabel(stored)) {
+      return DismissalFormatter.normalizeScorecardDismissal(stored);
+    }
+
+    if (wicketEvent != null) {
+      return DismissalFormatter.fromWicketEvent(wicketEvent);
+    }
+
+    return DismissalFormatter.normalizeScorecardDismissal(_legacyFallback(stored));
   }
 
-  /// Maps legacy enum labels to cricket notation where possible.
-  static String normalizeDismissalText(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return '';
-
-    if (_isProfessionalNotation(trimmed)) return trimmed;
-
-    return switch (trimmed.toLowerCase().replaceAll(' ', '')) {
+  static String _legacyFallback(String raw) {
+    if (raw.isEmpty) return '';
+    return switch (raw.toLowerCase().replaceAll(' ', '')) {
       'bowled' => 'bowled',
       'lbw' => 'lbw',
       'caught' => 'caught',
@@ -113,37 +142,8 @@ class ScorecardDisplayService {
       'hitwicket' => 'hit wicket',
       'retiredhurt' || 'retired' => 'retired hurt',
       'retiredout' => 'retired out',
-      'obstructingfield' => 'obstructing the field',
-      'timedout' => 'timed out',
-      'handledball' => 'handled the ball',
-      'hitballtwice' => 'hit the ball twice',
-      _ => trimmed,
+      _ => raw,
     };
-  }
-
-  static bool _isProfessionalNotation(String text) {
-    final lower = text.toLowerCase();
-    const prefixes = [
-      'c ',
-      'c &',
-      'lbw ',
-      'lbw b',
-      'b ',
-      'run out',
-      'st ',
-      'hit wicket',
-      'retired hurt',
-      'retired out',
-      'not out',
-      'obstructing',
-      'timed out',
-      'handled the',
-      'hit the ball',
-    ];
-    for (final p in prefixes) {
-      if (lower.startsWith(p)) return true;
-    }
-    return lower == 'lbw' || lower == 'bowled';
   }
 }
 

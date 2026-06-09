@@ -1,0 +1,119 @@
+import 'package:crickflow/core/constants/enums.dart';
+import 'package:crickflow/data/models/ball_event_model.dart';
+import 'package:crickflow/data/models/dismissal_fielder.dart';
+import 'package:crickflow/data/models/innings_model.dart';
+import 'package:crickflow/domain/services/dismissal_formatter.dart';
+import 'package:crickflow/domain/services/scorecard_display_service.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('DismissalFormatter.fromWicketEvent', () {
+    test('builds caught with fielder and bowler names', () {
+      final event = BallEventModel(
+        id: '1',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 3,
+        ballInOver: 4,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.caught,
+        dismissedPlayerId: 'b1',
+        fielderName: 'Kasun Perera',
+        bowlerName: 'Fernando',
+        dismissalText: 'caught',
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'c Kasun Perera b Fernando',
+      );
+    });
+
+    test('builds run out with multiple fielders', () {
+      final event = BallEventModel(
+        id: '2',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 5,
+        ballInOver: 2,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.runOut,
+        dismissedPlayerId: 'b2',
+        fielders: const [
+          DismissalFielder(playerId: 'f1', playerName: 'Kasun Perera'),
+          DismissalFielder(playerId: 'f2', playerName: 'John Silva'),
+        ],
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'run out Kasun Perera / John Silva',
+      );
+    });
+
+    test('prefers stored professional dismissal text', () {
+      final event = BallEventModel(
+        id: '3',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 1,
+        ballInOver: 1,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.caughtAndBowled,
+        dismissedPlayerId: 'b3',
+        bowlerName: 'Fernando',
+        dismissalText: 'c & b Fernando',
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'c & b Fernando',
+      );
+    });
+  });
+
+  group('ScorecardDisplayService.batsmanDismissalText', () {
+    test('uses wicket event metadata over generic innings dismissalInfo', () {
+      const batsman = BatsmanInningsModel(
+        playerId: 'b1',
+        playerName: 'Darshan',
+        isOut: true,
+        dismissalInfo: 'caught',
+      );
+      final event = BallEventModel(
+        id: '1',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 2,
+        ballInOver: 3,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.caught,
+        dismissedPlayerId: 'b1',
+        fielderName: 'Kasun Perera',
+        bowlerName: 'Fernando',
+      );
+
+      expect(
+        ScorecardDisplayService.batsmanDismissalText(
+          batsman,
+          onCrease: false,
+          wicketEvent: event,
+        ),
+        'c Kasun Perera b Fernando',
+      );
+    });
+
+    test('shows not out for batter on crease', () {
+      const batsman = BatsmanInningsModel(
+        playerId: 'b2',
+        playerName: 'Virender',
+        runs: 42,
+        balls: 30,
+      );
+      expect(
+        ScorecardDisplayService.batsmanDismissalText(
+          batsman,
+          onCrease: true,
+        ),
+        'not out',
+      );
+    });
+  });
+}
