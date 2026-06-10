@@ -95,6 +95,8 @@ class BatsmanInningsModel extends Equatable {
     this.sixes = 0,
     this.isOut = false,
     this.dismissalInfo = '',
+    this.retiredHurt = false,
+    this.isEligibleToReturn = false,
   });
 
   final String playerId;
@@ -105,6 +107,35 @@ class BatsmanInningsModel extends Equatable {
   final int sixes;
   final bool isOut;
   final String dismissalInfo;
+  /// Left the crease hurt — not a wicket; may bat again.
+  final bool retiredHurt;
+  final bool isEligibleToReturn;
+
+  BatsmanInningsModel copyWith({
+    String? playerId,
+    String? playerName,
+    int? runs,
+    int? balls,
+    int? fours,
+    int? sixes,
+    bool? isOut,
+    String? dismissalInfo,
+    bool? retiredHurt,
+    bool? isEligibleToReturn,
+  }) {
+    return BatsmanInningsModel(
+      playerId: playerId ?? this.playerId,
+      playerName: playerName ?? this.playerName,
+      runs: runs ?? this.runs,
+      balls: balls ?? this.balls,
+      fours: fours ?? this.fours,
+      sixes: sixes ?? this.sixes,
+      isOut: isOut ?? this.isOut,
+      dismissalInfo: dismissalInfo ?? this.dismissalInfo,
+      retiredHurt: retiredHurt ?? this.retiredHurt,
+      isEligibleToReturn: isEligibleToReturn ?? this.isEligibleToReturn,
+    );
+  }
 
   factory BatsmanInningsModel.fromMap(Map<String, dynamic> map) {
     return BatsmanInningsModel(
@@ -116,6 +147,8 @@ class BatsmanInningsModel extends Equatable {
       sixes: map['sixes'] as int? ?? 0,
       isOut: map['isOut'] as bool? ?? false,
       dismissalInfo: map['dismissalInfo'] as String? ?? '',
+      retiredHurt: map['retiredHurt'] as bool? ?? false,
+      isEligibleToReturn: map['isEligibleToReturn'] as bool? ?? false,
     );
   }
 
@@ -128,6 +161,8 @@ class BatsmanInningsModel extends Equatable {
         'sixes': sixes,
         'isOut': isOut,
         'dismissalInfo': dismissalInfo,
+        if (retiredHurt) 'retiredHurt': retiredHurt,
+        if (isEligibleToReturn) 'isEligibleToReturn': isEligibleToReturn,
       };
 
   @override
@@ -230,6 +265,8 @@ class InningsModel extends Equatable {
     this.strikerId,
     this.nonStrikerId,
     this.currentBowlerId,
+    this.currentWicketKeeperId,
+    this.currentWicketKeeperName,
     this.batsmen = const [],
     this.bowlers = const [],
     this.partnershipRuns = 0,
@@ -253,6 +290,8 @@ class InningsModel extends Equatable {
   final String? strikerId;
   final String? nonStrikerId;
   final String? currentBowlerId;
+  final String? currentWicketKeeperId;
+  final String? currentWicketKeeperName;
   final List<BatsmanInningsModel> batsmen;
   final List<BowlerInningsModel> bowlers;
   final int partnershipRuns;
@@ -281,6 +320,8 @@ class InningsModel extends Equatable {
       strikerId: map['strikerId'] as String?,
       nonStrikerId: map['nonStrikerId'] as String?,
       currentBowlerId: map['currentBowlerId'] as String?,
+      currentWicketKeeperId: map['currentWicketKeeperId'] as String?,
+      currentWicketKeeperName: map['currentWicketKeeperName'] as String?,
       batsmen: (map['batsmen'] as List? ?? [])
           .map((e) => BatsmanInningsModel.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -316,6 +357,11 @@ class InningsModel extends Equatable {
         if (strikerId != null) 'strikerId': strikerId,
         if (nonStrikerId != null) 'nonStrikerId': nonStrikerId,
         if (currentBowlerId != null) 'currentBowlerId': currentBowlerId,
+        if (currentWicketKeeperId != null)
+          'currentWicketKeeperId': currentWicketKeeperId,
+        if (currentWicketKeeperName != null &&
+            currentWicketKeeperName!.isNotEmpty)
+          'currentWicketKeeperName': currentWicketKeeperName,
         'batsmen': batsmen.map((b) => b.toMap()).toList(),
         'bowlers': bowlers.map((b) => b.toMap()).toList(),
         'partnershipRuns': partnershipRuns,

@@ -151,6 +151,33 @@ void main() {
     expect(event.dismissedPlayerId, 'striker');
   });
 
+  test('retired hurt does not count as wicket and batter may return', () {
+    final result = engine.recordBall(
+      match: baseMatch(),
+      input: const BallEventInput(
+        type: BallEventType.wicket,
+        wicketType: WicketType.retiredHurt,
+        dismissedPlayerId: 'striker',
+      ),
+      sequence: 1,
+    );
+
+    final inn = result.match.currentInnings!;
+    expect(inn.totalWickets, 0);
+    expect(inn.bowlers.single.wickets, 0);
+    expect(result.event.isWicket, isFalse);
+    expect(result.event.retiredHurt, isTrue);
+    expect(result.event.isEligibleToReturn, isTrue);
+
+    final striker =
+        inn.batsmen.firstWhere((b) => b.playerId == 'striker');
+    expect(striker.isOut, isFalse);
+    expect(striker.retiredHurt, isTrue);
+    expect(striker.isEligibleToReturn, isTrue);
+    expect(striker.dismissalInfo, 'retired hurt');
+    expect(inn.strikerId, isNull);
+  });
+
   test('mankad stores as run out with bowler display and no bowler wicket', () {
     final result = engine.recordBall(
       match: baseMatch(),

@@ -41,6 +41,14 @@
 | Mankad — stored as `runOut` + `isMankad`; display `run out Bowler` | Done |
 | Bowler wicket credit rules — `creditsBowlerWicket` in engine + Cloud Functions | Done |
 | BallEvent metadata — `dismissalType`, `fielderIds`/`fielderNames`, `wicketNumber`, `isMankad` | Done |
+| Caught behind / stumped auto wicketkeeper from match setup | Done |
+| Caught behind auto-detect — `Caught` + keeper fielder → `dismissalSubType: caught_behind`, display `c †Keeper b Bowler` | Done |
+| Wicketkeeper change events (`BallEventType.wicketKeeperChange`) + Change wicketkeeper shortcut | Done |
+| Keeper metadata on wicket events (`wicketKeeperId`, `currentWicketKeeperId` at dismissal time) | Done |
+| Single undo for wicket workflow (`undoGroupId` groups wicket + lineup changes) | Done |
+| Active wicketkeeper cannot bowl (bowler picker blocks keeper) | Done |
+| Retired hurt — not a wicket; `retiredHurt` + `isEligibleToReturn`; batter can return | Done |
+| Wicket picker — all dismissal types visible (no Show more) | Done |
 
 ---
 

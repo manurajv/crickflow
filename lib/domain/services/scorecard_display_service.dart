@@ -125,6 +125,10 @@ class ScorecardDisplayService {
     BallEventModel? wicketEvent,
     Map<String, String>? playerNames,
   }) {
+    if (batsman.retiredHurt && !batsman.isOut) {
+      return onCrease ? 'not out' : 'retired hurt';
+    }
+
     if (!batsman.isOut) {
       return onCrease ? 'not out' : '';
     }

@@ -1,5 +1,6 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/ball_event_model.dart';
+import 'dismissal_formatter.dart';
 
 /// Auto commentary for ball events (template-based).
 class CommentaryService {
@@ -40,6 +41,8 @@ class CommentaryService {
         return 'Penalty runs awarded.';
       case BallEventType.lineupChange:
         return 'Lineup updated.';
+      case BallEventType.wicketKeeperChange:
+        return 'Wicketkeeper changed.';
     }
   }
 
@@ -48,8 +51,12 @@ class CommentaryService {
     String? fielderName,
     String? bowlerName,
     bool isMankad = false,
+    bool isWicketKeeper = false,
   }) {
     final fielder = fielderName?.trim() ?? '';
+    final keeperFielder = isWicketKeeper
+        ? DismissalFormatter.formatKeeperDisplayName(fielder)
+        : fielder;
     final bowler = bowlerName?.trim() ?? '';
 
     if (isMankad || wicketType == WicketType.mankad) {
@@ -59,18 +66,23 @@ class CommentaryService {
     }
 
     return switch (wicketType) {
+      WicketType.caughtAndBowled when bowler.isNotEmpty =>
+        'Caught & bowled! $bowler gets the wicket.',
       WicketType.caught ||
-      WicketType.caughtBehind ||
-      WicketType.caughtAndBowled when fielder.isNotEmpty && bowler.isNotEmpty =>
-        'Caught by $fielder! $bowler gets the wicket.',
+      WicketType.caughtBehind when keeperFielder.isNotEmpty && bowler.isNotEmpty =>
+        wicketType == WicketType.caughtBehind
+            ? 'Caught behind by $keeperFielder! $bowler gets the wicket.'
+            : 'Caught by $keeperFielder! $bowler gets the wicket.',
       WicketType.caught ||
-      WicketType.caughtBehind ||
-      WicketType.caughtAndBowled when fielder.isNotEmpty =>
-        'Caught by $fielder!',
+      WicketType.caughtBehind when keeperFielder.isNotEmpty =>
+        wicketType == WicketType.caughtBehind
+            ? 'Caught behind by $keeperFielder!'
+            : 'Caught by $keeperFielder!',
       WicketType.runOut when fielder.isNotEmpty =>
         'Excellent run out by $fielder.',
       WicketType.stumped when fielder.isNotEmpty =>
-        'Sharp work behind the stumps from $fielder.',
+        'Sharp work behind the stumps from '
+            '${DismissalFormatter.formatKeeperDisplayName(fielder)}.',
       WicketType.bowled when bowler.isNotEmpty => 'Bowled! $bowler strikes.',
       WicketType.lbw when bowler.isNotEmpty => 'LBW! $bowler gets the decision.',
       WicketType.hitWicket => 'Hit wicket — gone!',

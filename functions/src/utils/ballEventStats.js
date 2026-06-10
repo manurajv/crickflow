@@ -15,6 +15,7 @@ function normalizeRules(rules) {
 }
 
 function countsAsWicket(e) {
+  if (e.retiredHurt) return false;
   if (e.isWicket === true) return true;
   if (e.eventType !== 'wicket') return false;
   return !(e.isFreeHit && e.wicketType !== 'runOut');
@@ -40,6 +41,13 @@ function bowlerGetsWicketFromEvent(event) {
   return creditsBowlerWicketType(event.wicketType, event.isMankad === true);
 }
 
+function formatKeeperDisplayName(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('†')) return trimmed;
+  return `†${trimmed}`;
+}
+
 function formatRunOutDisplay(primary, secondary) {
   const names = [];
   if (primary) names.push(primary);
@@ -55,6 +63,7 @@ function formatDismissalFromEvent(event) {
   const fielder = (
     event.primaryFielderName ||
     event.fielderName ||
+    event.wicketKeeperName ||
     (event.fielderNames && event.fielderNames[0]) ||
     ''
   ).trim();
@@ -71,18 +80,36 @@ function formatDismissalFromEvent(event) {
   switch (type) {
     case 'bowled':
       return bowler ? `b ${bowler}` : 'bowled';
-    case 'caught':
-    case 'caughtBehind':
-      if (fielder && bowler) return `c ${fielder} b ${bowler}`;
-      if (fielder) return `c ${fielder}`;
+    case 'caught': {
+      const isBehind = event.dismissalSubType === 'caught_behind';
+      const displayFielder = isBehind ? formatKeeperDisplayName(fielder) : fielder;
+      if (displayFielder && bowler) return `c ${displayFielder} b ${bowler}`;
+      if (displayFielder) return `c ${displayFielder}`;
       if (bowler) return `b ${bowler}`;
       return 'caught';
+    }
+    case 'caughtBehind': {
+      const keeper = fielder ? formatKeeperDisplayName(fielder) : '';
+      if (keeper && bowler) return `c ${keeper} b ${bowler}`;
+      if (keeper) return `c ${keeper}`;
+      if (bowler) return `b ${bowler}`;
+      return 'caught behind';
+    }
     case 'caughtAndBowled':
       return bowler ? `c & b ${bowler}` : 'c & b';
     case 'lbw':
       return bowler ? `lbw b ${bowler}` : 'lbw';
-    case 'runOut':
+    case 'runOut': {
+      if (
+        !event.isMankad &&
+        fielder &&
+        bowler &&
+        fielder === bowler
+      ) {
+        return formatRunOutDisplay('');
+      }
       return formatRunOutDisplay(fielder, secondary);
+    }
     case 'stumped':
       return bowler ? `st b ${bowler}` : 'stumped';
     case 'hitWicket':
@@ -207,7 +234,13 @@ function markBatsmanOut(list, playerId, dismissal) {
   const idx = list.findIndex((b) => b.playerId === playerId);
   if (idx >= 0) {
     const next = [...list];
-    next[idx] = { ...next[idx], isOut: true, dismissalInfo: dismissal };
+    next[idx] = {
+      ...next[idx],
+      isOut: true,
+      dismissalInfo: dismissal,
+      retiredHurt: false,
+      isEligibleToReturn: false,
+    };
     return next;
   }
   return [
@@ -221,6 +254,38 @@ function markBatsmanOut(list, playerId, dismissal) {
       sixes: 0,
       isOut: true,
       dismissalInfo: dismissal,
+      retiredHurt: false,
+      isEligibleToReturn: false,
+    },
+  ];
+}
+
+function markBatsmanRetiredHurt(list, playerId) {
+  const idx = list.findIndex((b) => b.playerId === playerId);
+  if (idx >= 0) {
+    const next = [...list];
+    next[idx] = {
+      ...next[idx],
+      isOut: false,
+      retiredHurt: true,
+      isEligibleToReturn: true,
+      dismissalInfo: 'retired hurt',
+    };
+    return next;
+  }
+  return [
+    ...list,
+    {
+      playerId,
+      playerName: '',
+      runs: 0,
+      balls: 0,
+      fours: 0,
+      sixes: 0,
+      isOut: false,
+      retiredHurt: true,
+      isEligibleToReturn: true,
+      dismissalInfo: 'retired hurt',
     },
   ];
 }
@@ -407,17 +472,23 @@ function applyEventToInnings(innings, event, rules) {
     }
   }
 
-  if (event.eventType === 'wicket') {
-    if (!(event.isFreeHit && event.wicketType !== 'runOut')) {
-      totalWickets += 1;
-      partnershipRuns = 0;
-      partnershipBalls = 0;
-      const dismissedId =
-        event.dismissedPlayerId || event.strikerId || strikerId;
-      if (dismissedId) {
-        if (dismissedId === strikerId) strikerId = null;
-        if (dismissedId === nonStrikerId) nonStrikerId = null;
-      }
+  if (event.eventType === 'wicket' && event.retiredHurt) {
+    const retiredId =
+      event.dismissedPlayerId || event.strikerId || strikerId;
+    if (retiredId) {
+      batsmen = markBatsmanRetiredHurt(batsmen, retiredId);
+      if (retiredId === strikerId) strikerId = null;
+      if (retiredId === nonStrikerId) nonStrikerId = null;
+    }
+  } else if (event.eventType === 'wicket' && countsAsWicket(event)) {
+    totalWickets += 1;
+    partnershipRuns = 0;
+    partnershipBalls = 0;
+    const dismissedId =
+      event.dismissedPlayerId || event.strikerId || strikerId;
+    if (dismissedId) {
+      if (dismissedId === strikerId) strikerId = null;
+      if (dismissedId === nonStrikerId) nonStrikerId = null;
     }
   }
 
@@ -451,7 +522,11 @@ function applyEventToInnings(innings, event, rules) {
     );
   }
 
-  if (event.eventType === 'wicket' && !(event.isFreeHit && event.wicketType !== 'runOut')) {
+  if (
+    event.eventType === 'wicket' &&
+    countsAsWicket(event) &&
+    !event.retiredHurt
+  ) {
     const dismissedId =
       event.dismissedPlayerId || event.strikerId || innings.strikerId;
     if (dismissedId) {
@@ -528,25 +603,35 @@ function fieldersFromEvents(events) {
   for (const e of events) {
     if (!countsAsWicket(e)) continue;
     const type = e.wicketType;
-    const fielderId = e.primaryFielderId || e.fielderId;
-    if (!type || !fielderId) continue;
+    let fielderId = e.primaryFielderId || e.fielderId;
+    if (!type) continue;
+    if (!fielderId && type === 'stumped' && e.wicketKeeperId) {
+      fielderId = e.wicketKeeperId;
+    }
+    if (!fielderId) continue;
 
     let catches = 0;
     let runOuts = 0;
     let stumpings = 0;
-    if (['caught', 'caughtBehind', 'caughtAndBowled'].includes(type)) {
+    const isCaughtBehind =
+      type === 'caughtBehind' || e.dismissalSubType === 'caught_behind';
+    if (isCaughtBehind) {
+      catches = 1;
+      fielderId = e.wicketKeeperId || fielderId;
+    } else if (['caught', 'caughtAndBowled'].includes(type)) {
       catches = 1;
     } else if (type === 'runOut') {
       runOuts = 1;
     } else if (type === 'stumped') {
       stumpings = 1;
+      fielderId = e.wicketKeeperId || fielderId;
     } else {
       continue;
     }
 
     const cur = map.get(fielderId) || {
       playerId: fielderId,
-      playerName: e.primaryFielderName || e.fielderName || '',
+      playerName: e.primaryFielderName || e.fielderName || e.wicketKeeperName || '',
       catches: 0,
       runOuts: 0,
       stumpings: 0,

@@ -152,64 +152,14 @@ class MatchRepository {
         : result.event.commentary;
 
     final built = result.event;
-    final event = BallEventModel(
+    final event = built.copyWith(
       id: eventId,
-      matchId: match.id,
-      inningsNumber: built.inningsNumber,
-      overNumber: built.overNumber,
-      ballInOver: built.ballInOver,
-      eventType: built.eventType,
-      runs: built.runs,
-      batsmanRuns: built.batsmanRuns,
-      extraRuns: built.extraRuns,
-      isLegalDelivery: built.isLegalDelivery,
-      isFreeHit: built.isFreeHit,
-      tournamentId: built.tournamentId,
-      battingTeamId: built.battingTeamId,
-      bowlingTeamId: built.bowlingTeamId,
-      byeRuns: built.byeRuns,
-      legByeRuns: built.legByeRuns,
-      wideRuns: built.wideRuns,
-      noBallRuns: built.noBallRuns,
-      penaltyRuns: built.penaltyRuns,
-      countsAsBallFaced: built.countsAsBallFaced,
-      countsInOver: built.countsInOver,
-      countsToBowler: built.countsToBowler,
-      isWicket: built.isWicket,
-      bowlerGetsWicket: built.bowlerGetsWicket,
-      isBoundary: built.isBoundary,
-      boundaryType: built.boundaryType,
-      strikerId: built.strikerId,
-      nonStrikerId: built.nonStrikerId,
-      strikerAfterBall: built.strikerAfterBall,
-      nonStrikerAfterBall: built.nonStrikerAfterBall,
-      createdBy: built.createdBy,
-      bowlerId: built.bowlerId,
-      wicketType: built.wicketType,
-      dismissedPlayerId: built.dismissedPlayerId,
-      fielderId: built.fielderId,
-      fielderName: built.fielderName,
-      bowlerName: built.bowlerName,
-      dismissalText: built.dismissalText,
-      fielders: built.fielders,
       commentary: commentary,
       sequence: sequence,
       isHighlight: highlight.isHighlight,
       highlightTag: highlight.tag,
-      noBallRunsMode: built.noBallRunsMode,
-      noBallByeRuns: built.noBallByeRuns,
-      noBallLegByeRuns: built.noBallLegByeRuns,
       wagonWheel: input.wagonWheel ?? built.wagonWheel,
-      lineupStrikerName: built.lineupStrikerName,
-      lineupNonStrikerName: built.lineupNonStrikerName,
-      dismissedPlayerName: built.dismissedPlayerName,
-      primaryFielderId: built.primaryFielderId,
-      primaryFielderName: built.primaryFielderName,
-      secondaryFielderId: built.secondaryFielderId,
-      secondaryFielderName: built.secondaryFielderName,
-      teamScoreAtWicket: built.teamScoreAtWicket,
-      overAtWicket: built.overAtWicket,
-      ballAtWicket: built.ballAtWicket,
+      undoGroupId: input.undoGroupId ?? built.undoGroupId,
     );
 
     await _commitMatchState(
@@ -287,7 +237,24 @@ class MatchRepository {
       throw StateError('Nothing to undo in current innings');
     }
 
-    allEvents.removeLast();
+    final groupId = last.undoGroupId?.trim();
+    final List<BallEventModel> toRemove;
+    if (groupId != null && groupId.isNotEmpty) {
+      toRemove = [];
+      for (var i = allEvents.length - 1; i >= 0; i--) {
+        if (allEvents[i].undoGroupId == groupId) {
+          toRemove.insert(0, allEvents[i]);
+        } else {
+          break;
+        }
+      }
+    } else {
+      toRemove = [last];
+    }
+
+    for (final e in toRemove) {
+      allEvents.remove(e);
+    }
     final inningsEvents = allEvents
         .where((e) => e.inningsNumber == currentInn.inningsNumber)
         .toList();
@@ -314,7 +281,9 @@ class MatchRepository {
     final overlay = _scoringEngine.buildOverlayForMatch(replayed);
 
     final batch = _firestore.batch();
-    batch.delete(_ballEvents(matchId).doc(last.id));
+    for (final e in toRemove) {
+      batch.delete(_ballEvents(matchId).doc(e.id));
+    }
     batch.update(_matchDoc(matchId), replayed.toMap());
     batch.set(
       _matchDoc(matchId).collection('overlay').doc('current'),

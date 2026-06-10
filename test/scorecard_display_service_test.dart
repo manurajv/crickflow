@@ -137,6 +137,28 @@ void main() {
       );
     });
 
+    test('caught without fielder metadata does not show b Bowler only', () {
+      final event = BallEventModel(
+        id: '3a',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 1,
+        ballInOver: 1,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.caught,
+        dismissedPlayerId: 'b1',
+        fielderId: 'f1',
+        primaryFielderId: 'f1',
+        primaryFielderName: 'Kasun Perera',
+        bowlerName: 'Ashok',
+        dismissalText: 'b Ashok',
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'c Kasun Perera b Ashok',
+      );
+    });
+
     test('mankad displays as run out bowler', () {
       final event = BallEventModel(
         id: '3b',

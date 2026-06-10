@@ -45,6 +45,8 @@ enum BallEventType {
   penalty,
   /// Non-delivery crease/bowler update (new batter, bowler change).
   lineupChange,
+  /// Non-delivery wicketkeeper change (fielding team).
+  wicketKeeperChange,
 }
 
 /// How runs off a no-ball are scored (from bat, bye, or leg bye).

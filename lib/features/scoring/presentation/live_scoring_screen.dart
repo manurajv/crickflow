@@ -8,13 +8,15 @@ import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../domain/services/commentary_service.dart';
+import '../../../domain/services/dismissal_formatter.dart';
 import '../../../domain/services/scoring_engine.dart';
 import '../../../domain/scoring/match_completion_policy.dart';
 import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/player_lineup_picker.dart';
 import '../../../data/models/dismissal_fielder.dart';
-import '../../../domain/services/dismissal_formatter.dart';
+import 'package:uuid/uuid.dart';
+import '../../../domain/services/dismissal_sub_type.dart';
 import 'widgets/crease_picker_sheets.dart';
 import '../../../shared/widgets/fielder_picker_sheet.dart';
 import '../../../shared/widgets/wicket_picker_sheet.dart';
@@ -45,6 +47,7 @@ class LiveScoringScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
+  static const _uuid = Uuid();
   int _ballSequence = 0;
   bool _isRecording = false;
   bool _sequenceLoaded = false;
@@ -71,7 +74,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
-  Future<void> _record(BallEventInput input) async {
+  Future<void> _record(
+    BallEventInput input, {
+    String? undoGroupId,
+  }) async {
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     if (match == null) return;
 
@@ -132,7 +138,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       runs: input.runs,
       wicketType: input.wicketType,
       dismissedPlayerId: input.dismissedPlayerId,
+      dismissedPlayerName: input.dismissedPlayerName,
       fielderId: input.fielderId,
+      fielderName: input.fielderName,
+      fielders: input.fielders,
+      isMankad: input.isMankad,
+      wicketKeeperId: input.wicketKeeperId,
+      wicketKeeperName: input.wicketKeeperName,
+      bowlerId: input.bowlerId,
+      bowlerName: input.bowlerName,
+      dismissalSubType: input.dismissalSubType,
+      currentWicketKeeperId: input.currentWicketKeeperId,
+      currentWicketKeeperName: input.currentWicketKeeperName,
+      undoGroupId: undoGroupId ?? input.undoGroupId,
       noBallRunsMode: input.noBallRunsMode,
       wagonWheel: wagonWheel,
       createdBy: scorerUid,
@@ -194,6 +212,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     required String nonStrikerName,
     required String bowlerId,
     required String bowlerName,
+    String? undoGroupId,
   }) async {
     setState(() => _isRecording = true);
     final sequence = _ballSequence + 1;
@@ -211,6 +230,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               bowlerName: bowlerName,
               createdBy: scorerUid,
               commentary: 'Lineup updated',
+              undoGroupId: undoGroupId,
             ),
             sequence: sequence,
           );
@@ -278,6 +298,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final events =
         ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
     final inn = match.currentInnings!;
+    final activeKeeper = ScoringDisplayUtils.activeWicketKeeper(
+      match: match,
+      inn: inn,
+      events: events,
+    );
     final excluded = <String>{};
     if (excludeLastOverBowler) {
       final id = ScoringDisplayUtils.bowlerWhoFinishedLastOver(
@@ -299,6 +324,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         overNumber: overNumber,
         ballsPerOver: match.rules.ballsPerOver,
         excludedBowlerIds: excluded,
+        wicketKeeperId: activeKeeper.id,
         onSelected: (p) async {
           final latest =
               ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
@@ -331,8 +357,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Future<void> _recordWicket() async {
-    final type = await showWicketPickerSheet(context);
-    if (type == null || !mounted) return;
+    var wicketType = await showWicketPickerSheet(context);
+    if (wicketType == null || !mounted) return;
 
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     final inn = match?.currentInnings;
@@ -342,15 +368,28 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
     if (squads == null) return;
 
+    final events =
+        ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
+    final activeKeeper = ScoringDisplayUtils.activeWicketKeeper(
+      match: match,
+      inn: inn,
+      events: events,
+    );
+
     final bowlerId = inn.currentBowlerId;
-    final bowlerName = ScoringDisplayUtils.bowler(inn, bowlerId)?.playerName ?? '';
+    final bowlerName =
+        ScoringDisplayUtils.bowler(inn, bowlerId)?.playerName ?? '';
     String? dismissedPlayerId;
     String? fielderId;
     String? fielderName;
+    String? wicketKeeperId;
+    String? wicketKeeperName;
+    String? dismissalSubType;
     List<DismissalFielder> fielders = const [];
 
     var runsBeforeDismissal = 0;
-    final isMankad = type == WicketType.mankad;
+    final isMankad = wicketType == WicketType.mankad;
+    final undoGroupId = _uuid.v4();
 
     if (isMankad) {
       dismissedPlayerId = inn.nonStrikerId;
@@ -368,7 +407,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           DismissalFielder(playerId: bowlerId, playerName: bowlerName),
         ];
       }
-    } else if (type == WicketType.runOut) {
+    } else if (wicketType == WicketType.runOut) {
       dismissedPlayerId = await showRunOutDismissedPicker(
         context,
         innings: inn,
@@ -380,7 +419,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
       final fielder = await FielderPickerSheet.show(
         context,
-        title: DismissalFormatter.fielderPickerTitle(type),
+        title: DismissalFormatter.fielderPickerTitle(wicketType),
         players: squads.bowling,
       );
       if (fielder == null || !mounted) return;
@@ -389,18 +428,32 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       fielders = [
         DismissalFielder(playerId: fielder.id, playerName: fielder.name),
       ];
-    } else if (type == WicketType.caughtAndBowled && bowlerId != null) {
+    } else if (DismissalFormatter.usesWicketKeeper(wicketType)) {
       dismissedPlayerId = inn.strikerId;
-      fielderId = bowlerId;
-      fielderName = bowlerName;
+      if (activeKeeper.id == null || activeKeeper.id!.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Select a wicketkeeper in match setup first'),
+          ),
+        );
+        return;
+      }
+      wicketKeeperId = activeKeeper.id;
+      wicketKeeperName = activeKeeper.name;
+      fielderId = activeKeeper.id;
+      fielderName = activeKeeper.name ?? activeKeeper.id!;
       fielders = [
-        DismissalFielder(playerId: bowlerId, playerName: bowlerName),
+        DismissalFielder(
+          playerId: activeKeeper.id!,
+          playerName: fielderName,
+        ),
       ];
-    } else if (DismissalFormatter.needsFielderPicker(type)) {
+    } else if (wicketType == WicketType.caught) {
       dismissedPlayerId = inn.strikerId;
       final fielder = await FielderPickerSheet.show(
         context,
-        title: DismissalFormatter.fielderPickerTitle(type),
+        title: DismissalFormatter.fielderPickerTitle(wicketType),
         players: squads.bowling,
       );
       if (fielder == null || !mounted) return;
@@ -409,9 +462,26 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       fielders = [
         DismissalFielder(playerId: fielder.id, playerName: fielder.name),
       ];
+      final resolved = DismissalFormatter.resolveCaughtDismissal(
+        fielderId: fielder.id,
+        bowlerId: bowlerId,
+        wicketKeeperId: activeKeeper.id,
+      );
+      wicketType = resolved.wicketType;
+      dismissalSubType = resolved.dismissalSubType;
+      if (wicketType == WicketType.caughtAndBowled && bowlerId != null) {
+        fielderId = bowlerId;
+        fielderName = bowlerName;
+        fielders = [
+          DismissalFielder(playerId: bowlerId, playerName: bowlerName),
+        ];
+      } else if (dismissalSubType == DismissalSubType.caughtBehind) {
+        wicketKeeperId = activeKeeper.id;
+        wicketKeeperName = activeKeeper.name ?? fielder.name;
+      }
     } else {
       dismissedPlayerId = DismissalFormatter.defaultDismissedPlayerId(
-        type: type,
+        type: wicketType,
         strikerId: inn.strikerId,
         nonStrikerId: inn.nonStrikerId,
       );
@@ -423,11 +493,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         )?.playerName ??
         '';
 
+    final isKeeperCatch = dismissalSubType == DismissalSubType.caughtBehind;
+
     await _record(
       BallEventInput(
         type: BallEventType.wicket,
         runs: runsBeforeDismissal,
-        wicketType: type,
+        wicketType: wicketType,
+        dismissalSubType: dismissalSubType,
         isMankad: isMankad,
         dismissedPlayerId: dismissedPlayerId,
         dismissedPlayerName: dismissedPlayerName,
@@ -436,13 +509,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         bowlerId: bowlerId,
         bowlerName: bowlerName.isEmpty ? null : bowlerName,
         fielders: fielders,
+        wicketKeeperId: wicketKeeperId,
+        wicketKeeperName: wicketKeeperName,
+        currentWicketKeeperId: activeKeeper.id,
+        currentWicketKeeperName: activeKeeper.name,
         commentary: CommentaryService.forWicket(
-          wicketType: type,
+          wicketType: wicketType,
           fielderName: isMankad ? bowlerName : fielderName,
           bowlerName: bowlerName,
           isMankad: isMankad,
+          isWicketKeeper: isKeeperCatch || wicketType == WicketType.stumped,
         ),
       ),
+      undoGroupId: undoGroupId,
     );
     if (!mounted) return;
     final updated = ref.read(matchProvider(widget.matchId)).valueOrNull;
@@ -450,13 +529,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (updated != null &&
         updatedInn != null &&
         !ScoringDisplayUtils.isInningsComplete(updated, updatedInn)) {
-      await _fillVacantCrease(updated, updatedInn);
+      await _fillVacantCrease(updated, updatedInn, undoGroupId: undoGroupId);
       if (!mounted) return;
-      if (type == WicketType.runOut) {
+      if (wicketType == WicketType.runOut) {
         final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
         final freshInn = fresh?.currentInnings;
         if (fresh != null && freshInn != null) {
-          await _confirmStrikeAfterRunOut(fresh, freshInn);
+          await _confirmStrikeAfterRunOut(
+            fresh,
+            freshInn,
+            undoGroupId: undoGroupId,
+          );
         }
       }
     }
@@ -465,8 +548,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   /// Run out: scorer picks who faces the next delivery.
   Future<void> _confirmStrikeAfterRunOut(
     MatchModel match,
-    InningsModel inn,
-  ) async {
+    InningsModel inn, {
+    String? undoGroupId,
+  }) async {
     if (inn.strikerId == null || inn.nonStrikerId == null) return;
 
     final strikerOnStrike = await showStrikeDecisionPicker(
@@ -501,6 +585,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           ScoringDisplayUtils.bowler(latestInn, latestInn.currentBowlerId)
                   ?.playerName ??
               '',
+      undoGroupId: undoGroupId,
     );
   }
 
@@ -514,7 +599,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
-  Future<void> _fillVacantCrease(MatchModel match, InningsModel inn) async {
+  Future<void> _fillVacantCrease(
+    MatchModel match,
+    InningsModel inn, {
+    String? undoGroupId,
+  }) async {
     if (inn.strikerId != null && inn.nonStrikerId != null) return;
 
     if (ScoringDisplayUtils.isInningsComplete(match, inn)) {
@@ -528,6 +617,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       inn,
       forStriker: needStriker,
       title: needStriker ? 'Select striker' : 'Select non-striker',
+      undoGroupId: undoGroupId,
     );
 
     if (!mounted) return;
@@ -547,6 +637,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         title: afterInn.strikerId == null
             ? 'Select striker'
             : 'Select non-striker',
+        undoGroupId: undoGroupId,
       );
     }
 
@@ -563,6 +654,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     InningsModel inn, {
     required bool forStriker,
     required String title,
+    String? undoGroupId,
   }) async {
     final squads =
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
@@ -635,6 +727,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                   latestInn.currentBowlerId,
                 )?.playerName ??
                 '',
+            undoGroupId: undoGroupId,
           );
     } catch (e) {
       if (mounted) {
@@ -1062,12 +1155,68 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     });
   }
 
+  Future<void> _changeWicketKeeper(MatchModel match) async {
+    final inn = match.currentInnings;
+    if (inn == null) return;
+
+    final squads =
+        ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
+    if (squads == null || squads.bowling.isEmpty) return;
+
+    final picked = await FielderPickerSheet.show(
+      context,
+      title: 'Select wicketkeeper',
+      players: squads.bowling,
+    );
+    if (picked == null || !mounted) return;
+
+    final events =
+        ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
+    final activeKeeper = ScoringDisplayUtils.activeWicketKeeper(
+      match: match,
+      inn: inn,
+      events: events,
+    );
+    if (picked.id == activeKeeper.id) return;
+
+    setState(() => _isRecording = true);
+    final sequence = _ballSequence + 1;
+    final scorerUid = ref.read(authStateProvider).valueOrNull?.uid;
+    try {
+      await ref.read(matchRepositoryProvider).recordBall(
+            match: match,
+            input: BallEventInput(
+              type: BallEventType.wicketKeeperChange,
+              wicketKeeperId: picked.id,
+              wicketKeeperName: picked.name,
+              currentWicketKeeperId: picked.id,
+              currentWicketKeeperName: picked.name,
+              createdBy: scorerUid,
+              commentary:
+                  'Wicketkeeper changed to ${DismissalFormatter.formatKeeperDisplayName(picked.name)}',
+            ),
+            sequence: sequence,
+          );
+      setState(() => _ballSequence = sequence);
+      HapticFeedback.lightImpact();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Keeper change error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRecording = false);
+    }
+  }
+
   void _openQuickOptions(MatchModel match) {
     final canEditToss = ScoringDisplayUtils.canEditTossDecision(match);
     ScoringUiKit.showSheet(
       context,
       builder: (ctx) => ScoringQuickOptionsSheet(
         onEditLineup: () => _openLineupSheet(match),
+        onChangeWicketkeeper: () => _changeWicketKeeper(match),
         onEndInnings: () => _endInnings(),
         onScorecard: () => context.push('/match/${widget.matchId}/scorecard'),
         onMatchRules: () async {

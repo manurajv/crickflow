@@ -227,5 +227,21 @@ void main() {
       final symbols = BallEventAggregator.overSymbols(events, rules);
       expect(symbols[0], ['4', 'W']);
     });
+
+    test('run out with runs shows W+runs in over symbols', () {
+      final events = [
+        _event(
+          sequence: 1,
+          type: BallEventType.wicket,
+          dismissedId: 'b1',
+          wicketType: WicketType.runOut,
+          runs: 1,
+          batsmanRuns: 1,
+        ),
+      ];
+
+      final symbols = BallEventAggregator.overSymbols(events, rules);
+      expect(symbols[0], ['W+1']);
+    });
   });
 }

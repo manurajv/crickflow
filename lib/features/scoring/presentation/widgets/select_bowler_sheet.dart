@@ -16,6 +16,7 @@ class SelectBowlerSheet extends StatelessWidget {
     required this.onSelected,
     required this.ballsPerOver,
     this.excludedBowlerIds = const {},
+    this.wicketKeeperId,
   });
 
   final MatchModel match;
@@ -24,6 +25,7 @@ class SelectBowlerSheet extends StatelessWidget {
   final int overNumber;
   final int ballsPerOver;
   final Set<String> excludedBowlerIds;
+  final String? wicketKeeperId;
   final void Function(LineupPlayer player) onSelected;
 
   String get _battingLabel {
@@ -84,7 +86,10 @@ class SelectBowlerSheet extends StatelessWidget {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
                     final p = bowlingSquad[i];
-                    final excluded = excludedBowlerIds.contains(p.id);
+                    final isKeeper = wicketKeeperId != null &&
+                        wicketKeeperId!.isNotEmpty &&
+                        p.id == wicketKeeperId;
+                    final excluded = excludedBowlerIds.contains(p.id) || isKeeper;
                     BowlerInningsModel? stats;
                     for (final b in innings.bowlers) {
                       if (b.playerId == p.id) {
@@ -128,11 +133,13 @@ class SelectBowlerSheet extends StatelessWidget {
                         ),
                       ),
                       subtitle: Text(
-                        excluded
-                            ? 'Bowled last over'
-                            : atMaxOvers
-                                ? 'Max ${match.rules.totalOvers} overs bowled'
-                                : '$overs over(s)',
+                        isKeeper
+                            ? 'Current wicketkeeper cannot bowl'
+                            : excluded && excludedBowlerIds.contains(p.id)
+                                ? 'Bowled last over'
+                                : atMaxOvers
+                                    ? 'Max ${match.rules.totalOvers} overs bowled'
+                                    : '$overs over(s)',
                       ),
                       trailing: selected && !disabled
                           ? const Icon(Icons.check_circle, color: AppColors.gold)

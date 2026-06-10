@@ -3,6 +3,7 @@ import 'package:crickflow/data/models/ball_event_model.dart';
 import 'package:crickflow/data/models/dismissal_fielder.dart';
 import 'package:crickflow/domain/services/commentary_service.dart';
 import 'package:crickflow/domain/services/dismissal_formatter.dart';
+import 'package:crickflow/domain/services/dismissal_sub_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -14,6 +15,14 @@ void main() {
           bowlerName: 'Fernando',
         ),
         'b Fernando',
+      );
+      expect(
+        DismissalFormatter.format(
+          type: WicketType.caughtBehind,
+          fielderName: 'Niroshan',
+          bowlerName: 'Ashok',
+        ),
+        'c †Niroshan b Ashok',
       );
       expect(
         DismissalFormatter.format(
@@ -145,8 +154,57 @@ void main() {
           wicketType: WicketType.stumped,
           fielderName: 'Ravi',
         ),
-        'Sharp work behind the stumps from Ravi.',
+        'Sharp work behind the stumps from †Ravi.',
       );
+    });
+
+    test('resolveCaughtDismissal priority: bowler, keeper, fielder', () {
+      expect(
+        DismissalFormatter.resolveCaughtDismissal(
+          fielderId: 'bowler1',
+          bowlerId: 'bowler1',
+          wicketKeeperId: 'wk1',
+        ).wicketType,
+        WicketType.caughtAndBowled,
+      );
+      expect(
+        DismissalFormatter.resolveCaughtDismissal(
+          fielderId: 'wk1',
+          bowlerId: 'bowler1',
+          wicketKeeperId: 'wk1',
+        ),
+        (
+          wicketType: WicketType.caught,
+          dismissalSubType: DismissalSubType.caughtBehind,
+        ),
+      );
+      expect(
+        DismissalFormatter.resolveCaughtDismissal(
+          fielderId: 'f1',
+          bowlerId: 'bowler1',
+          wicketKeeperId: 'wk1',
+        ).wicketType,
+        WicketType.caught,
+      );
+    });
+
+    test('keeper display name uses dagger prefix', () {
+      expect(
+        DismissalFormatter.formatKeeperDisplayName('Niroshan'),
+        '†Niroshan',
+      );
+      expect(
+        DismissalFormatter.formatKeeperDisplayName('†Niroshan'),
+        '†Niroshan',
+      );
+    });
+
+    test('caught uses fielder picker; stumped uses keeper; caught behind is auto-detected', () {
+      expect(DismissalFormatter.needsFielderPicker(WicketType.caught), isTrue);
+      expect(DismissalFormatter.needsFielderPicker(WicketType.caughtBehind), isFalse);
+      expect(DismissalFormatter.needsFielderPicker(WicketType.stumped), isFalse);
+      expect(DismissalFormatter.usesWicketKeeper(WicketType.caughtBehind), isFalse);
+      expect(DismissalFormatter.usesWicketKeeper(WicketType.stumped), isTrue);
     });
 
     test('run out needs dismissed batter picker not striker default', () {

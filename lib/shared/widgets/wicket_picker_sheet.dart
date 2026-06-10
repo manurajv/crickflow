@@ -11,7 +11,7 @@ class _WicketOption {
   final String label;
 }
 
-/// Bottom sheet to pick dismissal type (reference-style grid).
+/// Bottom sheet to pick dismissal type (first two rows + show more).
 Future<WicketType?> showWicketPickerSheet(BuildContext context) {
   return ScoringUiKit.showSheet<WicketType>(
     context,
@@ -28,22 +28,14 @@ class _WicketPickerBody extends StatefulWidget {
 }
 
 class _WicketPickerBodyState extends State<_WicketPickerBody> {
-  bool _showAll = false;
-
-  static const _primary = [
+  static const _options = [
     _WicketOption(WicketType.bowled, Icons.sports_baseball, 'Bowled'),
     _WicketOption(WicketType.caught, Icons.back_hand, 'Caught'),
-    _WicketOption(WicketType.caughtBehind, Icons.person_outline, 'Caught behind'),
-    _WicketOption(WicketType.caughtAndBowled, Icons.sports, 'Caught & bowled'),
-    _WicketOption(WicketType.runOut, Icons.directions_run, 'Run out'),
-    _WicketOption(WicketType.mankad, Icons.directions_walk, 'Mankad'),
     _WicketOption(WicketType.lbw, Icons.accessibility_new, 'LBW'),
+    _WicketOption(WicketType.runOut, Icons.directions_run, 'Run out'),
     _WicketOption(WicketType.stumped, Icons.pan_tool_alt, 'Stumped'),
-    _WicketOption(WicketType.retiredHurt, Icons.healing, 'Retired hurt'),
-  ];
-
-  static const _extra = [
     _WicketOption(WicketType.hitWicket, Icons.warning_amber, 'Hit wicket'),
+    _WicketOption(WicketType.retiredHurt, Icons.healing, 'Retired hurt'),
     _WicketOption(WicketType.retiredOut, Icons.logout, 'Retired out'),
     _WicketOption(
       WicketType.obstructingField,
@@ -53,15 +45,23 @@ class _WicketPickerBodyState extends State<_WicketPickerBody> {
     _WicketOption(WicketType.timedOut, Icons.timer_off, 'Timed out'),
     _WicketOption(WicketType.handledBall, Icons.pan_tool, 'Handled ball'),
     _WicketOption(WicketType.hitBallTwice, Icons.repeat, 'Hit ball twice'),
+    _WicketOption(WicketType.mankad, Icons.directions_walk, 'Mankad'),
   ];
 
-  List<_WicketOption> get _visible => _showAll ? [..._primary, ..._extra] : _primary;
+  static const _crossAxisCount = 4;
+  static const _defaultRows = 2;
+  static const _defaultVisibleCount = _crossAxisCount * _defaultRows;
+
+  bool _expanded = false;
+
+  bool get _hasMoreOptions => _options.length > _defaultVisibleCount;
+
+  int get _visibleCount =>
+      _expanded ? _options.length : _defaultVisibleCount.clamp(0, _options.length);
 
   @override
   Widget build(BuildContext context) {
-    final types = _visible;
-
-    final maxGridHeight = MediaQuery.sizeOf(context).height * 0.42;
+    final maxGridHeight = MediaQuery.sizeOf(context).height * 0.55;
 
     return SafeArea(
       child: Padding(
@@ -77,15 +77,18 @@ class _WicketPickerBodyState extends State<_WicketPickerBody> {
                     const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
                 child: GridView.builder(
                   shrinkWrap: true,
+                  physics: _expanded
+                      ? const ClampingScrollPhysics()
+                      : const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
+                    crossAxisCount: _crossAxisCount,
                     mainAxisSpacing: 8,
                     crossAxisSpacing: 8,
                     childAspectRatio: 0.78,
                   ),
-                  itemCount: types.length,
+                  itemCount: _visibleCount,
                   itemBuilder: (context, i) {
-                    final opt = types[i];
+                    final opt = _options[i];
                     return ScoringShortcutTile(
                       icon: opt.icon,
                       iconColor: AppColors.accentRed,
@@ -96,16 +99,17 @@ class _WicketPickerBodyState extends State<_WicketPickerBody> {
                 ),
               ),
             ),
-            TextButton(
-              onPressed: () => setState(() => _showAll = !_showAll),
-              child: Text(
-                _showAll ? 'Show less' : 'Show more',
-                style: const TextStyle(
-                  color: AppColors.gold,
-                  fontWeight: FontWeight.w600,
+            if (_hasMoreOptions)
+              TextButton(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                child: Text(
+                  _expanded ? 'Show less' : 'Show more',
+                  style: const TextStyle(
+                    color: AppColors.gold,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

@@ -68,6 +68,14 @@ class BallEventModel extends Equatable {
     this.dismissalType,
     this.fielderIds = const [],
     this.fielderNames = const [],
+    this.wicketKeeperId,
+    this.wicketKeeperName,
+    this.dismissalSubType,
+    this.currentWicketKeeperId,
+    this.currentWicketKeeperName,
+    this.undoGroupId,
+    this.retiredHurt = false,
+    this.isEligibleToReturn = false,
   });
 
   final String id;
@@ -140,6 +148,17 @@ class BallEventModel extends Equatable {
   final String? dismissalType;
   final List<String> fielderIds;
   final List<String> fielderNames;
+  final String? wicketKeeperId;
+  final String? wicketKeeperName;
+  /// Sub-type when [wicketType] is `caught` (e.g. `caught_behind`).
+  final String? dismissalSubType;
+  /// Active wicketkeeper at the time this event was recorded.
+  final String? currentWicketKeeperId;
+  final String? currentWicketKeeperName;
+  /// Groups wicket + post-wicket lineup events for single undo.
+  final String? undoGroupId;
+  final bool retiredHurt;
+  final bool isEligibleToReturn;
 
   /// Alias for [batsmanRuns] per ball-event spec.
   int get runsOffBat => batsmanRuns;
@@ -234,6 +253,14 @@ class BallEventModel extends Equatable {
       dismissalType: map['dismissalType'] as String?,
       fielderIds: _stringListFromMap(map['fielderIds']),
       fielderNames: _stringListFromMap(map['fielderNames']),
+      wicketKeeperId: map['wicketKeeperId'] as String?,
+      wicketKeeperName: map['wicketKeeperName'] as String?,
+      dismissalSubType: map['dismissalSubType'] as String?,
+      currentWicketKeeperId: map['currentWicketKeeperId'] as String?,
+      currentWicketKeeperName: map['currentWicketKeeperName'] as String?,
+      undoGroupId: map['undoGroupId'] as String?,
+      retiredHurt: map['retiredHurt'] as bool? ?? false,
+      isEligibleToReturn: map['isEligibleToReturn'] as bool? ?? false,
     );
   }
 
@@ -324,6 +351,20 @@ class BallEventModel extends Equatable {
           'dismissalType': dismissalType,
         if (fielderIds.isNotEmpty) 'fielderIds': fielderIds,
         if (fielderNames.isNotEmpty) 'fielderNames': fielderNames,
+        if (wicketKeeperId != null) 'wicketKeeperId': wicketKeeperId,
+        if (wicketKeeperName != null && wicketKeeperName!.isNotEmpty)
+          'wicketKeeperName': wicketKeeperName,
+        if (dismissalSubType != null && dismissalSubType!.isNotEmpty)
+          'dismissalSubType': dismissalSubType,
+        if (currentWicketKeeperId != null)
+          'currentWicketKeeperId': currentWicketKeeperId,
+        if (currentWicketKeeperName != null &&
+            currentWicketKeeperName!.isNotEmpty)
+          'currentWicketKeeperName': currentWicketKeeperName,
+        if (undoGroupId != null && undoGroupId!.isNotEmpty)
+          'undoGroupId': undoGroupId,
+        if (retiredHurt) 'retiredHurt': true,
+        if (isEligibleToReturn) 'isEligibleToReturn': true,
       };
 
   /// Flat fielder id/name lists for analytics (from [fielders] when empty).
@@ -354,10 +395,165 @@ class BallEventModel extends Equatable {
   static String dismissalTypeForEvent({
     required WicketType? wicketType,
     required bool isMankad,
+    String? dismissalSubType,
   }) {
     if (isMankad || wicketType == WicketType.mankad) return 'run_out';
     if (wicketType == null) return '';
+    if (wicketType == WicketType.caught ||
+        wicketType == WicketType.caughtBehind) {
+      return 'caught';
+    }
     return wicketType.name;
+  }
+
+  BallEventModel copyWith({
+    String? id,
+    String? matchId,
+    int? inningsNumber,
+    int? overNumber,
+    int? ballInOver,
+    BallEventType? eventType,
+    int? runs,
+    int? batsmanRuns,
+    int? extraRuns,
+    bool? isLegalDelivery,
+    bool? isFreeHit,
+    String? tournamentId,
+    String? battingTeamId,
+    String? bowlingTeamId,
+    int? byeRuns,
+    int? legByeRuns,
+    int? wideRuns,
+    int? noBallRuns,
+    int? penaltyRuns,
+    bool? countsAsBallFaced,
+    bool? countsInOver,
+    bool? countsToBowler,
+    bool? isWicket,
+    bool? bowlerGetsWicket,
+    bool? isBoundary,
+    String? boundaryType,
+    String? strikerId,
+    String? nonStrikerId,
+    String? strikerAfterBall,
+    String? nonStrikerAfterBall,
+    String? createdBy,
+    String? bowlerId,
+    String? bowlerName,
+    WicketType? wicketType,
+    String? dismissedPlayerId,
+    String? fielderId,
+    String? fielderName,
+    String? dismissalText,
+    List<DismissalFielder>? fielders,
+    String? commentary,
+    DateTime? timestamp,
+    int? sequence,
+    bool? isHighlight,
+    String? highlightTag,
+    NoBallRunsMode? noBallRunsMode,
+    int? noBallByeRuns,
+    int? noBallLegByeRuns,
+    WagonWheelData? wagonWheel,
+    String? lineupStrikerName,
+    String? lineupNonStrikerName,
+    String? dismissedPlayerName,
+    String? primaryFielderId,
+    String? primaryFielderName,
+    String? secondaryFielderId,
+    String? secondaryFielderName,
+    int? teamScoreAtWicket,
+    int? overAtWicket,
+    int? ballAtWicket,
+    bool? isMankad,
+    int? wicketNumber,
+    String? dismissalType,
+    List<String>? fielderIds,
+    List<String>? fielderNames,
+    String? wicketKeeperId,
+    String? wicketKeeperName,
+    String? dismissalSubType,
+    String? currentWicketKeeperId,
+    String? currentWicketKeeperName,
+    String? undoGroupId,
+    bool? retiredHurt,
+    bool? isEligibleToReturn,
+  }) {
+    return BallEventModel(
+      id: id ?? this.id,
+      matchId: matchId ?? this.matchId,
+      inningsNumber: inningsNumber ?? this.inningsNumber,
+      overNumber: overNumber ?? this.overNumber,
+      ballInOver: ballInOver ?? this.ballInOver,
+      eventType: eventType ?? this.eventType,
+      runs: runs ?? this.runs,
+      batsmanRuns: batsmanRuns ?? this.batsmanRuns,
+      extraRuns: extraRuns ?? this.extraRuns,
+      isLegalDelivery: isLegalDelivery ?? this.isLegalDelivery,
+      isFreeHit: isFreeHit ?? this.isFreeHit,
+      tournamentId: tournamentId ?? this.tournamentId,
+      battingTeamId: battingTeamId ?? this.battingTeamId,
+      bowlingTeamId: bowlingTeamId ?? this.bowlingTeamId,
+      byeRuns: byeRuns ?? this.byeRuns,
+      legByeRuns: legByeRuns ?? this.legByeRuns,
+      wideRuns: wideRuns ?? this.wideRuns,
+      noBallRuns: noBallRuns ?? this.noBallRuns,
+      penaltyRuns: penaltyRuns ?? this.penaltyRuns,
+      countsAsBallFaced: countsAsBallFaced ?? this.countsAsBallFaced,
+      countsInOver: countsInOver ?? this.countsInOver,
+      countsToBowler: countsToBowler ?? this.countsToBowler,
+      isWicket: isWicket ?? this.isWicket,
+      bowlerGetsWicket: bowlerGetsWicket ?? this.bowlerGetsWicket,
+      isBoundary: isBoundary ?? this.isBoundary,
+      boundaryType: boundaryType ?? this.boundaryType,
+      strikerId: strikerId ?? this.strikerId,
+      nonStrikerId: nonStrikerId ?? this.nonStrikerId,
+      strikerAfterBall: strikerAfterBall ?? this.strikerAfterBall,
+      nonStrikerAfterBall: nonStrikerAfterBall ?? this.nonStrikerAfterBall,
+      createdBy: createdBy ?? this.createdBy,
+      bowlerId: bowlerId ?? this.bowlerId,
+      bowlerName: bowlerName ?? this.bowlerName,
+      wicketType: wicketType ?? this.wicketType,
+      dismissedPlayerId: dismissedPlayerId ?? this.dismissedPlayerId,
+      fielderId: fielderId ?? this.fielderId,
+      fielderName: fielderName ?? this.fielderName,
+      dismissalText: dismissalText ?? this.dismissalText,
+      fielders: fielders ?? this.fielders,
+      commentary: commentary ?? this.commentary,
+      timestamp: timestamp ?? this.timestamp,
+      sequence: sequence ?? this.sequence,
+      isHighlight: isHighlight ?? this.isHighlight,
+      highlightTag: highlightTag ?? this.highlightTag,
+      noBallRunsMode: noBallRunsMode ?? this.noBallRunsMode,
+      noBallByeRuns: noBallByeRuns ?? this.noBallByeRuns,
+      noBallLegByeRuns: noBallLegByeRuns ?? this.noBallLegByeRuns,
+      wagonWheel: wagonWheel ?? this.wagonWheel,
+      lineupStrikerName: lineupStrikerName ?? this.lineupStrikerName,
+      lineupNonStrikerName: lineupNonStrikerName ?? this.lineupNonStrikerName,
+      dismissedPlayerName: dismissedPlayerName ?? this.dismissedPlayerName,
+      primaryFielderId: primaryFielderId ?? this.primaryFielderId,
+      primaryFielderName: primaryFielderName ?? this.primaryFielderName,
+      secondaryFielderId: secondaryFielderId ?? this.secondaryFielderId,
+      secondaryFielderName: secondaryFielderName ?? this.secondaryFielderName,
+      teamScoreAtWicket: teamScoreAtWicket ?? this.teamScoreAtWicket,
+      overAtWicket: overAtWicket ?? this.overAtWicket,
+      ballAtWicket: ballAtWicket ?? this.ballAtWicket,
+      isMankad: isMankad ?? this.isMankad,
+      wicketNumber: wicketNumber ?? this.wicketNumber,
+      dismissalType: dismissalType ?? this.dismissalType,
+      fielderIds: fielderIds ?? this.fielderIds,
+      fielderNames: fielderNames ?? this.fielderNames,
+      wicketKeeperId: wicketKeeperId ?? this.wicketKeeperId,
+      wicketKeeperName: wicketKeeperName ?? this.wicketKeeperName,
+      dismissalSubType: dismissalSubType ?? this.dismissalSubType,
+      currentWicketKeeperId:
+          currentWicketKeeperId ?? this.currentWicketKeeperId,
+      currentWicketKeeperName:
+          currentWicketKeeperName ?? this.currentWicketKeeperName,
+      undoGroupId: undoGroupId ?? this.undoGroupId,
+      retiredHurt: retiredHurt ?? this.retiredHurt,
+      isEligibleToReturn: isEligibleToReturn ?? this.isEligibleToReturn,
+    );
   }
 
   @override

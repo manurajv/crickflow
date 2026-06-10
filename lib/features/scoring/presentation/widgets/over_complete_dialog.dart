@@ -5,6 +5,7 @@ import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../utils/scoring_display_utils.dart';
+import 'over_timeline.dart';
 
 class OverCompleteDialog extends StatelessWidget {
   const OverCompleteDialog({
@@ -35,150 +36,215 @@ class OverCompleteDialog extends StatelessWidget {
     final finishedBowlerId =
         overEvents.isNotEmpty ? overEvents.last.bowlerId : innings.currentBowlerId;
     final bowler = ScoringDisplayUtils.bowler(innings, finishedBowlerId);
+    final bowlerOvers =
+        '${(bowler?.oversBowledBalls ?? 0) ~/ rules.ballsPerOver}';
 
-    return AlertDialog(
+    return Dialog(
       backgroundColor: AppColors.card,
-      contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      content: SingleChildScrollView(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Over complete',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.gold,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                border: Border(bottom: BorderSide(color: AppColors.border)),
+              ),
+              child: Text(
+                'Over $overNumber complete',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.gold,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'End of over $overNumber by $bowlerName',
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StatChip(
+                      label: 'Runs',
+                      value: '$runs',
+                      highlight: true,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _StatChip(label: 'Wkts', value: '$wickets'),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _StatChip(label: 'Overs', value: bowlerOvers),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _StatChip(label: 'Extras', value: '$extras'),
+                  ),
+                ],
               ),
             ),
+            if (overEvents.isNotEmpty) ...[
+              const SizedBox(height: AppDimens.spaceMd),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: OverTimeline(
+                  events: overEvents,
+                  title: 'End of over by $bowlerName',
+                  showExtrasLabel: false,
+                ),
+              ),
+            ],
             const SizedBox(height: AppDimens.spaceMd),
-            Table(
-              border: TableBorder.all(color: AppColors.border),
-              children: [
-                const TableRow(
-                  decoration: BoxDecoration(color: AppColors.surfaceElevated),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
                   children: [
-                    _Th('Runs'),
-                    _Th('Wkts'),
-                    _Th('Extras'),
-                    _Th('Score'),
+                    _PlayerRow(
+                      name: striker?.playerName ?? '—',
+                      stat: ScoringDisplayUtils.batsmanScoreLine(striker),
+                    ),
+                    const Divider(height: 1, color: AppColors.border),
+                    _PlayerRow(
+                      name: nonStriker?.playerName ?? '—',
+                      stat: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
+                    ),
                   ],
                 ),
-                TableRow(
-                  children: [
-                    _Td('$runs'),
-                    _Td('$wickets'),
-                    _Td('$extras'),
-                    _Td('${innings.totalRuns}/${innings.totalWickets}'),
-                  ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  onStartNextOver();
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.gold,
+                  foregroundColor: Colors.black,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: AppDimens.spaceMd),
-            _PlayerRow(
-              icon: Icons.sports_cricket,
-              iconColor: AppColors.gold,
-              name: striker?.playerName ?? '—',
-              stat: ScoringDisplayUtils.batsmanScoreLine(striker),
-            ),
-            _PlayerRow(
-              icon: Icons.sports_cricket,
-              iconColor: AppColors.textMuted,
-              name: nonStriker?.playerName ?? '—',
-              stat: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
-            ),
-            _PlayerRow(
-              icon: Icons.circle,
-              iconColor: AppColors.accentRed,
-              name: bowler?.playerName ?? bowlerName,
-              stat: ScoringDisplayUtils.bowlerFigures(bowler, rules.ballsPerOver),
+                child: const Text(
+                  'Select bowler for next over',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onStartNextOver();
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: Colors.black,
-                minimumSize: const Size(double.infinity, 48),
-              ),
-              child: const Text('Select bowler for next over'),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
 
-class _Th extends StatelessWidget {
-  const _Th(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-        ),
-      );
-}
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
 
-class _Td extends StatelessWidget {
-  const _Td(this.text);
-  final String text;
+  final String label;
+  final String value;
+  final bool highlight;
+
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      decoration: BoxDecoration(
+        color: highlight
+            ? AppColors.gold.withValues(alpha: 0.12)
+            : AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: highlight ? AppColors.gold.withValues(alpha: 0.5) : AppColors.border,
         ),
-      );
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: highlight ? AppColors.gold : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PlayerRow extends StatelessWidget {
   const _PlayerRow({
-    required this.icon,
-    required this.iconColor,
     required this.name,
     required this.stat,
   });
 
-  final IconData icon;
-  final Color iconColor;
   final String name;
   final String stat;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: iconColor),
-          const SizedBox(width: 8),
-          Expanded(child: Text(name, style: const TextStyle(fontSize: 14))),
-          Text(stat, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Text(
+              name,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            stat,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );

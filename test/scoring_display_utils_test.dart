@@ -1,4 +1,5 @@
 import 'package:crickflow/core/constants/enums.dart';
+import 'package:crickflow/data/models/ball_event_model.dart';
 import 'package:crickflow/data/models/innings_model.dart';
 import 'package:crickflow/data/models/match_model.dart';
 import 'package:crickflow/data/models/match_rules_model.dart';
@@ -84,6 +85,57 @@ void main() {
         ),
         isFalse,
       );
+    });
+  });
+
+  group('ballBubbleLabel', () {
+    test('run out with no runs shows W', () {
+      final event = BallEventModel(
+        id: 'e1',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 0,
+        ballInOver: 1,
+        eventType: BallEventType.wicket,
+        isWicket: true,
+        wicketType: WicketType.runOut,
+        runs: 0,
+        sequence: 1,
+      );
+      expect(ScoringDisplayUtils.ballBubbleLabel(event), 'W');
+    });
+
+    test('run out with completed runs shows W+runs', () {
+      final event = BallEventModel(
+        id: 'e1',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 0,
+        ballInOver: 1,
+        eventType: BallEventType.wicket,
+        isWicket: true,
+        wicketType: WicketType.runOut,
+        runs: 2,
+        batsmanRuns: 2,
+        sequence: 1,
+      );
+      expect(ScoringDisplayUtils.ballBubbleLabel(event), 'W+2');
+    });
+
+    test('non run out wicket shows W regardless of runs', () {
+      final event = BallEventModel(
+        id: 'e1',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 0,
+        ballInOver: 1,
+        eventType: BallEventType.wicket,
+        isWicket: true,
+        wicketType: WicketType.caught,
+        runs: 0,
+        sequence: 1,
+      );
+      expect(ScoringDisplayUtils.ballBubbleLabel(event), 'W');
     });
   });
 }

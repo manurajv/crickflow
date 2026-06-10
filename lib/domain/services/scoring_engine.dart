@@ -120,6 +120,14 @@ class ScoringEngine {
       dismissalType: event.dismissalType,
       fielderIds: event.fielderIds,
       fielderNames: event.fielderNames,
+      wicketKeeperId: event.wicketKeeperId,
+      wicketKeeperName: event.wicketKeeperName,
+      dismissalSubType: event.dismissalSubType,
+      currentWicketKeeperId: event.currentWicketKeeperId,
+      currentWicketKeeperName: event.currentWicketKeeperName,
+      undoGroupId: event.undoGroupId,
+      retiredHurt: event.retiredHurt,
+      isEligibleToReturn: event.isEligibleToReturn,
     );
   }
 
@@ -188,6 +196,10 @@ class ScoringEngine {
         isLegal = false;
         runs = 0;
         batsmanRuns = 0;
+      case BallEventType.wicketKeeperChange:
+        isLegal = false;
+        runs = 0;
+        batsmanRuns = 0;
     }
 
     final nbMode = input.type == BallEventType.noBall
@@ -197,6 +209,7 @@ class ScoringEngine {
     final nbLegByeRuns = nbMode == NoBallRunsMode.legBye ? input.runs : 0;
 
     final isLineupChange = input.type == BallEventType.lineupChange;
+    final isKeeperChange = input.type == BallEventType.wicketKeeperChange;
     final eventStrikerId = isLineupChange
         ? input.creaseStrikerId
         : innings.strikerId;
@@ -228,6 +241,7 @@ class ScoringEngine {
             secondaryFielderName: secondaryFielder?.playerName,
             isMankad: isMankad,
             fielders: input.fielders,
+            dismissalSubType: input.dismissalSubType,
           )
         : null;
     final fielderIds = BallEventModel.fielderIdsFromFielders(input.fielders);
@@ -244,15 +258,20 @@ class ScoringEngine {
       rules: rules,
     );
 
+    final isRetiredHurt = input.wicketType == WicketType.retiredHurt;
     final isWicket = input.type == BallEventType.wicket &&
+        !isRetiredHurt &&
+        DismissalFormatter.countsAsWicket(
+          storedWicketType,
+          isMankad: isMankad,
+        ) &&
         !(isFreeHit && storedWicketType != WicketType.runOut);
     final bowlerGetsWicket = isWicket &&
         DismissalFormatter.creditsBowlerWicket(
           storedWicketType,
           isMankad: isMankad,
         );
-    final wicketNumber =
-        isWicket ? innings.totalWickets + 1 : null;
+    final wicketNumber = isWicket ? innings.totalWickets + 1 : null;
 
     final isBoundary = input.type == BallEventType.runs &&
         (batsmanRuns == 4 || batsmanRuns == 6);
@@ -287,7 +306,7 @@ class ScoringEngine {
       noBallRuns: breakdown.noBallRuns,
       penaltyRuns: breakdown.penaltyRuns,
       countsAsBallFaced: countsAsBallFaced,
-      countsInOver: isLineupChange ? false : isLegal,
+      countsInOver: isLineupChange || isKeeperChange ? false : isLegal,
       countsToBowler: countsToBowler,
       isWicket: isWicket,
       bowlerGetsWicket: bowlerGetsWicket,
@@ -323,10 +342,23 @@ class ScoringEngine {
           ? BallEventModel.dismissalTypeForEvent(
               wicketType: storedWicketType,
               isMankad: isMankad,
+              dismissalSubType: input.dismissalSubType,
             )
+          : null,
+      dismissalSubType: input.type == BallEventType.wicket
+          ? input.dismissalSubType
           : null,
       fielderIds: fielderIds,
       fielderNames: fielderNamesList,
+      wicketKeeperId: input.wicketKeeperId,
+      wicketKeeperName: input.wicketKeeperName,
+      currentWicketKeeperId: input.currentWicketKeeperId ??
+          innings.currentWicketKeeperId,
+      currentWicketKeeperName: input.currentWicketKeeperName ??
+          innings.currentWicketKeeperName,
+      undoGroupId: input.undoGroupId,
+      retiredHurt: isRetiredHurt,
+      isEligibleToReturn: isRetiredHurt,
       commentary: input.commentary,
       sequence: sequence,
       noBallRunsMode: nbMode,
@@ -388,6 +420,9 @@ class ScoringEngine {
     if (event.eventType == BallEventType.lineupChange) {
       return _applyLineupChange(innings, event);
     }
+    if (event.eventType == BallEventType.wicketKeeperChange) {
+      return _applyWicketKeeperChange(innings, event);
+    }
 
     var totalRuns = innings.totalRuns + event.runs;
     var totalWickets = innings.totalWickets;
@@ -439,17 +474,23 @@ class ScoringEngine {
       }
     }
 
-    if (event.eventType == BallEventType.wicket) {
-      if (!(event.isFreeHit && event.wicketType != WicketType.runOut)) {
-        totalWickets++;
-        partnershipRuns = 0;
-        partnershipBalls = 0;
-        final dismissedId =
-            event.dismissedPlayerId ?? event.strikerId ?? strikerId;
-        if (dismissedId != null) {
-          if (dismissedId == strikerId) strikerId = null;
-          if (dismissedId == nonStrikerId) nonStrikerId = null;
-        }
+    if (event.eventType == BallEventType.wicket && event.retiredHurt) {
+      final retiredId =
+          event.dismissedPlayerId ?? event.strikerId ?? strikerId;
+      if (retiredId != null) {
+        batsmen = _markBatsmanRetiredHurt(batsmen, retiredId);
+        if (retiredId == strikerId) strikerId = null;
+        if (retiredId == nonStrikerId) nonStrikerId = null;
+      }
+    } else if (event.eventType == BallEventType.wicket && event.isWicket) {
+      totalWickets++;
+      partnershipRuns = 0;
+      partnershipBalls = 0;
+      final dismissedId =
+          event.dismissedPlayerId ?? event.strikerId ?? strikerId;
+      if (dismissedId != null) {
+        if (dismissedId == strikerId) strikerId = null;
+        if (dismissedId == nonStrikerId) nonStrikerId = null;
       }
     }
 
@@ -483,7 +524,8 @@ class ScoringEngine {
     }
 
     if (event.eventType == BallEventType.wicket &&
-        !(event.isFreeHit && event.wicketType != WicketType.runOut)) {
+        event.isWicket &&
+        !event.retiredHurt) {
       final dismissedId =
           event.dismissedPlayerId ?? event.strikerId ?? innings.strikerId;
       if (dismissedId != null) {
@@ -529,6 +571,8 @@ class ScoringEngine {
       strikerId: strikerId,
       nonStrikerId: nonStrikerId,
       currentBowlerId: event.bowlerId ?? innings.currentBowlerId,
+      currentWicketKeeperId: innings.currentWicketKeeperId,
+      currentWicketKeeperName: innings.currentWicketKeeperName,
       batsmen: batsmen,
       bowlers: bowlers,
       partnershipRuns: partnershipRuns,
@@ -591,8 +635,38 @@ class ScoringEngine {
       strikerId: event.strikerId,
       nonStrikerId: event.nonStrikerId,
       currentBowlerId: event.bowlerId ?? innings.currentBowlerId,
+      currentWicketKeeperId: innings.currentWicketKeeperId,
+      currentWicketKeeperName: innings.currentWicketKeeperName,
       batsmen: batsmen,
       bowlers: bowlers,
+      partnershipRuns: innings.partnershipRuns,
+      partnershipBalls: innings.partnershipBalls,
+      isFreeHitActive: innings.isFreeHitActive,
+      targetRuns: innings.targetRuns,
+      isSuperOver: innings.isSuperOver,
+    );
+  }
+
+  InningsModel _applyWicketKeeperChange(
+    InningsModel innings,
+    BallEventModel event,
+  ) {
+    return InningsModel(
+      inningsNumber: innings.inningsNumber,
+      battingTeamId: innings.battingTeamId,
+      bowlingTeamId: innings.bowlingTeamId,
+      status: innings.status,
+      totalRuns: innings.totalRuns,
+      totalWickets: innings.totalWickets,
+      legalBalls: innings.legalBalls,
+      extras: innings.extras,
+      strikerId: innings.strikerId,
+      nonStrikerId: innings.nonStrikerId,
+      currentBowlerId: innings.currentBowlerId,
+      currentWicketKeeperId: event.wicketKeeperId,
+      currentWicketKeeperName: event.wicketKeeperName,
+      batsmen: innings.batsmen,
+      bowlers: innings.bowlers,
       partnershipRuns: innings.partnershipRuns,
       partnershipBalls: innings.partnershipBalls,
       isFreeHitActive: innings.isFreeHitActive,
@@ -610,15 +684,11 @@ class ScoringEngine {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
       final b = list[idx];
-      list[idx] = BatsmanInningsModel(
-        playerId: b.playerId,
+      list[idx] = b.copyWith(
         playerName: playerName?.isNotEmpty == true ? playerName! : b.playerName,
-        runs: b.runs,
-        balls: b.balls,
-        fours: b.fours,
-        sixes: b.sixes,
-        isOut: b.isOut,
-        dismissalInfo: b.dismissalInfo,
+        retiredHurt: false,
+        isEligibleToReturn: false,
+        dismissalInfo: b.retiredHurt ? '' : b.dismissalInfo,
       );
       return list;
     }
@@ -707,8 +777,7 @@ class ScoringEngine {
       }
     }
 
-    if (event.eventType == BallEventType.wicket &&
-        !(event.isFreeHit && event.wicketType != WicketType.runOut)) {
+    if (event.eventType == BallEventType.wicket && event.isWicket) {
       totalWickets = (totalWickets - 1).clamp(0, 99);
     }
 
@@ -727,16 +796,11 @@ class ScoringEngine {
   ) {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
-      final b = list[idx];
-      list[idx] = BatsmanInningsModel(
-        playerId: b.playerId,
-        playerName: b.playerName,
-        runs: b.runs,
-        balls: b.balls,
-        fours: b.fours,
-        sixes: b.sixes,
+      list[idx] = list[idx].copyWith(
         isOut: true,
         dismissalInfo: dismissal,
+        retiredHurt: false,
+        isEligibleToReturn: false,
       );
     } else {
       list.add(
@@ -744,6 +808,31 @@ class ScoringEngine {
           playerId: playerId,
           isOut: true,
           dismissalInfo: dismissal,
+        ),
+      );
+    }
+    return list;
+  }
+
+  List<BatsmanInningsModel> _markBatsmanRetiredHurt(
+    List<BatsmanInningsModel> list,
+    String playerId,
+  ) {
+    final idx = list.indexWhere((b) => b.playerId == playerId);
+    if (idx >= 0) {
+      list[idx] = list[idx].copyWith(
+        isOut: false,
+        retiredHurt: true,
+        isEligibleToReturn: true,
+        dismissalInfo: 'retired hurt',
+      );
+    } else {
+      list.add(
+        BatsmanInningsModel(
+          playerId: playerId,
+          retiredHurt: true,
+          isEligibleToReturn: true,
+          dismissalInfo: 'retired hurt',
         ),
       );
     }
@@ -789,16 +878,7 @@ class ScoringEngine {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
       final b = list[idx];
-      list[idx] = BatsmanInningsModel(
-        playerId: b.playerId,
-        playerName: b.playerName,
-        runs: b.runs,
-        balls: b.balls + 1,
-        fours: b.fours,
-        sixes: b.sixes,
-        isOut: b.isOut,
-        dismissalInfo: b.dismissalInfo,
-      );
+      list[idx] = b.copyWith(balls: b.balls + 1);
     }
     return list;
   }
@@ -812,15 +892,11 @@ class ScoringEngine {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
       final b = list[idx];
-      list[idx] = BatsmanInningsModel(
-        playerId: b.playerId,
-        playerName: b.playerName,
+      list[idx] = b.copyWith(
         runs: b.runs + runs,
         balls: b.balls + (countBallFaced ? 1 : 0),
         fours: b.fours + (runs == 4 ? 1 : 0),
         sixes: b.sixes + (runs == 6 ? 1 : 0),
-        isOut: b.isOut,
-        dismissalInfo: b.dismissalInfo,
       );
     }
     return list;
@@ -1042,6 +1118,12 @@ class ScoringEngine {
       bowlerName: e.bowlerName,
       fielders: e.fielders,
       isMankad: e.isMankad,
+      wicketKeeperId: e.wicketKeeperId,
+      wicketKeeperName: e.wicketKeeperName,
+      dismissalSubType: e.dismissalSubType,
+      currentWicketKeeperId: e.currentWicketKeeperId,
+      currentWicketKeeperName: e.currentWicketKeeperName,
+      undoGroupId: e.undoGroupId,
       commentary: e.commentary,
       noBallRunsMode: e.noBallRunsMode,
       bowlerId: e.bowlerId,
@@ -1081,6 +1163,8 @@ class BallEventInput {
     this.bowlerName,
     this.fielders = const [],
     this.isMankad = false,
+    this.wicketKeeperId,
+    this.wicketKeeperName,
     this.commentary = '',
     this.noBallRunsMode,
     this.bowlerId,
@@ -1090,6 +1174,10 @@ class BallEventInput {
     this.creaseNonStrikerId,
     this.creaseStrikerName,
     this.creaseNonStrikerName,
+    this.dismissalSubType,
+    this.currentWicketKeeperId,
+    this.currentWicketKeeperName,
+    this.undoGroupId,
   });
 
   final BallEventType type;
@@ -1102,6 +1190,8 @@ class BallEventInput {
   final String? bowlerName;
   final List<DismissalFielder> fielders;
   final bool isMankad;
+  final String? wicketKeeperId;
+  final String? wicketKeeperName;
   final String commentary;
   final NoBallRunsMode? noBallRunsMode;
   /// When replaying stored balls, preserves the original bowler on the event.
@@ -1113,6 +1203,10 @@ class BallEventInput {
   final String? creaseNonStrikerId;
   final String? creaseStrikerName;
   final String? creaseNonStrikerName;
+  final String? dismissalSubType;
+  final String? currentWicketKeeperId;
+  final String? currentWicketKeeperName;
+  final String? undoGroupId;
 }
 
 class ScoringInput {
@@ -1169,6 +1263,8 @@ extension _InningsCopy on InningsModel {
       isFreeHitActive: isFreeHitActive,
       targetRuns: targetRuns,
       isSuperOver: isSuperOver,
+      currentWicketKeeperId: currentWicketKeeperId,
+      currentWicketKeeperName: currentWicketKeeperName,
     );
   }
 }

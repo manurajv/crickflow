@@ -34,7 +34,7 @@ class FantasyPointsService {
 
       if (isWicket) {
         add(e.bowlerId, wicketPoints.toDouble());
-        add(e.fielderId, catchPoints.toDouble());
+        add(e.primaryFielderId ?? e.fielderId, catchPoints.toDouble());
       }
     }
 

@@ -110,6 +110,9 @@ class _BattingRow extends StatelessWidget {
                 if (dismissal.isNotEmpty)
                   Text(
                     dismissal,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
                     style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.textSecondary,

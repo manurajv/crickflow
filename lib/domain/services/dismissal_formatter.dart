@@ -2,20 +2,83 @@ import '../../core/constants/enums.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/dismissal_fielder.dart';
 import '../../data/models/innings_model.dart';
+import 'dismissal_sub_type.dart';
 
 /// Professional dismissal text for scorecards and fall-of-wickets.
 class DismissalFormatter {
   DismissalFormatter._();
 
-  /// Picker types that require a fielder (caught variants + stumped keeper).
-  static bool needsFielderPicker(WicketType type) {
-    return switch (type) {
-      WicketType.caught ||
-      WicketType.caughtBehind ||
-      WicketType.stumped =>
-        true,
-      _ => false,
-    };
+  /// Wicketkeeper mark for scorecards and fielding displays.
+  static const String keeperMark = '†';
+
+  /// Prefixes keeper name with [keeperMark] when not already present.
+  static String formatKeeperDisplayName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.startsWith(keeperMark)) return trimmed;
+    return '$keeperMark$trimmed';
+  }
+
+  /// True when event is a keeper catch (new sub-type or legacy wicket type).
+  static bool isCaughtBehindEvent(BallEventModel event) {
+    return event.dismissalSubType == DismissalSubType.caughtBehind ||
+        event.wicketType == WicketType.caughtBehind;
+  }
+
+  /// When scorer picks "Caught", resolve wicket type and optional sub-type.
+  /// Priority: bowler → caught & bowled; wicketkeeper → caught + caught_behind.
+  static ({WicketType wicketType, String? dismissalSubType}) resolveCaughtDismissal({
+    required String fielderId,
+    String? bowlerId,
+    String? wicketKeeperId,
+  }) {
+    if (bowlerId != null &&
+        bowlerId.isNotEmpty &&
+        fielderId == bowlerId) {
+      return (wicketType: WicketType.caughtAndBowled, dismissalSubType: null);
+    }
+    if (wicketKeeperId != null &&
+        wicketKeeperId.isNotEmpty &&
+        fielderId == wicketKeeperId) {
+      return (
+        wicketType: WicketType.caught,
+        dismissalSubType: DismissalSubType.caughtBehind,
+      );
+    }
+    return (wicketType: WicketType.caught, dismissalSubType: null);
+  }
+
+  @Deprecated('Use resolveCaughtDismissal')
+  static WicketType resolveCaughtWicketType({
+    required String fielderId,
+    String? bowlerId,
+    String? wicketKeeperId,
+  }) =>
+      resolveCaughtDismissal(
+        fielderId: fielderId,
+        bowlerId: bowlerId,
+        wicketKeeperId: wicketKeeperId,
+      ).wicketType;
+
+  /// Standard catch — scorer must pick the fielder.
+  static bool needsFielderPicker(WicketType type) => type == WicketType.caught;
+
+  /// Stumped auto-assigns the active wicketkeeper.
+  static bool usesWicketKeeper(WicketType type) => type == WicketType.stumped;
+
+  /// Counts toward wickets fallen, FOW, and bowling figures wicket column.
+  static bool countsAsWicket(WicketType? type, {bool isMankad = false}) {
+    if (type == null) return false;
+    if (type == WicketType.retiredHurt) return false;
+    return creditsBowlerWicket(type, isMankad: isMankad) ||
+        type == WicketType.runOut ||
+        type == WicketType.mankad ||
+        type == WicketType.retiredOut ||
+        type == WicketType.obstructingField ||
+        type == WicketType.timedOut ||
+        type == WicketType.handledBall ||
+        type == WicketType.hitBallTwice ||
+        type == WicketType.other;
   }
 
   static bool needsDismissedBatterPicker(WicketType type) =>
@@ -97,6 +160,7 @@ class DismissalFormatter {
       secondaryFielderName: _secondaryFielderName(event),
       isMankad: event.isMankad,
       fielders: event.fielders,
+      dismissalSubType: event.dismissalSubType,
     );
   }
 
@@ -107,6 +171,7 @@ class DismissalFormatter {
     String? secondaryFielderName,
     bool isMankad = false,
     List<DismissalFielder> fielders = const [],
+    String? dismissalSubType,
   }) {
     if (type == null) return 'out';
 
@@ -118,10 +183,19 @@ class DismissalFormatter {
       return formatRunOutDisplay(primaryFielderName: bowler);
     }
 
+    if (type == WicketType.caught &&
+        dismissalSubType == DismissalSubType.caughtBehind) {
+      return _formatCaughtBehind(keeper: fielder, bowler: bowler);
+    }
+    if (type == WicketType.caughtBehind) {
+      return _formatCaughtBehind(keeper: fielder, bowler: bowler);
+    }
+
     return switch (type) {
       WicketType.bowled => bowler.isEmpty ? 'bowled' : 'b $bowler',
-      WicketType.caught || WicketType.caughtBehind =>
-        _formatCaught(fielder: fielder, bowler: bowler),
+      WicketType.caught => _formatCaught(fielder: fielder, bowler: bowler),
+      WicketType.caughtBehind =>
+        _formatCaughtBehind(keeper: fielder, bowler: bowler),
       WicketType.caughtAndBowled =>
         bowler.isEmpty ? 'c & b' : 'c & b $bowler',
       WicketType.lbw => bowler.isEmpty ? 'lbw' : 'lbw b $bowler',
@@ -164,7 +238,46 @@ class DismissalFormatter {
     if (event.fielders.isNotEmpty) {
       return event.fielders.first.playerName.trim();
     }
+    if (event.fielderNames.isNotEmpty) {
+      return event.fielderNames.first.trim();
+    }
+    if (event.wicketType == WicketType.caughtBehind ||
+        isCaughtBehindEvent(event)) {
+      return event.wicketKeeperName?.trim() ?? '';
+    }
     return '';
+  }
+
+  /// Resolves fielder display name from stored ids when legacy events lack names.
+  static String _resolvedPrimaryFielderName(
+    BallEventModel event, {
+    Map<String, String>? playerNames,
+  }) {
+    final direct = _primaryFielderName(event);
+    if (direct.isNotEmpty || playerNames == null) return direct;
+
+    final id = event.primaryFielderId ??
+        event.fielderId ??
+        ((isCaughtBehindEvent(event) || event.wicketType == WicketType.stumped)
+            ? event.wicketKeeperId
+            : null);
+    if (id != null && id.isNotEmpty) {
+      return playerNames[id]?.trim() ?? '';
+    }
+    return '';
+  }
+
+  static String _resolvedBowlerName(
+    BallEventModel event, {
+    Map<String, String>? playerNames,
+  }) {
+    var bowler = _name(event.bowlerName, event.bowlerId);
+    if (bowler.isEmpty &&
+        event.bowlerId != null &&
+        playerNames != null) {
+      bowler = playerNames[event.bowlerId!]?.trim() ?? '';
+    }
+    return bowler;
   }
 
   static String _secondaryFielderName(BallEventModel event) {
@@ -182,7 +295,7 @@ class DismissalFormatter {
     return 'st b $bowler';
   }
 
-  /// Standard scorecard: `c Fielder b Bowler` (never `c & b` — that is caught & bowled).
+  /// Standard scorecard: `c Fielder b Bowler`.
   static String _formatCaught({
     required String fielder,
     required String bowler,
@@ -195,6 +308,20 @@ class DismissalFormatter {
     return 'caught';
   }
 
+  /// Caught behind: `c †Keeper b Bowler`.
+  static String _formatCaughtBehind({
+    required String keeper,
+    required String bowler,
+  }) {
+    final keeperDisplay = formatKeeperDisplayName(keeper);
+    if (keeperDisplay.isNotEmpty && bowler.isNotEmpty) {
+      return 'c $keeperDisplay b $bowler';
+    }
+    if (keeperDisplay.isNotEmpty) return 'c $keeperDisplay';
+    if (bowler.isNotEmpty) return 'b $bowler';
+    return 'caught behind';
+  }
+
   /// `run out Rahul Sharma` or `run out Rahul Sharma / Virat Singh`.
   static String formatRunOutDisplay({
     String? primaryFielderName,
@@ -205,14 +332,14 @@ class DismissalFormatter {
     final primary = _shortName(primaryFielderName ?? '');
     final secondary = _shortName(secondaryFielderName ?? '');
 
-    if (primary.isNotEmpty) {
+    if (primary.isNotEmpty && !_isInvalidRunOutFielderName(primary)) {
       names.add(primary);
     } else if (fielders.isNotEmpty) {
       final n = fielders.first.playerName.trim();
       if (n.isNotEmpty) names.add(n);
     }
 
-    if (secondary.isNotEmpty) {
+    if (secondary.isNotEmpty && !_isInvalidRunOutFielderName(secondary)) {
       names.add(secondary);
     } else if (fielders.length >= 2) {
       final n = fielders[1].playerName.trim();
@@ -256,12 +383,14 @@ class DismissalFormatter {
     }
     if (lower.startsWith('run out ')) {
       final rest = trimmed.substring(8).trim();
+      if (rest.toLowerCase() == 'run out' || rest.isEmpty) return 'run out';
       if (rest.contains(' / ')) return trimmed;
       if (rest.contains('/')) {
         final fielderOnly = rest.split('/').first.trim();
         return formatRunOutDisplay(primaryFielderName: fielderOnly);
       }
-      if (rest.toLowerCase().startsWith('b ')) {
+      if (rest.toLowerCase().startsWith('b ') ||
+          _isInvalidRunOutFielderName(rest)) {
         return 'run out';
       }
       return formatRunOutDisplay(primaryFielderName: rest);
@@ -307,6 +436,13 @@ class DismissalFormatter {
           playerNames != null) {
         primary = playerNames[event.fielderId!]?.trim() ?? '';
       }
+      final bowlerName = _name(event.bowlerName, event.bowlerId);
+      if (!event.isMankad &&
+          primary.isNotEmpty &&
+          bowlerName.isNotEmpty &&
+          primary == bowlerName) {
+        primary = '';
+      }
       if (secondary.isEmpty &&
           event.secondaryFielderId != null &&
           playerNames != null) {
@@ -331,22 +467,94 @@ class DismissalFormatter {
     }
 
     if (event.wicketType == WicketType.stumped) {
-      return normalizeScorecardDismissal(buildDismissalText(event));
+      return normalizeScorecardDismissal(
+        format(
+          type: event.wicketType,
+          bowlerName: _resolvedBowlerName(event, playerNames: playerNames),
+          fielderName: _resolvedPrimaryFielderName(
+            event,
+            playerNames: playerNames,
+          ),
+          fielders: event.fielders,
+        ),
+      );
     }
 
-    final built = normalizeScorecardDismissal(buildDismissalText(event));
-    final stored = normalizeScorecardDismissal(
-      event.dismissalText?.trim() ?? '',
-    );
+    if (event.wicketType == WicketType.caughtAndBowled) {
+      return normalizeScorecardDismissal(
+        format(
+          type: event.wicketType,
+          bowlerName: _resolvedBowlerName(event, playerNames: playerNames),
+        ),
+      );
+    }
 
     if (event.wicketType == WicketType.caught ||
-        event.wicketType == WicketType.caughtBehind) {
-      if (built.contains(' b ')) return built;
-      if (stored.contains(' b ') && !_storedDismissalConflicts(event, stored)) {
+        event.wicketType == WicketType.caughtBehind ||
+        isCaughtBehindEvent(event)) {
+      final built = normalizeScorecardDismissal(
+        format(
+          type: event.wicketType == WicketType.caughtBehind
+              ? WicketType.caughtBehind
+              : WicketType.caught,
+          bowlerName: _resolvedBowlerName(event, playerNames: playerNames),
+          fielderName: _resolvedPrimaryFielderName(
+            event,
+            playerNames: playerNames,
+          ),
+          fielders: event.fielders,
+          dismissalSubType: event.dismissalSubType,
+        ),
+      );
+      final stored = normalizeScorecardDismissal(
+        event.dismissalText?.trim() ?? '',
+      );
+      if (built.startsWith('c ') && built.contains(' b ')) {
+        if (isCaughtBehindEvent(event) &&
+            built.contains(keeperMark)) {
+          return built;
+        }
+        if (stored.startsWith('c ') &&
+            stored.contains(' b ') &&
+            stored.contains(keeperMark) &&
+            !_storedDismissalConflicts(event, stored)) {
+          return stored;
+        }
+        if (built.contains(' b ')) return built;
+      }
+      if (stored.startsWith('c ') &&
+          stored.contains(' b ') &&
+          !_storedDismissalConflicts(event, stored)) {
+        if (isCaughtBehindEvent(event) &&
+            !stored.contains(keeperMark)) {
+          return built;
+        }
+        if (event.wicketType == WicketType.caughtBehind &&
+            !stored.contains(keeperMark)) {
+          return built;
+        }
         return stored;
       }
       return built;
     }
+
+    final built = normalizeScorecardDismissal(
+      format(
+        type: event.wicketType,
+        bowlerName: _resolvedBowlerName(event, playerNames: playerNames),
+        fielderName: _resolvedPrimaryFielderName(
+          event,
+          playerNames: playerNames,
+        ),
+        secondaryFielderName: _secondaryFielderName(event),
+        isMankad: event.isMankad,
+        fielders: event.fielders,
+      ),
+    );
+    final stored = normalizeScorecardDismissal(
+      event.dismissalText?.trim() ?? '',
+    );
+
     if (!isGenericLabel(built) && built.isNotEmpty) return built;
     if (stored.isNotEmpty &&
         !isGenericLabel(stored) &&
@@ -380,7 +588,18 @@ class DismissalFormatter {
     if (rest.contains('/')) {
       return (primary: rest.split('/').first.trim(), secondary: '');
     }
+    if (_isInvalidRunOutFielderName(rest)) {
+      return (primary: '', secondary: '');
+    }
     return (primary: rest, secondary: '');
+  }
+
+  static bool _isInvalidRunOutFielderName(String name) {
+    final t = name.trim().toLowerCase();
+    if (t.isEmpty) return true;
+    if (t == 'run out' || t == 'runout') return true;
+    if (t.startsWith('b ')) return true;
+    return false;
   }
 
   /// Converts stored stumped lines to `st b Bowler` (drops keeper name).
@@ -404,7 +623,7 @@ class DismissalFormatter {
   static bool _storedDismissalConflicts(BallEventModel event, String stored) {
     final t = stored.toLowerCase();
     if (event.wicketType == WicketType.caught ||
-        event.wicketType == WicketType.caughtBehind) {
+        isCaughtBehindEvent(event)) {
       return t.contains('c & b') || t.startsWith('caught b ');
     }
     return false;

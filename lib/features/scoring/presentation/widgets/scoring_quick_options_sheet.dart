@@ -7,6 +7,7 @@ class ScoringQuickOptionsSheet extends StatelessWidget {
   const ScoringQuickOptionsSheet({
     super.key,
     required this.onEditLineup,
+    required this.onChangeWicketkeeper,
     required this.onEndInnings,
     required this.onScorecard,
     required this.onMatchRules,
@@ -14,6 +15,7 @@ class ScoringQuickOptionsSheet extends StatelessWidget {
   });
 
   final VoidCallback onEditLineup;
+  final VoidCallback onChangeWicketkeeper;
   final VoidCallback onEndInnings;
   final VoidCallback onScorecard;
   final VoidCallback onMatchRules;
@@ -28,6 +30,7 @@ class ScoringQuickOptionsSheet extends StatelessWidget {
       _Shortcut(Icons.rule, 'Match rules', onMatchRules),
       _Shortcut(Icons.swap_horiz, 'Change scorer', () {}),
       _Shortcut(Icons.group_outlined, 'Change squad', onEditLineup),
+      _Shortcut(Icons.sports_handball_outlined, 'Change wicketkeeper', onChangeWicketkeeper),
       _Shortcut(Icons.table_chart_outlined, 'Full scorecard', onScorecard),
       _Shortcut(Icons.edit_outlined, 'Match overs', () {}),
       _Shortcut(Icons.sync, 'Replace batters', onEditLineup),

@@ -92,6 +92,56 @@ class ScoringDisplayUtils {
     return false;
   }
 
+  /// Bowling-side wicketkeeper from match setup (fallback when no events).
+  static ({String? id, String? name}) bowlingWicketKeeper(
+    MatchModel match,
+    InningsModel inn,
+  ) {
+    final setup = match.setup;
+    if (setup == null) return (id: null, name: null);
+
+    final bowlingIsTeamA = inn.bowlingTeamId == match.teamAId;
+    final keeperId = bowlingIsTeamA
+        ? setup.teamAWicketKeeperId
+        : setup.teamBWicketKeeperId;
+    if (keeperId == null || keeperId.isEmpty) {
+      return (id: null, name: null);
+    }
+    final names = bowlingIsTeamA
+        ? setup.teamASquadNames
+        : setup.teamBSquadNames;
+    return (id: keeperId, name: names[keeperId] ?? '');
+  }
+
+  /// Active wicketkeeper for this innings (replay state + change events).
+  static ({String? id, String? name}) activeWicketKeeper({
+    required MatchModel match,
+    required InningsModel inn,
+    required List<BallEventModel> events,
+  }) {
+    if (inn.currentWicketKeeperId != null &&
+        inn.currentWicketKeeperId!.isNotEmpty) {
+      return (
+        id: inn.currentWicketKeeperId,
+        name: inn.currentWicketKeeperName ?? '',
+      );
+    }
+
+    var keeper = bowlingWicketKeeper(match, inn);
+    final inningsEvents = events
+        .where((e) => e.inningsNumber == inn.inningsNumber)
+        .toList()
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+    for (final e in inningsEvents) {
+      if (e.eventType == BallEventType.wicketKeeperChange &&
+          e.wicketKeeperId != null &&
+          e.wicketKeeperId!.isNotEmpty) {
+        keeper = (id: e.wicketKeeperId, name: e.wicketKeeperName ?? '');
+      }
+    }
+    return keeper;
+  }
+
   /// Batting squad members who may still bat this innings.
   static List<T> eligibleBatters<T>(
     InningsModel inn,
@@ -253,7 +303,9 @@ class ScoringDisplayUtils {
 
   /// Balls shown in the live over strip (excludes lineup changes, etc.).
   static bool countsTowardOverDisplay(BallEventModel e) =>
-      e.eventType != BallEventType.lineupChange && e.countsInOver;
+      e.eventType != BallEventType.lineupChange &&
+      e.eventType != BallEventType.wicketKeeperChange &&
+      e.countsInOver;
 
   /// Events in the active (incomplete) over.
   static List<BallEventModel> currentOverEvents({
@@ -296,7 +348,9 @@ class ScoringDisplayUtils {
 
   static String ballBubbleLabel(BallEventModel e) {
     if (e.eventType == BallEventType.lineupChange) return '';
-    if (e.isWicket || e.eventType == BallEventType.wicket) return 'W';
+    if (e.isWicket || e.eventType == BallEventType.wicket) {
+      return wicketBubbleLabel(e);
+    }
     if (e.eventType == BallEventType.wide) {
       return e.runs > 1 ? 'Wd+${e.runs - e.extraRuns}' : 'Wd';
     }
@@ -311,6 +365,14 @@ class ScoringDisplayUtils {
     if (e.eventType == BallEventType.legBye) return e.runs > 0 ? 'Lb${e.runs}' : 'Lb';
     if (e.runs == 0) return '0';
     return '${e.runs}';
+  }
+
+  /// Over-strip wicket symbol; run out with completed runs shows `W+1`, etc.
+  static String wicketBubbleLabel(BallEventModel e) {
+    if (e.wicketType == WicketType.runOut && e.runs > 0) {
+      return 'W+${e.runs}';
+    }
+    return 'W';
   }
 
   static int overRuns(List<BallEventModel> overEvents) =>

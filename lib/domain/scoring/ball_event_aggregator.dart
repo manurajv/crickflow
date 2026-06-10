@@ -201,31 +201,51 @@ class BallEventAggregator {
     for (final e in events) {
       if (!_countsAsWicket(e)) continue;
       final type = e.wicketType;
-      final fielderId = e.primaryFielderId ?? e.fielderId;
-      if (type == null || fielderId == null || fielderId.isEmpty) continue;
+      var fielderId = e.primaryFielderId ?? e.fielderId;
+      if (type == null || fielderId == null || fielderId.isEmpty) {
+        if (type == WicketType.stumped &&
+            e.wicketKeeperId != null &&
+            e.wicketKeeperId!.isNotEmpty) {
+          fielderId = e.wicketKeeperId;
+        } else {
+          continue;
+        }
+      }
 
       var catches = 0;
       var runOuts = 0;
       var stumpings = 0;
-      switch (type) {
-        case WicketType.caught:
-        case WicketType.caughtBehind:
-        case WicketType.caughtAndBowled:
-          catches = 1;
-        case WicketType.runOut:
-          runOuts = 1;
-        case WicketType.stumped:
-          stumpings = 1;
-        default:
-          continue;
+      if (DismissalFormatter.isCaughtBehindEvent(e) ||
+          type == WicketType.caughtBehind) {
+        catches = 1;
+        fielderId = e.wicketKeeperId ?? fielderId;
+      } else {
+        switch (type) {
+          case WicketType.caught:
+          case WicketType.caughtAndBowled:
+            catches = 1;
+          case WicketType.runOut:
+            runOuts = 1;
+          case WicketType.stumped:
+            stumpings = 1;
+            fielderId = e.wicketKeeperId ?? fielderId;
+          default:
+            continue;
+        }
       }
 
-      final existing = map[fielderId];
-      map[fielderId] = FielderInningsModel(
-        playerId: fielderId,
+      if (fielderId == null || fielderId.isEmpty) continue;
+      final creditId = fielderId;
+
+      final existing = map[creditId];
+      map[creditId] = FielderInningsModel(
+        playerId: creditId,
         playerName: existing?.playerName.isNotEmpty == true
             ? existing!.playerName
-            : (e.primaryFielderName ?? e.fielderName ?? ''),
+            : (e.wicketKeeperName ??
+                e.primaryFielderName ??
+                e.fielderName ??
+                ''),
         catches: (existing?.catches ?? 0) + catches,
         runOuts: (existing?.runOuts ?? 0) + runOuts,
         stumpings: (existing?.stumpings ?? 0) + stumpings,
@@ -235,6 +255,7 @@ class BallEventAggregator {
   }
 
   static bool _countsAsWicket(BallEventModel e) {
+    if (e.retiredHurt) return false;
     if (e.isWicket) return true;
     if (e.eventType != BallEventType.wicket) return false;
     return !(e.isFreeHit && e.wicketType != WicketType.runOut);
@@ -356,7 +377,9 @@ class BallEventAggregator {
   ) {
     final byOver = <int, List<BallEventModel>>{};
     for (final e in events) {
-      if (e.eventType == BallEventType.lineupChange || !e.countsInOver) {
+      if (e.eventType == BallEventType.lineupChange ||
+          e.eventType == BallEventType.wicketKeeperChange ||
+          !e.countsInOver) {
         continue;
       }
       byOver.putIfAbsent(e.overNumber, () => []).add(e);
@@ -371,7 +394,12 @@ class BallEventAggregator {
   }
 
   static String _symbolForEvent(BallEventModel e) {
-    if (e.isWicket) return 'W';
+    if (e.isWicket) {
+      if (e.wicketType == WicketType.runOut && e.runs > 0) {
+        return 'W+${e.runs}';
+      }
+      return 'W';
+    }
     return switch (e.eventType) {
       BallEventType.wide => 'Wd',
       BallEventType.noBall => 'Nb',
@@ -381,6 +409,7 @@ class BallEventAggregator {
       BallEventType.runs => e.batsmanRuns == 0 ? '·' : '${e.batsmanRuns}',
       BallEventType.wicket => 'W',
       BallEventType.lineupChange => '',
+      BallEventType.wicketKeeperChange => '',
     };
   }
 

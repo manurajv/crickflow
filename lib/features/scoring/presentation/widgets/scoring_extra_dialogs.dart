@@ -55,13 +55,6 @@ class ScoringExtraDialogs {
       context,
       title: 'Bye runs',
       onSelect: (runs) => BallEventInput(type: BallEventType.bye, runs: runs),
-      footer: _SetKeeperFooter(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Set keeper — coming soon')),
-          );
-        },
-      ),
     );
   }
 
@@ -650,54 +643,6 @@ class _NoBallRunTypeChip extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SetKeeperFooter extends StatelessWidget {
-  const _SetKeeperFooter({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(
-                color: Colors.black87,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: const Text(
-                'WK',
-                style: TextStyle(
-                  color: AppColors.gold,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Set keeper',
-              style: TextStyle(
-                color: AppColors.gold,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
-            ),
-          ],
         ),
       ),
     );

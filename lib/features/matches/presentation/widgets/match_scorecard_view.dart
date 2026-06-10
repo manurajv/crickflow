@@ -615,8 +615,9 @@ class _BattingRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     dismissal,
-                    maxLines: 2,
-                    softWrap: true,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
                     style: styles.dismissal,
                   ),
                 ],
