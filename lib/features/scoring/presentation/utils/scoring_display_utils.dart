@@ -251,6 +251,10 @@ class ScoringDisplayUtils {
     return '$overs.$rem-0-${b.runsConceded}-${b.wickets}';
   }
 
+  /// Balls shown in the live over strip (excludes lineup changes, etc.).
+  static bool countsTowardOverDisplay(BallEventModel e) =>
+      e.eventType != BallEventType.lineupChange && e.countsInOver;
+
   /// Events in the active (incomplete) over.
   static List<BallEventModel> currentOverEvents({
     required List<BallEventModel> events,
@@ -261,7 +265,9 @@ class ScoringDisplayUtils {
     return events
         .where(
           (e) =>
-              e.inningsNumber == inn.inningsNumber && e.overNumber == overIndex,
+              e.inningsNumber == inn.inningsNumber &&
+              e.overNumber == overIndex &&
+              countsTowardOverDisplay(e),
         )
         .toList()
       ..sort((a, b) => a.sequence.compareTo(b.sequence));
@@ -280,14 +286,17 @@ class ScoringDisplayUtils {
     return events
         .where(
           (e) =>
-              e.inningsNumber == inn.inningsNumber && e.overNumber == overIndex,
+              e.inningsNumber == inn.inningsNumber &&
+              e.overNumber == overIndex &&
+              countsTowardOverDisplay(e),
         )
         .toList()
       ..sort((a, b) => a.sequence.compareTo(b.sequence));
   }
 
   static String ballBubbleLabel(BallEventModel e) {
-    if (e.eventType == BallEventType.wicket) return 'W';
+    if (e.eventType == BallEventType.lineupChange) return '';
+    if (e.isWicket || e.eventType == BallEventType.wicket) return 'W';
     if (e.eventType == BallEventType.wide) {
       return e.runs > 1 ? 'Wd+${e.runs - e.extraRuns}' : 'Wd';
     }

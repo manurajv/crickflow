@@ -36,6 +36,7 @@ class _WicketPickerBodyState extends State<_WicketPickerBody> {
     _WicketOption(WicketType.caughtBehind, Icons.person_outline, 'Caught behind'),
     _WicketOption(WicketType.caughtAndBowled, Icons.sports, 'Caught & bowled'),
     _WicketOption(WicketType.runOut, Icons.directions_run, 'Run out'),
+    _WicketOption(WicketType.mankad, Icons.directions_walk, 'Mankad'),
     _WicketOption(WicketType.lbw, Icons.accessibility_new, 'LBW'),
     _WicketOption(WicketType.stumped, Icons.pan_tool_alt, 'Stumped'),
     _WicketOption(WicketType.retiredHurt, Icons.healing, 'Retired hurt'),

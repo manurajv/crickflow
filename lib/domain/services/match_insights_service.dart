@@ -1,7 +1,9 @@
 import '../../core/constants/enums.dart';
 import '../../core/utils/cricket_math.dart';
 import '../../data/models/ball_event_model.dart';
+import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
+import '../scoring/ball_event_aggregator.dart';
 import 'badge_service.dart';
 import 'fantasy_points_service.dart';
 
@@ -59,10 +61,13 @@ class MatchInsightsService {
     List<BallEventModel> ballEvents = const [],
   }) {
     final hero = match.matchHero ?? _badges.pickMatchHero(match);
-    final batters = _aggregateBatters(match);
-    final bowlers = _aggregateBowlers(match);
-    final milestones = _milestonesFromMatch(match);
-    final mvp = _mvpFromEvents(match, ballEvents);
+    final derived = _derivedInnings(match, ballEvents);
+    final batters = _aggregateBatters(match, derived);
+    final bowlers = _aggregateBowlers(match, derived);
+    final milestones = derived.isNotEmpty
+        ? _milestonesFromDerived(derived)
+        : _milestonesFromInnings(match);
+    final mvp = _mvpFromEvents(match, ballEvents, derived);
 
     return MatchInsightsSnapshot(
       hero: hero,
@@ -89,10 +94,32 @@ class MatchInsightsService {
     return '${match.teamAName} vs ${match.teamBName} · RR ${rr.toStringAsFixed(2)}';
   }
 
-  List<PerformerInsight> _aggregateBatters(MatchModel match) {
+  List<InningsDerivedProjection> _derivedInnings(
+    MatchModel match,
+    List<BallEventModel> ballEvents,
+  ) {
+    if (ballEvents.isEmpty) return const [];
+    final aggregator = BallEventAggregator();
+    return match.innings
+        .map(
+          (inn) => aggregator.projectInnings(
+            match: match,
+            lineupInnings: inn,
+            allEvents: ballEvents,
+          ),
+        )
+        .toList();
+  }
+
+  List<PerformerInsight> _aggregateBatters(
+    MatchModel match,
+    List<InningsDerivedProjection> derived,
+  ) {
     final map = <String, ({String name, int runs, int balls, int fours, int sixes, String team})>{};
 
-    for (final inn in match.innings) {
+    final inningsList =
+        derived.isNotEmpty ? derived.map((d) => d.innings) : match.innings;
+    for (final inn in inningsList) {
       final team = _teamName(match, inn.battingTeamId);
       for (final b in inn.batsmen) {
         if (b.playerId.isEmpty) continue;
@@ -125,10 +152,15 @@ class MatchInsightsService {
     return list;
   }
 
-  List<PerformerInsight> _aggregateBowlers(MatchModel match) {
+  List<PerformerInsight> _aggregateBowlers(
+    MatchModel match,
+    List<InningsDerivedProjection> derived,
+  ) {
     final map = <String, ({String name, int wkts, int runs, int balls, String team})>{};
 
-    for (final inn in match.innings) {
+    final inningsList =
+        derived.isNotEmpty ? derived.map((d) => d.innings) : match.innings;
+    for (final inn in inningsList) {
       final team = _teamName(match, inn.bowlingTeamId);
       for (final b in inn.bowlers) {
         if (b.playerId.isEmpty) continue;
@@ -162,21 +194,35 @@ class MatchInsightsService {
     return list;
   }
 
-  List<String> _milestonesFromMatch(MatchModel match) {
+  List<String> _milestonesFromInnings(MatchModel match) {
     final lines = <String>[];
     for (final inn in match.innings) {
-      for (final b in inn.batsmen) {
-        if (b.runs >= 50) {
-          lines.add('${b.playerName} — ${b.runs} runs');
-        }
-        if (b.sixes >= 3) {
-          lines.add('${b.playerName} — ${b.sixes} sixes');
-        }
+      lines.addAll(_milestoneLinesForInnings(inn));
+    }
+    return lines;
+  }
+
+  List<String> _milestonesFromDerived(List<InningsDerivedProjection> derived) {
+    final lines = <String>[];
+    for (final proj in derived) {
+      lines.addAll(_milestoneLinesForInnings(proj.innings));
+    }
+    return lines;
+  }
+
+  List<String> _milestoneLinesForInnings(InningsModel inn) {
+    final lines = <String>[];
+    for (final b in inn.batsmen) {
+      if (b.runs >= 50) {
+        lines.add('${b.playerName} — ${b.runs} runs');
       }
-      for (final bw in inn.bowlers) {
-        if (bw.wickets >= 3) {
-          lines.add('${bw.playerName} — ${bw.wickets} wickets');
-        }
+      if (b.sixes >= 3) {
+        lines.add('${b.playerName} — ${b.sixes} sixes');
+      }
+    }
+    for (final bw in inn.bowlers) {
+      if (bw.wickets >= 3) {
+        lines.add('${bw.playerName} — ${bw.wickets} wickets');
       }
     }
     return lines;
@@ -185,12 +231,15 @@ class MatchInsightsService {
   List<PerformerInsight> _mvpFromEvents(
     MatchModel match,
     List<BallEventModel> events,
+    List<InningsDerivedProjection> derived,
   ) {
     if (events.isEmpty) return [];
 
     final raw = _fantasy.rawPlayerPoints(events);
     final names = <String, String>{};
-    for (final inn in match.innings) {
+    final inningsList =
+        derived.isNotEmpty ? derived.map((d) => d.innings) : match.innings;
+    for (final inn in inningsList) {
       for (final b in inn.batsmen) {
         names[b.playerId] = b.playerName;
       }

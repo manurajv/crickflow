@@ -85,6 +85,24 @@ class ScorecardDisplayService {
         .toList();
   }
 
+  /// Resolve display names for wicket events (batters, bowlers, fielders).
+  static Map<String, String> playerNamesForInnings(
+    MatchModel match,
+    InningsModel innings,
+  ) {
+    final names = DismissalFormatter.playerNamesFromInnings(innings);
+    final setup = match.setup;
+    if (setup == null) return names;
+
+    for (final entry in setup.teamASquadNames.entries) {
+      names.putIfAbsent(entry.key, () => entry.value);
+    }
+    for (final entry in setup.teamBSquadNames.entries) {
+      names.putIfAbsent(entry.key, () => entry.value);
+    }
+    return names;
+  }
+
   /// Wicket ball events keyed by dismissed batter id.
   static Map<String, BallEventModel> wicketEventsByBatsman({
     required InningsModel innings,
@@ -105,25 +123,32 @@ class ScorecardDisplayService {
     BatsmanInningsModel batsman, {
     required bool onCrease,
     BallEventModel? wicketEvent,
+    Map<String, String>? playerNames,
   }) {
     if (!batsman.isOut) {
       return onCrease ? 'not out' : '';
     }
 
+    final stored = batsman.dismissalInfo.trim();
+
     if (wicketEvent != null) {
-      final fromEvent = DismissalFormatter.fromWicketEvent(wicketEvent);
+      final fromEvent = DismissalFormatter.fromWicketEvent(
+        wicketEvent,
+        playerNames: playerNames,
+        fallbackDismissalText: stored,
+      );
       if (fromEvent.isNotEmpty && !DismissalFormatter.isGenericLabel(fromEvent)) {
         return DismissalFormatter.normalizeScorecardDismissal(fromEvent);
       }
+      return DismissalFormatter.fromWicketEvent(
+        wicketEvent,
+        playerNames: playerNames,
+        fallbackDismissalText: stored,
+      );
     }
 
-    final stored = batsman.dismissalInfo.trim();
     if (stored.isNotEmpty && !DismissalFormatter.isGenericLabel(stored)) {
       return DismissalFormatter.normalizeScorecardDismissal(stored);
-    }
-
-    if (wicketEvent != null) {
-      return DismissalFormatter.fromWicketEvent(wicketEvent);
     }
 
     return DismissalFormatter.normalizeScorecardDismissal(_legacyFallback(stored));

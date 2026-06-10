@@ -3,13 +3,44 @@
 
 
 
-**Last updated:** Scorecard UI redesign (reference layout, theme tokens)  
+**Last updated:** Ball-by-ball architecture Phases A–C complete  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
-> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (ball-by-ball architecture)
+
+| Item | Status |
+|------|--------|
+| Full scoring audit + migration plan | Done — [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) |
+| `BallEventAggregator` — derive scorecard/stats from events | Done |
+| Extended `BallEventModel` (teams, run breakdown, wicket/boundary flags) | Done |
+| Scorecard reads event-derived batting/bowling/FOW/extras | Done |
+| Batter minutes (Min) + maiden overs (M) from events | Done |
+| Match insights top bat/bowl/milestones from event replay | Done |
+| Phase B: no FOW/partnerships/fielders on innings write | Done |
+| Phase B: `createdBy`, after-ball audit on events | Done |
+| Phase B: `ScoringIntegrityCheck` (debug) | Done |
+| Phase C: `onMatchCompleted` stats from `ball_events` | Done |
+| Phase C: nightly `verifyScoringIntegrity` | Done |
+| Phase C: admin verify / preview / reprocess callables | Done |
+| Run-out integrity fix — `lineupChange` events for crease/bowler updates | Done |
+| Run-out UI — professional dismissed/new-batter picker sheets | Done |
+| Run-out scenarios + integrity tests (`scoring_engine_run_out_integrity_test.dart`) | Done |
+| Run-out over display — single `W`, no extra dot after wicket; `lineupChange` hidden | Done |
+| Run-out strike decision popup after wicket (`showStrikeDecisionPicker`) | Done |
+| BallEvent wicket metadata (fielders, dismissed name, FOW context) persisted in Firestore | Done |
+| Scorecard dismissal from event metadata — `run out Fielder` / `F1 / F2`, pro formats | Done |
+| Scorecard stumped display — `st b Bowler` only (keeper stored, not shown) | Done |
+| Dismissal standardization — `DismissalFormatter` + metadata-driven display everywhere | Done |
+| Mankad — stored as `runOut` + `isMankad`; display `run out Bowler` | Done |
+| Bowler wicket credit rules — `creditsBowlerWicket` in engine + Cloud Functions | Done |
+| BallEvent metadata — `dismissalType`, `fielderIds`/`fielderNames`, `wicketNumber`, `isMankad` | Done |
 
 ---
 

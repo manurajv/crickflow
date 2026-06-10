@@ -10,8 +10,22 @@ const {
   collectPlayerAgg,
   applyTeamResult,
 } = require('../utils/stats');
+const {
+  collectPlayerAggFromEvents,
+  deriveInningsList,
+} = require('../utils/ballEventStats');
 
 const db = getFirestore();
+
+async function fetchBallEvents(matchId) {
+  const snap = await db
+    .collection('matches')
+    .doc(matchId)
+    .collection('ball_events')
+    .orderBy('sequence')
+    .get();
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
 
 exports.onMatchCompleted = onDocumentUpdated(
   'matches/{matchId}',
@@ -24,11 +38,19 @@ exports.onMatchCompleted = onDocumentUpdated(
     if (after.statsProcessed === true) return;
 
     const matchId = event.params.matchId;
-    const innings = after.innings || [];
+    const ballEvents = await fetchBallEvents(matchId);
 
-    const batch = db.batch();
-    const playerAgg = collectPlayerAgg(innings);
+    const useEvents = ballEvents.length > 0;
+    const playerAgg = useEvents
+      ? collectPlayerAggFromEvents(after, ballEvents)
+      : collectPlayerAgg(after.innings || []);
+
+    const derivedInnings = useEvents
+      ? deriveInningsList(after, ballEvents)
+      : after.innings || [];
+
     const ballType = resolveBallType(after.rules);
+    const batch = db.batch();
     applyPlayerStats(batch, db, playerAgg, ballType);
 
     const winner = after.winnerTeamId;
@@ -44,7 +66,7 @@ exports.onMatchCompleted = onDocumentUpdated(
     }
 
     const allBadges = [];
-    for (const inn of innings) {
+    for (const inn of derivedInnings) {
       allBadges.push(...evaluateInningsBadges(matchId, inn));
     }
 
@@ -61,7 +83,9 @@ exports.onMatchCompleted = onDocumentUpdated(
       }
     }
 
-    const hero = after.matchHero || pickMatchHero(after);
+    const hero =
+      after.matchHero ||
+      pickMatchHero({ ...after, innings: derivedInnings });
     const badgeIds = allBadges.map((b) => b.id);
 
     batch.update(event.data.after.ref, {
@@ -69,6 +93,7 @@ exports.onMatchCompleted = onDocumentUpdated(
       badgeIds,
       matchHero: hero,
       playerOfMatchId: hero?.playerId || after.playerOfMatchId || null,
+      statsSource: useEvents ? 'ball_events' : 'innings_cache',
       updatedAt: new Date().toISOString(),
     });
 
@@ -92,6 +117,8 @@ exports.onMatchCompleted = onDocumentUpdated(
       });
     }
 
-    console.log(`Processed match ${matchId}: ${allBadges.length} badges`);
+    console.log(
+      `Processed match ${matchId}: ${allBadges.length} badges, stats from ${useEvents ? 'ball_events' : 'innings'}`,
+    );
   },
 );

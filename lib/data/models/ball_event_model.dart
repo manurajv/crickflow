@@ -16,8 +16,26 @@ class BallEventModel extends Equatable {
     this.extraRuns = 0,
     this.isLegalDelivery = true,
     this.isFreeHit = false,
+    this.tournamentId,
+    this.battingTeamId,
+    this.bowlingTeamId,
+    this.byeRuns = 0,
+    this.legByeRuns = 0,
+    this.wideRuns = 0,
+    this.noBallRuns = 0,
+    this.penaltyRuns = 0,
+    this.countsAsBallFaced = false,
+    this.countsInOver = true,
+    this.countsToBowler = true,
+    this.isWicket = false,
+    this.bowlerGetsWicket = false,
+    this.isBoundary = false,
+    this.boundaryType,
     this.strikerId,
     this.nonStrikerId,
+    this.strikerAfterBall,
+    this.nonStrikerAfterBall,
+    this.createdBy,
     this.bowlerId,
     this.bowlerName,
     this.wicketType,
@@ -35,6 +53,21 @@ class BallEventModel extends Equatable {
     this.noBallByeRuns = 0,
     this.noBallLegByeRuns = 0,
     this.wagonWheel,
+    this.lineupStrikerName,
+    this.lineupNonStrikerName,
+    this.dismissedPlayerName,
+    this.primaryFielderId,
+    this.primaryFielderName,
+    this.secondaryFielderId,
+    this.secondaryFielderName,
+    this.teamScoreAtWicket,
+    this.overAtWicket,
+    this.ballAtWicket,
+    this.isMankad = false,
+    this.wicketNumber,
+    this.dismissalType,
+    this.fielderIds = const [],
+    this.fielderNames = const [],
   });
 
   final String id;
@@ -44,12 +77,34 @@ class BallEventModel extends Equatable {
   final int ballInOver;
   final BallEventType eventType;
   final int runs;
+  /// Runs credited to the striker's bat (alias: runsOffBat).
   final int batsmanRuns;
   final int extraRuns;
   final bool isLegalDelivery;
   final bool isFreeHit;
+  final String? tournamentId;
+  final String? battingTeamId;
+  final String? bowlingTeamId;
+  final int byeRuns;
+  final int legByeRuns;
+  final int wideRuns;
+  final int noBallRuns;
+  final int penaltyRuns;
+  final bool countsAsBallFaced;
+  final bool countsInOver;
+  final bool countsToBowler;
+  final bool isWicket;
+  final bool bowlerGetsWicket;
+  final bool isBoundary;
+  /// `four` or `six` when [isBoundary] is true.
+  final String? boundaryType;
   final String? strikerId;
   final String? nonStrikerId;
+  /// Striker at end of ball (after rotation / wicket).
+  final String? strikerAfterBall;
+  final String? nonStrikerAfterBall;
+  /// Scorer uid who recorded this delivery.
+  final String? createdBy;
   final String? bowlerId;
   final String? bowlerName;
   final WicketType? wicketType;
@@ -67,6 +122,30 @@ class BallEventModel extends Equatable {
   final int noBallByeRuns;
   final int noBallLegByeRuns;
   final WagonWheelData? wagonWheel;
+  /// Display names for [BallEventType.lineupChange] upserts.
+  final String? lineupStrikerName;
+  final String? lineupNonStrikerName;
+  final String? dismissedPlayerName;
+  final String? primaryFielderId;
+  final String? primaryFielderName;
+  final String? secondaryFielderId;
+  final String? secondaryFielderName;
+  final int? teamScoreAtWicket;
+  final int? overAtWicket;
+  final int? ballAtWicket;
+  /// Mankad is stored as [runOut] with this flag; display uses bowler name.
+  final bool isMankad;
+  final int? wicketNumber;
+  /// Persisted dismissal category (`run_out` for mankad).
+  final String? dismissalType;
+  final List<String> fielderIds;
+  final List<String> fielderNames;
+
+  /// Alias for [batsmanRuns] per ball-event spec.
+  int get runsOffBat => batsmanRuns;
+
+  /// Alias for [runs] per ball-event spec.
+  int get totalRuns => runs;
 
   static WicketType? wicketTypeFromString(String? raw) {
     if (raw == null) return null;
@@ -93,8 +172,26 @@ class BallEventModel extends Equatable {
       extraRuns: map['extraRuns'] as int? ?? 0,
       isLegalDelivery: map['isLegalDelivery'] as bool? ?? true,
       isFreeHit: map['isFreeHit'] as bool? ?? false,
+      tournamentId: map['tournamentId'] as String?,
+      battingTeamId: map['battingTeamId'] as String?,
+      bowlingTeamId: map['bowlingTeamId'] as String?,
+      byeRuns: map['byeRuns'] as int? ?? 0,
+      legByeRuns: map['legByeRuns'] as int? ?? 0,
+      wideRuns: map['wideRuns'] as int? ?? 0,
+      noBallRuns: map['noBallRuns'] as int? ?? 0,
+      penaltyRuns: map['penaltyRuns'] as int? ?? 0,
+      countsAsBallFaced: map['countsAsBallFaced'] as bool? ?? false,
+      countsInOver: map['countsInOver'] as bool? ?? true,
+      countsToBowler: map['countsToBowler'] as bool? ?? true,
+      isWicket: map['isWicket'] as bool? ?? false,
+      bowlerGetsWicket: map['bowlerGetsWicket'] as bool? ?? false,
+      isBoundary: map['isBoundary'] as bool? ?? false,
+      boundaryType: map['boundaryType'] as String?,
       strikerId: map['strikerId'] as String?,
       nonStrikerId: map['nonStrikerId'] as String?,
+      strikerAfterBall: map['strikerAfterBall'] as String?,
+      nonStrikerAfterBall: map['nonStrikerAfterBall'] as String?,
+      createdBy: map['createdBy'] as String?,
       bowlerId: map['bowlerId'] as String?,
       bowlerName: map['bowlerName'] as String?,
       wicketType: wicketTypeFromString(map['wicketType'] as String?),
@@ -119,7 +216,30 @@ class BallEventModel extends Equatable {
               map['wagonWheel'] as Map<String, dynamic>,
             )
           : null,
+      lineupStrikerName: map['lineupStrikerName'] as String?,
+      lineupNonStrikerName: map['lineupNonStrikerName'] as String?,
+      dismissedPlayerName: map['dismissedPlayerName'] as String?,
+      primaryFielderId: map['primaryFielderId'] as String? ??
+          map['fielderId'] as String?,
+      primaryFielderName: map['primaryFielderName'] as String? ??
+          map['fielderName'] as String?,
+      secondaryFielderId: map['secondaryFielderId'] as String?,
+      secondaryFielderName: map['secondaryFielderName'] as String?,
+      teamScoreAtWicket: map['teamScoreAtWicket'] as int? ??
+          map['teamScoreAtDismissal'] as int?,
+      overAtWicket: map['overAtWicket'] as int? ?? map['overNumber'] as int?,
+      ballAtWicket: map['ballAtWicket'] as int? ?? map['ballInOver'] as int?,
+      isMankad: map['isMankad'] as bool? ?? false,
+      wicketNumber: map['wicketNumber'] as int?,
+      dismissalType: map['dismissalType'] as String?,
+      fielderIds: _stringListFromMap(map['fielderIds']),
+      fielderNames: _stringListFromMap(map['fielderNames']),
     );
+  }
+
+  static List<String> _stringListFromMap(Object? raw) {
+    if (raw is! List) return const [];
+    return raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
   }
 
   static List<DismissalFielder> _fieldersFromMap(Object? raw) {
@@ -140,8 +260,27 @@ class BallEventModel extends Equatable {
         'extraRuns': extraRuns,
         'isLegalDelivery': isLegalDelivery,
         'isFreeHit': isFreeHit,
+        if (tournamentId != null) 'tournamentId': tournamentId,
+        if (battingTeamId != null) 'battingTeamId': battingTeamId,
+        if (bowlingTeamId != null) 'bowlingTeamId': bowlingTeamId,
+        if (byeRuns > 0) 'byeRuns': byeRuns,
+        if (legByeRuns > 0) 'legByeRuns': legByeRuns,
+        if (wideRuns > 0) 'wideRuns': wideRuns,
+        if (noBallRuns > 0) 'noBallRuns': noBallRuns,
+        if (penaltyRuns > 0) 'penaltyRuns': penaltyRuns,
+        'countsAsBallFaced': countsAsBallFaced,
+        'countsInOver': countsInOver,
+        'countsToBowler': countsToBowler,
+        'isWicket': isWicket,
+        'bowlerGetsWicket': bowlerGetsWicket,
+        'isBoundary': isBoundary,
+        if (boundaryType != null) 'boundaryType': boundaryType,
         if (strikerId != null) 'strikerId': strikerId,
         if (nonStrikerId != null) 'nonStrikerId': nonStrikerId,
+        if (strikerAfterBall != null) 'strikerAfterBall': strikerAfterBall,
+        if (nonStrikerAfterBall != null)
+          'nonStrikerAfterBall': nonStrikerAfterBall,
+        if (createdBy != null) 'createdBy': createdBy,
         if (bowlerId != null) 'bowlerId': bowlerId,
         if (bowlerName != null && bowlerName!.isNotEmpty) 'bowlerName': bowlerName,
         if (wicketType != null) 'wicketType': wicketType!.name,
@@ -162,7 +301,64 @@ class BallEventModel extends Equatable {
         if (noBallByeRuns > 0) 'noBallByeRuns': noBallByeRuns,
         if (noBallLegByeRuns > 0) 'noBallLegByeRuns': noBallLegByeRuns,
         if (wagonWheel != null) 'wagonWheel': wagonWheel!.toMap(),
+        if (lineupStrikerName != null) 'lineupStrikerName': lineupStrikerName,
+        if (lineupNonStrikerName != null)
+          'lineupNonStrikerName': lineupNonStrikerName,
+        if (dismissedPlayerName != null && dismissedPlayerName!.isNotEmpty)
+          'dismissedPlayerName': dismissedPlayerName,
+        if (primaryFielderId != null) 'primaryFielderId': primaryFielderId,
+        if (primaryFielderName != null && primaryFielderName!.isNotEmpty)
+          'primaryFielderName': primaryFielderName,
+        if (secondaryFielderId != null) 'secondaryFielderId': secondaryFielderId,
+        if (secondaryFielderName != null && secondaryFielderName!.isNotEmpty)
+          'secondaryFielderName': secondaryFielderName,
+        if (teamScoreAtWicket != null) ...{
+          'teamScoreAtWicket': teamScoreAtWicket,
+          'teamScoreAtDismissal': teamScoreAtWicket,
+        },
+        if (overAtWicket != null) 'overAtWicket': overAtWicket,
+        if (ballAtWicket != null) 'ballAtWicket': ballAtWicket,
+        if (isMankad) 'isMankad': true,
+        if (wicketNumber != null) 'wicketNumber': wicketNumber,
+        if (dismissalType != null && dismissalType!.isNotEmpty)
+          'dismissalType': dismissalType,
+        if (fielderIds.isNotEmpty) 'fielderIds': fielderIds,
+        if (fielderNames.isNotEmpty) 'fielderNames': fielderNames,
       };
+
+  /// Flat fielder id/name lists for analytics (from [fielders] when empty).
+  List<String> get assistingFielderIds =>
+      fielderIds.isNotEmpty
+          ? fielderIds
+          : fielders.map((f) => f.playerId).where((id) => id.isNotEmpty).toList();
+
+  List<String> get assistingFielderNames =>
+      fielderNames.isNotEmpty
+          ? fielderNames
+          : fielders
+              .map((f) => f.playerName)
+              .where((name) => name.isNotEmpty)
+              .toList();
+
+  static List<String> fielderIdsFromFielders(List<DismissalFielder> fielders) =>
+      fielders.map((f) => f.playerId).where((id) => id.isNotEmpty).toList();
+
+  static List<String> fielderNamesFromFielders(
+    List<DismissalFielder> fielders,
+  ) =>
+      fielders
+          .map((f) => f.playerName)
+          .where((name) => name.isNotEmpty)
+          .toList();
+
+  static String dismissalTypeForEvent({
+    required WicketType? wicketType,
+    required bool isMankad,
+  }) {
+    if (isMankad || wicketType == WicketType.mankad) return 'run_out';
+    if (wicketType == null) return '';
+    return wicketType.name;
+  }
 
   @override
   List<Object?> get props => [id, matchId, sequence];

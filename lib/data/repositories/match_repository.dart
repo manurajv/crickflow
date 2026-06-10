@@ -12,6 +12,7 @@ import '../../domain/services/commentary_service.dart';
 import '../../domain/services/scoring_engine.dart';
 import '../../domain/scoring/match_completion_policy.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
+import '../../domain/scoring/scoring_integrity_check.dart';
 import '../../domain/scoring/toss_team_policy.dart';
 import '../services/public_scorecard_sync.dart';
 
@@ -150,36 +151,65 @@ class MatchRepository {
         ? CommentaryService.forEvent(result.event)
         : result.event.commentary;
 
+    final built = result.event;
     final event = BallEventModel(
       id: eventId,
       matchId: match.id,
-      inningsNumber: result.event.inningsNumber,
-      overNumber: result.event.overNumber,
-      ballInOver: result.event.ballInOver,
-      eventType: result.event.eventType,
-      runs: result.event.runs,
-      batsmanRuns: result.event.batsmanRuns,
-      extraRuns: result.event.extraRuns,
-      isLegalDelivery: result.event.isLegalDelivery,
-      isFreeHit: result.event.isFreeHit,
-      strikerId: result.event.strikerId,
-      nonStrikerId: result.event.nonStrikerId,
-      bowlerId: result.event.bowlerId,
-      wicketType: result.event.wicketType,
-      dismissedPlayerId: result.event.dismissedPlayerId,
-      fielderId: result.event.fielderId,
-      fielderName: result.event.fielderName,
-      bowlerName: result.event.bowlerName,
-      dismissalText: result.event.dismissalText,
-      fielders: result.event.fielders,
+      inningsNumber: built.inningsNumber,
+      overNumber: built.overNumber,
+      ballInOver: built.ballInOver,
+      eventType: built.eventType,
+      runs: built.runs,
+      batsmanRuns: built.batsmanRuns,
+      extraRuns: built.extraRuns,
+      isLegalDelivery: built.isLegalDelivery,
+      isFreeHit: built.isFreeHit,
+      tournamentId: built.tournamentId,
+      battingTeamId: built.battingTeamId,
+      bowlingTeamId: built.bowlingTeamId,
+      byeRuns: built.byeRuns,
+      legByeRuns: built.legByeRuns,
+      wideRuns: built.wideRuns,
+      noBallRuns: built.noBallRuns,
+      penaltyRuns: built.penaltyRuns,
+      countsAsBallFaced: built.countsAsBallFaced,
+      countsInOver: built.countsInOver,
+      countsToBowler: built.countsToBowler,
+      isWicket: built.isWicket,
+      bowlerGetsWicket: built.bowlerGetsWicket,
+      isBoundary: built.isBoundary,
+      boundaryType: built.boundaryType,
+      strikerId: built.strikerId,
+      nonStrikerId: built.nonStrikerId,
+      strikerAfterBall: built.strikerAfterBall,
+      nonStrikerAfterBall: built.nonStrikerAfterBall,
+      createdBy: built.createdBy,
+      bowlerId: built.bowlerId,
+      wicketType: built.wicketType,
+      dismissedPlayerId: built.dismissedPlayerId,
+      fielderId: built.fielderId,
+      fielderName: built.fielderName,
+      bowlerName: built.bowlerName,
+      dismissalText: built.dismissalText,
+      fielders: built.fielders,
       commentary: commentary,
       sequence: sequence,
       isHighlight: highlight.isHighlight,
       highlightTag: highlight.tag,
-      noBallRunsMode: result.event.noBallRunsMode,
-      noBallByeRuns: result.event.noBallByeRuns,
-      noBallLegByeRuns: result.event.noBallLegByeRuns,
-      wagonWheel: input.wagonWheel ?? result.event.wagonWheel,
+      noBallRunsMode: built.noBallRunsMode,
+      noBallByeRuns: built.noBallByeRuns,
+      noBallLegByeRuns: built.noBallLegByeRuns,
+      wagonWheel: input.wagonWheel ?? built.wagonWheel,
+      lineupStrikerName: built.lineupStrikerName,
+      lineupNonStrikerName: built.lineupNonStrikerName,
+      dismissedPlayerName: built.dismissedPlayerName,
+      primaryFielderId: built.primaryFielderId,
+      primaryFielderName: built.primaryFielderName,
+      secondaryFielderId: built.secondaryFielderId,
+      secondaryFielderName: built.secondaryFielderName,
+      teamScoreAtWicket: built.teamScoreAtWicket,
+      overAtWicket: built.overAtWicket,
+      ballAtWicket: built.ballAtWicket,
     );
 
     await _commitMatchState(
@@ -187,6 +217,13 @@ class MatchRepository {
       matchData: result.match.toMap(),
       event: event,
       overlay: result.overlay,
+    );
+
+    final allEvents = await fetchBallEvents(match.id);
+    ScoringIntegrityCheck.assertProjectionMatchesEvents(
+      match: result.match,
+      allEvents: allEvents,
+      context: 'recordBall',
     );
 
     return ScoringInput(match: result.match, event: event, overlay: result.overlay);
@@ -224,8 +261,6 @@ class MatchRepository {
       isFreeHitActive: cur.isFreeHitActive,
       targetRuns: first.totalRuns + 1,
       isSuperOver: cur.isSuperOver,
-      partnerships: cur.partnerships,
-      fallOfWickets: cur.fallOfWickets,
     );
 
     return match.copyWith(innings: inningsList);
@@ -287,6 +322,12 @@ class MatchRepository {
     );
     await batch.commit();
     await _syncPublicScorecard(replayed, overlay: overlay);
+
+    ScoringIntegrityCheck.assertProjectionMatchesEvents(
+      match: replayed,
+      allEvents: allEvents,
+      context: 'undoLastBall',
+    );
 
     return replayed;
   }
@@ -370,8 +411,6 @@ class MatchRepository {
       isFreeHitActive: inn.isFreeHitActive,
       targetRuns: inn.targetRuns,
       isSuperOver: inn.isSuperOver,
-      partnerships: inn.partnerships,
-      fallOfWickets: inn.fallOfWickets,
     );
 
     final inningsList = List<InningsModel>.from(match.innings);
@@ -654,8 +693,6 @@ class MatchRepository {
       isFreeHitActive: false,
       targetRuns: inn.targetRuns,
       isSuperOver: inn.isSuperOver,
-      partnerships: inn.partnerships,
-      fallOfWickets: inn.fallOfWickets,
     );
 
     await _matchDoc(matchId).update({

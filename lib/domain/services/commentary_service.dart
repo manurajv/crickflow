@@ -38,6 +38,8 @@ class CommentaryService {
         );
       case BallEventType.penalty:
         return 'Penalty runs awarded.';
+      case BallEventType.lineupChange:
+        return 'Lineup updated.';
     }
   }
 
@@ -45,9 +47,16 @@ class CommentaryService {
     WicketType? wicketType,
     String? fielderName,
     String? bowlerName,
+    bool isMankad = false,
   }) {
     final fielder = fielderName?.trim() ?? '';
     final bowler = bowlerName?.trim() ?? '';
+
+    if (isMankad || wicketType == WicketType.mankad) {
+      return bowler.isNotEmpty
+          ? 'Mankad! $bowler removes the non-striker.'
+          : 'Mankad — non-striker run out.';
+    }
 
     return switch (wicketType) {
       WicketType.caught ||

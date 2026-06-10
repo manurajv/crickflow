@@ -23,8 +23,15 @@ class ScoringEngine {
     }
     final effectiveRules = InningsCompletionPolicy.effectiveRules(match, innings);
 
-    final event = _buildEvent(match, innings, input, sequence, effectiveRules);
+    var event = _buildEvent(match, innings, input, sequence, effectiveRules);
     innings = _applyEventToInnings(innings, event, effectiveRules, match);
+
+    event = _withPostBallAudit(
+      event,
+      strikerAfter: innings.strikerId,
+      nonStrikerAfter: innings.nonStrikerId,
+      createdBy: input.createdBy,
+    );
 
     final updatedInnings = List<InningsModel>.from(match.innings);
     updatedInnings[match.currentInningsIndex] = innings;
@@ -40,6 +47,79 @@ class ScoringEngine {
       match: updatedMatch,
       event: event,
       overlay: overlay,
+    );
+  }
+
+  static BallEventModel _withPostBallAudit(
+    BallEventModel event, {
+    String? strikerAfter,
+    String? nonStrikerAfter,
+    String? createdBy,
+  }) {
+    return BallEventModel(
+      id: event.id,
+      matchId: event.matchId,
+      inningsNumber: event.inningsNumber,
+      overNumber: event.overNumber,
+      ballInOver: event.ballInOver,
+      eventType: event.eventType,
+      runs: event.runs,
+      batsmanRuns: event.batsmanRuns,
+      extraRuns: event.extraRuns,
+      isLegalDelivery: event.isLegalDelivery,
+      isFreeHit: event.isFreeHit,
+      tournamentId: event.tournamentId,
+      battingTeamId: event.battingTeamId,
+      bowlingTeamId: event.bowlingTeamId,
+      byeRuns: event.byeRuns,
+      legByeRuns: event.legByeRuns,
+      wideRuns: event.wideRuns,
+      noBallRuns: event.noBallRuns,
+      penaltyRuns: event.penaltyRuns,
+      countsAsBallFaced: event.countsAsBallFaced,
+      countsInOver: event.countsInOver,
+      countsToBowler: event.countsToBowler,
+      isWicket: event.isWicket,
+      bowlerGetsWicket: event.bowlerGetsWicket,
+      isBoundary: event.isBoundary,
+      boundaryType: event.boundaryType,
+      strikerId: event.strikerId,
+      nonStrikerId: event.nonStrikerId,
+      strikerAfterBall: strikerAfter,
+      nonStrikerAfterBall: nonStrikerAfter,
+      createdBy: createdBy ?? event.createdBy,
+      bowlerId: event.bowlerId,
+      bowlerName: event.bowlerName,
+      wicketType: event.wicketType,
+      dismissedPlayerId: event.dismissedPlayerId,
+      fielderId: event.fielderId,
+      fielderName: event.fielderName,
+      dismissalText: event.dismissalText,
+      fielders: event.fielders,
+      commentary: event.commentary,
+      timestamp: event.timestamp,
+      sequence: event.sequence,
+      isHighlight: event.isHighlight,
+      highlightTag: event.highlightTag,
+      noBallRunsMode: event.noBallRunsMode,
+      noBallByeRuns: event.noBallByeRuns,
+      noBallLegByeRuns: event.noBallLegByeRuns,
+      wagonWheel: event.wagonWheel,
+      lineupStrikerName: event.lineupStrikerName,
+      lineupNonStrikerName: event.lineupNonStrikerName,
+      dismissedPlayerName: event.dismissedPlayerName,
+      primaryFielderId: event.primaryFielderId,
+      primaryFielderName: event.primaryFielderName,
+      secondaryFielderId: event.secondaryFielderId,
+      secondaryFielderName: event.secondaryFielderName,
+      teamScoreAtWicket: event.teamScoreAtWicket,
+      overAtWicket: event.overAtWicket,
+      ballAtWicket: event.ballAtWicket,
+      isMankad: event.isMankad,
+      wicketNumber: event.wicketNumber,
+      dismissalType: event.dismissalType,
+      fielderIds: event.fielderIds,
+      fielderNames: event.fielderNames,
     );
   }
 
@@ -95,11 +175,19 @@ class ScoringEngine {
         runs = input.runs;
         extraRuns = input.runs;
       case BallEventType.wicket:
-        if (isFreeHit && input.wicketType != WicketType.runOut) {
+        batsmanRuns = input.runs;
+        runs = input.runs;
+        if (isFreeHit &&
+            input.wicketType != WicketType.runOut &&
+            input.wicketType != WicketType.mankad) {
           isLegal = true;
         }
       case BallEventType.penalty:
         break;
+      case BallEventType.lineupChange:
+        isLegal = false;
+        runs = 0;
+        batsmanRuns = 0;
     }
 
     final nbMode = input.type == BallEventType.noBall
@@ -108,16 +196,75 @@ class ScoringEngine {
     final nbByeRuns = nbMode == NoBallRunsMode.bye ? input.runs : 0;
     final nbLegByeRuns = nbMode == NoBallRunsMode.legBye ? input.runs : 0;
 
+    final isLineupChange = input.type == BallEventType.lineupChange;
+    final eventStrikerId = isLineupChange
+        ? input.creaseStrikerId
+        : innings.strikerId;
+    final eventNonStrikerId = isLineupChange
+        ? input.creaseNonStrikerId
+        : innings.nonStrikerId;
     final bowlerId = input.bowlerId ?? innings.currentBowlerId;
     final bowlerName =
         input.bowlerName ?? _bowlerName(innings, bowlerId ?? '');
     final fielderName = input.fielderName ?? '';
-    final dismissalText = input.dismissalText ??
-        DismissalFormatter.format(
-          type: input.wicketType,
-          bowlerName: bowlerName,
-          fielderName: fielderName,
+    final primaryFielderId =
+        input.fielderId ?? (input.fielders.isNotEmpty ? input.fielders.first.playerId : null);
+    final primaryFielderName = fielderName.isNotEmpty
+        ? fielderName
+        : (input.fielders.isNotEmpty ? input.fielders.first.playerName : '');
+    final secondaryFielder = input.fielders.length >= 2 ? input.fielders[1] : null;
+    final isMankad = DismissalFormatter.isMankadType(input.wicketType) ||
+        input.isMankad;
+    final storedWicketType = isMankad ? WicketType.runOut : input.wicketType;
+    final dismissedPlayerName = input.type == BallEventType.wicket
+        ? (input.dismissedPlayerName ??
+            _batsmanName(innings, input.dismissedPlayerId ?? ''))
+        : null;
+    final dismissalText = input.type == BallEventType.wicket
+        ? DismissalFormatter.format(
+            type: input.wicketType,
+            bowlerName: bowlerName,
+            fielderName: primaryFielderName,
+            secondaryFielderName: secondaryFielder?.playerName,
+            isMankad: isMankad,
+            fielders: input.fielders,
+          )
+        : null;
+    final fielderIds = BallEventModel.fielderIdsFromFielders(input.fielders);
+    final fielderNamesList =
+        BallEventModel.fielderNamesFromFielders(input.fielders);
+
+    final breakdown = _runBreakdown(
+      type: input.type,
+      runs: runs,
+      batsmanRuns: batsmanRuns,
+      extraRuns: extraRuns,
+      nbByeRuns: nbByeRuns,
+      nbLegByeRuns: nbLegByeRuns,
+      rules: rules,
+    );
+
+    final isWicket = input.type == BallEventType.wicket &&
+        !(isFreeHit && storedWicketType != WicketType.runOut);
+    final bowlerGetsWicket = isWicket &&
+        DismissalFormatter.creditsBowlerWicket(
+          storedWicketType,
+          isMankad: isMankad,
         );
+    final wicketNumber =
+        isWicket ? innings.totalWickets + 1 : null;
+
+    final isBoundary = input.type == BallEventType.runs &&
+        (batsmanRuns == 4 || batsmanRuns == 6);
+    final boundaryType = isBoundary
+        ? (batsmanRuns == 6 ? 'six' : 'four')
+        : null;
+
+    final countsAsBallFaced = isLegal &&
+        input.type != BallEventType.wide &&
+        input.type != BallEventType.noBall;
+    final countsToBowler = input.type != BallEventType.bye &&
+        input.type != BallEventType.legBye;
 
     return BallEventModel(
       id: '',
@@ -131,22 +278,104 @@ class ScoringEngine {
       extraRuns: extraRuns,
       isLegalDelivery: isLegal,
       isFreeHit: isFreeHit,
-      strikerId: innings.strikerId,
-      nonStrikerId: innings.nonStrikerId,
+      tournamentId: match.tournamentId,
+      battingTeamId: innings.battingTeamId,
+      bowlingTeamId: innings.bowlingTeamId,
+      byeRuns: breakdown.byeRuns,
+      legByeRuns: breakdown.legByeRuns,
+      wideRuns: breakdown.wideRuns,
+      noBallRuns: breakdown.noBallRuns,
+      penaltyRuns: breakdown.penaltyRuns,
+      countsAsBallFaced: countsAsBallFaced,
+      countsInOver: isLineupChange ? false : isLegal,
+      countsToBowler: countsToBowler,
+      isWicket: isWicket,
+      bowlerGetsWicket: bowlerGetsWicket,
+      isBoundary: isBoundary,
+      boundaryType: boundaryType,
+      strikerId: eventStrikerId,
+      nonStrikerId: eventNonStrikerId,
       bowlerId: bowlerId,
       bowlerName: bowlerName.isEmpty ? null : bowlerName,
-      wicketType: input.wicketType,
+      wicketType: storedWicketType,
       dismissedPlayerId: input.dismissedPlayerId,
-      fielderId: input.fielderId,
-      fielderName: fielderName.isEmpty ? null : fielderName,
-      dismissalText: input.type == BallEventType.wicket ? dismissalText : null,
+      fielderId: primaryFielderId,
+      fielderName: primaryFielderName.isEmpty ? null : primaryFielderName,
+      dismissalText: dismissalText,
       fielders: input.fielders,
+      dismissedPlayerName: dismissedPlayerName?.isEmpty == true
+          ? null
+          : dismissedPlayerName,
+      primaryFielderId: primaryFielderId,
+      primaryFielderName:
+          primaryFielderName.isEmpty ? null : primaryFielderName,
+      secondaryFielderId: secondaryFielder?.playerId,
+      secondaryFielderName: secondaryFielder?.playerName.isNotEmpty == true
+          ? secondaryFielder!.playerName
+          : null,
+      teamScoreAtWicket:
+          input.type == BallEventType.wicket ? innings.totalRuns + runs : null,
+      overAtWicket: input.type == BallEventType.wicket ? overNum : null,
+      ballAtWicket: input.type == BallEventType.wicket ? ballInOver : null,
+      isMankad: isMankad,
+      wicketNumber: wicketNumber,
+      dismissalType: input.type == BallEventType.wicket
+          ? BallEventModel.dismissalTypeForEvent(
+              wicketType: storedWicketType,
+              isMankad: isMankad,
+            )
+          : null,
+      fielderIds: fielderIds,
+      fielderNames: fielderNamesList,
       commentary: input.commentary,
       sequence: sequence,
       noBallRunsMode: nbMode,
       noBallByeRuns: nbByeRuns,
       noBallLegByeRuns: nbLegByeRuns,
       wagonWheel: input.wagonWheel,
+      lineupStrikerName: input.creaseStrikerName,
+      lineupNonStrikerName: input.creaseNonStrikerName,
+    );
+  }
+
+  static _RunBreakdown _runBreakdown({
+    required BallEventType type,
+    required int runs,
+    required int batsmanRuns,
+    required int extraRuns,
+    required int nbByeRuns,
+    required int nbLegByeRuns,
+    required MatchRulesModel rules,
+  }) {
+    var byeRuns = 0;
+    var legByeRuns = 0;
+    var wideRuns = 0;
+    var noBallRuns = 0;
+    var penaltyRuns = 0;
+
+    switch (type) {
+      case BallEventType.wide:
+        wideRuns = runs;
+      case BallEventType.bye:
+        byeRuns = runs;
+      case BallEventType.legBye:
+        legByeRuns = runs;
+      case BallEventType.noBall:
+        noBallRuns = rules.noBallRuns;
+        byeRuns = nbByeRuns;
+        legByeRuns = nbLegByeRuns;
+      case BallEventType.penalty:
+        penaltyRuns = runs;
+      default:
+        break;
+    }
+
+    return _RunBreakdown(
+      byeRuns: byeRuns,
+      legByeRuns: legByeRuns,
+      wideRuns: wideRuns,
+      noBallRuns: noBallRuns,
+      penaltyRuns: penaltyRuns,
     );
   }
 
@@ -156,6 +385,10 @@ class ScoringEngine {
     MatchRulesModel rules,
     MatchModel match,
   ) {
+    if (event.eventType == BallEventType.lineupChange) {
+      return _applyLineupChange(innings, event);
+    }
+
     var totalRuns = innings.totalRuns + event.runs;
     var totalWickets = innings.totalWickets;
     var legalBalls = innings.legalBalls;
@@ -163,9 +396,6 @@ class ScoringEngine {
     var partnershipRuns = innings.partnershipRuns + event.runs;
     var partnershipBalls = innings.partnershipBalls;
     var isFreeHit = innings.isFreeHitActive;
-    var partnerships = List<PartnershipRecord>.from(innings.partnerships);
-    var fallOfWickets = List<FallOfWicketRecord>.from(innings.fallOfWickets);
-    var fielders = List<FielderInningsModel>.from(innings.fielders);
 
     if (event.isLegalDelivery) {
       legalBalls++;
@@ -187,51 +417,54 @@ class ScoringEngine {
     var strikerId = innings.strikerId;
     var nonStrikerId = innings.nonStrikerId;
 
-    if (event.eventType == BallEventType.wicket) {
-      if (!(event.isFreeHit && event.wicketType != WicketType.runOut)) {
-        totalWickets++;
-        partnerships = _closePartnership(
-          partnerships,
-          innings,
-          partnershipRuns,
-          partnershipBalls,
-        );
-        partnershipRuns = 0;
-        partnershipBalls = 0;
-        final dismissedId =
-            event.dismissedPlayerId ?? event.strikerId ?? strikerId;
-        if (dismissedId != null) {
-          fallOfWickets = [
-            ...fallOfWickets,
-            FallOfWicketRecord(
-              wicketNumber: totalWickets,
-              batsmanId: dismissedId,
-              batsmanName: _batsmanName(innings, dismissedId),
-              teamScore: totalRuns,
-              legalBalls: legalBalls,
-              dismissal: event.dismissalText ??
-                  event.wicketType?.name ??
-                  'out',
-            ),
-          ];
-          if (dismissedId == strikerId) strikerId = null;
-          if (dismissedId == nonStrikerId) nonStrikerId = null;
-        }
-      }
-    }
-
     var batsmen = List<BatsmanInningsModel>.from(innings.batsmen);
     var bowlers = List<BowlerInningsModel>.from(innings.bowlers);
 
-    if (event.strikerId != null) {
-      if (event.batsmanRuns > 0) {
+    // Runs + end rotation before wicket when runs completed on same ball.
+    if (event.eventType == BallEventType.wicket && event.batsmanRuns > 0) {
+      if (event.strikerId != null) {
         batsmen = _updateBatsman(
           batsmen,
           event.strikerId!,
           event.batsmanRuns,
           countBallFaced: _countsAsBallFaced(event),
         );
-      } else if (_strikerFacedDelivery(event)) {
+      }
+      if (event.batsmanRuns.isOdd &&
+          strikerId != null &&
+          nonStrikerId != null) {
+        final temp = strikerId;
+        strikerId = nonStrikerId;
+        nonStrikerId = temp;
+      }
+    }
+
+    if (event.eventType == BallEventType.wicket) {
+      if (!(event.isFreeHit && event.wicketType != WicketType.runOut)) {
+        totalWickets++;
+        partnershipRuns = 0;
+        partnershipBalls = 0;
+        final dismissedId =
+            event.dismissedPlayerId ?? event.strikerId ?? strikerId;
+        if (dismissedId != null) {
+          if (dismissedId == strikerId) strikerId = null;
+          if (dismissedId == nonStrikerId) nonStrikerId = null;
+        }
+      }
+    }
+
+    if (event.strikerId != null) {
+      final wicketRunsCredited = event.eventType == BallEventType.wicket &&
+          event.batsmanRuns > 0;
+      if (event.batsmanRuns > 0 &&
+          event.eventType != BallEventType.wicket) {
+        batsmen = _updateBatsman(
+          batsmen,
+          event.strikerId!,
+          event.batsmanRuns,
+          countBallFaced: _countsAsBallFaced(event),
+        );
+      } else if (_strikerFacedDelivery(event) && !wicketRunsCredited) {
         batsmen = _incrementBatsmanBall(batsmen, event.strikerId!);
       }
     }
@@ -243,8 +476,7 @@ class ScoringEngine {
         event.bowlerId!,
         runsAgainstBowler,
         event.isLegalDelivery,
-        event.eventType == BallEventType.wicket &&
-            event.wicketType != WicketType.runOut,
+        _bowlerGetsWicketFromEvent(event),
         isNoBall: event.eventType == BallEventType.noBall,
         isWide: event.eventType == BallEventType.wide,
       );
@@ -258,14 +490,14 @@ class ScoringEngine {
         batsmen = _markBatsmanOut(
           batsmen,
           dismissedId,
-          event.dismissalText ?? event.wicketType?.name ?? 'out',
+          DismissalFormatter.scorecardText(event),
         );
-        fielders = _updateFieldingStats(fielders, event);
       }
     }
 
-    // Strike rotation on odd runs (incl. WD/NB/bye/LB running runs).
-    if (_shouldRotateEndsForEvent(event) &&
+    // Strike rotation on odd runs (wicket+runs handled above).
+    if (event.eventType != BallEventType.wicket &&
+        _shouldRotateEndsForEvent(event) &&
         strikerId != null &&
         nonStrikerId != null) {
       final temp = strikerId;
@@ -304,93 +536,106 @@ class ScoringEngine {
       isFreeHitActive: isFreeHit,
       targetRuns: innings.targetRuns,
       isSuperOver: innings.isSuperOver,
-      partnerships: partnerships,
-      fallOfWickets: fallOfWickets,
-      fielders: fielders,
     );
   }
 
-  static List<FielderInningsModel> _updateFieldingStats(
-    List<FielderInningsModel> list,
-    BallEventModel event,
-  ) {
-    final type = event.wicketType;
-    final fielderId = event.fielderId;
-    if (type == null || fielderId == null || fielderId.isEmpty) {
-      return list;
+  InningsModel _applyLineupChange(InningsModel innings, BallEventModel event) {
+    var batsmen = List<BatsmanInningsModel>.from(innings.batsmen);
+    var bowlers = List<BowlerInningsModel>.from(innings.bowlers);
+
+    batsmen = _upsertBatsmanSlot(
+      batsmen,
+      event.strikerId,
+      event.lineupStrikerName,
+    );
+    batsmen = _upsertBatsmanSlot(
+      batsmen,
+      event.nonStrikerId,
+      event.lineupNonStrikerName,
+    );
+
+    if (event.bowlerId != null && event.bowlerId!.isNotEmpty) {
+      final idx = bowlers.indexWhere((b) => b.playerId == event.bowlerId);
+      if (idx >= 0) {
+        final b = bowlers[idx];
+        bowlers[idx] = BowlerInningsModel(
+          playerId: b.playerId,
+          playerName: event.bowlerName?.isNotEmpty == true
+              ? event.bowlerName!
+              : b.playerName,
+          oversBowledBalls: b.oversBowledBalls,
+          runsConceded: b.runsConceded,
+          wickets: b.wickets,
+          wides: b.wides,
+          noBalls: b.noBalls,
+        );
+      } else {
+        bowlers.add(
+          BowlerInningsModel(
+            playerId: event.bowlerId!,
+            playerName: event.bowlerName ?? '',
+          ),
+        );
+      }
     }
 
-    final name = event.fielderName ?? '';
-    int catches = 0;
-    int runOuts = 0;
-    int stumpings = 0;
-
-    switch (type) {
-      case WicketType.caught:
-      case WicketType.caughtBehind:
-      case WicketType.caughtAndBowled:
-        catches = 1;
-      case WicketType.runOut:
-        runOuts = 1;
-      case WicketType.stumped:
-        stumpings = 1;
-      default:
-        return list;
-    }
-
-    final idx = list.indexWhere((f) => f.playerId == fielderId);
-    if (idx >= 0) {
-      final f = list[idx];
-      list[idx] = FielderInningsModel(
-        playerId: f.playerId,
-        playerName: f.playerName.isNotEmpty ? f.playerName : name,
-        catches: f.catches + catches,
-        runOuts: f.runOuts + runOuts,
-        stumpings: f.stumpings + stumpings,
-      );
-    } else {
-      list.add(
-        FielderInningsModel(
-          playerId: fielderId,
-          playerName: name,
-          catches: catches,
-          runOuts: runOuts,
-          stumpings: stumpings,
-        ),
-      );
-    }
-    return list;
+    return InningsModel(
+      inningsNumber: innings.inningsNumber,
+      battingTeamId: innings.battingTeamId,
+      bowlingTeamId: innings.bowlingTeamId,
+      status: innings.status,
+      totalRuns: innings.totalRuns,
+      totalWickets: innings.totalWickets,
+      legalBalls: innings.legalBalls,
+      extras: innings.extras,
+      strikerId: event.strikerId,
+      nonStrikerId: event.nonStrikerId,
+      currentBowlerId: event.bowlerId ?? innings.currentBowlerId,
+      batsmen: batsmen,
+      bowlers: bowlers,
+      partnershipRuns: innings.partnershipRuns,
+      partnershipBalls: innings.partnershipBalls,
+      isFreeHitActive: innings.isFreeHitActive,
+      targetRuns: innings.targetRuns,
+      isSuperOver: innings.isSuperOver,
+    );
   }
 
-  static List<PartnershipRecord> _closePartnership(
-    List<PartnershipRecord> list,
-    InningsModel innings,
-    int runs,
-    int balls,
+  List<BatsmanInningsModel> _upsertBatsmanSlot(
+    List<BatsmanInningsModel> list,
+    String? playerId,
+    String? playerName,
   ) {
-    if (runs <= 0 && balls <= 0) return list;
-    final a = innings.strikerId;
-    final b = innings.nonStrikerId;
-    if (a == null || b == null) return list;
-    final sorted = [a, b]..sort();
+    if (playerId == null || playerId.isEmpty) return list;
+    final idx = list.indexWhere((b) => b.playerId == playerId);
+    if (idx >= 0) {
+      final b = list[idx];
+      list[idx] = BatsmanInningsModel(
+        playerId: b.playerId,
+        playerName: playerName?.isNotEmpty == true ? playerName! : b.playerName,
+        runs: b.runs,
+        balls: b.balls,
+        fours: b.fours,
+        sixes: b.sixes,
+        isOut: b.isOut,
+        dismissalInfo: b.dismissalInfo,
+      );
+      return list;
+    }
     return [
       ...list,
-      PartnershipRecord(
-        batterAId: sorted[0],
-        batterBId: sorted[1],
-        batterAName: _batsmanName(innings, sorted[0]),
-        batterBName: _batsmanName(innings, sorted[1]),
-        runs: runs,
-        balls: balls,
+      BatsmanInningsModel(
+        playerId: playerId,
+        playerName: playerName ?? '',
       ),
     ];
   }
 
   static String _batsmanName(InningsModel innings, String id) {
-    for (final b in innings.batsmen) {
-      if (b.playerId == id) return b.playerName;
-    }
-    return '';
+    if (id.isEmpty) return '';
+    final idx = innings.batsmen.indexWhere((b) => b.playerId == id);
+    if (idx < 0) return '';
+    return innings.batsmen[idx].playerName;
   }
 
   static String _bowlerName(InningsModel innings, String id) {
@@ -766,6 +1011,17 @@ class ScoringEngine {
     return _buildOverlay(match, innings, match.rules);
   }
 
+  static bool _bowlerGetsWicketFromEvent(BallEventModel event) {
+    if (!event.isWicket || event.eventType != BallEventType.wicket) {
+      return false;
+    }
+    if (event.bowlerGetsWicket) return true;
+    return DismissalFormatter.creditsBowlerWicket(
+      event.wicketType,
+      isMankad: event.isMankad,
+    );
+  }
+
   BallEventInput _inputFromEvent(BallEventModel e) {
     final runs = switch (e.eventType) {
       BallEventType.runs => e.batsmanRuns,
@@ -778,17 +1034,27 @@ class ScoringEngine {
     return BallEventInput(
       type: e.eventType,
       runs: runs,
-      wicketType: e.wicketType,
+      wicketType: e.isMankad ? WicketType.mankad : e.wicketType,
       dismissedPlayerId: e.dismissedPlayerId,
-      fielderId: e.fielderId,
-      fielderName: e.fielderName,
+      dismissedPlayerName: e.dismissedPlayerName,
+      fielderId: e.primaryFielderId ?? e.fielderId,
+      fielderName: e.primaryFielderName ?? e.fielderName,
       bowlerName: e.bowlerName,
-      dismissalText: e.dismissalText,
       fielders: e.fielders,
+      isMankad: e.isMankad,
       commentary: e.commentary,
       noBallRunsMode: e.noBallRunsMode,
       bowlerId: e.bowlerId,
       wagonWheel: e.wagonWheel,
+      createdBy: e.createdBy,
+      creaseStrikerId: e.eventType == BallEventType.lineupChange
+          ? e.strikerId
+          : null,
+      creaseNonStrikerId: e.eventType == BallEventType.lineupChange
+          ? e.nonStrikerId
+          : null,
+      creaseStrikerName: e.lineupStrikerName,
+      creaseNonStrikerName: e.lineupNonStrikerName,
     );
   }
 
@@ -809,31 +1075,44 @@ class BallEventInput {
     this.runs = 0,
     this.wicketType,
     this.dismissedPlayerId,
+    this.dismissedPlayerName,
     this.fielderId,
     this.fielderName,
     this.bowlerName,
-    this.dismissalText,
     this.fielders = const [],
+    this.isMankad = false,
     this.commentary = '',
     this.noBallRunsMode,
     this.bowlerId,
     this.wagonWheel,
+    this.createdBy,
+    this.creaseStrikerId,
+    this.creaseNonStrikerId,
+    this.creaseStrikerName,
+    this.creaseNonStrikerName,
   });
 
   final BallEventType type;
   final int runs;
   final WicketType? wicketType;
   final String? dismissedPlayerId;
+  final String? dismissedPlayerName;
   final String? fielderId;
   final String? fielderName;
   final String? bowlerName;
-  final String? dismissalText;
   final List<DismissalFielder> fielders;
+  final bool isMankad;
   final String commentary;
   final NoBallRunsMode? noBallRunsMode;
   /// When replaying stored balls, preserves the original bowler on the event.
   final String? bowlerId;
   final WagonWheelData? wagonWheel;
+  final String? createdBy;
+  /// Resulting crease after [BallEventType.lineupChange].
+  final String? creaseStrikerId;
+  final String? creaseNonStrikerId;
+  final String? creaseStrikerName;
+  final String? creaseNonStrikerName;
 }
 
 class ScoringInput {
@@ -848,14 +1127,28 @@ class ScoringInput {
   final OverlayStateModel overlay;
 }
 
+class _RunBreakdown {
+  const _RunBreakdown({
+    required this.byeRuns,
+    required this.legByeRuns,
+    required this.wideRuns,
+    required this.noBallRuns,
+    required this.penaltyRuns,
+  });
+
+  final int byeRuns;
+  final int legByeRuns;
+  final int wideRuns;
+  final int noBallRuns;
+  final int penaltyRuns;
+}
+
 extension _InningsCopy on InningsModel {
   InningsModel copyWith({
     int? totalRuns,
     int? totalWickets,
     int? legalBalls,
     int? extras,
-    List<PartnershipRecord>? partnerships,
-    List<FallOfWicketRecord>? fallOfWickets,
   }) {
     return InningsModel(
       inningsNumber: inningsNumber,
@@ -876,8 +1169,6 @@ extension _InningsCopy on InningsModel {
       isFreeHitActive: isFreeHitActive,
       targetRuns: targetRuns,
       isSuperOver: isSuperOver,
-      partnerships: partnerships ?? this.partnerships,
-      fallOfWickets: fallOfWickets ?? this.fallOfWickets,
     );
   }
 }

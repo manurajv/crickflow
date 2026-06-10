@@ -9,6 +9,7 @@ import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
+import '../../../../domain/scoring/ball_event_aggregator.dart';
 import '../../../../domain/services/scorecard_display_service.dart';
 import '../../../../shared/providers/providers.dart';
 
@@ -238,40 +239,62 @@ class _InningsExpandedBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final extras = ScorecardDisplayService.extrasBreakdown(
-      innings: innings,
-      events: events,
-      rules: rules,
-    );
+    final inningsEvents =
+        BallEventAggregator.eventsForInnings(events, innings.inningsNumber);
+    final derived = inningsEvents.isNotEmpty
+        ? BallEventAggregator().projectInnings(
+            match: match,
+            lineupInnings: innings,
+            allEvents: events,
+          )
+        : null;
+    final displayInnings = derived?.innings ?? innings;
+    final extras = derived?.extrasBreakdown ??
+        ScorecardDisplayService.extrasBreakdown(
+          innings: innings,
+          events: inningsEvents,
+          rules: rules,
+        );
     final extrasDetail = ScorecardDisplayService.extrasDetailLabel(extras);
-    final toBat = ScorecardDisplayService.toBatNames(match, innings);
-    final crr = MatchScoreDisplay.runRateFor(innings, rules);
-    final overs =
-        CricketMath.formatOvers(innings.legalBalls, rules.ballsPerOver);
+    final toBat = ScorecardDisplayService.toBatNames(match, displayInnings);
+    final crr = MatchScoreDisplay.runRateFor(displayInnings, rules);
+    final overs = CricketMath.formatOvers(
+      displayInnings.legalBalls,
+      rules.ballsPerOver,
+    );
     final wicketByBatsman = ScorecardDisplayService.wicketEventsByBatsman(
-      innings: innings,
-      events: events,
+      innings: displayInnings,
+      events: inningsEvents,
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _BattingSection(
-          innings: innings,
+          innings: displayInnings,
           wicketByBatsman: wicketByBatsman,
-          strikerId: innings.strikerId,
-          nonStrikerId: innings.nonStrikerId,
+          playerNames: ScorecardDisplayService.playerNamesForInnings(
+            match,
+            displayInnings,
+          ),
+          strikerId: displayInnings.strikerId,
+          nonStrikerId: displayInnings.nonStrikerId,
+          batterMinutes: derived?.batterMinutes ?? const {},
         ),
         _ExtrasRow(extras: extras, extrasDetail: extrasDetail),
         _TotalRow(
           totalLine:
-              '${innings.totalRuns}/${innings.totalWickets} ($overs Ov)',
+              '${displayInnings.totalRuns}/${displayInnings.totalWickets} ($overs Ov)',
           crr: crr,
         ),
         if (toBat.isNotEmpty) _ToBatSection(names: toBat),
-        _BowlingSection(innings: innings, rules: rules),
+        _BowlingSection(
+          innings: displayInnings,
+          rules: rules,
+          bowlerMaidens: derived?.bowlerMaidens ?? const {},
+        ),
         _FallOfWicketsSection(
-          entries: innings.fallOfWickets,
+          entries: displayInnings.fallOfWickets,
           ballsPerOver: rules.ballsPerOver,
         ),
       ],
@@ -482,14 +505,18 @@ class _BattingSection extends StatelessWidget {
   const _BattingSection({
     required this.innings,
     required this.wicketByBatsman,
+    required this.playerNames,
     this.strikerId,
     this.nonStrikerId,
+    this.batterMinutes = const {},
   });
 
   final InningsModel innings;
   final Map<String, BallEventModel> wicketByBatsman;
+  final Map<String, String> playerNames;
   final String? strikerId;
   final String? nonStrikerId;
+  final Map<String, int> batterMinutes;
 
   @override
   Widget build(BuildContext context) {
@@ -531,6 +558,8 @@ class _BattingSection extends StatelessWidget {
               batsman: b,
               onCrease: onCrease,
               wicketEvent: wicketByBatsman[b.playerId],
+              playerNames: playerNames,
+              minutes: batterMinutes[b.playerId],
             );
           }),
       ],
@@ -543,11 +572,15 @@ class _BattingRow extends StatelessWidget {
     required this.batsman,
     required this.onCrease,
     this.wicketEvent,
+    this.playerNames = const {},
+    this.minutes,
   });
 
   final BatsmanInningsModel batsman;
   final bool onCrease;
   final BallEventModel? wicketEvent;
+  final Map<String, String> playerNames;
+  final int? minutes;
 
   @override
   Widget build(BuildContext context) {
@@ -559,6 +592,7 @@ class _BattingRow extends StatelessWidget {
       batsman,
       onCrease: onCrease,
       wicketEvent: wicketEvent,
+      playerNames: playerNames,
     );
     final sr = CricketMath.strikeRate(batsman.runs, batsman.balls);
 
@@ -603,7 +637,10 @@ class _BattingRow extends StatelessWidget {
                 _StatCell(value: '${batsman.fours}', width: _kCol4s),
                 _StatCell(value: '${batsman.sixes}', width: _kCol6s),
                 _StatCell(value: sr.toStringAsFixed(1), width: _kColSr),
-                _StatCell(value: '-', width: _kColMin),
+                _StatCell(
+                  value: minutes != null ? '$minutes' : '-',
+                  width: _kColMin,
+                ),
               ],
             ),
           ),
@@ -760,10 +797,12 @@ class _BowlingSection extends StatelessWidget {
   const _BowlingSection({
     required this.innings,
     required this.rules,
+    this.bowlerMaidens = const {},
   });
 
   final InningsModel innings;
   final MatchRulesModel rules;
+  final Map<String, int> bowlerMaidens;
 
   @override
   Widget build(BuildContext context) {
@@ -797,7 +836,13 @@ class _BowlingSection extends StatelessWidget {
             ),
           )
         else
-          ...bowlers.map((b) => _BowlingRow(bowler: b, rules: rules)),
+          ...bowlers.map(
+            (b) => _BowlingRow(
+              bowler: b,
+              rules: rules,
+              maidens: bowlerMaidens[b.playerId] ?? 0,
+            ),
+          ),
       ],
     );
   }
@@ -807,10 +852,12 @@ class _BowlingRow extends StatelessWidget {
   const _BowlingRow({
     required this.bowler,
     required this.rules,
+    this.maidens = 0,
   });
 
   final BowlerInningsModel bowler;
   final MatchRulesModel rules;
+  final int maidens;
 
   @override
   Widget build(BuildContext context) {
@@ -843,7 +890,7 @@ class _BowlingRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 _StatCell(value: overs, width: _kColO),
-                _StatCell(value: '0', width: _kColM),
+                _StatCell(value: '$maidens', width: _kColM),
                 _StatCell(
                   value: '${bowler.runsConceded}',
                   width: _kColBowR,

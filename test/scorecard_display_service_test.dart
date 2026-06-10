@@ -28,6 +28,94 @@ void main() {
       );
     });
 
+    test('legacy run out Fielder/Bowler shows fielder only not bowler', () {
+      final event = BallEventModel(
+        id: '2d',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 4,
+        ballInOver: 3,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.runOut,
+        dismissedPlayerId: 'b2',
+        bowlerId: 'bowl1',
+        bowlerName: 'Fernando',
+        dismissalText: 'run out Kasun Perera/Fernando',
+        sequence: 2,
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'run out Kasun Perera',
+      );
+    });
+
+    test('stumped shows bowler only not keeper', () {
+      final event = BallEventModel(
+        id: '2e',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 2,
+        ballInOver: 4,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.stumped,
+        dismissedPlayerId: 'b1',
+        fielderId: 'wk1',
+        fielderName: 'Ravi',
+        primaryFielderId: 'wk1',
+        primaryFielderName: 'Ravi',
+        bowlerId: 'bowl1',
+        bowlerName: 'Ashok',
+        dismissalText: 'st Ravi b Ashok',
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'st b Ashok',
+      );
+    });
+
+    test('legacy run out single name shows fielder only', () {
+      final event = BallEventModel(
+        id: '2c',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 4,
+        ballInOver: 3,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.runOut,
+        dismissedPlayerId: 'b2',
+        bowlerId: 'bowl1',
+        bowlerName: 'Fernando',
+        dismissalText: 'run out Kasun Perera',
+        sequence: 2,
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'run out Kasun Perera',
+      );
+    });
+
+    test('builds run out with primary fielder metadata', () {
+      final event = BallEventModel(
+        id: '2b',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 4,
+        ballInOver: 3,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.runOut,
+        dismissedPlayerId: 'b2',
+        primaryFielderId: 'f1',
+        primaryFielderName: 'Kasun Perera',
+        fielders: const [
+          DismissalFielder(playerId: 'f1', playerName: 'Kasun Perera'),
+        ],
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'run out Kasun Perera',
+      );
+    });
+
     test('builds run out with multiple fielders', () {
       final event = BallEventModel(
         id: '2',
@@ -46,6 +134,26 @@ void main() {
       expect(
         DismissalFormatter.fromWicketEvent(event),
         'run out Kasun Perera / John Silva',
+      );
+    });
+
+    test('mankad displays as run out bowler', () {
+      final event = BallEventModel(
+        id: '3b',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 1,
+        ballInOver: 1,
+        eventType: BallEventType.wicket,
+        wicketType: WicketType.runOut,
+        isMankad: true,
+        dismissedPlayerId: 'b4',
+        bowlerId: 'bowl1',
+        bowlerName: 'Ashok Rawat',
+      );
+      expect(
+        DismissalFormatter.fromWicketEvent(event),
+        'run out Ashok Rawat',
       );
     });
 

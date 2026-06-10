@@ -104,7 +104,13 @@ Ball-by-ball audit trail with sequence ordering.
 |-------|------|-------|
 | sequence | number | Monotonic per match |
 | eventType | string | `runs`, `wide`, `noBall`, … |
-| runs, batsmanRuns, extraRuns | number | |
+| runs, batsmanRuns, extraRuns | number | Team total and runs off bat |
+| byeRuns, legByeRuns, wideRuns, noBallRuns, penaltyRuns | number? | Explicit extras breakdown (new events) |
+| battingTeamId, bowlingTeamId, tournamentId | string? | Team context |
+| countsAsBallFaced, countsInOver, countsToBowler | boolean | Ball-status audit flags |
+| isWicket, bowlerGetsWicket, isBoundary, boundaryType | boolean / string? | Wicket and boundary metadata |
+| strikerAfterBall, nonStrikerAfterBall | string? | Post-ball crease audit |
+| createdBy | string? | Scorer uid |
 | strikerId, bowlerId | string? | |
 | wagonWheel | map? | `{ enabled, x, y, shotType?, source?, confidence? }` — x/y are **percentages** 0–100 |
 

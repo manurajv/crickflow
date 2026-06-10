@@ -323,12 +323,8 @@ class InningsModel extends Equatable {
         'isFreeHitActive': isFreeHitActive,
         if (targetRuns != null) 'targetRuns': targetRuns,
         'isSuperOver': isSuperOver,
-        if (partnerships.isNotEmpty)
-          'partnerships': partnerships.map((p) => p.toMap()).toList(),
-        if (fallOfWickets.isNotEmpty)
-          'fallOfWickets': fallOfWickets.map((f) => f.toMap()).toList(),
-        if (fielders.isNotEmpty)
-          'fielders': fielders.map((f) => f.toMap()).toList(),
+        // partnerships, fallOfWickets, fielders are derived from ball_events —
+        // not persisted (see BALL_EVENT_ARCHITECTURE.md).
       };
 
   @override

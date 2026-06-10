@@ -6,7 +6,6 @@ import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/innings_model.dart';
-import '../../../data/models/lineup_player.dart';
 import '../../../data/models/match_model.dart';
 import '../../../domain/services/commentary_service.dart';
 import '../../../domain/services/scoring_engine.dart';
@@ -16,7 +15,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/player_lineup_picker.dart';
 import '../../../data/models/dismissal_fielder.dart';
 import '../../../domain/services/dismissal_formatter.dart';
-import '../../../shared/widgets/dismissed_batter_picker_sheet.dart';
+import 'widgets/crease_picker_sheets.dart';
 import '../../../shared/widgets/fielder_picker_sheet.dart';
 import '../../../shared/widgets/wicket_picker_sheet.dart';
 import '../../matches/presentation/match_scoring_rules_screen.dart';
@@ -127,6 +126,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     setState(() => _isRecording = true);
     final sequence = _ballSequence + 1;
+    final scorerUid = ref.read(authStateProvider).valueOrNull?.uid;
     final fullInput = BallEventInput(
       type: input.type,
       runs: input.runs,
@@ -135,6 +135,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       fielderId: input.fielderId,
       noBallRunsMode: input.noBallRunsMode,
       wagonWheel: wagonWheel,
+      createdBy: scorerUid,
       commentary: input.commentary.isNotEmpty
           ? input.commentary
           : CommentaryService.forBall(
@@ -177,6 +178,48 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Scoring error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRecording = false);
+    }
+  }
+
+  /// Persists crease/bowler changes as ball events (replay-safe).
+  Future<void> _recordLineupChange({
+    required MatchModel match,
+    required String strikerId,
+    required String strikerName,
+    required String nonStrikerId,
+    required String nonStrikerName,
+    required String bowlerId,
+    required String bowlerName,
+  }) async {
+    setState(() => _isRecording = true);
+    final sequence = _ballSequence + 1;
+    final scorerUid = ref.read(authStateProvider).valueOrNull?.uid;
+    try {
+      await ref.read(matchRepositoryProvider).recordBall(
+            match: match,
+            input: BallEventInput(
+              type: BallEventType.lineupChange,
+              creaseStrikerId: strikerId,
+              creaseNonStrikerId: nonStrikerId,
+              creaseStrikerName: strikerName,
+              creaseNonStrikerName: nonStrikerName,
+              bowlerId: bowlerId,
+              bowlerName: bowlerName,
+              createdBy: scorerUid,
+              commentary: 'Lineup updated',
+            ),
+            sequence: sequence,
+          );
+      setState(() => _ballSequence = sequence);
+      HapticFeedback.lightImpact();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lineup error: $e')),
         );
       }
     } finally {
@@ -265,8 +308,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               latestInn.nonStrikerId == null) {
             return;
           }
-          await ref.read(matchRepositoryProvider).updateLineup(
-                matchId: widget.matchId,
+          await _recordLineupChange(
+                match: latest,
                 strikerId: latestInn.strikerId!,
                 strikerName: ScoringDisplayUtils.batsman(
                       latestInn,
@@ -301,25 +344,39 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     final bowlerId = inn.currentBowlerId;
     final bowlerName = ScoringDisplayUtils.bowler(inn, bowlerId)?.playerName ?? '';
-    final strikerName =
-        ScoringDisplayUtils.batsman(inn, inn.strikerId)?.playerName ?? '';
-    final nonStrikerName =
-        ScoringDisplayUtils.batsman(inn, inn.nonStrikerId)?.playerName ?? '';
-
     String? dismissedPlayerId;
     String? fielderId;
     String? fielderName;
     List<DismissalFielder> fielders = const [];
 
-    if (type == WicketType.runOut) {
-      dismissedPlayerId = await showDismissedBatterPickerSheet(
+    var runsBeforeDismissal = 0;
+    final isMankad = type == WicketType.mankad;
+
+    if (isMankad) {
+      dismissedPlayerId = inn.nonStrikerId;
+      if (dismissedPlayerId == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No non-striker to dismiss for Mankad')),
+        );
+        return;
+      }
+      if (bowlerId != null) {
+        fielderId = bowlerId;
+        fielderName = bowlerName;
+        fielders = [
+          DismissalFielder(playerId: bowlerId, playerName: bowlerName),
+        ];
+      }
+    } else if (type == WicketType.runOut) {
+      dismissedPlayerId = await showRunOutDismissedPicker(
         context,
-        strikerId: inn.strikerId,
-        strikerName: strikerName,
-        nonStrikerId: inn.nonStrikerId,
-        nonStrikerName: nonStrikerName,
+        innings: inn,
       );
       if (dismissedPlayerId == null || !mounted) return;
+
+      runsBeforeDismissal = await _pickRunsBeforeRunOut() ?? 0;
+      if (!mounted) return;
 
       final fielder = await FielderPickerSheet.show(
         context,
@@ -353,33 +410,37 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         DismissalFielder(playerId: fielder.id, playerName: fielder.name),
       ];
     } else {
-      dismissedPlayerId =
-          DismissalFormatter.defaultDismissedPlayerId(
-            type: type,
-            strikerId: inn.strikerId,
-          );
+      dismissedPlayerId = DismissalFormatter.defaultDismissedPlayerId(
+        type: type,
+        strikerId: inn.strikerId,
+        nonStrikerId: inn.nonStrikerId,
+      );
     }
 
-    final dismissalText = DismissalFormatter.format(
-      type: type,
-      bowlerName: bowlerName,
-      fielderName: fielderName ?? '',
-    );
+    final dismissedPlayerName = ScoringDisplayUtils.batsman(
+          inn,
+          dismissedPlayerId,
+        )?.playerName ??
+        '';
 
     await _record(
       BallEventInput(
         type: BallEventType.wicket,
+        runs: runsBeforeDismissal,
         wicketType: type,
+        isMankad: isMankad,
         dismissedPlayerId: dismissedPlayerId,
+        dismissedPlayerName: dismissedPlayerName,
         fielderId: fielderId,
         fielderName: fielderName,
+        bowlerId: bowlerId,
         bowlerName: bowlerName.isEmpty ? null : bowlerName,
-        dismissalText: dismissalText,
         fielders: fielders,
         commentary: CommentaryService.forWicket(
           wicketType: type,
-          fielderName: fielderName,
+          fielderName: isMankad ? bowlerName : fielderName,
           bowlerName: bowlerName,
+          isMankad: isMankad,
         ),
       ),
     );
@@ -390,7 +451,57 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         updatedInn != null &&
         !ScoringDisplayUtils.isInningsComplete(updated, updatedInn)) {
       await _fillVacantCrease(updated, updatedInn);
+      if (!mounted) return;
+      if (type == WicketType.runOut) {
+        final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
+        final freshInn = fresh?.currentInnings;
+        if (fresh != null && freshInn != null) {
+          await _confirmStrikeAfterRunOut(fresh, freshInn);
+        }
+      }
     }
+  }
+
+  /// Run out: scorer picks who faces the next delivery.
+  Future<void> _confirmStrikeAfterRunOut(
+    MatchModel match,
+    InningsModel inn,
+  ) async {
+    if (inn.strikerId == null || inn.nonStrikerId == null) return;
+
+    final strikerOnStrike = await showStrikeDecisionPicker(
+      context,
+      innings: inn,
+    );
+    if (strikerOnStrike == null || !mounted) return;
+
+    final nonStrikerId = strikerOnStrike == inn.strikerId
+        ? inn.nonStrikerId!
+        : inn.strikerId!;
+    if (strikerOnStrike == inn.strikerId && nonStrikerId == inn.nonStrikerId) {
+      return;
+    }
+
+    final latest = ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+    final latestInn = latest.currentInnings;
+    if (latestInn == null) return;
+
+    await _recordLineupChange(
+      match: latest,
+      strikerId: strikerOnStrike,
+      strikerName: ScoringDisplayUtils.batsman(latestInn, strikerOnStrike)
+              ?.playerName ??
+          strikerOnStrike,
+      nonStrikerId: nonStrikerId,
+      nonStrikerName:
+          ScoringDisplayUtils.batsman(latestInn, nonStrikerId)?.playerName ??
+              nonStrikerId,
+      bowlerId: latestInn.currentBowlerId ?? '',
+      bowlerName:
+          ScoringDisplayUtils.bowler(latestInn, latestInn.currentBowlerId)
+                  ?.playerName ??
+              '',
+    );
   }
 
   Future<void> _showInningsCompleteIfNeeded(
@@ -470,37 +581,26 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       return;
     }
 
-    final picked = await showModalBottomSheet<LineupPlayer>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                title,
-                style: Theme.of(ctx).textTheme.titleMedium,
-              ),
-            ),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: eligible.length,
-                itemBuilder: (_, i) {
-                  final p = eligible[i];
-                  return ListTile(
-                    leading: const Icon(Icons.sports_cricket),
-                    title: Text(p.name),
-                    onTap: () => Navigator.pop(ctx, p),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+    final cardOptions = eligible
+        .map(
+          (p) {
+            final b = ScoringDisplayUtils.batsman(inn, p.id);
+            return CreaseBatterOption(
+              playerId: p.id,
+              name: p.name,
+              runs: b?.runs ?? 0,
+              balls: b?.balls ?? 0,
+              roleLabel: 'Available',
+            );
+          },
+        )
+        .toList();
+
+    final picked = await showNewBatterPicker(
+      context,
+      title: title,
+      subtitle: 'Select the incoming batter',
+      options: cardOptions,
     );
 
     if (picked == null || !mounted) return;
@@ -510,19 +610,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (latest == null || latestInn == null) return;
 
     try {
-      await ref.read(matchRepositoryProvider).updateLineup(
-            matchId: widget.matchId,
+      await _recordLineupChange(
+            match: latest,
             strikerId: forStriker
-                ? picked.id
-                : (latestInn.strikerId ?? picked.id),
+                ? picked.playerId
+                : (latestInn.strikerId ?? picked.playerId),
             strikerName: forStriker
                 ? picked.name
                 : ScoringDisplayUtils.batsman(latestInn, latestInn.strikerId)
                         ?.playerName ??
                     picked.name,
             nonStrikerId: forStriker
-                ? (latestInn.nonStrikerId ?? picked.id)
-                : picked.id,
+                ? (latestInn.nonStrikerId ?? picked.playerId)
+                : picked.playerId,
             nonStrikerName: forStriker
                 ? ScoringDisplayUtils.batsman(
                         latestInn, latestInn.nonStrikerId)
@@ -803,45 +903,86 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       return;
     }
 
-    final picked = await showModalBottomSheet<LineupPlayer>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      builder: (ctx) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: eligible
-              .map(
-                (p) => ListTile(
-                  leading: const Icon(Icons.sports_cricket),
-                  title: Text(p.name),
-                  onTap: () => Navigator.pop(ctx, p),
-                ),
-              )
-              .toList(),
-        ),
-      ),
+    final cardOptions = eligible
+        .map(
+          (p) {
+            final b = ScoringDisplayUtils.batsman(inn, p.id);
+            return CreaseBatterOption(
+              playerId: p.id,
+              name: p.name,
+              runs: b?.runs ?? 0,
+              balls: b?.balls ?? 0,
+              roleLabel: 'Available',
+            );
+          },
+        )
+        .toList();
+
+    final picked = await showNewBatterPicker(
+      context,
+      title: striker ? 'Replace striker' : 'Replace non-striker',
+      subtitle: 'Select the incoming batter',
+      options: cardOptions,
     );
     if (picked == null || !mounted) return;
 
-    final player = picked;
-    await ref.read(matchRepositoryProvider).updateLineup(
-          matchId: widget.matchId,
-          strikerId: striker ? picked.id : inn.strikerId!,
+    await _recordLineupChange(
+          match: match,
+          strikerId: striker ? picked.playerId : inn.strikerId!,
           strikerName: striker
-              ? player.name
+              ? picked.name
               : ScoringDisplayUtils.batsman(inn, inn.strikerId)?.playerName ??
                   '',
-          nonStrikerId: striker ? inn.nonStrikerId! : picked.id,
+          nonStrikerId: striker ? inn.nonStrikerId! : picked.playerId,
           nonStrikerName: striker
               ? ScoringDisplayUtils.batsman(inn, inn.nonStrikerId)
                       ?.playerName ??
                   ''
-              : player.name,
+              : picked.name,
           bowlerId: inn.currentBowlerId!,
           bowlerName:
               ScoringDisplayUtils.bowler(inn, inn.currentBowlerId)?.playerName ??
                   '',
         );
+  }
+
+  /// Runs completed before a run-out on the same ball (0–3).
+  Future<int?> _pickRunsBeforeRunOut() {
+    return ScoringUiKit.showSheet<int>(
+      context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const ScoringSheetHeader(title: 'Runs before run out'),
+              const SizedBox(height: 8),
+              const Text(
+                'How many runs were completed before the dismissal?',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [0, 1, 2, 3]
+                    .map(
+                      (r) => ActionChip(
+                        label: Text('$r'),
+                        onPressed: () => Navigator.pop(ctx, r),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _replaceBowler(MatchModel match) async {
@@ -859,7 +1000,6 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
   void _openLineupSheet(MatchModel match) {
     final squadsAsync = ref.read(matchLineupSquadsProvider(widget.matchId));
-    final inn = match.currentInnings;
     squadsAsync.whenData((squads) {
       final inn = match.currentInnings;
       final batting = inn == null
@@ -890,15 +1030,30 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               required bowlerId,
               required bowlerName,
             }) async {
-              await ref.read(matchRepositoryProvider).updateLineup(
-                    matchId: widget.matchId,
-                    strikerId: strikerId,
-                    strikerName: strikerName,
-                    nonStrikerId: nonStrikerId,
-                    nonStrikerName: nonStrikerName,
-                    bowlerId: bowlerId,
-                    bowlerName: bowlerName,
-                  );
+              final events =
+                  ref.read(ballEventsProvider(widget.matchId)).valueOrNull ??
+                      [];
+              if (events.isNotEmpty) {
+                await _recordLineupChange(
+                  match: match,
+                  strikerId: strikerId,
+                  strikerName: strikerName,
+                  nonStrikerId: nonStrikerId,
+                  nonStrikerName: nonStrikerName,
+                  bowlerId: bowlerId,
+                  bowlerName: bowlerName,
+                );
+              } else {
+                await ref.read(matchRepositoryProvider).updateLineup(
+                      matchId: widget.matchId,
+                      strikerId: strikerId,
+                      strikerName: strikerName,
+                      nonStrikerId: nonStrikerId,
+                      nonStrikerName: nonStrikerName,
+                      bowlerId: bowlerId,
+                      bowlerName: bowlerName,
+                    );
+              }
               if (ctx.mounted) Navigator.pop(ctx);
             },
           ),

@@ -43,6 +43,8 @@ enum BallEventType {
   legBye,
   wicket,
   penalty,
+  /// Non-delivery crease/bowler update (new batter, bowler change).
+  lineupChange,
 }
 
 /// How runs off a no-ball are scored (from bat, bye, or leg bye).
@@ -55,6 +57,8 @@ enum WicketType {
   caughtAndBowled,
   lbw,
   runOut,
+  /// UI-only; persisted on BallEvent as [runOut] with [isMankad].
+  mankad,
   stumped,
   hitWicket,
   retiredHurt,

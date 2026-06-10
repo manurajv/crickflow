@@ -413,7 +413,9 @@ class _OverTimeline extends StatelessWidget {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: events.map((e) {
+              children: events
+                  .where((e) => ScoringDisplayUtils.ballBubbleLabel(e).isNotEmpty)
+                  .map((e) {
                 final isWicket = e.eventType == BallEventType.wicket;
                 final isBoundary =
                     e.runs >= 4 && e.eventType == BallEventType.runs;
