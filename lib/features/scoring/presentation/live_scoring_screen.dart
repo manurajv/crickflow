@@ -1184,6 +1184,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final canEditToss = ScoringDisplayUtils.canEditTossDecision(match);
     ScoringUiKit.showSheet(
       context,
+      isScrollControlled: true,
       builder: (ctx) => ScoringQuickOptionsSheet(
         onEditLineup: () => _openLineupSheet(match),
         onChangeWicketkeeper: () => _changeWicketKeeper(match),

@@ -305,6 +305,45 @@ class ScoringDisplayUtils {
     return '${b.runs}(${b.balls})';
   }
 
+  /// Runs and balls faced by [playerId] as striker during [overEvents] only.
+  static ({int runs, int balls}) batsmanOverStats(
+    String? playerId,
+    List<BallEventModel> overEvents,
+  ) {
+    if (playerId == null || playerId.isEmpty) {
+      return (runs: 0, balls: 0);
+    }
+    var runs = 0;
+    var balls = 0;
+    for (final e in overEvents) {
+      if (e.strikerId != playerId) continue;
+      if (e.batsmanRuns > 0) {
+        runs += e.batsmanRuns;
+        if (_strikerCountsBallFaced(e)) balls++;
+      } else if (_strikerFacedDeliveryInOver(e)) {
+        balls++;
+      }
+    }
+    return (runs: runs, balls: balls);
+  }
+
+  static String batsmanOverScoreLine(String? playerId, List<BallEventModel> overEvents) {
+    final s = batsmanOverStats(playerId, overEvents);
+    return '${s.runs}(${s.balls})';
+  }
+
+  static bool _strikerCountsBallFaced(BallEventModel event) {
+    if (!event.isLegalDelivery) return false;
+    return event.eventType != BallEventType.wide &&
+        event.eventType != BallEventType.noBall;
+  }
+
+  static bool _strikerFacedDeliveryInOver(BallEventModel event) {
+    if (!event.isLegalDelivery) return false;
+    return event.eventType != BallEventType.wide &&
+        event.eventType != BallEventType.noBall;
+  }
+
   static String bowlerFigures(BowlerInningsModel? b, int ballsPerOver) {
     if (b == null) return '0-0-0-0';
     final overs = b.oversBowledBalls ~/ ballsPerOver;

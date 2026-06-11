@@ -129,14 +129,45 @@ class OverCompleteDialog extends StatelessWidget {
               ),
               child: Column(
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
+                    child: Row(
+                      children: const [
+                        Expanded(
+                          child: Text(
+                            'Batter',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'This over',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   _PlayerRow(
                     name: striker?.playerName ?? '—',
-                    stat: ScoringDisplayUtils.batsmanScoreLine(striker),
+                    stat: ScoringDisplayUtils.batsmanOverScoreLine(
+                      innings.strikerId,
+                      overEvents,
+                    ),
                   ),
                   const Divider(height: 1, color: AppColors.border),
                   _PlayerRow(
                     name: nonStriker?.playerName ?? '—',
-                    stat: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
+                    stat: ScoringDisplayUtils.batsmanOverScoreLine(
+                      innings.nonStrikerId,
+                      overEvents,
+                    ),
                   ),
                 ],
               ),

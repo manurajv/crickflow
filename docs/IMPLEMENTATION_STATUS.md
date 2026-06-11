@@ -51,6 +51,7 @@
 | Scoring UI kit — unified bottom sheets (start innings → live scoring) | Done |
 | Retired hurt — not a wicket; `retiredHurt` + `isEligibleToReturn`; batter can return | Done |
 | Wicket picker — all dismissal types visible (no Show more) | Done |
+| Quick settings sheet — 4-column grid, More shortcuts / Show less, primary + secondary tiers | Done |
 
 ---
 

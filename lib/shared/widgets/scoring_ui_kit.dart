@@ -157,10 +157,12 @@ class ScoringSheetHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.trailing,
+    this.mutedTitle = false,
   });
 
   final String title;
   final Widget? trailing;
+  final bool mutedTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -185,10 +187,12 @@ class ScoringSheetHeader extends StatelessWidget {
                 child: Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                  style: TextStyle(
+                    fontSize: mutedTitle ? 14 : 16,
+                    fontWeight: mutedTitle ? FontWeight.w500 : FontWeight.w700,
+                    color: mutedTitle
+                        ? AppColors.textMuted
+                        : AppColors.textPrimary,
                   ),
                 ),
               ),
