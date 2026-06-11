@@ -71,6 +71,123 @@ Future<String?> showRunOutDismissedPicker(
   );
 }
 
+/// Token for "New batter" in the next-striker picker.
+const kNewBatterNextStrikerToken = '__new_batter__';
+
+/// After run out: who faces the next delivery (striker / non-striker / new batter).
+Future<String?> showRunOutNextStrikerPicker(
+  BuildContext context, {
+  required InningsModel innings,
+  required String dismissedPlayerId,
+}) {
+  final options = <CreaseBatterOption>[];
+  if (innings.strikerId != null &&
+      innings.strikerId != dismissedPlayerId) {
+    final s = CreaseBatterOption.fromInnings(
+      innings,
+      innings.strikerId,
+      roleLabel: 'Current striker',
+    );
+    if (s != null) options.add(s);
+  }
+  if (innings.nonStrikerId != null &&
+      innings.nonStrikerId != dismissedPlayerId) {
+    final ns = CreaseBatterOption.fromInnings(
+      innings,
+      innings.nonStrikerId,
+      roleLabel: 'Current non-striker',
+    );
+    if (ns != null) options.add(ns);
+  }
+  options.add(
+    const CreaseBatterOption(
+      playerId: kNewBatterNextStrikerToken,
+      name: 'New batter',
+      runs: 0,
+      balls: 0,
+      roleLabel: 'Incoming batter',
+    ),
+  );
+
+  return ScoringUiKit.showSheet<String>(
+    context,
+    isScrollControlled: true,
+    builder: (ctx) => _CreasePickerBody(
+      title: 'Who will face the next ball?',
+      subtitle: 'Select the batter on strike for the next delivery',
+      options: options,
+      confirmLabel: 'Confirm',
+    ),
+  );
+}
+
+/// Resolves striker/non-striker after run out including new-batter pick.
+Future<
+    ({
+      String strikerId,
+      String strikerName,
+      String nonStrikerId,
+      String nonStrikerName,
+    })?> showRunOutNextStrikerFlow(
+  BuildContext context, {
+  required InningsModel innings,
+  required String dismissedPlayerId,
+  required List<CreaseBatterOption> newBatterOptions,
+}) async {
+  final picked = await showRunOutNextStrikerPicker(
+    context,
+    innings: innings,
+    dismissedPlayerId: dismissedPlayerId,
+  );
+  if (picked == null) return null;
+
+  final survivorId = innings.strikerId == dismissedPlayerId
+      ? innings.nonStrikerId
+      : innings.nonStrikerId == dismissedPlayerId
+          ? innings.strikerId
+          : null;
+  if (survivorId == null) return null;
+
+  final survivorName =
+      ScoringDisplayUtils.batsman(innings, survivorId)?.playerName ??
+          survivorId;
+
+  if (picked == kNewBatterNextStrikerToken) {
+    if (newBatterOptions.isEmpty) return null;
+    final newB = await showNewBatterPicker(
+      context,
+      title: 'Select new batter',
+      subtitle: 'Incoming batter to face the next ball',
+      options: newBatterOptions,
+    );
+    if (newB == null) return null;
+    return (
+      strikerId: newB.playerId,
+      strikerName: newB.name,
+      nonStrikerId: survivorId,
+      nonStrikerName: survivorName,
+    );
+  }
+
+  if (newBatterOptions.isEmpty) return null;
+  final newB = await showNewBatterPicker(
+    context,
+    title: 'Select new batter',
+    subtitle: 'Fill the vacant end',
+    options: newBatterOptions,
+  );
+  if (newB == null) return null;
+
+  final pickedName =
+      ScoringDisplayUtils.batsman(innings, picked)?.playerName ?? picked;
+  return (
+    strikerId: picked,
+    strikerName: pickedName,
+    nonStrikerId: newB.playerId,
+    nonStrikerName: newB.name,
+  );
+}
+
 /// After run out: who faces the next ball (striker)?
 Future<String?> showStrikeDecisionPicker(
   BuildContext context, {

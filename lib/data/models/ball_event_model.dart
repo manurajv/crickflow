@@ -74,6 +74,9 @@ class BallEventModel extends Equatable {
     this.currentWicketKeeperId,
     this.currentWicketKeeperName,
     this.undoGroupId,
+    this.nextStrikerId,
+    this.nextStrikerName,
+    this.runOutDeliveryKind,
     this.retiredHurt = false,
     this.isEligibleToReturn = false,
   });
@@ -157,6 +160,11 @@ class BallEventModel extends Equatable {
   final String? currentWicketKeeperName;
   /// Groups wicket + post-wicket lineup events for single undo.
   final String? undoGroupId;
+  /// Striker chosen after run out (lineup change following dismissal).
+  final String? nextStrikerId;
+  final String? nextStrikerName;
+  /// Wide / no-ball / bye / leg-bye context on a run-out delivery.
+  final RunOutDeliveryKind? runOutDeliveryKind;
   final bool retiredHurt;
   final bool isEligibleToReturn;
 
@@ -259,6 +267,11 @@ class BallEventModel extends Equatable {
       currentWicketKeeperId: map['currentWicketKeeperId'] as String?,
       currentWicketKeeperName: map['currentWicketKeeperName'] as String?,
       undoGroupId: map['undoGroupId'] as String?,
+      nextStrikerId: map['nextStrikerId'] as String?,
+      nextStrikerName: map['nextStrikerName'] as String?,
+      runOutDeliveryKind: _runOutDeliveryKindFromMap(
+        map['runOutDeliveryKind'] as String?,
+      ),
       retiredHurt: map['retiredHurt'] as bool? ?? false,
       isEligibleToReturn: map['isEligibleToReturn'] as bool? ?? false,
     );
@@ -363,6 +376,12 @@ class BallEventModel extends Equatable {
           'currentWicketKeeperName': currentWicketKeeperName,
         if (undoGroupId != null && undoGroupId!.isNotEmpty)
           'undoGroupId': undoGroupId,
+        if (nextStrikerId != null) 'nextStrikerId': nextStrikerId,
+        if (nextStrikerName != null && nextStrikerName!.isNotEmpty)
+          'nextStrikerName': nextStrikerName,
+        if (runOutDeliveryKind != null &&
+            runOutDeliveryKind != RunOutDeliveryKind.normal)
+          'runOutDeliveryKind': runOutDeliveryKind!.name,
         if (retiredHurt) 'retiredHurt': true,
         if (isEligibleToReturn) 'isEligibleToReturn': true,
       };
@@ -391,6 +410,14 @@ class BallEventModel extends Equatable {
           .map((f) => f.playerName)
           .where((name) => name.isNotEmpty)
           .toList();
+
+  static RunOutDeliveryKind? _runOutDeliveryKindFromMap(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    return RunOutDeliveryKind.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => RunOutDeliveryKind.normal,
+    );
+  }
 
   static String dismissalTypeForEvent({
     required WicketType? wicketType,
@@ -476,6 +503,9 @@ class BallEventModel extends Equatable {
     String? currentWicketKeeperId,
     String? currentWicketKeeperName,
     String? undoGroupId,
+    String? nextStrikerId,
+    String? nextStrikerName,
+    RunOutDeliveryKind? runOutDeliveryKind,
     bool? retiredHurt,
     bool? isEligibleToReturn,
   }) {
@@ -551,6 +581,9 @@ class BallEventModel extends Equatable {
       currentWicketKeeperName:
           currentWicketKeeperName ?? this.currentWicketKeeperName,
       undoGroupId: undoGroupId ?? this.undoGroupId,
+      nextStrikerId: nextStrikerId ?? this.nextStrikerId,
+      nextStrikerName: nextStrikerName ?? this.nextStrikerName,
+      runOutDeliveryKind: runOutDeliveryKind ?? this.runOutDeliveryKind,
       retiredHurt: retiredHurt ?? this.retiredHurt,
       isEligibleToReturn: isEligibleToReturn ?? this.isEligibleToReturn,
     );

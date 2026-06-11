@@ -39,6 +39,25 @@ class ScorecardDisplayService {
           }
         case BallEventType.penalty:
           penalties += e.runs;
+        case BallEventType.wicket:
+          if (e.wicketType == WicketType.runOut &&
+              e.runOutDeliveryKind != null &&
+              e.runOutDeliveryKind != RunOutDeliveryKind.normal) {
+            switch (e.runOutDeliveryKind!) {
+              case RunOutDeliveryKind.wide:
+                wides += e.runs - e.batsmanRuns;
+              case RunOutDeliveryKind.noBall:
+                noBalls += e.noBallRuns;
+                byes += e.noBallByeRuns;
+                legByes += e.noBallLegByeRuns;
+              case RunOutDeliveryKind.bye:
+                byes += e.byeRuns;
+              case RunOutDeliveryKind.legBye:
+                legByes += e.legByeRuns;
+              case RunOutDeliveryKind.normal:
+                break;
+            }
+          }
         default:
           break;
       }

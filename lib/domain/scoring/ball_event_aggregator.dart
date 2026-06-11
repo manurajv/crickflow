@@ -7,6 +7,7 @@ import '../../data/models/match_rules_model.dart';
 import '../services/dismissal_formatter.dart';
 import '../services/scorecard_display_service.dart';
 import '../services/scoring_engine.dart';
+import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 
 /// Pure derivation of innings statistics from the ball event log.
 ///
@@ -394,22 +395,14 @@ class BallEventAggregator {
   }
 
   static String _symbolForEvent(BallEventModel e) {
-    if (e.isWicket) {
-      if (e.wicketType == WicketType.runOut && e.runs > 0) {
-        return 'W+${e.runs}';
-      }
-      return 'W';
-    }
+    final label = ScoringDisplayUtils.ballBubbleLabel(e);
+    if (label.isNotEmpty) return label;
     return switch (e.eventType) {
-      BallEventType.wide => 'Wd',
-      BallEventType.noBall => 'Nb',
-      BallEventType.bye => '${e.runs}b',
-      BallEventType.legBye => '${e.runs}lb',
       BallEventType.penalty => 'P',
       BallEventType.runs => e.batsmanRuns == 0 ? '·' : '${e.batsmanRuns}',
-      BallEventType.wicket => 'W',
       BallEventType.lineupChange => '',
       BallEventType.wicketKeeperChange => '',
+      _ => '',
     };
   }
 

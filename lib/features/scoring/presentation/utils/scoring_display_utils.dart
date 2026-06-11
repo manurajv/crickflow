@@ -367,12 +367,42 @@ class ScoringDisplayUtils {
     return '${e.runs}';
   }
 
-  /// Over-strip wicket symbol; run out with completed runs shows `W+1`, etc.
+  /// Over-strip wicket symbol; run out with extras shows `Wd+2+W`, `Nb+1+W`, etc.
   static String wicketBubbleLabel(BallEventModel e) {
-    if (e.wicketType == WicketType.runOut && e.runs > 0) {
-      return 'W+${e.runs}';
+    if (e.wicketType != WicketType.runOut) return 'W';
+
+    final kind = e.runOutDeliveryKind ?? RunOutDeliveryKind.normal;
+    if (kind == RunOutDeliveryKind.normal) {
+      final runs = e.batsmanRuns > 0 ? e.batsmanRuns : e.runs;
+      return runs > 0 ? 'W+$runs' : 'W';
     }
-    return 'W';
+
+    final parts = <String>[];
+    switch (kind) {
+      case RunOutDeliveryKind.wide:
+        parts.add('Wd');
+        final wideCompleted =
+            (e.runs - e.wideRuns - e.batsmanRuns).clamp(0, 999);
+        if (wideCompleted > 0) parts.add('$wideCompleted');
+      case RunOutDeliveryKind.noBall:
+        parts.add('Nb');
+        if (e.noBallRunsMode == NoBallRunsMode.bye && e.noBallByeRuns > 0) {
+          parts.add('B${e.noBallByeRuns}');
+        } else if (e.noBallRunsMode == NoBallRunsMode.legBye &&
+            e.noBallLegByeRuns > 0) {
+          parts.add('LB${e.noBallLegByeRuns}');
+        } else if (e.batsmanRuns > 0) {
+          parts.add('${e.batsmanRuns}');
+        }
+      case RunOutDeliveryKind.bye:
+        if (e.byeRuns > 0) parts.add('B${e.byeRuns}');
+      case RunOutDeliveryKind.legBye:
+        if (e.legByeRuns > 0) parts.add('LB${e.legByeRuns}');
+      case RunOutDeliveryKind.normal:
+        break;
+    }
+    parts.add('W');
+    return parts.join('+');
   }
 
   static int overRuns(List<BallEventModel> overEvents) =>
@@ -383,6 +413,12 @@ class ScoringDisplayUtils {
 
   /// Runs that count as extras for this ball (not credited to the batsman).
   static int extrasOnBall(BallEventModel e) {
+    if (e.eventType == BallEventType.wicket &&
+        e.wicketType == WicketType.runOut &&
+        e.runOutDeliveryKind != null &&
+        e.runOutDeliveryKind != RunOutDeliveryKind.normal) {
+      return e.runs - e.batsmanRuns;
+    }
     switch (e.eventType) {
       case BallEventType.wide:
       case BallEventType.noBall:

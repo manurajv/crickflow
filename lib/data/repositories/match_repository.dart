@@ -169,7 +169,11 @@ class MatchRepository {
       overlay: result.overlay,
     );
 
-    final allEvents = await fetchBallEvents(match.id);
+    var allEvents = await fetchBallEvents(match.id);
+    if (!allEvents.any((e) => e.id == event.id)) {
+      allEvents = [...allEvents, event]
+        ..sort((a, b) => a.sequence.compareTo(b.sequence));
+    }
     ScoringIntegrityCheck.assertProjectionMatchesEvents(
       match: result.match,
       allEvents: allEvents,
@@ -260,9 +264,21 @@ class MatchRepository {
         .toList();
 
     final preservedPriorInnings = List<InningsModel>.from(match.innings);
+    BallEventModel? creaseSeed;
+    if (inningsEvents.isEmpty && toRemove.isNotEmpty) {
+      creaseSeed = toRemove.firstWhere(
+        (e) =>
+            e.eventType != BallEventType.lineupChange &&
+            e.eventType != BallEventType.wicketKeeperChange,
+        orElse: () => toRemove.first,
+      );
+    }
     final base = _scoringEngine.baseInningsFrom(
       currentInn,
       events: inningsEvents,
+      openingStrikerId: creaseSeed?.strikerId,
+      openingNonStrikerId: creaseSeed?.nonStrikerId,
+      openingBowlerId: creaseSeed?.bowlerId,
     );
     var replayed = _scoringEngine.replayInnings(
       match: match,

@@ -72,6 +72,15 @@ enum WicketType {
   other,
 }
 
+/// Extra delivery context on a run-out ball (wide / no-ball / bye / leg-bye).
+enum RunOutDeliveryKind {
+  normal,
+  wide,
+  noBall,
+  bye,
+  legBye,
+}
+
 enum BadgeType {
   batting,
   bowling,

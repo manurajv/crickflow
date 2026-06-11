@@ -33,7 +33,7 @@
 | Run-out UI — professional dismissed/new-batter picker sheets | Done |
 | Run-out scenarios + integrity tests (`scoring_engine_run_out_integrity_test.dart`) | Done |
 | Run-out over display — single `W`, no extra dot after wicket; `lineupChange` hidden | Done |
-| Run-out strike decision popup after wicket (`showStrikeDecisionPicker`) | Done |
+| Run-out flow — full sheet (fielders, delivery type, runs) + “Who will face the next ball?” picker; `nextStrikerId`/`nextStrikerName` on event; wide/NB from match rules | Done |
 | BallEvent wicket metadata (fielders, dismissed name, FOW context) persisted in Firestore | Done |
 | Scorecard dismissal from event metadata — `run out Fielder` / `F1 / F2`, pro formats | Done |
 | Scorecard stumped display — `st b Bowler` only (keeper stored, not shown) | Done |

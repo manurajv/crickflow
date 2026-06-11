@@ -14,12 +14,14 @@ class ScoringUiKit {
     BuildContext context, {
     required Widget Function(BuildContext ctx) builder,
     bool isScrollControlled = false,
+    bool useRootNavigator = true,
   }) {
     return showModalBottomSheet<T>(
       context: context,
       backgroundColor: AppColors.surface,
       shape: sheetShape,
       isScrollControlled: isScrollControlled,
+      useRootNavigator: useRootNavigator,
       builder: builder,
     );
   }

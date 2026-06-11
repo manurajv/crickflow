@@ -90,7 +90,10 @@ class _DeliveryBubble extends StatelessWidget {
     final isExtra = event.eventType == BallEventType.wide ||
         event.eventType == BallEventType.noBall ||
         event.eventType == BallEventType.bye ||
-        event.eventType == BallEventType.legBye;
+        event.eventType == BallEventType.legBye ||
+        (event.eventType == BallEventType.wicket &&
+            event.runOutDeliveryKind != null &&
+            event.runOutDeliveryKind != RunOutDeliveryKind.normal);
 
     return Padding(
       padding: const EdgeInsets.only(right: OverTimeline._ballGap),

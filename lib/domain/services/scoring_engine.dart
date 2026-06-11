@@ -126,6 +126,9 @@ class ScoringEngine {
       currentWicketKeeperId: event.currentWicketKeeperId,
       currentWicketKeeperName: event.currentWicketKeeperName,
       undoGroupId: event.undoGroupId,
+      nextStrikerId: event.nextStrikerId,
+      nextStrikerName: event.nextStrikerName,
+      runOutDeliveryKind: event.runOutDeliveryKind,
       retiredHurt: event.retiredHurt,
       isEligibleToReturn: event.isEligibleToReturn,
     );
@@ -183,8 +186,37 @@ class ScoringEngine {
         runs = input.runs;
         extraRuns = input.runs;
       case BallEventType.wicket:
-        batsmanRuns = input.runs;
-        runs = input.runs;
+        if (input.wicketType == WicketType.runOut &&
+            input.runOutDeliveryKind != null &&
+            input.runOutDeliveryKind != RunOutDeliveryKind.normal) {
+          final completed = input.completedRuns;
+          switch (input.runOutDeliveryKind!) {
+            case RunOutDeliveryKind.wide:
+              isLegal = rules.wideCountsAsLegalDelivery;
+              extraRuns = rules.wideRuns;
+              runs = rules.wideRuns + completed;
+              batsmanRuns = 0;
+            case RunOutDeliveryKind.noBall:
+              isLegal = rules.noBallCountsAsLegalDelivery;
+              extraRuns = rules.noBallRuns;
+              final nbMode = input.noBallRunsMode ?? NoBallRunsMode.bat;
+              runs = rules.noBallRuns + completed;
+              batsmanRuns = nbMode == NoBallRunsMode.bat ? completed : 0;
+            case RunOutDeliveryKind.bye:
+              runs = completed;
+              batsmanRuns = 0;
+              extraRuns = completed;
+            case RunOutDeliveryKind.legBye:
+              runs = completed;
+              batsmanRuns = 0;
+              extraRuns = completed;
+            case RunOutDeliveryKind.normal:
+              break;
+          }
+        } else {
+          batsmanRuns = input.runs;
+          runs = input.runs;
+        }
         if (isFreeHit &&
             input.wicketType != WicketType.runOut &&
             input.wicketType != WicketType.mankad) {
@@ -202,11 +234,20 @@ class ScoringEngine {
         batsmanRuns = 0;
     }
 
-    final nbMode = input.type == BallEventType.noBall
+    final nbMode = input.type == BallEventType.noBall ||
+            (input.type == BallEventType.wicket &&
+                input.wicketType == WicketType.runOut &&
+                input.runOutDeliveryKind == RunOutDeliveryKind.noBall)
         ? (input.noBallRunsMode ?? NoBallRunsMode.bat)
-        : null;
-    final nbByeRuns = nbMode == NoBallRunsMode.bye ? input.runs : 0;
-    final nbLegByeRuns = nbMode == NoBallRunsMode.legBye ? input.runs : 0;
+        : input.type == BallEventType.noBall
+            ? (input.noBallRunsMode ?? NoBallRunsMode.bat)
+            : null;
+    final completedForNb = input.type == BallEventType.wicket &&
+            input.wicketType == WicketType.runOut
+        ? input.completedRuns
+        : input.runs;
+    final nbByeRuns = nbMode == NoBallRunsMode.bye ? completedForNb : 0;
+    final nbLegByeRuns = nbMode == NoBallRunsMode.legBye ? completedForNb : 0;
 
     final isLineupChange = input.type == BallEventType.lineupChange;
     final isKeeperChange = input.type == BallEventType.wicketKeeperChange;
@@ -248,15 +289,25 @@ class ScoringEngine {
     final fielderNamesList =
         BallEventModel.fielderNamesFromFielders(input.fielders);
 
-    final breakdown = _runBreakdown(
-      type: input.type,
-      runs: runs,
-      batsmanRuns: batsmanRuns,
-      extraRuns: extraRuns,
-      nbByeRuns: nbByeRuns,
-      nbLegByeRuns: nbLegByeRuns,
-      rules: rules,
-    );
+    final breakdown = input.type == BallEventType.wicket &&
+            input.wicketType == WicketType.runOut &&
+            input.runOutDeliveryKind != null &&
+            input.runOutDeliveryKind != RunOutDeliveryKind.normal
+        ? _runOutDeliveryBreakdown(
+            kind: input.runOutDeliveryKind!,
+            completedRuns: input.completedRuns,
+            noBallRunsMode: input.noBallRunsMode,
+            rules: rules,
+          )
+        : _runBreakdown(
+            type: input.type,
+            runs: runs,
+            batsmanRuns: batsmanRuns,
+            extraRuns: extraRuns,
+            nbByeRuns: nbByeRuns,
+            nbLegByeRuns: nbLegByeRuns,
+            rules: rules,
+          );
 
     final isRetiredHurt = input.wicketType == WicketType.retiredHurt;
     final isWicket = input.type == BallEventType.wicket &&
@@ -306,7 +357,7 @@ class ScoringEngine {
       noBallRuns: breakdown.noBallRuns,
       penaltyRuns: breakdown.penaltyRuns,
       countsAsBallFaced: countsAsBallFaced,
-      countsInOver: isLineupChange || isKeeperChange ? false : isLegal,
+      countsInOver: isLineupChange || isKeeperChange ? false : true,
       countsToBowler: countsToBowler,
       isWicket: isWicket,
       bowlerGetsWicket: bowlerGetsWicket,
@@ -357,6 +408,11 @@ class ScoringEngine {
       currentWicketKeeperName: input.currentWicketKeeperName ??
           innings.currentWicketKeeperName,
       undoGroupId: input.undoGroupId,
+      nextStrikerId: input.nextStrikerId,
+      nextStrikerName: input.nextStrikerName,
+      runOutDeliveryKind: input.type == BallEventType.wicket
+          ? input.runOutDeliveryKind
+          : null,
       retiredHurt: isRetiredHurt,
       isEligibleToReturn: isRetiredHurt,
       commentary: input.commentary,
@@ -411,6 +467,53 @@ class ScoringEngine {
     );
   }
 
+  static _RunBreakdown _runOutDeliveryBreakdown({
+    required RunOutDeliveryKind kind,
+    required int completedRuns,
+    required NoBallRunsMode? noBallRunsMode,
+    required MatchRulesModel rules,
+  }) {
+    return switch (kind) {
+      RunOutDeliveryKind.wide => _RunBreakdown(
+          byeRuns: 0,
+          legByeRuns: 0,
+          wideRuns: rules.wideRuns,
+          noBallRuns: 0,
+          penaltyRuns: 0,
+        ),
+      RunOutDeliveryKind.noBall => _RunBreakdown(
+          byeRuns:
+              noBallRunsMode == NoBallRunsMode.bye ? completedRuns : 0,
+          legByeRuns:
+              noBallRunsMode == NoBallRunsMode.legBye ? completedRuns : 0,
+          wideRuns: 0,
+          noBallRuns: rules.noBallRuns,
+          penaltyRuns: 0,
+        ),
+      RunOutDeliveryKind.bye => _RunBreakdown(
+          byeRuns: completedRuns,
+          legByeRuns: 0,
+          wideRuns: 0,
+          noBallRuns: 0,
+          penaltyRuns: 0,
+        ),
+      RunOutDeliveryKind.legBye => _RunBreakdown(
+          byeRuns: 0,
+          legByeRuns: completedRuns,
+          wideRuns: 0,
+          noBallRuns: 0,
+          penaltyRuns: 0,
+        ),
+      RunOutDeliveryKind.normal => const _RunBreakdown(
+          byeRuns: 0,
+          legByeRuns: 0,
+          wideRuns: 0,
+          noBallRuns: 0,
+          penaltyRuns: 0,
+        ),
+    };
+  }
+
   InningsModel _applyEventToInnings(
     InningsModel innings,
     BallEventModel event,
@@ -435,15 +538,11 @@ class ScoringEngine {
     if (event.isLegalDelivery) {
       legalBalls++;
       partnershipBalls++;
-      if (event.eventType == BallEventType.bye ||
-          event.eventType == BallEventType.legBye) {
-        extras += event.runs;
-      }
       // Free hit consumed on the next legal delivery.
       isFreeHit = false;
-    } else {
-      extras += _illegalDeliveryExtras(event);
     }
+
+    extras += _extrasFromEvent(event);
 
     if (event.eventType == BallEventType.noBall && rules.freeHitEnabled) {
       isFreeHit = true;
@@ -456,8 +555,11 @@ class ScoringEngine {
     var bowlers = List<BowlerInningsModel>.from(innings.bowlers);
 
     // Runs + end rotation before wicket when runs completed on same ball.
-    if (event.eventType == BallEventType.wicket && event.batsmanRuns > 0) {
-      if (event.strikerId != null) {
+    if (event.eventType == BallEventType.wicket) {
+      final runningRuns = event.wicketType == WicketType.runOut
+          ? _runningRunsOnRunOut(event)
+          : event.batsmanRuns;
+      if (event.batsmanRuns > 0 && event.strikerId != null) {
         batsmen = _updateBatsman(
           batsmen,
           event.strikerId!,
@@ -465,9 +567,7 @@ class ScoringEngine {
           countBallFaced: _countsAsBallFaced(event),
         );
       }
-      if (event.batsmanRuns.isOdd &&
-          strikerId != null &&
-          nonStrikerId != null) {
+      if (runningRuns.isOdd && strikerId != null && nonStrikerId != null) {
         final temp = strikerId;
         strikerId = nonStrikerId;
         nonStrikerId = temp;
@@ -518,8 +618,10 @@ class ScoringEngine {
         runsAgainstBowler,
         event.isLegalDelivery,
         _bowlerGetsWicketFromEvent(event),
-        isNoBall: event.eventType == BallEventType.noBall,
-        isWide: event.eventType == BallEventType.wide,
+        isNoBall: event.eventType == BallEventType.noBall ||
+            event.runOutDeliveryKind == RunOutDeliveryKind.noBall,
+        isWide: event.eventType == BallEventType.wide ||
+            event.runOutDeliveryKind == RunOutDeliveryKind.wide,
       );
     }
 
@@ -840,20 +942,50 @@ class ScoringEngine {
   }
 
   /// Extras on wides / no-balls: total minus batsman; bye/LB on NB are not batsman runs.
-  static int _illegalDeliveryExtras(BallEventModel event) {
+  static int _extrasFromEvent(BallEventModel event) {
+    if (event.eventType == BallEventType.wicket &&
+        event.wicketType == WicketType.runOut &&
+        event.runOutDeliveryKind != null &&
+        event.runOutDeliveryKind != RunOutDeliveryKind.normal) {
+      return event.runs - event.batsmanRuns;
+    }
     switch (event.eventType) {
       case BallEventType.wide:
       case BallEventType.noBall:
         return event.runs - event.batsmanRuns;
+      case BallEventType.bye:
+      case BallEventType.legBye:
+        return event.runs;
+      case BallEventType.penalty:
+        return event.runs;
       default:
-        return event.extraRuns;
+        return 0;
     }
+  }
+
+  static int _runningRunsOnRunOut(BallEventModel event) {
+    return switch (event.runOutDeliveryKind) {
+      RunOutDeliveryKind.wide =>
+        (event.runs - event.wideRuns - event.batsmanRuns).clamp(0, 999),
+      RunOutDeliveryKind.noBall =>
+        event.batsmanRuns + event.noBallByeRuns + event.noBallLegByeRuns,
+      RunOutDeliveryKind.bye => event.byeRuns,
+      RunOutDeliveryKind.legBye => event.legByeRuns,
+      _ => event.batsmanRuns > 0 ? event.batsmanRuns : event.runs,
+    };
   }
 
   static int _runsAgainstBowler(BallEventModel event) {
     if (event.eventType == BallEventType.bye ||
         event.eventType == BallEventType.legBye) {
       return 0;
+    }
+    if (event.eventType == BallEventType.wicket &&
+        event.wicketType == WicketType.runOut) {
+      return switch (event.runOutDeliveryKind) {
+        RunOutDeliveryKind.bye || RunOutDeliveryKind.legBye => 0,
+        _ => event.runs,
+      };
     }
     // No-ball: all runs (penalty + bat/bye/LB) count against bowler.
     return event.runs;
@@ -1036,6 +1168,9 @@ class ScoringEngine {
   InningsModel baseInningsFrom(
     InningsModel current, {
     List<BallEventModel> events = const [],
+    String? openingStrikerId,
+    String? openingNonStrikerId,
+    String? openingBowlerId,
   }) {
     var strikerId = current.strikerId;
     var nonStrikerId = current.nonStrikerId;
@@ -1048,6 +1183,12 @@ class ScoringEngine {
       nonStrikerId = first.nonStrikerId ?? nonStrikerId;
       // Do not use [current.currentBowlerId] — it may hold the next-over pick.
       bowlerId = first.bowlerId ?? bowlerId;
+    } else if (openingStrikerId != null ||
+        openingNonStrikerId != null ||
+        openingBowlerId != null) {
+      strikerId = openingStrikerId ?? strikerId;
+      nonStrikerId = openingNonStrikerId ?? nonStrikerId;
+      bowlerId = openingBowlerId ?? bowlerId;
     }
 
     return InningsModel(
@@ -1124,6 +1265,14 @@ class ScoringEngine {
       currentWicketKeeperId: e.currentWicketKeeperId,
       currentWicketKeeperName: e.currentWicketKeeperName,
       undoGroupId: e.undoGroupId,
+      nextStrikerId: e.nextStrikerId,
+      nextStrikerName: e.nextStrikerName,
+      runOutDeliveryKind: e.runOutDeliveryKind,
+      completedRuns: e.wicketType == WicketType.runOut &&
+              e.runOutDeliveryKind != null &&
+              e.runOutDeliveryKind != RunOutDeliveryKind.normal
+          ? _completedRunsFromRunOutEvent(e)
+          : e.runs,
       commentary: e.commentary,
       noBallRunsMode: e.noBallRunsMode,
       bowlerId: e.bowlerId,
@@ -1138,6 +1287,17 @@ class ScoringEngine {
       creaseStrikerName: e.lineupStrikerName,
       creaseNonStrikerName: e.lineupNonStrikerName,
     );
+  }
+
+  static int _completedRunsFromRunOutEvent(BallEventModel e) {
+    return switch (e.runOutDeliveryKind) {
+      RunOutDeliveryKind.wide => (e.runs - e.wideRuns).clamp(0, 999),
+      RunOutDeliveryKind.noBall =>
+        e.batsmanRuns + e.noBallByeRuns + e.noBallLegByeRuns,
+      RunOutDeliveryKind.bye => e.byeRuns,
+      RunOutDeliveryKind.legBye => e.legByeRuns,
+      _ => e.runs,
+    };
   }
 
   List<InningsModel> _replaceInnings(MatchModel match, InningsModel innings) {
@@ -1178,6 +1338,10 @@ class BallEventInput {
     this.currentWicketKeeperId,
     this.currentWicketKeeperName,
     this.undoGroupId,
+    this.nextStrikerId,
+    this.nextStrikerName,
+    this.runOutDeliveryKind,
+    this.completedRuns = 0,
   });
 
   final BallEventType type;
@@ -1207,6 +1371,11 @@ class BallEventInput {
   final String? currentWicketKeeperId;
   final String? currentWicketKeeperName;
   final String? undoGroupId;
+  final String? nextStrikerId;
+  final String? nextStrikerName;
+  final RunOutDeliveryKind? runOutDeliveryKind;
+  /// Runs completed before run-out (excluding wide/NB penalty).
+  final int completedRuns;
 }
 
 class ScoringInput {
