@@ -1201,14 +1201,12 @@ class ScoringEngine {
       currentBowlerId: bowlerId,
       targetRuns: current.targetRuns,
       isSuperOver: current.isSuperOver,
-      batsmen: current.batsmen
-          .map(
-            (b) => BatsmanInningsModel(
-              playerId: b.playerId,
-              playerName: b.playerName,
-            ),
-          )
-          .toList(),
+      batsmen: _batsmenForReplayBase(
+        current: current,
+        events: events,
+        strikerId: strikerId,
+        nonStrikerId: nonStrikerId,
+      ),
       bowlers: current.bowlers
           .map(
             (b) => BowlerInningsModel(
@@ -1218,6 +1216,72 @@ class ScoringEngine {
           )
           .toList(),
     );
+  }
+
+  static List<BatsmanInningsModel> _batsmenForReplayBase({
+    required InningsModel current,
+    required List<BallEventModel> events,
+    String? strikerId,
+    String? nonStrikerId,
+  }) {
+    final sorted = [...events]..sort((a, b) => a.sequence.compareTo(b.sequence));
+    final order = <String>[];
+    final seen = <String>{};
+
+    void addId(String? id) {
+      if (id == null || id.isEmpty || seen.contains(id)) return;
+      seen.add(id);
+      order.add(id);
+    }
+
+    addId(strikerId);
+    addId(nonStrikerId);
+    for (final e in sorted) {
+      addId(e.strikerId);
+      addId(e.nonStrikerId);
+      addId(e.dismissedPlayerId);
+      if (e.eventType == BallEventType.lineupChange) {
+        addId(e.strikerId);
+        addId(e.nonStrikerId);
+      }
+    }
+
+    final existing = {for (final b in current.batsmen) b.playerId: b};
+    return order
+        .map(
+          (id) => BatsmanInningsModel(
+            playerId: id,
+            playerName: existing[id]?.playerName ??
+                _playerNameFromEvents(id, sorted) ??
+                '',
+          ),
+        )
+        .toList();
+  }
+
+  static String? _playerNameFromEvents(
+    String playerId,
+    List<BallEventModel> events,
+  ) {
+    for (final e in events) {
+      if (e.strikerId == playerId &&
+          e.lineupStrikerName?.trim().isNotEmpty == true) {
+        return e.lineupStrikerName;
+      }
+      if (e.nonStrikerId == playerId &&
+          e.lineupNonStrikerName?.trim().isNotEmpty == true) {
+        return e.lineupNonStrikerName;
+      }
+      if (e.nextStrikerId == playerId &&
+          e.nextStrikerName?.trim().isNotEmpty == true) {
+        return e.nextStrikerName;
+      }
+      if (e.dismissedPlayerId == playerId &&
+          e.dismissedPlayerName?.trim().isNotEmpty == true) {
+        return e.dismissedPlayerName;
+      }
+    }
+    return null;
   }
 
   OverlayStateModel buildOverlayForMatch(MatchModel match) {

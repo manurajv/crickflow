@@ -2,6 +2,8 @@ import 'package:crickflow/core/constants/enums.dart';
 import 'package:crickflow/data/models/ball_event_model.dart';
 import 'package:crickflow/data/models/dismissal_fielder.dart';
 import 'package:crickflow/data/models/innings_model.dart';
+import 'package:crickflow/data/models/match_model.dart';
+import 'package:crickflow/data/models/match_setup_draft_models.dart';
 import 'package:crickflow/domain/services/dismissal_formatter.dart';
 import 'package:crickflow/domain/services/scorecard_display_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -243,6 +245,74 @@ void main() {
           onCrease: true,
         ),
         'not out',
+      );
+    });
+  });
+
+  group('ScorecardDisplayService.toBatNames', () {
+    test('uses squad names instead of raw ids', () {
+      final match = MatchModel(
+        id: 'm1',
+        title: 'Test',
+        teamAId: 'a',
+        teamBId: 'b',
+        setup: const MatchSetupData(
+          teamASquadIds: ['p1', 'p2', 'p3'],
+          teamASquadNames: {'p1': 'Alpha', 'p2': 'Beta', 'p3': 'Gamma'},
+        ),
+        innings: [
+          InningsModel(
+            inningsNumber: 1,
+            battingTeamId: 'a',
+            bowlingTeamId: 'b',
+            status: InningsStatus.inProgress,
+            strikerId: 'p1',
+            nonStrikerId: 'p2',
+            batsmen: const [
+              BatsmanInningsModel(playerId: 'p1', playerName: 'Alpha'),
+              BatsmanInningsModel(playerId: 'p2', playerName: 'Beta'),
+            ],
+          ),
+        ],
+      );
+      final inn = match.innings.first;
+      expect(
+        ScorecardDisplayService.toBatNames(match, inn),
+        ['Gamma'],
+      );
+    });
+
+    test('prefers extra squad names when setup map is empty', () {
+      final match = MatchModel(
+        id: 'm1',
+        title: 'Test',
+        teamAId: 'a',
+        teamBId: 'b',
+        setup: const MatchSetupData(
+          teamASquadIds: ['p1', 'p2', 'p3'],
+        ),
+        innings: [
+          InningsModel(
+            inningsNumber: 1,
+            battingTeamId: 'a',
+            bowlingTeamId: 'b',
+            status: InningsStatus.inProgress,
+            strikerId: 'p1',
+            nonStrikerId: 'p2',
+            batsmen: const [
+              BatsmanInningsModel(playerId: 'p1', playerName: 'Alpha'),
+              BatsmanInningsModel(playerId: 'p2', playerName: 'Beta'),
+            ],
+          ),
+        ],
+      );
+      expect(
+        ScorecardDisplayService.toBatNames(
+          match,
+          match.innings.first,
+          extraNames: const {'p3': 'Gamma'},
+        ),
+        ['Gamma'],
       );
     });
   });

@@ -466,6 +466,7 @@ void main() {
     expect(inn.strikerId, 'striker');
     expect(inn.nonStrikerId, 'non_striker');
     expect(inn.totalWickets, 0);
+    expect(inn.batsmen.map((b) => b.playerId), ['striker', 'non_striker']);
     expect(
       inn.batsmen.firstWhere((b) => b.playerId == 'striker').isOut,
       isFalse,

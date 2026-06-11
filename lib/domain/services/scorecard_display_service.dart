@@ -84,24 +84,59 @@ class ScorecardDisplayService {
     return '(${parts.join(', ')})';
   }
 
-  static List<String> toBatNames(MatchModel match, InningsModel innings) {
+  static List<String> toBatNames(
+    MatchModel match,
+    InningsModel innings, {
+    Map<String, String> extraNames = const {},
+    List<BallEventModel> events = const [],
+  }) {
     final setup = match.setup;
     if (setup == null) return [];
 
     final isTeamA = innings.battingTeamId == match.teamAId;
     final ids = setup.squadIdsForTeam(isTeamA);
-    final names =
-        isTeamA ? setup.teamASquadNames : setup.teamBSquadNames;
-    final batted = innings.batsmen.map((b) => b.playerId).toSet();
+    final names = Map<String, String>.from(
+      playerNamesForInnings(match, innings),
+    );
+    names.addAll(extraNames);
+    for (final e in events) {
+      if (e.inningsNumber != innings.inningsNumber) continue;
+      _putName(names, e.strikerId, e.lineupStrikerName);
+      _putName(names, e.nonStrikerId, e.lineupNonStrikerName);
+      _putName(names, e.nextStrikerId, e.nextStrikerName);
+      _putName(names, e.dismissedPlayerId, e.dismissedPlayerName);
+    }
+
+    final onCrease = {
+      if (innings.strikerId != null) innings.strikerId!,
+      if (innings.nonStrikerId != null) innings.nonStrikerId!,
+    };
+    final entered = innings.batsmen.map((b) => b.playerId).toSet();
 
     return ids
         .where(
           (id) =>
-              !batted.contains(id) &&
+              !entered.contains(id) &&
+              !onCrease.contains(id) &&
               !ScoringDisplayUtils.isPlayerOut(innings, id),
         )
-        .map((id) => names[id]?.trim().isNotEmpty == true ? names[id]! : id)
+        .map((id) => resolvePlayerDisplayName(id, names))
         .toList();
+  }
+
+  static void _putName(Map<String, String> names, String? id, String? name) {
+    if (id == null || id.isEmpty) return;
+    if (name == null || name.trim().isEmpty) return;
+    names[id] = name.trim();
+  }
+
+  static String resolvePlayerDisplayName(
+    String playerId,
+    Map<String, String> names,
+  ) {
+    final resolved = names[playerId]?.trim();
+    if (resolved != null && resolved.isNotEmpty) return resolved;
+    return playerId;
   }
 
   /// Resolve display names for wicket events (batters, bowlers, fielders).

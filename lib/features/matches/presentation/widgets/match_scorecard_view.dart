@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/scorecard_theme_extension.dart';
 import '../../../../core/utils/cricket_math.dart';
@@ -11,6 +12,7 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../../../../domain/scoring/ball_event_aggregator.dart';
 import '../../../../domain/services/scorecard_display_service.dart';
+import '../../../../shared/providers/lineup_providers.dart';
 import '../../../../shared/providers/providers.dart';
 
 /// Professional collapsible innings scorecard (theme tokens only).
@@ -69,6 +71,14 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
     final rules = match.rules;
     final events =
         ref.watch(ballEventsProvider(match.id)).valueOrNull ?? const [];
+    final squadNames = <String, String>{};
+    final squads =
+        ref.watch(matchLineupSquadsProvider(match.id)).valueOrNull;
+    if (squads != null) {
+      for (final p in squads.batting) {
+        if (p.name.trim().isNotEmpty) squadNames[p.id] = p.name.trim();
+      }
+    }
 
     if (match.innings.isEmpty) {
       return Center(
@@ -91,6 +101,7 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
           innings: inn,
           rules: rules,
           events: events,
+          squadNames: squadNames,
           isExpanded: _expandedIndex == index,
           onHeaderTap: () => _toggleInnings(index),
         );
@@ -105,6 +116,7 @@ class _InningsScorecardCard extends StatelessWidget {
     required this.innings,
     required this.rules,
     required this.events,
+    required this.squadNames,
     required this.isExpanded,
     required this.onHeaderTap,
   });
@@ -113,6 +125,7 @@ class _InningsScorecardCard extends StatelessWidget {
   final InningsModel innings;
   final MatchRulesModel rules;
   final List<BallEventModel> events;
+  final Map<String, String> squadNames;
   final bool isExpanded;
   final VoidCallback onHeaderTap;
 
@@ -185,6 +198,7 @@ class _InningsScorecardCard extends StatelessWidget {
                     innings: innings,
                     rules: rules,
                     events: events,
+                    squadNames: squadNames,
                   ),
                 ),
             ],
@@ -230,12 +244,14 @@ class _InningsExpandedBody extends StatelessWidget {
     required this.innings,
     required this.rules,
     required this.events,
+    required this.squadNames,
   });
 
   final MatchModel match;
   final InningsModel innings;
   final MatchRulesModel rules;
   final List<BallEventModel> events;
+  final Map<String, String> squadNames;
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +272,12 @@ class _InningsExpandedBody extends StatelessWidget {
           rules: rules,
         );
     final extrasDetail = ScorecardDisplayService.extrasDetailLabel(extras);
-    final toBat = ScorecardDisplayService.toBatNames(match, displayInnings);
+    final toBat = ScorecardDisplayService.toBatNames(
+      match,
+      displayInnings,
+      extraNames: squadNames,
+      events: inningsEvents,
+    );
     final crr = MatchScoreDisplay.runRateFor(displayInnings, rules);
     final overs = CricketMath.formatOvers(
       displayInnings.legalBalls,
@@ -266,6 +287,9 @@ class _InningsExpandedBody extends StatelessWidget {
       innings: displayInnings,
       events: inningsEvents,
     );
+    final isLiveInnings = match.status == MatchStatus.live &&
+        match.currentInnings?.inningsNumber == displayInnings.inningsNumber &&
+        displayInnings.status == InningsStatus.inProgress;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -280,6 +304,7 @@ class _InningsExpandedBody extends StatelessWidget {
           strikerId: displayInnings.strikerId,
           nonStrikerId: displayInnings.nonStrikerId,
           batterMinutes: derived?.batterMinutes ?? const {},
+          showStrikerIndicator: isLiveInnings,
         ),
         _ExtrasRow(extras: extras, extrasDetail: extrasDetail),
         _TotalRow(
@@ -509,6 +534,7 @@ class _BattingSection extends StatelessWidget {
     this.strikerId,
     this.nonStrikerId,
     this.batterMinutes = const {},
+    this.showStrikerIndicator = false,
   });
 
   final InningsModel innings;
@@ -517,12 +543,20 @@ class _BattingSection extends StatelessWidget {
   final String? strikerId;
   final String? nonStrikerId;
   final Map<String, int> batterMinutes;
+  final bool showStrikerIndicator;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final batsmen = innings.batsmen;
+    final batsmen = innings.batsmen.where((b) {
+      return b.playerId == strikerId ||
+          b.playerId == nonStrikerId ||
+          b.balls > 0 ||
+          b.runs > 0 ||
+          b.isOut ||
+          b.retiredHurt;
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -557,6 +591,8 @@ class _BattingSection extends StatelessWidget {
             return _BattingRow(
               batsman: b,
               onCrease: onCrease,
+              isStriker: b.playerId == strikerId,
+              showStrikerIndicator: showStrikerIndicator,
               wicketEvent: wicketByBatsman[b.playerId],
               playerNames: playerNames,
               minutes: batterMinutes[b.playerId],
@@ -571,6 +607,8 @@ class _BattingRow extends StatelessWidget {
   const _BattingRow({
     required this.batsman,
     required this.onCrease,
+    this.isStriker = false,
+    this.showStrikerIndicator = false,
     this.wicketEvent,
     this.playerNames = const {},
     this.minutes,
@@ -578,6 +616,8 @@ class _BattingRow extends StatelessWidget {
 
   final BatsmanInningsModel batsman;
   final bool onCrease;
+  final bool isStriker;
+  final bool showStrikerIndicator;
   final BallEventModel? wicketEvent;
   final Map<String, String> playerNames;
   final int? minutes;
@@ -585,9 +625,17 @@ class _BattingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final styles = _ScorecardStyles(context);
-    final name = batsman.playerName.isNotEmpty
-        ? batsman.playerName
-        : batsman.playerId;
+    final baseName = ScorecardDisplayService.resolvePlayerDisplayName(
+      batsman.playerId,
+      {
+        ...playerNames,
+        if (batsman.playerName.trim().isNotEmpty)
+          batsman.playerId: batsman.playerName.trim(),
+      },
+    );
+    final name = showStrikerIndicator && isStriker && onCrease
+        ? '$baseName*'
+        : baseName;
     final dismissal = ScorecardDisplayService.batsmanDismissalText(
       batsman,
       onCrease: onCrease,
