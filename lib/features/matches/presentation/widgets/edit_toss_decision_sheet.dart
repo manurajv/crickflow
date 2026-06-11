@@ -6,6 +6,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/lineup_providers.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../shared/widgets/scoring_ui_kit.dart';
 import 'cf_selection_card.dart';
 
 /// Bottom sheet to flip toss winner's bat/bowl choice (swaps batting & bowling).
@@ -28,14 +29,18 @@ class EditTossDecisionSheet extends ConsumerStatefulWidget {
     required MatchModel match,
     bool redirectToLineup = false,
   }) {
-    return showModalBottomSheet<void>(
-      context: context,
+    return ScoringUiKit.showSheet<void>(
+      context,
       isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => EditTossDecisionSheet(
-        matchId: matchId,
-        match: match,
-        redirectToLineup: redirectToLineup,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.paddingOf(ctx).bottom + AppDimens.spaceMd,
+        ),
+        child: EditTossDecisionSheet(
+          matchId: matchId,
+          match: match,
+          redirectToLineup: redirectToLineup,
+        ),
       ),
     );
   }
@@ -101,21 +106,21 @@ class _EditTossDecisionSheetState extends ConsumerState<EditTossDecisionSheet> {
             ? widget.match.teamAName
             : widget.match.teamBName);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: AppDimens.spaceMd,
-        right: AppDimens.spaceMd,
-        bottom: MediaQuery.paddingOf(context).bottom + AppDimens.spaceMd,
-      ),
+    return Material(
+      color: AppColors.surface,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Change toss decision',
-            style: Theme.of(context).textTheme.titleLarge,
+          ScoringSheetHeader(
+            title: 'Change toss decision',
+            trailing: ScoringUiKit.sheetCloseButton(context),
           ),
-          const SizedBox(height: AppDimens.spaceSm),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
           Text(
             '$_winnerName won the toss. Changing bat/bowl will swap which team '
             'is batting and bowling for this innings.',
@@ -165,6 +170,9 @@ class _EditTossDecisionSheetState extends ConsumerState<EditTossDecisionSheet> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text('Save'),
+          ),
+              ],
+            ),
           ),
         ],
       ),

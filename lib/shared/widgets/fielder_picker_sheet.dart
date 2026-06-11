@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../data/models/lineup_player.dart';
+import 'scoring_ui_kit.dart';
 
 /// Searchable fielder picker from the bowling squad.
 class FielderPickerSheet extends StatefulWidget {
@@ -9,11 +10,13 @@ class FielderPickerSheet extends StatefulWidget {
     super.key,
     required this.title,
     required this.players,
+    required this.scrollController,
     this.excludeIds = const {},
   });
 
   final String title;
   final List<LineupPlayer> players;
+  final ScrollController scrollController;
   final Set<String> excludeIds;
 
   static Future<LineupPlayer?> show(
@@ -21,14 +24,16 @@ class FielderPickerSheet extends StatefulWidget {
     required String title,
     required List<LineupPlayer> players,
     Set<String> excludeIds = const {},
+    double initialChildSize = 0.6,
   }) {
-    return showModalBottomSheet<LineupPlayer>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => FielderPickerSheet(
+    return ScoringUiKit.showDraggableSheet<LineupPlayer>(
+      context,
+      initialChildSize: initialChildSize,
+      maxChildSize: 0.92,
+      builder: (ctx, controller) => FielderPickerSheet(
         title: title,
         players: players,
+        scrollController: controller,
         excludeIds: excludeIds,
       ),
     );
@@ -51,90 +56,74 @@ class _FielderPickerSheetState extends State<FielderPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.35,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (_, controller) {
-        return Material(
-          color: AppColors.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          child: Column(
-            children: [
-              AppBar(
-                title: Text(widget.title),
-                backgroundColor: AppColors.surface,
-                automaticallyImplyLeading: false,
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppDimens.spaceMd,
-                  0,
-                  AppDimens.spaceMd,
-                  AppDimens.spaceSm,
+    return Material(
+      color: AppColors.surface,
+      child: Column(
+        children: [
+          ScoringSheetHeader(
+            title: widget.title,
+            trailing: ScoringUiKit.sheetCloseButton(context),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              0,
+              AppDimens.spaceMd,
+              AppDimens.spaceSm,
+            ),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search players',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: AppColors.surfaceElevated,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
                 ),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search players',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: AppColors.surfaceElevated,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                isDense: true,
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          Expanded(
+            child: _eligible.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(AppDimens.spaceMd),
+                      child: Text(
+                        'No players found',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
                     ),
-                    isDense: true,
-                  ),
-                  onChanged: (v) => setState(() => _query = v),
-                ),
-              ),
-              Expanded(
-                child: _eligible.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(AppDimens.spaceMd),
+                  )
+                : ListView.separated(
+                    controller: widget.scrollController,
+                    padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+                    itemCount: _eligible.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: AppColors.border),
+                    itemBuilder: (_, i) {
+                      final p = _eligible[i];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppColors.surfaceElevated,
                           child: Text(
-                            'No players found',
-                            style: TextStyle(color: AppColors.textSecondary),
+                            p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.gold,
+                            ),
                           ),
                         ),
-                      )
-                    : ListView.separated(
-                        controller: controller,
-                        itemCount: _eligible.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (_, i) {
-                          final p = _eligible[i];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: AppColors.surfaceElevated,
-                              child: Text(
-                                p.name.isNotEmpty
-                                    ? p.name[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.gold,
-                                ),
-                              ),
-                            ),
-                            title: Text(p.name),
-                            onTap: () => Navigator.pop(context, p),
-                          );
-                        },
-                      ),
-              ),
-            ],
+                        title: Text(p.name),
+                        onTap: () => Navigator.pop(context, p),
+                      );
+                    },
+                  ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

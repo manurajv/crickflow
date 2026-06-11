@@ -1,8 +1,11 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:crickflow/core/theme/app_dimens.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_dimens.dart';
 import '../../data/models/lineup_player.dart';
+import '../../features/matches/presentation/widgets/select_lineup_player_sheet.dart';
+import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
+import 'scoring_ui_kit.dart';
 
 /// Striker, non-striker, and bowler selection from squad lists.
 class PlayerLineupPicker extends StatefulWidget {
@@ -13,6 +16,7 @@ class PlayerLineupPicker extends StatefulWidget {
     this.initialStrikerId,
     this.initialNonStrikerId,
     this.initialBowlerId,
+    this.wicketKeeperId,
     required this.onSave,
     this.isLoading = false,
   });
@@ -22,6 +26,7 @@ class PlayerLineupPicker extends StatefulWidget {
   final String? initialStrikerId;
   final String? initialNonStrikerId;
   final String? initialBowlerId;
+  final String? wicketKeeperId;
   final bool isLoading;
   final void Function({
     required String strikerId,
@@ -31,6 +36,39 @@ class PlayerLineupPicker extends StatefulWidget {
     required String bowlerId,
     required String bowlerName,
   }) onSave;
+
+  static Future<void> show(
+    BuildContext context, {
+    required List<LineupPlayer> battingSquad,
+    required List<LineupPlayer> bowlingSquad,
+    String? initialStrikerId,
+    String? initialNonStrikerId,
+    String? initialBowlerId,
+    String? wicketKeeperId,
+    required void Function({
+      required String strikerId,
+      required String strikerName,
+      required String nonStrikerId,
+      required String nonStrikerName,
+      required String bowlerId,
+      required String bowlerName,
+    }) onSave,
+  }) {
+    return ScoringUiKit.showDraggableSheet<void>(
+      context,
+      initialChildSize: 0.55,
+      maxChildSize: 0.85,
+      builder: (ctx, _) => PlayerLineupPicker(
+        battingSquad: battingSquad,
+        bowlingSquad: bowlingSquad,
+        initialStrikerId: initialStrikerId,
+        initialNonStrikerId: initialNonStrikerId,
+        initialBowlerId: initialBowlerId,
+        wicketKeeperId: wicketKeeperId,
+        onSave: onSave,
+      ),
+    );
+  }
 
   @override
   State<PlayerLineupPicker> createState() => _PlayerLineupPickerState();
@@ -82,104 +120,218 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
     return null;
   }
 
+  Map<String, String> get _bowlerDisabledIds {
+    final keeperId = widget.wicketKeeperId;
+    if (keeperId == null || keeperId.isEmpty) return const {};
+    return {keeperId: ScoringDisplayUtils.wicketKeeperCannotBowlReason};
+  }
+
+  Future<void> _pickStriker() async {
+    final p = await SelectLineupPlayerSheet.show(
+      context,
+      title: 'Select striker',
+      players: widget.battingSquad,
+      excludeIds: {_nonStriker?.id ?? ''},
+    );
+    if (p != null && mounted) setState(() => _striker = p);
+  }
+
+  Future<void> _pickNonStriker() async {
+    final p = await SelectLineupPlayerSheet.show(
+      context,
+      title: 'Select non-striker',
+      players: widget.battingSquad,
+      excludeIds: {_striker?.id ?? ''},
+    );
+    if (p != null && mounted) setState(() => _nonStriker = p);
+  }
+
+  Future<void> _pickBowler() async {
+    final squad = widget.bowlingSquad.isNotEmpty
+        ? widget.bowlingSquad
+        : widget.battingSquad;
+    final p = await SelectLineupPlayerSheet.show(
+      context,
+      title: 'Select bowler',
+      players: squad,
+      disabledIds: _bowlerDisabledIds,
+    );
+    if (p != null && mounted) setState(() => _bowler = p);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.isLoading) {
-      return const Card(
-        margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Padding(
-          padding: EdgeInsets.all(AppDimens.spaceLg),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    if (widget.battingSquad.isEmpty) {
-      return Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Padding(
-          padding: const EdgeInsets.all(AppDimens.spaceMd),
-          child: Text(
-            'Add players to teams in Firestore, or link team IDs on this match.',
-            style: TextStyle(color: AppColors.textSecondary),
+      return Material(
+        color: AppColors.surface,
+        child: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppDimens.spaceLg),
+            child: CircularProgressIndicator(),
           ),
         ),
       );
     }
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+    if (widget.battingSquad.isEmpty) {
+      return Material(
+        color: AppColors.surface,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Lineup',
-                style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.gold)),
-            const SizedBox(height: 8),
-            _playerDropdown(
-              'Striker *',
-              _striker,
-              widget.battingSquad,
-              (p) => setState(() => _striker = p),
+            ScoringSheetHeader(
+              title: 'Edit lineup',
+              trailing: ScoringUiKit.sheetCloseButton(context),
             ),
-            _playerDropdown(
-              'Non-striker',
-              _nonStriker,
-              widget.battingSquad,
-              (p) => setState(() => _nonStriker = p),
-            ),
-            _playerDropdown(
-              'Bowler',
-              _bowler,
-              widget.bowlingSquad.isNotEmpty
-                  ? widget.bowlingSquad
-                  : widget.battingSquad,
-              (p) => setState(() => _bowler = p),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: _striker == null || _nonStriker == null || _bowler == null
-                    ? null
-                    : () {
-                        widget.onSave(
-                          strikerId: _striker!.id,
-                          strikerName: _striker!.name,
-                          nonStrikerId: _nonStriker!.id,
-                          nonStrikerName: _nonStriker!.name,
-                          bowlerId: _bowler!.id,
-                          bowlerName: _bowler!.name,
-                        );
-                      },
-                icon: const Icon(Icons.check, size: 18),
-                label: const Text('Apply lineup'),
+            const Padding(
+              padding: EdgeInsets.all(AppDimens.spaceMd),
+              child: Text(
+                'Add players to teams in Firestore, or link team IDs on this match.',
+                style: TextStyle(color: AppColors.textSecondary),
               ),
             ),
           ],
         ),
+      );
+    }
+
+    return Material(
+      color: AppColors.surface,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ScoringSheetHeader(
+            title: 'Edit lineup',
+            trailing: ScoringUiKit.sheetCloseButton(context),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              0,
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SlotRow(
+                  label: 'Striker',
+                  player: _striker,
+                  onTap: _pickStriker,
+                  icon: Icons.sports_cricket,
+                ),
+                const SizedBox(height: AppDimens.spaceSm),
+                _SlotRow(
+                  label: 'Non-striker',
+                  player: _nonStriker,
+                  onTap: _pickNonStriker,
+                  icon: Icons.sports_cricket_outlined,
+                ),
+                const SizedBox(height: AppDimens.spaceSm),
+                _SlotRow(
+                  label: 'Bowler',
+                  player: _bowler,
+                  onTap: _pickBowler,
+                  icon: Icons.sports_baseball_outlined,
+                ),
+                const SizedBox(height: AppDimens.spaceLg),
+                FilledButton(
+                  onPressed: _striker == null ||
+                          _nonStriker == null ||
+                          _bowler == null
+                      ? null
+                      : () {
+                          widget.onSave(
+                            strikerId: _striker!.id,
+                            strikerName: _striker!.name,
+                            nonStrikerId: _nonStriker!.id,
+                            nonStrikerName: _nonStriker!.name,
+                            bowlerId: _bowler!.id,
+                            bowlerName: _bowler!.name,
+                          );
+                        },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: const Text(
+                    'Apply lineup',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _playerDropdown(
-    String label,
-    LineupPlayer? selected,
-    List<LineupPlayer> options,
-    ValueChanged<LineupPlayer> onChanged,
-  ) {
-    final value = selected ?? options.first;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: DropdownButtonFormField<LineupPlayer>(
-        value: options.contains(value) ? value : options.first,
-        decoration: InputDecoration(labelText: label),
-        items: options
-            .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
-            .toList(),
-        onChanged: (p) {
-          if (p != null) onChanged(p);
-        },
+class _SlotRow extends StatelessWidget {
+  const _SlotRow({
+    required this.label,
+    required this.player,
+    required this.onTap,
+    required this.icon,
+  });
+
+  final String label;
+  final LineupPlayer? player;
+  final VoidCallback onTap;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.surfaceElevated,
+                child: Icon(icon, size: 20, color: AppColors.gold),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      player?.name ?? 'Tap to select',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: player != null
+                            ? AppColors.textPrimary
+                            : AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textMuted,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/widgets/cf_slide_to_confirm.dart';
+import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../../domain/scoring/match_completion_policy.dart';
 import '../utils/scoring_display_utils.dart';
 
@@ -26,6 +27,36 @@ class InningsBreakDialog extends StatelessWidget {
   final VoidCallback onUndo;
   final VoidCallback onConfirm;
   final String? confirmLabel;
+
+  static Future<void> show(
+    BuildContext context, {
+    required MatchModel match,
+    required InningsModel innings,
+    required bool allowUndo,
+    required VoidCallback onUndo,
+    required VoidCallback onConfirm,
+    String? confirmLabel,
+  }) {
+    return ScoringUiKit.showSheet<void>(
+      context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.paddingOf(ctx).bottom,
+        ),
+        child: InningsBreakDialog(
+          match: match,
+          innings: innings,
+          allowUndo: allowUndo,
+          onUndo: onUndo,
+          onConfirm: onConfirm,
+          confirmLabel: confirmLabel,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,22 +82,17 @@ class InningsBreakDialog extends StatelessWidget {
 
     return PopScope(
       canPop: false,
-      child: AlertDialog(
-        backgroundColor: AppColors.card,
-        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              allowUndo ? 'Innings complete' : 'Innings break',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
+      child: Material(
+        color: AppColors.card,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ScoringSheetHeader(
+                title: allowUndo ? 'Innings complete' : 'Innings break',
               ),
-              textAlign: TextAlign.center,
-            ),
             if (reason.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
@@ -122,7 +148,8 @@ class InningsBreakDialog extends StatelessWidget {
               label: slideLabel,
               onConfirmed: onConfirm,
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

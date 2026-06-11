@@ -47,6 +47,8 @@
 | Keeper metadata on wicket events (`wicketKeeperId`, `currentWicketKeeperId` at dismissal time) | Done |
 | Single undo for wicket workflow (`undoGroupId` groups wicket + lineup changes) | Done |
 | Active wicketkeeper cannot bowl (bowler picker blocks keeper) | Done |
+| Wicketkeeper blocked as opening bowler (start innings + edit lineup) | Done |
+| Scoring UI kit — unified bottom sheets (start innings → live scoring) | Done |
 | Retired hurt — not a wicket; `retiredHurt` + `isEligibleToReturn`; batter can return | Done |
 | Wicket picker — all dismissal types visible (no Show more) | Done |
 

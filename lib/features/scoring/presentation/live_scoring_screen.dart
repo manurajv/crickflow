@@ -289,21 +289,18 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       finishedBowlerId ?? innings.currentBowlerId,
     );
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => OverCompleteDialog(
-        overNumber: overNum,
-        bowlerName: bowler?.playerName ?? 'Bowler',
-        overEvents: overEvents,
-        innings: innings,
-        rules: match.rules,
-        onStartNextOver: () {
-          final fresh =
-              ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
-          _pickBowlerForNextOver(fresh, overNum + 1);
-        },
-      ),
+    await OverCompleteDialog.show(
+      context,
+      overNumber: overNum,
+      bowlerName: bowler?.playerName ?? 'Bowler',
+      overEvents: overEvents,
+      innings: innings,
+      rules: match.rules,
+      onStartNextOver: () {
+        final fresh =
+            ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+        _pickBowlerForNextOver(fresh, overNum + 1);
+      },
     );
   }
 
@@ -334,46 +331,41 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       if (id != null) excluded.add(id);
     }
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => SelectBowlerSheet(
-        match: match,
-        innings: inn,
-        bowlingSquad: squads.bowling,
-        overNumber: overNumber,
-        ballsPerOver: match.rules.ballsPerOver,
-        excludedBowlerIds: excluded,
-        wicketKeeperId: activeKeeper.id,
-        onSelected: (p) async {
-          final latest =
-              ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
-          final latestInn = latest.currentInnings;
-          if (latestInn == null ||
-              latestInn.strikerId == null ||
-              latestInn.nonStrikerId == null) {
-            return;
-          }
-          await _recordLineupChange(
-                match: latest,
-                strikerId: latestInn.strikerId!,
-                strikerName: ScoringDisplayUtils.batsman(
-                      latestInn,
-                      latestInn.strikerId,
-                    )?.playerName ??
-                    '',
-                nonStrikerId: latestInn.nonStrikerId!,
-                nonStrikerName: ScoringDisplayUtils.batsman(
-                      latestInn,
-                      latestInn.nonStrikerId,
-                    )?.playerName ??
-                    '',
-                bowlerId: p.id,
-                bowlerName: p.name,
-              );
-        },
-      ),
+    final picked = await SelectBowlerSheet.show(
+      context,
+      match: match,
+      innings: inn,
+      bowlingSquad: squads.bowling,
+      overNumber: overNumber,
+      excludedBowlerIds: excluded,
+      wicketKeeperId: activeKeeper.id,
+    );
+    if (picked == null || !mounted) return;
+
+    final latest =
+        ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+    final latestInn = latest.currentInnings;
+    if (latestInn == null ||
+        latestInn.strikerId == null ||
+        latestInn.nonStrikerId == null) {
+      return;
+    }
+    await _recordLineupChange(
+      match: latest,
+      strikerId: latestInn.strikerId!,
+      strikerName: ScoringDisplayUtils.batsman(
+            latestInn,
+            latestInn.strikerId,
+          )?.playerName ??
+          '',
+      nonStrikerId: latestInn.nonStrikerId!,
+      nonStrikerName: ScoringDisplayUtils.batsman(
+            latestInn,
+            latestInn.nonStrikerId,
+          )?.playerName ??
+          '',
+      bowlerId: picked.id,
+      bowlerName: picked.name,
     );
   }
 
@@ -789,33 +781,30 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (_inningsBreakDialogOpen || !mounted) return;
     setState(() => _inningsBreakDialogOpen = true);
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => InningsBreakDialog(
-        match: match,
-        innings: innings,
-        allowUndo: allowUndo,
-        onUndo: () async {
-          Navigator.pop(ctx);
-          setState(() => _inningsBreakDialogOpen = false);
-          await _performUndo(showConfirm: false);
-          if (!mounted) return;
-          final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
-          final freshInn = fresh?.currentInnings;
-          if (fresh != null &&
-              freshInn != null &&
-              fresh.status == MatchStatus.live &&
-              ScoringDisplayUtils.isInningsComplete(fresh, freshInn)) {
-            await _showInningsBreakDialog(fresh, freshInn, allowUndo: true);
-          }
-        },
-        onConfirm: () async {
-          Navigator.pop(ctx);
-          setState(() => _inningsBreakDialogOpen = false);
-          await _confirmInningsBreak(match, innings);
-        },
-      ),
+    await InningsBreakDialog.show(
+      context,
+      match: match,
+      innings: innings,
+      allowUndo: allowUndo,
+      onUndo: () async {
+        Navigator.pop(context);
+        setState(() => _inningsBreakDialogOpen = false);
+        await _performUndo(showConfirm: false);
+        if (!mounted) return;
+        final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
+        final freshInn = fresh?.currentInnings;
+        if (fresh != null &&
+            freshInn != null &&
+            fresh.status == MatchStatus.live &&
+            ScoringDisplayUtils.isInningsComplete(fresh, freshInn)) {
+          await _showInningsBreakDialog(fresh, freshInn, allowUndo: true);
+        }
+      },
+      onConfirm: () async {
+        Navigator.pop(context);
+        setState(() => _inningsBreakDialogOpen = false);
+        await _confirmInningsBreak(match, innings);
+      },
     );
 
     if (mounted) setState(() => _inningsBreakDialogOpen = false);
@@ -965,22 +954,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (match == null) return;
 
     if (match.rules.maxInnings <= 1) {
-      final go = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('End match?'),
-          content: const Text('Complete this match?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Complete'),
-            ),
-          ],
-        ),
+      final go = await ScoringUiKit.confirmAction(
+        context,
+        title: 'End match?',
+        message: 'Complete this match?',
+        confirmLabel: 'Complete',
       );
       if (go == true) {
         final completed = await ref
@@ -1099,33 +1077,40 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               squads.batting,
               idOf: (p) => p.id,
             );
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        builder: (ctx) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: PlayerLineupPicker(
-            battingSquad: batting,
-            bowlingSquad: squads.bowling,
-            initialStrikerId: inn?.strikerId,
-            initialNonStrikerId: inn?.nonStrikerId,
-            initialBowlerId: inn?.currentBowlerId,
-            onSave: ({
-              required strikerId,
-              required strikerName,
-              required nonStrikerId,
-              required nonStrikerName,
-              required bowlerId,
-              required bowlerName,
-            }) async {
-              final events =
-                  ref.read(ballEventsProvider(widget.matchId)).valueOrNull ??
-                      [];
-              if (events.isNotEmpty) {
-                await _recordLineupChange(
-                  match: match,
+      final keeperId = inn != null
+          ? ScoringDisplayUtils.wicketKeeperIdForTeam(match, inn.bowlingTeamId)
+          : null;
+      PlayerLineupPicker.show(
+        context,
+        battingSquad: batting,
+        bowlingSquad: squads.bowling,
+        initialStrikerId: inn?.strikerId,
+        initialNonStrikerId: inn?.nonStrikerId,
+        initialBowlerId: inn?.currentBowlerId,
+        wicketKeeperId: keeperId,
+        onSave: ({
+          required strikerId,
+          required strikerName,
+          required nonStrikerId,
+          required nonStrikerName,
+          required bowlerId,
+          required bowlerName,
+        }) async {
+          final events =
+              ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
+          if (events.isNotEmpty) {
+            await _recordLineupChange(
+              match: match,
+              strikerId: strikerId,
+              strikerName: strikerName,
+              nonStrikerId: nonStrikerId,
+              nonStrikerName: nonStrikerName,
+              bowlerId: bowlerId,
+              bowlerName: bowlerName,
+            );
+          } else {
+            await ref.read(matchRepositoryProvider).updateLineup(
+                  matchId: widget.matchId,
                   strikerId: strikerId,
                   strikerName: strikerName,
                   nonStrikerId: nonStrikerId,
@@ -1133,21 +1118,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                   bowlerId: bowlerId,
                   bowlerName: bowlerName,
                 );
-              } else {
-                await ref.read(matchRepositoryProvider).updateLineup(
-                      matchId: widget.matchId,
-                      strikerId: strikerId,
-                      strikerName: strikerName,
-                      nonStrikerId: nonStrikerId,
-                      nonStrikerName: nonStrikerName,
-                      bowlerId: bowlerId,
-                      bowlerName: bowlerName,
-                    );
-              }
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-          ),
-        ),
+          }
+          if (mounted) Navigator.pop(context);
+        },
       );
     });
   }

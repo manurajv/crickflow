@@ -15,6 +15,8 @@ class ScoringUiKit {
     required Widget Function(BuildContext ctx) builder,
     bool isScrollControlled = false,
     bool useRootNavigator = true,
+    bool isDismissible = true,
+    bool enableDrag = true,
   }) {
     return showModalBottomSheet<T>(
       context: context,
@@ -22,7 +24,44 @@ class ScoringUiKit {
       shape: sheetShape,
       isScrollControlled: isScrollControlled,
       useRootNavigator: useRootNavigator,
+      isDismissible: isDismissible,
+      enableDrag: enableDrag,
       builder: builder,
+    );
+  }
+
+  /// Draggable list sheet with shared CrickFlow chrome (live scoring + setup).
+  static Future<T?> showDraggableSheet<T>(
+    BuildContext context, {
+    required Widget Function(BuildContext ctx, ScrollController scrollController)
+        builder,
+    double initialChildSize = 0.55,
+    double minChildSize = 0.35,
+    double maxChildSize = 0.92,
+    bool useRootNavigator = true,
+    bool isDismissible = true,
+  }) {
+    return showSheet<T>(
+      context,
+      isScrollControlled: true,
+      useRootNavigator: useRootNavigator,
+      isDismissible: isDismissible,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: initialChildSize,
+        minChildSize: minChildSize,
+        maxChildSize: maxChildSize,
+        expand: false,
+        builder: (_, controller) => builder(ctx, controller),
+      ),
+    );
+  }
+
+  static Widget sheetCloseButton(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.close, size: 22),
+      color: AppColors.textSecondary,
+      tooltip: 'Close',
+      onPressed: () => Navigator.pop(context),
     );
   }
 

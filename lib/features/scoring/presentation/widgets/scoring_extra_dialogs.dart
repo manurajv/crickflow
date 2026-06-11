@@ -307,36 +307,52 @@ class ScoringExtraDialogs {
 
 Future<int?> _showCustomRuns(BuildContext context) {
   var runs = 1;
-  return showDialog<int>(
-    context: context,
+  return ScoringUiKit.showSheet<int>(
+    context,
+    isScrollControlled: true,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: const Text('Runs'),
-        content: SizedBox(
-          width: 72,
-          child: TextField(
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            autofocus: true,
-            decoration: const InputDecoration(isDense: true, hintText: '1'),
-            onChanged: (v) => setState(() => runs = int.tryParse(v) ?? 1),
+      builder: (ctx, setState) => Material(
+        color: AppColors.surface,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppDimens.spaceMd,
+            0,
+            AppDimens.spaceMd,
+            MediaQuery.paddingOf(ctx).bottom + AppDimens.spaceMd,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ScoringSheetHeader(
+                title: 'Runs',
+                trailing: ScoringUiKit.sheetCloseButton(ctx),
+              ),
+              TextField(
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: '1',
+                  filled: true,
+                  fillColor: AppColors.surfaceElevated,
+                ),
+                onChanged: (v) => setState(() => runs = int.tryParse(v) ?? 1),
+              ),
+              const SizedBox(height: AppDimens.spaceLg),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, runs.clamp(0, 12)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.gold,
+                  foregroundColor: Colors.black,
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: const Text('OK'),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, runs.clamp(0, 12)),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.gold,
-              foregroundColor: Colors.black,
-            ),
-            child: const Text('OK'),
-          ),
-        ],
       ),
     ),
   );

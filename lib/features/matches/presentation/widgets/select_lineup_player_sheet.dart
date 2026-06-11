@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/lineup_player.dart';
+import '../../../../shared/widgets/scoring_ui_kit.dart';
 
 /// Pick one player from a squad list (start innings / replace).
 class SelectLineupPlayerSheet extends StatelessWidget {
@@ -9,102 +10,138 @@ class SelectLineupPlayerSheet extends StatelessWidget {
     super.key,
     required this.title,
     required this.players,
-    required this.onSelected,
+    required this.scrollController,
     this.excludeIds = const {},
+    this.disabledIds = const {},
+    this.subtitle,
   });
 
   final String title;
+  final String? subtitle;
   final List<LineupPlayer> players;
+  final ScrollController scrollController;
   final Set<String> excludeIds;
-  final void Function(LineupPlayer player) onSelected;
+  /// Player id → reason shown when the row is disabled (e.g. wicketkeeper).
+  final Map<String, String> disabledIds;
 
   static Future<LineupPlayer?> show(
     BuildContext context, {
     required String title,
     required List<LineupPlayer> players,
     Set<String> excludeIds = const {},
+    Map<String, String> disabledIds = const {},
+    String? subtitle,
+    double initialChildSize = 0.55,
   }) {
-    return showModalBottomSheet<LineupPlayer>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => SelectLineupPlayerSheet(
+    return ScoringUiKit.showDraggableSheet<LineupPlayer>(
+      context,
+      initialChildSize: initialChildSize,
+      maxChildSize: 0.9,
+      builder: (ctx, controller) => SelectLineupPlayerSheet(
         title: title,
+        subtitle: subtitle,
         players: players,
+        scrollController: controller,
         excludeIds: excludeIds,
-        onSelected: (p) => Navigator.pop(ctx, p),
+        disabledIds: disabledIds,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final eligible =
+    final visible =
         players.where((p) => !excludeIds.contains(p.id)).toList();
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.85,
-      expand: false,
-      builder: (_, controller) {
-        return Material(
-          color: AppColors.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          child: Column(
-            children: [
-              AppBar(
-                title: Text(title),
-                backgroundColor: AppColors.surface,
-                automaticallyImplyLeading: false,
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+    return Material(
+      color: AppColors.surface,
+      child: Column(
+        children: [
+          ScoringSheetHeader(
+            title: title,
+            trailing: ScoringUiKit.sheetCloseButton(context),
+          ),
+          if (subtitle != null && subtitle!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                0,
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
               ),
-              Expanded(
-                child: eligible.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(AppDimens.spaceMd),
+              child: Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          Expanded(
+            child: visible.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(AppDimens.spaceMd),
+                      child: Text(
+                        'No players available',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    controller: scrollController,
+                    padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+                    itemCount: visible.length,
+                    separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      color: AppColors.border,
+                    ),
+                    itemBuilder: (_, i) {
+                      final p = visible[i];
+                      final disabledReason = disabledIds[p.id];
+                      final disabled = disabledReason != null;
+                      return ListTile(
+                        enabled: !disabled,
+                        leading: CircleAvatar(
+                          backgroundColor: disabled
+                              ? AppColors.surface
+                              : AppColors.surfaceElevated,
                           child: Text(
-                            'No players available',
-                            style: TextStyle(color: AppColors.textSecondary),
+                            p.name.isNotEmpty
+                                ? p.name[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: disabled
+                                  ? AppColors.textMuted
+                                  : AppColors.gold,
+                            ),
                           ),
                         ),
-                      )
-                    : ListView.separated(
-                        controller: controller,
-                        itemCount: eligible.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1),
-                        itemBuilder: (_, i) {
-                          final p = eligible[i];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: AppColors.surfaceElevated,
-                              child: Text(
-                                p.name.isNotEmpty
-                                    ? p.name[0].toUpperCase()
-                                    : '?',
+                        title: Text(
+                          p.name,
+                          style: TextStyle(
+                            color: disabled ? AppColors.textMuted : null,
+                          ),
+                        ),
+                        subtitle: disabledReason != null
+                            ? Text(
+                                disabledReason,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.gold,
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
                                 ),
-                              ),
-                            ),
-                            title: Text(p.name),
-                            onTap: () => onSelected(p),
-                          );
-                        },
-                      ),
-              ),
-            ],
+                              )
+                            : null,
+                        onTap: disabled
+                            ? null
+                            : () => Navigator.pop(context, p),
+                      );
+                    },
+                  ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

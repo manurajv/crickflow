@@ -4,6 +4,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_rules_model.dart';
+import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../utils/scoring_display_utils.dart';
 import 'over_timeline.dart';
 
@@ -25,6 +26,36 @@ class OverCompleteDialog extends StatelessWidget {
   final MatchRulesModel rules;
   final VoidCallback onStartNextOver;
 
+  static Future<void> show(
+    BuildContext context, {
+    required int overNumber,
+    required String bowlerName,
+    required List<BallEventModel> overEvents,
+    required InningsModel innings,
+    required MatchRulesModel rules,
+    required VoidCallback onStartNextOver,
+  }) {
+    return ScoringUiKit.showSheet<void>(
+      context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.paddingOf(ctx).bottom,
+        ),
+        child: OverCompleteDialog(
+          overNumber: overNumber,
+          bowlerName: bowlerName,
+          overEvents: overEvents,
+          innings: innings,
+          rules: rules,
+          onStartNextOver: onStartNextOver,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final runs = ScoringDisplayUtils.overRuns(overEvents);
@@ -39,125 +70,100 @@ class OverCompleteDialog extends StatelessWidget {
     final bowlerOvers =
         '${(bowler?.oversBowledBalls ?? 0) ~/ rules.ballsPerOver}';
 
-    return Dialog(
-      backgroundColor: AppColors.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.border),
-      ),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              decoration: const BoxDecoration(
-                color: AppColors.surfaceElevated,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                border: Border(bottom: BorderSide(color: AppColors.border)),
-              ),
-              child: Text(
-                'Over $overNumber complete',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.gold,
+    return Material(
+      color: AppColors.card,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ScoringSheetHeader(title: 'Over $overNumber complete'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _StatChip(
+                    label: 'Runs',
+                    value: '$runs',
+                    highlight: true,
+                  ),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _StatChip(label: 'Wkts', value: '$wickets'),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _StatChip(label: 'Overs', value: bowlerOvers),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _StatChip(label: 'Extras', value: '$extras'),
+                ),
+              ],
+            ),
+          ),
+          if (overEvents.isNotEmpty) ...[
+            const SizedBox(height: AppDimens.spaceMd),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OverTimeline(
+                events: overEvents,
+                title: 'End of over by $bowlerName',
+                showExtrasLabel: false,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Row(
+          ],
+          const SizedBox(height: AppDimens.spaceMd),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _StatChip(
-                      label: 'Runs',
-                      value: '$runs',
-                      highlight: true,
-                    ),
+                  _PlayerRow(
+                    name: striker?.playerName ?? '—',
+                    stat: ScoringDisplayUtils.batsmanScoreLine(striker),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _StatChip(label: 'Wkts', value: '$wickets'),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _StatChip(label: 'Overs', value: bowlerOvers),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _StatChip(label: 'Extras', value: '$extras'),
+                  const Divider(height: 1, color: AppColors.border),
+                  _PlayerRow(
+                    name: nonStriker?.playerName ?? '—',
+                    stat: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
                   ),
                 ],
               ),
             ),
-            if (overEvents.isNotEmpty) ...[
-              const SizedBox(height: AppDimens.spaceMd),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: OverTimeline(
-                  events: overEvents,
-                  title: 'End of over by $bowlerName',
-                  showExtrasLabel: false,
-                ),
-              ),
-            ],
-            const SizedBox(height: AppDimens.spaceMd),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onStartNextOver();
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.gold,
+                foregroundColor: Colors.black,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: [
-                    _PlayerRow(
-                      name: striker?.playerName ?? '—',
-                      stat: ScoringDisplayUtils.batsmanScoreLine(striker),
-                    ),
-                    const Divider(height: 1, color: AppColors.border),
-                    _PlayerRow(
-                      name: nonStriker?.playerName ?? '—',
-                      stat: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
-                    ),
-                  ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onStartNextOver();
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'Select bowler for next over',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
+              child: const Text(
+                'Select bowler for next over',
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

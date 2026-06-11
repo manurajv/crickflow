@@ -113,6 +113,17 @@ class ScoringDisplayUtils {
     return (id: keeperId, name: names[keeperId] ?? '');
   }
 
+  /// Wicketkeeper id for a team from match setup (pre-innings or by team id).
+  static String? wicketKeeperIdForTeam(MatchModel match, String teamId) {
+    final setup = match.setup;
+    if (setup == null || teamId.isEmpty) return null;
+    if (teamId == match.teamAId) return setup.teamAWicketKeeperId;
+    if (teamId == match.teamBId) return setup.teamBWicketKeeperId;
+    return null;
+  }
+
+  static const wicketKeeperCannotBowlReason = 'Wicketkeeper cannot bowl';
+
   /// Active wicketkeeper for this innings (replay state + change events).
   static ({String? id, String? name}) activeWicketKeeper({
     required MatchModel match,

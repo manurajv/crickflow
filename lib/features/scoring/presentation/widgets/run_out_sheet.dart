@@ -8,6 +8,7 @@ import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/lineup_player.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../../../../shared/widgets/fielder_picker_sheet.dart';
+import '../../../../shared/widgets/scoring_ui_kit.dart';
 import 'crease_picker_sheets.dart';
 
 /// Result of the run-out scoring sheet.
@@ -61,15 +62,18 @@ Future<RunOutFlowResult?> showRunOutSheet(
   required List<LineupPlayer> bowlingSquad,
   required RunOutLineupResolver resolveLineup,
 }) {
-  return Navigator.of(context).push<RunOutFlowResult>(
-    MaterialPageRoute(
-      fullscreenDialog: true,
-      builder: (_) => RunOutSheet(
-        innings: innings,
-        rules: rules,
-        bowlingSquad: bowlingSquad,
-        resolveLineup: resolveLineup,
-      ),
+  return ScoringUiKit.showDraggableSheet<RunOutFlowResult>(
+    context,
+    initialChildSize: 0.92,
+    minChildSize: 0.55,
+    maxChildSize: 0.95,
+    isDismissible: false,
+    builder: (ctx, controller) => RunOutSheet(
+      innings: innings,
+      rules: rules,
+      bowlingSquad: bowlingSquad,
+      resolveLineup: resolveLineup,
+      scrollController: controller,
     ),
   );
 }
@@ -81,12 +85,14 @@ class RunOutSheet extends StatefulWidget {
     required this.rules,
     required this.bowlingSquad,
     required this.resolveLineup,
+    required this.scrollController,
   });
 
   final InningsModel innings;
   final MatchRulesModel rules;
   final List<LineupPlayer> bowlingSquad;
   final RunOutLineupResolver resolveLineup;
+  final ScrollController scrollController;
 
   @override
   State<RunOutSheet> createState() => _RunOutSheetState();
@@ -187,16 +193,21 @@ class _RunOutSheetState extends State<RunOutSheet> {
   Widget build(BuildContext context) {
     final rules = widget.rules;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Run out'),
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppDimens.spaceMd),
+    return Material(
+      color: AppColors.surface,
+      child: Column(
         children: [
+          ScoringSheetHeader(title: 'Run out'),
+          Expanded(
+            child: ListView(
+              controller: widget.scrollController,
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                0,
+                AppDimens.spaceMd,
+                AppDimens.spaceMd,
+              ),
+              children: [
           _sectionTitle('Who?'),
           Row(
             children: [
@@ -373,34 +384,43 @@ class _RunOutSheetState extends State<RunOutSheet> {
               ],
             ),
           ],
-          const SizedBox(height: 80),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppDimens.spaceMd),
-          child: FilledButton(
-            onPressed: _submitting ? null : _submit,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.gold,
-              foregroundColor: Colors.black,
-              minimumSize: const Size(double.infinity, 48),
+          const SizedBox(height: AppDimens.spaceMd),
+              ],
             ),
-            child: _submitting
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.black,
-                    ),
-                  )
-                : const Text(
-                    'Out',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
           ),
-        ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                0,
+                AppDimens.spaceMd,
+                AppDimens.spaceMd,
+              ),
+              child: FilledButton(
+                onPressed: _submitting ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.gold,
+                  foregroundColor: Colors.black,
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : const Text(
+                        'Out',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

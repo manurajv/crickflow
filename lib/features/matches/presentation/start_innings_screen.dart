@@ -10,6 +10,7 @@ import '../../../data/models/lineup_player.dart';
 import '../../../data/models/match_model.dart';
 import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/providers.dart';
+import '../../scoring/presentation/utils/scoring_display_utils.dart';
 import 'match_scoring_rules_screen.dart';
 import 'widgets/innings_player_slot_card.dart';
 import 'widgets/select_lineup_player_sheet.dart';
@@ -82,11 +83,21 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
     if (p != null && mounted) setState(() => _nonStriker = p);
   }
 
-  Future<void> _pickBowler(List<LineupPlayer> bowling) async {
+  Future<void> _pickBowler(List<LineupPlayer> bowling, MatchModel match) async {
+    final inn = match.currentInnings ?? match.innings.firstOrNull;
+    final bowlingTeamId = inn?.bowlingTeamId ?? _lineupBowlingTeamId;
+    final keeperId = bowlingTeamId != null
+        ? ScoringDisplayUtils.wicketKeeperIdForTeam(match, bowlingTeamId)
+        : null;
+    final disabledIds = <String, String>{};
+    if (keeperId != null && keeperId.isNotEmpty) {
+      disabledIds[keeperId] = ScoringDisplayUtils.wicketKeeperCannotBowlReason;
+    }
     final p = await SelectLineupPlayerSheet.show(
       context,
       title: 'Select bowler',
       players: bowling,
+      disabledIds: disabledIds,
     );
     if (p != null && mounted) setState(() => _bowler = p);
   }
@@ -277,7 +288,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                             player: _bowler,
                             icon: Icons.sports_baseball_outlined,
                             flex: 1,
-                            onTap: () => _pickBowler(squads.bowling),
+                            onTap: () => _pickBowler(squads.bowling, match),
                           ),
                           const Spacer(flex: 1),
                         ],
