@@ -109,6 +109,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
     if (!_canStart) return;
     setState(() => _starting = true);
     final uid = ref.read(authStateProvider).value?.uid;
+    final profile = ref.read(currentUserProfileProvider).valueOrNull;
 
     try {
       await ref.read(matchRepositoryProvider).updateLineup(
@@ -147,6 +148,8 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                 isSuperOver: inn.isSuperOver,
               ),
               scorerId: uid,
+              scorerName: profile?.displayName,
+              scorerPhoto: profile?.photoUrl,
             );
       } else if (uid != null) {
         await ref.read(matchRepositoryProvider).addScorer(widget.matchId, uid);

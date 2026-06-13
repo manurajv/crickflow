@@ -4,6 +4,7 @@ import 'innings_model.dart';
 import 'location_model.dart';
 import 'match_rules_model.dart';
 import 'match_setup_draft_models.dart';
+import 'scorer_transfer_models.dart';
 
 class MatchHeroModel extends Equatable {
   const MatchHeroModel({
@@ -171,6 +172,12 @@ class MatchModel extends Equatable {
     this.completedAt,
     this.createdBy,
     this.scorerIds = const [],
+    this.currentScorerId,
+    this.currentScorerName = '',
+    this.currentScorerPhoto,
+    this.scorerOwnershipToken,
+    this.lastScorerTransferAt,
+    this.scorerTransferHistory = const [],
     this.winnerTeamId,
     this.resultSummary = '',
     this.matchHero,
@@ -204,6 +211,12 @@ class MatchModel extends Equatable {
   final DateTime? completedAt;
   final String? createdBy;
   final List<String> scorerIds;
+  final String? currentScorerId;
+  final String currentScorerName;
+  final String? currentScorerPhoto;
+  final String? scorerOwnershipToken;
+  final DateTime? lastScorerTransferAt;
+  final List<ScorerTransferRecord> scorerTransferHistory;
   final String? winnerTeamId;
   final String resultSummary;
   final MatchHeroModel? matchHero;
@@ -253,6 +266,17 @@ class MatchModel extends Equatable {
       completedAt: DateTime.tryParse(map['completedAt']?.toString() ?? ''),
       createdBy: map['createdBy'] as String?,
       scorerIds: List<String>.from(map['scorerIds'] as List? ?? []),
+      currentScorerId: map['currentScorerId'] as String?,
+      currentScorerName: map['currentScorerName'] as String? ?? '',
+      currentScorerPhoto: map['currentScorerPhoto'] as String?,
+      scorerOwnershipToken: map['scorerOwnershipToken'] as String?,
+      lastScorerTransferAt:
+          DateTime.tryParse(map['lastScorerTransferAt']?.toString() ?? ''),
+      scorerTransferHistory: (map['scorerTransferHistory'] as List? ?? [])
+          .map((e) => ScorerTransferRecord.fromMap(
+                _asStringMap(e) ?? const {},
+              ))
+          .toList(),
       winnerTeamId: map['winnerTeamId'] as String?,
       resultSummary: map['resultSummary'] as String? ?? '',
       matchHero: _asStringMap(map['matchHero']) != null
@@ -299,6 +323,16 @@ class MatchModel extends Equatable {
         if (completedAt != null) 'completedAt': completedAt!.toIso8601String(),
         if (createdBy != null) 'createdBy': createdBy,
         'scorerIds': scorerIds,
+        if (currentScorerId != null) 'currentScorerId': currentScorerId,
+        if (currentScorerName.isNotEmpty) 'currentScorerName': currentScorerName,
+        if (currentScorerPhoto != null) 'currentScorerPhoto': currentScorerPhoto,
+        if (scorerOwnershipToken != null)
+          'scorerOwnershipToken': scorerOwnershipToken,
+        if (lastScorerTransferAt != null)
+          'lastScorerTransferAt': lastScorerTransferAt!.toIso8601String(),
+        if (scorerTransferHistory.isNotEmpty)
+          'scorerTransferHistory':
+              scorerTransferHistory.map((e) => e.toMap()).toList(),
         if (winnerTeamId != null) 'winnerTeamId': winnerTeamId,
         'resultSummary': resultSummary,
         if (matchHero != null) 'matchHero': matchHero!.toMap(),
@@ -334,6 +368,12 @@ class MatchModel extends Equatable {
     StreamMetadataModel? stream,
     int? overlayVersion,
     Map<String, String>? mediaByCode,
+    String? currentScorerId,
+    String? currentScorerName,
+    String? currentScorerPhoto,
+    String? scorerOwnershipToken,
+    DateTime? lastScorerTransferAt,
+    List<ScorerTransferRecord>? scorerTransferHistory,
     MatchSetupData? setup,
   }) {
     return MatchModel(
@@ -356,6 +396,13 @@ class MatchModel extends Equatable {
       completedAt: completedAt ?? this.completedAt,
       createdBy: createdBy,
       scorerIds: scorerIds,
+      currentScorerId: currentScorerId ?? this.currentScorerId,
+      currentScorerName: currentScorerName ?? this.currentScorerName,
+      currentScorerPhoto: currentScorerPhoto ?? this.currentScorerPhoto,
+      scorerOwnershipToken: scorerOwnershipToken ?? this.scorerOwnershipToken,
+      lastScorerTransferAt: lastScorerTransferAt ?? this.lastScorerTransferAt,
+      scorerTransferHistory:
+          scorerTransferHistory ?? this.scorerTransferHistory,
       winnerTeamId: winnerTeamId ?? this.winnerTeamId,
       resultSummary: resultSummary ?? this.resultSummary,
       matchHero: matchHero ?? this.matchHero,

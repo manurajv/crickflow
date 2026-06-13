@@ -13,6 +13,7 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
     required this.onScorecard,
     required this.onMatchRules,
     this.onEditToss,
+    this.onChangeScorer,
   });
 
   final VoidCallback onEditLineup;
@@ -21,6 +22,7 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
   final VoidCallback onScorecard;
   final VoidCallback onMatchRules;
   final VoidCallback? onEditToss;
+  final VoidCallback? onChangeScorer;
 
   @override
   State<ScoringQuickOptionsSheet> createState() =>
@@ -37,7 +39,10 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
   List<_Shortcut> get _shortcuts => [
         const _Shortcut(Icons.help_outline, 'Need Help', _noop),
         _Shortcut(Icons.rule_outlined, 'Match Rules', widget.onMatchRules),
-        const _Shortcut(Icons.swap_horiz, 'Change Scorer', _noop),
+        if (widget.onChangeScorer != null)
+          _Shortcut(Icons.swap_horiz, 'Change Scorer', widget.onChangeScorer!)
+        else
+          const _Shortcut(Icons.swap_horiz, 'Change Scorer', _noop),
         _Shortcut(Icons.group_outlined, 'Change Squad', widget.onEditLineup),
         _Shortcut(
           Icons.assignment_outlined,

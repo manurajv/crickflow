@@ -6,6 +6,7 @@ import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/overlay_state_model.dart';
+import '../../data/models/scorer_transfer_models.dart';
 import '../../core/utils/highlight_utils.dart';
 import '../../domain/services/badge_service.dart';
 import '../../domain/services/commentary_service.dart';
@@ -42,6 +43,9 @@ class MatchRepository {
 
   CollectionReference<Map<String, dynamic>> _ballEvents(String matchId) =>
       _matchDoc(matchId).collection('ball_events');
+
+  CollectionReference<Map<String, dynamic>> _activityLogs(String matchId) =>
+      _matchDoc(matchId).collection('activity_logs');
 
   Future<String> createMatch(MatchModel match) async {
     final id = match.id.isEmpty ? _uuid.v4() : match.id;
@@ -560,6 +564,8 @@ class MatchRepository {
     String matchId,
     InningsModel firstInnings, {
     String? scorerId,
+    String? scorerName,
+    String? scorerPhoto,
   }) async {
     final existing = await getMatch(matchId);
     if (existing != null &&
@@ -578,6 +584,15 @@ class MatchRepository {
     };
     if (scorerId != null) {
       data['scorerIds'] = FieldValue.arrayUnion([scorerId]);
+      data['currentScorerId'] = scorerId;
+      if (scorerName != null && scorerName.isNotEmpty) {
+        data['currentScorerName'] = scorerName;
+      }
+      if (scorerPhoto != null && scorerPhoto.isNotEmpty) {
+        data['currentScorerPhoto'] = scorerPhoto;
+      }
+      data['scorerOwnershipToken'] = _uuid.v4();
+      data['lastScorerTransferAt'] = DateTime.now().toIso8601String();
     }
     await _matchDoc(matchId).update(data);
   }
@@ -649,6 +664,113 @@ class MatchRepository {
     await _matchDoc(matchId).update({
       'scorerIds': FieldValue.arrayUnion([userId]),
     });
+  }
+
+  /// Ensures ownership token exists (for QR takeover on legacy matches).
+  Future<String> ensureScorerOwnershipToken(String matchId) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+    final existing = match.scorerOwnershipToken;
+    if (existing != null && existing.isNotEmpty) return existing;
+
+    final token = _uuid.v4();
+    await _matchDoc(matchId).update({
+      'scorerOwnershipToken': token,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+    return token;
+  }
+
+  Future<void> _appendActivityLog(
+    String matchId, {
+    required String message,
+    required String createdBy,
+    String type = 'scorer_transfer',
+  }) async {
+    await _activityLogs(matchId).add({
+      'message': message,
+      'type': type,
+      'createdBy': createdBy,
+      'createdAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Transfer active scoring ownership to another registered user.
+  Future<void> transferScorerOwnership({
+    required String matchId,
+    required String fromUserId,
+    required String fromUserName,
+    required String toUserId,
+    required String toUserName,
+    String? toUserPhoto,
+    String? ownershipToken,
+  }) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+
+    if (ownershipToken != null &&
+        match.scorerOwnershipToken != null &&
+        match.scorerOwnershipToken != ownershipToken) {
+      throw StateError('Invalid ownership token');
+    }
+
+    final now = DateTime.now();
+    final record = ScorerTransferRecord(
+      fromUserId: fromUserId,
+      fromUserName: fromUserName,
+      toUserId: toUserId,
+      toUserName: toUserName,
+      timestamp: now,
+    );
+    final history = [...match.scorerTransferHistory, record];
+
+    await _matchDoc(matchId).update({
+      'currentScorerId': toUserId,
+      'currentScorerName': toUserName,
+      if (toUserPhoto != null) 'currentScorerPhoto': toUserPhoto,
+      'lastScorerTransferAt': now.toIso8601String(),
+      'scorerTransferHistory': history.map((e) => e.toMap()).toList(),
+      'scorerIds': FieldValue.arrayUnion([toUserId]),
+      'updatedAt': now.toIso8601String(),
+    });
+
+    await _appendActivityLog(
+      matchId,
+      message: 'Scoring transferred from $fromUserName to $toUserName',
+      createdBy: fromUserId,
+    );
+  }
+
+  /// Accept takeover via QR — caller becomes active scorer.
+  Future<void> acceptScorerTakeover({
+    required String matchId,
+    required String newUserId,
+    required String newUserName,
+    String? newUserPhoto,
+    required String ownershipToken,
+  }) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+
+    final token = match.scorerOwnershipToken;
+    if (token == null || token.isEmpty || token != ownershipToken) {
+      throw StateError('Invalid or expired QR code');
+    }
+
+    final fromId = match.currentScorerId ?? match.createdBy ?? '';
+    final fromName = match.currentScorerName.isNotEmpty
+        ? match.currentScorerName
+        : 'Previous scorer';
+
+    await transferScorerOwnership(
+      matchId: matchId,
+      fromUserId: fromId,
+      fromUserName: fromName,
+      toUserId: newUserId,
+      toUserName: newUserName,
+      toUserPhoto: newUserPhoto,
+      ownershipToken: ownershipToken,
+    );
   }
 
   /// Mark current innings complete.

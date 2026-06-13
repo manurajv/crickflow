@@ -32,6 +32,7 @@ import 'widgets/over_complete_dialog.dart';
 import 'widgets/run_out_sheet.dart';
 import 'widgets/scoring_extra_dialogs.dart';
 import 'widgets/scoring_quick_options_sheet.dart';
+import 'widgets/change_scorer_sheet.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import 'widgets/select_bowler_sheet.dart';
 import '../../../data/models/wagon_wheel_data.dart';
@@ -55,12 +56,53 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   bool _inningsBreakDialogOpen = false;
   bool _suppressInningsBreakCheck = false;
   BowlingSide _bowlingSide = BowlingSide.over;
+  String? _lastKnownScorerId;
+  String? _scorerTransferBanner;
 
   @override
   void initState() {
     super.initState();
     _loadSequence();
     ref.read(notificationServiceProvider).subscribeToMatch(widget.matchId);
+  }
+
+  bool _guardActiveScorer(MatchModel match) {
+    final uid = ref.read(authStateProvider).value?.uid;
+    final role =
+        ref.read(currentUserProfileProvider).valueOrNull?.role ??
+            UserRole.organizer;
+    if (canScoreMatch(match: match, userId: uid, role: role)) {
+      return true;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You are not the active scorer of this match.'),
+        ),
+      );
+    }
+    return false;
+  }
+
+  void _handleScorerOwnershipChange(MatchModel? prev, MatchModel? next) {
+    if (next == null) return;
+    final uid = ref.read(authStateProvider).value?.uid;
+    final newScorer = effectiveScorerId(next);
+    if (_lastKnownScorerId == null) {
+      _lastKnownScorerId = newScorer;
+      return;
+    }
+    if (newScorer == _lastKnownScorerId) return;
+
+    final name = next.currentScorerName.isNotEmpty
+        ? next.currentScorerName
+        : 'another user';
+    if (uid != null && newScorer != uid && mounted) {
+      setState(() {
+        _scorerTransferBanner = 'Scoring control transferred to $name';
+      });
+    }
+    _lastKnownScorerId = newScorer;
   }
 
   Future<void> _loadSequence() async {
@@ -92,6 +134,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       }
       return;
     }
+    if (!_guardActiveScorer(match)) return;
 
     final inn = match.currentInnings;
     if (inn?.currentBowlerId == null) {
@@ -231,13 +274,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     String? undoGroupId,
     MatchModel? matchOverride,
   }) async {
-    setState(() => _isRecording = true);
-    final sequence = _ballSequence + 1;
-    final scorerUid = ref.read(authStateProvider).valueOrNull?.uid;
     final matchForWrite =
         ref.read(matchProvider(widget.matchId)).valueOrNull ??
             matchOverride ??
             match;
+    if (!_guardActiveScorer(matchForWrite)) return;
+
+    setState(() => _isRecording = true);
+    final sequence = _ballSequence + 1;
+    final scorerUid = ref.read(authStateProvider).valueOrNull?.uid;
     try {
       await ref.read(matchRepositoryProvider).recordBall(
             match: matchForWrite,
@@ -370,12 +415,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Future<void> _recordWicket() async {
+    final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
+    if (match == null || !_guardActiveScorer(match)) return;
+
     var wicketType = await showWicketPickerSheet(context);
     if (wicketType == null || !mounted) return;
 
-    final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
-    final inn = match?.currentInnings;
-    if (match == null || inn == null) return;
+    final inn = match.currentInnings;
+    if (inn == null) return;
 
     final squads =
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
@@ -895,7 +942,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
   Future<void> _performUndo({required bool showConfirm}) async {
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
-    if (match != null && !ScoringDisplayUtils.canUndoInnings(match)) {
+    if (match == null || !_guardActiveScorer(match)) return;
+    if (!ScoringDisplayUtils.canUndoInnings(match)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -951,7 +999,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
   Future<void> _endInnings() async {
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
-    if (match == null) return;
+    if (match == null || !_guardActiveScorer(match)) return;
 
     if (match.rules.maxInnings <= 1) {
       final go = await ScoringUiKit.confirmAction(
@@ -993,6 +1041,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Future<void> _replaceBatsman(MatchModel match, {required bool striker}) async {
+    if (!_guardActiveScorer(match)) return;
     final squads =
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
     final inn = match.currentInnings;
@@ -1054,6 +1103,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Future<void> _replaceBowler(MatchModel match) async {
+    if (!_guardActiveScorer(match)) return;
     final inn = match.currentInnings;
     if (inn == null) return;
     final bpo = match.rules.ballsPerOver;
@@ -1067,6 +1117,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   void _openLineupSheet(MatchModel match) {
+    if (!_guardActiveScorer(match)) return;
     final squadsAsync = ref.read(matchLineupSquadsProvider(widget.matchId));
     squadsAsync.whenData((squads) {
       final inn = match.currentInnings;
@@ -1126,6 +1177,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Future<void> _changeWicketKeeper(MatchModel match) async {
+    if (!_guardActiveScorer(match)) return;
     final inn = match.currentInnings;
     if (inn == null) return;
 
@@ -1190,19 +1242,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         onChangeWicketkeeper: () => _changeWicketKeeper(match),
         onEndInnings: () => _endInnings(),
         onScorecard: () => context.push('/match/${widget.matchId}/scorecard'),
-        onMatchRules: () async {
-          final updated = await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  MatchScoringRulesScreen(initialRules: match.rules),
-            ),
-          );
-          if (updated != null && mounted) {
-            await ref.read(matchRepositoryProvider).updateMatch(
-                  match.copyWith(rules: updated),
-                );
-          }
-        },
+        onMatchRules: () => _openMatchRules(match),
+        onChangeScorer: canInitiateScorerTransfer(
+          match: match,
+          userId: ref.read(authStateProvider).value?.uid,
+        )
+            ? () => ChangeScorerSheet.show(context, match)
+            : null,
         onEditToss: canEditToss
             ? () => EditTossDecisionSheet.show(
                   context,
@@ -1216,6 +1262,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Future<void> _openMatchRules(MatchModel match) async {
+    if (!_guardActiveScorer(match)) return;
     final updated = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => MatchScoringRulesScreen(initialRules: match.rules),
@@ -1236,11 +1283,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final uid = ref.watch(authStateProvider).value?.uid;
 
     ref.listen<AsyncValue<MatchModel?>>(matchProvider(widget.matchId), (prev, next) {
+      final prevMatch = prev?.valueOrNull;
       next.whenData((match) {
-        if (match != null && mounted && _sequenceLoaded) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _handleInningsBreakState(match);
-          });
+        if (match != null) {
+          _handleScorerOwnershipChange(prevMatch, match);
+          if (mounted && _sequenceLoaded) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _handleInningsBreakState(match);
+            });
+          }
         }
       });
     });
@@ -1303,10 +1354,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             return const Center(child: Text('Match not found'));
           }
 
-          if (!canManageMatch(
+          final role = profile?.role ?? UserRole.organizer;
+          if (!canViewLiveScoring(
             match: match,
             userId: uid,
-            role: profile?.role ?? UserRole.organizer,
+            role: role,
           )) {
             return _lockedView(context);
           }
@@ -1320,8 +1372,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             return const Center(child: Text('No active innings'));
           }
 
+          final canScore = canScoreMatch(
+            match: match,
+            userId: uid,
+            role: role,
+          );
           final needsLineup =
-              inn.strikerId == null || inn.currentBowlerId == null;
+              canScore &&
+              (inn.strikerId == null || inn.currentBowlerId == null);
 
           final events = eventsAsync.valueOrNull ?? [];
           final overEvents = ScoringDisplayUtils.currentOverEvents(
@@ -1332,6 +1390,25 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
           return Column(
             children: [
+              if (_scorerTransferBanner != null)
+                MaterialBanner(
+                  backgroundColor: AppColors.surfaceElevated,
+                  content: Text(
+                    _scorerTransferBanner!,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.gold,
+                    ),
+                  ),
+                  leading: const Icon(Icons.info_outline, color: AppColors.gold),
+                  actions: [
+                    TextButton(
+                      onPressed: () =>
+                          setState(() => _scorerTransferBanner = null),
+                      child: const Text('Dismiss'),
+                    ),
+                  ],
+                ),
               Flexible(
                 flex: 30,
                 fit: FlexFit.tight,
@@ -1358,54 +1435,67 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                 rules: match.rules,
                 overEvents: overEvents,
                 bowlingSide: _bowlingSide,
-                onBowlingSideChanged: (s) => setState(() => _bowlingSide = s),
+                onBowlingSideChanged: canScore
+                    ? (s) => setState(() => _bowlingSide = s)
+                    : null,
                 onReplaceStriker: needsLineup
                     ? null
-                    : () => _replaceBatsman(match, striker: true),
+                    : canScore
+                        ? () => _replaceBatsman(match, striker: true)
+                        : null,
                 onReplaceNonStriker: needsLineup
                     ? null
-                    : () => _replaceBatsman(match, striker: false),
-                onReplaceBowler:
-                    needsLineup ? null : () => _replaceBowler(match),
+                    : canScore
+                        ? () => _replaceBatsman(match, striker: false)
+                        : null,
+                onReplaceBowler: needsLineup || !canScore
+                    ? null
+                    : () => _replaceBowler(match),
               ),
               Flexible(
                 flex: 40,
                 fit: FlexFit.tight,
-                child: LayoutBuilder(
-                  builder: (context, keypadConstraints) {
-                    return LiveScoringKeypad(
-                      height: keypadConstraints.maxHeight,
-                      isBusy: _isRecording,
-                      onRun: (r) => _record(
-                        BallEventInput(type: BallEventType.runs, runs: r),
-                      ),
-                      onWide: () => _recordExtra(
-                        () => ScoringExtraDialogs.showWide(
-                          context,
-                          rules: match.rules,
-                        ),
-                      ),
-                      onNoBall: () => _recordExtra(
-                        () => ScoringExtraDialogs.showNoBall(
-                          context,
-                          rules: match.rules,
-                        ),
-                      ),
-                      onBye: () async {
-                        final input =
-                            await ScoringExtraDialogs.showBye(context);
-                        if (input != null) await _record(input);
-                      },
-                      onLegBye: () async {
-                        final input =
-                            await ScoringExtraDialogs.showLegBye(context);
-                        if (input != null) await _record(input);
-                      },
-                      onOut: _recordWicket,
-                      onUndo: _undo,
-                    );
-                  },
-                ),
+                child: canScore
+                    ? LayoutBuilder(
+                        builder: (context, keypadConstraints) {
+                          return LiveScoringKeypad(
+                            height: keypadConstraints.maxHeight,
+                            isBusy: _isRecording,
+                            onRun: (r) => _record(
+                              BallEventInput(
+                                type: BallEventType.runs,
+                                runs: r,
+                              ),
+                            ),
+                            onWide: () => _recordExtra(
+                              () => ScoringExtraDialogs.showWide(
+                                context,
+                                rules: match.rules,
+                              ),
+                            ),
+                            onNoBall: () => _recordExtra(
+                              () => ScoringExtraDialogs.showNoBall(
+                                context,
+                                rules: match.rules,
+                              ),
+                            ),
+                            onBye: () async {
+                              final input =
+                                  await ScoringExtraDialogs.showBye(context);
+                              if (input != null) await _record(input);
+                            },
+                            onLegBye: () async {
+                              final input = await ScoringExtraDialogs.showLegBye(
+                                context,
+                              );
+                              if (input != null) await _record(input);
+                            },
+                            onOut: _recordWicket,
+                            onUndo: _undo,
+                          );
+                        },
+                      )
+                    : _readOnlyKeypadPlaceholder(context, match),
               ),
               SizedBox(
                 height: 46,
@@ -1420,18 +1510,18 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                         top: BorderSide(color: AppColors.border),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Scoring shortcuts',
-                          style: TextStyle(
+                          canScore ? 'Scoring shortcuts' : 'View shortcuts',
+                          style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: AppColors.textSecondary,
                           ),
                         ),
-                        Icon(
+                        const Icon(
                           Icons.keyboard_arrow_up,
                           color: AppColors.gold,
                           size: 22,
@@ -1446,6 +1536,38 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
+      ),
+    );
+  }
+
+  Widget _readOnlyKeypadPlaceholder(BuildContext context, MatchModel match) {
+    final scorerName = match.currentScorerName.isNotEmpty
+        ? match.currentScorerName
+        : 'another scorer';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.visibility_outlined, size: 40, color: AppColors.gold),
+            const SizedBox(height: 12),
+            Text(
+              'Read-only — $scorerName is scoring',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: () =>
+                  context.push('/match/${widget.matchId}/scorecard'),
+              child: const Text('View scorecard'),
+            ),
+          ],
+        ),
       ),
     );
   }

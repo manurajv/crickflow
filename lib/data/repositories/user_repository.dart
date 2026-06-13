@@ -35,4 +35,39 @@ class UserRepository {
       return UserModel.fromMap(doc.id, doc.data()!);
     });
   }
+
+  /// Search by exact email or phone (mobile).
+  Future<List<UserModel>> searchByEmailOrPhone(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
+
+    final results = <UserModel>[];
+    final seen = <String>{};
+
+    Future<void> addFrom(Query<Map<String, dynamic>> q) async {
+      final snap = await q.limit(5).get();
+      for (final doc in snap.docs) {
+        if (seen.add(doc.id)) {
+          results.add(UserModel.fromMap(doc.id, doc.data()));
+        }
+      }
+    }
+
+    if (trimmed.contains('@')) {
+      await addFrom(_col.where('email', isEqualTo: trimmed.toLowerCase()));
+      if (results.isEmpty) {
+        await addFrom(_col.where('email', isEqualTo: trimmed));
+      }
+    } else {
+      final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+      if (digits.isNotEmpty) {
+        await addFrom(_col.where('phoneNumber', isEqualTo: digits));
+        if (results.isEmpty && digits != trimmed) {
+          await addFrom(_col.where('phoneNumber', isEqualTo: trimmed));
+        }
+      }
+    }
+
+    return results;
+  }
 }

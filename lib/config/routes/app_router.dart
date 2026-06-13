@@ -31,6 +31,7 @@ import '../../features/players/presentation/player_screen.dart';
 import '../../features/store/presentation/store_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/scoring/presentation/live_scoring_screen.dart';
+import '../../features/scoring/presentation/scorer_takeover_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/shell/presentation/main_shell_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
@@ -254,6 +255,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/match/:id/score',
         builder: (_, state) =>
             LiveScoringScreen(matchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/match/:id/takeover',
+        builder: (_, state) => ScorerTakeoverScreen(
+          matchId: state.pathParameters['id']!,
+          ownershipToken: state.uri.queryParameters['token'] ?? '',
+        ),
       ),
       GoRoute(
         path: '/match/:id/scorecard',

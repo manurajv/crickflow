@@ -17,11 +17,43 @@ service cloud.firestore {
       return isSignedIn() && matchData(matchId).createdBy == request.auth.uid;
     }
 
+    function effectiveScorerId(matchId) {
+      let data = matchData(matchId);
+      return ('currentScorerId' in data && data.currentScorerId is string
+              && data.currentScorerId.size() > 0)
+        ? data.currentScorerId
+        : data.createdBy;
+    }
+
+    function isActiveScorer(matchId) {
+      return isSignedIn() && effectiveScorerId(matchId) == request.auth.uid;
+    }
+
+    function isLegacyMatchScorer(matchId) {
+      let data = matchData(matchId);
+      return !('currentScorerId' in data)
+        || data.currentScorerId == null
+        || data.currentScorerId == '';
+    }
+
     function isMatchScorer(matchId) {
       return isSignedIn() && (
-        isMatchCreator(matchId) ||
-        request.auth.uid in matchData(matchId).scorerIds
+        isActiveScorer(matchId) ||
+        (isLegacyMatchScorer(matchId) && (
+          isMatchCreator(matchId) ||
+          request.auth.uid in matchData(matchId).scorerIds
+        ))
       );
+    }
+
+    function isValidScorerTakeover() {
+      let old = resource.data;
+      let neu = request.resource.data;
+      return isSignedIn()
+        && neu.currentScorerId == request.auth.uid
+        && ('scorerOwnershipToken' in old)
+        && old.scorerOwnershipToken == neu.scorerOwnershipToken
+        && (!('currentScorerId' in old) || old.currentScorerId != neu.currentScorerId);
     }
 
     // --- Match document validation (start-match + scoring fields) ---
@@ -153,7 +185,7 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && validMatchCreate();
-      allow update: if (isMatchScorer(matchId) || isMatchCreator(matchId))
+      allow update: if (isMatchScorer(matchId) || isMatchCreator(matchId) || isValidScorerTakeover())
         && validMatchUpdate();
       allow delete: if isMatchCreator(matchId);
 
@@ -172,6 +204,12 @@ service cloud.firestore {
       match /highlights/{highlightId} {
         allow read: if isSignedIn();
         allow write: if false;
+      }
+
+      match /activity_logs/{logId} {
+        allow read: if isSignedIn();
+        allow create: if isMatchScorer(matchId) || isValidScorerTakeover();
+        allow update, delete: if false;
       }
 
       match /public/{docId} {
