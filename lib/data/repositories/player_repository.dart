@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/cf_player_id_format.dart';
 import '../models/player_model.dart';
 
 class PlayerRepository {
@@ -45,14 +46,24 @@ class PlayerRepository {
     return PlayerModel.fromMap(doc.id, doc.data()!);
   }
 
-  /// Players not on [excludeTeamId] (for squad picker). Optional name filter.
+  /// Players not on [excludeTeamId] (for squad picker). Name or Player ID filter.
   Future<List<PlayerModel>> searchAvailablePlayers({
     required String excludeTeamId,
     required Set<String> alreadyOnSquadIds,
     String query = '',
   }) async {
-    final snap = await _col.orderBy('name').limit(250).get();
-    final q = query.trim().toLowerCase();
+    final q = query.trim();
+    if (q.isNotEmpty && CfPlayerIdFormat.looksLikeCfPlayerId(q)) {
+      final player = await getPlayerByPublicId(q);
+      if (player == null) return [];
+      if (alreadyOnSquadIds.contains(player.id)) return [];
+      if (player.teamId == excludeTeamId) return [];
+      return [player];
+    }
+
+    final snap = await _col.orderBy('name').limit(300).get();
+    final qLower = q.toLowerCase();
+    final qUpper = CfPlayerIdFormat.normalize(q);
 
     final list = snap.docs
         .map((d) => PlayerModel.fromMap(d.id, d.data()))
@@ -60,11 +71,23 @@ class PlayerRepository {
           if (alreadyOnSquadIds.contains(p.id)) return false;
           if (p.teamId == excludeTeamId) return false;
           if (q.isEmpty) return true;
-          return p.name.toLowerCase().contains(q);
+          if (p.name.toLowerCase().contains(qLower)) return true;
+          if (p.playerId != null &&
+              p.playerId!.toUpperCase().contains(qUpper)) {
+            return true;
+          }
+          return false;
         })
         .toList();
 
-    list.sort((a, b) => a.name.compareTo(b.name));
+    list.sort((a, b) {
+      if (q.isNotEmpty) {
+        final aName = a.name.toLowerCase().startsWith(qLower);
+        final bName = b.name.toLowerCase().startsWith(qLower);
+        if (aName != bName) return aName ? -1 : 1;
+      }
+      return a.name.compareTo(b.name);
+    });
     return list;
   }
 
@@ -86,22 +109,40 @@ class PlayerRepository {
     });
   }
 
+  /// Lookup player doc by public player ID.
+  Future<PlayerModel?> getPlayerByPublicId(String playerId) async {
+    final normalized = CfPlayerIdFormat.normalize(playerId);
+    final snap = await _col.where('playerId', isEqualTo: normalized).limit(1).get();
+    if (snap.docs.isEmpty) return null;
+    final doc = snap.docs.first;
+    return PlayerModel.fromMap(doc.id, doc.data());
+  }
+
   /// Links auth user to a player doc (used when role is `player`). Doc id = [userId].
   Future<PlayerModel> ensurePlayerProfileForUser({
     required String userId,
     required String displayName,
     String? photoUrl,
     String? email,
+    String? playerId,
   }) async {
     final existing = await _col.doc(userId).get();
     if (existing.exists) {
-      return PlayerModel.fromMap(userId, existing.data()!);
+      if (playerId != null && playerId.isNotEmpty) {
+        await _col.doc(userId).set(
+          {'playerId': playerId, 'updatedAt': DateTime.now().toIso8601String()},
+          SetOptions(merge: true),
+        );
+      }
+      final refreshed = await _col.doc(userId).get();
+      return PlayerModel.fromMap(userId, refreshed.data()!);
     }
 
     final player = PlayerModel(
       id: userId,
       name: displayName.isNotEmpty ? displayName : 'Player',
       userId: userId,
+      playerId: playerId,
       photoUrl: photoUrl,
       createdBy: userId,
     );

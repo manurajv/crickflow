@@ -25,6 +25,7 @@ import '../../features/matches/presentation/matches_list_screen.dart';
 import '../../features/matches/presentation/scorecard_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/player_onboarding/presentation/player_onboarding_screen.dart';
 import '../../features/overlay/presentation/live_overlay_screen.dart';
 import '../../features/players/presentation/player_detail_screen.dart';
 import '../../features/players/presentation/player_screen.dart';
@@ -48,6 +49,7 @@ import '../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../core/routing/deep_link_handler.dart';
 import '../../core/utils/deep_link_utils.dart';
 import '../../core/utils/match_permissions.dart';
+import '../../core/auth/guest_routes.dart';
 import '../../shared/providers/providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -62,7 +64,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Android/iOS may pass `crickflow://teams/<id>` as the platform route.
       final incomingUri = state.uri;
       String? deepPath;
-      if (incomingUri.scheme == DeepLinkUtils.customScheme) {
+      if (incomingUri.scheme == DeepLinkUtils.customScheme ||
+          (incomingUri.scheme == 'https' &&
+              (incomingUri.host == DeepLinkUtils.httpsHost ||
+                  incomingUri.host == DeepLinkUtils.firebaseHostingHost))) {
         deepPath = DeepLinkUtils.pathFromUri(incomingUri);
       } else {
         deepPath = DeepLinkUtils.normalizeLocation(state.matchedLocation);
@@ -71,11 +76,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (deepPath != null &&
           deepPath != state.matchedLocation &&
           deepPath != incomingUri.path) {
+        final location = incomingUri.query.isNotEmpty
+            ? '$deepPath?${incomingUri.query}'
+            : deepPath;
         final isLoggedIn = authState.valueOrNull != null;
         if (!isLoggedIn) {
-          DeepLinkHandler.pendingPath = deepPath;
+          DeepLinkHandler.pendingPath = location;
         }
-        return deepPath;
+        return location;
       }
 
       final isLoggedIn = authState.valueOrNull != null;
@@ -85,13 +93,35 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnboarding = path == '/onboarding';
 
       if (isSplash || isOnboarding) return null;
-      if (!isLoggedIn && !isAuthRoute) return '/login';
-      if (isLoggedIn && isAuthRoute) return '/home';
+
+      if (!isLoggedIn) {
+        if (path == '/login') return null;
+        if (GuestRoutes.isPublicRoute(path)) return null;
+        return '/home';
+      }
+
+      if (isLoggedIn && isAuthRoute) {
+        final profile = ref.read(currentUserProfileProvider).valueOrNull;
+        if (profile != null && !profile.onboardingCompleted) {
+          return '/player-onboarding';
+        }
+        return '/home';
+      }
+
+      if (isLoggedIn && path != '/player-onboarding') {
+        final profile = ref.read(currentUserProfileProvider).valueOrNull;
+        if (profile != null &&
+            !profile.onboardingCompleted &&
+            GuestRoutes.isProtectedRoute(path)) {
+          return '/player-onboarding';
+        }
+      }
 
       if (isLoggedIn && path == '/match/create') {
         final profile = ref.read(currentUserProfileProvider).valueOrNull;
-        if (profile != null && !canCreateMatches(profile.role)) {
-          return '/home';
+        if (profile != null &&
+            (!profile.onboardingCompleted || !canCreateMatches(profile.role))) {
+          return profile.onboardingCompleted ? '/home' : '/player-onboarding';
         }
       }
 
@@ -110,6 +140,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(
+        path: '/player-onboarding',
+        builder: (_, __) => const PlayerOnboardingScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return MainShellScaffold(navigationShell: navigationShell);
@@ -298,7 +332,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/teams',
         builder: (_, state) {
           final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
-          return TeamScreen(initialTab: tab.clamp(0, 2));
+          // tab=1 Add, tab=2 legacy alias for create
+          final index = tab >= 1 ? 1 : 0;
+          return TeamScreen(initialTab: index);
         },
       ),
       GoRoute(

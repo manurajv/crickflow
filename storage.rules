@@ -1,18 +1,130 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImageJpeg() {
+      return request.resource.contentType.matches('image/jpeg');
+    }
+
+    function isImagePng() {
+      return request.resource.contentType == 'image/png';
+    }
+
+    function isProfileImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    function under2Mb() {
+      return request.resource.size < 2 * 1024 * 1024;
+    }
+
+    function under512Kb() {
+      return request.resource.size < 512 * 1024;
+    }
+
+    function under25Mb() {
+      return request.resource.size < 25 * 1024 * 1024;
+    }
+
+    // Single Firestore read — Storage rules allow at most 2 cross-service calls.
+    function teamDoc(teamId) {
+      return firestore.get(/databases/(default)/documents/teams/$(teamId));
+    }
+
+    function isTeamCreator(teamId) {
+      let team = teamDoc(teamId);
+      return isSignedIn()
+        && team != null
+        && team.data.createdBy == request.auth.uid;
+    }
+
+    // Logo upload during create (before doc) or by creator after doc exists.
+    function canWriteTeamLogo(teamId) {
+      return isSignedIn() && (
+        !firestore.exists(/databases/(default)/documents/teams/$(teamId))
+        || isTeamCreator(teamId)
+      );
+    }
+
+    function isOwnTeamLogoFile(name) {
+      return name == 'logo_' + request.auth.uid + '.jpg';
+    }
+
+    function playerDocument(playerId) {
+      return firestore.get(/databases/(default)/documents/players/$(playerId));
+    }
+
+    function canManagePlayerPhoto(playerId) {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/players/$(playerId))
+        && (
+          playerId == request.auth.uid
+          || playerDocument(playerId).data.get('userId', '') == request.auth.uid
+          || playerDocument(playerId).data.get('userId', null) == null
+          || playerDocument(playerId).data.get('userId', '') == ''
+        );
+    }
+
+    function isOwnPlayerPhotoFile(name) {
+      return name == 'photo_' + request.auth.uid + '.jpg';
+    }
+
+    match /users/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
+        && fileName.matches('profile\\.(jpg|jpeg|png|webp)')
+        && isProfileImage()
+        && under2Mb();
+    }
+
     match /teams/{teamId}/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isSignedIn() && (
+        (
+          isOwnTeamLogoFile(fileName)
+          && isImageJpeg()
+          && under2Mb()
+          && canWriteTeamLogo(teamId)
+        )
+        || (
+          fileName == 'invite_qr.png'
+          && isTeamCreator(teamId)
+          && isImagePng()
+          && under512Kb()
+        )
+      );
     }
+
     match /players/{playerId}/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isSignedIn()
+        && isOwnPlayerPhotoFile(fileName)
+        && canManagePlayerPhoto(playerId)
+        && isImageJpeg()
+        && under2Mb();
     }
+
     match /matches/{matchId}/media/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null
-        && fileName.matches('CM[0-9]+\\.(jpg|jpeg|png|mp4)');
+      allow write: if isSignedIn()
+        && fileName.matches('CM[0-9]+\\.(jpg|jpeg|png|mp4)')
+        && (
+          (
+            fileName.matches('CM[0-9]+\\.(jpg|jpeg|png)')
+            && request.resource.contentType.matches('image/(jpeg|png)')
+            && under2Mb()
+          )
+          || (
+            fileName.matches('CM[0-9]+\\.mp4')
+            && request.resource.contentType == 'video/mp4'
+            && under25Mb()
+          )
+        );
     }
   }
 }

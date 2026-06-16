@@ -26,7 +26,18 @@ class AuthRepository {
   Future<UserModel?> getCurrentUserProfile() async {
     final user = currentUser;
     if (user == null) return null;
-    return _userRepository.getUser(user.uid);
+    try {
+      var profile = await _userRepository.getUser(user.uid);
+      profile ??= await ensureProfileForAuthUser(user);
+      return profile;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Creates the Firestore user doc when missing (e.g. fresh Firebase reset).
+  Future<UserModel> ensureProfileForAuthUser(User user) async {
+    return _ensureProfile(user);
   }
 
   Future<UserModel> signInWithGoogle() async {
@@ -74,27 +85,30 @@ class AuthRepository {
   Future<UserModel> _ensureProfile(User user) async {
     var profile = await _userRepository.getUser(user.uid);
     if (profile == null) {
+      final display = user.displayName?.trim() ?? '';
       profile = UserModel(
         id: user.uid,
         email: user.email ?? '',
-        displayName: user.displayName ?? 'CrickFlow User',
+        name: display,
+        displayName: display.isNotEmpty ? display : 'CrickFlow User',
         phoneNumber: user.phoneNumber,
+        mobile: user.phoneNumber,
         photoUrl: user.photoURL,
         role: UserRole.organizer,
+        onboardingCompleted: false,
       );
-      await _userRepository.createUser(profile);
-      await PlayerRepository().ensurePlayerProfileForUser(
-        userId: user.uid,
-        displayName: profile.displayName,
-        photoUrl: profile.photoUrl,
-        email: profile.email,
-      );
+      try {
+        await _userRepository.upsertUser(profile);
+      } catch (_) {
+        // Offline — profile will sync when connectivity returns.
+      }
     }
     return profile;
   }
 
   Future<void> signOut() async {
     await Future.wait([_auth.signOut(), _googleSignIn.signOut()]);
+    await _userRepository.clearLocalCache();
   }
 
   /// Deletes Firestore profile data and the Firebase Auth account.

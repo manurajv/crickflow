@@ -16,16 +16,24 @@ import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/fantasy_repository.dart';
 import '../../data/models/fantasy_entry_model.dart';
 import '../../data/models/fantasy_league_model.dart';
+import '../../data/services/google_maps_location_service.dart';
 import '../../data/services/notification_service.dart';
 import '../../data/services/storage_service.dart';
+import '../../data/services/team_qr_service.dart';
 import '../../data/services/stream_service.dart';
+import '../../data/services/user_profile_cache_service.dart';
 import '../../data/services/webrtc_signaling_service.dart';
 
 // Repositories
 final authRepositoryProvider = Provider((ref) => AuthRepository());
 final userRepositoryProvider = Provider((ref) => UserRepository());
 final matchRepositoryProvider = Provider((ref) => MatchRepository());
-final teamRepositoryProvider = Provider((ref) => TeamRepository());
+final teamQrServiceProvider = Provider(
+  (ref) => TeamQrService(storage: ref.watch(storageServiceProvider)),
+);
+final teamRepositoryProvider = Provider(
+  (ref) => TeamRepository(qrService: ref.watch(teamQrServiceProvider)),
+);
 final playerRepositoryProvider = Provider((ref) => PlayerRepository());
 final tournamentRepositoryProvider = Provider((ref) => TournamentRepository());
 final fantasyRepositoryProvider = Provider((ref) => FantasyRepository());
@@ -37,6 +45,10 @@ final streamServiceProvider = Provider<StreamService>((ref) {
   return service;
 });
 final storageServiceProvider = Provider((ref) => StorageService());
+final userProfileCacheServiceProvider =
+    Provider((ref) => UserProfileCacheService());
+final googleMapsLocationServiceProvider =
+    Provider((ref) => GoogleMapsLocationService());
 
 // Auth
 final authStateProvider = StreamProvider<User?>((ref) {
@@ -44,15 +56,14 @@ final authStateProvider = StreamProvider<User?>((ref) {
 });
 
 final currentUserProfileProvider = FutureProvider<UserModel?>((ref) async {
-  final auth = ref.watch(authStateProvider);
-  return auth.when(
-    data: (user) async {
-      if (user == null) return null;
-      return ref.watch(userRepositoryProvider).getUser(user.uid);
-    },
-    loading: () => null,
-    error: (_, _) => null,
-  );
+  final authUser = await ref.watch(authStateProvider.future);
+  if (authUser == null) return null;
+  var profile = await ref.read(userRepositoryProvider).getUser(authUser.uid);
+  if (profile == null) {
+    profile =
+        await ref.read(authRepositoryProvider).ensureProfileForAuthUser(authUser);
+  }
+  return profile;
 });
 
 // Matches — global feed (live first) so players/viewers see all public matches

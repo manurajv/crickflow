@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/team_ui_provider.dart';
-import '../../../../shared/widgets/location_filter_bar.dart';
-
-enum _TeamScope { yours, all }
+import '../../../teams/presentation/utils/teams_list_filter.dart';
+import '../../../teams/presentation/widgets/team_list_scope.dart';
+import '../../../teams/presentation/widgets/team_list_tile.dart';
+import '../../../teams/presentation/widgets/teams_list_toolbar.dart';
 
 class MyCricketTeamsTab extends ConsumerStatefulWidget {
   const MyCricketTeamsTab({super.key});
@@ -18,17 +19,33 @@ class MyCricketTeamsTab extends ConsumerStatefulWidget {
 }
 
 class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
-  _TeamScope _scope = _TeamScope.yours;
+  TeamListScope _scope = TeamListScope.yours;
   String _search = '';
   String _country = '';
   String _city = '';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final profile = ref.read(currentUserProfileProvider).valueOrNull;
+      if (profile != null && !profile.location.isEmpty) {
+        setState(() {
+          _country = profile.location.country;
+          _city = profile.location.city;
+        });
+      }
+    });
+  }
+
+  void _openCreateTeam() {
+    ref.read(teamsInitialTabProvider.notifier).state = 1;
+    context.push('/teams?tab=1');
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final teamsAsync = ref.watch(
-      _scope == _TeamScope.yours ? teamsProvider : allTeamsProvider,
-    );
-    final search = ref.watch(myCricketSearchProvider);
+    final teamsAsync = ref.watch(allTeamsProvider);
     final uid = ref.watch(authStateProvider).value?.uid;
 
     return Column(
@@ -38,12 +55,9 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
           color: AppColors.surfaceElevated,
           child: ListTile(
             dense: true,
-            title: const Text('Want to create a new team?'),
+            title: const Text('Want to create a team?'),
             trailing: FilledButton(
-              onPressed: () {
-                ref.read(teamsInitialTabProvider.notifier).state = 2;
-                context.push('/teams?tab=2');
-              },
+              onPressed: _openCreateTeam,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.gold,
                 foregroundColor: Colors.black,
@@ -52,112 +66,155 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppDimens.spaceMd,
-            AppDimens.spaceSm,
-            AppDimens.spaceMd,
-            0,
-          ),
-          child: TextField(
-            decoration: const InputDecoration(
-              hintText: 'Quick search',
-              prefixIcon: Icon(Icons.search, size: 22),
-            ),
-            onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
-          ),
+        TeamsSearchBar(
+          query: _search,
+          debounceMs: 0,
+          onChanged: (v) => setState(() => _search = v),
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(
-            AppDimens.spaceMd,
-            AppDimens.spaceSm,
-            AppDimens.spaceMd,
-            0,
-          ),
-          child: Row(
-            children: [
-              _scopeChip('Your teams', _TeamScope.yours),
-              const SizedBox(width: AppDimens.spaceXs),
-              _scopeChip('All', _TeamScope.all),
-            ],
-          ),
-        ),
-        LocationFilterBar(
-          onFilterChanged: (c, city) => setState(() {
+        TeamsScopeFilterBar(
+          scope: _scope,
+          country: _country,
+          city: _city,
+          onScopeChanged: (s) => setState(() => _scope = s),
+          onLocationChanged: (c, city) => setState(() {
             _country = c;
             _city = city;
           }),
         ),
         Expanded(
-          child: teamsAsync.when(
-            data: (all) {
-              var list = all.where((t) {
-                if (!locationMatchesFilter(t.location, _country, _city)) {
-                  return false;
-                }
-                if (_scope == _TeamScope.yours && uid != null) {
-                  return t.createdBy == uid;
-                }
-                return true;
-              }).toList();
+          child: RefreshIndicator(
+            onRefresh: () async => ref.invalidate(allTeamsProvider),
+            child: teamsAsync.when(
+              data: (allTeams) {
+                var list = TeamsListFilter.apply(
+                  teams: allTeams,
+                  query: _search,
+                  country: _country,
+                  city: _city,
+                  uid: uid,
+                  yoursOnly: _scope == TeamListScope.yours && uid != null,
+                  opponentsOnly:
+                      _scope == TeamListScope.opponents && uid != null,
+                );
 
-              if (search.isNotEmpty) {
-                final q = search.toLowerCase();
-                list = list.where((t) => t.name.toLowerCase().contains(q)).toList();
-              }
-
-              if (list.isEmpty) {
-                return const Center(child: Text('No teams found'));
-              }
-
-              return ListView.builder(
-                itemCount: list.length,
-                itemBuilder: (_, i) {
-                  final t = list[i];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: AppDimens.spaceMd,
-                      vertical: AppDimens.spaceXs,
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.primaryBlue,
-                        backgroundImage: t.logoUrl != null
-                            ? NetworkImage(t.logoUrl!)
-                            : null,
-                        child: t.logoUrl == null
-                            ? Text(t.name.isNotEmpty ? t.name[0] : '?')
-                            : null,
+                if (list.isEmpty) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      _EmptyTeamsState(
+                        scope: _scope,
+                        hasFilters: _search.isNotEmpty ||
+                            _country.isNotEmpty ||
+                            _city.isNotEmpty,
+                        onCreate: _openCreateTeam,
                       ),
-                      title: Text(t.name),
-                      subtitle: Text(
-                        '${t.location.displayLabel} · ${t.playerIds.length} players',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.push('/teams/${t.id}'),
-                    ),
+                    ],
                   );
-                },
-              );
-            },
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
+                }
+
+                return ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
+                  itemCount: list.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, color: AppColors.border),
+                  itemBuilder: (context, index) =>
+                      TeamListTile(team: list[index]),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: MediaQuery.sizeOf(context).height * 0.2),
+                  Center(child: Text('$e')),
+                ],
+              ),
+            ),
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _scopeChip(String label, _TeamScope scope) {
-    final selected = _scope == scope;
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => setState(() => _scope = scope),
-      selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
-      checkmarkColor: AppColors.gold,
+class _EmptyTeamsState extends StatelessWidget {
+  const _EmptyTeamsState({
+    required this.scope,
+    required this.hasFilters,
+    required this.onCreate,
+  });
+
+  final TeamListScope scope;
+  final bool hasFilters;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (title, subtitle) = hasFilters
+        ? (
+            'No teams match your filters',
+            'Try a different scope, location, or search term',
+          )
+        : switch (scope) {
+            TeamListScope.yours => (
+                'No teams yet',
+                'Create a team to add players and join matches',
+              ),
+            TeamListScope.opponents => (
+                'No opponent teams',
+                'Teams you have not joined will appear here',
+              ),
+            TeamListScope.all => (
+                'No teams found',
+                'Teams registered on CrickFlow will show here',
+              ),
+          };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spaceXl,
+        56,
+        AppDimens.spaceXl,
+        AppDimens.spaceXl,
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.groups_outlined,
+            size: 56,
+            color: AppColors.textSecondary.withValues(alpha: 0.45),
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (!hasFilters && scope == TeamListScope.yours) ...[
+            const SizedBox(height: AppDimens.spaceLg),
+            FilledButton(
+              onPressed: onCreate,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.gold,
+                foregroundColor: Colors.black,
+              ),
+              child: const Text('Create team'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

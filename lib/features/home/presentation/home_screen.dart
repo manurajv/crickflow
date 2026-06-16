@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
-import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/user_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/location_filter_bar.dart';
@@ -38,17 +38,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final matchesAsync = ref.watch(matchesProvider);
+    final uid = ref.watch(authStateProvider).value?.uid;
+    final isGuest = uid == null;
     final profileAsync = ref.watch(currentUserProfileProvider);
-    final role = profileAsync.valueOrNull?.role ?? UserRole.organizer;
-    final isViewer = role == UserRole.viewer;
-    final canCreate = canCreateMatches(role);
+    final profile = profileAsync.valueOrNull;
+    final role = profile?.role ?? UserRole.organizer;
+    final isViewer = !isGuest && role == UserRole.viewer;
+    final showCreateUi = isGuest || !isViewer;
+
+    Future<void> openCreateMatch() async {
+      await requireAuthVoid(
+        context: context,
+        ref: ref,
+        returnPath: '/match/create',
+        action: () async {
+          if (context.mounted) context.push('/match/create');
+        },
+      );
+    }
 
     return ShellTabScaffold(
       title: const Text('CrickFlow'),
-      floatingActionButton: canCreate
+      floatingActionButton: showCreateUi
           ? FloatingActionButton.extended(
               heroTag: 'home_new_match_fab',
-              onPressed: () => context.push('/match/create'),
+              onPressed: openCreateMatch,
               backgroundColor: AppColors.gold,
               foregroundColor: Colors.black,
               icon: const Icon(Icons.add),
@@ -58,7 +72,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.notifications_outlined),
-          onPressed: () => context.push('/notifications'),
+          onPressed: () {
+            requireAuthVoid(
+              context: context,
+              ref: ref,
+              returnPath: '/notifications',
+              action: () async {
+                if (context.mounted) context.push('/notifications');
+              },
+            );
+          },
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined),
@@ -70,9 +93,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 88),
           children: [
-            _WelcomeHeader(profileAsync: profileAsync),
+            _WelcomeHeader(profileAsync: profileAsync, isGuest: isGuest),
             if (isViewer) _viewerBanner(context),
-            if (canCreate) _QuickActionsRow(onCreateMatch: () => context.push('/match/create')),
+            if (showCreateUi)
+              _QuickActionsRow(onCreateMatch: openCreateMatch),
             LocationFilterBar(
               onFilterChanged: (country, city) {
                 setState(() {
@@ -96,12 +120,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 if (filtered.isEmpty) {
                   return _emptyState(
                     context,
-                    canCreate
+                    showCreateUi
                         ? 'No matches here yet. Start your first match.'
                         : 'No matches match your filters.',
-                    action: canCreate
+                    action: showCreateUi
                         ? FilledButton(
-                            onPressed: () => context.push('/match/create'),
+                            onPressed: openCreateMatch,
                             child: const Text('Start match'),
                           )
                         : null,
@@ -233,9 +257,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _WelcomeHeader extends StatelessWidget {
-  const _WelcomeHeader({required this.profileAsync});
+  const _WelcomeHeader({required this.profileAsync, required this.isGuest});
 
   final AsyncValue<UserModel?> profileAsync;
+  final bool isGuest;
 
   @override
   Widget build(BuildContext context) {
@@ -263,7 +288,9 @@ class _WelcomeHeader extends StatelessWidget {
               children: [
                 profileAsync.when(
                   data: (p) => Text(
-                    'Hi, ${p?.displayName ?? 'Scorer'}',
+                    isGuest
+                        ? 'Hi, Guest'
+                        : 'Hi, ${p?.displayName.isNotEmpty == true ? p!.displayName : p?.effectiveName ?? 'Scorer'}',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,

@@ -49,6 +49,8 @@
 	<string>CrickFlow needs the camera to broadcast live matches.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CrickFlow needs the microphone for live stream audio.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>CrickFlow uses your location to set your country, province, and city on your player profile.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

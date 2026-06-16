@@ -245,8 +245,8 @@ class _AddTeamTab extends ConsumerWidget {
             const SizedBox(height: AppDimens.spaceLg),
             FilledButton.icon(
               onPressed: () {
-                ref.read(teamsInitialTabProvider.notifier).state = 2;
-                context.push('/teams?tab=2').then((_) {
+                ref.read(teamsInitialTabProvider.notifier).state = 1;
+                context.push('/teams?tab=1').then((_) {
                   // User returns manually; they can re-open picker.
                 });
               },

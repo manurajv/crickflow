@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/badge_gallery.dart';
+import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
 import '../../../shared/widgets/location_fields.dart';
 
@@ -19,19 +20,71 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
+    final uid = ref.watch(authStateProvider).value?.uid;
     final profileAsync = ref.watch(currentUserProfileProvider);
+
+    if (uid == null) {
+      return ShellTabScaffold(
+        title: const Text('Profile'),
+        body: Center(
+          child: Padding(
+            padding: AppDimens.listPadding,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.person_outline, size: 64, color: AppColors.gold),
+                const SizedBox(height: AppDimens.spaceMd),
+                Text(
+                  'Sign in to manage your profile',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppDimens.spaceSm),
+                Text(
+                  'Browse matches and scorecards without an account. '
+                  'Sign in to score, join teams, and stream.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                ),
+                const SizedBox(height: AppDimens.spaceXl),
+                CfButton(
+                  label: 'Login',
+                  isGold: true,
+                  onPressed: () => context.push('/login'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return ShellTabScaffold(
       title: const Text('Profile'),
       body: profileAsync.when(
         data: (user) {
           if (user == null) {
-            return const Center(child: Text('Not signed in'));
+            return const Center(child: CircularProgressIndicator());
           }
 
           return ListView(
             padding: AppDimens.listPadding,
             children: [
+              if (!user.onboardingCompleted)
+                Card(
+                  color: AppColors.gold.withValues(alpha: 0.12),
+                  child: ListTile(
+                    leading: const Icon(Icons.info_outline, color: AppColors.gold),
+                    title: const Text('Complete your player profile'),
+                    subtitle: const Text(
+                      'Required before scoring or managing teams',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/player-onboarding'),
+                  ),
+                ),
               Center(
                 child: CircleAvatar(
                   radius: 36,
@@ -41,8 +94,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       : null,
                   child: user.photoUrl == null
                       ? Text(
-                          user.displayName.isNotEmpty
-                              ? user.displayName[0].toUpperCase()
+                          user.effectiveName.isNotEmpty
+                              ? user.effectiveName[0].toUpperCase()
                               : '?',
                           style: Theme.of(context).textTheme.displayLarge,
                         )
@@ -51,10 +104,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                user.displayName,
+                user.effectiveName,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
+              if (user.effectivePlayerIdDisplay.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    user.effectivePlayerIdDisplay,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                  ),
+                ),
+              if (user.displayName.isNotEmpty && user.displayName != user.name)
+                Text(
+                  '@${user.displayName}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
               Text(
                 user.email,
                 textAlign: TextAlign.center,
@@ -70,6 +141,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               LocationFields(
                 location: user.location,
                 onChanged: (loc) async {
+                  if (!user.onboardingCompleted) {
+                    context.push('/player-onboarding');
+                    return;
+                  }
                   await ref
                       .read(userRepositoryProvider)
                       .updateUser(user.copyWith(location: loc));
@@ -102,6 +177,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: const Text('Players'),
                 subtitle: const Text('Rosters and career stats'),
                 onTap: () => context.push('/players'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Edit player profile'),
+                onTap: () => context.push('/player-onboarding'),
               ),
               ListTile(
                 leading: const Icon(Icons.workspace_premium_outlined),

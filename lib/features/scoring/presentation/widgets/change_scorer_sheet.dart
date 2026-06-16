@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/utils/cf_player_id_format.dart';
 import '../../../../core/utils/match_display_id.dart';
+import '../../../../core/utils/match_permissions.dart';
 import '../../../../core/utils/scorer_qr_utils.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_setup_draft_models.dart';
@@ -100,7 +102,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
 
     try {
       final users =
-          await ref.read(userRepositoryProvider).searchByEmailOrPhone(query);
+          await ref.read(userRepositoryProvider).searchScorers(query);
       if (mounted) {
         setState(() {
           _searchResults = users;
@@ -223,6 +225,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
   }
 
   Widget _buildTabContent() {
+    final currentScorerId = effectiveScorerId(widget.match);
     switch (_tab) {
       case _ChangeScorerTab.qrCode:
         return _QrTab(
@@ -234,12 +237,14 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
         return _TeamsTab(
           match: widget.match,
           teamA: _teamA,
+          currentScorerId: currentScorerId,
           onTeamChanged: (a) => setState(() => _teamA = a),
           onPlayerTap: _transferToPlayer,
         );
       case _ChangeScorerTab.officials:
         return _OfficialsTab(
           match: widget.match,
+          currentScorerId: currentScorerId,
           onOfficialTap: _transferToOfficial,
           onAddOfficials: () {
             Navigator.pop(context);
@@ -259,6 +264,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
           searching: _searching,
           error: _searchError,
           results: _searchResults,
+          currentScorerId: currentScorerId,
           onSearch: _searchUsers,
           onUserTap: (u) => _confirmTransfer(
             toUserId: u.id,
@@ -454,12 +460,14 @@ class _TeamsTab extends ConsumerWidget {
   const _TeamsTab({
     required this.match,
     required this.teamA,
+    required this.currentScorerId,
     required this.onTeamChanged,
     required this.onPlayerTap,
   });
 
   final MatchModel match;
   final bool teamA;
+  final String? currentScorerId;
   final ValueChanged<bool> onTeamChanged;
   final Future<void> Function(PlayerModel) onPlayerTap;
 
@@ -514,6 +522,7 @@ class _TeamsTab extends ConsumerWidget {
             teamName: teamName,
             setup: setup,
             isTeamA: teamA,
+            currentScorerId: currentScorerId,
             onPlayerTap: onPlayerTap,
           ),
         ),
@@ -566,6 +575,7 @@ class _TeamPlayersList extends ConsumerWidget {
     required this.teamName,
     required this.setup,
     required this.isTeamA,
+    required this.currentScorerId,
     required this.onPlayerTap,
   });
 
@@ -573,6 +583,7 @@ class _TeamPlayersList extends ConsumerWidget {
   final String teamName;
   final MatchSetupData? setup;
   final bool isTeamA;
+  final String? currentScorerId;
   final Future<void> Function(PlayerModel) onPlayerTap;
 
   @override
@@ -623,10 +634,15 @@ class _TeamPlayersList extends ConsumerWidget {
           separatorBuilder: (_, __) => const Divider(height: 1),
           itemBuilder: (context, i) {
             final p = players[i];
+            final isCurrentScorer =
+                currentScorerId != null &&
+                p.userId != null &&
+                p.userId == currentScorerId;
             return _SelectablePersonTile(
               name: p.name,
               photoUrl: p.photoUrl,
-              onTap: () => onPlayerTap(p),
+              isCurrentScorer: isCurrentScorer,
+              onTap: isCurrentScorer ? null : () => onPlayerTap(p),
             );
           },
         );
@@ -638,11 +654,13 @@ class _TeamPlayersList extends ConsumerWidget {
 class _OfficialsTab extends StatelessWidget {
   const _OfficialsTab({
     required this.match,
+    required this.currentScorerId,
     required this.onOfficialTap,
     required this.onAddOfficials,
   });
 
   final MatchModel match;
+  final String? currentScorerId;
   final Future<void> Function(MatchOfficialEntry) onOfficialTap;
   final VoidCallback onAddOfficials;
 
@@ -666,12 +684,16 @@ class _OfficialsTab extends StatelessWidget {
         officials.add(_OfficialRow(role: 'Referee', entry: setup.referee!));
       }
       if (match.createdBy != null) {
+        final organizerName = match.createdBy == currentScorerId &&
+                match.currentScorerName.isNotEmpty
+            ? match.currentScorerName
+            : 'Match organizer';
         officials.add(
           _OfficialRow(
             role: 'Organizer',
             entry: MatchOfficialEntry(
               playerId: match.createdBy,
-              name: 'Match organizer',
+              name: organizerName,
             ),
           ),
         );
@@ -706,25 +728,43 @@ class _OfficialsTab extends StatelessWidget {
             )
           else
             ...officials.map(
-              (o) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  o.entry.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+              (o) {
+                final isCurrentScorer = currentScorerId != null &&
+                    o.entry.playerId != null &&
+                    o.entry.playerId == currentScorerId;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          o.entry.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (isCurrentScorer) const _CurrentScorerBadge(),
+                    ],
                   ),
-                ),
-                subtitle: Text(
-                  o.role,
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-                trailing: const Icon(
-                  Icons.check_circle_outline,
-                  color: AppColors.textMuted,
-                ),
-                onTap: () => onOfficialTap(o.entry),
-              ),
+                  subtitle: Text(
+                    o.role,
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                  trailing: Icon(
+                    isCurrentScorer
+                        ? Icons.sports_score
+                        : Icons.check_circle_outline,
+                    color: isCurrentScorer
+                        ? AppColors.gold
+                        : AppColors.textMuted,
+                  ),
+                  onTap: isCurrentScorer
+                      ? null
+                      : () => onOfficialTap(o.entry),
+                );
+              },
             ),
           if (officials.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -754,6 +794,7 @@ class _SearchTab extends StatelessWidget {
     required this.searching,
     required this.error,
     required this.results,
+    required this.currentScorerId,
     required this.onSearch,
     required this.onUserTap,
   });
@@ -762,6 +803,7 @@ class _SearchTab extends StatelessWidget {
   final bool searching;
   final String? error;
   final List<UserModel> results;
+  final String? currentScorerId;
   final VoidCallback onSearch;
   final Future<void> Function(UserModel) onUserTap;
 
@@ -775,7 +817,7 @@ class _SearchTab extends StatelessWidget {
           child: Column(
             children: [
               const Text(
-                'Please search the new scorer with a mobile number or email.',
+                'Please search the new scorer with mobile, email, or player ID.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
@@ -784,6 +826,15 @@ class _SearchTab extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
+              Text(
+                CfPlayerIdFormat.hint(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 4),
               Text(
                 '*A match can be scored by only one scorer at a time.',
                 textAlign: TextAlign.center,
@@ -805,7 +856,7 @@ class _SearchTab extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   decoration: InputDecoration(
-                    hintText: 'Scorer mobile or email',
+                    hintText: 'Mobile, email, or ${CfPlayerIdFormat.prefix} player ID',
                     hintStyle: const TextStyle(color: AppColors.textMuted),
                     filled: true,
                     fillColor: AppColors.surfaceElevated,
@@ -865,15 +916,19 @@ class _SearchTab extends StatelessWidget {
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final u = results[i];
+              final isCurrentScorer =
+                  currentScorerId != null && u.id == currentScorerId;
               return _SelectablePersonTile(
-                name: u.displayName.isNotEmpty ? u.displayName : u.email,
+                name: u.effectiveName,
                 photoUrl: u.photoUrl,
                 subtitle: [
+                  if (u.playerId != null && u.playerId!.isNotEmpty)
+                    u.playerId!,
                   if (u.email.isNotEmpty) u.email,
-                  if (u.phoneNumber != null && u.phoneNumber!.isNotEmpty)
-                    u.phoneNumber!,
+                  if (u.effectiveMobile.isNotEmpty) u.effectiveMobile,
                 ].join(' · '),
-                onTap: () => onUserTap(u),
+                isCurrentScorer: isCurrentScorer,
+                onTap: isCurrentScorer ? null : () => onUserTap(u),
               );
             },
           ),
@@ -886,20 +941,23 @@ class _SearchTab extends StatelessWidget {
 class _SelectablePersonTile extends StatelessWidget {
   const _SelectablePersonTile({
     required this.name,
-    required this.onTap,
+    this.onTap,
     this.photoUrl,
     this.subtitle,
+    this.isCurrentScorer = false,
   });
 
   final String name;
   final String? photoUrl;
   final String? subtitle;
-  final VoidCallback onTap;
+  final bool isCurrentScorer;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 4),
+      enabled: onTap != null,
       leading: CircleAvatar(
         radius: 22,
         backgroundColor: AppColors.surfaceElevated,
@@ -913,12 +971,21 @@ class _SelectablePersonTile extends StatelessWidget {
               )
             : null,
       ),
-      title: Text(
-        name,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isCurrentScorer
+                    ? AppColors.gold
+                    : AppColors.textPrimary,
+              ),
+            ),
+          ),
+          if (isCurrentScorer) const _CurrentScorerBadge(),
+        ],
       ),
       subtitle: subtitle != null && subtitle!.isNotEmpty
           ? Text(
@@ -929,11 +996,37 @@ class _SelectablePersonTile extends StatelessWidget {
               ),
             )
           : null,
-      trailing: const Icon(
-        Icons.check_circle_outline,
-        color: AppColors.textMuted,
+      trailing: Icon(
+        isCurrentScorer ? Icons.sports_score : Icons.check_circle_outline,
+        color: isCurrentScorer ? AppColors.gold : AppColors.textMuted,
       ),
       onTap: onTap,
+    );
+  }
+}
+
+class _CurrentScorerBadge extends StatelessWidget {
+  const _CurrentScorerBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+      ),
+      child: const Text(
+        'Scoring',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: AppColors.gold,
+          letterSpacing: 0.3,
+        ),
+      ),
     );
   }
 }

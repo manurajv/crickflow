@@ -160,22 +160,69 @@ service cloud.firestore {
         && (!('mediaByCode' in data) || data.mediaByCode is map);
     }
 
+    function isWalkInPlayer() {
+      return !('userId' in resource.data)
+        || resource.data.userId == null
+        || resource.data.userId == '';
+    }
+
+    function ownsPlayerProfile(playerDocId) {
+      return playerDocId == request.auth.uid
+        || (('userId' in resource.data) && resource.data.userId == request.auth.uid);
+    }
+
+    function userPublicPlayerIdImmutable() {
+      return !('playerId' in resource.data)
+        || resource.data.playerId == null
+        || resource.data.playerId == ''
+        || !('playerId' in request.resource.data)
+        || request.resource.data.playerId == resource.data.playerId;
+    }
+
+    function playerPublicIdImmutable() {
+      return !('playerId' in resource.data)
+        || resource.data.playerId == null
+        || resource.data.playerId == ''
+        || !('playerId' in request.resource.data)
+        || request.resource.data.playerId == resource.data.playerId;
+    }
+
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isOwner(userId);
-      allow update, delete: if isOwner(userId);
+      allow update: if isOwner(userId) && userPublicPlayerIdImmutable();
+      allow delete: if isOwner(userId);
+    }
+
+    function teamPublicCodeImmutable() {
+      return !('teamCode' in resource.data)
+        || resource.data.teamCode == null
+        || resource.data.teamCode == ''
+        || !('teamCode' in request.resource.data)
+        || request.resource.data.teamCode == resource.data.teamCode;
+    }
+
+    match /app_meta/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && (docId == 'cf_player_ids' || docId == 'cf_team_ids');
+      allow delete: if false;
     }
 
     match /teams/{teamId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn()
-        && resource.data.createdBy == request.auth.uid;
+        && resource.data.createdBy == request.auth.uid
+        && teamPublicCodeImmutable();
     }
 
     match /players/{playerId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn()
+        && playerPublicIdImmutable()
+        && (ownsPlayerProfile(playerId) || isWalkInPlayer());
       allow delete: if isSignedIn() && (
         playerId == request.auth.uid ||
         resource.data.userId == request.auth.uid
@@ -183,14 +230,14 @@ service cloud.firestore {
     }
 
     match /matches/{matchId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn() && validMatchCreate();
       allow update: if (isMatchScorer(matchId) || isMatchCreator(matchId) || isValidScorerTakeover())
         && validMatchUpdate();
       allow delete: if isMatchCreator(matchId);
 
       match /ball_events/{eventId} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow create: if isMatchScorer(matchId);
         allow delete: if isMatchScorer(matchId);
         allow update: if false;
@@ -202,7 +249,7 @@ service cloud.firestore {
       }
 
       match /highlights/{highlightId} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow write: if false;
       }
 
@@ -232,7 +279,7 @@ service cloud.firestore {
     }
 
     match /tournaments/{tournamentId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid;
       allow update, delete: if isSignedIn()
@@ -240,7 +287,7 @@ service cloud.firestore {
     }
 
     match /badges/{badgeId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if false;
     }
@@ -252,7 +299,7 @@ service cloud.firestore {
     }
 
     match /community_posts/{postId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn()
         && request.resource.data.authorId == request.auth.uid;
       allow update, delete: if isSignedIn()
@@ -260,7 +307,7 @@ service cloud.firestore {
     }
 
     match /fantasy_leagues/{leagueId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid;
       allow update: if isSignedIn()
@@ -269,7 +316,7 @@ service cloud.firestore {
         && resource.data.createdBy == request.auth.uid;
 
       match /entries/{entryId} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow create: if isSignedIn()
           && request.resource.data.userId == request.auth.uid;
         allow update: if isSignedIn()

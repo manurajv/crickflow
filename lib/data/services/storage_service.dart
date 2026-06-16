@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -50,6 +51,25 @@ class StorageService {
     await ref.putFile(
       file,
       SettableMetadata(contentType: 'image/jpeg'),
+    );
+    return ref.getDownloadURL();
+  }
+
+  Future<String> uploadUserProfilePhoto(String userId, File file) async {
+    final ref = _storage.ref().child('users/$userId/profile.jpg');
+    await ref.putFile(
+      file,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    return ref.getDownloadURL();
+  }
+
+  /// Team invite QR — `teams/{teamId}/invite_qr.png`
+  Future<String> uploadTeamQr(String teamId, Uint8List pngBytes) async {
+    final ref = _storage.ref().child('teams/$teamId/invite_qr.png');
+    await ref.putData(
+      pngBytes,
+      SettableMetadata(contentType: 'image/png'),
     );
     return ref.getDownloadURL();
   }

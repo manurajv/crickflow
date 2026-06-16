@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../core/auth/auth_gate.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
 import '../../data/models/user_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
-import '../../core/utils/match_permissions.dart';
 import '../providers/my_cricket_ui_provider.dart';
 import '../providers/providers.dart';
 
@@ -18,8 +18,10 @@ class CfAppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+    final uid = ref.watch(authStateProvider).value?.uid;
+    final isGuest = uid == null;
     final role = profile?.role ?? UserRole.organizer;
-    final canCreate = canCreateMatches(role);
+    final showOrganizerActions = isGuest || role != UserRole.viewer;
 
     return Drawer(
       backgroundColor: AppColors.surface,
@@ -32,14 +34,23 @@ class CfAppDrawer extends ConsumerWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  if (canCreate) ...[
+                  if (showOrganizerActions) ...[
                     _DrawerTile(
                       icon: Icons.sports_cricket,
                       label: 'Start a match',
                       subtitle: 'Ball-by-ball scoring',
                       onTap: () {
                         Navigator.pop(context);
-                        context.push('/match/create');
+                        requireAuthVoid(
+                          context: context,
+                          ref: ref,
+                          returnPath: '/match/create',
+                          action: () async {
+                            if (context.mounted) {
+                              context.push('/match/create');
+                            }
+                          },
+                        );
                       },
                     ),
                     _DrawerTile(
@@ -48,7 +59,14 @@ class CfAppDrawer extends ConsumerWidget {
                       subtitle: 'League or knockout',
                       onTap: () {
                         Navigator.pop(context);
-                        context.push('/tournaments');
+                        requireAuthVoid(
+                          context: context,
+                          ref: ref,
+                          returnPath: '/tournaments',
+                          action: () async {
+                            if (context.mounted) context.push('/tournaments');
+                          },
+                        );
                       },
                     ),
                     _DrawerTile(
@@ -136,7 +154,14 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Notifications',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/notifications');
+                      requireAuthVoid(
+                        context: context,
+                        ref: ref,
+                        returnPath: '/notifications',
+                        action: () async {
+                          if (context.mounted) context.push('/notifications');
+                        },
+                      );
                     },
                   ),
                   _DrawerTile(

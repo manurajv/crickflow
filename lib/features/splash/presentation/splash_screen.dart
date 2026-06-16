@@ -9,6 +9,7 @@ import '../../../core/constants/prefs_keys.dart';
 import '../../../core/routing/deep_link_handler.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/match_permissions.dart';
+import '../../../data/models/user_model.dart';
 import '../../../shared/providers/providers.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -49,12 +50,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      final pending = DeepLinkHandler.pendingPath;
-      context.go(pending != null ? '/login' : '/login');
+      final pending = DeepLinkHandler.takePendingPath();
+      context.go(pending ?? '/home');
       return;
     }
 
-    final profile = await ref.read(authRepositoryProvider).getCurrentUserProfile();
+    UserModel? profile;
+    try {
+      profile = await ref
+          .read(authRepositoryProvider)
+          .getCurrentUserProfile()
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {
+      profile = null;
+    }
+    if (!mounted) return;
+    if (profile != null && !profile.onboardingCompleted) {
+      context.go('/player-onboarding');
+      return;
+    }
     final pending = DeepLinkHandler.takePendingPath();
     final route = pending ?? homeRouteForRole(profile?.role ?? UserRole.organizer);
     if (mounted) context.go(route);

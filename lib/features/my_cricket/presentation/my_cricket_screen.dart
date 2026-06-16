@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../shared/providers/providers.dart';
@@ -61,12 +60,13 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
     return ShellTabScaffold(
       title: const Text('My Cricket'),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.search),
-          tooltip: 'Search',
-          onPressed: () => _showSearch(context),
-        ),
-        if (canCreate)
+        if (_tabs.index != 2)
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Search',
+            onPressed: () => _showSearch(context),
+          ),
+        if (canCreate && _tabs.index == 0)
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'New match',

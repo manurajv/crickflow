@@ -106,6 +106,7 @@ class PlayerModel extends Equatable {
     required this.name,
     this.teamId,
     this.userId,
+    this.playerId,
     this.jerseyNumber,
     this.battingStyle = '',
     this.bowlingStyle = '',
@@ -124,6 +125,8 @@ class PlayerModel extends Equatable {
   final String? teamId;
   /// Firebase Auth uid when this profile belongs to a registered player account.
   final String? userId;
+  /// Public sequential ID (e.g. CF000001) — synced from user profile.
+  final String? playerId;
   final int? jerseyNumber;
   final String battingStyle;
   final String bowlingStyle;
@@ -145,6 +148,7 @@ class PlayerModel extends Equatable {
       name: map['name'] as String? ?? '',
       teamId: map['teamId'] as String?,
       userId: map['userId'] as String?,
+      playerId: map['playerId'] as String? ?? map['cfPlayerId'] as String?,
       jerseyNumber: map['jerseyNumber'] as int?,
       battingStyle: map['battingStyle'] as String? ?? '',
       bowlingStyle: map['bowlingStyle'] as String? ?? '',
@@ -179,6 +183,7 @@ class PlayerModel extends Equatable {
         'name': name,
         if (teamId != null) 'teamId': teamId,
         if (userId != null) 'userId': userId,
+        if (playerId != null) 'playerId': playerId,
         if (jerseyNumber != null) 'jerseyNumber': jerseyNumber,
         'battingStyle': battingStyle,
         'bowlingStyle': bowlingStyle,
@@ -200,6 +205,7 @@ class PlayerModel extends Equatable {
     String? name,
     String? teamId,
     String? userId,
+    String? playerId,
     int? jerseyNumber,
     String? battingStyle,
     String? bowlingStyle,
@@ -214,6 +220,7 @@ class PlayerModel extends Equatable {
       name: name ?? this.name,
       teamId: teamId ?? this.teamId,
       userId: userId ?? this.userId,
+      playerId: playerId ?? this.playerId,
       jerseyNumber: jerseyNumber ?? this.jerseyNumber,
       battingStyle: battingStyle ?? this.battingStyle,
       bowlingStyle: bowlingStyle ?? this.bowlingStyle,

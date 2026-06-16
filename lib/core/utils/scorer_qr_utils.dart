@@ -10,10 +10,11 @@ class ScorerQrUtils {
     required String ownershipToken,
   }) {
     final displayId = MatchDisplayId.of(matchDocumentId);
+    // HTTPS so phone cameras open a link; App Links / open-app.html pass token to app.
     return Uri(
-      scheme: DeepLinkUtils.customScheme,
-      host: 'match',
-      path: '/$matchDocumentId/takeover',
+      scheme: 'https',
+      host: DeepLinkUtils.firebaseHostingHost,
+      path: '/match/$matchDocumentId/takeover',
       queryParameters: {
         'token': ownershipToken,
         'mid': displayId,

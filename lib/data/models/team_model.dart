@@ -59,10 +59,13 @@ class TeamModel extends Equatable {
   const TeamModel({
     required this.id,
     required this.name,
+    this.teamCode,
+    this.qrUrl,
     this.logoUrl,
     this.captainId,
     this.viceCaptainId,
     this.coachName,
+    this.contactNumber,
     this.playerIds = const [],
     this.location = const LocationModel(),
     this.stats = const TeamStatsModel(),
@@ -73,10 +76,13 @@ class TeamModel extends Equatable {
 
   final String id;
   final String name;
+  final String? teamCode;
+  final String? qrUrl;
   final String? logoUrl;
   final String? captainId;
   final String? viceCaptainId;
   final String? coachName;
+  final String? contactNumber;
   final List<String> playerIds;
   final LocationModel location;
   final TeamStatsModel stats;
@@ -88,10 +94,13 @@ class TeamModel extends Equatable {
     return TeamModel(
       id: id,
       name: map['name'] as String? ?? '',
+      teamCode: map['teamCode'] as String?,
+      qrUrl: map['qrUrl'] as String?,
       logoUrl: map['logoUrl'] as String?,
       captainId: map['captainId'] as String?,
       viceCaptainId: map['viceCaptainId'] as String?,
       coachName: map['coachName'] as String?,
+      contactNumber: map['contactNumber'] as String?,
       playerIds: List<String>.from(map['playerIds'] as List? ?? []),
       location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
       stats: TeamStatsModel.fromMap(map['stats'] as Map<String, dynamic>?),
@@ -103,10 +112,13 @@ class TeamModel extends Equatable {
 
   Map<String, dynamic> toMap() => {
         'name': name,
+        if (teamCode != null) 'teamCode': teamCode,
+        if (qrUrl != null) 'qrUrl': qrUrl,
         if (logoUrl != null) 'logoUrl': logoUrl,
         if (captainId != null) 'captainId': captainId,
         if (viceCaptainId != null) 'viceCaptainId': viceCaptainId,
         if (coachName != null) 'coachName': coachName,
+        if (contactNumber != null) 'contactNumber': contactNumber,
         'playerIds': playerIds,
         'location': location.toMap(),
         'stats': stats.toMap(),

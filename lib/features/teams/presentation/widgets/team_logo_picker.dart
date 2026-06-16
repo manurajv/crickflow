@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -8,6 +10,7 @@ class TeamLogoPicker extends StatelessWidget {
   const TeamLogoPicker({
     super.key,
     this.logoUrl,
+    this.localFile,
     this.localPlaceholder,
     this.teamName = '',
     this.onTap,
@@ -15,62 +18,56 @@ class TeamLogoPicker extends StatelessWidget {
   });
 
   final String? logoUrl;
+  final File? localFile;
   final String? localPlaceholder;
   final String teamName;
   final VoidCallback? onTap;
   final double size;
 
+  ImageProvider? get _image {
+    if (localFile != null) return FileImage(localFile!);
+    if (logoUrl != null) return CachedNetworkImageProvider(logoUrl!);
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final image = _image;
     return Column(
       children: [
         GestureDetector(
           onTap: onTap,
-          child: Stack(
-            alignment: Alignment.bottomCenter,
-            children: [
-              CircleAvatar(
-                radius: size / 2,
-                backgroundColor: AppColors.surfaceElevated,
-                backgroundImage: logoUrl != null
-                    ? CachedNetworkImageProvider(logoUrl!)
-                    : null,
-                child: logoUrl == null
-                    ? Text(
-                        (localPlaceholder?.isNotEmpty == true
-                                ? localPlaceholder![0]
-                                : teamName.isNotEmpty
-                                    ? teamName[0]
-                                    : '?')
-                            .toUpperCase(),
-                        style: TextStyle(
-                          fontSize: size * 0.35,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryBlueLight,
-                        ),
-                      )
-                    : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: image != null
+                    ? AppColors.gold.withValues(alpha: 0.6)
+                    : AppColors.border,
+                width: 3,
               ),
-              Container(
-                width: size,
-                height: size * 0.32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(size / 2),
-                  ),
-                ),
-                child: const Text(
-                  'Add',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
+            ),
+            child: CircleAvatar(
+              radius: size / 2,
+              backgroundColor: AppColors.surfaceElevated,
+              backgroundImage: image,
+              child: image == null
+                  ? Text(
+                      (localPlaceholder?.isNotEmpty == true
+                              ? localPlaceholder![0]
+                              : teamName.isNotEmpty
+                                  ? teamName[0]
+                                  : '?')
+                          .toUpperCase(),
+                      style: TextStyle(
+                        fontSize: size * 0.35,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryBlueLight,
+                      ),
+                    )
+                  : null,
+            ),
           ),
         ),
         const SizedBox(height: AppDimens.spaceSm),

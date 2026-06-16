@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../data/models/community_post_model.dart';
+import '../../../core/auth/auth_gate.dart';
 import '../../../shared/providers/community_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
@@ -59,10 +60,20 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         IconButton(
           icon: const Icon(Icons.add_circle_outline),
           tooltip: 'New post',
-          onPressed: () => showCreateCommunityPostSheet(
-            context,
-            initialCategory: filter.category,
-          ),
+          onPressed: () {
+            requireAuthVoid(
+              context: context,
+              ref: ref,
+              action: () async {
+                if (context.mounted) {
+                  await showCreateCommunityPostSheet(
+                    context,
+                    initialCategory: filter.category,
+                  );
+                }
+              },
+            );
+          },
         ),
       ],
       body: Column(

@@ -39,7 +39,7 @@ class SettingsScreen extends ConsumerWidget {
 
     try {
       await ref.read(authRepositoryProvider).deleteAccount();
-      if (context.mounted) context.go('/login');
+      if (context.mounted) context.go('/home');
     } on FirebaseAuthException catch (e) {
       if (!context.mounted) return;
       final message = e.code == 'requires-recent-login'
@@ -123,7 +123,7 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('Sign Out'),
             onTap: () async {
               await ref.read(authRepositoryProvider).signOut();
-              if (context.mounted) context.go('/login');
+              if (context.mounted) context.go('/home');
             },
           ),
           ListTile(

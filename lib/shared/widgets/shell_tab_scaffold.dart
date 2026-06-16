@@ -11,6 +11,7 @@ class ShellTabScaffold extends StatelessWidget {
     this.actions,
     this.floatingActionButton,
     this.bottom,
+    this.showDrawerMenu = true,
   });
 
   final Widget title;
@@ -18,6 +19,7 @@ class ShellTabScaffold extends StatelessWidget {
   final List<Widget>? actions;
   final Widget? floatingActionButton;
   final PreferredSizeWidget? bottom;
+  final bool showDrawerMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,7 @@ class ShellTabScaffold extends StatelessWidget {
         title: title,
         actions: actions,
         bottom: bottom,
-        showDrawerMenu: true,
+        showDrawerMenu: showDrawerMenu,
       ),
       body: body,
       floatingActionButton: floatingActionButton,

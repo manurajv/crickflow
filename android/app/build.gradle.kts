@@ -13,8 +13,14 @@ plugins {
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(keystorePropertiesFile.inputStream())
+    // Strip UTF-8 BOM if key.properties was saved from PowerShell.
+    val raw = keystorePropertiesFile.readText(Charsets.UTF_8).removePrefix("\uFEFF")
+    keystoreProperties.load(raw.reader())
 }
+
+fun Properties.keystoreProp(key: String): String =
+    getProperty(key)?.trim()
+        ?: error("Missing or empty '$key' in android/key.properties")
 
 android {
     namespace = "com.mavixas.crickflow"
@@ -41,10 +47,10 @@ android {
     signingConfigs {
         if (keystorePropertiesFile.exists()) {
             create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties.keystoreProp("keyAlias")
+                keyPassword = keystoreProperties.keystoreProp("keyPassword")
+                storeFile = file(keystoreProperties.keystoreProp("storeFile"))
+                storePassword = keystoreProperties.keystoreProp("storePassword")
             }
         }
     }

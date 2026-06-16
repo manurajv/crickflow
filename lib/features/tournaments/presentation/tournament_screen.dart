@@ -3,6 +3,7 @@ import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/location_model.dart';
@@ -194,7 +195,14 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Tournaments')),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateDialog,
+        onPressed: () {
+          requireAuthVoid(
+            context: context,
+            ref: ref,
+            returnPath: '/tournaments',
+            action: () async => _showCreateDialog(),
+          );
+        },
         child: const Icon(Icons.add),
       ),
       body: tournamentsAsync.when(

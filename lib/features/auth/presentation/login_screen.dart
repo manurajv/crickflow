@@ -3,6 +3,7 @@ import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/routing/deep_link_handler.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/match_permissions.dart';
@@ -25,9 +26,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _otpController = TextEditingController();
 
   Future<void> _goAfterAuth(UserModel profile) async {
+    ref.invalidate(currentUserProfileProvider);
+    if (!profile.onboardingCompleted) {
+      if (mounted) context.go('/player-onboarding');
+      return;
+    }
+    if (mounted) {
+      await PendingAuthAction.runIfAny(ref, context);
+    }
+    if (!mounted) return;
     final pending = DeepLinkHandler.takePendingPath();
     final route = pending ?? homeRouteForRole(profile.role);
-    if (mounted) context.go(route);
+    context.go(route);
   }
 
   Future<void> _googleSignIn() async {
@@ -180,8 +190,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: AppDimens.spaceMd),
+                TextButton(
+                  onPressed: _isLoading ? null : () => context.go('/home'),
+                  child: const Text('Browse without signing in'),
+                ),
+                const SizedBox(height: AppDimens.spaceSm),
                 Text(
-                  'Spectator-only mode can be enabled later in Profile → App mode.',
+                  'Sign in to score matches, manage teams, and stream live.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,

@@ -77,9 +77,19 @@ class MatchRepository {
   }
 
   Future<MatchModel?> getMatch(String id) async {
-    final doc = await _matches.doc(id).get();
-    if (!doc.exists) return null;
-    return MatchModel.fromMap(doc.id, doc.data()!);
+    try {
+      final doc = await _matches.doc(id).get();
+      if (!doc.exists) return null;
+      return MatchModel.fromMap(doc.id, doc.data()!);
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable') {
+        final cached =
+            await _matches.doc(id).get(const GetOptions(source: Source.cache));
+        if (!cached.exists) return null;
+        return MatchModel.fromMap(cached.id, cached.data()!);
+      }
+      rethrow;
+    }
   }
 
   Stream<MatchModel?> watchMatch(String id) {
@@ -674,10 +684,18 @@ class MatchRepository {
     if (existing != null && existing.isNotEmpty) return existing;
 
     final token = _uuid.v4();
-    await _matchDoc(matchId).update({
-      'scorerOwnershipToken': token,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+    try {
+      await _matchDoc(matchId).update({
+        'scorerOwnershipToken': token,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable') {
+        // Offline — use ephemeral token for display; sync when online.
+        return token;
+      }
+      rethrow;
+    }
     return token;
   }
 

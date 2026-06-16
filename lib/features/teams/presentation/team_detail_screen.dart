@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/utils/cf_team_id_format.dart';
 import '../../../core/utils/deep_link_utils.dart';
 import '../../../data/models/player_model.dart';
 import '../../../data/models/team_model.dart';
@@ -14,6 +16,7 @@ import '../../wagon_wheel/presentation/widgets/wagon_wheel_embedded_section.dart
 import '../../../shared/widgets/cf_underlined_field.dart';
 import 'widgets/team_join_banner.dart';
 import 'widgets/team_logo_picker.dart';
+import 'widgets/team_qr_view.dart';
 import 'widgets/team_player_tile.dart';
 
 class TeamDetailScreen extends ConsumerWidget {
@@ -161,8 +164,18 @@ class TeamDetailScreen extends ConsumerWidget {
                   const SizedBox(width: AppDimens.spaceMd),
                   Expanded(
                     child: FilledButton(
-                      onPressed: () =>
-                          context.push('/teams/$teamId/add-players'),
+                      onPressed: () {
+                        requireAuthVoid(
+                          context: context,
+                          ref: ref,
+                          returnPath: '/teams/$teamId/add-players',
+                          action: () async {
+                            if (context.mounted) {
+                              context.push('/teams/$teamId/add-players');
+                            }
+                          },
+                        );
+                      },
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, 52),
                         backgroundColor: AppColors.primaryBlue,
@@ -217,11 +230,25 @@ class TeamDetailScreen extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 style: Theme.of(ctx).textTheme.headlineMedium,
               ),
+              if (team.teamCode != null && team.teamCode!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  CfTeamIdFormat.displayLabel(team.teamCode),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        color: AppColors.gold,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                ),
+              ],
               Text(
                 team.location.displayLabel,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.textSecondary),
               ),
+              const SizedBox(height: AppDimens.spaceLg),
+              TeamQrView(team: team),
               const SizedBox(height: AppDimens.spaceLg),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -323,6 +350,8 @@ class TeamDetailScreen extends ConsumerWidget {
 
     final updated = TeamModel(
       id: team.id,
+      teamCode: team.teamCode,
+      qrUrl: team.qrUrl,
       name: nameController.text.trim(),
       logoUrl: team.logoUrl,
       captainId: team.captainId,
@@ -330,6 +359,7 @@ class TeamDetailScreen extends ConsumerWidget {
       coachName: captainController.text.trim().isEmpty
           ? null
           : captainController.text.trim(),
+      contactNumber: team.contactNumber,
       playerIds: team.playerIds,
       location: team.location.copyWith(city: cityController.text.trim()),
       stats: team.stats,
@@ -385,11 +415,14 @@ class TeamDetailScreen extends ConsumerWidget {
       if (url == null) return;
       final updated = TeamModel(
         id: team.id,
+        teamCode: team.teamCode,
+        qrUrl: team.qrUrl,
         name: team.name,
         logoUrl: url,
         captainId: team.captainId,
         viceCaptainId: team.viceCaptainId,
         coachName: team.coachName,
+        contactNumber: team.contactNumber,
         playerIds: team.playerIds,
         location: team.location,
         stats: team.stats,

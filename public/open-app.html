@@ -44,24 +44,48 @@
   <script>
     (function () {
       var parts = location.pathname.split('/').filter(Boolean);
-      var appUrl = 'crickflow://';
+      var qs = location.search || '';
+      var appPath = '/';
+      var msg = 'Open the CrickFlow app.';
+      var androidPackage = 'com.mavixas.crickflow';
+
       if (parts[0] === 'match' && parts[1]) {
-        appUrl = 'crickflow://match/' + parts[1];
-        if (parts[2]) appUrl += '/' + parts[2];
-        document.getElementById('msg').textContent =
-          'Match link — open in the CrickFlow app to view the scorecard.';
+        appPath = '/match/' + parts[1];
+        if (parts[2]) appPath += '/' + parts[2];
+        if (parts[2] === 'takeover') {
+          msg = 'Take over live scoring — open in the CrickFlow app.';
+        } else {
+          msg = 'Match link — open in the CrickFlow app to view the scorecard.';
+        }
       } else if (parts[0] === 'teams' && parts[1]) {
-        appUrl = 'crickflow://teams/' + parts[1];
-        document.getElementById('msg').textContent =
-          'Team invite — open in CrickFlow to join the squad.';
+        appPath = '/teams/' + parts[1];
+        msg = 'Team invite — open in CrickFlow to join the squad.';
       } else {
-        appUrl = 'crickflow://home';
-        document.getElementById('msg').textContent = 'Open the CrickFlow app.';
+        appPath = '/home';
       }
+
+      var deepPath = appPath.charAt(0) === '/' ? appPath.slice(1) : appPath;
+      var appUrl = 'crickflow://' + deepPath + qs;
+      var intentUrl =
+        'intent://' + deepPath + qs +
+        '#Intent;scheme=crickflow;package=' + androidPackage +
+        ';S.browser_fallback_url=' + encodeURIComponent(location.href) +
+        ';end';
+
+      document.getElementById('msg').textContent = msg;
       var link = document.getElementById('open');
       link.href = appUrl;
-      if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
+
+      var ua = navigator.userAgent || '';
+      if (/Android/i.test(ua)) {
+        window.location.href = intentUrl;
+      } else if (/iPhone|iPad/i.test(ua)) {
         window.location.href = appUrl;
+        setTimeout(function () {
+          link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 1200);
+      } else {
+        link.focus();
       }
     })();
   </script>

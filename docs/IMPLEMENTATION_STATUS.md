@@ -13,6 +13,31 @@
 
 ---
 
+## Latest (guest mode + player onboarding)
+
+| Item | Status |
+|------|--------|
+| Guest browse — app opens to Home without login | Done |
+| Public Firestore read rules (matches, teams, players, …) | Done — deploy rules |
+| Login gate dialog for protected actions | Done — `auth_gate.dart` |
+| Resume action after login (`PendingAuthAction`) | Done |
+| Google sign-in user doc bootstrap (`onboardingCompleted: false`) | Done |
+| 6-step player onboarding (`/player-onboarding`) | Done |
+| Player ID (`CF000001`) allocated on onboarding complete only | Done |
+| Player ID local cache (SharedPreferences) for offline | Done |
+| Profile tab guest sign-in prompt | Done |
+| Player ID shown under name on profile | Done |
+| Country picker — pinned cricket nations + alphabetical | Done |
+| Onboarding location — Google Maps detect, search, edit | Done |
+| Auto phone dial code from country selection | Done |
+| Create team form — logo crop, searchable location, intl contact | Done |
+| Team ID (`TM00001`) + invite QR saved to Firestore/Storage on create | Done |
+| Storage rules — team logo/QR, player photos, size & type limits | Done — deploy storage |
+| Teams tab — scope/location chips, app-bar search, QR share rows, pull-to-refresh | Done |
+| Firestore rules — playerId immutable, own-profile edits | Done — deploy rules |
+
+---
+
 ## Latest (ball-by-ball architecture)
 
 | Item | Status |
@@ -53,6 +78,9 @@
 | Wicket picker — all dismissal types visible (no Show more) | Done |
 | Quick settings sheet — 4-column grid, More shortcuts / Show less, primary + secondary tiers | Done |
 | Change Scorer — QR / Teams / Officials / Search tabs, single active scorer | Done |
+| Change Scorer QR — HTTPS + query token; open-app.html intent redirect | Done |
+| CF player ID (`CF000001`) on users; search by mobile, email, or player ID | Done |
+| Current scorer badge on Teams / Officials / Search tabs | Done |
 | Scorer ownership — `currentScorerId`, transfer history, activity logs, Firestore rules | Done |
 | Live scoring read-only mode when scorer transfers away (real-time listener) | Done |
 

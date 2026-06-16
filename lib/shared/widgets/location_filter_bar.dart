@@ -92,13 +92,19 @@ class _LocationFilterBarState extends State<LocationFilterBar> {
 }
 
 bool locationMatchesFilter(LocationModel location, String country, String city) {
-  if (country.isNotEmpty &&
-      !location.country.toLowerCase().contains(country.toLowerCase())) {
-    return false;
+  if (country.isNotEmpty) {
+    final c = country.toLowerCase();
+    if (location.country.toLowerCase() != c &&
+        !location.country.toLowerCase().contains(c)) {
+      return false;
+    }
   }
-  if (city.isNotEmpty &&
-      !location.city.toLowerCase().contains(city.toLowerCase())) {
-    return false;
+  if (city.isNotEmpty) {
+    final q = city.toLowerCase();
+    if (!location.city.toLowerCase().contains(q) &&
+        !location.stateProvince.toLowerCase().contains(q)) {
+      return false;
+    }
   }
   return true;
 }

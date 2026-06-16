@@ -60,6 +60,10 @@ bool canInitiateScorerTransfer({
 }
 
 /// Viewer is read-only; everyone else (including players) can create matches.
-bool canCreateMatches(UserRole role) => role != UserRole.viewer;
+/// Guests and incomplete onboarding users are blocked from write actions.
+bool canCreateMatches(UserRole role, {bool isGuest = false, bool onboardingComplete = true}) {
+  if (isGuest || !onboardingComplete) return false;
+  return role != UserRole.viewer;
+}
 
 String homeRouteForRole(UserRole role) => '/home';

@@ -41,18 +41,19 @@ class DeepLinkHandler {
     final path = DeepLinkUtils.pathFromUri(uri);
     if (path == null || path == '/splash' || path == '/login') return;
 
-    final location = _router.routerDelegate.currentConfiguration.uri.toString();
-    final normalizedCurrent = DeepLinkUtils.normalizeLocation(location) ?? location;
-    if (normalizedCurrent == path) return;
+    final location =
+        uri.query.isNotEmpty ? '$path?${uri.query}' : path;
 
-    if (normalizedCurrent == '/login' ||
-        location == '/login' ||
-        location.contains('/login')) {
-      pendingPath = path;
+    final currentLocation =
+        _router.routerDelegate.currentConfiguration.uri.toString();
+    if (currentLocation == location) return;
+
+    if (currentLocation == '/login' || currentLocation.contains('/login')) {
+      pendingPath = location;
       return;
     }
 
-    _router.go(path);
+    _router.go(location);
   }
 
   void dispose() {
