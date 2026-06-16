@@ -6,7 +6,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/providers/team_ui_provider.dart';
 import '../../../shared/widgets/location_filter_bar.dart'; // locationMatchesFilter
 
 /// Pick a team for Team A or Team B during start-match flow.
@@ -244,12 +243,7 @@ class _AddTeamTab extends ConsumerWidget {
             ),
             const SizedBox(height: AppDimens.spaceLg),
             FilledButton.icon(
-              onPressed: () {
-                ref.read(teamsInitialTabProvider.notifier).state = 1;
-                context.push('/teams?tab=1').then((_) {
-                  // User returns manually; they can re-open picker.
-                });
-              },
+              onPressed: () => context.push('/teams/create'),
               icon: const Icon(Icons.add),
               label: const Text('Add team'),
               style: FilledButton.styleFrom(

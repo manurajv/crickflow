@@ -335,6 +335,7 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
       await ref.read(playerRepositoryProvider).ensurePlayerProfileForUser(
             userId: authUser.uid,
             displayName: saved.displayName,
+            fullName: saved.name,
             photoUrl: photoUrl,
             email: saved.email,
             playerId: saved.playerId,
@@ -346,6 +347,7 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
         await ref.read(playerRepositoryProvider).updatePlayer(
               player.copyWith(
                 name: saved.displayName,
+                fullName: saved.name,
                 photoUrl: photoUrl,
                 role: _playingRole?.label ?? player.role,
                 battingStyle: _battingStyle?.label ?? player.battingStyle,

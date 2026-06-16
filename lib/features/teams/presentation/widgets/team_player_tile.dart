@@ -102,8 +102,8 @@ class TeamPlayerTile extends StatelessWidget {
                       Text(
                         tags.join(' • '),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.primaryBlueLight,
-                            ),
+                          color: AppColors.primaryBlueLight,
+                        ),
                       ),
                   ],
                 ),

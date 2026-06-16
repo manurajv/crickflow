@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'config/routes/app_router.dart';
+import 'shared/widgets/fcm_registration_listener.dart';import 'config/routes/app_router.dart';
 import 'core/constants/app_constants.dart';
 import 'core/routing/deep_link_handler.dart';
 import 'core/theme/app_theme.dart';
@@ -40,6 +40,9 @@ class _CrickFlowAppState extends ConsumerState<CrickFlowApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       routerConfig: router,
+      builder: (context, child) => FcmRegistrationListener(
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

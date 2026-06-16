@@ -171,6 +171,119 @@ service cloud.firestore {
         || (('userId' in resource.data) && resource.data.userId == request.auth.uid);
     }
 
+    function isTeamOwner(teamId) {
+      return isSignedIn()
+        && teamDoc(teamId).get('createdBy', '') == request.auth.uid;
+    }
+
+    function teamDoc(teamId) {
+      return get(/databases/$(database)/documents/teams/$(teamId)).data;
+    }
+
+    function authOwnsPlayerDoc(playerDocId) {
+      return playerDocId == request.auth.uid
+        || (
+          exists(/databases/$(database)/documents/players/$(playerDocId))
+          && get(/databases/$(database)/documents/players/$(playerDocId)).data.get('userId', '') == request.auth.uid
+        );
+    }
+
+    function isTeamCaptain(teamId) {
+      let capId = teamDoc(teamId).get('captainId', '');
+      return isSignedIn()
+        && capId is string
+        && capId.size() > 0
+        && authOwnsPlayerDoc(capId);
+    }
+
+    function isTeamViceCaptain(teamId) {
+      let vcId = teamDoc(teamId).get('viceCaptainId', '');
+      return isSignedIn()
+        && vcId is string
+        && vcId.size() > 0
+        && authOwnsPlayerDoc(vcId);
+    }
+
+    function canManageTeamRequests(teamId) {
+      return isTeamOwner(teamId) || isTeamCaptain(teamId) || isTeamViceCaptain(teamId);
+    }
+
+    function rosterChangeTeamId() {
+      return request.resource.data.get('rosterChangeTeamId', '');
+    }
+
+    function isTeamLeadershipAssigningPlayer() {
+      let neu = request.resource.data;
+      let changeId = rosterChangeTeamId();
+      let teamId = changeId != '' ? changeId : neu.get('teamId', '');
+      return isSignedIn()
+        && teamId is string
+        && teamId.size() > 0
+        && canManageTeamRequests(teamId)
+        && teamId in neu.get('teamIds', []);
+    }
+
+    function isLeadershipRosterUpdate(teamId) {
+      let old = resource.data;
+      let neu = request.resource.data;
+      return canManageTeamRequests(teamId)
+        && teamPublicCodeImmutable()
+        && old.get('createdBy', '') == neu.get('createdBy', '');
+    }
+
+    function isLeadershipRemovingPlayer() {
+      let old = resource.data;
+      let neu = request.resource.data;
+      let changeId = rosterChangeTeamId();
+      let teamId = changeId != '' ? changeId : old.get('teamId', '');
+      let team = teamDoc(teamId);
+      let targetId = playerId;
+      let targetIsOwner = targetId == team.get('createdBy', '')
+        || old.get('userId', '') == team.get('createdBy', '');
+      let targetIsCaptain = team.get('captainId', '') == targetId;
+      let targetIsVc = team.get('viceCaptainId', '') == targetId;
+      return isSignedIn()
+        && teamId is string
+        && teamId.size() > 0
+        && (
+          (teamId in old.get('teamIds', []) && !(teamId in neu.get('teamIds', [])))
+          || (old.get('teamId', '') == teamId
+            && (neu.get('teamId', '') == '' || neu.teamId == null))
+        )
+        && !targetIsOwner
+        && (
+          isTeamOwner(teamId)
+          || (isTeamCaptain(teamId) && !targetIsCaptain && !targetIsVc)
+          || (isTeamViceCaptain(teamId) && !targetIsCaptain)
+        );
+    }
+
+    function isTeamOwnerRemovingPlayer() {
+      let old = resource.data;
+      let neu = request.resource.data;
+      let changeId = rosterChangeTeamId();
+      let teamId = changeId != '' ? changeId : old.get('teamId', '');
+      return teamId is string
+        && teamId.size() > 0
+        && isTeamOwner(teamId)
+        && (
+          (teamId in old.get('teamIds', []) && !(teamId in neu.get('teamIds', [])))
+          || (old.get('teamId', '') == teamId
+            && (neu.get('teamId', '') == '' || neu.teamId == null))
+        );
+    }
+
+    function isTeamOwnerAssigningPlayer() {
+      let neu = request.resource.data;
+      let changeId = rosterChangeTeamId();
+      let teamId = changeId != '' ? changeId : neu.get('teamId', '');
+      return isSignedIn()
+        && teamId is string
+        && teamId.size() > 0
+        && isTeamOwner(teamId)
+        && teamId in neu.get('teamIds', []);
+    }
+
     function userPublicPlayerIdImmutable() {
       return !('playerId' in resource.data)
         || resource.data.playerId == null
@@ -202,6 +315,92 @@ service cloud.firestore {
         || request.resource.data.teamCode == resource.data.teamCode;
     }
 
+    /// Member removes themselves from roster.
+    function isMemberSelfLeaveTeamUpdate(teamId) {
+      let old = resource.data;
+      let neu = request.resource.data;
+      let uid = request.auth.uid;
+      let playerSnap = get(/databases/$(database)/documents/players/$(uid));
+      let hadTeamId = playerSnap.exists
+        && (
+          playerSnap.data.get('teamId', '') == teamId
+          || teamId in playerSnap.data.get('teamIds', [])
+        );
+      let wasOnRoster = uid in old.playerIds;
+      return isSignedIn()
+        && (hadTeamId || wasOnRoster)
+        && old.createdBy == neu.createdBy
+        && teamPublicCodeImmutable()
+        && (!wasOnRoster || !(uid in neu.playerIds))
+        && neu.diff(old).affectedKeys().hasOnly([
+          'playerIds',
+          'memberCount',
+          'updatedAt',
+          'captainId',
+          'viceCaptainId',
+        ]);
+    }
+
+    /// Owner leaves and transfers createdBy to another member.
+    function isOwnerLeaveTeamUpdate() {
+      let old = resource.data;
+      let neu = request.resource.data;
+      let uid = request.auth.uid;
+      return isSignedIn()
+        && old.createdBy == uid
+        && neu.createdBy is string
+        && neu.createdBy != uid
+        && neu.createdBy.size() > 0
+        && teamPublicCodeImmutable()
+        && neu.diff(old).affectedKeys().hasOnly([
+          'playerIds',
+          'memberCount',
+          'updatedAt',
+          'captainId',
+          'viceCaptainId',
+          'createdBy',
+        ]);
+    }
+
+    /// Player removes themselves from one team roster.
+    function isMemberSelfLeavePlayerUpdate() {
+      let old = resource.data;
+      let neu = request.resource.data;
+      let teamId = rosterChangeTeamId();
+      let oldTeams = old.get('teamIds', []);
+      let newTeams = neu.get('teamIds', []);
+      let multiTeamLeave = ownsPlayerProfile(playerId)
+        && teamId != ''
+        && teamId in oldTeams
+        && !(teamId in newTeams);
+      let legacyLeave = ownsPlayerProfile(playerId)
+        && teamId == ''
+        && ('teamId' in old)
+        && old.get('teamId', '') != ''
+        && (
+          !('teamId' in neu)
+          || neu.get('teamId', '') == ''
+          || neu.teamId == null
+        );
+      return multiTeamLeave || legacyLeave;
+    }
+
+    function isUserJoinRequestWrite(requestId) {
+      return isSignedIn()
+        && requestId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.playerId is string
+        && request.resource.data.playerName is string;
+    }
+
+    function isTeamOwnerFullUpdate() {
+      return isSignedIn()
+        && resource.data.get('createdBy', '') == request.auth.uid
+        && request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '')
+        && teamPublicCodeImmutable();
+    }
+
     match /app_meta/{docId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn()
@@ -211,10 +410,36 @@ service cloud.firestore {
 
     match /teams/{teamId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn()
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isTeamOwnerFullUpdate()
+        || isMemberSelfLeaveTeamUpdate(teamId)
+        || isOwnerLeaveTeamUpdate()
+        || isLeadershipRosterUpdate(teamId);
+      allow delete: if isSignedIn()
         && resource.data.createdBy == request.auth.uid
         && teamPublicCodeImmutable();
+
+      match /join_requests/{requestId} {
+        allow read: if isSignedIn() && (
+          canManageTeamRequests(teamId) || requestId == request.auth.uid
+        );
+        allow create: if isUserJoinRequestWrite(requestId);
+        allow update: if isUserJoinRequestWrite(requestId)
+          || (
+            canManageTeamRequests(teamId)
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['accepted', 'rejected']
+          )
+          || (
+            requestId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'cancelled'
+          );
+        allow delete: if isSignedIn() && (
+          requestId == request.auth.uid || canManageTeamRequests(teamId)
+        );
+      }
     }
 
     match /players/{playerId} {
@@ -222,7 +447,15 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update: if isSignedIn()
         && playerPublicIdImmutable()
-        && (ownsPlayerProfile(playerId) || isWalkInPlayer());
+        && (
+          isMemberSelfLeavePlayerUpdate()
+          || ownsPlayerProfile(playerId)
+          || isWalkInPlayer()
+          || isTeamOwnerRemovingPlayer()
+          || isTeamOwnerAssigningPlayer()
+          || isTeamLeadershipAssigningPlayer()
+          || isLeadershipRemovingPlayer()
+        );
       allow delete: if isSignedIn() && (
         playerId == request.auth.uid ||
         resource.data.userId == request.auth.uid
@@ -295,7 +528,11 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read, update, delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.userId is string
+        && request.resource.data.userId.size() > 0
+        && request.resource.data.title is string
+        && request.resource.data.body is string;
     }
 
     match /community_posts/{postId} {

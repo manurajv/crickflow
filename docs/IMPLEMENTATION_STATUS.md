@@ -13,6 +13,27 @@
 
 ---
 
+## Latest (team management + notifications)
+
+| Item | Status |
+|------|--------|
+| Multi-team membership — players can join multiple teams (`teamIds` array) | Done — deploy rules |
+| Join team flow — pending request, no duplicate/member/leadership requests | Done |
+| Join request notifications — owner, captain, vice captain (Firestore + FCM) | Done — deploy `onNotificationCreated` function |
+| Home bell — unread count badge, realtime, clears on notifications screen | Done |
+| Team card dot — pending join requests for leadership roles | Done |
+| Join request panel — approve/reject for owner, captain, vice captain | Done |
+| Leave team — roster cleanup, memberCount, owner transfer (earliest joined) | Done |
+| Owner sole member leave — deletes team, join requests, notifications | Done |
+| Remove member — role-based permissions + notification to removed player | Done |
+| Team roster transactions — reads before writes (leave/remove/assign) | Done |
+| Firestore rules — leadership join-request + roster management | Done — deploy rules |
+| Realtime member counts — `memberCount` synced on roster changes | Done |
+| Teams tab location filter reset on tab enter | Done |
+| Offline — Firestore persistence enabled (`firebase_bootstrap.dart`) | Done |
+
+---
+
 ## Latest (guest mode + player onboarding)
 
 | Item | Status |
@@ -33,7 +54,8 @@
 | Create team form — logo crop, searchable location, intl contact | Done |
 | Team ID (`TM00001`) + invite QR saved to Firestore/Storage on create | Done |
 | Storage rules — team logo/QR, player photos, size & type limits | Done — deploy storage |
-| Teams tab — scope/location chips, app-bar search, QR share rows, pull-to-refresh | Done |
+| Teams tab — scope/location chips, inline search, QR share rows, pull-to-refresh | Done |
+| Team detail — banner, squad cards, owner/captain controls, leave + ownership transfer | Done |
 | Firestore rules — playerId immutable, own-profile edits | Done — deploy rules |
 
 ---

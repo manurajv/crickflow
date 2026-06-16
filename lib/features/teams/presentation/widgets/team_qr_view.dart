@@ -28,9 +28,7 @@ class TeamQrView extends StatelessWidget {
     }
     return base
         .replace(
-          queryParameters: {
-            'code': CfTeamIdFormat.normalize(team.teamCode!),
-          },
+          queryParameters: {'code': CfTeamIdFormat.normalize(team.teamCode!)},
         )
         .toString();
   }
@@ -77,10 +75,10 @@ class TeamQrView extends StatelessWidget {
           Text(
             CfTeamIdFormat.displayLabel(team.teamCode),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.gold,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                ),
+              color: AppColors.gold,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
           ),
         ],
       ],

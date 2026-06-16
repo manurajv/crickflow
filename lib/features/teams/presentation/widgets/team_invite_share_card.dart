@@ -44,8 +44,7 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
   Future<void> _ensureQr() async {
     if (_team.qrUrl != null && _team.qrUrl!.isNotEmpty) return;
     setState(() => _loadingQr = true);
-    final updated =
-        await ref.read(teamRepositoryProvider).ensureTeamQr(_team);
+    final updated = await ref.read(teamRepositoryProvider).ensureTeamQr(_team);
     if (mounted) {
       setState(() {
         _resolved = updated ?? _team;
@@ -151,7 +150,9 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.6),
+                ),
               ),
               child: Row(
                 children: [

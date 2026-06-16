@@ -2,22 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../core/auth/auth_gate.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/utils/cf_team_id_format.dart';
 import '../../../core/utils/deep_link_utils.dart';
 import '../../../data/models/player_model.dart';
 import '../../../data/models/team_model.dart';
-import '../../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
-import '../../wagon_wheel/presentation/widgets/wagon_wheel_embedded_section.dart';
-import '../../../shared/widgets/cf_underlined_field.dart';
-import 'widgets/team_join_banner.dart';
+import '../../../shared/providers/team_join_request_provider.dart';
+import 'utils/team_squad_utils.dart';
+import 'widgets/team_detail_banner.dart';
+import 'widgets/team_detail_bottom_bar.dart';
+import 'widgets/team_join_action_button.dart';
+import 'widgets/team_join_requests_panel.dart';
 import 'widgets/team_logo_picker.dart';
 import 'widgets/team_qr_view.dart';
-import 'widgets/team_player_tile.dart';
+import 'widgets/team_squad_empty_state.dart';
+import 'widgets/team_squad_player_card.dart';
 
 class TeamDetailScreen extends ConsumerWidget {
   const TeamDetailScreen({super.key, required this.teamId});
@@ -28,104 +31,113 @@ class TeamDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final teamAsync = ref.watch(_teamProvider(teamId));
     final playersAsync = ref.watch(teamPlayersProvider(teamId));
+    final uid = ref.watch(authStateProvider).value?.uid;
 
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: teamAsync.when(
-          data: (t) => Text(t?.name ?? 'Team'),
-          loading: () => const Text('Team'),
-          error: (_, __) => const Text('Team'),
+          data: (team) => Text(
+            (team?.name ?? 'Team').toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+          loading: () => const Text('TEAM'),
+          error: (_, __) => const Text('TEAM'),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit team',
-            onPressed: () {
-              final team = teamAsync.valueOrNull;
-              if (team != null) _showEditTeam(context, ref, team);
+          teamAsync.maybeWhen(
+            data: (team) {
+              if (team == null || !TeamSquadUtils.isTeamOwner(uid, team)) {
+                return const SizedBox.shrink();
+              }
+              return IconButton(
+                tooltip: 'Edit team',
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => context.push('/teams/$teamId/edit'),
+              );
             },
+            orElse: () => const SizedBox.shrink(),
           ),
         ],
       ),
       body: teamAsync.when(
         data: (team) {
-          if (team == null) return const Center(child: Text('Team not found'));
+          if (team == null) {
+            return const Center(child: Text('Team not found'));
+          }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Material(
-                color: AppColors.primaryBlue.withValues(alpha: 0.35),
-                child: ListTile(
-                  leading: const Icon(Icons.flag_outlined, color: AppColors.gold),
-                  title: const Text('Squad banners'),
-                  subtitle: const Text('Share match highlights with your team'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Squad banners — coming soon')),
-                    );
-                  },
-                ),
-              ),
-              Padding(
-                padding: AppDimens.listPadding,
-                child: WagonWheelEmbeddedSection(
-                  title: 'Team wagon wheel',
-                  fullViewTitle: '${team.name} — scoring',
-                  baseFilter: WagonWheelFilter(teamId: teamId),
-                  showWhenEmpty: false,
-                ),
-              ),
-              Expanded(
-                child: playersAsync.when(
-                  data: (players) {
-                    return RefreshIndicator(
+          return playersAsync.when(
+            data: (players) {
+              final isOwner = TeamSquadUtils.isTeamOwner(uid, team);
+              final canManageRequests =
+                  TeamSquadUtils.canManageJoinRequests(uid, team);
+              final canManageMembers = canManageRequests;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TeamDetailBanner(team: team, squadCount: players.length),
+                  if (canManageRequests && uid != null)
+                    TeamJoinRequestsPanel(team: team, resolverUid: uid),
+                  const TeamSquadBannersStrip(),
+                  Expanded(
+                    child: RefreshIndicator(
                       onRefresh: () async {
                         ref.invalidate(_teamProvider(teamId));
                         ref.invalidate(teamPlayersProvider(teamId));
                       },
-                      child: ListView(
-                        padding: const EdgeInsets.only(
-                          top: AppDimens.spaceSm,
-                          bottom: AppDimens.spaceXl,
-                        ),
-                        children: [
-                          TeamJoinBanner(
-                            team: team,
-                            teamId: teamId,
-                            squad: players,
-                          ),
-                          if (players.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.all(AppDimens.spaceXl),
-                              child: Center(
-                                child: Text(
-                                  'No players yet.\nTap Add player below.',
-                                  textAlign: TextAlign.center,
+                      child: players.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                TeamSquadEmptyState(
+                                  showAddButton: isOwner,
+                                  onAddPlayers: () => context.push(
+                                    '/teams/$teamId/add-players',
+                                  ),
                                 ),
-                              ),
+                              ],
                             )
-                          else
-                            ...players.map(
-                              (p) => TeamPlayerTile(
-                                player: p,
-                                team: team,
-                                isCaptain: team.captainId == p.id,
-                                onPhotoTap: () =>
-                                    _uploadPlayerPhoto(context, ref, p),
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.only(
+                                top: AppDimens.spaceSm,
+                                bottom: AppDimens.spaceXl,
                               ),
+                              itemCount: players.length,
+                              itemBuilder: (context, index) {
+                                final squadPlayer = players[index];
+                                return TeamSquadPlayerCard(
+                                  player: squadPlayer,
+                                  team: team,
+                                  isOwnerViewer: canManageMembers,
+                                  actorUid: uid,
+                                  onOwnerMenu: canManageMembers
+                                      ? (p, action) => _handleMemberMenu(
+                                          context,
+                                          ref,
+                                          team,
+                                          p,
+                                          action,
+                                          players,
+                                          uid,
+                                        )
+                                      : null,
+                                );
+                              },
                             ),
-                        ],
-                      ),
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('$e')),
-                ),
-              ),
-            ],
+                    ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('$e')),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -134,63 +146,21 @@ class TeamDetailScreen extends ConsumerWidget {
       bottomNavigationBar: teamAsync.maybeWhen(
         data: (team) {
           if (team == null) return null;
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppDimens.spaceMd,
-                AppDimens.spaceSm,
-                AppDimens.spaceMd,
-                AppDimens.spaceMd,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _showTeamProfile(context, ref, team),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 52),
-                        foregroundColor: AppColors.textSecondary,
-                        side: const BorderSide(color: AppColors.border),
-                      ),
-                      child: const Text(
-                        'Profile',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppDimens.spaceMd),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () {
-                        requireAuthVoid(
-                          context: context,
-                          ref: ref,
-                          returnPath: '/teams/$teamId/add-players',
-                          action: () async {
-                            if (context.mounted) {
-                              context.push('/teams/$teamId/add-players');
-                            }
-                          },
-                        );
-                      },
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 52),
-                        backgroundColor: AppColors.primaryBlue,
-                      ),
-                      child: const Text(
-                        'Add player',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          final players = playersAsync.valueOrNull ?? [];
+          return _TeamDetailBottomBar(
+            team: team,
+            players: players,
+            onProfile: () {
+              final isOwner = TeamSquadUtils.isTeamOwner(uid, team);
+              _showTeamProfile(context, ref, team, isOwner);
+            },
+            onLeave: (currentPlayer, isOwner) => _confirmLeaveTeam(
+              context,
+              ref,
+              team,
+              currentPlayer,
+              players,
+              isOwner,
             ),
           );
         },
@@ -199,10 +169,178 @@ class TeamDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showTeamProfile(BuildContext context, WidgetRef ref, TeamModel team) {
+  Future<void> _handleMemberMenu(
+    BuildContext context,
+    WidgetRef ref,
+    TeamModel team,
+    PlayerModel player,
+    String action,
+    List<PlayerModel> squad,
+    String? actorUid,
+  ) async {
+    final repo = ref.read(teamRepositoryProvider);
+    final playerRepo = ref.read(playerRepositoryProvider);
+    final isOwner = TeamSquadUtils.isTeamOwner(actorUid, team);
+
+    try {
+      switch (action) {
+        case 'make_captain':
+          if (!isOwner) return;
+          await repo.updateCaptainRoles(teamId: team.id, captainId: player.id);
+        case 'make_vice_captain':
+          if (!isOwner) return;
+          await repo.updateCaptainRoles(
+            teamId: team.id,
+            viceCaptainId: player.id,
+          );
+        case 'remove_captain':
+          if (!isOwner) return;
+          await repo.updateCaptainRoles(teamId: team.id, clearCaptain: true);
+        case 'remove_vice_captain':
+          if (!isOwner) return;
+          await repo.updateCaptainRoles(
+            teamId: team.id,
+            clearViceCaptain: true,
+          );
+        case 'remove_player':
+          if (!TeamSquadUtils.canRemoveMember(
+            actorUid: actorUid,
+            team: team,
+            target: player,
+            squad: squad,
+          )) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('You cannot remove this member')),
+              );
+            }
+            return;
+          }
+          final displayName = TeamSquadUtils.squadFullName(player);
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Remove player?'),
+              content: Text('Remove $displayName from ${team.name}?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.accentRed,
+                  ),
+                  child: const Text('Remove'),
+                ),
+              ],
+            ),
+          );
+          if (confirmed != true) return;
+          await playerRepo.removePlayerFromTeamByOwner(
+            teamId: team.id,
+            playerId: player.id,
+            teamName: team.name,
+          );
+      }
+      ref.invalidate(_teamProvider(teamId));
+      ref.invalidate(teamPlayersProvider(teamId));
+      ref.invalidate(allTeamsProvider);
+      ref.invalidate(teamPendingJoinRequestsProvider(teamId));
+    } catch (e, st) {
+      debugPrint('team squad action failed: $e\n$st');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              action == 'remove_player'
+                  ? 'Unable to remove player. Please try again.'
+                  : 'Something went wrong. Please try again.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmLeaveTeam(
+    BuildContext context,
+    WidgetRef ref,
+    TeamModel team,
+    PlayerModel player,
+    List<PlayerModel> squad,
+    bool isOwner,
+  ) async {
+    final isSoleMember = squad.length <= 1;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave team?'),
+        content: Text(
+          isOwner && isSoleMember
+              ? 'You are the only member. Leaving will permanently delete ${team.name} and all pending join requests.'
+              : isOwner
+                  ? 'You are the team owner. Ownership will transfer to the longest-standing member before you leave.'
+                  : 'You will be removed from ${team.name}. You can send a join request again later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.accentRed),
+            child: const Text('Confirm leave'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final teamDeleted = await ref
+          .read(playerRepositoryProvider)
+          .leaveTeam(teamId: team.id, leavingPlayer: player, squad: squad);
+      ref.invalidate(_teamProvider(teamId));
+      ref.invalidate(teamPlayersProvider(teamId));
+      ref.invalidate(allTeamsProvider);
+      ref.invalidate(teamPendingJoinRequestsProvider(teamId));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              teamDeleted
+                  ? '${team.name} was deleted'
+                  : 'You left ${team.name}',
+            ),
+          ),
+        );
+        context.pop();
+      }
+    } catch (e, st) {
+      debugPrint('leaveTeam failed: $e\n$st');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to leave team. Please try again.'),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showTeamProfile(
+    BuildContext context,
+    WidgetRef ref,
+    TeamModel team,
+    bool isOwner,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       builder: (ctx) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.55,
@@ -215,13 +353,15 @@ class TeamDetailScreen extends ConsumerWidget {
             children: [
               Center(
                 child: TeamLogoPicker(
-                  logoUrl: team.logoUrl,
+                  logoUrl: team.profileImageUrl,
                   teamName: team.name,
                   size: 96,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _uploadLogo(context, ref, team);
-                  },
+                  onTap: isOwner
+                      ? () {
+                          Navigator.pop(ctx);
+                          context.push('/teams/$teamId/edit');
+                        }
+                      : null,
                 ),
               ),
               const SizedBox(height: AppDimens.spaceMd),
@@ -236,10 +376,9 @@ class TeamDetailScreen extends ConsumerWidget {
                   CfTeamIdFormat.displayLabel(team.teamCode),
                   textAlign: TextAlign.center,
                   style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
+                    color: AppColors.gold,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
               Text(
@@ -280,172 +419,80 @@ class TeamDetailScreen extends ConsumerWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.gold,
-              ),
+            fontWeight: FontWeight.bold,
+            color: AppColors.gold,
+          ),
         ),
         Text(label),
       ],
     );
-  }
-
-  Future<void> _showEditTeam(
-    BuildContext context,
-    WidgetRef ref,
-    TeamModel team,
-  ) async {
-    final nameController = TextEditingController(text: team.name);
-    final cityController = TextEditingController(text: team.location.city);
-    final captainController = TextEditingController(text: team.coachName ?? '');
-
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: AppDimens.spaceLg,
-          right: AppDimens.spaceLg,
-          top: AppDimens.spaceLg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Edit team', style: Theme.of(ctx).textTheme.titleLarge),
-            const SizedBox(height: AppDimens.spaceLg),
-            CfUnderlinedField(
-              controller: nameController,
-              label: 'Team name',
-              required: true,
-            ),
-            const SizedBox(height: AppDimens.spaceLg),
-            CfUnderlinedField(
-              controller: cityController,
-              label: 'City / town',
-              required: true,
-            ),
-            const SizedBox(height: AppDimens.spaceLg),
-            CfUnderlinedField(
-              controller: captainController,
-              label: 'Captain name',
-            ),
-            const SizedBox(height: AppDimens.spaceLg),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                backgroundColor: AppColors.gold,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Save'),
-            ),
-            const SizedBox(height: AppDimens.spaceLg),
-          ],
-        ),
-      ),
-    );
-
-    if (saved != true) return;
-
-    final updated = TeamModel(
-      id: team.id,
-      teamCode: team.teamCode,
-      qrUrl: team.qrUrl,
-      name: nameController.text.trim(),
-      logoUrl: team.logoUrl,
-      captainId: team.captainId,
-      viceCaptainId: team.viceCaptainId,
-      coachName: captainController.text.trim().isEmpty
-          ? null
-          : captainController.text.trim(),
-      contactNumber: team.contactNumber,
-      playerIds: team.playerIds,
-      location: team.location.copyWith(city: cityController.text.trim()),
-      stats: team.stats,
-      badgeIds: team.badgeIds,
-      createdBy: team.createdBy,
-      createdAt: team.createdAt,
-    );
-    await ref.read(teamRepositoryProvider).updateTeam(updated);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Team updated')),
-      );
-    }
-  }
-
-  Future<void> _uploadPlayerPhoto(
-    BuildContext context,
-    WidgetRef ref,
-    PlayerModel player,
-  ) async {
-    try {
-      final url = await ref
-          .read(storageServiceProvider)
-          .pickAndUploadPlayerPhoto(player.id);
-      if (url == null) return;
-
-      final updated = player.copyWith(photoUrl: url);
-      await ref.read(playerRepositoryProvider).updatePlayer(updated);
-      ref.invalidate(teamPlayersProvider(teamId));
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Photo updated for ${player.name}')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Photo upload failed: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _uploadLogo(
-    BuildContext context,
-    WidgetRef ref,
-    TeamModel team,
-  ) async {
-    try {
-      final url =
-          await ref.read(storageServiceProvider).pickAndUploadTeamLogo(team.id);
-      if (url == null) return;
-      final updated = TeamModel(
-        id: team.id,
-        teamCode: team.teamCode,
-        qrUrl: team.qrUrl,
-        name: team.name,
-        logoUrl: url,
-        captainId: team.captainId,
-        viceCaptainId: team.viceCaptainId,
-        coachName: team.coachName,
-        contactNumber: team.contactNumber,
-        playerIds: team.playerIds,
-        location: team.location,
-        stats: team.stats,
-        badgeIds: team.badgeIds,
-        createdBy: team.createdBy,
-        createdAt: team.createdAt,
-      );
-      await ref.read(teamRepositoryProvider).updateTeam(updated);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Logo updated')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e')),
-        );
-      }
-    }
   }
 }
 
 final _teamProvider = StreamProvider.family<TeamModel?, String>((ref, teamId) {
   return ref.watch(teamRepositoryProvider).watchTeam(teamId);
 });
+
+class _TeamDetailBottomBar extends ConsumerWidget {
+  const _TeamDetailBottomBar({
+    required this.team,
+    required this.players,
+    required this.onProfile,
+    required this.onLeave,
+  });
+
+  final TeamModel team;
+  final List<PlayerModel> players;
+  final VoidCallback onProfile;
+  final void Function(PlayerModel player, bool isOwner) onLeave;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final uid = ref.watch(authStateProvider).value?.uid;
+    if (uid == null) return const SizedBox.shrink();
+
+    final onSquad = TeamSquadUtils.isOnSquad(uid, team, players);
+    final currentPlayer = TeamSquadUtils.currentSquadPlayer(uid, players);
+    final isOwner = TeamSquadUtils.isTeamOwner(uid, team);
+    final pendingRequest = ref
+        .watch(userTeamJoinRequestProvider((teamId: team.id, userId: uid)))
+        .valueOrNull
+        ?.isPending;
+
+    String? secondaryLabel;
+    VoidCallback? onSecondary;
+    var secondaryEnabled = true;
+    var secondaryIsGold = false;
+
+    if (onSquad) {
+      secondaryLabel = 'Leave team';
+      onSecondary = () async {
+        var leaving = currentPlayer;
+        leaving ??= await ref.read(playerRepositoryProvider).getPlayer(uid);
+        if (leaving == null) return;
+        onLeave(leaving, isOwner);
+      };
+    } else if (!isOwner) {
+      if (pendingRequest == true) {
+        secondaryLabel = 'Requested';
+        secondaryEnabled = false;
+      } else {
+        secondaryLabel = 'Join team';
+        secondaryIsGold = true;
+        onSecondary = () => sendTeamJoinRequest(
+          ref: ref,
+          context: context,
+          team: team,
+        );
+      }
+    }
+
+    return TeamDetailBottomBar(
+      onProfile: onProfile,
+      secondaryLabel: secondaryLabel,
+      onSecondary: onSecondary,
+      secondaryEnabled: secondaryEnabled,
+      secondaryIsGold: secondaryIsGold,
+    );
+  }
+}

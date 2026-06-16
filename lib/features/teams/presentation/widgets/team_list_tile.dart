@@ -6,14 +6,26 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/team_model.dart';
+import '../../../../shared/providers/providers.dart';
+import '../../../../shared/providers/team_join_request_provider.dart';
 import '../../../../shared/providers/badge_provider.dart';
+import '../utils/team_squad_utils.dart';
 import 'team_invite_share_sheet.dart';
+import 'team_join_action_button.dart';
+import 'team_list_scope.dart';
 
 /// Flat team row — tap row for detail, tap QR for invite sheet.
 class TeamListTile extends ConsumerWidget {
-  const TeamListTile({super.key, required this.team});
+  const TeamListTile({
+    super.key,
+    required this.team,
+    this.listScope,
+    this.memberTeamIds = const {},
+  });
 
   final TeamModel team;
+  final TeamListScope? listScope;
+  final Set<String> memberTeamIds;
 
   String? get _locationLine {
     final parts = <String>[
@@ -33,48 +45,43 @@ class TeamListTile extends ConsumerWidget {
         ? ref.watch(playerDetailProvider(captainId))
         : null;
     final captainName = captainAsync?.valueOrNull?.name;
+    final uid = ref.watch(authStateProvider).value?.uid;
+    final canManageRequests = TeamSquadUtils.canManageJoinRequests(uid, team);
+    final pendingCount = canManageRequests
+        ? ref.watch(teamPendingJoinRequestsProvider(team.id)).valueOrNull?.length ??
+            0
+        : 0;
+    final showJoin =
+        listScope == TeamListScope.all &&
+        uid != null &&
+        !team.playerIds.contains(uid) &&
+        team.createdBy != uid &&
+        !TeamSquadUtils.isTeamCaptain(uid, team) &&
+        !TeamSquadUtils.isTeamViceCaptain(uid, team);
 
     return Material(
       color: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppDimens.spaceMd,
-          AppDimens.spaceMd,
-          AppDimens.spaceSm,
-          AppDimens.spaceMd,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: () => context.push('/teams/${team.id}'),
-                child: Row(
+      child: InkWell(
+        onTap: () => context.push('/teams/${team.id}'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.spaceMd,
+            AppDimens.spaceMd,
+            AppDimens.spaceSm,
+            AppDimens.spaceMd,
+          ),
+          child: Row(
+            children: [
+              TeamLogoAvatar(team: team, size: 52),
+              const SizedBox(width: AppDimens.spaceMd),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: AppColors.primaryBlue,
-                      backgroundImage: team.logoUrl != null
-                          ? CachedNetworkImageProvider(team.logoUrl!)
-                          : null,
-                      child: team.logoUrl == null
-                          ? Text(
-                              team.name.isNotEmpty
-                                  ? team.name[0].toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                fontSize: 18,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: AppDimens.spaceMd),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
                             team.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -82,41 +89,150 @@ class TeamListTile extends ConsumerWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          if (locationLine != null) ...[
-                            const SizedBox(height: 4),
-                            _TeamMetaRow(
-                              icon: Icons.place_outlined,
-                              label: locationLine,
+                        ),
+                        if (pendingCount > 0)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(left: 6),
+                            decoration: const BoxDecoration(
+                              color: AppColors.accentRed,
+                              shape: BoxShape.circle,
                             ),
-                          ],
-                          if (captainName != null &&
-                              captainName.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            _TeamMetaRow(
-                              badgeLabel: 'C',
-                              label: captainName,
-                            ),
-                          ],
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
+                    if (locationLine != null) ...[
+                      const SizedBox(height: 4),
+                      _TeamMetaRow(
+                        icon: Icons.place_outlined,
+                        label: locationLine,
+                      ),
+                    ],
+                    if (captainName != null && captainName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      _TeamMetaRow(badgeLabel: 'C', label: captainName),
+                    ],
                   ],
                 ),
               ),
-            ),
-            IconButton(
-              tooltip: 'Share team QR',
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              onPressed: () => showTeamInviteShareSheet(context, team),
-              icon: const Icon(
-                Icons.qr_code_2,
-                color: AppColors.gold,
-                size: 24,
+              if (showJoin)
+                TeamJoinActionButton(team: team, compact: true),
+              IconButton(
+                tooltip: 'Share team QR',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                onPressed: () => showTeamInviteShareSheet(context, team),
+                icon: const Icon(
+                  Icons.qr_code_2,
+                  color: AppColors.gold,
+                  size: 24,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared polished circular team logo widget.
+///
+/// Shows the team logo image when available, or a two-letter initials badge
+/// with a gradient background that matches the app's cricket theme.
+class TeamLogoAvatar extends StatelessWidget {
+  const TeamLogoAvatar({
+    super.key,
+    required this.team,
+    this.size = 52,
+    this.borderWidth = 2.0,
+  });
+
+  final TeamModel team;
+  final double size;
+  final double borderWidth;
+
+  String get _initials {
+    if (team.name.isEmpty) return '?';
+    final words = team.name.trim().split(RegExp(r'\s+'));
+    if (words.length == 1) {
+      // Single word: up to 2 chars
+      return words[0].substring(0, words[0].length.clamp(0, 2)).toUpperCase();
+    }
+    return words.take(2).map((w) => w[0].toUpperCase()).join();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logoUrl = team.profileImageUrl;
+    final hasImage = logoUrl != null;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: hasImage
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1565C0), AppColors.primaryBlue],
+              ),
+        color: hasImage ? AppColors.surfaceElevated : null,
+        border: Border.all(
+          color: hasImage
+              ? AppColors.gold.withValues(alpha: 0.55)
+              : AppColors.primaryBlue.withValues(alpha: 0.6),
+          width: borderWidth,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 7,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: hasImage
+            ? CachedNetworkImage(
+                imageUrl: logoUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => _Initials(
+                  initials: _initials,
+                  fontSize: size * 0.3,
+                ),
+                errorWidget: (context, url, error) => _Initials(
+                  initials: _initials,
+                  fontSize: size * 0.3,
+                ),
+              )
+            : _Initials(initials: _initials, fontSize: size * 0.3),
+      ),
+    );
+  }
+}
+
+class _Initials extends StatelessWidget {
+  const _Initials({required this.initials, required this.fontSize});
+
+  final String initials;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        initials,
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          fontSize: fontSize,
+          letterSpacing: 0.5,
+          height: 1,
         ),
       ),
     );
@@ -124,11 +240,8 @@ class TeamListTile extends ConsumerWidget {
 }
 
 class _TeamMetaRow extends StatelessWidget {
-  const _TeamMetaRow({
-    this.icon,
-    this.badgeLabel,
-    required this.label,
-  }) : assert(icon != null || badgeLabel != null);
+  const _TeamMetaRow({this.icon, this.badgeLabel, required this.label})
+    : assert(icon != null || badgeLabel != null);
 
   final IconData? icon;
   final String? badgeLabel;
@@ -140,7 +253,7 @@ class _TeamMetaRow extends StatelessWidget {
     return Row(
       children: [
         if (icon != null)
-          Icon(icon, size: 14, color: AppColors.textSecondary)
+          Icon(icon, size: 13, color: AppColors.textSecondary)
         else
           Container(
             width: 16,
@@ -160,15 +273,15 @@ class _TeamMetaRow extends StatelessWidget {
               ),
             ),
           ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 5),
         Expanded(
           child: Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],

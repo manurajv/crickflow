@@ -88,7 +88,9 @@ class _TeamAddPlayerDirectoryScreenState
   Future<void> _search(String query) async {
     setState(() => _searching = true);
     try {
-      final results = await ref.read(playerRepositoryProvider).searchAvailablePlayers(
+      final results = await ref
+          .read(playerRepositoryProvider)
+          .searchAvailablePlayers(
             excludeTeamId: widget.teamId,
             alreadyOnSquadIds: _squadIds,
             query: query,
@@ -101,21 +103,20 @@ class _TeamAddPlayerDirectoryScreenState
 
   Future<void> _addExisting(PlayerModel player) async {
     try {
-      await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-            playerId: player.id,
-            teamId: widget.teamId,
-          );
+      await ref
+          .read(playerRepositoryProvider)
+          .assignPlayerToTeam(playerId: player.id, teamId: widget.teamId);
       if (!mounted) return;
       ref.invalidate(teamPlayersProvider(widget.teamId));
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${player.name} added to squad')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${player.name} added to squad')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add player: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not add player: $e')));
       }
     }
   }
@@ -123,9 +124,9 @@ class _TeamAddPlayerDirectoryScreenState
   Future<void> _createNew() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Player name is required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Player name is required')));
       return;
     }
 
@@ -143,22 +144,21 @@ class _TeamAddPlayerDirectoryScreenState
       );
 
       await ref.read(playerRepositoryProvider).createPlayer(player);
-      await ref.read(teamRepositoryProvider).addPlayerToTeam(
-            teamId: widget.teamId,
-            playerId: playerId,
-          );
+      await ref
+          .read(teamRepositoryProvider)
+          .addPlayerToTeam(teamId: widget.teamId, playerId: playerId);
 
       if (!mounted) return;
       ref.invalidate(teamPlayersProvider(widget.teamId));
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$name added to squad')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$name added to squad')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create player: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not create player: $e')));
       }
     } finally {
       if (mounted) setState(() => _creating = false);
@@ -183,10 +183,7 @@ class _TeamAddPlayerDirectoryScreenState
       ),
       body: TabBarView(
         controller: _tabs,
-        children: [
-          _existingTab(),
-          _newPlayerTab(),
-        ],
+        children: [_existingTab(), _newPlayerTab()],
       ),
     );
   }
@@ -217,11 +214,11 @@ class _TeamAddPlayerDirectoryScreenState
                       ),
                     )
                   : _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () => _searchController.clear(),
-                        )
-                      : null,
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () => _searchController.clear(),
+                    )
+                  : null,
               border: const OutlineInputBorder(),
             ),
           ),
@@ -232,9 +229,9 @@ class _TeamAddPlayerDirectoryScreenState
             _results.isEmpty && !_searching
                 ? 'No matches — try another name or add a walk-in player.'
                 : '${_results.length} player${_results.length == 1 ? '' : 's'} available',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: AppDimens.spaceSm),
@@ -244,7 +241,8 @@ class _TeamAddPlayerDirectoryScreenState
               : ListView.separated(
                   padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
                   itemCount: _results.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, indent: 72),
                   itemBuilder: (_, i) => _PlayerDirectoryTile(
                     player: _results[i],
                     onAdd: () => _addExisting(_results[i]),
@@ -279,9 +277,9 @@ class _TeamAddPlayerDirectoryScreenState
             Text(
               'Registered players appear here. For guests without CrickFlow, use the Walk-in tab.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: AppDimens.spaceLg),
             OutlinedButton.icon(
@@ -305,15 +303,15 @@ class _TeamAddPlayerDirectoryScreenState
               Text(
                 'Walk-in player',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Add someone who does not have a CrickFlow account — no login or Player ID needed.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: AppDimens.spaceLg),
               Card(
@@ -342,16 +340,20 @@ class _TeamAddPlayerDirectoryScreenState
                       DropdownButtonFormField<String>(
                         initialValue: _newPlayerRole,
                         decoration: const InputDecoration(labelText: 'Role'),
-                        items: const [
-                          'Player',
-                          'Captain',
-                          'Wicket Keeper',
-                          'All-rounder',
-                        ]
-                            .map(
-                              (r) => DropdownMenuItem(value: r, child: Text(r)),
-                            )
-                            .toList(),
+                        items:
+                            const [
+                                  'Player',
+                                  'Captain',
+                                  'Wicket Keeper',
+                                  'All-rounder',
+                                ]
+                                .map(
+                                  (r) => DropdownMenuItem(
+                                    value: r,
+                                    child: Text(r),
+                                  ),
+                                )
+                                .toList(),
                         onChanged: (v) {
                           if (v != null) setState(() => _newPlayerRole = v);
                         },
@@ -381,10 +383,7 @@ class _TeamAddPlayerDirectoryScreenState
 }
 
 class _PlayerDirectoryTile extends StatelessWidget {
-  const _PlayerDirectoryTile({
-    required this.player,
-    required this.onAdd,
-  });
+  const _PlayerDirectoryTile({required this.player, required this.onAdd});
 
   final PlayerModel player;
   final VoidCallback onAdd;

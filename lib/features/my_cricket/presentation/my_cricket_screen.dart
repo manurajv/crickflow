@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/match_permissions.dart';
+import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
@@ -26,6 +27,9 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
   late TabController _tabs;
 
   void _onTabChanged() {
+    if (_tabs.index == 2) {
+      ref.read(teamsTabVisitCounterProvider.notifier).state++;
+    }
     if (mounted) setState(() {});
   }
 

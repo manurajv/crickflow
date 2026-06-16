@@ -1,23 +1,76 @@
 import '../../../../core/utils/cf_team_id_format.dart';
+import '../../../../data/models/match_model.dart';
+import '../../../../data/models/player_model.dart';
 import '../../../../data/models/team_model.dart';
 import '../../../../shared/widgets/location_filter_bar.dart';
+import '../widgets/team_list_scope.dart';
 
-/// Client-side team list filtering (search + location + ownership).
+/// Client-side team list filtering (search + location + scope).
 class TeamsListFilter {
   TeamsListFilter._();
 
+  /// Teams where [uid] is on the roster (not merely the creator).
+  static Set<String> memberTeamIds({
+    required List<TeamModel> teams,
+    required String? uid,
+    PlayerModel? player,
+  }) {
+    if (uid == null || uid.isEmpty) return {};
+    final ids = <String>{};
+    if (player != null) {
+      ids.addAll(player.effectiveTeamIds);
+    }
+
+    for (final t in teams) {
+      if (t.playerIds.contains(uid)) ids.add(t.id);
+      if (player != null &&
+          player.id.isNotEmpty &&
+          t.playerIds.contains(player.id)) {
+        ids.add(t.id);
+      }
+    }
+    return ids;
+  }
+
+  /// Opponent team ids from matches involving any of [memberTeamIds].
+  static Set<String> opponentTeamIds({
+    required List<MatchModel> matches,
+    required Set<String> memberTeamIds,
+  }) {
+    if (memberTeamIds.isEmpty) return {};
+    final ids = <String>{};
+    for (final m in matches) {
+      final a = m.teamAId;
+      final b = m.teamBId;
+      if (a == null || a.isEmpty || b == null || b.isEmpty) continue;
+
+      if (memberTeamIds.contains(a) && !memberTeamIds.contains(b)) {
+        ids.add(b);
+      } else if (memberTeamIds.contains(b) && !memberTeamIds.contains(a)) {
+        ids.add(a);
+      }
+    }
+    return ids;
+  }
+
   static List<TeamModel> apply({
     required List<TeamModel> teams,
+    required TeamListScope scope,
     String query = '',
     String country = '',
     String city = '',
-    String? uid,
-    bool yoursOnly = false,
-    bool opponentsOnly = false,
+    Set<String> memberTeamIds = const {},
+    Set<String> opponentTeamIds = const {},
   }) {
     var list = teams.where((t) {
-      if (yoursOnly && uid != null && t.createdBy != uid) return false;
-      if (opponentsOnly && uid != null && t.createdBy == uid) return false;
+      switch (scope) {
+        case TeamListScope.yours:
+          if (!memberTeamIds.contains(t.id)) return false;
+        case TeamListScope.opponents:
+          if (!opponentTeamIds.contains(t.id)) return false;
+        case TeamListScope.all:
+          break;
+      }
       if (!locationMatchesFilter(t.location, country, city)) return false;
       return true;
     }).toList();
@@ -55,9 +108,7 @@ class TeamsListFilter {
       final city = t.location.city.trim();
       if (city.isEmpty) continue;
       if (country.isNotEmpty &&
-          !t.location.country
-              .toLowerCase()
-              .contains(country.toLowerCase())) {
+          !t.location.country.toLowerCase().contains(country.toLowerCase())) {
         continue;
       }
       cities.add(city);

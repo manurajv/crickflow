@@ -9,6 +9,7 @@ import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/match_repository.dart';
 import '../../data/repositories/player_repository.dart';
+import '../../data/repositories/team_join_request_repository.dart';
 import '../../data/repositories/team_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
@@ -34,7 +35,17 @@ final teamQrServiceProvider = Provider(
 final teamRepositoryProvider = Provider(
   (ref) => TeamRepository(qrService: ref.watch(teamQrServiceProvider)),
 );
-final playerRepositoryProvider = Provider((ref) => PlayerRepository());
+final playerRepositoryProvider = Provider(
+  (ref) => PlayerRepository(
+    notificationRepository: ref.watch(notificationRepositoryProvider),
+  ),
+);
+final teamJoinRequestRepositoryProvider = Provider(
+  (ref) => TeamJoinRequestRepository(
+    playerRepository: ref.watch(playerRepositoryProvider),
+    notificationRepository: ref.watch(notificationRepositoryProvider),
+  ),
+);
 final tournamentRepositoryProvider = Provider((ref) => TournamentRepository());
 final fantasyRepositoryProvider = Provider((ref) => FantasyRepository());
 final notificationServiceProvider = Provider((ref) => NotificationService());

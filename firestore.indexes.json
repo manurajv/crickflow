@@ -41,6 +41,14 @@
       ]
     },
     {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "read", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "fantasy_leagues",
       "queryScope": "COLLECTION",
       "fields": [
@@ -90,6 +98,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "playerId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "join_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {

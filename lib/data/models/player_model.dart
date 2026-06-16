@@ -74,27 +74,27 @@ class PlayerStatsModel extends Equatable {
   }
 
   Map<String, dynamic> toMap() => {
-        'runs': runs,
-        'ballsFaced': ballsFaced,
-        'fours': fours,
-        'sixes': sixes,
-        'wickets': wickets,
-        'oversBowledBalls': oversBowledBalls,
-        'runsConceded': runsConceded,
-        'catches': catches,
-        'runOuts': runOuts,
-        'stumpings': stumpings,
-        'matchesPlayed': matchesPlayed,
-        'inningsPlayed': inningsPlayed,
-        'dismissals': dismissals,
-        'highScore': highScore,
-        'thirties': thirties,
-        'fifties': fifties,
-        'hundreds': hundreds,
-        'ducks': ducks,
-        'threeWickets': threeWickets,
-        'fiveWickets': fiveWickets,
-      };
+    'runs': runs,
+    'ballsFaced': ballsFaced,
+    'fours': fours,
+    'sixes': sixes,
+    'wickets': wickets,
+    'oversBowledBalls': oversBowledBalls,
+    'runsConceded': runsConceded,
+    'catches': catches,
+    'runOuts': runOuts,
+    'stumpings': stumpings,
+    'matchesPlayed': matchesPlayed,
+    'inningsPlayed': inningsPlayed,
+    'dismissals': dismissals,
+    'highScore': highScore,
+    'thirties': thirties,
+    'fifties': fifties,
+    'hundreds': hundreds,
+    'ducks': ducks,
+    'threeWickets': threeWickets,
+    'fiveWickets': fiveWickets,
+  };
 
   @override
   List<Object?> get props => [runs, wickets, matchesPlayed];
@@ -104,7 +104,9 @@ class PlayerModel extends Equatable {
   const PlayerModel({
     required this.id,
     required this.name,
+    this.fullName = '',
     this.teamId,
+    this.teamIds = const [],
     this.userId,
     this.playerId,
     this.jerseyNumber,
@@ -118,13 +120,25 @@ class PlayerModel extends Equatable {
     this.badgeIds = const [],
     this.createdBy,
     this.createdAt,
+    this.teamJoinedAt,
   });
 
   final String id;
+
+  /// Public scorecard / display name.
   final String name;
+
+  /// Legal full name — shown on squad roster (not display name).
+  final String fullName;
+  /// Legacy single-team field — prefer [teamIds]. Kept for older docs.
   final String? teamId;
+
+  /// All teams this player belongs to (club cricket: multiple teams).
+  final List<String> teamIds;
+
   /// Firebase Auth uid when this profile belongs to a registered player account.
   final String? userId;
+
   /// Public sequential ID (e.g. CF000001) — synced from user profile.
   final String? playerId;
   final int? jerseyNumber;
@@ -138,6 +152,22 @@ class PlayerModel extends Equatable {
   final List<String> badgeIds;
   final String? createdBy;
   final DateTime? createdAt;
+  final DateTime? teamJoinedAt;
+
+  DateTime get effectiveJoinedAt => teamJoinedAt ?? createdAt ?? DateTime(2100);
+
+  /// Every team id this profile is linked to (legacy [teamId] included).
+  List<String> get effectiveTeamIds {
+    final ids = <String>{...teamIds};
+    final legacy = teamId;
+    if (legacy != null && legacy.isNotEmpty) ids.add(legacy);
+    return ids.toList();
+  }
+
+  bool isOnTeam(String id) => effectiveTeamIds.contains(id);
+
+  String get effectiveFullName =>
+      fullName.isNotEmpty ? fullName : name;
 
   PlayerStatsModel statsForBallType(CricketBallType type) =>
       statsByBallType[type] ?? const PlayerStatsModel();
@@ -146,7 +176,9 @@ class PlayerModel extends Equatable {
     return PlayerModel(
       id: id,
       name: map['name'] as String? ?? '',
+      fullName: map['fullName'] as String? ?? '',
       teamId: map['teamId'] as String?,
+      teamIds: _teamIdsFromMap(map),
       userId: map['userId'] as String?,
       playerId: map['playerId'] as String? ?? map['cfPlayerId'] as String?,
       jerseyNumber: map['jerseyNumber'] as int?,
@@ -162,7 +194,16 @@ class PlayerModel extends Equatable {
       badgeIds: List<String>.from(map['badgeIds'] as List? ?? []),
       createdBy: map['createdBy'] as String?,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
+      teamJoinedAt: DateTime.tryParse(map['teamJoinedAt']?.toString() ?? ''),
     );
+  }
+
+  static List<String> _teamIdsFromMap(Map<String, dynamic> map) {
+    final fromList = List<String>.from(map['teamIds'] as List? ?? []);
+    if (fromList.isNotEmpty) return fromList;
+    final legacy = map['teamId'] as String?;
+    if (legacy != null && legacy.isNotEmpty) return [legacy];
+    return const [];
   }
 
   static Map<CricketBallType, PlayerStatsModel> _statsByBallTypeFromMap(
@@ -180,30 +221,35 @@ class PlayerModel extends Equatable {
   }
 
   Map<String, dynamic> toMap() => {
-        'name': name,
-        if (teamId != null) 'teamId': teamId,
-        if (userId != null) 'userId': userId,
-        if (playerId != null) 'playerId': playerId,
-        if (jerseyNumber != null) 'jerseyNumber': jerseyNumber,
-        'battingStyle': battingStyle,
-        'bowlingStyle': bowlingStyle,
-        if (photoUrl != null) 'photoUrl': photoUrl,
-        'role': role,
-        'location': location.toMap(),
-        'stats': stats.toMap(),
-        if (statsByBallType.isNotEmpty)
-          'statsByBallType': {
-            for (final e in statsByBallType.entries) e.key.name: e.value.toMap(),
-          },
-        'badgeIds': badgeIds,
-        if (createdBy != null) 'createdBy': createdBy,
-        'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
-      };
+    'name': name,
+    if (fullName.isNotEmpty) 'fullName': fullName,
+    if (teamId != null) 'teamId': teamId,
+    if (teamIds.isNotEmpty) 'teamIds': teamIds,
+    if (userId != null) 'userId': userId,
+    if (playerId != null) 'playerId': playerId,
+    if (jerseyNumber != null) 'jerseyNumber': jerseyNumber,
+    'battingStyle': battingStyle,
+    'bowlingStyle': bowlingStyle,
+    if (photoUrl != null) 'photoUrl': photoUrl,
+    'role': role,
+    'location': location.toMap(),
+    'stats': stats.toMap(),
+    if (statsByBallType.isNotEmpty)
+      'statsByBallType': {
+        for (final e in statsByBallType.entries) e.key.name: e.value.toMap(),
+      },
+    'badgeIds': badgeIds,
+    if (createdBy != null) 'createdBy': createdBy,
+    'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
+    if (teamJoinedAt != null) 'teamJoinedAt': teamJoinedAt!.toIso8601String(),
+    'updatedAt': DateTime.now().toIso8601String(),
+  };
 
   PlayerModel copyWith({
     String? name,
+    String? fullName,
     String? teamId,
+    List<String>? teamIds,
     String? userId,
     String? playerId,
     int? jerseyNumber,
@@ -218,7 +264,9 @@ class PlayerModel extends Equatable {
     return PlayerModel(
       id: id,
       name: name ?? this.name,
+      fullName: fullName ?? this.fullName,
       teamId: teamId ?? this.teamId,
+      teamIds: teamIds ?? this.teamIds,
       userId: userId ?? this.userId,
       playerId: playerId ?? this.playerId,
       jerseyNumber: jerseyNumber ?? this.jerseyNumber,
@@ -235,5 +283,5 @@ class PlayerModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, name, teamId];
+  List<Object?> get props => [id, name, teamId, teamIds];
 }

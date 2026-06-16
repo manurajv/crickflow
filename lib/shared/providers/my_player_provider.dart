@@ -18,6 +18,7 @@ final myPlayerProvider = FutureProvider<PlayerModel?>((ref) async {
   return repo.ensurePlayerProfileForUser(
     userId: uid,
     displayName: profile.displayName,
+    fullName: profile.name,
     photoUrl: profile.photoUrl,
     email: profile.email,
   );

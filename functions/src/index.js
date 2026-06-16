@@ -21,6 +21,8 @@ const {
   adminPreviewMatchStatsFromEvents,
   adminReprocessMatchStats,
 } = require('./admin/scoringAdmin');
+const { onNotificationCreated } = require('./notifications/onNotificationCreated');
+const { onTeamJoinRequestCreated } = require('./notifications/onTeamJoinRequestCreated');
 
 exports.onMatchCompleted = onMatchCompleted;
 exports.onMatchLive = onMatchLive;
@@ -31,3 +33,5 @@ exports.syncPublicOverlay = syncPublicOverlay;
 exports.adminVerifyMatchIntegrity = adminVerifyMatchIntegrity;
 exports.adminPreviewMatchStatsFromEvents = adminPreviewMatchStatsFromEvents;
 exports.adminReprocessMatchStats = adminReprocessMatchStats;
+exports.onNotificationCreated = onNotificationCreated;
+exports.onTeamJoinRequestCreated = onTeamJoinRequestCreated;

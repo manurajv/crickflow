@@ -109,8 +109,8 @@ class _TeamAddPlayerQuickScreenState
           player = results.firstWhere(
             (p) =>
                 p.playerId?.toUpperCase().startsWith(
-                      CfPlayerIdFormat.normalize(raw),
-                    ) ??
+                  CfPlayerIdFormat.normalize(raw),
+                ) ??
                 false,
             orElse: () => results.first,
           );
@@ -128,10 +128,10 @@ class _TeamAddPlayerQuickScreenState
       }
 
       final resolved = player;
-      if (_squadIds.contains(resolved.id) ||
-          resolved.teamId == widget.teamId) {
-        setState(() =>
-            _lookupError = '${resolved.name} is already on this squad');
+      if (_squadIds.contains(resolved.id) || resolved.isOnTeam(widget.teamId)) {
+        setState(
+          () => _lookupError = '${resolved.name} is already on this squad',
+        );
       } else {
         setState(() => _found = resolved);
       }
@@ -146,21 +146,20 @@ class _TeamAddPlayerQuickScreenState
 
     setState(() => _saving = true);
     try {
-      await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-            playerId: player.id,
-            teamId: widget.teamId,
-          );
+      await ref
+          .read(playerRepositoryProvider)
+          .assignPlayerToTeam(playerId: player.id, teamId: widget.teamId);
       ref.invalidate(teamPlayersProvider(widget.teamId));
       if (!mounted) return;
       context.pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${player.name} added to squad')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${player.name} added to squad')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add player: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not add player: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -170,9 +169,9 @@ class _TeamAddPlayerQuickScreenState
   Future<void> _addWalkIn() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Player name is required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Player name is required')));
       return;
     }
 
@@ -189,21 +188,20 @@ class _TeamAddPlayerQuickScreenState
         createdBy: uid,
       );
       await ref.read(playerRepositoryProvider).createPlayer(player);
-      await ref.read(teamRepositoryProvider).addPlayerToTeam(
-            teamId: widget.teamId,
-            playerId: playerId,
-          );
+      await ref
+          .read(teamRepositoryProvider)
+          .addPlayerToTeam(teamId: widget.teamId, playerId: playerId);
       ref.invalidate(teamPlayersProvider(widget.teamId));
       if (!mounted) return;
       context.pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$name added to squad')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$name added to squad')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add player: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not add player: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -223,15 +221,15 @@ class _TeamAddPlayerQuickScreenState
                 Text(
                   'Find a registered player',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Enter their CrickFlow Player ID. They must have completed onboarding.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: AppDimens.spaceLg),
                 _sectionCard(
@@ -251,21 +249,23 @@ class _TeamAddPlayerQuickScreenState
                                   child: SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   ),
                                 )
                               : _playerIdController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear),
-                                      onPressed: () {
-                                        _playerIdController.clear();
-                                        setState(() {
-                                          _found = null;
-                                          _lookupError = null;
-                                        });
-                                      },
-                                    )
-                                  : null,
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _playerIdController.clear();
+                                    setState(() {
+                                      _found = null;
+                                      _lookupError = null;
+                                    });
+                                  },
+                                )
+                              : null,
                           border: const OutlineInputBorder(),
                         ),
                       ),
@@ -297,9 +297,8 @@ class _TeamAddPlayerQuickScreenState
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
                         'No CrickFlow account?',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: AppColors.textSecondary),
                       ),
                     ),
                     const Expanded(child: Divider()),
@@ -309,15 +308,15 @@ class _TeamAddPlayerQuickScreenState
                 Text(
                   'Add walk-in player',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'For guests who are not on CrickFlow — name only, no login required.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: AppDimens.spaceMd),
                 _sectionCard(
@@ -336,16 +335,20 @@ class _TeamAddPlayerQuickScreenState
                       DropdownButtonFormField<String>(
                         initialValue: _role,
                         decoration: const InputDecoration(labelText: 'Role'),
-                        items: const [
-                          'Player',
-                          'Captain',
-                          'Wicket Keeper',
-                          'All-rounder',
-                        ]
-                            .map(
-                              (r) => DropdownMenuItem(value: r, child: Text(r)),
-                            )
-                            .toList(),
+                        items:
+                            const [
+                                  'Player',
+                                  'Captain',
+                                  'Wicket Keeper',
+                                  'All-rounder',
+                                ]
+                                .map(
+                                  (r) => DropdownMenuItem(
+                                    value: r,
+                                    child: Text(r),
+                                  ),
+                                )
+                                .toList(),
                         onChanged: (v) {
                           if (v != null) setState(() => _role = v);
                         },
@@ -437,21 +440,21 @@ class _PlayerPreviewCard extends StatelessWidget {
                 Text(
                   player.name,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (player.playerId != null && player.playerId!.isNotEmpty)
                   Text(
                     CfPlayerIdFormat.displayLabel(player.playerId),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.gold,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.gold),
                   ),
                 Text(
                   player.role,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),

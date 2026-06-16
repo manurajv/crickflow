@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../shared/providers/my_player_provider.dart';
+import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_ui_provider.dart';
 import 'utils/teams_list_filter.dart';
@@ -32,18 +34,27 @@ class _TeamScreenState extends ConsumerState<TeamScreen>
   @override
   void initState() {
     super.initState();
+    _resetFilters();
     final tab = _resolveTabIndex(widget.initialTab);
     _tabs = TabController(length: 2, vsync: this, initialIndex: tab);
     _tabs.addListener(() {
       if (mounted) setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(teamsTabVisitCounterProvider.notifier).state++;
       final pending = ref.read(teamsInitialTabProvider);
       if (pending > 0) {
         _tabs.animateTo(pending.clamp(0, 1));
         ref.read(teamsInitialTabProvider.notifier).state = 0;
       }
     });
+  }
+
+  void _resetFilters() {
+    _scope = TeamListScope.yours;
+    _query = '';
+    _filterCountry = '';
+    _filterCity = '';
   }
 
   /// tab=1 create, tab=2 legacy create alias.
@@ -94,9 +105,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen>
               _filterCity = city;
             }),
           ),
-          CreateTeamForm(
-            onCreated: (_) => _tabs.animateTo(0),
-          ),
+          CreateTeamForm(onCreated: (_) => _tabs.animateTo(0)),
         ],
       ),
     );
@@ -125,27 +134,35 @@ class _TeamsBrowseTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final teamsAsync = ref.watch(allTeamsProvider);
+    final matchesAsync = ref.watch(matchesProvider);
     final uid = ref.watch(authStateProvider).value?.uid;
+    final player = ref.watch(myPlayerProvider).valueOrNull;
 
     return teamsAsync.when(
       data: (teams) {
+        final memberIds = TeamsListFilter.memberTeamIds(
+          teams: teams,
+          uid: uid,
+          player: player,
+        );
+        final opponentIds = TeamsListFilter.opponentTeamIds(
+          matches: matchesAsync.valueOrNull ?? [],
+          memberTeamIds: memberIds,
+        );
         final list = TeamsListFilter.apply(
           teams: teams,
+          scope: scope,
           query: query,
           country: filterCountry,
           city: filterCity,
-          uid: uid,
-          yoursOnly: scope == TeamListScope.yours && uid != null,
-          opponentsOnly: scope == TeamListScope.opponents && uid != null,
+          memberTeamIds: memberIds,
+          opponentTeamIds: opponentIds,
         );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TeamsSearchBar(
-              query: query,
-              onChanged: onSearchChanged,
-            ),
+            TeamsSearchBar(query: query, onChanged: onSearchChanged),
             TeamsScopeFilterBar(
               scope: scope,
               country: filterCountry,
@@ -162,7 +179,8 @@ class _TeamsBrowseTab extends ConsumerWidget {
                         children: [
                           _EmptyList(
                             scope: scope,
-                            hasFilters: query.isNotEmpty ||
+                            hasFilters:
+                                query.isNotEmpty ||
                                 filterCountry.isNotEmpty ||
                                 filterCity.isNotEmpty,
                           ),
@@ -170,15 +188,17 @@ class _TeamsBrowseTab extends ConsumerWidget {
                       )
                     : ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding:
-                            const EdgeInsets.only(bottom: AppDimens.spaceLg),
-                        itemCount: list.length,
-                        separatorBuilder: (context, index) => const Divider(
-                          height: 1,
-                          color: AppColors.border,
+                        padding: const EdgeInsets.only(
+                          bottom: AppDimens.spaceLg,
                         ),
-                        itemBuilder: (context, index) =>
-                            TeamListTile(team: list[index]),
+                        itemCount: list.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1, color: AppColors.border),
+                        itemBuilder: (context, index) => TeamListTile(
+                              team: list[index],
+                              listScope: scope,
+                              memberTeamIds: memberIds,
+                            ),
                       ),
               ),
             ),
@@ -202,9 +222,10 @@ class _EmptyList extends StatelessWidget {
     final message = hasFilters
         ? 'No teams match your filters'
         : switch (scope) {
-            TeamListScope.yours => 'No teams yet — use the Add tab',
-            TeamListScope.opponents => 'No opponent teams',
-            TeamListScope.all => 'No teams found',
+            TeamListScope.yours => 'No teams yet — join or create a team',
+            TeamListScope.opponents =>
+              'No opponent teams — play a match to see opponents here',
+            TeamListScope.all => 'No teams registered yet',
           };
 
     return Padding(
@@ -225,9 +246,9 @@ class _EmptyList extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),

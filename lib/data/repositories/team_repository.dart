@@ -7,12 +7,10 @@ import '../models/team_model.dart';
 import '../services/team_qr_service.dart';
 
 class TeamRepository {
-  TeamRepository({
-    FirebaseFirestore? firestore,
-    TeamQrService? qrService,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _uuid = const Uuid(),
-        _qrService = qrService ?? TeamQrService();
+  TeamRepository({FirebaseFirestore? firestore, TeamQrService? qrService})
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _uuid = const Uuid(),
+      _qrService = qrService ?? TeamQrService();
 
   final FirebaseFirestore _firestore;
   final Uuid _uuid;
@@ -31,14 +29,10 @@ class TeamRepository {
         final snap = await tx.get(_teamCodeCounter);
         final last = snap.data()?['lastNumber'] as int? ?? 0;
         final next = last + 1;
-        tx.set(
-          _teamCodeCounter,
-          {
-            'lastNumber': next,
-            'updatedAt': DateTime.now().toIso8601String(),
-          },
-          SetOptions(merge: true),
-        );
+        tx.set(_teamCodeCounter, {
+          'lastNumber': next,
+          'updatedAt': DateTime.now().toIso8601String(),
+        }, SetOptions(merge: true));
         return CfTeamIdFormat.format(next);
       });
     } on FirebaseException catch (e) {
@@ -93,6 +87,7 @@ class TeamRepository {
       coachName: team.coachName,
       contactNumber: team.contactNumber,
       playerIds: team.playerIds,
+      memberCount: team.playerIds.length,
       location: team.location,
       stats: team.stats,
       badgeIds: team.badgeIds,
@@ -166,20 +161,26 @@ class TeamRepository {
   /// Lookup by public team code (e.g. TM00042).
   Future<TeamModel?> getTeamByTeamCode(String teamCode) async {
     final normalized = CfTeamIdFormat.normalize(teamCode);
-    final snap =
-        await _col.where('teamCode', isEqualTo: normalized).limit(1).get();
+    final snap = await _col
+        .where('teamCode', isEqualTo: normalized)
+        .limit(1)
+        .get();
     if (snap.docs.isEmpty) return null;
     return TeamModel.fromMap(snap.docs.first.id, snap.docs.first.data());
   }
 
   Stream<List<TeamModel>> watchTeams({String? createdBy}) {
-    Query<Map<String, dynamic>> query =
-        _col.orderBy('createdAt', descending: true);
+    Query<Map<String, dynamic>> query = _col.orderBy(
+      'createdAt',
+      descending: true,
+    );
     if (createdBy != null) {
       query = query.where('createdBy', isEqualTo: createdBy);
     }
-    return query.snapshots().map((snap) =>
-        snap.docs.map((d) => TeamModel.fromMap(d.id, d.data())).toList());
+    return query.snapshots().map(
+      (snap) =>
+          snap.docs.map((d) => TeamModel.fromMap(d.id, d.data())).toList(),
+    );
   }
 
   Stream<TeamModel?> watchTeam(String id) {
@@ -197,5 +198,28 @@ class TeamRepository {
       'playerIds': FieldValue.arrayUnion([playerId]),
       'updatedAt': DateTime.now().toIso8601String(),
     });
+  }
+
+  Future<void> updateCaptainRoles({
+    required String teamId,
+    String? captainId,
+    String? viceCaptainId,
+    bool clearCaptain = false,
+    bool clearViceCaptain = false,
+  }) async {
+    final updates = <String, dynamic>{
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    if (clearCaptain) {
+      updates['captainId'] = FieldValue.delete();
+    } else if (captainId != null) {
+      updates['captainId'] = captainId;
+    }
+    if (clearViceCaptain) {
+      updates['viceCaptainId'] = FieldValue.delete();
+    } else if (viceCaptainId != null) {
+      updates['viceCaptainId'] = viceCaptainId;
+    }
+    await _col.doc(teamId).update(updates);
   }
 }

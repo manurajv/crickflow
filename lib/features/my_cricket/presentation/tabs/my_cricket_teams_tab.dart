@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../shared/providers/notification_provider.dart';
+import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/providers/team_ui_provider.dart';
 import '../../../teams/presentation/utils/teams_list_filter.dart';
 import '../../../teams/presentation/widgets/team_list_scope.dart';
 import '../../../teams/presentation/widgets/team_list_tile.dart';
@@ -27,26 +28,29 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final profile = ref.read(currentUserProfileProvider).valueOrNull;
-      if (profile != null && !profile.location.isEmpty) {
-        setState(() {
-          _country = profile.location.country;
-          _city = profile.location.city;
-        });
-      }
-    });
+    _resetLocationFilters();
   }
 
-  void _openCreateTeam() {
-    ref.read(teamsInitialTabProvider.notifier).state = 1;
-    context.push('/teams?tab=1');
+  void _resetLocationFilters() {
+    setState(() {
+      _country = '';
+      _city = '';
+      _scope = TeamListScope.yours;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(teamsTabVisitCounterProvider, (previous, next) {
+      if (next > (previous ?? 0)) {
+        _resetLocationFilters();
+      }
+    });
+
     final teamsAsync = ref.watch(allTeamsProvider);
+    final matchesAsync = ref.watch(matchesProvider);
     final uid = ref.watch(authStateProvider).value?.uid;
+    final player = ref.watch(myPlayerProvider).valueOrNull;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -86,15 +90,23 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
             onRefresh: () async => ref.invalidate(allTeamsProvider),
             child: teamsAsync.when(
               data: (allTeams) {
+                final memberIds = TeamsListFilter.memberTeamIds(
+                  teams: allTeams,
+                  uid: uid,
+                  player: player,
+                );
+                final opponentIds = TeamsListFilter.opponentTeamIds(
+                  matches: matchesAsync.valueOrNull ?? [],
+                  memberTeamIds: memberIds,
+                );
                 var list = TeamsListFilter.apply(
                   teams: allTeams,
+                  scope: _scope,
                   query: _search,
                   country: _country,
                   city: _city,
-                  uid: uid,
-                  yoursOnly: _scope == TeamListScope.yours && uid != null,
-                  opponentsOnly:
-                      _scope == TeamListScope.opponents && uid != null,
+                  memberTeamIds: memberIds,
+                  opponentTeamIds: opponentIds,
                 );
 
                 if (list.isEmpty) {
@@ -118,8 +130,11 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
                   itemCount: list.length,
                   separatorBuilder: (context, index) =>
                       const Divider(height: 1, color: AppColors.border),
-                  itemBuilder: (context, index) =>
-                      TeamListTile(team: list[index]),
+                  itemBuilder: (context, index) => TeamListTile(
+                        team: list[index],
+                        listScope: _scope,
+                        memberTeamIds: memberIds,
+                      ),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -135,6 +150,10 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
         ),
       ],
     );
+  }
+
+  void _openCreateTeam() {
+    context.push('/teams/create');
   }
 }
 
@@ -160,15 +179,15 @@ class _EmptyTeamsState extends StatelessWidget {
         : switch (scope) {
             TeamListScope.yours => (
                 'No teams yet',
-                'Create a team to add players and join matches',
+                'Teams you join will appear here',
               ),
             TeamListScope.opponents => (
                 'No opponent teams',
-                'Teams you have not joined will appear here',
+                'Teams your squad has played against will appear here',
               ),
             TeamListScope.all => (
                 'No teams found',
-                'Teams registered on CrickFlow will show here',
+                'Registered teams on CrickFlow will show here',
               ),
           };
 

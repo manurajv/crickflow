@@ -7,7 +7,11 @@ service firebase.storage {
     }
 
     function isImageJpeg() {
-      return request.resource.contentType.matches('image/jpeg');
+      return request.resource.contentType.matches('image/(jpeg|jpg)');
+    }
+
+    function isTeamImage() {
+      return request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
     }
 
     function isImagePng() {
@@ -22,6 +26,10 @@ service firebase.storage {
       return request.resource.size < 2 * 1024 * 1024;
     }
 
+    function under5Mb() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
     function under512Kb() {
       return request.resource.size < 512 * 1024;
     }
@@ -30,28 +38,44 @@ service firebase.storage {
       return request.resource.size < 25 * 1024 * 1024;
     }
 
-    // Single Firestore read — Storage rules allow at most 2 cross-service calls.
-    function teamDoc(teamId) {
+    // Single Firestore read per evaluation (deduped by path).
+    function teamSnapshot(teamId) {
       return firestore.get(/databases/(default)/documents/teams/$(teamId));
     }
 
     function isTeamCreator(teamId) {
-      let team = teamDoc(teamId);
+      let team = teamSnapshot(teamId);
       return isSignedIn()
-        && team != null
+        && team.exists
         && team.data.createdBy == request.auth.uid;
     }
 
-    // Logo upload during create (before doc) or by creator after doc exists.
-    function canWriteTeamLogo(teamId) {
+    // Profile/cover/logo upload during create (before doc) or by creator after.
+    function canWriteTeamImages(teamId) {
+      let team = teamSnapshot(teamId);
       return isSignedIn() && (
-        !firestore.exists(/databases/(default)/documents/teams/$(teamId))
-        || isTeamCreator(teamId)
+        !team.exists
+        || team.data.createdBy == request.auth.uid
       );
     }
 
+    function isOwnTeamProfileFile(name) {
+      return name == 'profile_' + request.auth.uid + '.jpg';
+    }
+
+    function isOwnTeamCoverFile(name) {
+      return name == 'cover_' + request.auth.uid + '.jpg';
+    }
+
+    // Legacy logo path (still written as profile alias in older clients).
     function isOwnTeamLogoFile(name) {
       return name == 'logo_' + request.auth.uid + '.jpg';
+    }
+
+    function isOwnTeamImageFile(name) {
+      return isOwnTeamProfileFile(name)
+        || isOwnTeamCoverFile(name)
+        || isOwnTeamLogoFile(name);
     }
 
     function playerDocument(playerId) {
@@ -86,10 +110,13 @@ service firebase.storage {
       allow read: if true;
       allow write: if isSignedIn() && (
         (
-          isOwnTeamLogoFile(fileName)
-          && isImageJpeg()
-          && under2Mb()
-          && canWriteTeamLogo(teamId)
+          isOwnTeamImageFile(fileName)
+          && isTeamImage()
+          && (
+            (isOwnTeamCoverFile(fileName) && under5Mb())
+            || under2Mb()
+          )
+          && canWriteTeamImages(teamId)
         )
         || (
           fileName == 'invite_qr.png'

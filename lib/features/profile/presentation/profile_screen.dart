@@ -220,6 +220,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         .ensurePlayerProfileForUser(
                           userId: user.id,
                           displayName: user.displayName,
+                          fullName: user.name,
                           photoUrl: user.photoUrl,
                           email: user.email,
                         );

@@ -6,6 +6,7 @@ import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/user_model.dart';
+import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/location_filter_bar.dart';
 import '../../../shared/widgets/match_list_card.dart';
@@ -45,6 +46,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final role = profile?.role ?? UserRole.organizer;
     final isViewer = !isGuest && role == UserRole.viewer;
     final showCreateUi = isGuest || !isViewer;
+    final unreadCount = ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
 
     Future<void> openCreateMatch() async {
       await requireAuthVoid(
@@ -71,7 +73,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : null,
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_outlined),
           onPressed: () {
             requireAuthVoid(
               context: context,
@@ -82,6 +83,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             );
           },
+          icon: Badge(
+            isLabelVisible: unreadCount > 0,
+            label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+            backgroundColor: AppColors.accentRed,
+            child: Icon(
+              unreadCount > 0
+                  ? Icons.notifications
+                  : Icons.notifications_outlined,
+              color: unreadCount > 0 ? AppColors.gold : null,
+            ),
+          ),
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined),

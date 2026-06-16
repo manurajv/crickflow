@@ -54,9 +54,9 @@ class MyCricketHighlightsTab extends ConsumerWidget {
                       return true;
                     }
                     if (myPlayer != null) {
-                      final inA = m.teamAId == myPlayer.teamId;
-                      final inB = m.teamBId == myPlayer.teamId;
-                      return inA || inB;
+                      return myPlayer.effectiveTeamIds.any(
+                        (id) => m.teamAId == id || m.teamBId == id,
+                      );
                     }
                     return false;
                   })

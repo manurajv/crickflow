@@ -13,19 +13,10 @@ class FirebaseBootstrap {
     );
 
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    try {
-      await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-    } catch (_) {
-      // Non-fatal when offline or permission denied.
-    }
   }
 }
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Handled when app is backgrounded; extend for deep links in Phase 2.
+  // Background/killed: FCM notification payload is shown by the OS automatically.
 }

@@ -18,8 +18,7 @@ bool userParticipatedInMatch(
   Set<String> userTeamIds = const {},
 }) {
   if (userOwnsOrScoresMatch(m, uid)) return true;
-  final teamId = player?.teamId;
-  if (teamId != null && teamId.isNotEmpty) {
+  for (final teamId in player?.effectiveTeamIds ?? const <String>[]) {
     if (m.teamAId == teamId || m.teamBId == teamId) return true;
   }
   if (m.teamAId != null && userTeamIds.contains(m.teamAId)) return true;

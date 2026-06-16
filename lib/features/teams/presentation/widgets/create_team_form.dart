@@ -57,8 +57,11 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
       return;
     }
 
-    final profile = await ref.read(userRepositoryProvider).getUser(authUser.uid) ??
-        await ref.read(authRepositoryProvider).ensureProfileForAuthUser(authUser);
+    final profile =
+        await ref.read(userRepositoryProvider).getUser(authUser.uid) ??
+        await ref
+            .read(authRepositoryProvider)
+            .ensureProfileForAuthUser(authUser);
     if (!mounted) return;
 
     setState(() {
@@ -78,8 +81,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
           _dialCode = dial;
           _phoneController.text = mobile.substring(dial.length);
         } else {
-          _phoneController.text =
-              mobile.replaceFirst(RegExp(r'^\+\d+\s*'), '');
+          _phoneController.text = mobile.replaceFirst(RegExp(r'^\+\d+\s*'), '');
         }
       }
       _locationReady = true;
@@ -179,7 +181,9 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
       return;
     }
     if (_location.city.trim().isEmpty) {
-      _showValidationError('City is required — search or enter your team location');
+      _showValidationError(
+        'City is required — search or enter your team location',
+      );
       return;
     }
 
@@ -188,8 +192,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
       _showValidationError('Enter a valid contact number (digits only)');
       return;
     }
-    final contactNumber =
-        phoneRaw.isEmpty ? null : '$_dialCode$phoneRaw';
+    final contactNumber = phoneRaw.isEmpty ? null : '$_dialCode$phoneRaw';
 
     setState(() => _saving = true);
     try {
@@ -208,17 +211,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
         logoUrl = await ref
             .read(storageServiceProvider)
             .uploadTeamLogo(_teamId, _logoFile!);
-        saved = TeamModel(
-          id: saved.id,
-          teamCode: saved.teamCode,
-          qrUrl: saved.qrUrl,
-          name: saved.name,
-          logoUrl: logoUrl,
-          contactNumber: saved.contactNumber,
-          location: saved.location,
-          createdBy: saved.createdBy,
-          createdAt: saved.createdAt,
-        );
+        saved = saved.copyWith(teamProfileImageUrl: logoUrl, logoUrl: logoUrl);
         await ref.read(teamRepositoryProvider).updateTeam(saved);
       }
 
@@ -229,26 +222,24 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
             .ensurePlayerProfileForUser(
               userId: uid,
               displayName: profile?.displayName ?? name,
+              fullName: profile?.name,
               photoUrl: profile?.photoUrl,
               email: profile?.email,
             );
-        await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-              playerId: player.id,
-              teamId: _teamId,
-            );
-        await ref.read(teamRepositoryProvider).updateTeam(
-              TeamModel(
-                id: _teamId,
-                teamCode: saved.teamCode,
-                qrUrl: saved.qrUrl,
+        await ref
+            .read(playerRepositoryProvider)
+            .assignPlayerToTeam(playerId: player.id, teamId: _teamId);
+        await ref
+            .read(teamRepositoryProvider)
+            .updateTeam(
+              saved.copyWith(
                 name: name,
+                teamProfileImageUrl: logoUrl,
                 logoUrl: logoUrl,
                 captainId: player.id,
                 contactNumber: contactNumber,
                 playerIds: [player.id],
-                location: saved.location,
                 createdBy: uid,
-                createdAt: saved.createdAt,
               ),
             );
       }
@@ -258,9 +249,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
       context.push('/teams/$_teamId');
       final codeLabel = CfTeamIdFormat.displayLabel(saved.teamCode);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${saved.name} created · Team ID $codeLabel'),
-        ),
+        SnackBar(content: Text('${saved.name} created · Team ID $codeLabel')),
       );
     } catch (e) {
       if (mounted) {
@@ -288,15 +277,15 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
               Text(
                 'Create your team',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Add your team logo, location, and contact details. Team ID (e.g. TM00001) and QR are created when you save.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: AppDimens.spaceLg),
               Card(
@@ -375,8 +364,9 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
                       OnboardingLocationSection(
                         initialLocation: _location,
                         onLocationChanged: _onLocationChanged,
-                        locationService:
-                            ref.read(googleMapsLocationServiceProvider),
+                        locationService: ref.read(
+                          googleMapsLocationServiceProvider,
+                        ),
                       ),
                       const SizedBox(height: AppDimens.spaceMd),
                       Row(
@@ -387,7 +377,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
                             child: Builder(
                               builder: (context) {
                                 final dialCodes = [
-                                  ...CricketCountry.phoneDialCodes
+                                  ...CricketCountry.phoneDialCodes,
                                 ];
                                 if (!dialCodes.contains(_dialCode)) {
                                   dialCodes.insert(0, _dialCode);

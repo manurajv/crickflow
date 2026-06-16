@@ -5,10 +5,7 @@ import '../../../../data/models/team_model.dart';
 import 'team_invite_share_card.dart';
 
 /// Bottom sheet with team QR, link, and share actions.
-Future<void> showTeamInviteShareSheet(
-  BuildContext context,
-  TeamModel team,
-) {
+Future<void> showTeamInviteShareSheet(BuildContext context, TeamModel team) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -17,9 +14,7 @@ Future<void> showTeamInviteShareSheet(
       padding: EdgeInsets.only(
         bottom: MediaQuery.paddingOf(ctx).bottom + AppDimens.spaceMd,
       ),
-      child: SingleChildScrollView(
-        child: TeamInviteShareCard(team: team),
-      ),
+      child: SingleChildScrollView(child: TeamInviteShareCard(team: team)),
     ),
   );
 }

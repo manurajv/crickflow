@@ -62,7 +62,9 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
   Future<void> _search(String query) async {
     setState(() => _searching = true);
     try {
-      final results = await ref.read(playerRepositoryProvider).searchAvailablePlayers(
+      final results = await ref
+          .read(playerRepositoryProvider)
+          .searchAvailablePlayers(
             excludeTeamId: widget.teamId,
             alreadyOnSquadIds: _squadIds,
             query: query,
@@ -74,16 +76,15 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
   }
 
   Future<void> _addExisting(PlayerModel player) async {
-    await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-          playerId: player.id,
-          teamId: widget.teamId,
-        );
+    await ref
+        .read(playerRepositoryProvider)
+        .assignPlayerToTeam(playerId: player.id, teamId: widget.teamId);
     if (!mounted) return;
     ref.invalidate(teamPlayersProvider(widget.teamId));
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${player.name} added to squad')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${player.name} added to squad')));
   }
 
   Future<void> _createNew() async {
@@ -102,17 +103,16 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
     );
 
     await ref.read(playerRepositoryProvider).createPlayer(player);
-    await ref.read(teamRepositoryProvider).addPlayerToTeam(
-          teamId: widget.teamId,
-          playerId: playerId,
-        );
+    await ref
+        .read(teamRepositoryProvider)
+        .addPlayerToTeam(teamId: widget.teamId, playerId: playerId);
 
     if (!mounted) return;
     ref.invalidate(teamPlayersProvider(widget.teamId));
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$name added to squad')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$name added to squad')));
   }
 
   @override
@@ -140,10 +140,7 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
             height: MediaQuery.of(context).size.height * 0.55,
             child: TabBarView(
               controller: _tabs,
-              children: [
-                _existingTab(),
-                _newPlayerTab(),
-              ],
+              children: [_existingTab(), _newPlayerTab()],
             ),
           ),
         ],
@@ -176,39 +173,44 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
           child: _searching
               ? const Center(child: CircularProgressIndicator())
               : _results.isEmpty
-                  ? const Center(child: Text('No matching players found'))
-                  : ListView.builder(
-                      itemCount: _results.length,
-                      itemBuilder: (_, i) {
-                        final p = _results[i];
-                        final onOtherTeam =
-                            p.teamId != null && p.teamId != widget.teamId;
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: p.photoUrl != null
-                                ? CachedNetworkImageProvider(p.photoUrl!)
-                                : null,
-                            child: p.photoUrl == null
-                                ? Text(
-                                    p.name.isNotEmpty
-                                        ? p.name[0].toUpperCase()
-                                        : '?',
-                                  )
-                                : null,
-                          ),
-                          title: Text(p.name),
-                          subtitle: Text(
-                            [
-                              if (p.userId != null) 'Registered account',
-                              if (onOtherTeam) 'On another team — will transfer',
-                              if (p.role.isNotEmpty) p.role,
-                            ].join(' • '),
-                          ),
-                          trailing: const Icon(Icons.add_circle_outline),
-                          onTap: () => _addExisting(p),
-                        );
-                      },
-                    ),
+              ? const Center(child: Text('No matching players found'))
+              : ListView.builder(
+                  itemCount: _results.length,
+                  itemBuilder: (_, i) {
+                    final p = _results[i];
+                    final onThisTeam = p.isOnTeam(widget.teamId);
+                    final onOtherTeams = p.effectiveTeamIds
+                        .where((id) => id != widget.teamId)
+                        .isNotEmpty;
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: p.photoUrl != null
+                            ? CachedNetworkImageProvider(p.photoUrl!)
+                            : null,
+                        child: p.photoUrl == null
+                            ? Text(
+                                p.name.isNotEmpty
+                                    ? p.name[0].toUpperCase()
+                                    : '?',
+                              )
+                            : null,
+                      ),
+                      title: Text(p.name),
+                      subtitle: Text(
+                        [
+                          if (p.userId != null) 'Registered account',
+                          if (onThisTeam) 'Already on this team',
+                          if (onOtherTeams) 'Also plays for other teams',
+                          if (p.role.isNotEmpty) p.role,
+                        ].join(' • '),
+                      ),
+                      trailing: onThisTeam
+                          ? null
+                          : const Icon(Icons.add_circle_outline),
+                      onTap: onThisTeam ? null : () => _addExisting(p),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -239,9 +241,12 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
           DropdownButtonFormField<String>(
             initialValue: _newPlayerRole,
             decoration: const InputDecoration(labelText: 'Role'),
-            items: ['Player', 'Captain', 'Wicket Keeper', 'All-rounder']
-                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                .toList(),
+            items: [
+              'Player',
+              'Captain',
+              'Wicket Keeper',
+              'All-rounder',
+            ].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
             onChanged: (v) {
               if (v != null) setState(() => _newPlayerRole = v);
             },

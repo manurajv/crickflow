@@ -42,6 +42,8 @@ import '../../features/teams/presentation/team_add_player_directory_screen.dart'
 import '../../features/teams/presentation/team_add_player_quick_screen.dart';
 import '../../features/teams/presentation/team_add_players_screen.dart';
 import '../../features/teams/presentation/team_detail_screen.dart';
+import '../../features/teams/presentation/team_edit_screen.dart';
+import '../../features/teams/presentation/create_team_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_screen.dart';
 import '../../features/wagon_wheel/presentation/wagon_wheel_view_screen.dart';
@@ -128,7 +130,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     onException: (context, state, router) {
-      final path = DeepLinkUtils.pathFromUri(state.uri) ??
+      final path =
+          DeepLinkUtils.pathFromUri(state.uri) ??
           DeepLinkUtils.normalizeLocation(state.uri.toString());
       if (path != null) {
         router.go(path);
@@ -138,7 +141,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
-      GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (_, __) => const OnboardingScreen(),
+      ),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(
         path: '/player-onboarding',
@@ -151,10 +157,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: '/home',
-                builder: (_, __) => const HomeScreen(),
-              ),
+              GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
             ],
           ),
           StatefulShellBranch(
@@ -241,10 +244,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(
-            path: 'toss',
-            builder: (_, __) => const MatchTossScreen(),
-          ),
+          GoRoute(path: 'toss', builder: (_, __) => const MatchTossScreen()),
           GoRoute(
             path: 'powerplay',
             builder: (_, state) {
@@ -338,15 +338,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/teams/create',
+        builder: (_, __) => const CreateTeamScreen(),
+      ),
+      GoRoute(
         path: '/teams/:id',
         builder: (_, state) =>
             TeamDetailScreen(teamId: state.pathParameters['id']!),
         routes: [
           GoRoute(
+            path: 'edit',
+            builder: (_, state) =>
+                TeamEditScreen(teamId: state.pathParameters['id']!),
+          ),
+          GoRoute(
             path: 'add-players',
-            builder: (_, state) => TeamAddPlayersScreen(
-              teamId: state.pathParameters['id']!,
-            ),
+            builder: (_, state) =>
+                TeamAddPlayersScreen(teamId: state.pathParameters['id']!),
             routes: [
               GoRoute(
                 path: 'quick',

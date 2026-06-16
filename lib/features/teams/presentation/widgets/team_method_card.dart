@@ -41,9 +41,14 @@ class TeamMethodCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    backgroundColor:
-                        AppColors.primaryBlue.withValues(alpha: 0.25),
-                    child: Icon(icon, color: AppColors.primaryBlueLight, size: 28),
+                    backgroundColor: AppColors.primaryBlue.withValues(
+                      alpha: 0.25,
+                    ),
+                    child: Icon(
+                      icon,
+                      color: AppColors.primaryBlueLight,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: AppDimens.spaceMd),
                   Expanded(

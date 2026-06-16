@@ -9,6 +9,7 @@ class AppConstants {
   // Firestore collections
   static const String usersCollection = 'users';
   static const String teamsCollection = 'teams';
+  static const String teamJoinRequestsSubcollection = 'join_requests';
   static const String playersCollection = 'players';
   static const String matchesCollection = 'matches';
   static const String tournamentsCollection = 'tournaments';
