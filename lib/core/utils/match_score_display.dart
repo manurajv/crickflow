@@ -2,8 +2,9 @@ import '../constants/enums.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
+import '../../domain/scoring/innings_completion_policy.dart';
 import '../../domain/scoring/match_completion_policy.dart';
-import 'cricket_math.dart';
+import 'overs_formatter.dart';
 
 /// First innings totals shown during the break / chase.
 class FirstInningsSummary {
@@ -98,23 +99,37 @@ class MatchScoreDisplay {
   static FirstInningsSummary? completedFirstInnings(MatchModel match) {
     final first = firstInnings(match);
     if (first == null || first.status != InningsStatus.completed) return null;
-    final rules = match.rules;
     return FirstInningsSummary(
       runs: first.totalRuns,
       wickets: first.totalWickets,
-      overs: CricketMath.formatOvers(first.legalBalls, rules.ballsPerOver),
-      runRate: CricketMath.runRate(
+      overs: OversFormatter.formatOvers(
+        first.legalBalls,
+        match.rules.ballsPerOver,
+      ),
+      runRate: OversFormatter.calculateRunRate(
         first.totalRuns,
         first.legalBalls,
-        rules.ballsPerOver,
+        match.rules.ballsPerOver,
       ),
       target: first.totalRuns + 1,
       battingTeamName: battingTeamName(match, first),
     );
   }
 
-  static double runRateFor(InningsModel inn, MatchRulesModel rules) =>
-      CricketMath.runRate(inn.totalRuns, inn.legalBalls, rules.ballsPerOver);
+  static double runRateFor(
+    InningsModel inn,
+    MatchRulesModel rules, {
+    MatchModel? match,
+  }) {
+    final ballsPerOver = match != null
+        ? InningsCompletionPolicy.effectiveRules(match, inn).ballsPerOver
+        : rules.ballsPerOver;
+    return OversFormatter.calculateRunRate(
+      inn.totalRuns,
+      inn.legalBalls,
+      ballsPerOver,
+    );
+  }
 
   /// Chase line for 2nd innings in progress, e.g. "Need 42 off 54 balls · RRR 4.67".
   static String? chaseLine(MatchModel match) {
@@ -126,14 +141,14 @@ class MatchScoreDisplay {
         cur.status != InningsStatus.inProgress) {
       return null;
     }
-    final rules = match.rules;
+    final rules = InningsCompletionPolicy.effectiveRules(match, cur);
     final target = first.target;
     final runsNeeded = (target - cur.totalRuns).clamp(0, 9999);
     final ballsRemaining =
         (rules.totalBalls - cur.legalBalls).clamp(0, rules.totalBalls);
     if (runsNeeded <= 0) return 'Target reached';
     if (ballsRemaining <= 0) return 'Need $runsNeeded runs';
-    final rrr = CricketMath.requiredRunRate(
+    final rrr = OversFormatter.calculateRequiredRunRate(
       runsNeeded: runsNeeded,
       ballsRemaining: ballsRemaining,
       ballsPerOver: rules.ballsPerOver,

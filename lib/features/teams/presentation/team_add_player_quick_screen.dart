@@ -146,9 +146,12 @@ class _TeamAddPlayerQuickScreenState
 
     setState(() => _saving = true);
     try {
-      await ref
-          .read(playerRepositoryProvider)
-          .assignPlayerToTeam(playerId: player.id, teamId: widget.teamId);
+      final uid = ref.read(authStateProvider).value?.uid;
+      await ref.read(playerRepositoryProvider).assignPlayerToTeam(
+            playerId: player.id,
+            teamId: widget.teamId,
+            addedByUserId: uid,
+          );
       ref.invalidate(teamPlayersProvider(widget.teamId));
       if (!mounted) return;
       context.pop();
@@ -188,9 +191,11 @@ class _TeamAddPlayerQuickScreenState
         createdBy: uid,
       );
       await ref.read(playerRepositoryProvider).createPlayer(player);
-      await ref
-          .read(teamRepositoryProvider)
-          .addPlayerToTeam(teamId: widget.teamId, playerId: playerId);
+      await ref.read(playerRepositoryProvider).assignPlayerToTeam(
+            playerId: playerId,
+            teamId: widget.teamId,
+            addedByUserId: uid,
+          );
       ref.invalidate(teamPlayersProvider(widget.teamId));
       if (!mounted) return;
       context.pop();

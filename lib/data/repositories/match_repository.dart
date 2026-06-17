@@ -5,6 +5,7 @@ import '../../core/constants/enums.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
+import '../../data/models/over_metadata_model.dart';
 import '../../data/models/over_note_model.dart';
 import '../../data/models/overlay_state_model.dart';
 import '../../data/models/scorer_transfer_models.dart';
@@ -180,7 +181,12 @@ class MatchRepository {
 
     await _commitMatchState(
       matchId: match.id,
-      matchData: _matchDataWithOverNote(result.match, overNote, eventId),
+      matchData: _matchDataWithOverLifecycle(
+        result.match,
+        overNote: overNote,
+        overMetadata: result.overMetadata,
+        ballEventId: eventId,
+      ),
       event: event,
       overlay: result.overlay,
     );
@@ -317,7 +323,15 @@ class MatchRepository {
           (n) => n.ballEventId == null || !removedIds.contains(n.ballEventId),
         )
         .toList();
-    replayed = replayed.copyWith(overNotes: keptNotes);
+    final keptMetadata = match.overMetadata
+        .where(
+          (m) => m.ballEventId == null || !removedIds.contains(m.ballEventId),
+        )
+        .toList();
+    replayed = replayed.copyWith(
+      overNotes: keptNotes,
+      overMetadata: keptMetadata,
+    );
 
     final overlay = _scoringEngine.buildOverlayForMatch(replayed);
 
@@ -536,20 +550,33 @@ class MatchRepository {
     });
   }
 
-  Map<String, dynamic> _matchDataWithOverNote(
-    MatchModel match,
+  Map<String, dynamic> _matchDataWithOverLifecycle(
+    MatchModel match, {
     OverNoteModel? overNote,
-    String ballEventId,
-  ) {
-    final data = match.toMap();
-    if (overNote == null) return data;
-    final notes = List<Map<String, dynamic>>.from(
-      data['overNotes'] as List? ?? [],
-    );
-    notes.add(
-      overNote.copyWith(ballEventId: ballEventId).toMap(),
-    );
-    data['overNotes'] = notes;
+    OverMetadataModel? overMetadata,
+    required String ballEventId,
+  }) {
+    var data = match.toMap();
+    if (overNote != null) {
+      final notes = List<Map<String, dynamic>>.from(
+        data['overNotes'] as List? ?? [],
+      );
+      notes.add(
+        overNote.copyWith(ballEventId: ballEventId).toMap(),
+      );
+      data['overNotes'] = notes;
+    }
+    if (overMetadata != null) {
+      final metadata = overMetadata.copyWith(
+        ballEventId: ballEventId,
+        reason: overNote?.reason ?? overMetadata.reason,
+      );
+      final list = List<Map<String, dynamic>>.from(
+        data['overMetadata'] as List? ?? [],
+      );
+      list.add(metadata.toMap());
+      data['overMetadata'] = list;
+    }
     return data;
   }
 

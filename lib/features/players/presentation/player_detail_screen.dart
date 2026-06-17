@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/cricket_math.dart';
+import '../../../core/utils/overs_formatter.dart';
 import '../../../shared/providers/badge_provider.dart';
 import '../../../shared/widgets/badge_gallery.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_filter.dart';
@@ -31,10 +33,10 @@ class PlayerDetailScreen extends ConsumerWidget {
             player.stats.runs,
             player.stats.ballsFaced,
           );
-          final economy = CricketMath.economyRate(
+          final economy = OversFormatter.calculateEconomy(
             player.stats.runsConceded,
             player.stats.oversBowledBalls,
-            6,
+            AppConstants.defaultBallsPerOver,
           );
 
           return ListView(

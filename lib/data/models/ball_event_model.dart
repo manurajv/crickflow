@@ -9,6 +9,7 @@ class BallEventModel extends Equatable {
     required this.matchId,
     required this.inningsNumber,
     required this.overNumber,
+    this.overSegment = 1,
     required this.ballInOver,
     required this.eventType,
     this.runs = 0,
@@ -79,12 +80,20 @@ class BallEventModel extends Equatable {
     this.runOutDeliveryKind,
     this.retiredHurt = false,
     this.isEligibleToReturn = false,
+    this.isBowlerChange = false,
+    this.previousBowlerId,
+    this.bowlerChangeReason,
+    this.swapReason,
+    this.runsCancelled,
+    this.swapNote,
   });
 
   final String id;
   final String matchId;
   final int inningsNumber;
   final int overNumber;
+  /// Segment within [overNumber] when bowlers change mid-over (1 = A, 2 = B, …).
+  final int overSegment;
   final int ballInOver;
   final BallEventType eventType;
   final int runs;
@@ -167,6 +176,12 @@ class BallEventModel extends Equatable {
   final RunOutDeliveryKind? runOutDeliveryKind;
   final bool retiredHurt;
   final bool isEligibleToReturn;
+  final bool isBowlerChange;
+  final String? previousBowlerId;
+  final String? bowlerChangeReason;
+  final String? swapReason;
+  final int? runsCancelled;
+  final String? swapNote;
 
   /// Alias for [batsmanRuns] per ball-event spec.
   int get runsOffBat => batsmanRuns;
@@ -189,6 +204,7 @@ class BallEventModel extends Equatable {
       matchId: map['matchId'] as String? ?? '',
       inningsNumber: map['inningsNumber'] as int? ?? 1,
       overNumber: map['overNumber'] as int? ?? 0,
+      overSegment: map['overSegment'] as int? ?? 1,
       ballInOver: map['ballInOver'] as int? ?? 0,
       eventType: BallEventType.values.firstWhere(
         (e) => e.name == map['eventType'],
@@ -274,6 +290,18 @@ class BallEventModel extends Equatable {
       ),
       retiredHurt: map['retiredHurt'] as bool? ?? false,
       isEligibleToReturn: map['isEligibleToReturn'] as bool? ?? false,
+      isBowlerChange: map['isBowlerChange'] as bool? ??
+          map['bowlerChange'] as bool? ??
+          false,
+      previousBowlerId: map['previousBowlerId'] as String?,
+      bowlerChangeReason: map['bowlerChangeReason'] as String? ??
+          map['reason'] as String?,
+      swapReason: map['swapReason'] as String? ??
+          (map['eventType'] == 'batter_swap'
+              ? map['reason'] as String?
+              : null),
+      runsCancelled: map['runsCancelled'] as int?,
+      swapNote: map['swapNote'] as String?,
     );
   }
 
@@ -293,6 +321,7 @@ class BallEventModel extends Equatable {
         'matchId': matchId,
         'inningsNumber': inningsNumber,
         'overNumber': overNumber,
+        if (overSegment > 1) 'overSegment': overSegment,
         'ballInOver': ballInOver,
         'eventType': eventType.name,
         'runs': runs,
@@ -384,6 +413,14 @@ class BallEventModel extends Equatable {
           'runOutDeliveryKind': runOutDeliveryKind!.name,
         if (retiredHurt) 'retiredHurt': true,
         if (isEligibleToReturn) 'isEligibleToReturn': true,
+        if (isBowlerChange) 'bowlerChange': true,
+        if (isBowlerChange) 'isBowlerChange': true,
+        if (previousBowlerId != null) 'previousBowlerId': previousBowlerId,
+        if (bowlerChangeReason != null && bowlerChangeReason!.isNotEmpty)
+          'bowlerChangeReason': bowlerChangeReason,
+        if (swapReason != null && swapReason!.isNotEmpty) 'swapReason': swapReason,
+        if (runsCancelled != null) 'runsCancelled': runsCancelled,
+        if (swapNote != null && swapNote!.isNotEmpty) 'swapNote': swapNote,
       };
 
   /// Flat fielder id/name lists for analytics (from [fielders] when empty).
@@ -438,6 +475,7 @@ class BallEventModel extends Equatable {
     String? matchId,
     int? inningsNumber,
     int? overNumber,
+    int? overSegment,
     int? ballInOver,
     BallEventType? eventType,
     int? runs,
@@ -508,12 +546,19 @@ class BallEventModel extends Equatable {
     RunOutDeliveryKind? runOutDeliveryKind,
     bool? retiredHurt,
     bool? isEligibleToReturn,
+    bool? isBowlerChange,
+    String? previousBowlerId,
+    String? bowlerChangeReason,
+    String? swapReason,
+    int? runsCancelled,
+    String? swapNote,
   }) {
     return BallEventModel(
       id: id ?? this.id,
       matchId: matchId ?? this.matchId,
       inningsNumber: inningsNumber ?? this.inningsNumber,
       overNumber: overNumber ?? this.overNumber,
+      overSegment: overSegment ?? this.overSegment,
       ballInOver: ballInOver ?? this.ballInOver,
       eventType: eventType ?? this.eventType,
       runs: runs ?? this.runs,
@@ -586,6 +631,12 @@ class BallEventModel extends Equatable {
       runOutDeliveryKind: runOutDeliveryKind ?? this.runOutDeliveryKind,
       retiredHurt: retiredHurt ?? this.retiredHurt,
       isEligibleToReturn: isEligibleToReturn ?? this.isEligibleToReturn,
+      isBowlerChange: isBowlerChange ?? this.isBowlerChange,
+      previousBowlerId: previousBowlerId ?? this.previousBowlerId,
+      bowlerChangeReason: bowlerChangeReason ?? this.bowlerChangeReason,
+      swapReason: swapReason ?? this.swapReason,
+      runsCancelled: runsCancelled ?? this.runsCancelled,
+      swapNote: swapNote ?? this.swapNote,
     );
   }
 

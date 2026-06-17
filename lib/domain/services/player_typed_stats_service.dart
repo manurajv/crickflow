@@ -1,8 +1,22 @@
 import '../../core/constants/enums.dart';
+import '../../core/utils/overs_formatter.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/player_model.dart';
 import '../../features/my_cricket/my_cricket_filters.dart';
+
+/// Typed stats plus optional overs metadata for display.
+class PlayerTypedStatsResult {
+  const PlayerTypedStatsResult({
+    required this.stats,
+    this.ballsPerOver,
+    this.bowlingActualOvers,
+  });
+
+  final PlayerStatsModel stats;
+  final int? ballsPerOver;
+  final double? bowlingActualOvers;
+}
 
 /// Builds per-ball-type stats from completed match innings (client fallback).
 class PlayerTypedStatsService {
@@ -33,7 +47,9 @@ class PlayerTypedStatsService {
 
       var playedInMatch = false;
       for (final inn in match.innings) {
-        playedInMatch = _accumulateInnings(agg, inn, playerId) || playedInMatch;
+        playedInMatch =
+            _accumulateInnings(agg, inn, playerId, match.rules.ballsPerOver) ||
+                playedInMatch;
       }
       if (playedInMatch) agg.matchesPlayed += 1;
     }
@@ -41,7 +57,61 @@ class PlayerTypedStatsService {
     return agg.toStats();
   }
 
-  bool _accumulateInnings(_Agg agg, InningsModel inn, String playerId) {
+  PlayerTypedStatsResult aggregateDetailedForType({
+    required List<MatchModel> completedMatches,
+    required String playerId,
+    required CricketBallType ballType,
+    String? authUid,
+    String? playerTeamId,
+    Set<String> userTeamIds = const {},
+  }) {
+    final agg = _Agg();
+    final bpoCounts = <int, int>{};
+
+    for (final match in completedMatches) {
+      if (match.rules.resolvedBallType != ballType) continue;
+      if (!userParticipatedInMatch(
+        match,
+        uid: authUid,
+        player: playerTeamId != null
+            ? PlayerModel(id: playerId, name: '', teamId: playerTeamId)
+            : null,
+        userTeamIds: userTeamIds,
+      )) {
+        continue;
+      }
+
+      var playedInMatch = false;
+      for (final inn in match.innings) {
+        playedInMatch = _accumulateInnings(
+              agg,
+              inn,
+              playerId,
+              match.rules.ballsPerOver,
+            ) ||
+            playedInMatch;
+      }
+      if (playedInMatch) {
+        agg.matchesPlayed += 1;
+        final bpo = match.rules.ballsPerOver;
+        bpoCounts[bpo] = (bpoCounts[bpo] ?? 0) + 1;
+      }
+    }
+
+    return PlayerTypedStatsResult(
+      stats: agg.toStats(),
+      ballsPerOver: bpoCounts.length == 1 ? bpoCounts.keys.first : null,
+      bowlingActualOvers:
+          agg.bowlingActualOvers > 0 ? agg.bowlingActualOvers : null,
+    );
+  }
+
+  bool _accumulateInnings(
+    _Agg agg,
+    InningsModel inn,
+    String playerId,
+    int ballsPerOver,
+  ) {
     var found = false;
     for (final b in inn.batsmen) {
       if (b.playerId != playerId) continue;
@@ -72,6 +142,10 @@ class PlayerTypedStatsService {
       agg.wickets += bowler.wickets;
       agg.oversBowledBalls += bowler.oversBowledBalls;
       agg.runsConceded += bowler.runsConceded;
+      agg.bowlingActualOvers += OversFormatter.calculateOvers(
+        bowler.oversBowledBalls,
+        ballsPerOver,
+      );
       matchWickets += bowler.wickets;
     }
     if (matchWickets >= 5) {
@@ -105,6 +179,7 @@ class _Agg {
   int catches = 0;
   int runOuts = 0;
   int stumpings = 0;
+  double bowlingActualOvers = 0;
 
   PlayerStatsModel toStats() => PlayerStatsModel(
         runs: runs,

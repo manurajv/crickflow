@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/constants/enums.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_rules_model.dart';
@@ -21,6 +20,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
     this.onBowlingSideChanged,
     this.onReplaceStriker,
     this.onReplaceNonStriker,
+    this.onChangeBatters,
     this.onReplaceBowler,
   });
 
@@ -31,6 +31,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
   final ValueChanged<BowlingSide>? onBowlingSideChanged;
   final VoidCallback? onReplaceStriker;
   final VoidCallback? onReplaceNonStriker;
+  final VoidCallback? onChangeBatters;
   final VoidCallback? onReplaceBowler;
 
   @override
@@ -80,6 +81,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                   name: nonStriker?.playerName ?? 'Non-striker',
                   score: ScoringDisplayUtils.batsmanScoreLine(nonStriker),
                   isOnStrike: false,
+                  onTap: onChangeBatters,
                   onReplace: onReplaceNonStriker != null &&
                           !ScoringDisplayUtils.batsmanHasFacedBall(
                             innings,
@@ -194,12 +196,14 @@ class _BatsmanCell extends StatelessWidget {
     required this.name,
     required this.score,
     required this.isOnStrike,
+    this.onTap,
     this.onReplace,
   });
 
   final String name;
   final String score;
   final bool isOnStrike;
+  final VoidCallback? onTap;
   final VoidCallback? onReplace;
 
   @override
@@ -207,7 +211,7 @@ class _BatsmanCell extends StatelessWidget {
     final accent =
         isOnStrike ? AppColors.gold : AppColors.textMuted;
 
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -250,12 +254,33 @@ class _BatsmanCell extends StatelessWidget {
                       ),
                       _ReplaceLink(label: 'Replace', onTap: onReplace!),
                     ],
+                    if (onTap != null) ...[
+                      Text(
+                        ' · ',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      _ReplaceLink(label: 'Change', onTap: onTap!),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+
+    if (onTap == null) return content;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: content,
       ),
     );
   }

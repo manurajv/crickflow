@@ -4,6 +4,7 @@ import 'innings_model.dart';
 import 'location_model.dart';
 import 'match_rules_model.dart';
 import 'match_setup_draft_models.dart';
+import 'over_metadata_model.dart';
 import 'over_note_model.dart';
 import 'scorer_transfer_models.dart';
 
@@ -190,6 +191,7 @@ class MatchModel extends Equatable {
     this.createdAt,
     this.setup,
     this.overNotes = const [],
+    this.overMetadata = const [],
   });
 
   final String id;
@@ -232,6 +234,7 @@ class MatchModel extends Equatable {
   /// Squad, roles, officials, and toss captured at match start.
   final MatchSetupData? setup;
   final List<OverNoteModel> overNotes;
+  final List<OverMetadataModel> overMetadata;
 
   InningsModel? get currentInnings =>
       innings.isNotEmpty && currentInningsIndex < innings.length
@@ -295,6 +298,9 @@ class MatchModel extends Equatable {
       overNotes: (map['overNotes'] as List? ?? [])
           .map((e) => OverNoteModel.fromMap(e as Map<String, dynamic>))
           .toList(),
+      overMetadata: (map['overMetadata'] as List? ?? [])
+          .map((e) => OverMetadataModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -352,6 +358,8 @@ class MatchModel extends Equatable {
         if (setup != null) ...setup!.toMap(),
         if (overNotes.isNotEmpty)
           'overNotes': overNotes.map((n) => n.toMap()).toList(),
+        if (overMetadata.isNotEmpty)
+          'overMetadata': overMetadata.map((m) => m.toMap()).toList(),
       };
 
   MatchModel copyWith({
@@ -384,6 +392,7 @@ class MatchModel extends Equatable {
     List<ScorerTransferRecord>? scorerTransferHistory,
     MatchSetupData? setup,
     List<OverNoteModel>? overNotes,
+    List<OverMetadataModel>? overMetadata,
   }) {
     return MatchModel(
       id: id,
@@ -423,6 +432,7 @@ class MatchModel extends Equatable {
       createdAt: createdAt,
       setup: setup ?? this.setup,
       overNotes: overNotes ?? this.overNotes,
+      overMetadata: overMetadata ?? this.overMetadata,
     );
   }
 

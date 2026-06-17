@@ -23,6 +23,7 @@ const {
 } = require('./admin/scoringAdmin');
 const { onNotificationCreated } = require('./notifications/onNotificationCreated');
 const { onTeamJoinRequestCreated } = require('./notifications/onTeamJoinRequestCreated');
+const { onTeamRosterReportCreated } = require('./notifications/onTeamRosterReportCreated');
 
 exports.onMatchCompleted = onMatchCompleted;
 exports.onMatchLive = onMatchLive;
@@ -35,3 +36,4 @@ exports.adminPreviewMatchStatsFromEvents = adminPreviewMatchStatsFromEvents;
 exports.adminReprocessMatchStats = adminReprocessMatchStats;
 exports.onNotificationCreated = onNotificationCreated;
 exports.onTeamJoinRequestCreated = onTeamJoinRequestCreated;
+exports.onTeamRosterReportCreated = onTeamRosterReportCreated;

@@ -275,6 +275,9 @@ class InningsModel extends Equatable {
     this.targetRuns,
     this.isSuperOver = false,
     this.currentOverStartLegalBalls = 0,
+    this.currentOverNumber = 1,
+    this.currentOverSegment = 1,
+    this.currentSegmentStartLegalBalls = 0,
     this.partnerships = const [],
     this.fallOfWickets = const [],
     this.fielders = const [],
@@ -303,6 +306,12 @@ class InningsModel extends Equatable {
   final bool isSuperOver;
   /// Legal balls bowled when the current over started (for variable-length overs).
   final int currentOverStartLegalBalls;
+  /// 1-based over currently being bowled. 0 = legacy matches (derive from events).
+  final int currentOverNumber;
+  /// 1-based segment within [currentOverNumber] (mid-over bowler changes).
+  final int currentOverSegment;
+  /// Legal balls at the start of the active over segment.
+  final int currentSegmentStartLegalBalls;
   final List<PartnershipRecord> partnerships;
   final List<FallOfWicketRecord> fallOfWickets;
   final List<FielderInningsModel> fielders;
@@ -338,6 +347,10 @@ class InningsModel extends Equatable {
       isSuperOver: map['isSuperOver'] as bool? ?? false,
       currentOverStartLegalBalls:
           map['currentOverStartLegalBalls'] as int? ?? 0,
+      currentOverNumber: map['currentOverNumber'] as int? ?? 0,
+      currentOverSegment: map['currentOverSegment'] as int? ?? 1,
+      currentSegmentStartLegalBalls:
+          map['currentSegmentStartLegalBalls'] as int? ?? 0,
       partnerships: (map['partnerships'] as List? ?? [])
           .map((e) => PartnershipRecord.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -375,6 +388,10 @@ class InningsModel extends Equatable {
         if (targetRuns != null) 'targetRuns': targetRuns,
         'isSuperOver': isSuperOver,
         'currentOverStartLegalBalls': currentOverStartLegalBalls,
+        if (currentOverNumber > 0) 'currentOverNumber': currentOverNumber,
+        if (currentOverSegment > 1) 'currentOverSegment': currentOverSegment,
+        if (currentSegmentStartLegalBalls > 0)
+          'currentSegmentStartLegalBalls': currentSegmentStartLegalBalls,
         // partnerships, fallOfWickets, fielders are derived from ball_events —
         // not persisted (see BALL_EVENT_ARCHITECTURE.md).
       };

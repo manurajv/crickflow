@@ -66,11 +66,18 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     final draft = ref.read(startMatchDraftProvider);
     final setup = draft.setup;
 
-    if (!setup.squadsReady || !setup.rolesReady) {
+    if (!setup.playingSquadsReady(draft.rules.playersPerTeam) ||
+        !setup.rolesReady) {
+      final playersPerTeam = draft.rules.playersPerTeam;
+      final teamAError =
+          setup.playingSquadError(draft.resolvedTeamAName, playersPerTeam, true);
+      final teamBError =
+          setup.playingSquadError(draft.resolvedTeamBName, playersPerTeam, false);
+      final message = teamAError ??
+          teamBError ??
+          'Complete captain and wicket keeper for both teams';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Complete squad and captain / wicket keeper first'),
-        ),
+        SnackBar(content: Text(message)),
       );
       return;
     }

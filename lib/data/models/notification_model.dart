@@ -10,6 +10,8 @@ class NotificationModel extends Equatable {
     this.teamId,
     this.playerId,
     this.type,
+    this.addedByUserId,
+    this.reportId,
     this.read = false,
     this.createdAt,
   });
@@ -22,6 +24,8 @@ class NotificationModel extends Equatable {
   final String? teamId;
   final String? playerId;
   final String? type;
+  final String? addedByUserId;
+  final String? reportId;
   final bool read;
   final DateTime? createdAt;
 
@@ -37,6 +41,8 @@ class NotificationModel extends Equatable {
       teamId: map['teamId'] as String?,
       playerId: map['playerId'] as String?,
       type: map['type'] as String?,
+      addedByUserId: map['addedByUserId'] as String?,
+      reportId: map['reportId'] as String?,
       read: map['read'] as bool? ?? map['isRead'] as bool? ?? false,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
     );

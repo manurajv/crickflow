@@ -45,6 +45,8 @@ class CommentaryService {
         return 'Wicketkeeper changed.';
       case BallEventType.endOver:
         return 'Over ended.';
+      case BallEventType.batterSwap:
+        return 'Batters changed.';
     }
   }
 
@@ -107,7 +109,8 @@ class CommentaryService {
         NoBallRunsMode.legBye => 'No ball — $add leg bye${add == 1 ? '' : 's'}',
       };
     }
-    if (event.eventType == BallEventType.wicket &&
+    if ((event.eventType == BallEventType.wicket ||
+            event.eventType == BallEventType.batterSwap) &&
         event.commentary.trim().isNotEmpty) {
       return event.commentary;
     }

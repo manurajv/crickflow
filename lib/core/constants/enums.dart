@@ -49,6 +49,17 @@ enum BallEventType {
   wicketKeeperChange,
   /// Marks end of an over (strike rotation, no legal ball counted).
   endOver,
+  /// Manual striker/non-striker position change (swap, short run, etc.).
+  batterSwap,
+}
+
+/// Reason stored on [BallEventType.batterSwap] events.
+enum BatterSwapReason {
+  manual,
+  shortRun,
+  crossedBeforeWicket,
+  umpireCorrection,
+  other,
 }
 
 /// How runs off a no-ball are scored (from bat, bye, or leg bye).

@@ -416,6 +416,109 @@ void main() {
     assertIntegrity(replayed, events);
   });
 
+  test('last wicket run out records without lineup change', () {
+    final match = MatchModel(
+      id: 'm-last',
+      title: 'Last wicket',
+      teamAId: 'a',
+      teamBId: 'b',
+      rules: const MatchRulesModel(maxWickets: 10),
+      innings: [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.inProgress,
+          totalWickets: 9,
+          strikerId: 'striker',
+          nonStrikerId: 'non_striker',
+          currentBowlerId: 'bowler',
+          batsmen: [
+            for (var i = 1; i <= 11; i++)
+              BatsmanInningsModel(
+                playerId: 'b$i',
+                playerName: 'Batter $i',
+                isOut: i <= 9,
+              ),
+          ],
+          bowlers: const [
+            BowlerInningsModel(playerId: 'bowler', playerName: 'Bowler'),
+          ],
+        ),
+      ],
+    );
+
+    final wicket = engine.recordBall(
+      match: match,
+      input: runOut(dismissed: 'striker'),
+      sequence: 1,
+    );
+
+    final inn = wicket.match.currentInnings!;
+    expect(inn.totalWickets, 10);
+    expect(inn.strikerId, isNull);
+    expect(inn.nonStrikerId, 'non_striker');
+    expect(
+      inn.batsmen.firstWhere((b) => b.playerId == 'striker').isOut,
+      isTrue,
+    );
+  });
+
+  test('batter swap swaps crease and replays correctly', () {
+    var match = baseMatch();
+    final swap = engine.recordBall(
+      match: match,
+      input: const BallEventInput(
+        type: BallEventType.batterSwap,
+        swapReason: 'manual',
+        creaseStrikerId: 'non_striker',
+        creaseNonStrikerId: 'striker',
+        creaseStrikerName: 'Non-striker',
+        creaseNonStrikerName: 'Striker',
+      ),
+      sequence: 1,
+    );
+    match = swap.match;
+    final inn = match.currentInnings!;
+    expect(inn.strikerId, 'non_striker');
+    expect(inn.nonStrikerId, 'striker');
+    expect(swap.event.swapReason, 'manual');
+
+    final replayed = engine.replayInnings(
+      match: baseMatch(),
+      baseInnings: engine.baseInningsFrom(baseMatch().innings.first),
+      events: [swap.event],
+    );
+    expect(replayed.currentInnings!.strikerId, 'non_striker');
+    expect(replayed.currentInnings!.nonStrikerId, 'striker');
+  });
+
+  test('short run batter swap cancels one run', () {
+    var match = baseMatch();
+    match = engine.recordBall(
+      match: match,
+      input: const BallEventInput(type: BallEventType.runs, runs: 3),
+      sequence: 1,
+    ).match;
+
+    final swap = engine.recordBall(
+      match: match,
+      input: const BallEventInput(
+        type: BallEventType.batterSwap,
+        swapReason: 'shortRun',
+        runsCancelled: 1,
+        creaseStrikerId: 'striker',
+        creaseNonStrikerId: 'non_striker',
+        creaseStrikerName: 'Striker',
+        creaseNonStrikerName: 'Non-striker',
+      ),
+      sequence: 2,
+    );
+
+    expect(swap.match.currentInnings!.totalRuns, 2);
+    expect(swap.event.runsCancelled, 1);
+  });
+
   test('undo run out with lineup restores pre-wicket crease', () {
     const groupId = 'undo-run-out';
     var match = baseMatch();

@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/constants/enums.dart';
 import '../../core/utils/match_media_naming.dart';
 import '../../data/models/location_model.dart';
+import '../../data/models/match_player_snapshot.dart';
 import '../../data/models/match_rules_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../data/models/team_model.dart';
@@ -124,31 +124,42 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
       clearTeamB: team == null,
       teamBName: team?.name ?? customName ?? '',
       setup: state.setup.copyWith(
-        teamBSquadIds: [],
-        teamBSquadNames: {},
+        teamBPlayingPlayers: const [],
+        teamBSubstitutePlayers: const [],
         teamBCaptainId: null,
         teamBWicketKeeperId: null,
       ),
     );
   }
 
-  void setSquad({
+  void setMatchSquad({
     required bool isTeamA,
-    required List<String> playerIds,
-    required Map<String, String> playerNames,
+    required List<MatchPlayerSnapshot> playing,
+    required List<MatchPlayerSnapshot> substitutes,
   }) {
+    final playingIds = playing.map((p) => p.id).toSet();
     final setup = isTeamA
         ? state.setup.copyWith(
-            teamASquadIds: playerIds,
-            teamASquadNames: playerNames,
-            teamACaptainId: null,
-            teamAWicketKeeperId: null,
+            teamAPlayingPlayers: playing,
+            teamASubstitutePlayers: substitutes,
+            teamACaptainId: playingIds.contains(state.setup.teamACaptainId)
+                ? state.setup.teamACaptainId
+                : null,
+            teamAWicketKeeperId:
+                playingIds.contains(state.setup.teamAWicketKeeperId)
+                    ? state.setup.teamAWicketKeeperId
+                    : null,
           )
         : state.setup.copyWith(
-            teamBSquadIds: playerIds,
-            teamBSquadNames: playerNames,
-            teamBCaptainId: null,
-            teamBWicketKeeperId: null,
+            teamBPlayingPlayers: playing,
+            teamBSubstitutePlayers: substitutes,
+            teamBCaptainId: playingIds.contains(state.setup.teamBCaptainId)
+                ? state.setup.teamBCaptainId
+                : null,
+            teamBWicketKeeperId:
+                playingIds.contains(state.setup.teamBWicketKeeperId)
+                    ? state.setup.teamBWicketKeeperId
+                    : null,
           );
     state = state.copyWith(setup: setup);
   }

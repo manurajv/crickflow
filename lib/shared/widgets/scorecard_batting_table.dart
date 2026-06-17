@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/utils/cricket_math.dart';
+import '../../core/utils/overs_formatter.dart';
 import '../../data/models/innings_model.dart';
 
 /// Broadcast-style batting rows for scorecard screens.
@@ -153,7 +154,7 @@ class ScorecardFallOfWickets extends StatelessWidget {
   const ScorecardFallOfWickets({
     super.key,
     required this.entries,
-    this.ballsPerOver = 6,
+    this.ballsPerOver = AppConstants.defaultBallsPerOver,
   });
 
   final List<FallOfWicketRecord> entries;
@@ -187,6 +188,6 @@ class ScorecardFallOfWickets extends StatelessWidget {
   }
 
   String _overLabel(int legalBalls) {
-    return '${CricketMath.formatOvers(legalBalls, ballsPerOver)} Ov';
+    return '${OversFormatter.formatOvers(legalBalls, ballsPerOver)} Ov';
   }
 }

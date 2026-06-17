@@ -53,7 +53,12 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
                   const SizedBox(height: AppDimens.spaceLg),
                   _sectionHeader(context, section.title),
                   StatGrid(
-                    cells: playerStatCells(section.stats, _mode),
+                    cells: playerStatCells(
+                      section.stats,
+                      _mode,
+                      ballsPerOver: section.ballsPerOver,
+                      bowlingActualOvers: section.bowlingActualOvers,
+                    ),
                   ),
                 ],
               ),

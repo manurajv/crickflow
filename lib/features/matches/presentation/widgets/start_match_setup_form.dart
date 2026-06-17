@@ -466,6 +466,28 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
             title: 'Special cases',
             icon: Icons.tune_outlined,
             children: [
+              _SubLabel('Players per team'),
+              const SizedBox(height: 8),
+              Text(
+                'Playing squad size for each team (6-a-side, 7-a-side, 11-a-side, etc.).',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: AppDimens.spaceSm),
+              _PlayersPerTeamStepper(
+                value: rules.playersPerTeam,
+                onChanged: (v) => widget.onRulesChanged(
+                  rules.copyWith(
+                    playersPerTeam: MatchRulesModel.clampPlayersPerTeam(v),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppDimens.spaceMd),
+              const Divider(height: 1),
+              const SizedBox(height: AppDimens.spaceSm),
               _SubLabel('Balls per over'),
               const SizedBox(height: 8),
               Text(
@@ -671,6 +693,55 @@ class _AdvancedSection extends StatelessWidget {
           const SizedBox(height: AppDimens.spaceSm),
           child,
         ],
+      ],
+    );
+  }
+}
+
+class _PlayersPerTeamStepper extends StatelessWidget {
+  const _PlayersPerTeamStepper({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _StepButton(
+          icon: Icons.remove,
+          onTap: value > 1 ? () => onChanged(value - 1) : null,
+        ),
+        Expanded(
+          child: Column(
+            children: [
+              Text(
+                '$value',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const Text(
+                'players per team',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+        _StepButton(
+          icon: Icons.add,
+          onTap: value < 25 ? () => onChanged(value + 1) : null,
+        ),
       ],
     );
   }

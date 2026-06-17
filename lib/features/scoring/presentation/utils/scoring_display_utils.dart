@@ -1,9 +1,11 @@
 import '../../../../core/constants/enums.dart';
 import '../../../../core/utils/cricket_math.dart';
+import '../../../../core/utils/overs_formatter.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
+import '../../../../domain/services/scoring_engine.dart';
 import '../../../../domain/scoring/innings_completion_policy.dart';
 
 /// Chase target stats for 2nd (or later) innings.
@@ -206,7 +208,7 @@ class ScoringDisplayUtils {
   static String? activePowerplayLabel(MatchModel match, InningsModel inn) {
     final slots = match.rules.powerplaySlots;
     if (slots.isEmpty) return null;
-    final overIndex = inn.currentOverStartLegalBalls ~/ match.rules.ballsPerOver;
+    final overIndex = currentOverNumber(inn, match.rules.ballsPerOver) - 1;
     for (var i = 0; i < slots.length; i++) {
       final slot = slots[i];
       if (slot.isEmpty) continue;
@@ -237,13 +239,13 @@ class ScoringDisplayUtils {
     final runsNeeded = InningsCompletionPolicy.remainingRuns(match, inn);
     final ballsRemaining = InningsCompletionPolicy.remainingBalls(match, inn);
     final effective = InningsCompletionPolicy.effectiveRules(match, inn);
-    final crr = CricketMath.runRate(
+    final crr = OversFormatter.calculateRunRate(
       inn.totalRuns,
       inn.legalBalls,
       effective.ballsPerOver,
     );
     final rrr = runsNeeded > 0 && ballsRemaining > 0
-        ? CricketMath.requiredRunRate(
+        ? OversFormatter.calculateRequiredRunRate(
             runsNeeded: runsNeeded,
             ballsRemaining: ballsRemaining,
             ballsPerOver: effective.ballsPerOver,
@@ -260,7 +262,7 @@ class ScoringDisplayUtils {
   }
 
   static double currentRunRate(InningsModel inn, MatchRulesModel rules) {
-    return CricketMath.runRate(
+    return OversFormatter.calculateRunRate(
       inn.totalRuns,
       inn.legalBalls,
       rules.ballsPerOver,
@@ -268,13 +270,14 @@ class ScoringDisplayUtils {
   }
 
   static String oversLabel(InningsModel inn, MatchRulesModel rules) {
-    final overs = CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver);
+    final overs =
+        OversFormatter.formatOvers(inn.legalBalls, rules.ballsPerOver);
     return '($overs/${rules.totalOvers})';
   }
 
   /// Overs.balls for scoreboard header, e.g. `0.2` of `20` overs.
   static String inningsOversDisplay(InningsModel inn, MatchRulesModel rules) {
-    return CricketMath.formatOvers(inn.legalBalls, rules.ballsPerOver);
+    return OversFormatter.formatOvers(inn.legalBalls, rules.ballsPerOver);
   }
 
   static BatsmanInningsModel? batsman(InningsModel inn, String? id) {
@@ -339,9 +342,8 @@ class ScoringDisplayUtils {
 
   static String bowlerFigures(BowlerInningsModel? b, int ballsPerOver) {
     if (b == null) return '0-0-0-0';
-    final overs = b.oversBowledBalls ~/ ballsPerOver;
-    final rem = b.oversBowledBalls % ballsPerOver;
-    return '$overs.$rem-0-${b.runsConceded}-${b.wickets}';
+    final overs = OversFormatter.formatOvers(b.oversBowledBalls, ballsPerOver);
+    return '$overs-0-${b.runsConceded}-${b.wickets}';
   }
 
   /// Balls shown in the live over strip (excludes lineup changes, etc.).
@@ -357,7 +359,18 @@ class ScoringDisplayUtils {
 
   /// 1-based over number currently being bowled.
   static int currentOverNumber(InningsModel inn, int ballsPerOver) =>
-      inn.currentOverStartLegalBalls ~/ ballsPerOver + 1;
+      ScoringEngine.effectiveOverNumber(inn, ballsPerOver);
+
+  static bool _usesLegacyOverIndex(InningsModel inn) => inn.currentOverNumber <= 0;
+
+  static bool _eventInOver(
+    BallEventModel e,
+    int targetOver, {
+    required bool legacy,
+  }) {
+    if (legacy) return e.overNumber == targetOver - 1;
+    return e.overNumber == targetOver;
+  }
 
   static bool shouldPromptOverCompletion(InningsModel inn, int ballsPerOver) =>
       ballsInCurrentOver(inn) >= ballsPerOver;
@@ -368,12 +381,13 @@ class ScoringDisplayUtils {
     required InningsModel inn,
     required int ballsPerOver,
   }) {
-    final overIndex = inn.currentOverStartLegalBalls ~/ ballsPerOver;
+    final targetOver = currentOverNumber(inn, ballsPerOver);
+    final legacy = _usesLegacyOverIndex(inn);
     return events
         .where(
           (e) =>
               e.inningsNumber == inn.inningsNumber &&
-              e.overNumber == overIndex &&
+              _eventInOver(e, targetOver, legacy: legacy) &&
               countsTowardOverDisplay(e),
         )
         .toList()
@@ -388,16 +402,19 @@ class ScoringDisplayUtils {
   }) {
     final ballsInOver = ballsInCurrentOver(inn);
     if (inn.legalBalls == 0) return [];
-    final activeOverIndex = inn.currentOverStartLegalBalls ~/ ballsPerOver;
-    final targetIndex = ballsInOver == 0 && inn.legalBalls > 0
-        ? activeOverIndex - 1
-        : activeOverIndex;
-    if (targetIndex < 0) return [];
+
+    final legacy = _usesLegacyOverIndex(inn);
+    final activeOver = currentOverNumber(inn, ballsPerOver);
+    final targetOver = ballsInOver == 0 && inn.legalBalls > 0
+        ? activeOver - 1
+        : activeOver;
+    if (targetOver < 1) return [];
+
     return events
         .where(
           (e) =>
               e.inningsNumber == inn.inningsNumber &&
-              e.overNumber == targetIndex &&
+              _eventInOver(e, targetOver, legacy: legacy) &&
               countsTowardOverDisplay(e),
         )
         .toList()
@@ -530,6 +547,10 @@ class ScoringDisplayUtils {
     };
     return notOut.difference(onCrease).isEmpty;
   }
+
+  /// True when recording one more wicket would end the innings (all out).
+  static bool willNextWicketEndInnings(MatchModel match, InningsModel inn) =>
+      inn.totalWickets + 1 >= InningsCompletionPolicy.maxDismissals(match, inn);
 
   static bool isAllOut(MatchModel match, InningsModel inn) =>
       InningsCompletionPolicy.isAllOut(match, inn);

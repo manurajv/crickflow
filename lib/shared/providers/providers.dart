@@ -10,6 +10,7 @@ import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/match_repository.dart';
 import '../../data/repositories/player_repository.dart';
 import '../../data/repositories/team_join_request_repository.dart';
+import '../../data/repositories/team_roster_report_repository.dart';
 import '../../data/repositories/team_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
@@ -50,6 +51,8 @@ final tournamentRepositoryProvider = Provider((ref) => TournamentRepository());
 final fantasyRepositoryProvider = Provider((ref) => FantasyRepository());
 final notificationServiceProvider = Provider((ref) => NotificationService());
 final notificationRepositoryProvider = Provider((ref) => NotificationRepository());
+final teamRosterReportRepositoryProvider =
+    Provider((ref) => TeamRosterReportRepository());
 final streamServiceProvider = Provider<StreamService>((ref) {
   final service = StreamService();
   ref.onDispose(service.dispose);

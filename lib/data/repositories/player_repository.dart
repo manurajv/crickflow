@@ -110,7 +110,11 @@ class PlayerRepository {
   Future<void> assignPlayerToTeam({
     required String playerId,
     required String teamId,
+    String? addedByUserId,
+    bool notifyPlayer = true,
   }) async {
+    var wasNewAssignment = false;
+
     await _firestore.runTransaction((tx) async {
       final teamRef = _teams.doc(teamId);
       final playerRef = _col.doc(playerId);
@@ -129,6 +133,7 @@ class PlayerRepository {
           existing.exists && _playerIsOnTeam(existingData, teamId);
 
       if (!alreadyOnTeam) {
+        wasNewAssignment = true;
         final payload = <String, dynamic>{
           'teamIds': FieldValue.arrayUnion([teamId]),
           'teamId': teamId,
@@ -150,6 +155,26 @@ class PlayerRepository {
         'updatedAt': DateTime.now().toIso8601String(),
       });
     });
+
+    if (!notifyPlayer || !wasNewAssignment) return;
+
+    final player = await getPlayer(playerId);
+    final targetUid = player?.userId;
+    if (targetUid == null || targetUid.isEmpty) return;
+    if (addedByUserId != null && targetUid == addedByUserId) return;
+
+    final teamSnap = await _teams.doc(teamId).get();
+    final teamName = teamSnap.data()?['name'] as String? ?? 'your team';
+
+    await _notificationRepository?.createNotification(
+      userId: targetUid,
+      title: 'Added to team',
+      body: 'You were added to $teamName.',
+      teamId: teamId,
+      playerId: playerId,
+      type: 'team_member_added',
+      addedByUserId: addedByUserId,
+    );
   }
 
   /// Removes a player from a team roster (leave team). Handles owner transfer

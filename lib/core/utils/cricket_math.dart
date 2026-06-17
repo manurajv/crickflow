@@ -1,3 +1,4 @@
+import 'overs_formatter.dart';
 /// Cricket statistics and rate calculations.
 class CricketMath {
   CricketMath._();
@@ -7,27 +8,22 @@ class CricketMath {
     return (runs / balls) * 100;
   }
 
-  static double economyRate(int runs, int balls, int ballsPerOver) {
-    if (balls == 0 || ballsPerOver == 0) return 0;
-    final overs = balls / ballsPerOver;
-    if (overs == 0) return 0;
-    return runs / overs;
-  }
+  static double economyRate(int runs, int balls, int ballsPerOver) =>
+      OversFormatter.calculateEconomy(runs, balls, ballsPerOver);
 
-  static double runRate(int runs, int balls, int ballsPerOver) {
-    return economyRate(runs, balls, ballsPerOver);
-  }
+  static double runRate(int runs, int balls, int ballsPerOver) =>
+      OversFormatter.calculateRunRate(runs, balls, ballsPerOver);
 
   static double requiredRunRate({
     required int runsNeeded,
     required int ballsRemaining,
     required int ballsPerOver,
-  }) {
-    if (ballsRemaining <= 0 || ballsPerOver == 0) return 0;
-    final oversRemaining = ballsRemaining / ballsPerOver;
-    if (oversRemaining == 0) return 0;
-    return runsNeeded / oversRemaining;
-  }
+  }) =>
+      OversFormatter.calculateRequiredRunRate(
+        runsNeeded: runsNeeded,
+        ballsRemaining: ballsRemaining,
+        ballsPerOver: ballsPerOver,
+      );
 
   static double battingAverage(int runs, int dismissals) {
     if (dismissals == 0) return runs.toDouble();
@@ -39,16 +35,13 @@ class CricketMath {
     return runs / wickets;
   }
 
-  static String formatOvers(int legalBalls, int ballsPerOver) {
-    if (ballsPerOver <= 0) return '0.0';
-    final completed = legalBalls ~/ ballsPerOver;
-    final remainder = legalBalls % ballsPerOver;
-    return '$completed.$remainder';
-  }
+  static String formatOvers(int legalBalls, int ballsPerOver) =>
+      OversFormatter.formatOvers(legalBalls, ballsPerOver);
 
   static int ballsFromOvers(double totalOvers, int ballsPerOver) {
+    final bpo = OversFormatter.normalizeBallsPerOver(ballsPerOver);
     final whole = totalOvers.floor();
     final fraction = ((totalOvers - whole) * 10).round();
-    return whole * ballsPerOver + fraction;
+    return whole * bpo + fraction;
   }
 }

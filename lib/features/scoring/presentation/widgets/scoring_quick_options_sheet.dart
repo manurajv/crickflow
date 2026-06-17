@@ -9,6 +9,7 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
     super.key,
     required this.onEditLineup,
     required this.onChangeWicketkeeper,
+    required this.onChangeBowler,
     required this.onEndInnings,
     required this.onEndOver,
     required this.onScorecard,
@@ -19,6 +20,7 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
 
   final VoidCallback onEditLineup;
   final VoidCallback onChangeWicketkeeper;
+  final VoidCallback onChangeBowler;
   final VoidCallback onEndInnings;
   final VoidCallback onEndOver;
   final VoidCallback onScorecard;
@@ -57,7 +59,11 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
           'Change Keeper',
           widget.onChangeWicketkeeper,
         ),
-        const _Shortcut(Icons.sports_baseball_outlined, 'Change Bowler', _noop),
+        _Shortcut(
+          Icons.sports_baseball_outlined,
+          'Change Bowler',
+          widget.onChangeBowler,
+        ),
         const _Shortcut(Icons.bolt_outlined, 'Power Play', _noop),
         const _Shortcut(Icons.calculate_outlined, 'Revise Target', _noop),
         const _Shortcut(Icons.schedule_outlined, 'Match Breaks', _noop),

@@ -11,11 +11,16 @@ class PlayerStatsSection {
     required this.title,
     required this.stats,
     this.isOverall = false,
+    this.ballsPerOver,
+    this.bowlingActualOvers,
   });
 
   final String title;
   final PlayerStatsModel stats;
   final bool isOverall;
+  /// When set, used for bowling overs/economy display for this section.
+  final int? ballsPerOver;
+  final double? bowlingActualOvers;
 }
 
 class PlayerStatsBreakdown {
@@ -50,7 +55,7 @@ final myPlayerStatsBreakdownProvider =
 
   for (final type in CricketBallType.values) {
     final stored = player.statsForBallType(type);
-    final fromMatches = service.aggregateForType(
+    final fromMatches = service.aggregateDetailedForType(
       completedMatches: completed,
       playerId: player.id,
       ballType: type,
@@ -59,12 +64,16 @@ final myPlayerStatsBreakdownProvider =
       userTeamIds: userTeamIds,
     );
 
-    final stats = stored.matchesPlayed > 0 ? stored : fromMatches;
+    final stats =
+        stored.matchesPlayed > 0 ? stored : fromMatches.stats;
     if (stats.matchesPlayed > 0) {
       typedSections.add(
         PlayerStatsSection(
           title: cricketBallTypeLabel(type),
           stats: stats,
+          ballsPerOver: stored.matchesPlayed > 0 ? null : fromMatches.ballsPerOver,
+          bowlingActualOvers:
+              stored.matchesPlayed > 0 ? null : fromMatches.bowlingActualOvers,
         ),
       );
     }

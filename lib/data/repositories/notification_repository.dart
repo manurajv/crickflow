@@ -49,6 +49,8 @@ class NotificationRepository {
     String? teamId,
     String? playerId,
     String? type,
+    String? addedByUserId,
+    String? reportId,
   }) async {
     if (userId.isEmpty) return;
 
@@ -61,6 +63,8 @@ class NotificationRepository {
       if (teamId != null) 'teamId': teamId,
       if (playerId != null) 'playerId': playerId,
       if (type != null) 'type': type,
+      if (addedByUserId != null) 'addedByUserId': addedByUserId,
+      if (reportId != null) 'reportId': reportId,
       'read': false,
       'isRead': false,
       'createdAt': DateTime.now().toIso8601String(),

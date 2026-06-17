@@ -5,6 +5,8 @@ import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/scorecard_theme_extension.dart';
 import '../../../../core/utils/cricket_math.dart';
+import '../../../../core/utils/overs_formatter.dart';
+import '../../../../domain/scoring/innings_completion_policy.dart';
 import '../../../../core/utils/match_score_display.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
@@ -68,7 +70,6 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
   @override
   Widget build(BuildContext context) {
     final match = widget.match;
-    final rules = match.rules;
     final events =
         ref.watch(ballEventsProvider(match.id)).valueOrNull ?? const [];
     final squadNames = <String, String>{};
@@ -99,7 +100,7 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
         return _InningsScorecardCard(
           match: match,
           innings: inn,
-          rules: rules,
+          rules: InningsCompletionPolicy.effectiveRules(match, inn),
           events: events,
           squadNames: squadNames,
           isExpanded: _expandedIndex == index,
@@ -134,8 +135,10 @@ class _InningsScorecardCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final teamName = MatchScoreDisplay.battingTeamName(match, innings);
-    final overs =
-        CricketMath.formatOvers(innings.legalBalls, rules.ballsPerOver);
+    final overs = OversFormatter.formatOvers(
+      innings.legalBalls,
+      rules.ballsPerOver,
+    );
     final scoreLine =
         '${innings.totalRuns}/${innings.totalWickets} ($overs Ov)';
 
@@ -278,8 +281,12 @@ class _InningsExpandedBody extends StatelessWidget {
       extraNames: squadNames,
       events: inningsEvents,
     );
-    final crr = MatchScoreDisplay.runRateFor(displayInnings, rules);
-    final overs = CricketMath.formatOvers(
+    final crr = OversFormatter.calculateRunRate(
+      displayInnings.totalRuns,
+      displayInnings.legalBalls,
+      rules.ballsPerOver,
+    );
+    final overs = OversFormatter.formatOvers(
       displayInnings.legalBalls,
       rules.ballsPerOver,
     );
@@ -913,9 +920,11 @@ class _BowlingRow extends StatelessWidget {
     final styles = _ScorecardStyles(context);
     final name =
         bowler.playerName.isNotEmpty ? bowler.playerName : bowler.playerId;
-    final overs =
-        CricketMath.formatOvers(bowler.oversBowledBalls, rules.ballsPerOver);
-    final eco = CricketMath.economyRate(
+    final overs = OversFormatter.formatOvers(
+      bowler.oversBowledBalls,
+      rules.ballsPerOver,
+    );
+    final eco = OversFormatter.calculateEconomy(
       bowler.runsConceded,
       bowler.oversBowledBalls,
       rules.ballsPerOver,
@@ -1011,7 +1020,7 @@ class _FallOfWicketRow extends StatelessWidget {
     final name = entry.batsmanName.isNotEmpty
         ? entry.batsmanName
         : entry.batsmanId;
-    final over = CricketMath.formatOvers(entry.legalBalls, ballsPerOver);
+    final over = OversFormatter.formatOvers(entry.legalBalls, ballsPerOver);
 
     return _DataRow(
       child: Row(

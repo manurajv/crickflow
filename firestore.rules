@@ -94,6 +94,7 @@ service cloud.firestore {
           'ballType',
           'totalOvers',
           'ballsPerOver',
+          'playersPerTeam',
           'oversPerBowler',
           'isManualOversPerBowler',
           'wideRuns',
@@ -133,12 +134,54 @@ service cloud.firestore {
         && (!('powerplaySlot3' in rules) || validPowerplaySlot(rules.powerplaySlot3))
         && (!('totalOvers' in rules) || (rules.totalOvers is int && rules.totalOvers > 0 && rules.totalOvers <= 200))
         && (!('ballsPerOver' in rules) || (rules.ballsPerOver is int && rules.ballsPerOver >= 1 && rules.ballsPerOver <= 12))
+        && (!('playersPerTeam' in rules) || (rules.playersPerTeam is int && rules.playersPerTeam >= 1 && rules.playersPerTeam <= 25))
         && (!('oversPerBowler' in rules) || (rules.oversPerBowler is int && rules.oversPerBowler >= 1 && rules.oversPerBowler <= 50))
         && (!('isManualOversPerBowler' in rules) || rules.isManualOversPerBowler is bool)
         && (!('totalOvers' in rules) || !('oversPerBowler' in rules)
             || rules.oversPerBowler <= rules.totalOvers)
         && (!('wideRuns' in rules) || (rules.wideRuns is int && rules.wideRuns >= 0 && rules.wideRuns <= 10))
         && (!('noBallRuns' in rules) || (rules.noBallRuns is int && rules.noBallRuns >= 0 && rules.noBallRuns <= 10));
+    }
+
+    function validMatchPlayerSnapshotList(list) {
+      return list is list && list.size() <= 50;
+    }
+
+    function validMatchSetupFields(data) {
+      return (!('teamAPlayingPlayers' in data)
+              || validMatchPlayerSnapshotList(data.teamAPlayingPlayers))
+        && (!('teamASubstitutePlayers' in data)
+              || validMatchPlayerSnapshotList(data.teamASubstitutePlayers))
+        && (!('teamBPlayingPlayers' in data)
+              || validMatchPlayerSnapshotList(data.teamBPlayingPlayers))
+        && (!('teamBSubstitutePlayers' in data)
+              || validMatchPlayerSnapshotList(data.teamBSubstitutePlayers))
+        && (!('teamASquadIds' in data)
+              || (data.teamASquadIds is list && data.teamASquadIds.size() <= 50))
+        && (!('teamBSquadIds' in data)
+              || (data.teamBSquadIds is list && data.teamBSquadIds.size() <= 50))
+        && (!('officials' in data) || data.officials is map);
+    }
+
+    function playingSquadWithinLimit(data) {
+      let rules = data.rules;
+      let limit = ('playersPerTeam' in rules && rules.playersPerTeam is int)
+        ? rules.playersPerTeam
+        : 11;
+      return (!('teamAPlayingPlayers' in data)
+              || data.teamAPlayingPlayers.size() <= limit)
+        && (!('teamBPlayingPlayers' in data)
+              || data.teamBPlayingPlayers.size() <= limit)
+        && (!('teamASquadIds' in data) || data.teamASquadIds.size() <= limit)
+        && (!('teamBSquadIds' in data) || data.teamBSquadIds.size() <= limit);
+    }
+
+    function isPlatformAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/app_meta/platform_admins)
+        && request.auth.uid in get(
+          /databases/$(database)/documents/app_meta/platform_admins
+        ).data.get('uids', []);
     }
 
     function validMatchCreate() {
@@ -151,12 +194,16 @@ service cloud.firestore {
         && data.teamAName is string
         && data.teamBName is string
         && validMatchRules(data.rules)
+        && validMatchSetupFields(data)
+        && playingSquadWithinLimit(data)
         && (!('mediaByCode' in data) || data.mediaByCode is map);
     }
 
     function validMatchUpdate() {
       let data = request.resource.data;
       return (!('rules' in data) || validMatchRules(data.rules))
+        && validMatchSetupFields(data)
+        && playingSquadWithinLimit(data)
         && (!('mediaByCode' in data) || data.mediaByCode is map);
     }
 
@@ -405,6 +452,26 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn()
         && (docId == 'cf_player_ids' || docId == 'cf_team_ids');
+      allow delete: if false;
+    }
+
+    match /team_roster_reports/{reportId} {
+      allow read: if isSignedIn() && (
+        resource.data.reporterUserId == request.auth.uid || isPlatformAdmin()
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.reporterUserId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.teamId is string
+        && request.resource.data.teamId.size() > 0
+        && request.resource.data.teamName is string
+        && request.resource.data.playerId is string
+        && request.resource.data.playerId.size() > 0;
+      allow update: if isPlatformAdmin()
+        && request.resource.data.reporterUserId == resource.data.reporterUserId
+        && request.resource.data.teamId == resource.data.teamId
+        && request.resource.data.playerId == resource.data.playerId
+        && request.resource.data.status in ['pending', 'reviewing', 'resolved', 'dismissed'];
       allow delete: if false;
     }
 

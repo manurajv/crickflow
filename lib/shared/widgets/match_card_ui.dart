@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
-import '../../core/utils/cricket_math.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/match_score_display.dart';
+import '../../core/utils/overs_formatter.dart';
 import '../../data/models/match_model.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 
@@ -207,8 +207,8 @@ class MatchCardContent extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${MatchScoreDisplay.battingTeamName(match, cur)} · '
-            '${CricketMath.formatOvers(cur.legalBalls, rules.ballsPerOver)} ov · '
-            'CRR ${MatchScoreDisplay.runRateFor(cur, rules).toStringAsFixed(2)}',
+            '${OversFormatter.formatOvers(cur.legalBalls, rules.ballsPerOver)} ov · '
+            'CRR ${MatchScoreDisplay.runRateFor(cur, rules, match: match).toStringAsFixed(2)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: mutedColor,
                 ),
@@ -220,8 +220,8 @@ class MatchCardContent extends StatelessWidget {
             isLive) ...[
           const SizedBox(height: 4),
           Text(
-            '${CricketMath.formatOvers(cur.legalBalls, rules.ballsPerOver)} ov · '
-            'RR ${MatchScoreDisplay.runRateFor(cur, rules).toStringAsFixed(2)}',
+            '${OversFormatter.formatOvers(cur.legalBalls, rules.ballsPerOver)} ov · '
+            'RR ${MatchScoreDisplay.runRateFor(cur, rules, match: match).toStringAsFixed(2)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: mutedColor,
                 ),

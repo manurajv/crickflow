@@ -17,6 +17,7 @@ class NotificationNavigation {
             type == 'team_join_accepted' ||
             type == 'team_join_rejected' ||
             type == 'team_member_removed' ||
+            type == 'team_member_added' ||
             type == null)) {
       return '/teams/$teamId';
     }
@@ -71,14 +72,19 @@ extension NotificationPresentation on NotificationModel {
         'team_join_accepted' => 'Accepted',
         'team_join_rejected' => 'Declined',
         'team_member_removed' => 'Team update',
+        'team_member_added' => 'Added to team',
+        'admin_roster_report' => 'Admin alert',
         _ => 'Update',
       };
 
   bool get isJoinRequest => type == 'team_join_request';
 
+  bool get canReportUnauthorizedAdd => type == 'team_member_added';
+
   String? get actionLabel => switch (type) {
         'team_join_request' => 'Review request',
         'team_join_accepted' || 'team_join_rejected' => 'View team',
+        'team_member_added' => 'View team',
         _ => null,
       };
 }

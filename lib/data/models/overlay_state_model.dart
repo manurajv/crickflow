@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../core/utils/cricket_math.dart';
+import '../../core/utils/overs_formatter.dart';
 
 /// Real-time overlay payload synced to stream viewers.
 class OverlayStateModel extends Equatable {
@@ -58,7 +58,7 @@ class OverlayStateModel extends Equatable {
   final int version;
 
   String get oversDisplay =>
-      CricketMath.formatOvers(legalBalls, ballsPerOver);
+      OversFormatter.formatOvers(legalBalls, ballsPerOver);
 
   String get scoreDisplay => '$totalRuns/$totalWickets';
 

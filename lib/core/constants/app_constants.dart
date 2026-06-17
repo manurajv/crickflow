@@ -19,6 +19,7 @@ class AppConstants {
   static const String fantasyLeaguesCollection = 'fantasy_leagues';
   static const String fantasyEntriesCollection = 'entries';
   static const String communityPostsCollection = 'community_posts';
+  static const String teamRosterReportsCollection = 'team_roster_reports';
 
   // Match defaults (standard cricket)
   static const int defaultOvers = 20;

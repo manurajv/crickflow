@@ -9,6 +9,7 @@ class MatchRulesModel extends Equatable {
     this.ballType,
     this.totalOvers = 20,
     this.ballsPerOver = 6,
+    this.playersPerTeam = 11,
     this.oversPerBowler = 4,
     this.isManualOversPerBowler = false,
     this.wideRuns = 1,
@@ -41,6 +42,7 @@ class MatchRulesModel extends Equatable {
   final CricketBallType? ballType;
   final int totalOvers;
   final int ballsPerOver;
+  final int playersPerTeam;
   final int oversPerBowler;
   final bool isManualOversPerBowler;
   final int wideRuns;
@@ -173,10 +175,12 @@ class MatchRulesModel extends Equatable {
   CricketBallType get resolvedBallType =>
       ballType ?? ballTypeForMatchType(cricketMatchType);
 
-  /// Maximum legal balls one bowler may bowl in an innings (full match allocation).
-  int get maxBowlerLegalBalls => totalOvers * ballsPerOver;
+  /// Maximum legal balls one bowler may bowl in an innings.
+  int get maxBowlerLegalBalls => oversPerBowler * ballsPerOver;
 
   static int clampBallsPerOver(int value) => value.clamp(1, 12);
+
+  static int clampPlayersPerTeam(int value) => value.clamp(1, 25);
 
   /// One-over super over (ICC-style defaults).
   factory MatchRulesModel.superOver() => const MatchRulesModel(
@@ -223,6 +227,7 @@ class MatchRulesModel extends Equatable {
       ballType: _ballTypeFromString(map['ballType'] as String?),
       totalOvers: map['totalOvers'] as int? ?? 20,
       ballsPerOver: map['ballsPerOver'] as int? ?? 6,
+      playersPerTeam: map['playersPerTeam'] as int? ?? 11,
       oversPerBowler: map['oversPerBowler'] as int? ??
           calculateOversPerBowler(map['totalOvers'] as int? ?? 20),
       isManualOversPerBowler:
@@ -347,6 +352,7 @@ class MatchRulesModel extends Equatable {
         'ballType': resolvedBallType.name,
         'totalOvers': totalOvers,
         'ballsPerOver': ballsPerOver,
+        'playersPerTeam': playersPerTeam,
         'oversPerBowler': oversPerBowler,
         'isManualOversPerBowler': isManualOversPerBowler,
         'wideRuns': wideRuns,
@@ -380,6 +386,7 @@ class MatchRulesModel extends Equatable {
     CricketBallType? ballType,
     int? totalOvers,
     int? ballsPerOver,
+    int? playersPerTeam,
     int? oversPerBowler,
     bool? isManualOversPerBowler,
     int? wideRuns,
@@ -412,6 +419,7 @@ class MatchRulesModel extends Equatable {
       ballType: ballType ?? this.ballType,
       totalOvers: totalOvers ?? this.totalOvers,
       ballsPerOver: ballsPerOver ?? this.ballsPerOver,
+      playersPerTeam: playersPerTeam ?? this.playersPerTeam,
       oversPerBowler: oversPerBowler ?? this.oversPerBowler,
       isManualOversPerBowler:
           isManualOversPerBowler ?? this.isManualOversPerBowler,
@@ -449,6 +457,7 @@ class MatchRulesModel extends Equatable {
         cricketMatchType,
         totalOvers,
         ballsPerOver,
+        playersPerTeam,
         oversPerBowler,
         isManualOversPerBowler,
         ballType,

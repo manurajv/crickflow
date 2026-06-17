@@ -8,6 +8,7 @@ import '../../core/utils/cricket_math.dart';
 import '../../data/models/overlay_state_model.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../domain/services/dismissal_formatter.dart';
+import '../../data/models/over_metadata_model.dart';
 import '../../data/models/dismissal_fielder.dart';
 
 /// Pure scoring logic — applies ball events and returns updated match state.
@@ -22,8 +23,14 @@ class ScoringEngine {
       throw StateError('No active innings');
     }
     final effectiveRules = InningsCompletionPolicy.effectiveRules(match, innings);
+    final inningsBefore = innings;
 
     var event = _buildEvent(match, innings, input, sequence, effectiveRules);
+    final overMetadata = _overMetadataForEvent(
+      before: inningsBefore,
+      event: event,
+      rules: effectiveRules,
+    );
     innings = _applyEventToInnings(innings, event, effectiveRules, match);
 
     event = _withPostBallAudit(
@@ -47,7 +54,52 @@ class ScoringEngine {
       match: updatedMatch,
       event: event,
       overlay: overlay,
+      overMetadata: overMetadata,
     );
+  }
+
+  /// 1-based over number for [innings] (supports legacy matches without tracking).
+  static int effectiveOverNumber(InningsModel innings, int ballsPerOver) {
+    if (innings.currentOverNumber > 0) return innings.currentOverNumber;
+    return innings.currentOverStartLegalBalls ~/ ballsPerOver + 1;
+  }
+
+  static OverMetadataModel? _overMetadataForEvent({
+    required InningsModel before,
+    required BallEventModel event,
+    required MatchRulesModel rules,
+  }) {
+    if (event.eventType == BallEventType.endOver) {
+      final overNum = effectiveOverNumber(before, rules.ballsPerOver);
+      final actual = before.legalBalls - before.currentOverStartLegalBalls;
+      final expected = rules.ballsPerOver;
+      return OverMetadataModel(
+        inningsNumber: before.inningsNumber,
+        overNumber: overNum,
+        ballsPerOverExpected: expected,
+        actualBallsBowled: actual,
+        manuallyEnded: actual != expected,
+        continuedBeyondLimit: actual > expected,
+        createdAt: DateTime.now(),
+      );
+    }
+    if (event.eventType == BallEventType.lineupChange &&
+        event.bowlerId != null &&
+        event.bowlerId != before.currentBowlerId &&
+        before.legalBalls - before.currentOverStartLegalBalls > 0) {
+      final segmentLegalBalls =
+          before.legalBalls - before.currentSegmentStartLegalBalls;
+      return OverMetadataModel(
+        inningsNumber: before.inningsNumber,
+        overNumber: effectiveOverNumber(before, rules.ballsPerOver),
+        segment: before.currentOverSegment,
+        bowlerId: before.currentBowlerId,
+        ballsPerOverExpected: rules.ballsPerOver,
+        segmentLegalBalls: segmentLegalBalls,
+        createdAt: DateTime.now(),
+      );
+    }
+    return null;
   }
 
   static BallEventModel _withPostBallAudit(
@@ -61,6 +113,7 @@ class ScoringEngine {
       matchId: event.matchId,
       inningsNumber: event.inningsNumber,
       overNumber: event.overNumber,
+      overSegment: event.overSegment,
       ballInOver: event.ballInOver,
       eventType: event.eventType,
       runs: event.runs,
@@ -131,6 +184,12 @@ class ScoringEngine {
       runOutDeliveryKind: event.runOutDeliveryKind,
       retiredHurt: event.retiredHurt,
       isEligibleToReturn: event.isEligibleToReturn,
+      isBowlerChange: event.isBowlerChange,
+      previousBowlerId: event.previousBowlerId,
+      bowlerChangeReason: event.bowlerChangeReason,
+      swapReason: event.swapReason,
+      runsCancelled: event.runsCancelled,
+      swapNote: event.swapNote,
     );
   }
 
@@ -157,7 +216,8 @@ class ScoringEngine {
     int sequence,
     MatchRulesModel rules,
   ) {
-    final overNum = innings.currentOverStartLegalBalls ~/ rules.ballsPerOver;
+    final overNum = effectiveOverNumber(innings, rules.ballsPerOver);
+    final overSegment = innings.currentOverSegment;
     final ballsInCurrentOver =
         innings.legalBalls - innings.currentOverStartLegalBalls;
     final ballInOver = ballsInCurrentOver + 1;
@@ -238,6 +298,10 @@ class ScoringEngine {
         isLegal = false;
         runs = 0;
         batsmanRuns = 0;
+      case BallEventType.batterSwap:
+        isLegal = false;
+        runs = 0;
+        batsmanRuns = 0;
     }
 
     final nbMode = input.type == BallEventType.noBall ||
@@ -256,11 +320,12 @@ class ScoringEngine {
     final nbLegByeRuns = nbMode == NoBallRunsMode.legBye ? completedForNb : 0;
 
     final isLineupChange = input.type == BallEventType.lineupChange;
+    final isBatterSwap = input.type == BallEventType.batterSwap;
     final isKeeperChange = input.type == BallEventType.wicketKeeperChange;
-    final eventStrikerId = isLineupChange
+    final eventStrikerId = isLineupChange || isBatterSwap
         ? input.creaseStrikerId
         : innings.strikerId;
-    final eventNonStrikerId = isLineupChange
+    final eventNonStrikerId = isLineupChange || isBatterSwap
         ? input.creaseNonStrikerId
         : innings.nonStrikerId;
     final bowlerId = input.bowlerId ?? innings.currentBowlerId;
@@ -342,11 +407,16 @@ class ScoringEngine {
     final countsToBowler = input.type != BallEventType.bye &&
         input.type != BallEventType.legBye;
 
+    final isBowlerChange = isLineupChange &&
+        bowlerId != null &&
+        bowlerId != innings.currentBowlerId;
+
     return BallEventModel(
       id: '',
       matchId: match.id,
       inningsNumber: innings.inningsNumber,
       overNumber: overNum,
+      overSegment: overSegment,
       ballInOver: isLegal ? ballInOver : ballInOver,
       eventType: input.type,
       runs: runs,
@@ -364,6 +434,7 @@ class ScoringEngine {
       penaltyRuns: breakdown.penaltyRuns,
       countsAsBallFaced: countsAsBallFaced,
       countsInOver: isLineupChange ||
+              isBatterSwap ||
               isKeeperChange ||
               input.type == BallEventType.endOver
           ? false
@@ -433,6 +504,15 @@ class ScoringEngine {
       wagonWheel: input.wagonWheel,
       lineupStrikerName: input.creaseStrikerName,
       lineupNonStrikerName: input.creaseNonStrikerName,
+      isBowlerChange: isBowlerChange,
+      previousBowlerId: isBowlerChange
+          ? (input.previousBowlerId ?? innings.currentBowlerId)
+          : null,
+      bowlerChangeReason:
+          isBowlerChange ? input.bowlerChangeReason : null,
+      swapReason: isBatterSwap ? input.swapReason : null,
+      runsCancelled: isBatterSwap ? input.runsCancelled : null,
+      swapNote: isBatterSwap ? input.swapNote : null,
     );
   }
 
@@ -532,6 +612,9 @@ class ScoringEngine {
   ) {
     if (event.eventType == BallEventType.lineupChange) {
       return _applyLineupChange(innings, event);
+    }
+    if (event.eventType == BallEventType.batterSwap) {
+      return _applyBatterSwap(innings, event);
     }
     if (event.eventType == BallEventType.endOver) {
       return _applyEndOver(innings, event);
@@ -686,6 +769,9 @@ class ScoringEngine {
       targetRuns: innings.targetRuns,
       isSuperOver: innings.isSuperOver,
       currentOverStartLegalBalls: innings.currentOverStartLegalBalls,
+      currentOverNumber: innings.currentOverNumber,
+      currentOverSegment: innings.currentOverSegment,
+      currentSegmentStartLegalBalls: innings.currentSegmentStartLegalBalls,
     );
   }
 
@@ -719,6 +805,9 @@ class ScoringEngine {
       targetRuns: innings.targetRuns,
       isSuperOver: innings.isSuperOver,
       currentOverStartLegalBalls: innings.legalBalls,
+      currentOverNumber: event.overNumber + 1,
+      currentOverSegment: 1,
+      currentSegmentStartLegalBalls: innings.legalBalls,
     );
   }
 
@@ -762,6 +851,17 @@ class ScoringEngine {
       }
     }
 
+    final ballsInOver = innings.legalBalls - innings.currentOverStartLegalBalls;
+    final bowlerChanged = event.bowlerId != null &&
+        event.bowlerId != innings.currentBowlerId;
+    final midOverBowlerChange = bowlerChanged && ballsInOver > 0;
+    var nextSegment = innings.currentOverSegment;
+    var nextSegmentStart = innings.currentSegmentStartLegalBalls;
+    if (midOverBowlerChange) {
+      nextSegment = innings.currentOverSegment + 1;
+      nextSegmentStart = innings.legalBalls;
+    }
+
     return InningsModel(
       inningsNumber: innings.inningsNumber,
       battingTeamId: innings.battingTeamId,
@@ -784,6 +884,58 @@ class ScoringEngine {
       targetRuns: innings.targetRuns,
       isSuperOver: innings.isSuperOver,
       currentOverStartLegalBalls: innings.currentOverStartLegalBalls,
+      currentOverNumber: innings.currentOverNumber,
+      currentOverSegment: nextSegment,
+      currentSegmentStartLegalBalls: nextSegmentStart,
+    );
+  }
+
+  InningsModel _applyBatterSwap(InningsModel innings, BallEventModel event) {
+    var totalRuns = innings.totalRuns;
+    var partnershipRuns = innings.partnershipRuns;
+    final cancelled = event.runsCancelled ?? 0;
+    if (cancelled > 0) {
+      totalRuns = (totalRuns - cancelled).clamp(0, 999999);
+      partnershipRuns = (partnershipRuns - cancelled).clamp(0, 999999);
+    }
+
+    var batsmen = List<BatsmanInningsModel>.from(innings.batsmen);
+    batsmen = _upsertBatsmanSlot(
+      batsmen,
+      event.strikerId,
+      event.lineupStrikerName,
+    );
+    batsmen = _upsertBatsmanSlot(
+      batsmen,
+      event.nonStrikerId,
+      event.lineupNonStrikerName,
+    );
+
+    return InningsModel(
+      inningsNumber: innings.inningsNumber,
+      battingTeamId: innings.battingTeamId,
+      bowlingTeamId: innings.bowlingTeamId,
+      status: innings.status,
+      totalRuns: totalRuns,
+      totalWickets: innings.totalWickets,
+      legalBalls: innings.legalBalls,
+      extras: innings.extras,
+      strikerId: event.strikerId,
+      nonStrikerId: event.nonStrikerId,
+      currentBowlerId: innings.currentBowlerId,
+      currentWicketKeeperId: innings.currentWicketKeeperId,
+      currentWicketKeeperName: innings.currentWicketKeeperName,
+      batsmen: batsmen,
+      bowlers: innings.bowlers,
+      partnershipRuns: partnershipRuns,
+      partnershipBalls: innings.partnershipBalls,
+      isFreeHitActive: innings.isFreeHitActive,
+      targetRuns: innings.targetRuns,
+      isSuperOver: innings.isSuperOver,
+      currentOverStartLegalBalls: innings.currentOverStartLegalBalls,
+      currentOverNumber: innings.currentOverNumber,
+      currentOverSegment: innings.currentOverSegment,
+      currentSegmentStartLegalBalls: innings.currentSegmentStartLegalBalls,
     );
   }
 
@@ -813,6 +965,9 @@ class ScoringEngine {
       targetRuns: innings.targetRuns,
       isSuperOver: innings.isSuperOver,
       currentOverStartLegalBalls: innings.currentOverStartLegalBalls,
+      currentOverNumber: innings.currentOverNumber,
+      currentOverSegment: innings.currentOverSegment,
+      currentSegmentStartLegalBalls: innings.currentSegmentStartLegalBalls,
     );
   }
 
@@ -1240,6 +1395,8 @@ class ScoringEngine {
       currentBowlerId: bowlerId,
       targetRuns: current.targetRuns,
       isSuperOver: current.isSuperOver,
+      currentOverNumber: 1,
+      currentOverSegment: 1,
       batsmen: _batsmenForReplayBase(
         current: current,
         events: events,
@@ -1279,7 +1436,8 @@ class ScoringEngine {
       addId(e.strikerId);
       addId(e.nonStrikerId);
       addId(e.dismissedPlayerId);
-      if (e.eventType == BallEventType.lineupChange) {
+      if (e.eventType == BallEventType.lineupChange ||
+          e.eventType == BallEventType.batterSwap) {
         addId(e.strikerId);
         addId(e.nonStrikerId);
       }
@@ -1381,14 +1539,21 @@ class ScoringEngine {
       bowlerId: e.bowlerId,
       wagonWheel: e.wagonWheel,
       createdBy: e.createdBy,
-      creaseStrikerId: e.eventType == BallEventType.lineupChange
+      creaseStrikerId: e.eventType == BallEventType.lineupChange ||
+              e.eventType == BallEventType.batterSwap
           ? e.strikerId
           : null,
-      creaseNonStrikerId: e.eventType == BallEventType.lineupChange
+      creaseNonStrikerId: e.eventType == BallEventType.lineupChange ||
+              e.eventType == BallEventType.batterSwap
           ? e.nonStrikerId
           : null,
       creaseStrikerName: e.lineupStrikerName,
       creaseNonStrikerName: e.lineupNonStrikerName,
+      previousBowlerId: e.previousBowlerId,
+      bowlerChangeReason: e.bowlerChangeReason,
+      swapReason: e.swapReason,
+      runsCancelled: e.runsCancelled,
+      swapNote: e.swapNote,
     );
   }
 
@@ -1445,6 +1610,11 @@ class BallEventInput {
     this.nextStrikerName,
     this.runOutDeliveryKind,
     this.completedRuns = 0,
+    this.previousBowlerId,
+    this.bowlerChangeReason,
+    this.swapReason,
+    this.runsCancelled,
+    this.swapNote,
   });
 
   final BallEventType type;
@@ -1479,6 +1649,12 @@ class BallEventInput {
   final RunOutDeliveryKind? runOutDeliveryKind;
   /// Runs completed before run-out (excluding wide/NB penalty).
   final int completedRuns;
+  final String? previousBowlerId;
+  final String? bowlerChangeReason;
+  /// [BatterSwapReason.name] for [BallEventType.batterSwap].
+  final String? swapReason;
+  final int? runsCancelled;
+  final String? swapNote;
 }
 
 class ScoringInput {
@@ -1486,11 +1662,13 @@ class ScoringInput {
     required this.match,
     required this.event,
     required this.overlay,
+    this.overMetadata,
   });
 
   final MatchModel match;
   final BallEventModel event;
   final OverlayStateModel overlay;
+  final OverMetadataModel? overMetadata;
 }
 
 class _RunBreakdown {
@@ -1516,6 +1694,9 @@ extension _InningsCopy on InningsModel {
     int? legalBalls,
     int? extras,
     int? currentOverStartLegalBalls,
+    int? currentOverNumber,
+    int? currentOverSegment,
+    int? currentSegmentStartLegalBalls,
   }) {
     return InningsModel(
       inningsNumber: inningsNumber,
@@ -1540,6 +1721,10 @@ extension _InningsCopy on InningsModel {
       currentWicketKeeperName: currentWicketKeeperName,
       currentOverStartLegalBalls:
           currentOverStartLegalBalls ?? this.currentOverStartLegalBalls,
+      currentOverNumber: currentOverNumber ?? this.currentOverNumber,
+      currentOverSegment: currentOverSegment ?? this.currentOverSegment,
+      currentSegmentStartLegalBalls:
+          currentSegmentStartLegalBalls ?? this.currentSegmentStartLegalBalls,
     );
   }
 }

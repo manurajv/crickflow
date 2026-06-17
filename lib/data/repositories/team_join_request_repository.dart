@@ -282,6 +282,10 @@ class TeamJoinRequestRepository {
 
       teamId: team.id,
 
+      addedByUserId: resolverUid,
+
+      notifyPlayer: false,
+
     );
 
 

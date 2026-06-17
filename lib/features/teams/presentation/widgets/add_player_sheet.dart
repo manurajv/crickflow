@@ -76,9 +76,12 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
   }
 
   Future<void> _addExisting(PlayerModel player) async {
-    await ref
-        .read(playerRepositoryProvider)
-        .assignPlayerToTeam(playerId: player.id, teamId: widget.teamId);
+    final uid = ref.read(authStateProvider).value?.uid;
+    await ref.read(playerRepositoryProvider).assignPlayerToTeam(
+          playerId: player.id,
+          teamId: widget.teamId,
+          addedByUserId: uid,
+        );
     if (!mounted) return;
     ref.invalidate(teamPlayersProvider(widget.teamId));
     Navigator.pop(context);
@@ -103,9 +106,11 @@ class _AddPlayerSheetState extends ConsumerState<AddPlayerSheet>
     );
 
     await ref.read(playerRepositoryProvider).createPlayer(player);
-    await ref
-        .read(teamRepositoryProvider)
-        .addPlayerToTeam(teamId: widget.teamId, playerId: playerId);
+    await ref.read(playerRepositoryProvider).assignPlayerToTeam(
+          playerId: playerId,
+          teamId: widget.teamId,
+          addedByUserId: uid,
+        );
 
     if (!mounted) return;
     ref.invalidate(teamPlayersProvider(widget.teamId));

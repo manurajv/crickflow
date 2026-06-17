@@ -23,6 +23,16 @@
 | Special cases — wide/no-ball rules (runs, legal delivery) on setup | Done |
 | Schedule / Next buttons — equal width, label "Schedule" | Done |
 | Ground map picker — WebView + Maps JavaScript API (tap/drag pin) | Done |
+| Players per team (1–25, default 11) on Start Match setup | Done |
+| Squad selection — playing XI cap + separate substitutes | Done |
+| Squad UI — blue playing / orange substitute colors + PLAYING/SUB badges | Done |
+| Auto-convert to substitute when playing squad full | Done |
+| Add player — permanent team add vs match-only guest (role/styles required) | Done |
+| Match player snapshots in Firestore (`teamAPlayingPlayers`, substitutes) | Done |
+| Toss / lineup — playing XI only (substitutes excluded) | Done |
+| Match start validation — exact `playersPerTeam` per team | Done |
+| Firestore rules — match setup snapshots + `playersPerTeam` | Done |
+| Team add notification (`team_member_added`) + report to admin | Done |
 
 ---
 
@@ -51,6 +61,11 @@
 | Match insights — Over Adjustments section | Done |
 | Scoring engine — `endOver` event, strike rotation on end only | Done |
 | Innings — `currentOverStartLegalBalls` for accurate over display | Done |
+| Sequential over tracking — `currentOverNumber` / `currentOverSegment` (fixes early-end carry-over) | Done |
+| Mid-over bowler change — segment increment (5A/5B), stats per bowler | Done |
+| Ball events — `overSegment`; match doc — `overMetadata` (segments + whole-over summary) | Done |
+| This Over indicator — resets on new over; continued overs stay grouped | Done |
+| Over lifecycle tests (`scoring_engine_over_lifecycle_test.dart`) | Done |
 
 ---
 
@@ -121,6 +136,13 @@
 | Run-out UI — professional dismissed/new-batter picker sheets | Done |
 | Run-out scenarios + integrity tests (`scoring_engine_run_out_integrity_test.dart`) | Done |
 | Run-out over display — single `W`, no extra dot after wicket; `lineupChange` hidden | Done |
+| Run-out last wicket — wicket recorded first; no next-batter blocker; post-wicket lineup only when innings continues | Done |
+| Run-out sheet — inline validation (dismissed batter, fielder, run out type); Confirm disabled until valid | Done |
+| Change Batters sheet — non-striker tap: swap, short run, crossed before wicket, umpire correction, other | Done |
+| `BallEventType.batterSwap` — `swapReason`, `runsCancelled`, `swapNote`; engine apply + replay/undo | Done |
+| Batter swap + last-wicket run-out tests (`scoring_engine_run_out_integrity_test.dart`) | Done |
+| `OversFormatter` — single source for overs display, economy, run rate, RRR from `ballsPerOver` | Done |
+| Scorecard / live score / player stats use `OversFormatter` + per-innings `effectiveRules.ballsPerOver` | Done |
 | Run-out flow — full sheet (fielders, delivery type, runs) + “Who will face the next ball?” picker; `nextStrikerId`/`nextStrikerName` on event; wide/NB from match rules | Done |
 | BallEvent wicket metadata (fielders, dismissed name, FOW context) persisted in Firestore | Done |
 | Scorecard dismissal from event metadata — `run out Fielder` / `F1 / F2`, pro formats | Done |

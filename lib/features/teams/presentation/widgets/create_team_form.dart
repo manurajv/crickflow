@@ -226,9 +226,11 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
               photoUrl: profile?.photoUrl,
               email: profile?.email,
             );
-        await ref
-            .read(playerRepositoryProvider)
-            .assignPlayerToTeam(playerId: player.id, teamId: _teamId);
+        await ref.read(playerRepositoryProvider).assignPlayerToTeam(
+              playerId: player.id,
+              teamId: _teamId,
+              addedByUserId: uid,
+            );
         await ref
             .read(teamRepositoryProvider)
             .updateTeam(

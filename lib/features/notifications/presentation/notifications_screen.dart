@@ -120,6 +120,87 @@ class _NotificationCard extends ConsumerWidget {
     }
   }
 
+  Future<void> _reportToAdmin(BuildContext context, WidgetRef ref) async {
+    final uid = ref.read(authStateProvider).value?.uid;
+    final n = notification;
+    if (uid == null || n.teamId == null || n.teamId!.isEmpty) return;
+
+    final messageController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report to admin'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Tell us if you were added to this team without your consent. '
+              'CrickFlow support will review your report.',
+            ),
+            const SizedBox(height: AppDimens.spaceMd),
+            TextField(
+              controller: messageController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Details (optional)',
+                hintText: 'I do not know this team…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Submit report'),
+          ),
+        ],
+      ),
+    );
+
+    final message = messageController.text.trim();
+    messageController.dispose();
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final profile = await ref.read(currentUserProfileProvider.future);
+      final player =
+          await ref.read(playerRepositoryProvider).getPlayerByUserId(uid);
+      final team =
+          await ref.read(teamRepositoryProvider).getTeam(n.teamId!);
+      final reporterName =
+          profile?.displayName ?? profile?.name ?? 'CrickFlow player';
+
+      await ref.read(teamRosterReportRepositoryProvider).submitReport(
+            reporterUserId: uid,
+            reporterName: reporterName,
+            teamId: n.teamId!,
+            teamName: team?.name ?? 'Unknown team',
+            playerId: n.playerId ?? player?.id ?? uid,
+            addedByUserId: n.addedByUserId,
+            message: message,
+          );
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report submitted. Support will review it.'),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final n = notification;
@@ -153,22 +234,22 @@ class _NotificationCard extends ConsumerWidget {
                     ),
                   ],
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 4,
-                height: 92,
-                decoration: BoxDecoration(
-                  color: n.read
-                      ? Colors.transparent
-                      : palette.accent,
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(12),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: n.read
+                        ? Colors.transparent
+                        : palette.accent,
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(12),
+                    ),
                   ),
                 ),
-              ),
-              Expanded(
+                Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
                     AppDimens.spaceMd,
@@ -257,6 +338,29 @@ class _NotificationCard extends ConsumerWidget {
                                 ],
                               ),
                             ],
+                            if (n.canReportUnauthorizedAdd) ...[
+                              const SizedBox(height: 10),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _reportToAdmin(context, ref),
+                                  icon: const Icon(Icons.flag_outlined, size: 16),
+                                  label: const Text('Report to admin'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.accentRed,
+                                    side: BorderSide(
+                                      color: AppColors.accentRed.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -264,7 +368,8 @@ class _NotificationCard extends ConsumerWidget {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -292,6 +397,16 @@ class _NotificationCard extends ConsumerWidget {
           icon: Icons.person_remove_outlined,
           accent: AppColors.primaryBlueLight,
           background: AppColors.primaryBlue.withValues(alpha: 0.15),
+        ),
+      'team_member_added' => _NotificationPalette(
+          icon: Icons.group_add_outlined,
+          accent: AppColors.primaryBlue,
+          background: AppColors.primaryBlue.withValues(alpha: 0.12),
+        ),
+      'admin_roster_report' => _NotificationPalette(
+          icon: Icons.admin_panel_settings_outlined,
+          accent: AppColors.accentRed,
+          background: AppColors.accentRed.withValues(alpha: 0.12),
         ),
       _ => _NotificationPalette(
           icon: Icons.notifications_outlined,
