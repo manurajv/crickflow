@@ -16,8 +16,10 @@ import '../../features/matches/presentation/match_toss_screen.dart';
 import '../../features/matches/presentation/start_innings_screen.dart';
 import '../../features/matches/presentation/powerplay_overs_screen.dart';
 import '../../features/matches/presentation/select_match_squad_screen.dart';
+import '../../features/matches/presentation/ground_map_picker_screen.dart';
 import '../../features/matches/presentation/select_team_for_match_screen.dart';
 import '../../features/matches/presentation/start_match_flow_screen.dart';
+import '../../data/models/location_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../features/matches/presentation/match_highlights_screen.dart';
 import '../../features/matches/presentation/match_hub_screen.dart';
@@ -204,6 +206,24 @@ final routerProvider = Provider<GoRouter>((ref) {
               final slot = state.uri.queryParameters['slot'] ?? 'a';
               return SelectTeamForMatchScreen(
                 slotLabel: slot == 'b' ? 'team B' : 'team A',
+                slot: slot == 'b' ? 'b' : 'a',
+              );
+            },
+          ),
+          GoRoute(
+            path: 'pick-ground',
+            builder: (_, state) {
+              final extra = state.extra;
+              var location = const LocationModel();
+              var groundName = '';
+              if (extra is Map<String, dynamic>) {
+                final loc = extra['location'];
+                if (loc is LocationModel) location = loc;
+                groundName = extra['groundName'] as String? ?? '';
+              }
+              return GroundMapPickerScreen(
+                initialLocation: location,
+                initialGroundName: groundName,
               );
             },
           ),

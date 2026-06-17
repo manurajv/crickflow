@@ -11,6 +11,7 @@ import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 enum MatchCardStyle {
   /// Surface card for feeds and lists.
   list,
+
   /// Broadcast scorebug for match hub / live hero.
   hero,
 }
@@ -36,6 +37,11 @@ class MatchCardContent extends StatelessWidget {
 
   bool get _isHero => style == MatchCardStyle.hero;
 
+  bool get _isUpcoming =>
+      match.status == MatchStatus.scheduled ||
+      match.status == MatchStatus.draft ||
+      match.status == MatchStatus.tossCompleted;
+
   @override
   Widget build(BuildContext context) {
     final isLive = match.status == MatchStatus.live ||
@@ -48,15 +54,15 @@ class MatchCardContent extends StatelessWidget {
     final battingB = MatchScoreDisplay.isTeamBattingNow(match, match.teamBId);
     final scoreA = MatchScoreDisplay.scoreForTeam(match, match.teamAId);
     final scoreB = MatchScoreDisplay.scoreForTeam(match, match.teamBId);
-    final showScores = isLive || isCompleted || scoreA != null || scoreB != null;
+    final showScores =
+        isLive || isCompleted || scoreA != null || scoreB != null;
     final chase = isLive && showChaseDetails
         ? MatchScoreDisplay.chaseLine(match)
         : null;
     final result =
         isCompleted ? MatchScoreDisplay.completedResultLine(match) : null;
-    final firstSummary = isCompleted
-        ? null
-        : MatchScoreDisplay.completedFirstInnings(match);
+    final firstSummary =
+        isCompleted ? null : MatchScoreDisplay.completedFirstInnings(match);
     final cur = match.currentInnings;
     final rules = match.rules;
 
@@ -85,6 +91,7 @@ class MatchCardContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── status chip + meta (overs · venue, no date) ─────────────────
         Row(
           children: [
             MatchStatusChip(label: status.label, color: status.color),
@@ -102,6 +109,13 @@ class MatchCardContent extends StatelessWidget {
             ),
           ],
         ),
+
+        // ── upcoming: date + time block ──────────────────────────────────
+        if (_isUpcoming && match.scheduledAt != null && !_isHero) ...[
+          const SizedBox(height: AppDimens.spaceSm),
+          _UpcomingDateBlock(scheduledAt: match.scheduledAt!),
+        ],
+
         if (tournamentLabel != null) ...[
           const SizedBox(height: 6),
           Text(
@@ -115,6 +129,8 @@ class MatchCardContent extends StatelessWidget {
           ),
         ],
         const SizedBox(height: AppDimens.spaceSm),
+
+        // ── teams row ────────────────────────────────────────────────────
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -231,21 +247,94 @@ class MatchCardContent extends StatelessWidget {
                 ),
           ),
         ],
-        if (showFooterHint && !_isHero) ...[
-          if (matchCardFooterHint(match).isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              matchCardFooterHint(match),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                  ),
-            ),
-          ],
-        ],
       ],
     );
   }
 }
+
+/// Date + time block shown on upcoming match cards.
+class _UpcomingDateBlock extends StatelessWidget {
+  const _UpcomingDateBlock({required this.scheduledAt});
+
+  final DateTime scheduledAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final matchDay =
+        DateTime(scheduledAt.year, scheduledAt.month, scheduledAt.day);
+
+    final String dayLabel;
+    if (matchDay == today) {
+      dayLabel = 'Today';
+    } else if (matchDay == tomorrow) {
+      dayLabel = 'Tomorrow';
+    } else {
+      dayLabel = AppDateUtils.formatShortDay(scheduledAt); // e.g. "Wed, 18 Jun"
+    }
+
+    final timeLabel = AppDateUtils.formatTime(scheduledAt); // e.g. "3:30 PM"
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.spaceSm,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: AppColors.gold.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.calendar_today_outlined,
+            size: 12,
+            color: AppColors.gold,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            dayLabel,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.gold,
+              height: 1,
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 10,
+            margin: const EdgeInsets.symmetric(horizontal: 6),
+            color: AppColors.gold.withValues(alpha: 0.4),
+          ),
+          const Icon(
+            Icons.access_time_outlined,
+            size: 12,
+            color: AppColors.gold,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            timeLabel,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.gold,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class MatchStatusChip extends StatelessWidget {
   const MatchStatusChip({super.key, required this.label, required this.color});
@@ -345,9 +434,8 @@ class _TeamColumn extends StatelessWidget {
 
 String matchCardMetaLine(MatchModel match) {
   final parts = <String>[];
-  if (match.scheduledAt != null) {
-    parts.add(AppDateUtils.formatShort(match.scheduledAt!));
-  }
+  // Date is shown in the dedicated _UpcomingDateBlock for upcoming matches,
+  // and not needed in the meta line for live/completed either — venue is enough.
   parts.add('${match.rules.totalOvers} Ov');
   if (match.venue.isNotEmpty) {
     parts.add(match.venue);
@@ -358,12 +446,14 @@ String matchCardMetaLine(MatchModel match) {
 }
 
 String matchCardFooterHint(MatchModel match) {
-  if (match.status == MatchStatus.completed) return '';
-  if (match.status == MatchStatus.scheduled && match.scheduledAt != null) {
-    return 'Scheduled · ${AppDateUtils.formatShort(match.scheduledAt!)}';
-  }
+  // Upcoming date/time is now shown in _UpcomingDateBlock inside MatchCardContent.
+  // Footer hint is only used for non-standard states.
   if (match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak) {
+      match.status == MatchStatus.inningsBreak ||
+      match.status == MatchStatus.completed ||
+      match.status == MatchStatus.scheduled ||
+      match.status == MatchStatus.draft ||
+      match.status == MatchStatus.tossCompleted) {
     return '';
   }
   return '';
@@ -372,23 +462,42 @@ String matchCardFooterHint(MatchModel match) {
 BoxDecoration matchListCardDecoration(MatchModel match) {
   final isLive = match.status == MatchStatus.live ||
       match.status == MatchStatus.inningsBreak;
+  final isUpcoming = match.status == MatchStatus.scheduled ||
+      match.status == MatchStatus.draft ||
+      match.status == MatchStatus.tossCompleted;
+
+  if (isLive) {
+    return BoxDecoration(
+      color: AppColors.card,
+      borderRadius: AppDimens.cardRadius,
+      border: Border.all(
+        color: AppColors.liveIndicator.withValues(alpha: 0.45),
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.liveIndicator.withValues(alpha: 0.12),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+  }
+
+  if (isUpcoming) {
+    return BoxDecoration(
+      color: AppColors.card,
+      borderRadius: AppDimens.cardRadius,
+      border: Border.all(
+        color: AppColors.gold.withValues(alpha: 0.45),
+        width: 1,
+      ),
+    );
+  }
+
   return BoxDecoration(
     color: AppColors.card,
     borderRadius: AppDimens.cardRadius,
-    border: Border.all(
-      color: isLive
-          ? AppColors.liveIndicator.withValues(alpha: 0.45)
-          : AppColors.border,
-    ),
-    boxShadow: isLive
-        ? [
-            BoxShadow(
-              color: AppColors.liveIndicator.withValues(alpha: 0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ]
-        : null,
+    border: Border.all(color: AppColors.border),
   );
 }
 

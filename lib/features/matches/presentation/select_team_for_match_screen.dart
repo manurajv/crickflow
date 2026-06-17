@@ -2,21 +2,30 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/team_model.dart';
+import '../../../shared/providers/my_player_provider.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/widgets/location_filter_bar.dart'; // locationMatchesFilter
+import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../teams/presentation/utils/teams_list_filter.dart';
+import '../../teams/presentation/widgets/team_list_scope.dart';
+import '../../teams/presentation/widgets/teams_list_toolbar.dart';
+import '../../teams/presentation/widgets/teams_location_filter_sheet.dart';
 
 /// Pick a team for Team A or Team B during start-match flow.
 class SelectTeamForMatchScreen extends ConsumerStatefulWidget {
   const SelectTeamForMatchScreen({
     super.key,
     required this.slotLabel,
+    required this.slot,
     this.opponentsOnly = false,
   });
 
   final String slotLabel;
+  /// `a` or `b` — which slot is being filled.
+  final String slot;
   final bool opponentsOnly;
 
   @override
@@ -28,14 +37,26 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
   String _query = '';
-  String _country = '';
-  String _city = '';
+  String _filterCountry = '';
+  String _filterCity = '';
 
   @override
   void initState() {
     super.initState();
+    _resetFilters();
     _tabs = TabController(length: widget.opponentsOnly ? 1 : 3, vsync: this);
   }
+
+  void _resetFilters() {
+    _query = '';
+    _filterCountry = '';
+    _filterCity = '';
+  }
+
+  bool get _hasActiveFilters =>
+      _query.isNotEmpty || _filterCountry.isNotEmpty || _filterCity.isNotEmpty;
+
+  void _clearFilters() => setState(_resetFilters);
 
   @override
   void dispose() {
@@ -45,17 +66,13 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
 
   @override
   Widget build(BuildContext context) {
-    final uid = ref.watch(authStateProvider).value?.uid;
+    final draft = ref.watch(startMatchDraftProvider);
+    final blockedTeam = widget.slot == 'b' ? draft.teamA : draft.teamB;
+    final blockedSlotLabel = widget.slot == 'b' ? 'Team A' : 'Team B';
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Select ${widget.slotLabel}'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () => _searchDialog(),
-          ),
-        ],
         bottom: widget.opponentsOnly
             ? null
             : TabBar(
@@ -65,157 +82,245 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
                 unselectedLabelColor: AppColors.textSecondary,
                 tabs: const [
                   Tab(text: 'Your teams'),
-                  Tab(text: 'Opponents'),
-                  Tab(text: 'Add'),
+                  Tab(text: 'All teams'),
+                  Tab(text: 'Create'),
                 ],
               ),
       ),
-      body: widget.opponentsOnly
-          ? _TeamList(
-              yoursOnly: false,
-              uid: uid,
-              query: _query,
-              country: _country,
-              city: _city,
-              onFilter: (c, city) => setState(() {
-                _country = c;
-                _city = city;
-              }),
-              onPick: (t) => context.pop(t),
-            )
-          : TabBarView(
-              controller: _tabs,
-              children: [
-                _TeamList(
-                  yoursOnly: true,
-                  uid: uid,
-                  query: _query,
-                  country: _country,
-                  city: _city,
-                  onFilter: (c, city) => setState(() {
-                    _country = c;
-                    _city = city;
-                  }),
-                  onPick: (t) => context.pop(t),
-                ),
-                _TeamList(
-                  yoursOnly: false,
-                  uid: uid,
-                  query: _query,
-                  country: _country,
-                  city: _city,
-                  onFilter: (c, city) => setState(() {
-                    _country = c;
-                    _city = city;
-                  }),
-                  onPick: (t) => context.pop(t),
-                ),
-                _AddTeamTab(onCreated: (t) => context.pop(t)),
-              ],
-            ),
-    );
-  }
-
-  Future<void> _searchDialog() async {
-    final controller = TextEditingController(text: _query);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Search teams'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Team name…'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('Clear'),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TeamsSearchBar(
+            query: _query,
+            onChanged: (v) => setState(() => _query = v),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Apply'),
+          _SelectTeamLocationFilterBar(
+            country: _filterCountry,
+            city: _filterCity,
+            onLocationChanged: (country, city) => setState(() {
+              _filterCountry = country;
+              _filterCity = city;
+            }),
+          ),
+          Expanded(
+            child: widget.opponentsOnly
+                ? _TeamList(
+                    scope: _TeamListScope.all,
+                    query: _query,
+                    country: _filterCountry,
+                    city: _filterCity,
+                    blockedTeamId: blockedTeam?.id,
+                    blockedSlotLabel: blockedSlotLabel,
+                    hasActiveFilters: _hasActiveFilters,
+                    onClearFilters: _clearFilters,
+                    onPick: (t) => context.pop(t),
+                  )
+                : TabBarView(
+                    controller: _tabs,
+                    children: [
+                      _TeamList(
+                        scope: _TeamListScope.yours,
+                        query: _query,
+                        country: _filterCountry,
+                        city: _filterCity,
+                        blockedTeamId: blockedTeam?.id,
+                        blockedSlotLabel: blockedSlotLabel,
+                        hasActiveFilters: _hasActiveFilters,
+                        onClearFilters: _clearFilters,
+                        onPick: (t) => context.pop(t),
+                      ),
+                      _TeamList(
+                        scope: _TeamListScope.all,
+                        query: _query,
+                        country: _filterCountry,
+                        city: _filterCity,
+                        blockedTeamId: blockedTeam?.id,
+                        blockedSlotLabel: blockedSlotLabel,
+                        hasActiveFilters: _hasActiveFilters,
+                        onClearFilters: _clearFilters,
+                        onPick: (t) => context.pop(t),
+                      ),
+                      const _AddTeamTab(),
+                    ],
+                  ),
           ),
         ],
       ),
     );
-    controller.dispose();
-    if (result != null) setState(() => _query = result.trim().toLowerCase());
   }
 }
 
+/// Location chip row — same sheet + logic as Teams tab.
+class _SelectTeamLocationFilterBar extends StatelessWidget {
+  const _SelectTeamLocationFilterBar({
+    required this.country,
+    required this.city,
+    required this.onLocationChanged,
+  });
+
+  final String country;
+  final String city;
+  final void Function(String country, String city) onLocationChanged;
+
+  bool get _locationActive => country.isNotEmpty || city.isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spaceMd,
+        0,
+        AppDimens.spaceMd,
+        AppDimens.spaceXs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                FilterChip(
+                  avatar: Icon(
+                    Icons.place_outlined,
+                    size: 18,
+                    color: _locationActive
+                        ? AppColors.gold
+                        : AppColors.textSecondary,
+                  ),
+                  label: const Text('Location'),
+                  selected: _locationActive,
+                  onSelected: (_) => showTeamsLocationFilterSheet(
+                    context,
+                    country: country,
+                    city: city,
+                    onApply: onLocationChanged,
+                  ),
+                  selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
+                  checkmarkColor: AppColors.gold,
+                  showCheckmark: false,
+                  labelStyle: TextStyle(
+                    color: _locationActive
+                        ? AppColors.gold
+                        : AppColors.textSecondary,
+                    fontWeight:
+                        _locationActive ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_locationActive)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      [
+                        if (country.isNotEmpty) country,
+                        if (city.isNotEmpty) city,
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => onLocationChanged('', ''),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text('Clear'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Which set of teams _TeamList should show.
+enum _TeamListScope { yours, all }
+
 class _TeamList extends ConsumerWidget {
   const _TeamList({
-    required this.yoursOnly,
-    required this.uid,
+    required this.scope,
     required this.query,
     required this.country,
     required this.city,
-    required this.onFilter,
+    required this.blockedTeamId,
+    required this.blockedSlotLabel,
+    required this.hasActiveFilters,
+    required this.onClearFilters,
     required this.onPick,
   });
 
-  final bool yoursOnly;
-  final String? uid;
+  final _TeamListScope scope;
   final String query;
   final String country;
   final String city;
-  final void Function(String country, String city) onFilter;
+  final String? blockedTeamId;
+  final String blockedSlotLabel;
+  final bool hasActiveFilters;
+  final VoidCallback onClearFilters;
   final void Function(TeamModel team) onPick;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final teamsAsync = ref.watch(
-      yoursOnly ? teamsProvider : allTeamsProvider,
-    );
+    final teamsAsync = ref.watch(allTeamsProvider);
+    final uid = ref.watch(authStateProvider).value?.uid;
+    final player = ref.watch(myPlayerProvider).valueOrNull;
 
     return teamsAsync.when(
       data: (teams) {
-        var list = teams.where((t) {
-          if (!locationMatchesFilter(t.location, country, city)) return false;
-          if (yoursOnly) return uid != null && t.createdBy == uid;
-          return uid == null || t.createdBy != uid;
-        }).toList();
-        if (query.isNotEmpty) {
-          list = list
-              .where((t) => t.name.toLowerCase().contains(query))
-              .toList();
+        // "Your teams" filters to teams the current user is a member of.
+        // "All teams" shows every registered team on CrickFlow.
+        final pool = scope == _TeamListScope.yours
+            ? teams.where((t) {
+                final memberIds = TeamsListFilter.memberTeamIds(
+                  teams: teams,
+                  uid: uid,
+                  player: player,
+                );
+                return memberIds.contains(t.id);
+              }).toList()
+            : teams;
+
+        final list = TeamsListFilter.apply(
+          teams: pool,
+          scope: TeamListScope.all,
+          query: query,
+          country: country,
+          city: city,
+        );
+
+        if (list.isEmpty) {
+          return _SelectTeamEmptyState(
+            hasFilters: hasActiveFilters,
+            onClearFilters: onClearFilters,
+          );
         }
 
-        return Column(
-          children: [
-            LocationFilterBar(onFilterChanged: onFilter),
-            Expanded(
-              child: list.isEmpty
-                  ? const Center(child: Text('No teams found'))
-                  : ListView.builder(
-                      padding: AppDimens.listPadding,
-                      itemCount: list.length,
-                      itemBuilder: (_, i) {
-                        final t = list[i];
-                        return Card(
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: AppColors.primaryBlue,
-                              backgroundImage: t.logoUrl != null
-                                  ? CachedNetworkImageProvider(t.logoUrl!)
-                                  : null,
-                              child: t.logoUrl == null
-                                  ? Text(
-                                      t.name.isNotEmpty ? t.name[0] : '?',
-                                    )
-                                  : null,
-                            ),
-                            title: Text(t.name),
-                            subtitle: Text(t.location.displayLabel),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => onPick(t),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+        return ListView.builder(
+          padding: AppDimens.listPadding,
+          itemCount: list.length,
+          itemBuilder: (context, i) {
+            final team = list[i];
+            final isBlocked =
+                blockedTeamId != null && team.id == blockedTeamId;
+            return _SelectTeamCard(
+              team: team,
+              isBlocked: isBlocked,
+              blockedSlotLabel: blockedSlotLabel,
+              onPick: isBlocked ? null : () => onPick(team),
+            );
+          },
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -224,35 +329,222 @@ class _TeamList extends ConsumerWidget {
   }
 }
 
-class _AddTeamTab extends ConsumerWidget {
-  const _AddTeamTab({required this.onCreated});
+class _SelectTeamCard extends StatelessWidget {
+  const _SelectTeamCard({
+    required this.team,
+    required this.isBlocked,
+    required this.blockedSlotLabel,
+    required this.onPick,
+  });
 
-  final void Function(TeamModel team) onCreated;
+  final TeamModel team;
+  final bool isBlocked;
+  final String blockedSlotLabel;
+  final VoidCallback? onPick;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimens.spaceLg),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Create a new team and use it in this match.',
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Opacity(
+      opacity: isBlocked ? 0.5 : 1,
+      child: Card(
+        margin: const EdgeInsets.only(bottom: AppDimens.spaceSm),
+        child: InkWell(
+          onTap: onPick,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.spaceMd,
+              vertical: AppDimens.spaceSm,
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: AppColors.primaryBlue,
+                  backgroundImage: team.logoUrl != null
+                      ? CachedNetworkImageProvider(team.logoUrl!)
+                      : null,
+                  child: team.logoUrl == null
+                      ? Text(team.name.isNotEmpty ? team.name[0] : '?')
+                      : null,
+                ),
+                const SizedBox(width: AppDimens.spaceMd),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        team.name,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isBlocked
+                              ? AppColors.textSecondary
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                      if (team.location.displayLabel.isNotEmpty)
+                        Text(
+                          team.location.displayLabel,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      if (isBlocked) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 14,
+                              color: AppColors.gold.withValues(alpha: 0.8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Selected as $blockedSlotLabel',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: AppColors.gold,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (isBlocked)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Text(
+                      'Already selected',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectTeamEmptyState extends StatelessWidget {
+  const _SelectTeamEmptyState({
+    required this.hasFilters,
+    required this.onClearFilters,
+  });
+
+  final bool hasFilters;
+  final VoidCallback onClearFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppDimens.spaceXl),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: AppDimens.spaceXl),
+          Icon(
+            Icons.groups_outlined,
+            size: 56,
+            color: AppColors.textSecondary.withValues(alpha: 0.45),
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
+          Text(
+            'No teams found',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (hasFilters) ...[
+            const SizedBox(height: AppDimens.spaceSm),
+            Text(
+              'Try adjusting your search or location filter.',
               textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: AppDimens.spaceLg),
-            FilledButton.icon(
-              onPressed: () => context.push('/teams/create'),
-              icon: const Icon(Icons.add),
-              label: const Text('Add team'),
+            FilledButton(
+              onPressed: onClearFilters,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.gold,
                 foregroundColor: Colors.black,
               ),
+              child: const Text('Clear filters'),
             ),
           ],
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddTeamTab extends StatelessWidget {
+  const _AddTeamTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppDimens.spaceLg),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          Icon(
+            Icons.groups_outlined,
+            size: 56,
+            color: AppColors.textSecondary.withValues(alpha: 0.45),
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
+          Text(
+            'Create a new team',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          Text(
+            'Set up your team and use it in this match.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppDimens.spaceLg),
+          FilledButton.icon(
+            onPressed: () => context.push('/teams/create'),
+            icon: const Icon(Icons.add),
+            label: const Text('Create team'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.gold,
+              foregroundColor: Colors.black,
+            ),
+          ),
+        ],
       ),
     );
   }

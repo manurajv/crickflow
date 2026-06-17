@@ -6,13 +6,13 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../data/models/location_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/match_rules_model.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
-import '../../../shared/widgets/cf_underlined_field.dart';
-import 'match_scoring_rules_screen.dart';
+import 'models/ground_pick_result.dart';
 import 'widgets/start_match_setup_form.dart';
 
 /// Start match: select teams → setup → create.
@@ -110,6 +110,48 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     ref.read(startMatchDraftProvider.notifier).updateScheduledAt(combined);
   }
 
+  Future<void> _pickGroundOnMap() async {
+    final draft = ref.read(startMatchDraftProvider);
+    final result = await context.push<GroundPickResult>(
+      '/match/create/pick-ground',
+      extra: {
+        'location': draft.location,
+        'groundName': _venueController.text.trim(),
+      },
+    );
+    if (result == null || !mounted) return;
+    _venueController.text = result.groundName;
+    if (result.location.city.isNotEmpty) {
+      _cityController.text = result.location.city;
+    }
+    final notifier = ref.read(startMatchDraftProvider.notifier);
+    notifier
+      ..updateVenue(result.groundName)
+      ..updateLocation(
+        result.location.copyWith(
+          city: result.location.city.isNotEmpty
+              ? result.location.city
+              : draft.location.city,
+        ),
+      );
+  }
+
+  void _applyGroundLocation(LocationModel location) {
+    final draft = ref.read(startMatchDraftProvider);
+    ref.read(startMatchDraftProvider.notifier).updateLocation(
+          draft.location.copyWith(
+            country: location.country.isNotEmpty
+                ? location.country
+                : draft.location.country,
+            stateProvince: location.stateProvince,
+            city: location.city,
+          ),
+        );
+    if (location.city.isNotEmpty) {
+      _cityController.text = location.city;
+    }
+  }
+
   Future<void> _submitMatch({required bool scheduleOnly}) async {
     final draft = ref.read(startMatchDraftProvider);
     if (!draft.hasBothTeams) {
@@ -178,88 +220,6 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     context.push('/match/create/squad/a');
   }
 
-  Future<void> _openMatchRules() async {
-    final draft = ref.read(startMatchDraftProvider);
-    final updated = await Navigator.of(context).push<MatchRulesModel>(
-      MaterialPageRoute(
-        builder: (_) => MatchScoringRulesScreen(initialRules: draft.rules),
-      ),
-    );
-    if (updated != null) _onRulesChanged(updated);
-  }
-
-  void _showTestMatchOversSheet() {
-    final draft = ref.read(startMatchDraftProvider);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: AppDimens.spaceLg,
-            right: AppDimens.spaceLg,
-            top: AppDimens.spaceLg,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + AppDimens.spaceLg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Overs & bowler limits',
-                style: Theme.of(ctx).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppDimens.spaceMd),
-              CfUnderlinedField(
-                controller: _oversController,
-                label: 'No. of overs',
-                keyboardType: TextInputType.number,
-                onChanged: (v) {
-                  final n = int.tryParse(v);
-                  if (n != null && n > 0) {
-                    _onRulesChanged(draft.rules.withTotalOvers(n));
-                  }
-                },
-              ),
-              const SizedBox(height: AppDimens.fieldSpacing),
-              CfUnderlinedField(
-                controller: _oversPerBowlerController,
-                label: 'Overs per bowler',
-                keyboardType: TextInputType.number,
-                onChanged: (v) {
-                  final n = int.tryParse(v);
-                  if (n != null && n >= 1) {
-                    _onRulesChanged(draft.rules.withManualOversPerBowler(n));
-                  }
-                },
-              ),
-              if (draft.rules.isManualOversPerBowler)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () => _onRulesChanged(
-                      draft.rules.resetOversPerBowlerToAuto(),
-                    ),
-                    icon: const Icon(Icons.autorenew, size: 18),
-                    label: const Text('Reset to Auto'),
-                  ),
-                ),
-              const SizedBox(height: AppDimens.spaceLg),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
-                ),
-                child: const Text('Done'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(startMatchDraftProvider);
@@ -277,38 +237,115 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     return ListView(
       padding: AppDimens.listPadding,
       children: [
-        Text(
-          '* Scoring a match on CrickFlow is free.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+        // ── info strip ───────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spaceMd,
+            vertical: AppDimens.spaceSm,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.primaryBlue.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+            border: Border.all(
+              color: AppColors.primaryBlue.withValues(alpha: 0.35),
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                size: 16,
+                color: AppColors.primaryBlueLight,
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Scoring a match on CrickFlow is free.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.primaryBlueLight,
+                      ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: AppDimens.spaceXl),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: AppDimens.spaceXl,
-              horizontal: AppDimens.spaceLg,
-            ),
-            child: Column(
-              children: [
-                _TeamSlot(
-                  label: 'Team A',
-                  team: draft.teamA,
-                  name: draft.resolvedTeamAName,
-                  onSelect: () => _pickTeam(true),
+        const SizedBox(height: AppDimens.spaceLg),
+
+        // ── VS card ───────────────────────────────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+            border: Border.all(color: AppColors.border, width: 0.5),
+          ),
+          padding: const EdgeInsets.all(AppDimens.spaceLg),
+          child: Column(
+            children: [
+              // Team A slot
+              _TeamSlot(
+                label: 'Team A',
+                team: draft.teamA,
+                name: draft.resolvedTeamAName,
+                onSelect: () => _pickTeam(true),
+              ),
+
+              // VS divider
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    vertical: AppDimens.spaceMd),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Divider(
+                        color: AppColors.border,
+                        thickness: 0.5,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimens.spaceMd),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.surfaceElevated,
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'VS',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(
+                                  color: AppColors.gold,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Divider(
+                        color: AppColors.border,
+                        thickness: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppDimens.spaceLg),
-                const _VsBadge(),
-                const SizedBox(height: AppDimens.spaceLg),
-                _TeamSlot(
-                  label: 'Team B',
-                  team: draft.teamB,
-                  name: draft.resolvedTeamBName,
-                  onSelect: () => _pickTeam(false),
-                ),
-              ],
-            ),
+              ),
+
+              // Team B slot
+              _TeamSlot(
+                label: 'Team B',
+                team: draft.teamB,
+                name: draft.resolvedTeamBName,
+                onSelect: () => _pickTeam(false),
+              ),
+            ],
           ),
         ),
       ],
@@ -340,6 +377,8 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
       },
       onVenueChanged: (v) =>
           ref.read(startMatchDraftProvider.notifier).updateVenue(v),
+      onLocationResolved: _applyGroundLocation,
+      onPickGroundOnMap: _pickGroundOnMap,
       onManageOfficials: () => context.push('/match/create/officials'),
     );
   }
@@ -378,18 +417,23 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                           : () => _submitMatch(scheduleOnly: true),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, AppDimens.buttonHeightLarge),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
-                      child: const Text('Schedule match'),
+                      child: const Text(
+                        'Schedule',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                   const SizedBox(width: AppDimens.spaceMd),
                   Expanded(
-                    flex: 2,
                     child: FilledButton(
                       onPressed: _saving ? null : _goToSquadFlow,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, AppDimens.buttonHeightLarge),
                         backgroundColor: AppColors.primaryBlue,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
                       child: _saving
                           ? const SizedBox(
@@ -397,7 +441,11 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                               height: 22,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Next (toss)'),
+                          : const Text(
+                              'Next (toss)',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                     ),
                   ),
                 ],
@@ -423,64 +471,170 @@ class _TeamSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasTeam = name.isNotEmpty;
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 48,
-          backgroundColor: AppColors.surfaceElevated,
-          backgroundImage: team?.logoUrl != null
-              ? CachedNetworkImageProvider(team!.logoUrl!)
-              : null,
-          child: team?.logoUrl == null
-              ? Icon(
-                  hasTeam ? Icons.groups : Icons.add,
-                  size: 40,
+    return InkWell(
+      onTap: onSelect,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppDimens.spaceSm),
+        child: Row(
+          children: [
+            // Logo / avatar
+            if (team != null)
+              _MatchTeamAvatar(team: team!, size: 52)
+            else
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.surfaceElevated,
+                  border: Border.all(
+                    color: AppColors.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.add,
+                  size: 24,
                   color: AppColors.textSecondary,
-                )
-              : null,
+                ),
+              ),
+            const SizedBox(width: AppDimens.spaceMd),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasTeam ? name : 'Tap to select team',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight:
+                          hasTeam ? FontWeight.w700 : FontWeight.w400,
+                      color: hasTeam
+                          ? AppColors.textPrimary
+                          : AppColors.textMuted,
+                    ),
+                  ),
+                  if (team?.location.displayLabel.isNotEmpty == true)
+                    Text(
+                      team!.location.displayLabel,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Icon(
+              hasTeam ? Icons.swap_horiz : Icons.chevron_right,
+              color: AppColors.gold,
+              size: 22,
+            ),
+          ],
         ),
-        const SizedBox(height: AppDimens.spaceSm),
-        if (hasTeam)
-          Text(
-            name,
-            style: Theme.of(context).textTheme.titleLarge,
-            textAlign: TextAlign.center,
-          ),
-        const SizedBox(height: AppDimens.spaceSm),
-        FilledButton(
-          onPressed: onSelect,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primaryBlue,
-            minimumSize: const Size(220, AppDimens.buttonHeightLarge),
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-          ),
-          child: Text(
-            hasTeam ? 'Change $label' : 'Select $label',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _VsBadge extends StatelessWidget {
-  const _VsBadge();
+/// Polished circular avatar for a team in the match setup card.
+class _MatchTeamAvatar extends StatelessWidget {
+  const _MatchTeamAvatar({required this.team, required this.size});
+
+  final TeamModel team;
+  final double size;
+
+  String get _initials {
+    if (team.name.isEmpty) return '?';
+    final words = team.name.trim().split(RegExp(r'\s+'));
+    if (words.length == 1) {
+      return words[0]
+          .substring(0, words[0].length.clamp(0, 2))
+          .toUpperCase();
+    }
+    return words.take(2).map((w) => w[0].toUpperCase()).join();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final logoUrl = team.profileImageUrl;
+    final hasImage = logoUrl != null;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
         shape: BoxShape.circle,
+        gradient: hasImage
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1565C0), AppColors.primaryBlue],
+              ),
+        color: hasImage ? AppColors.surfaceElevated : null,
+        border: Border.all(
+          color: hasImage
+              ? AppColors.gold.withValues(alpha: 0.55)
+              : AppColors.primaryBlue.withValues(alpha: 0.6),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Text(
-        'vs',
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: AppColors.gold,
-            ),
+      child: ClipOval(
+        child: hasImage
+            ? CachedNetworkImage(
+                imageUrl: logoUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Center(
+                  child: Text(
+                    _initials,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      fontSize: size * 0.3,
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Center(
+                  child: Text(
+                    _initials,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      fontSize: size * 0.3,
+                    ),
+                  ),
+                ),
+              )
+            : Center(
+                child: Text(
+                  _initials,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    fontSize: size * 0.3,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
       ),
     );
   }

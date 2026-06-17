@@ -13,6 +13,32 @@
 
 ---
 
+## Latest (start match setup)
+
+| Item | Status |
+|------|--------|
+| Ground search — Places autocomplete on setup form | Done |
+| Ground map picker — separate screen with search + draggable pin | Done |
+| Map pick requires ground name text field | Done |
+| Special cases — wide/no-ball rules (runs, legal delivery) on setup | Done |
+| Schedule / Next buttons — equal width, label "Schedule" | Done |
+| Ground map picker — WebView + Maps JavaScript API (tap/drag pin) | Done |
+
+---
+
+## Latest (select team screen)
+
+| Item | Status |
+|------|--------|
+| Select Team — removed inline country/city filters + AppBar search icon | Done |
+| Select Team — Teams tab location filter sheet + inline search bar | Done |
+| Select Team — `TeamsListFilter` search (name, code, location, ID) | Done |
+| Select Team — location filters cleared on screen open | Done |
+| Select Team — block duplicate Team A/B selection with visual state | Done |
+| Select Team — empty state with clear filters / search again | Done |
+
+---
+
 ## Latest (match setup & over management)
 
 | Item | Status |

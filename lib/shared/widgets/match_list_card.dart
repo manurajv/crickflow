@@ -19,61 +19,86 @@ class MatchListCard extends StatelessWidget {
   final String? tournamentLabel;
   final bool showQuickLinks;
 
+  bool get _isUpcoming =>
+      match.status == MatchStatus.scheduled ||
+      match.status == MatchStatus.draft ||
+      match.status == MatchStatus.tossCompleted;
+
+  bool get _isCompleted => match.status == MatchStatus.completed;
+
   @override
   Widget build(BuildContext context) {
-    final isCompleted = match.status == MatchStatus.completed;
-
     return Container(
       margin: const EdgeInsets.symmetric(
         horizontal: AppDimens.spaceMd,
         vertical: AppDimens.spaceXs,
       ),
       decoration: matchListCardDecoration(match),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => context.push('/match/${match.id}'),
-              child: Padding(
-                padding: AppDimens.cardPadding,
-                child: MatchCardContent(
-                  match: match,
-                  tournamentLabel: tournamentLabel,
+      // No clipBehavior — clips break rendering when border color is non-uniform
+      child: ClipRRect(
+        borderRadius: AppDimens.cardRadius,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Gold accent strip for upcoming matches
+            if (_isUpcoming)
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.gold.withValues(alpha: 0.9),
+                      AppColors.gold.withValues(alpha: 0.4),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Main card content
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => context.push('/match/${match.id}'),
+                child: Padding(
+                  padding: AppDimens.cardPadding,
+                  child: MatchCardContent(
+                    match: match,
+                    tournamentLabel: tournamentLabel,
+                  ),
                 ),
               ),
             ),
-          ),
-          if (showQuickLinks) ...[
-            const Divider(height: 1, color: AppColors.border),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _LinkButton(
-                    label: 'Insights',
-                    onTap: () =>
-                        context.push('/match/${match.id}?tab=insights'),
-                  ),
-                  _LinkButton(
-                    label: 'Scorecard',
-                    onTap: () =>
-                        context.push('/match/${match.id}?tab=scorecard'),
-                  ),
-                  if (isCompleted)
+
+            // Quick links (completed matches)
+            if (showQuickLinks) ...[
+              const Divider(height: 1, color: AppColors.border),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
                     _LinkButton(
-                      label: 'Highlights',
+                      label: 'Insights',
                       onTap: () =>
-                          context.push('/match/${match.id}?tab=highlights'),
+                          context.push('/match/${match.id}?tab=insights'),
                     ),
-                ],
+                    _LinkButton(
+                      label: 'Scorecard',
+                      onTap: () =>
+                          context.push('/match/${match.id}?tab=scorecard'),
+                    ),
+                    if (_isCompleted)
+                      _LinkButton(
+                        label: 'Highlights',
+                        onTap: () =>
+                            context.push('/match/${match.id}?tab=highlights'),
+                      ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

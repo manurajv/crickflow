@@ -1,5 +1,5 @@
-/// Google Places / Geocoding API key for location search and reverse geocoding.
-/// Enable **Geocoding API** and **Places API** in Google Cloud Console.
+/// Google Places / Geocoding / Maps JavaScript API key.
+/// Enable **Geocoding API**, **Places API**, and **Maps JavaScript API** in Google Cloud Console.
 /// Override at build time: `--dart-define=GOOGLE_MAPS_API_KEY=your_key`
 class MapsConfig {
   MapsConfig._();
