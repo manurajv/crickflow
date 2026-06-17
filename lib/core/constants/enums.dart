@@ -47,6 +47,8 @@ enum BallEventType {
   lineupChange,
   /// Non-delivery wicketkeeper change (fielding team).
   wicketKeeperChange,
+  /// Marks end of an over (strike rotation, no legal ball counted).
+  endOver,
 }
 
 /// How runs off a no-ball are scored (from bat, bye, or leg bye).

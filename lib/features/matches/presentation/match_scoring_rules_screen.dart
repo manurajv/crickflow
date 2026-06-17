@@ -39,6 +39,19 @@ class _MatchScoringRulesScreenState extends State<MatchScoringRulesScreen> {
       body: ListView(
         padding: AppDimens.listPadding,
         children: [
+          _SectionTitle('Over settings'),
+          _StepperRow(
+            label: 'Balls per over',
+            value: _rules.ballsPerOver,
+            min: 1,
+            max: 12,
+            onChanged: (v) => _update(
+              _rules.copyWith(
+                ballsPerOver: MatchRulesModel.clampBallsPerOver(v),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
           _SectionTitle('Wagon wheel'),
           _RuleSwitch(
             label: 'Enable wagon wheel tracking',

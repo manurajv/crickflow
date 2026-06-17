@@ -157,8 +157,10 @@ class ScoringEngine {
     int sequence,
     MatchRulesModel rules,
   ) {
-    final overNum = innings.legalBalls ~/ rules.ballsPerOver;
-    final ballInOver = (innings.legalBalls % rules.ballsPerOver) + 1;
+    final overNum = innings.currentOverStartLegalBalls ~/ rules.ballsPerOver;
+    final ballsInCurrentOver =
+        innings.legalBalls - innings.currentOverStartLegalBalls;
+    final ballInOver = ballsInCurrentOver + 1;
 
     var runs = input.runs;
     var batsmanRuns = input.runs;
@@ -229,6 +231,10 @@ class ScoringEngine {
         runs = 0;
         batsmanRuns = 0;
       case BallEventType.wicketKeeperChange:
+        isLegal = false;
+        runs = 0;
+        batsmanRuns = 0;
+      case BallEventType.endOver:
         isLegal = false;
         runs = 0;
         batsmanRuns = 0;
@@ -357,7 +363,11 @@ class ScoringEngine {
       noBallRuns: breakdown.noBallRuns,
       penaltyRuns: breakdown.penaltyRuns,
       countsAsBallFaced: countsAsBallFaced,
-      countsInOver: isLineupChange || isKeeperChange ? false : true,
+      countsInOver: isLineupChange ||
+              isKeeperChange ||
+              input.type == BallEventType.endOver
+          ? false
+          : true,
       countsToBowler: countsToBowler,
       isWicket: isWicket,
       bowlerGetsWicket: bowlerGetsWicket,
@@ -523,6 +533,9 @@ class ScoringEngine {
     if (event.eventType == BallEventType.lineupChange) {
       return _applyLineupChange(innings, event);
     }
+    if (event.eventType == BallEventType.endOver) {
+      return _applyEndOver(innings, event);
+    }
     if (event.eventType == BallEventType.wicketKeeperChange) {
       return _applyWicketKeeperChange(innings, event);
     }
@@ -649,17 +662,7 @@ class ScoringEngine {
       nonStrikerId = temp;
     }
 
-    // End of over rotation
-    if (event.isLegalDelivery &&
-        legalBalls % rules.ballsPerOver == 0 &&
-        legalBalls > 0 &&
-        strikerId != null &&
-        nonStrikerId != null) {
-      final temp = strikerId;
-      strikerId = nonStrikerId;
-      nonStrikerId = temp;
-      isFreeHit = false;
-    }
+    // End-of-over strike rotation is applied via [BallEventType.endOver] only.
 
     return InningsModel(
       inningsNumber: innings.inningsNumber,
@@ -682,6 +685,40 @@ class ScoringEngine {
       isFreeHitActive: isFreeHit,
       targetRuns: innings.targetRuns,
       isSuperOver: innings.isSuperOver,
+      currentOverStartLegalBalls: innings.currentOverStartLegalBalls,
+    );
+  }
+
+  InningsModel _applyEndOver(InningsModel innings, BallEventModel event) {
+    var strikerId = innings.strikerId;
+    var nonStrikerId = innings.nonStrikerId;
+    if (strikerId != null && nonStrikerId != null) {
+      final temp = strikerId;
+      strikerId = nonStrikerId;
+      nonStrikerId = temp;
+    }
+    return InningsModel(
+      inningsNumber: innings.inningsNumber,
+      battingTeamId: innings.battingTeamId,
+      bowlingTeamId: innings.bowlingTeamId,
+      status: innings.status,
+      totalRuns: innings.totalRuns,
+      totalWickets: innings.totalWickets,
+      legalBalls: innings.legalBalls,
+      extras: innings.extras,
+      strikerId: strikerId,
+      nonStrikerId: nonStrikerId,
+      currentBowlerId: event.bowlerId ?? innings.currentBowlerId,
+      currentWicketKeeperId: innings.currentWicketKeeperId,
+      currentWicketKeeperName: innings.currentWicketKeeperName,
+      batsmen: innings.batsmen,
+      bowlers: innings.bowlers,
+      partnershipRuns: innings.partnershipRuns,
+      partnershipBalls: innings.partnershipBalls,
+      isFreeHitActive: false,
+      targetRuns: innings.targetRuns,
+      isSuperOver: innings.isSuperOver,
+      currentOverStartLegalBalls: innings.legalBalls,
     );
   }
 
@@ -746,6 +783,7 @@ class ScoringEngine {
       isFreeHitActive: innings.isFreeHitActive,
       targetRuns: innings.targetRuns,
       isSuperOver: innings.isSuperOver,
+      currentOverStartLegalBalls: innings.currentOverStartLegalBalls,
     );
   }
 
@@ -774,6 +812,7 @@ class ScoringEngine {
       isFreeHitActive: innings.isFreeHitActive,
       targetRuns: innings.targetRuns,
       isSuperOver: innings.isSuperOver,
+      currentOverStartLegalBalls: innings.currentOverStartLegalBalls,
     );
   }
 
@@ -1476,6 +1515,7 @@ extension _InningsCopy on InningsModel {
     int? totalWickets,
     int? legalBalls,
     int? extras,
+    int? currentOverStartLegalBalls,
   }) {
     return InningsModel(
       inningsNumber: inningsNumber,
@@ -1498,6 +1538,8 @@ extension _InningsCopy on InningsModel {
       isSuperOver: isSuperOver,
       currentWicketKeeperId: currentWicketKeeperId,
       currentWicketKeeperName: currentWicketKeeperName,
+      currentOverStartLegalBalls:
+          currentOverStartLegalBalls ?? this.currentOverStartLegalBalls,
     );
   }
 }

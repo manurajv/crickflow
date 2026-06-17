@@ -260,86 +260,13 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     );
   }
 
-  void _onSetupMenuSelected(String value) {
-    switch (value) {
-      case 'rules':
-        _openMatchRules();
-      case 'overs':
-        _showTestMatchOversSheet();
-      case 'delayed':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Match delayed — set during scoring')),
-        );
-      case 'abandoned':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Match abandoned — set during scoring')),
-        );
-      case 'walkover':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Walkover — set during scoring')),
-        );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(startMatchDraftProvider);
-    final isSetup = _step == 1;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_step == 0 ? 'Select playing teams' : 'Start a match'),
-        actions: [
-          if (isSetup)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.tune),
-              tooltip: 'Match options',
-              onSelected: _onSetupMenuSelected,
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'rules',
-                  child: ListTile(
-                    leading: Icon(Icons.rule),
-                    title: Text('Match rules'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                if (draft.rules.isTestMatch)
-                  const PopupMenuItem(
-                    value: 'overs',
-                    child: ListTile(
-                      leading: Icon(Icons.format_list_numbered),
-                      title: Text('Overs & bowler limits'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                const PopupMenuItem(
-                  value: 'delayed',
-                  child: ListTile(
-                    leading: Icon(Icons.schedule),
-                    title: Text('Match delayed'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'abandoned',
-                  child: ListTile(
-                    leading: Icon(Icons.cancel_outlined),
-                    title: Text('Match abandoned'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'walkover',
-                  child: ListTile(
-                    leading: Icon(Icons.flag_outlined),
-                    title: Text('Walkover'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
-        ],
       ),
       body: _step == 0 ? _teamsStep(draft) : _setupStep(draft),
       bottomNavigationBar: _bottomBar(draft),

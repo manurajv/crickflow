@@ -5,6 +5,7 @@ import '../../core/constants/enums.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
+import '../../data/models/over_note_model.dart';
 import '../../data/models/overlay_state_model.dart';
 import '../../data/models/scorer_transfer_models.dart';
 import '../../core/utils/highlight_utils.dart';
@@ -148,6 +149,7 @@ class MatchRepository {
     required MatchModel match,
     required BallEventInput input,
     required int sequence,
+    OverNoteModel? overNote,
   }) async {
     // Always score against latest persisted state (avoids stale index corrupting innings[0]).
     var latest = await getMatch(match.id) ?? match;
@@ -178,7 +180,7 @@ class MatchRepository {
 
     await _commitMatchState(
       matchId: match.id,
-      matchData: result.match.toMap(),
+      matchData: _matchDataWithOverNote(result.match, overNote, eventId),
       event: event,
       overlay: result.overlay,
     );
@@ -283,7 +285,8 @@ class MatchRepository {
       creaseSeed = toRemove.firstWhere(
         (e) =>
             e.eventType != BallEventType.lineupChange &&
-            e.eventType != BallEventType.wicketKeeperChange,
+            e.eventType != BallEventType.wicketKeeperChange &&
+            e.eventType != BallEventType.endOver,
         orElse: () => toRemove.first,
       );
     }
@@ -308,6 +311,14 @@ class MatchRepository {
       }
       replayed = replayed.copyWith(innings: inningsList);
     }
+    final removedIds = toRemove.map((e) => e.id).toSet();
+    final keptNotes = match.overNotes
+        .where(
+          (n) => n.ballEventId == null || !removedIds.contains(n.ballEventId),
+        )
+        .toList();
+    replayed = replayed.copyWith(overNotes: keptNotes);
+
     final overlay = _scoringEngine.buildOverlayForMatch(replayed);
 
     final batch = _firestore.batch();
@@ -523,6 +534,23 @@ class MatchRepository {
       'status': MatchStatus.inningsBreak.name,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+  }
+
+  Map<String, dynamic> _matchDataWithOverNote(
+    MatchModel match,
+    OverNoteModel? overNote,
+    String ballEventId,
+  ) {
+    final data = match.toMap();
+    if (overNote == null) return data;
+    final notes = List<Map<String, dynamic>>.from(
+      data['overNotes'] as List? ?? [],
+    );
+    notes.add(
+      overNote.copyWith(ballEventId: ballEventId).toMap(),
+    );
+    data['overNotes'] = notes;
+    return data;
   }
 
   Future<void> _commitMatchState({

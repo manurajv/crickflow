@@ -173,20 +173,14 @@ class ScoringDisplayUtils {
     required List<BallEventModel> events,
     required int ballsPerOver,
   }) {
-    if (inn.legalBalls == 0 || inn.legalBalls % ballsPerOver != 0) {
-      return null;
-    }
-    final overIndex = (inn.legalBalls ~/ ballsPerOver) - 1;
-    final overEvents = events
-        .where(
-          (e) =>
-              e.inningsNumber == inn.inningsNumber &&
-              e.overNumber == overIndex,
-        )
-        .toList()
-      ..sort((a, b) => a.sequence.compareTo(b.sequence));
-    if (overEvents.isNotEmpty) {
-      return overEvents.last.bowlerId;
+    if (inn.legalBalls == 0 || ballsInCurrentOver(inn) > 0) return null;
+    final completed = completedOverEvents(
+      events: events,
+      inn: inn,
+      ballsPerOver: ballsPerOver,
+    );
+    if (completed.isNotEmpty) {
+      return completed.last.bowlerId;
     }
     return inn.currentBowlerId;
   }
@@ -197,14 +191,13 @@ class ScoringDisplayUtils {
     int ballsPerOver,
     List<BallEventModel> events,
   ) {
-    final lastOverBowler = bowlerWhoFinishedLastOver(
-      inn: inn,
-      events: events,
-      ballsPerOver: ballsPerOver,
-    );
-    if (lastOverBowler == null) return false;
-    final current = inn.currentBowlerId;
-    return current == null || current == lastOverBowler;
+    final inningsEvents = events
+        .where((e) => e.inningsNumber == inn.inningsNumber)
+        .toList()
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+    if (inningsEvents.isEmpty) return false;
+    if (inningsEvents.last.eventType == BallEventType.endOver) return true;
+    return false;
   }
 
   static int currentOverExtras(List<BallEventModel> overEvents) =>
@@ -213,7 +206,7 @@ class ScoringDisplayUtils {
   static String? activePowerplayLabel(MatchModel match, InningsModel inn) {
     final slots = match.rules.powerplaySlots;
     if (slots.isEmpty) return null;
-    final overIndex = inn.legalBalls ~/ match.rules.ballsPerOver;
+    final overIndex = inn.currentOverStartLegalBalls ~/ match.rules.ballsPerOver;
     for (var i = 0; i < slots.length; i++) {
       final slot = slots[i];
       if (slot.isEmpty) continue;
@@ -355,7 +348,19 @@ class ScoringDisplayUtils {
   static bool countsTowardOverDisplay(BallEventModel e) =>
       e.eventType != BallEventType.lineupChange &&
       e.eventType != BallEventType.wicketKeeperChange &&
+      e.eventType != BallEventType.endOver &&
       e.countsInOver;
+
+  /// Legal deliveries bowled in the active (incomplete) over.
+  static int ballsInCurrentOver(InningsModel inn) =>
+      inn.legalBalls - inn.currentOverStartLegalBalls;
+
+  /// 1-based over number currently being bowled.
+  static int currentOverNumber(InningsModel inn, int ballsPerOver) =>
+      inn.currentOverStartLegalBalls ~/ ballsPerOver + 1;
+
+  static bool shouldPromptOverCompletion(InningsModel inn, int ballsPerOver) =>
+      ballsInCurrentOver(inn) >= ballsPerOver;
 
   /// Events in the active (incomplete) over.
   static List<BallEventModel> currentOverEvents({
@@ -363,7 +368,7 @@ class ScoringDisplayUtils {
     required InningsModel inn,
     required int ballsPerOver,
   }) {
-    final overIndex = inn.legalBalls ~/ ballsPerOver;
+    final overIndex = inn.currentOverStartLegalBalls ~/ ballsPerOver;
     return events
         .where(
           (e) =>
@@ -375,21 +380,24 @@ class ScoringDisplayUtils {
       ..sort((a, b) => a.sequence.compareTo(b.sequence));
   }
 
-  /// Events in the over that just finished (when legalBalls % bpo == 0).
+  /// Events in the over that just finished or is being closed.
   static List<BallEventModel> completedOverEvents({
     required List<BallEventModel> events,
     required InningsModel inn,
     required int ballsPerOver,
   }) {
-    if (inn.legalBalls == 0 || inn.legalBalls % ballsPerOver != 0) {
-      return [];
-    }
-    final overIndex = (inn.legalBalls ~/ ballsPerOver) - 1;
+    final ballsInOver = ballsInCurrentOver(inn);
+    if (inn.legalBalls == 0) return [];
+    final activeOverIndex = inn.currentOverStartLegalBalls ~/ ballsPerOver;
+    final targetIndex = ballsInOver == 0 && inn.legalBalls > 0
+        ? activeOverIndex - 1
+        : activeOverIndex;
+    if (targetIndex < 0) return [];
     return events
         .where(
           (e) =>
               e.inningsNumber == inn.inningsNumber &&
-              e.overNumber == overIndex &&
+              e.overNumber == targetIndex &&
               countsTowardOverDisplay(e),
         )
         .toList()

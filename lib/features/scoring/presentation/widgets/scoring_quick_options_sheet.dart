@@ -10,6 +10,7 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
     required this.onEditLineup,
     required this.onChangeWicketkeeper,
     required this.onEndInnings,
+    required this.onEndOver,
     required this.onScorecard,
     required this.onMatchRules,
     this.onEditToss,
@@ -19,6 +20,7 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
   final VoidCallback onEditLineup;
   final VoidCallback onChangeWicketkeeper;
   final VoidCallback onEndInnings;
+  final VoidCallback onEndOver;
   final VoidCallback onScorecard;
   final VoidCallback onMatchRules;
   final VoidCallback? onEditToss;
@@ -49,8 +51,7 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
           'Full Scorecard',
           widget.onScorecard,
         ),
-        const _Shortcut(Icons.edit_note_outlined, 'Match Overs', _noop),
-        const _Shortcut(Icons.add_circle_outline, 'Bonus Runs', _noop),
+        _Shortcut(Icons.stop_circle_outlined, 'End Over', widget.onEndOver),
         _Shortcut(
           Icons.sports_handball_outlined,
           'Change Keeper',

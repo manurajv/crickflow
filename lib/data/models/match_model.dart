@@ -4,6 +4,7 @@ import 'innings_model.dart';
 import 'location_model.dart';
 import 'match_rules_model.dart';
 import 'match_setup_draft_models.dart';
+import 'over_note_model.dart';
 import 'scorer_transfer_models.dart';
 
 class MatchHeroModel extends Equatable {
@@ -188,6 +189,7 @@ class MatchModel extends Equatable {
     this.mediaByCode = const {},
     this.createdAt,
     this.setup,
+    this.overNotes = const [],
   });
 
   final String id;
@@ -229,6 +231,7 @@ class MatchModel extends Equatable {
   final DateTime? createdAt;
   /// Squad, roles, officials, and toss captured at match start.
   final MatchSetupData? setup;
+  final List<OverNoteModel> overNotes;
 
   InningsModel? get currentInnings =>
       innings.isNotEmpty && currentInningsIndex < innings.length
@@ -289,6 +292,9 @@ class MatchModel extends Equatable {
       mediaByCode: _mediaByCodeFromMap(_asStringMap(map['mediaByCode'])),
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
       setup: MatchSetupData.fromMap(map),
+      overNotes: (map['overNotes'] as List? ?? [])
+          .map((e) => OverNoteModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -344,6 +350,8 @@ class MatchModel extends Equatable {
         'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
         if (setup != null) ...setup!.toMap(),
+        if (overNotes.isNotEmpty)
+          'overNotes': overNotes.map((n) => n.toMap()).toList(),
       };
 
   MatchModel copyWith({
@@ -375,6 +383,7 @@ class MatchModel extends Equatable {
     DateTime? lastScorerTransferAt,
     List<ScorerTransferRecord>? scorerTransferHistory,
     MatchSetupData? setup,
+    List<OverNoteModel>? overNotes,
   }) {
     return MatchModel(
       id: id,
@@ -413,6 +422,7 @@ class MatchModel extends Equatable {
       mediaByCode: mediaByCode ?? this.mediaByCode,
       createdAt: createdAt,
       setup: setup ?? this.setup,
+      overNotes: overNotes ?? this.overNotes,
     );
   }
 

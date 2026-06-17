@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_rules_model.dart';
@@ -67,8 +68,10 @@ class OverCompleteDialog extends StatelessWidget {
     final finishedBowlerId =
         overEvents.isNotEmpty ? overEvents.last.bowlerId : innings.currentBowlerId;
     final bowler = ScoringDisplayUtils.bowler(innings, finishedBowlerId);
-    final bowlerOvers =
-        '${(bowler?.oversBowledBalls ?? 0) ~/ rules.ballsPerOver}';
+    final bowlerOvers = CricketMath.formatOvers(
+      bowler?.oversBowledBalls ?? 0,
+      rules.ballsPerOver,
+    );
 
     return Material(
       color: AppColors.card,

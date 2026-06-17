@@ -176,6 +176,8 @@ class MatchRulesModel extends Equatable {
   /// Maximum legal balls one bowler may bowl in an innings (full match allocation).
   int get maxBowlerLegalBalls => totalOvers * ballsPerOver;
 
+  static int clampBallsPerOver(int value) => value.clamp(1, 12);
+
   /// One-over super over (ICC-style defaults).
   factory MatchRulesModel.superOver() => const MatchRulesModel(
         totalOvers: 1,

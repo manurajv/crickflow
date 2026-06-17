@@ -3,6 +3,7 @@ import '../../core/utils/cricket_math.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
+import '../../data/models/over_note_model.dart';
 import '../scoring/ball_event_aggregator.dart';
 import 'badge_service.dart';
 import 'fantasy_points_service.dart';
@@ -32,6 +33,7 @@ class MatchInsightsSnapshot {
     this.topBowlers = const [],
     this.milestones = const [],
     this.mvpRankings = const [],
+    this.overAdjustments = const [],
     this.resultLine,
     this.isLive = false,
   });
@@ -41,6 +43,7 @@ class MatchInsightsSnapshot {
   final List<PerformerInsight> topBowlers;
   final List<String> milestones;
   final List<PerformerInsight> mvpRankings;
+  final List<OverNoteModel> overAdjustments;
   final String? resultLine;
   final bool isLive;
 }
@@ -75,6 +78,7 @@ class MatchInsightsService {
       topBowlers: bowlers.take(5).toList(),
       milestones: milestones,
       mvpRankings: mvp.take(8).toList(),
+      overAdjustments: match.overNotes,
       resultLine: match.resultSummary.isNotEmpty
           ? match.resultSummary
           : _liveLine(match),

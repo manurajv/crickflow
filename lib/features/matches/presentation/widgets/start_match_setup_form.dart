@@ -198,6 +198,15 @@ class StartMatchSetupForm extends StatelessWidget {
             );
           }).toList(),
         ),
+        const SizedBox(height: AppDimens.spaceLg),
+        const _FormLabel('Balls per over'),
+        const SizedBox(height: AppDimens.spaceSm),
+        _BallsPerOverStepper(
+          value: rules.ballsPerOver,
+          onChanged: (v) => onRulesChanged(
+            rules.copyWith(ballsPerOver: MatchRulesModel.clampBallsPerOver(v)),
+          ),
+        ),
         if (showOvers) ...[
           const SizedBox(height: AppDimens.spaceLg),
           CfUnderlinedField(
@@ -345,6 +354,44 @@ class _FormLabel extends StatelessWidget {
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
+    );
+  }
+}
+
+class _BallsPerOverStepper extends StatelessWidget {
+  const _BallsPerOverStepper({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          onPressed: value > 1 ? () => onChanged(value - 1) : null,
+          icon: const Icon(Icons.remove_circle_outline),
+          color: AppColors.gold,
+        ),
+        Expanded(
+          child: Text(
+            '$value',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: value < 12 ? () => onChanged(value + 1) : null,
+          icon: const Icon(Icons.add_circle_outline),
+          color: AppColors.gold,
+        ),
+      ],
     );
   }
 }

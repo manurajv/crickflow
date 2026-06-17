@@ -97,6 +97,47 @@ class MatchInsightsTab extends ConsumerWidget {
           ),
           const SizedBox(height: AppDimens.spaceLg),
         ],
+        if (insights.overAdjustments.isNotEmpty) ...[
+          Text(
+            'Over adjustments',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          ...insights.overAdjustments.map(
+            (note) => Card(
+              margin: const EdgeInsets.only(bottom: AppDimens.spaceSm),
+              child: Padding(
+                padding: const EdgeInsets.all(AppDimens.spaceMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Over ${note.overNumber} · Innings ${note.inningsNumber}',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: AppDimens.spaceXs),
+                    Text(
+                      'Expected balls: ${note.expectedBalls}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    Text(
+                      'Actual balls: ${note.actualBalls}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: AppDimens.spaceXs),
+                    Text(
+                      note.reason,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimens.spaceLg),
+        ],
         if (insights.milestones.isNotEmpty) ...[
           Text('Milestones', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppDimens.spaceSm),

@@ -43,6 +43,8 @@ class CommentaryService {
         return 'Lineup updated.';
       case BallEventType.wicketKeeperChange:
         return 'Wicketkeeper changed.';
+      case BallEventType.endOver:
+        return 'Over ended.';
     }
   }
 

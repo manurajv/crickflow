@@ -13,6 +13,21 @@
 
 ---
 
+## Latest (match setup & over management)
+
+| Item | Status |
+|------|--------|
+| Start Match — AppBar trailing action removed (back only) | Done |
+| Configurable balls per over (1–12, default 6) — setup + match rules edit | Done |
+| Live scoring — over completion prompt (End Over / Continue Over) | Done |
+| Live scoring — manual End Over shortcut + required adjustment notes | Done |
+| `overNotes` on match doc + undo removes linked notes | Done |
+| Match insights — Over Adjustments section | Done |
+| Scoring engine — `endOver` event, strike rotation on end only | Done |
+| Innings — `currentOverStartLegalBalls` for accurate over display | Done |
+
+---
+
 ## Latest (team management + notifications)
 
 | Item | Status |

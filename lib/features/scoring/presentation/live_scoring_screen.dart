@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
+import '../../../data/models/over_note_model.dart';
 import '../../../domain/services/commentary_service.dart';
 import '../../../domain/services/dismissal_formatter.dart';
 import '../../../domain/services/scoring_engine.dart';
@@ -29,6 +30,8 @@ import 'widgets/live_scoring_keypad.dart';
 import 'widgets/live_scoring_players_strip.dart'
     show BowlingSide, LiveScoringPlayersStrip;
 import 'widgets/over_complete_dialog.dart';
+import 'widgets/over_completion_prompt_dialog.dart';
+import 'widgets/manual_over_note_dialog.dart';
 import 'widgets/run_out_sheet.dart';
 import 'widgets/scoring_extra_dialogs.dart';
 import 'widgets/scoring_quick_options_sheet.dart';
@@ -56,6 +59,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   bool _inningsBreakDialogOpen = false;
   bool _suppressInningsBreakCheck = false;
   BowlingSide _bowlingSide = BowlingSide.over;
+  /// After "Continue over", skip re-prompt until this over ends.
+  bool _overContinuationActive = false;
   String? _lastKnownScorerId;
   String? _scorerTransferBanner;
 
@@ -245,9 +250,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         } else if (fullInput.type != BallEventType.wide &&
             fullInput.type != BallEventType.noBall) {
           final bpo = updated.rules.ballsPerOver;
-          if (updatedInn.legalBalls > 0 &&
-              updatedInn.legalBalls % bpo == 0) {
-            await _showOverComplete(updated, updatedInn);
+          if (!_overContinuationActive &&
+              ScoringDisplayUtils.shouldPromptOverCompletion(updatedInn, bpo)) {
+            await _promptOverCompletion(updated, updatedInn);
           }
         }
       }
@@ -313,6 +318,107 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
+  Future<void> _promptOverCompletion(
+    MatchModel match,
+    InningsModel innings,
+  ) async {
+    final bpo = match.rules.ballsPerOver;
+    final actual = ScoringDisplayUtils.ballsInCurrentOver(innings);
+    final choice = await OverCompletionPromptDialog.show(
+      context,
+      legalDeliveries: actual,
+      expectedBalls: bpo,
+    );
+    if (!mounted || choice == null) return;
+    if (choice == OverCompletionChoice.endOver) {
+      await _finishOver(
+        match,
+        requireNoteIfAdjusted: actual != bpo,
+      );
+    } else {
+      setState(() => _overContinuationActive = true);
+    }
+  }
+
+  Future<void> _manualEndOver(MatchModel match) async {
+    final inn = match.currentInnings;
+    if (inn == null) return;
+    if (ScoringDisplayUtils.ballsInCurrentOver(inn) <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No legal deliveries in this over yet')),
+        );
+      }
+      return;
+    }
+    await _finishOver(match, requireNoteIfAdjusted: true);
+  }
+
+  Future<void> _finishOver(
+    MatchModel match, {
+    required bool requireNoteIfAdjusted,
+  }) async {
+    if (!_guardActiveScorer(match)) return;
+    final inn = match.currentInnings!;
+    final bpo = match.rules.ballsPerOver;
+    final actual = ScoringDisplayUtils.ballsInCurrentOver(inn);
+    if (actual <= 0) return;
+
+    String? noteReason;
+    if (requireNoteIfAdjusted && actual != bpo) {
+      noteReason = await ManualOverNoteDialog.show(
+        context,
+        expectedBalls: bpo,
+        actualBalls: actual,
+      );
+      if (!mounted || noteReason == null) return;
+    }
+
+    setState(() => _isRecording = true);
+    final sequence = _ballSequence + 1;
+    final scorerUid = ref.read(authStateProvider).valueOrNull?.uid;
+    OverNoteModel? overNote;
+    if (noteReason != null) {
+      overNote = OverNoteModel(
+        inningsNumber: inn.inningsNumber,
+        overNumber: ScoringDisplayUtils.currentOverNumber(inn, bpo),
+        expectedBalls: bpo,
+        actualBalls: actual,
+        reason: noteReason,
+        createdAt: DateTime.now(),
+        scorerId: scorerUid,
+      );
+    }
+
+    try {
+      await ref.read(matchRepositoryProvider).recordBall(
+            match: match,
+            input: BallEventInput(
+              type: BallEventType.endOver,
+              commentary: 'Over ended',
+              createdBy: scorerUid,
+            ),
+            sequence: sequence,
+            overNote: overNote,
+          );
+      setState(() => _ballSequence = sequence);
+      setState(() => _overContinuationActive = false);
+      final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+      final freshInn = fresh.currentInnings;
+      if (freshInn != null && mounted) {
+        await _showOverComplete(fresh, freshInn);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not end over: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRecording = false);
+    }
+  }
+
   Future<void> _showOverComplete(MatchModel match, InningsModel innings) async {
     final events =
         ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
@@ -321,7 +427,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       inn: innings,
       ballsPerOver: match.rules.ballsPerOver,
     );
-    final overNum = innings.legalBalls ~/ match.rules.ballsPerOver;
+    final overNum = ScoringDisplayUtils.ballsInCurrentOver(innings) == 0
+        ? ScoringDisplayUtils.currentOverNumber(innings, match.rules.ballsPerOver) -
+            1
+        : ScoringDisplayUtils.currentOverNumber(innings, match.rules.ballsPerOver);
     final finishedBowlerId = overEvents.isNotEmpty
         ? overEvents.last.bowlerId
         : ScoringDisplayUtils.bowlerWhoFinishedLastOver(
@@ -983,6 +1092,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       if (mounted) {
         setState(() {
           _isRecording = false;
+          _overContinuationActive = false;
           _suppressInningsBreakCheck = false;
         });
         final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
@@ -1107,12 +1217,12 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final inn = match.currentInnings;
     if (inn == null) return;
     final bpo = match.rules.ballsPerOver;
-    final overNum = inn.legalBalls ~/ bpo + 1;
-    final atOverStart = inn.legalBalls % bpo == 0;
+    final overNum = ScoringDisplayUtils.currentOverNumber(inn, bpo);
     await _pickBowlerForNextOver(
       match,
       overNum,
-      excludeLastOverBowler: atOverStart && inn.legalBalls > 0,
+      excludeLastOverBowler:
+          ScoringDisplayUtils.ballsInCurrentOver(inn) == 0 && inn.legalBalls > 0,
     );
   }
 
@@ -1241,6 +1351,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         onEditLineup: () => _openLineupSheet(match),
         onChangeWicketkeeper: () => _changeWicketKeeper(match),
         onEndInnings: () => _endInnings(),
+        onEndOver: () => _manualEndOver(match),
         onScorecard: () => context.push('/match/${widget.matchId}/scorecard'),
         onMatchRules: () => _openMatchRules(match),
         onChangeScorer: canInitiateScorerTransfer(

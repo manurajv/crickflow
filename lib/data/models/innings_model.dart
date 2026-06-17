@@ -274,6 +274,7 @@ class InningsModel extends Equatable {
     this.isFreeHitActive = false,
     this.targetRuns,
     this.isSuperOver = false,
+    this.currentOverStartLegalBalls = 0,
     this.partnerships = const [],
     this.fallOfWickets = const [],
     this.fielders = const [],
@@ -300,6 +301,8 @@ class InningsModel extends Equatable {
   /// Chase target set at innings start (2nd innings / super over).
   final int? targetRuns;
   final bool isSuperOver;
+  /// Legal balls bowled when the current over started (for variable-length overs).
+  final int currentOverStartLegalBalls;
   final List<PartnershipRecord> partnerships;
   final List<FallOfWicketRecord> fallOfWickets;
   final List<FielderInningsModel> fielders;
@@ -333,6 +336,8 @@ class InningsModel extends Equatable {
       isFreeHitActive: map['isFreeHitActive'] as bool? ?? false,
       targetRuns: map['targetRuns'] as int?,
       isSuperOver: map['isSuperOver'] as bool? ?? false,
+      currentOverStartLegalBalls:
+          map['currentOverStartLegalBalls'] as int? ?? 0,
       partnerships: (map['partnerships'] as List? ?? [])
           .map((e) => PartnershipRecord.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -369,6 +374,7 @@ class InningsModel extends Equatable {
         'isFreeHitActive': isFreeHitActive,
         if (targetRuns != null) 'targetRuns': targetRuns,
         'isSuperOver': isSuperOver,
+        'currentOverStartLegalBalls': currentOverStartLegalBalls,
         // partnerships, fallOfWickets, fielders are derived from ball_events —
         // not persisted (see BALL_EVENT_ARCHITECTURE.md).
       };
