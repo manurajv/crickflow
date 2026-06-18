@@ -30,9 +30,9 @@ class ChangeScorerSheet extends ConsumerStatefulWidget {
   static Future<void> show(BuildContext context, MatchModel match) {
     return ScoringUiKit.showDraggableSheet<void>(
       context,
-      initialChildSize: 0.72,
-      minChildSize: 0.45,
-      maxChildSize: 0.92,
+      initialChildSize: 0.82,
+      minChildSize: 0.55,
+      maxChildSize: 0.96,
       builder: (_, __) => ChangeScorerSheet(match: match),
     );
   }
@@ -270,10 +270,34 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return SafeArea(
       child: Column(
         children: [
-          const ScoringSheetHeader(title: 'Change scorer'),
+          if (!keyboardOpen) const ScoringSheetHeader(title: 'Change scorer'),
+          if (keyboardOpen)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+                AppDimens.spaceMd,
+                0,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Change scorer',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  ScoringUiKit.sheetCloseButton(context),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
             child: _RadioTabBar(
@@ -281,7 +305,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
               onSelected: (t) => setState(() => _tab = t),
             ),
           ),
-          const SizedBox(height: AppDimens.spaceMd),
+          SizedBox(height: keyboardOpen ? AppDimens.spaceSm : AppDimens.spaceMd),
           Expanded(
             child: _transferring
                 ? const Center(child: CircularProgressIndicator())
@@ -889,6 +913,7 @@ class _SearchTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final combinedPlayers = <PlayerModel>[
       ...playerResults,
       for (final u in results)
@@ -909,16 +934,18 @@ class _SearchTab extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceLg),
           child: Column(
             children: [
-              const Text(
-                'Search by player name or Player ID to assign a scorer.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+              if (!keyboardOpen) ...[
+                const Text(
+                  'Search by player name or Player ID to assign a scorer.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
               SegmentedButton<int>(
                 segments: const [
                   ButtonSegment(value: 0, label: Text('Scorer 1')),
@@ -930,7 +957,7 @@ class _SearchTab extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: keyboardOpen ? 8 : 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceLg),
           child: Row(
@@ -938,8 +965,9 @@ class _SearchTab extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: controller,
+                  autofocus: false,
                   decoration: InputDecoration(
-                    hintText: 'Search by name or Player ID (CF000042)',
+                    hintText: 'Search by name or Player ID',
                     hintStyle: const TextStyle(color: AppColors.textMuted),
                     filled: true,
                     fillColor: AppColors.surfaceElevated,
@@ -992,23 +1020,32 @@ class _SearchTab extends StatelessWidget {
             ),
           ),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
-            itemCount: combinedPlayers.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, i) {
-              final p = combinedPlayers[i];
-              final isCurrentScorer =
-                  currentScorerId != null && p.userId == currentScorerId;
-              return _SelectablePersonTile(
-                name: p.name,
-                photoUrl: p.photoUrl,
-                subtitle: CfPlayerIdFormat.displayLabel(p.playerId),
-                isCurrentScorer: isCurrentScorer,
-                onTap: isCurrentScorer ? null : () => onPlayerTap(p),
-              );
-            },
-          ),
+          child: combinedPlayers.isEmpty
+              ? Center(
+                  child: Text(
+                    searching ? 'Searching…' : 'Search for a player',
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimens.spaceMd,
+                  ),
+                  itemCount: combinedPlayers.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
+                    final p = combinedPlayers[i];
+                    final isCurrentScorer =
+                        currentScorerId != null && p.userId == currentScorerId;
+                    return _SelectablePersonTile(
+                      name: p.name,
+                      photoUrl: p.photoUrl,
+                      subtitle: CfPlayerIdFormat.displayLabel(p.playerId),
+                      isCurrentScorer: isCurrentScorer,
+                      onTap: isCurrentScorer ? null : () => onPlayerTap(p),
+                    );
+                  },
+                ),
         ),
       ],
     );

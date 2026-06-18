@@ -1563,6 +1563,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: AppColors.chromeBackground,
         foregroundColor: AppColors.chromeForeground,

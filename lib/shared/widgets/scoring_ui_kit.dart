@@ -46,13 +46,19 @@ class ScoringUiKit {
       isScrollControlled: true,
       useRootNavigator: useRootNavigator,
       isDismissible: isDismissible,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: initialChildSize,
-        minChildSize: minChildSize,
-        maxChildSize: maxChildSize,
-        expand: false,
-        builder: (_, controller) => builder(ctx, controller),
-      ),
+      builder: (ctx) {
+        final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: DraggableScrollableSheet(
+            initialChildSize: initialChildSize,
+            minChildSize: minChildSize,
+            maxChildSize: maxChildSize,
+            expand: false,
+            builder: (_, controller) => builder(ctx, controller),
+          ),
+        );
+      },
     );
   }
 
