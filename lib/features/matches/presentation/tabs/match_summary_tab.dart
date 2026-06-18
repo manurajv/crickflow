@@ -17,6 +17,7 @@ import '../match_center_screen.dart' show openFantasyForMatch;
 import '../../../../shared/widgets/match_follow_button.dart';
 import '../widgets/match_dls_summary_card.dart';
 import '../widgets/match_revision_info_panel.dart';
+import '../widgets/match_break_history_section.dart';
 
 /// Summary tab — scoreboard, stream, and match actions.
 class MatchSummaryTab extends ConsumerWidget {
@@ -82,6 +83,7 @@ class MatchSummaryTab extends ConsumerWidget {
               revisions: revisions,
               showTargetInfo: false,
             ),
+            MatchBreakHistorySection(match: match),
             if (isCompleted &&
                 match.targetState.dlsApplied &&
                 resultLine != null)

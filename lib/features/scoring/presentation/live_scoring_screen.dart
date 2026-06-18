@@ -44,6 +44,11 @@ import 'widgets/revise_target_sheet.dart';
 import 'widgets/end_innings_sheet.dart';
 import 'widgets/match_result_sheet.dart';
 import 'widgets/target_revision_banner.dart';
+import 'widgets/need_help_sheet.dart';
+import 'widgets/power_play_management_sheet.dart';
+import 'widgets/match_breaks_sheet.dart';
+import 'widgets/match_break_banner.dart';
+import 'live_change_squad_screen.dart';
 import '../../../data/models/wagon_wheel_data.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_eligibility.dart';
 import '../../wagon_wheel/presentation/wagon_wheel_selection_sheet.dart';
@@ -1165,6 +1170,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           : regularCount < fresh.rules.maxInnings;
 
       if (!hasNext) {
+        if (await _tryAutoCompleteMatch(fresh)) return;
         await _showMatchResultDialog(fresh, ended);
         return;
       }
@@ -1277,6 +1283,27 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
+  /// Completes the match when [MatchCompletionPolicy] already knows the winner.
+  Future<bool> _tryAutoCompleteMatch(MatchModel match) async {
+    final computed = MatchCompletionPolicy.compute(match);
+    if (computed.winnerTeamId == null || computed.offerSuperOver) {
+      return false;
+    }
+    await _completeMatchAndExit();
+    return true;
+  }
+
+  Future<void> _completeMatchAndExit() async {
+    final completed =
+        await ref.read(matchRepositoryProvider).completeMatch(widget.matchId);
+    if (completed != null) {
+      await ref
+          .read(tournamentRepositoryProvider)
+          .advanceKnockoutFromMatch(completed);
+    }
+    if (mounted) context.go('/match/${widget.matchId}');
+  }
+
   Future<void> _showMatchResultDialog(
     MatchModel match,
     InningsModel innings,
@@ -1321,14 +1348,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           ),
         );
         await matchRepo.updateMatch(fresh);
-
-        final completed = await matchRepo.completeMatch(widget.matchId);
-        if (completed != null) {
-          await ref
-              .read(tournamentRepositoryProvider)
-              .advanceKnockoutFromMatch(completed);
-        }
-        if (mounted) context.go('/match/${widget.matchId}');
+        await _completeMatchAndExit();
       },
     );
   }
@@ -1345,17 +1365,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         confirmLabel: 'Complete',
       );
       if (go == true) {
-        final completed = await ref
-            .read(matchRepositoryProvider)
-            .completeMatch(widget.matchId);
-        if (completed != null) {
-          await ref
-              .read(tournamentRepositoryProvider)
-              .advanceKnockoutFromMatch(completed);
-        }
-        if (mounted) {
-          context.go('/match/${widget.matchId}');
-        }
+        await _completeMatchAndExit();
       }
       return;
     }
@@ -1669,6 +1679,26 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         onEndOver: () => _manualEndOver(match),
         onScorecard: () => context.push('/match/${widget.matchId}/scorecard'),
         onMatchRules: () => _openMatchRules(match),
+        onNeedHelp: canScore
+            ? () => NeedHelpSheet.show(
+                  context,
+                  matchId: widget.matchId,
+                )
+            : null,
+        onPowerPlay: canScore
+            ? () => PowerPlayManagementSheet.show(context, match)
+            : null,
+        onChangeSquad: canScore
+            ? () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        LiveChangeSquadScreen(matchId: widget.matchId),
+                  ),
+                )
+            : null,
+        onMatchBreaks: canScore
+            ? () => MatchBreaksSheet.show(context, match)
+            : null,
         onChangeScorer: canInitiateScorerTransfer(
           match: match,
           userId: ref.read(authStateProvider).value?.uid,
@@ -1800,8 +1830,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             userId: uid,
             role: role,
           );
+          final onBreak = match.isMatchBreakActive;
+          final canRecord = canScore && !onBreak;
           final needsLineup =
-              canScore &&
+              canRecord &&
               (inn.strikerId == null || inn.currentBowlerId == null);
 
           final events = eventsAsync.valueOrNull ?? [];
@@ -1840,6 +1872,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                     ),
                   ],
                 ),
+              if (onBreak) MatchBreakBanner(match: match),
               Flexible(
                 flex: 30,
                 fit: FlexFit.tight,
@@ -1866,30 +1899,32 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                 rules: match.rules,
                 overEvents: overEvents,
                 bowlingSide: _bowlingSide,
-                onBowlingSideChanged: canScore
+                onBowlingSideChanged: canRecord
                     ? (s) => setState(() => _bowlingSide = s)
                     : null,
                 onReplaceStriker: needsLineup
                     ? null
-                    : canScore
+                    : canRecord
                         ? () => _replaceBatsman(match, striker: true)
                         : null,
                 onReplaceNonStriker: needsLineup
                     ? null
-                    : canScore
+                    : canRecord
                         ? () => _replaceBatsman(match, striker: false)
                         : null,
-                onChangeBatters: needsLineup || !canScore
+                onChangeBatters: needsLineup || !canRecord
                     ? null
                     : () => _changeBatters(match),
-                onReplaceBowler: needsLineup || !canScore
+                onReplaceBowler: needsLineup || !canRecord
                     ? null
                     : () => _replaceBowler(match),
               ),
               Flexible(
                 flex: 40,
                 fit: FlexFit.tight,
-                child: canScore
+                child: onBreak && canScore
+                    ? _breakKeypadPlaceholder(context)
+                    : canRecord
                     ? LayoutBuilder(
                         builder: (context, keypadConstraints) {
                           return LiveScoringKeypad(
@@ -1970,6 +2005,36 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
+      ),
+    );
+  }
+
+  Widget _breakKeypadPlaceholder(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.pause_circle_outline,
+                size: 40, color: AppColors.gold),
+            const SizedBox(height: 12),
+            const Text(
+              'Match on break',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Scoring is paused. Slide to resume on the banner above.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
       ),
     );
   }

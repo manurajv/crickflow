@@ -178,6 +178,32 @@ function buildMatchResultNotification(match) {
   return { title, body: lines.join('\n') };
 }
 
+function buildMatchBreakStartedNotification(match, activeBreak) {
+  const inn = currentInnings(match) || { totalRuns: 0, totalWickets: 0, legalBalls: 0 };
+  const bpo = ballsPerOver(match);
+  const breakType = activeBreak?.breakType || 'Match';
+  const title = `${breakType} Break`;
+  const body = [
+    title,
+    matchTitle(match),
+    'Current Score:',
+    scoreLine(inn, bpo),
+  ].join('\n');
+  return { title, body };
+}
+
+function buildMatchBreakEndedNotification(match, lastEntry) {
+  const inn = currentInnings(match) || { totalRuns: 0, totalWickets: 0, legalBalls: 0 };
+  const bpo = ballsPerOver(match);
+  const team = battingTeamName(match, inn);
+  const lines = ['Match Resumed'];
+  if (lastEntry?.breakType) {
+    lines.push(`${lastEntry.breakType} break ended`);
+  }
+  lines.push(matchTitle(match), team, scoreLine(inn, bpo));
+  return { title: 'Match Resumed', body: lines.join('\n') };
+}
+
 module.exports = {
   buildMatchStartNotification,
   buildSecondInningsStartNotification,
@@ -189,4 +215,6 @@ module.exports = {
   buildTargetRevisionNotification,
   buildDlsNotification,
   buildMatchResultNotification,
+  buildMatchBreakStartedNotification,
+  buildMatchBreakEndedNotification,
 };

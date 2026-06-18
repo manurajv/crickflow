@@ -10,6 +10,7 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 |--------|---------|---------|
 | `onMatchCompleted` | `matches/{id}` updated → `status: completed` | **Stats from `ball_events` replay** (fallback innings cache), badges, hero, `statsSource` |
 | `onMatchLive` | `matches/{id}` updated | Match start, 1st innings complete, 2nd innings start — fan-out + enriched messages |
+| `onMatchBreak` | `matches/{id}` updated | Match break started / resumed — fan-out with current score |
 | `onMatchRevisionCreated` | `matches/{id}/matchRevisions/{id}` created | DLS / target revision notifications |
 | `onBallEventCreated` | `matches/{id}/ball_events/{eventId}` created | Wicket, four, six, milestones — enriched fan-out |
 | `onMatchCompleted` | `matches/{id}` updated → `status: completed` | Result notification fan-out to team + followers |

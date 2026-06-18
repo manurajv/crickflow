@@ -11,6 +11,9 @@ import '../../data/models/overlay_state_model.dart';
 import '../../data/models/scorer_transfer_models.dart';
 import '../../core/utils/highlight_utils.dart';
 import '../../core/utils/match_scorer_utils.dart';
+import '../../data/models/match_break_model.dart';
+import '../../data/models/match_rules_model.dart';
+import '../../data/models/match_player_snapshot.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../domain/services/badge_service.dart';
 import '../../domain/services/commentary_service.dart';
@@ -1050,6 +1053,83 @@ class MatchRepository {
       wickets: first.totalWickets,
       teamId: first.battingTeamId,
     );
+  }
+
+  Future<void> updateMatchSquad({
+    required String matchId,
+    required bool isTeamA,
+    required List<MatchPlayerSnapshot> playing,
+    required List<MatchPlayerSnapshot> substitutes,
+  }) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+    final playingKey =
+        isTeamA ? 'teamAPlayingPlayers' : 'teamBPlayingPlayers';
+    final subsKey =
+        isTeamA ? 'teamASubstitutePlayers' : 'teamBSubstitutePlayers';
+    final squadIdsKey = isTeamA ? 'teamASquadIds' : 'teamBSquadIds';
+    await _matchDoc(matchId).update({
+      playingKey: playing.map((p) => p.toMap()).toList(),
+      subsKey: substitutes.map((p) => p.toMap()).toList(),
+      squadIdsKey: playing.map((p) => p.id).toList(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> updateMatchRules(String matchId, MatchRulesModel rules) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+    await _matchDoc(matchId).update({
+      'rules': rules.toMap(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> startMatchBreak({
+    required String matchId,
+    required String breakType,
+    required String startedBy,
+    String reason = '',
+  }) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+    if (match.isMatchBreakActive) {
+      throw StateError('A break is already active');
+    }
+    final active = ActiveMatchBreakModel(
+      breakType: breakType,
+      startTime: DateTime.now(),
+      startedBy: startedBy,
+      reason: reason,
+    );
+    await _matchDoc(matchId).update({
+      'activeMatchBreak': active.toMap(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> endMatchBreak(String matchId) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+    final active = match.activeMatchBreak;
+    if (active == null || !active.isActive) {
+      throw StateError('No active break');
+    }
+    final end = DateTime.now();
+    final duration = end.difference(active.startTime).inSeconds;
+    final entry = MatchBreakHistoryEntry(
+      breakType: active.breakType,
+      startTime: active.startTime,
+      endTime: end,
+      durationSeconds: duration,
+      reason: active.reason,
+    );
+    final history = [...match.matchBreakHistory, entry];
+    await _matchDoc(matchId).update({
+      'activeMatchBreak': FieldValue.delete(),
+      'matchBreakHistory': history.map((e) => e.toMap()).toList(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 }
 

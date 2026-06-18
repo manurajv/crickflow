@@ -158,6 +158,17 @@ service cloud.firestore {
         'resultSummary',
         'completedAt',
         'rules',
+        'activeMatchBreak',
+        'matchBreakHistory',
+        'teamAPlayingPlayers',
+        'teamASubstitutePlayers',
+        'teamBPlayingPlayers',
+        'teamBSubstitutePlayers',
+        'teamASquadIds',
+        'teamBSquadIds',
+        'startedAt',
+        'currentScorerId',
+        'scorerIds',
       ]);
     }
 
@@ -229,6 +240,7 @@ service cloud.firestore {
           'powerplaySlot1',
           'powerplaySlot2',
           'powerplaySlot3',
+          'powerplayLabels',
           'wagonWheelEnabled',
           'wagonWheelDots',
           'wagonWheelRuns123',
@@ -254,6 +266,8 @@ service cloud.firestore {
         && (!('powerplaySlot1' in rules) || validPowerplaySlot(rules.powerplaySlot1))
         && (!('powerplaySlot2' in rules) || validPowerplaySlot(rules.powerplaySlot2))
         && (!('powerplaySlot3' in rules) || validPowerplaySlot(rules.powerplaySlot3))
+        && (!('powerplayLabels' in rules)
+            || (rules.powerplayLabels is list && rules.powerplayLabels.size() <= 10))
         && (!('totalOvers' in rules) || (rules.totalOvers is int && rules.totalOvers > 0 && rules.totalOvers <= 200))
         && (!('ballsPerOver' in rules) || (rules.ballsPerOver is int && rules.ballsPerOver >= 1 && rules.ballsPerOver <= 12))
         && (!('playersPerTeam' in rules) || (rules.playersPerTeam is int && rules.playersPerTeam >= 1 && rules.playersPerTeam <= 25))
@@ -321,12 +335,34 @@ service cloud.firestore {
         && (!('mediaByCode' in data) || data.mediaByCode is map);
     }
 
+    function validMatchBreakField(br) {
+      return br is map
+        && br.breakType is string
+        && br.startTime is string
+        && br.startedBy is string
+        && br.status is string
+        && (!('reason' in br) || br.reason is string);
+    }
+
+    function validMatchBreakHistoryEntry(entry) {
+      return entry is map
+        && entry.breakType is string
+        && entry.startTime is string
+        && entry.durationSeconds is int
+        && (!('endTime' in entry) || entry.endTime is string)
+        && (!('reason' in entry) || entry.reason is string);
+    }
+
     function validMatchUpdate() {
       let data = request.resource.data;
       return (!('rules' in data) || validMatchRules(data.rules))
         && validMatchSetupFields(data)
         && playingSquadWithinLimit(data)
-        && (!('mediaByCode' in data) || data.mediaByCode is map);
+        && (!('mediaByCode' in data) || data.mediaByCode is map)
+        && (!('activeMatchBreak' in data) || validMatchBreakField(data.activeMatchBreak))
+        && (!('matchBreakHistory' in data)
+            || (data.matchBreakHistory is list
+                && data.matchBreakHistory.size() <= 50));
     }
 
     function isWalkInPlayer() {
@@ -750,6 +786,19 @@ service cloud.firestore {
       allow delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
       allow update: if false;
+    }
+
+    match /scoringIssueReports/{reportId} {
+      allow read: if isSignedIn()
+        && (resource.data.reportedBy == request.auth.uid
+            || isMatchScorer(resource.data.matchId));
+      allow create: if isSignedIn()
+        && request.resource.data.reportedBy == request.auth.uid
+        && request.resource.data.matchId is string
+        && request.resource.data.matchId.size() > 0
+        && request.resource.data.issueType is string
+        && request.resource.data.createdAt is string;
+      allow update, delete: if false;
     }
 
     match /community_posts/{postId} {

@@ -17,6 +17,10 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
     this.onReviseTarget,
     this.onEditToss,
     this.onChangeScorer,
+    this.onNeedHelp,
+    this.onPowerPlay,
+    this.onChangeSquad,
+    this.onMatchBreaks,
   });
 
   final VoidCallback onEditLineup;
@@ -29,6 +33,10 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
   final VoidCallback? onReviseTarget;
   final VoidCallback? onEditToss;
   final VoidCallback? onChangeScorer;
+  final VoidCallback? onNeedHelp;
+  final VoidCallback? onPowerPlay;
+  final VoidCallback? onChangeSquad;
+  final VoidCallback? onMatchBreaks;
 
   @override
   State<ScoringQuickOptionsSheet> createState() =>
@@ -43,13 +51,19 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
   bool _expanded = false;
 
   List<_Shortcut> get _shortcuts => [
-        const _Shortcut(Icons.help_outline, 'Need Help', _noop),
+        if (widget.onNeedHelp != null)
+          _Shortcut(Icons.help_outline, 'Need Help', widget.onNeedHelp!)
+        else
+          const _Shortcut(Icons.help_outline, 'Need Help', _noop),
         _Shortcut(Icons.rule_outlined, 'Match Rules', widget.onMatchRules),
         if (widget.onChangeScorer != null)
           _Shortcut(Icons.swap_horiz, 'Change Scorer', widget.onChangeScorer!)
         else
           const _Shortcut(Icons.swap_horiz, 'Change Scorer', _noop),
-        _Shortcut(Icons.group_outlined, 'Change Squad', widget.onEditLineup),
+        if (widget.onChangeSquad != null)
+          _Shortcut(Icons.group_outlined, 'Change Squad', widget.onChangeSquad!)
+        else
+          _Shortcut(Icons.group_outlined, 'Change Squad', widget.onEditLineup),
         _Shortcut(
           Icons.assignment_outlined,
           'Full Scorecard',
@@ -66,12 +80,18 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
           'Change Bowler',
           widget.onChangeBowler,
         ),
-        const _Shortcut(Icons.bolt_outlined, 'Power Play', _noop),
+        if (widget.onPowerPlay != null)
+          _Shortcut(Icons.bolt_outlined, 'Power Play', widget.onPowerPlay!)
+        else
+          const _Shortcut(Icons.bolt_outlined, 'Power Play', _noop),
         if (widget.onReviseTarget != null)
           _Shortcut(Icons.calculate_outlined, 'Revise Target', widget.onReviseTarget!)
         else
           const _Shortcut(Icons.calculate_outlined, 'Revise Target', _noop),
-        const _Shortcut(Icons.schedule_outlined, 'Match Breaks', _noop),
+        if (widget.onMatchBreaks != null)
+          _Shortcut(Icons.schedule_outlined, 'Match Breaks', widget.onMatchBreaks!)
+        else
+          const _Shortcut(Icons.schedule_outlined, 'Match Breaks', _noop),
         if (widget.onEditToss != null)
           _Shortcut(
             Icons.monetization_on_outlined,

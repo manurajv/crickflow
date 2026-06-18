@@ -12,6 +12,7 @@ const { onMatchCompleted } = require('./match/onMatchCompleted');
 const { onMatchLive } = require('./match/onMatchLive');
 const { onBallEventCreated } = require('./match/onBallEventCreated');
 const { onMatchRevisionCreated } = require('./match/onMatchRevisionCreated');
+const { onMatchBreak } = require('./match/onMatchBreak');
 const { verifyScoringIntegrity } = require('./match/verifyScoringIntegrity');
 const {
   syncPublicScorecard,
@@ -30,6 +31,7 @@ exports.onMatchCompleted = onMatchCompleted;
 exports.onMatchLive = onMatchLive;
 exports.onBallEventCreated = onBallEventCreated;
 exports.onMatchRevisionCreated = onMatchRevisionCreated;
+exports.onMatchBreak = onMatchBreak;
 exports.verifyScoringIntegrity = verifyScoringIntegrity;
 exports.syncPublicScorecard = syncPublicScorecard;
 exports.syncPublicOverlay = syncPublicOverlay;

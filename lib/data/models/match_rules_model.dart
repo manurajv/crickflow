@@ -20,6 +20,11 @@ class MatchRulesModel extends Equatable {
     this.superOverEnabled = false,
     this.powerplayOvers,
     this.powerplaySlots = const [[], [], []],
+    this.powerplayLabels = const [
+      'Power Play 1',
+      'Power Play 2',
+      'Death Overs',
+    ],
     this.wagonWheelEnabled = false,
     this.wagonWheelDots = false,
     this.wagonWheelRuns123 = false,
@@ -55,6 +60,8 @@ class MatchRulesModel extends Equatable {
   final int? powerplayOvers;
   /// Up to three powerplays; each inner list is selected over numbers.
   final List<List<int>> powerplaySlots;
+  /// Display names aligned with [powerplaySlots] indices.
+  final List<String> powerplayLabels;
   final bool wagonWheelEnabled;
   final bool wagonWheelDots;
   final bool wagonWheelRuns123;
@@ -240,6 +247,7 @@ class MatchRulesModel extends Equatable {
       superOverEnabled: map['superOverEnabled'] as bool? ?? false,
       powerplayOvers: map['powerplayOvers'] as int?,
       powerplaySlots: _powerplaySlotsFromMap(map),
+      powerplayLabels: _powerplayLabelsFromMap(map),
       wagonWheelEnabled: map['wagonWheelEnabled'] as bool? ?? false,
       wagonWheelDots: map['wagonWheelDots'] as bool? ??
           (map['wagonWheelEnabled'] as bool? ?? false),
@@ -261,6 +269,14 @@ class MatchRulesModel extends Equatable {
       lastManStanding: map['lastManStanding'] as bool? ?? false,
       notes: map['notes'] as String?,
     );
+  }
+
+  static List<String> _powerplayLabelsFromMap(Map<String, dynamic> map) {
+    final raw = map['powerplayLabels'] as List?;
+    if (raw != null && raw.isNotEmpty) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    return const ['Power Play 1', 'Power Play 2', 'Death Overs'];
   }
 
   static List<List<int>> _powerplaySlotsFromMap(Map<String, dynamic> map) {
@@ -363,6 +379,7 @@ class MatchRulesModel extends Equatable {
         'superOverEnabled': superOverEnabled,
         if (powerplayOvers != null) 'powerplayOvers': powerplayOvers,
         ..._powerplaySlotsToMap(powerplaySlots),
+        'powerplayLabels': powerplayLabels,
         'wagonWheelEnabled': wagonWheelEnabled,
         'wagonWheelDots': wagonWheelDots,
         'wagonWheelRuns123': wagonWheelRuns123,
@@ -397,6 +414,7 @@ class MatchRulesModel extends Equatable {
     bool? superOverEnabled,
     int? powerplayOvers,
     List<List<int>>? powerplaySlots,
+    List<String>? powerplayLabels,
     bool? wagonWheelEnabled,
     bool? wagonWheelDots,
     bool? wagonWheelRuns123,
@@ -431,6 +449,7 @@ class MatchRulesModel extends Equatable {
       superOverEnabled: superOverEnabled ?? this.superOverEnabled,
       powerplayOvers: powerplayOvers ?? this.powerplayOvers,
       powerplaySlots: powerplaySlots ?? this.powerplaySlots,
+      powerplayLabels: powerplayLabels ?? this.powerplayLabels,
       wagonWheelEnabled: wagonWheelEnabled ?? this.wagonWheelEnabled,
       wagonWheelDots: wagonWheelDots ?? this.wagonWheelDots,
       wagonWheelRuns123: wagonWheelRuns123 ?? this.wagonWheelRuns123,
@@ -462,6 +481,7 @@ class MatchRulesModel extends Equatable {
         isManualOversPerBowler,
         ballType,
         powerplaySlots,
+        powerplayLabels,
         wagonWheelEnabled,
         pitchType,
       ];

@@ -3,6 +3,7 @@ import '../../core/constants/enums.dart';
 import 'innings_model.dart';
 import 'location_model.dart';
 import 'match_rules_model.dart';
+import 'match_break_model.dart';
 import 'match_setup_draft_models.dart';
 import 'match_target_state_model.dart';
 import 'over_metadata_model.dart';
@@ -196,6 +197,8 @@ class MatchModel extends Equatable {
     this.overNotes = const [],
     this.overMetadata = const [],
     this.targetState = const MatchTargetStateModel(),
+    this.activeMatchBreak,
+    this.matchBreakHistory = const [],
   });
 
   final String id;
@@ -242,6 +245,11 @@ class MatchModel extends Equatable {
   final List<OverNoteModel> overNotes;
   final List<OverMetadataModel> overMetadata;
   final MatchTargetStateModel targetState;
+  final ActiveMatchBreakModel? activeMatchBreak;
+  final List<MatchBreakHistoryEntry> matchBreakHistory;
+
+  bool get isMatchBreakActive =>
+      activeMatchBreak != null && activeMatchBreak!.isActive;
 
   InningsModel? get currentInnings =>
       innings.isNotEmpty && currentInningsIndex < innings.length
@@ -311,6 +319,18 @@ class MatchModel extends Equatable {
           .map((e) => OverMetadataModel.fromMap(e as Map<String, dynamic>))
           .toList(),
       targetState: MatchTargetStateModel.fromMap(_asStringMap(map['targetState'])),
+      activeMatchBreak: map['activeMatchBreak'] != null
+          ? ActiveMatchBreakModel.fromMap(
+              _asStringMap(map['activeMatchBreak']),
+            )
+          : null,
+      matchBreakHistory: (map['matchBreakHistory'] as List? ?? [])
+          .map(
+            (e) => MatchBreakHistoryEntry.fromMap(
+              _asStringMap(e) ?? const {},
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -372,6 +392,11 @@ class MatchModel extends Equatable {
           'overMetadata': overMetadata.map((m) => m.toMap()).toList(),
         if (targetState != const MatchTargetStateModel())
           'targetState': targetState.toMap(),
+        if (activeMatchBreak != null)
+          'activeMatchBreak': activeMatchBreak!.toMap(),
+        if (matchBreakHistory.isNotEmpty)
+          'matchBreakHistory':
+              matchBreakHistory.map((e) => e.toMap()).toList(),
       };
 
   MatchModel copyWith({
@@ -406,6 +431,9 @@ class MatchModel extends Equatable {
     List<OverNoteModel>? overNotes,
     List<OverMetadataModel>? overMetadata,
     MatchTargetStateModel? targetState,
+    ActiveMatchBreakModel? activeMatchBreak,
+    bool clearActiveMatchBreak = false,
+    List<MatchBreakHistoryEntry>? matchBreakHistory,
   }) {
     return MatchModel(
       id: id,
@@ -447,6 +475,10 @@ class MatchModel extends Equatable {
       overNotes: overNotes ?? this.overNotes,
       overMetadata: overMetadata ?? this.overMetadata,
       targetState: targetState ?? this.targetState,
+      activeMatchBreak: clearActiveMatchBreak
+          ? null
+          : (activeMatchBreak ?? this.activeMatchBreak),
+      matchBreakHistory: matchBreakHistory ?? this.matchBreakHistory,
     );
   }
 

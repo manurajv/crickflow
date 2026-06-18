@@ -13,6 +13,23 @@
 
 ---
 
+## Latest (live scoring quick shortcuts)
+
+| Item | Status |
+|------|--------|
+| Need Help — scoring mistake (last 20 balls), change scorer, facing problem report | Done |
+| Facing problem reports → `scoringIssueReports/` | Done |
+| Power Play management (create/edit/delete slots + labels) | Done |
+| Change Squad — Team A/B, playing vs substitutes, swap, add roster/guest | Done |
+| Live lineup refresh via `matchLineupSquadsProvider` invalidation | Done |
+| Match Breaks — drinks, timed out, lunch, stumps, rain, other | Done |
+| Active break banner + slide to resume | Done |
+| Break history on match doc + match summary tab | Done |
+| Break start/end notifications (Cloud Function `onMatchBreak`) | Done — deploy functions |
+| Firestore rules — `scoringIssueReports/` | Done — deploy rules |
+
+---
+
 ## Latest (notifications)
 
 | Item | Status |
