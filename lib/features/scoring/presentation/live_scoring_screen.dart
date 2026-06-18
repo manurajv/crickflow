@@ -40,6 +40,10 @@ import '../../../shared/widgets/scoring_ui_kit.dart';
 import 'widgets/change_bowler_sheet.dart';
 import 'widgets/change_batters_sheet.dart';
 import 'widgets/mid_over_bowler_change_dialog.dart';
+import 'widgets/revise_target_sheet.dart';
+import 'widgets/end_innings_sheet.dart';
+import 'widgets/match_result_sheet.dart';
+import 'widgets/target_revision_banner.dart';
 import '../../../data/models/wagon_wheel_data.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_eligibility.dart';
 import '../../wagon_wheel/presentation/wagon_wheel_selection_sheet.dart';
@@ -1161,15 +1165,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           : regularCount < fresh.rules.maxInnings;
 
       if (!hasNext) {
-        final completed = await repo.completeMatch(widget.matchId);
-        if (completed != null) {
-          await ref
-              .read(tournamentRepositoryProvider)
-              .advanceKnockoutFromMatch(completed);
-        }
-        if (mounted) {
-          context.go('/match/${widget.matchId}');
-        }
+        await _showMatchResultDialog(fresh, ended);
         return;
       }
 
@@ -1270,6 +1266,62 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
+  Future<void> _showMatchResultDialog(
+    MatchModel match,
+    InningsModel innings,
+  ) async {
+    if (!mounted) return;
+    final uid = ref.read(authStateProvider).value?.uid ?? '';
+    final revRepo = ref.read(matchTargetRevisionRepositoryProvider);
+    final matchRepo = ref.read(matchRepositoryProvider);
+
+    await MatchResultSheet.show(
+      context,
+      match: match,
+      onConfirm: (input) async {
+        if (input.isAbandoned) {
+          await revRepo.setMatchResult(
+            matchId: widget.matchId,
+            isAbandoned: true,
+            abandonedReason: input.abandonedReason,
+            considerAllOversForNrr: input.considerAllOversForNrr,
+            userId: uid,
+          );
+          if (mounted) context.go('/match/${widget.matchId}');
+          return;
+        }
+
+        if (input.isDraw) {
+          await revRepo.setMatchResult(
+            matchId: widget.matchId,
+            isDraw: true,
+            considerAllOversForNrr: input.considerAllOversForNrr,
+            userId: uid,
+          );
+          if (mounted) context.go('/match/${widget.matchId}');
+          return;
+        }
+
+        var fresh = await matchRepo.getMatch(widget.matchId) ?? match;
+        fresh = fresh.copyWith(
+          winnerTeamId: input.winnerTeamId,
+          targetState: fresh.targetState.copyWith(
+            considerAllOversForNrr: input.considerAllOversForNrr,
+          ),
+        );
+        await matchRepo.updateMatch(fresh);
+
+        final completed = await matchRepo.completeMatch(widget.matchId);
+        if (completed != null) {
+          await ref
+              .read(tournamentRepositoryProvider)
+              .advanceKnockoutFromMatch(completed);
+        }
+        if (mounted) context.go('/match/${widget.matchId}');
+      },
+    );
+  }
+
   Future<void> _endInnings() async {
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     if (match == null || !_guardActiveScorer(match)) return;
@@ -1303,14 +1355,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       return;
     }
 
-    await ref.read(matchRepositoryProvider).endCurrentInnings(widget.matchId);
-    if (!mounted) return;
-
-    final fresh = await ref.read(matchRepositoryProvider).getMatch(widget.matchId);
-    final ended = fresh?.currentInnings;
-    if (fresh != null && ended != null && mounted) {
-      await _showInningsBreakDialog(fresh, ended, allowUndo: false);
-    }
+    await _openEndInningsSheet(match);
   }
 
   Future<void> _replaceBatsman(MatchModel match, {required bool striker}) async {
@@ -1495,8 +1540,97 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
+  Future<void> _openReviseTarget(MatchModel match) async {
+    if (!_guardActiveScorer(match)) return;
+    final inn = match.currentInnings;
+    if (inn == null) return;
+    final uid = ref.read(authStateProvider).value?.uid ?? '';
+    final repo = ref.read(matchTargetRevisionRepositoryProvider);
+
+    await ReviseTargetSheet.show(
+      context,
+      match: match,
+      innings: inn,
+      onApplyDls: (input) async {
+        await repo.applyScorerDlsRevision(
+          matchId: widget.matchId,
+          input: input,
+          userId: uid,
+        );
+        if (mounted) {
+          final isSecond =
+              (match.currentInnings?.inningsNumber ?? 0) >= 2 &&
+                  !(match.currentInnings?.isSuperOver ?? false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                input.continueInnings && !isSecond
+                    ? 'Overs reduced to ${input.revisedOvers}'
+                    : isSecond
+                        ? 'Overs ${input.revisedOvers}, target ${input.revisedTarget}'
+                        : 'DLS target saved — end innings to continue',
+              ),
+            ),
+          );
+        }
+      },
+      onApplyManual: (target, reason) async {
+        await repo.applyManualTargetRevision(
+          matchId: widget.matchId,
+          revisedTarget: target,
+          reason: reason,
+          userId: uid,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Target revised to $target')),
+          );
+        }
+      },
+      onEndInnings: () => _openEndInningsSheet(match),
+    );
+  }
+
+  Future<void> _openEndInningsSheet(MatchModel match) async {
+    if (!_guardActiveScorer(match)) return;
+    final inn = match.currentInnings;
+    if (inn == null) return;
+    final uid = ref.read(authStateProvider).value?.uid ?? '';
+
+    await EndInningsSheet.show(
+      context,
+      match: match,
+      innings: inn,
+      onConfirm: (result) async {
+        await ref.read(matchTargetRevisionRepositoryProvider).endInningsWithReason(
+              matchId: widget.matchId,
+              endReason: result.endReason,
+              considerAllOversForNrr: result.considerAllOversForNrr,
+              penaltyRuns: result.penaltyRuns,
+              penaltyReason: result.penaltyReason,
+              userId: uid,
+            );
+        if (!mounted) return;
+        final fresh =
+            await ref.read(matchRepositoryProvider).getMatch(widget.matchId);
+        final idx = match.currentInningsIndex;
+        if (fresh != null && idx < fresh.innings.length) {
+          await _showInningsBreakDialog(
+            fresh,
+            fresh.innings[idx],
+            allowUndo: false,
+          );
+        }
+      },
+    );
+  }
+
   void _openQuickOptions(MatchModel match) {
     final canEditToss = ScoringDisplayUtils.canEditTossDecision(match);
+    final uid = ref.read(authStateProvider).value?.uid;
+    final role = ref.read(currentUserProfileProvider).valueOrNull?.role ??
+        UserRole.organizer;
+    final canScore = canScoreMatch(match: match, userId: uid, role: role);
     ScoringUiKit.showSheet(
       context,
       isScrollControlled: true,
@@ -1505,6 +1639,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         onChangeWicketkeeper: () => _changeWicketKeeper(match),
         onChangeBowler: () => _changeBowler(match),
         onEndInnings: () => _endInnings(),
+        onReviseTarget: canScore ? () => _openReviseTarget(match) : null,
         onEndOver: () => _manualEndOver(match),
         onScorecard: () => context.push('/match/${widget.matchId}/scorecard'),
         onMatchRules: () => _openMatchRules(match),
@@ -1652,6 +1787,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
           return Column(
             children: [
+              TargetRevisionBanner(
+                match: match,
+                onDismiss: () async {
+                  await ref
+                      .read(matchTargetRevisionRepositoryProvider)
+                      .dismissLiveBanner(widget.matchId);
+                },
+              ),
               if (_scorerTransferBanner != null)
                 MaterialBanner(
                   backgroundColor: AppColors.surfaceElevated,

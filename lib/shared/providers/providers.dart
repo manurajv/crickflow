@@ -8,6 +8,7 @@ import '../../data/models/tournament_model.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/match_repository.dart';
+import '../../data/repositories/match_target_revision_repository.dart';
 import '../../data/repositories/player_repository.dart';
 import '../../data/repositories/team_join_request_repository.dart';
 import '../../data/repositories/team_roster_report_repository.dart';
@@ -30,6 +31,8 @@ import '../../data/services/webrtc_signaling_service.dart';
 final authRepositoryProvider = Provider((ref) => AuthRepository());
 final userRepositoryProvider = Provider((ref) => UserRepository());
 final matchRepositoryProvider = Provider((ref) => MatchRepository());
+final matchTargetRevisionRepositoryProvider =
+    Provider((ref) => MatchTargetRevisionRepository());
 final teamQrServiceProvider = Provider(
   (ref) => TeamQrService(storage: ref.watch(storageServiceProvider)),
 );

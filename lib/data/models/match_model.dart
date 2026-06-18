@@ -4,6 +4,7 @@ import 'innings_model.dart';
 import 'location_model.dart';
 import 'match_rules_model.dart';
 import 'match_setup_draft_models.dart';
+import 'match_target_state_model.dart';
 import 'over_metadata_model.dart';
 import 'over_note_model.dart';
 import 'scorer_transfer_models.dart';
@@ -194,6 +195,7 @@ class MatchModel extends Equatable {
     this.setup,
     this.overNotes = const [],
     this.overMetadata = const [],
+    this.targetState = const MatchTargetStateModel(),
   });
 
   final String id;
@@ -239,6 +241,7 @@ class MatchModel extends Equatable {
   final MatchSetupData? setup;
   final List<OverNoteModel> overNotes;
   final List<OverMetadataModel> overMetadata;
+  final MatchTargetStateModel targetState;
 
   InningsModel? get currentInnings =>
       innings.isNotEmpty && currentInningsIndex < innings.length
@@ -307,6 +310,7 @@ class MatchModel extends Equatable {
       overMetadata: (map['overMetadata'] as List? ?? [])
           .map((e) => OverMetadataModel.fromMap(e as Map<String, dynamic>))
           .toList(),
+      targetState: MatchTargetStateModel.fromMap(_asStringMap(map['targetState'])),
     );
   }
 
@@ -366,6 +370,8 @@ class MatchModel extends Equatable {
           'overNotes': overNotes.map((n) => n.toMap()).toList(),
         if (overMetadata.isNotEmpty)
           'overMetadata': overMetadata.map((m) => m.toMap()).toList(),
+        if (targetState != const MatchTargetStateModel())
+          'targetState': targetState.toMap(),
       };
 
   MatchModel copyWith({
@@ -399,6 +405,7 @@ class MatchModel extends Equatable {
     MatchSetupData? setup,
     List<OverNoteModel>? overNotes,
     List<OverMetadataModel>? overMetadata,
+    MatchTargetStateModel? targetState,
   }) {
     return MatchModel(
       id: id,
@@ -439,6 +446,7 @@ class MatchModel extends Equatable {
       setup: setup ?? this.setup,
       overNotes: overNotes ?? this.overNotes,
       overMetadata: overMetadata ?? this.overMetadata,
+      targetState: targetState ?? this.targetState,
     );
   }
 

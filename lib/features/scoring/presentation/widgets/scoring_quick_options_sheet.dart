@@ -14,6 +14,7 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
     required this.onEndOver,
     required this.onScorecard,
     required this.onMatchRules,
+    this.onReviseTarget,
     this.onEditToss,
     this.onChangeScorer,
   });
@@ -25,6 +26,7 @@ class ScoringQuickOptionsSheet extends StatefulWidget {
   final VoidCallback onEndOver;
   final VoidCallback onScorecard;
   final VoidCallback onMatchRules;
+  final VoidCallback? onReviseTarget;
   final VoidCallback? onEditToss;
   final VoidCallback? onChangeScorer;
 
@@ -65,7 +67,10 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
           widget.onChangeBowler,
         ),
         const _Shortcut(Icons.bolt_outlined, 'Power Play', _noop),
-        const _Shortcut(Icons.calculate_outlined, 'Revise Target', _noop),
+        if (widget.onReviseTarget != null)
+          _Shortcut(Icons.calculate_outlined, 'Revise Target', widget.onReviseTarget!)
+        else
+          const _Shortcut(Icons.calculate_outlined, 'Revise Target', _noop),
         const _Shortcut(Icons.schedule_outlined, 'Match Breaks', _noop),
         if (widget.onEditToss != null)
           _Shortcut(

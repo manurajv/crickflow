@@ -70,8 +70,11 @@ class InningsBreakDialog extends StatelessWidget {
         (innings.isSuperOver &&
             match.innings.where((i) => i.isSuperOver).length < 2);
     final target = hasNext && !tiedSuperOver
-        ? (innings.targetRuns ?? innings.totalRuns + 1)
+        ? (innings.targetRuns ??
+            match.targetState.pendingChaseTarget ??
+            innings.totalRuns + 1)
         : null;
+    final dlsApplied = match.targetState.dlsApplied;
 
     final slideLabel = confirmLabel ??
         (tiedSuperOver
@@ -126,6 +129,16 @@ class InningsBreakDialog extends StatelessWidget {
             ),
             if (target != null) ...[
               const SizedBox(height: 8),
+              if (dlsApplied)
+                const Text(
+                  'DLS Applied',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.gold,
+                  ),
+                ),
               Text(
                 'Target for next innings: $target',
                 textAlign: TextAlign.center,

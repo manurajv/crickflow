@@ -13,6 +13,7 @@ import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/multi_camera_watch_section.dart';
 import '../../../../shared/widgets/scoreboard_card.dart';
 import '../match_center_screen.dart' show openFantasyForMatch;
+import '../widgets/match_dls_summary_card.dart';
 
 /// Summary tab — scoreboard, stream, and match actions.
 class MatchSummaryTab extends ConsumerWidget {
@@ -57,6 +58,7 @@ class MatchSummaryTab extends ConsumerWidget {
               innings: match.currentInnings,
               isLive: isLive || isBreak,
             ),
+            MatchDlsSummaryCard(match: match),
             if (heroLine != null)
               Padding(
                 padding: const EdgeInsets.symmetric(

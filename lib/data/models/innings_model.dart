@@ -281,6 +281,10 @@ class InningsModel extends Equatable {
     this.partnerships = const [],
     this.fallOfWickets = const [],
     this.fielders = const [],
+    this.endReason,
+    this.penaltyRuns = 0,
+    this.penaltyReason = '',
+    this.considerAllOversForNrr,
   });
 
   final int inningsNumber;
@@ -315,6 +319,11 @@ class InningsModel extends Equatable {
   final List<PartnershipRecord> partnerships;
   final List<FallOfWicketRecord> fallOfWickets;
   final List<FielderInningsModel> fielders;
+  /// `allOut`, `declared`, `manuallyEnded`, etc.
+  final String? endReason;
+  final int penaltyRuns;
+  final String penaltyReason;
+  final bool? considerAllOversForNrr;
 
   factory InningsModel.fromMap(Map<String, dynamic> map) {
     return InningsModel(
@@ -360,6 +369,10 @@ class InningsModel extends Equatable {
       fielders: (map['fielders'] as List? ?? [])
           .map((e) => FielderInningsModel.fromMap(e as Map<String, dynamic>))
           .toList(),
+      endReason: map['endReason'] as String?,
+      penaltyRuns: map['penaltyRuns'] as int? ?? 0,
+      penaltyReason: map['penaltyReason'] as String? ?? '',
+      considerAllOversForNrr: map['considerAllOversForNrr'] as bool?,
     );
   }
 
@@ -392,6 +405,11 @@ class InningsModel extends Equatable {
         if (currentOverSegment > 1) 'currentOverSegment': currentOverSegment,
         if (currentSegmentStartLegalBalls > 0)
           'currentSegmentStartLegalBalls': currentSegmentStartLegalBalls,
+        if (endReason != null) 'endReason': endReason,
+        if (penaltyRuns != 0) 'penaltyRuns': penaltyRuns,
+        if (penaltyReason.isNotEmpty) 'penaltyReason': penaltyReason,
+        if (considerAllOversForNrr != null)
+          'considerAllOversForNrr': considerAllOversForNrr,
         // partnerships, fallOfWickets, fielders are derived from ball_events —
         // not persisted (see BALL_EVENT_ARCHITECTURE.md).
       };

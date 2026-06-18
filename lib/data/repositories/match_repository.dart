@@ -237,7 +237,7 @@ class MatchRepository {
       partnershipRuns: cur.partnershipRuns,
       partnershipBalls: cur.partnershipBalls,
       isFreeHitActive: cur.isFreeHitActive,
-      targetRuns: first.totalRuns + 1,
+      targetRuns: match.targetState.pendingChaseTarget ?? first.totalRuns + 1,
       isSuperOver: cur.isSuperOver,
     );
 
@@ -470,9 +470,12 @@ class MatchRepository {
     }
 
     final result = MatchCompletionPolicy.compute(match);
-    final resultSummary = hero != null
-        ? '${hero.playerName} — ${hero.reason}'
-        : result.summary;
+    final winnerId = match.winnerTeamId ?? result.winnerTeamId;
+    final summary = match.resultSummary.isNotEmpty
+        ? match.resultSummary
+        : (hero != null
+            ? '${hero.playerName} — ${hero.reason}'
+            : result.summary);
 
     final completed = match.copyWith(
       status: MatchStatus.completed,
@@ -480,8 +483,8 @@ class MatchRepository {
       matchHero: hero,
       playerOfMatchId: hero?.playerId,
       badgeIds: badgeIds,
-      winnerTeamId: result.winnerTeamId,
-      resultSummary: resultSummary,
+      winnerTeamId: winnerId,
+      resultSummary: summary,
     );
 
     await _matchDoc(matchId).update(completed.toMap());
@@ -990,7 +993,10 @@ class MatchRepository {
 
     int? targetRuns;
     if (!prev.isSuperOver && regularCount == 1) {
-      targetRuns = prev.totalRuns + 1;
+      final pending = match.targetState.pendingChaseTarget;
+      targetRuns = pending != null && pending > 0
+          ? pending
+          : prev.totalRuns + 1;
     }
 
     final nextInnings = InningsModel(

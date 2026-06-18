@@ -13,6 +13,26 @@
 
 ---
 
+## Latest (revise target & match result)
+
+| Item | Status |
+|------|--------|
+| Scoring shortcut — Revise Target | Done |
+| Scorer-assisted DLS (manual target from officials, no ICC math) | Done |
+| DLS — overs reduced from locked to scheduled; target only on End Innings | Done |
+| First innings — Continue Innings (overs only, no target) | Done |
+| First innings — End Innings after DLS | Done |
+| Second innings — overs + target revision | Done |
+| End Innings — All Out / Declare / Penalty Runs | Done |
+| Match Result — winner, draw, abandoned | Done |
+| Firestore `matchRevisions/` + `matchTimeline/` history | Done |
+| Live banner + match summary DLS card | Done |
+| Live scoring header — scales to avoid overflow with chase/DLS lines | Done |
+| Scorer-only access | Done |
+| Firestore rules deployed | Done |
+
+---
+
 ## Latest (start match setup)
 
 | Item | Status |

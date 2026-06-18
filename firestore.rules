@@ -49,6 +49,125 @@ service cloud.firestore {
       );
     }
 
+    // --- Revise target / end innings (aligned with lib/core/utils/match_scorer_utils.dart) ---
+
+    function officialEntryUserId(entry) {
+      return entry is map ? entry.get('userId', '') : '';
+    }
+
+    /// Scorer 1 / 2 from match officials snapshot (when top-level scorer ids are absent).
+    function isAssignedMatchScorer(matchId) {
+      let data = matchData(matchId);
+      return isSignedIn() && (
+        (('scorer1UserId' in data) && data.scorer1UserId == request.auth.uid) ||
+        (('scorer2UserId' in data) && data.scorer2UserId == request.auth.uid) ||
+        request.auth.uid in data.get('scorerIds', []) ||
+        isOfficialScorerFromSnapshot(data)
+      );
+    }
+
+    function isOfficialScorerFromSnapshot(data) {
+      return ('officials' in data)
+        && data.officials is map
+        && (
+          (('scorers' in data.officials)
+            && data.officials.scorers is list
+            && data.officials.scorers.size() > 0
+            && officialEntryUserId(data.officials.scorers[0]) == request.auth.uid)
+          || (('scorers' in data.officials)
+            && data.officials.scorers is list
+            && data.officials.scorers.size() > 1
+            && officialEntryUserId(data.officials.scorers[1]) == request.auth.uid)
+          || (('scorer1' in data.officials)
+            && officialEntryUserId(data.officials.scorer1) == request.auth.uid)
+          || (('scorer2' in data.officials)
+            && officialEntryUserId(data.officials.scorer2) == request.auth.uid)
+        );
+    }
+
+    function canWriteTargetRevision(matchId) {
+      return isMatchScorer(matchId) || isAssignedMatchScorer(matchId);
+    }
+
+    function validTargetStateField(ts) {
+      return ts is map
+        && (!('revisionMethod' in ts)
+            || ts.revisionMethod in ['DLS', 'dls', 'manual'])
+        && (!('targetRevisionMethod' in ts)
+            || ts.targetRevisionMethod in ['DLS', 'dls', 'manual'])
+        && (!('originalOvers' in ts)
+            || (ts.originalOvers is int && ts.originalOvers > 0))
+        && (!('revisedOvers' in ts)
+            || (ts.revisedOvers is int && ts.revisedOvers > 0))
+        && (!('revisedTarget' in ts)
+            || (ts.revisedTarget is int && ts.revisedTarget > 0))
+        && (!('originalTarget' in ts)
+            || (ts.originalTarget is int && ts.originalTarget > 0))
+        && (!('dlsApplied' in ts) || ts.dlsApplied is bool)
+        && (!('pendingChaseTarget' in ts)
+            || (ts.pendingChaseTarget is int && ts.pendingChaseTarget > 0))
+        && (!('revisedTotalOvers' in ts)
+            || (ts.revisedTotalOvers is int && ts.revisedTotalOvers > 0))
+        && (!('considerAllOversForNrr' in ts) || ts.considerAllOversForNrr is bool)
+        && (!('matchOutcome' in ts) || ts.matchOutcome in ['draw', 'abandoned'])
+        && (!('abandonedReason' in ts) || ts.abandonedReason is string)
+        && (!('liveBannerMessage' in ts) || ts.liveBannerMessage is string)
+        && (!('liveBannerDismissed' in ts) || ts.liveBannerDismissed is bool);
+    }
+
+    function validMatchRevisionCreate() {
+      let d = request.resource.data;
+      return d.type is string
+        && d.type.size() > 0
+        && d.type in ['DLS', 'dls', 'manual', 'penalty_added', 'penalty_removed']
+        && d.createdAt is string
+        && (!('revisionMethod' in d)
+            || d.revisionMethod in ['DLS', 'dls', 'manual'])
+        && (!('originalOvers' in d) || d.originalOvers is int)
+        && (!('revisedOvers' in d) || d.revisedOvers is int)
+        && (!('oversLost' in d) || d.oversLost is int)
+        && (!('oldTarget' in d) || d.oldTarget is int)
+        && (!('newTarget' in d) || d.newTarget is int)
+        && (!('reason' in d) || d.reason is string)
+        && (!('penaltyRuns' in d) || d.penaltyRuns is int)
+        && (!('createdBy' in d) || d.createdBy is string);
+    }
+
+    function validMatchTimelineCreate() {
+      let d = request.resource.data;
+      return d.title is string
+        && d.title.size() > 0
+        && d.createdAt is string
+        && (!('subtitle' in d) || d.subtitle is string)
+        && (!('createdBy' in d) || d.createdBy is string);
+    }
+
+    function validTargetRevisionMatchUpdate() {
+      let data = request.resource.data;
+      return validMatchUpdate()
+        && (!('targetState' in data) || validTargetStateField(data.targetState));
+    }
+
+    function isTargetRevisionRelatedUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return diff.affectedKeys().hasAny([
+        'targetState',
+        'innings',
+        'status',
+        'winnerTeamId',
+        'resultSummary',
+        'completedAt',
+        'rules',
+      ]);
+    }
+
+    function canUpdateMatchForTargetRevision(matchId) {
+      return isMatchScorer(matchId)
+        || isMatchCreator(matchId)
+        || isValidScorerTakeover()
+        || (isAssignedMatchScorer(matchId) && isTargetRevisionRelatedUpdate());
+    }
+
     function isValidScorerTakeover() {
       let old = resource.data;
       let neu = request.resource.data;
@@ -535,8 +654,8 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if true;
       allow create: if isSignedIn() && validMatchCreate();
-      allow update: if (isMatchScorer(matchId) || isMatchCreator(matchId) || isValidScorerTakeover())
-        && validMatchUpdate();
+      allow update: if canUpdateMatchForTargetRevision(matchId)
+        && validTargetRevisionMatchUpdate();
       allow delete: if isMatchCreator(matchId);
 
       match /ball_events/{eventId} {
@@ -559,6 +678,18 @@ service cloud.firestore {
       match /activity_logs/{logId} {
         allow read: if isSignedIn();
         allow create: if isMatchScorer(matchId) || isValidScorerTakeover();
+        allow update, delete: if false;
+      }
+
+      match /matchRevisions/{revisionId} {
+        allow read: if true;
+        allow create: if canWriteTargetRevision(matchId) && validMatchRevisionCreate();
+        allow update, delete: if false;
+      }
+
+      match /matchTimeline/{eventId} {
+        allow read: if true;
+        allow create: if canWriteTargetRevision(matchId) && validMatchTimelineCreate();
         allow update, delete: if false;
       }
 
