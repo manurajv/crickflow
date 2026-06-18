@@ -185,6 +185,28 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
     state = state.copyWith(setup: setup);
   }
 
+  Future<void> ensureDefaultScorer1({
+    required String userId,
+    required String name,
+    String? photoUrl,
+    String? playerId,
+    String? playerDocId,
+  }) async {
+    final setup = state.setup;
+    if (setup.scorers.isNotEmpty && setup.scorers.first.name.isNotEmpty) {
+      return;
+    }
+    final entry = MatchOfficialEntry(
+      userId: userId,
+      playerId: playerId ?? playerDocId,
+      name: name,
+      photoUrl: photoUrl,
+      slotLabel: 'Scorer 1',
+    );
+    final scorers = [entry, ...setup.scorers.skip(1)];
+    state = state.copyWith(setup: setup.copyWith(scorers: scorers));
+  }
+
   void setCoinResult(String coinResult) {
     state = state.copyWith(
       setup: state.setup.copyWith(coinResult: coinResult),

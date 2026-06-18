@@ -4,7 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
@@ -12,10 +11,8 @@ import '../../../core/utils/cf_player_id_format.dart';
 import '../../../data/models/player_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
-import '../../../shared/widgets/cf_button.dart';
-import '../../../shared/widgets/cf_underlined_field.dart';
 
-/// Add a registered player by public ID, or create a walk-in without an account.
+/// Add a registered player by name or public Player ID.
 class TeamAddPlayerQuickScreen extends ConsumerStatefulWidget {
   const TeamAddPlayerQuickScreen({super.key, required this.teamId});
 
@@ -28,32 +25,35 @@ class TeamAddPlayerQuickScreen extends ConsumerStatefulWidget {
 
 class _TeamAddPlayerQuickScreenState
     extends ConsumerState<TeamAddPlayerQuickScreen> {
-  final _playerIdController = TextEditingController();
-  final _nameController = TextEditingController();
-  final _jerseyController = TextEditingController();
+  final _searchController = TextEditingController();
 
   Timer? _debounce;
-  PlayerModel? _found;
+  List<PlayerModel> _results = [];
   Set<String> _squadIds = {};
   var _searching = false;
-  var _saving = false;
-  var _role = 'Player';
-  String? _lookupError;
+  String? _addingPlayerId;
 
   @override
   void initState() {
     super.initState();
     _loadSquadIds();
-    _playerIdController.addListener(_onPlayerIdChanged);
+    _search('');
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _playerIdController.dispose();
-    _nameController.dispose();
-    _jerseyController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {});
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _search(_searchController.text);
+    });
   }
 
   Future<void> _loadSquadIds() async {
@@ -63,88 +63,24 @@ class _TeamAddPlayerQuickScreenState
     if (mounted) setState(() => _squadIds = squad.map((p) => p.id).toSet());
   }
 
-  void _onPlayerIdChanged() {
-    setState(() {});
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), _lookupPlayer);
-  }
-
-  Future<void> _lookupPlayer() async {
-    final raw = _playerIdController.text.trim();
-    if (raw.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _found = null;
-          _lookupError = null;
-          _searching = false;
-        });
-      }
-      return;
-    }
-
-    setState(() {
-      _searching = true;
-      _lookupError = null;
-      _found = null;
-    });
-
+  Future<void> _search(String query) async {
+    setState(() => _searching = true);
     try {
-      PlayerModel? player;
-      if (CfPlayerIdFormat.looksLikeCfPlayerId(raw)) {
-        player = await ref
-            .read(playerRepositoryProvider)
-            .getPlayerByPublicId(raw);
-      } else {
-        final results = await ref
-            .read(playerRepositoryProvider)
-            .searchAvailablePlayers(
-              excludeTeamId: widget.teamId,
-              alreadyOnSquadIds: _squadIds,
-              query: raw,
-            );
-        if (results.length == 1) {
-          player = results.first;
-        } else if (results.length > 1 &&
-            CfPlayerIdFormat.normalize(raw).length >= 3) {
-          player = results.firstWhere(
-            (p) =>
-                p.playerId?.toUpperCase().startsWith(
-                  CfPlayerIdFormat.normalize(raw),
-                ) ??
-                false,
-            orElse: () => results.first,
+      final results = await ref
+          .read(playerRepositoryProvider)
+          .searchAvailablePlayers(
+            excludeTeamId: widget.teamId,
+            alreadyOnSquadIds: _squadIds,
+            query: query,
           );
-        }
-      }
-
-      if (!mounted) return;
-      if (player == null) {
-        setState(() {
-          _lookupError = CfPlayerIdFormat.looksLikeCfPlayerId(raw)
-              ? 'No player found for ${CfPlayerIdFormat.normalize(raw)}'
-              : 'Enter a full Player ID (e.g. CF000042)';
-        });
-        return;
-      }
-
-      final resolved = player;
-      if (_squadIds.contains(resolved.id) || resolved.isOnTeam(widget.teamId)) {
-        setState(
-          () => _lookupError = '${resolved.name} is already on this squad',
-        );
-      } else {
-        setState(() => _found = resolved);
-      }
+      if (mounted) setState(() => _results = results);
     } finally {
       if (mounted) setState(() => _searching = false);
     }
   }
 
-  Future<void> _addFound() async {
-    final player = _found;
-    if (player == null) return;
-
-    setState(() => _saving = true);
+  Future<void> _addExisting(PlayerModel player) async {
+    setState(() => _addingPlayerId = player.id);
     try {
       final uid = ref.read(authStateProvider).value?.uid;
       await ref.read(playerRepositoryProvider).assignPlayerToTeam(
@@ -155,318 +91,220 @@ class _TeamAddPlayerQuickScreenState
       ref.invalidate(teamPlayersProvider(widget.teamId));
       if (!mounted) return;
       context.pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${player.name} added to squad')));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not add player: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _addWalkIn() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Player name is required')));
-      return;
-    }
-
-    setState(() => _saving = true);
-    try {
-      final uid = ref.read(authStateProvider).value?.uid;
-      final playerId = const Uuid().v4();
-      final player = PlayerModel(
-        id: playerId,
-        name: name,
-        teamId: widget.teamId,
-        jerseyNumber: int.tryParse(_jerseyController.text.trim()),
-        role: _role,
-        createdBy: uid,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${player.name} added to squad')),
       );
-      await ref.read(playerRepositoryProvider).createPlayer(player);
-      await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-            playerId: playerId,
-            teamId: widget.teamId,
-            addedByUserId: uid,
-          );
-      ref.invalidate(teamPlayersProvider(widget.teamId));
-      if (!mounted) return;
-      context.pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$name added to squad')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not add player: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not add player: $e')),
+        );
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _addingPlayerId = null);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add by Player ID')),
+      appBar: AppBar(title: const Text('Add registered player')),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: ListView(
-              padding: AppDimens.listPadding,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+              AppDimens.spaceSm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Find a registered player',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Enter their CrickFlow Player ID. They must have completed onboarding.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: AppDimens.spaceLg),
-                _sectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        controller: _playerIdController,
-                        textCapitalization: TextCapitalization.characters,
-                        decoration: InputDecoration(
-                          labelText: 'Player ID',
-                          hintText: CfPlayerIdFormat.hint(),
-                          prefixIcon: const Icon(Icons.badge_outlined),
-                          suffixIcon: _searching
-                              ? const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                )
-                              : _playerIdController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _playerIdController.clear();
-                                    setState(() {
-                                      _found = null;
-                                      _lookupError = null;
-                                    });
-                                  },
-                                )
-                              : null,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                      if (_lookupError != null) ...[
-                        const SizedBox(height: AppDimens.spaceSm),
-                        Text(
-                          _lookupError!,
-                          style: const TextStyle(color: AppColors.accentRed),
-                        ),
-                      ],
-                      if (_found != null) ...[
-                        const SizedBox(height: AppDimens.spaceMd),
-                        _PlayerPreviewCard(player: _found!),
-                        const SizedBox(height: AppDimens.spaceMd),
-                        CfButton(
-                          label: 'Add to squad',
-                          isLoading: _saving,
-                          onPressed: _saving ? null : _addFound,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppDimens.spaceLg),
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'No CrickFlow account?',
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: AppColors.textSecondary),
-                      ),
-                    ),
-                    const Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: AppDimens.spaceLg),
-                Text(
-                  'Add walk-in player',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'For guests who are not on CrickFlow — name only, no login required.',
+                  'Search by name or Player ID (full or partial, e.g. CF000042).',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                        color: AppColors.textSecondary,
+                      ),
                 ),
                 const SizedBox(height: AppDimens.spaceMd),
-                _sectionCard(
-                  child: CfFormFieldGroup(
-                    children: [
-                      CfUnderlinedField(
-                        controller: _nameController,
-                        label: 'Player name',
-                        required: true,
-                      ),
-                      CfUnderlinedField(
-                        controller: _jerseyController,
-                        label: 'Jersey number',
-                        keyboardType: TextInputType.number,
-                      ),
-                      DropdownButtonFormField<String>(
-                        initialValue: _role,
-                        decoration: const InputDecoration(labelText: 'Role'),
-                        items:
-                            const [
-                                  'Player',
-                                  'Captain',
-                                  'Wicket Keeper',
-                                  'All-rounder',
-                                ]
-                                .map(
-                                  (r) => DropdownMenuItem(
-                                    value: r,
-                                    child: Text(r),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() => _role = v);
-                        },
-                      ),
-                    ],
+                TextField(
+                  controller: _searchController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    hintText: 'Search by name or Player ID',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searching
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: _searchController.clear,
+                              )
+                            : null,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],
             ),
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(AppDimens.spaceMd),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: _saving ? null : _addWalkIn,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.gold,
-                    foregroundColor: Colors.black,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
+            child: Text(
+              _results.isEmpty && !_searching
+                  ? 'No matches — try another name or ID.'
+                  : '${_results.length} player${_results.length == 1 ? '' : 's'} available',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
                   ),
-                  child: _saving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Add walk-in to squad'),
-                ),
-              ),
             ),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          Expanded(
+            child: _results.isEmpty && !_searching
+                ? _emptySearchState()
+                : ListView.separated(
+                    padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
+                    itemCount: _results.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, indent: 72),
+                    itemBuilder: (_, i) {
+                      final player = _results[i];
+                      return _PlayerSearchTile(
+                        player: player,
+                        isAdding: _addingPlayerId == player.id,
+                        onAdd: () => _addExisting(player),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _sectionCard({required Widget child}) {
-    return Card(
-      elevation: 0,
-      color: AppColors.surfaceElevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
-      ),
+  Widget _emptySearchState() {
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppDimens.spaceMd),
-        child: child,
+        padding: const EdgeInsets.all(AppDimens.spaceXl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.person_search_outlined,
+              size: 56,
+              color: AppColors.textSecondary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: AppDimens.spaceMd),
+            Text(
+              _searchController.text.trim().isEmpty
+                  ? 'Start typing a name or Player ID'
+                  : 'No players match your search',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+            Text(
+              'Registered players must have completed onboarding. For guests without CrickFlow, use Player directory → Walk-in.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PlayerPreviewCard extends StatelessWidget {
-  const _PlayerPreviewCard({required this.player});
+class _PlayerSearchTile extends StatelessWidget {
+  const _PlayerSearchTile({
+    required this.player,
+    required this.onAdd,
+    this.isAdding = false,
+  });
 
   final PlayerModel player;
+  final VoidCallback onAdd;
+  final bool isAdding;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppDimens.spaceMd),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+    final idLabel = player.playerId != null && player.playerId!.isNotEmpty
+        ? CfPlayerIdFormat.displayLabel(player.playerId)
+        : null;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.spaceMd,
+        vertical: AppDimens.spaceXs,
       ),
-      child: Row(
+      leading: CircleAvatar(
+        radius: 26,
+        backgroundColor: AppColors.surfaceElevated,
+        backgroundImage: player.photoUrl != null
+            ? CachedNetworkImageProvider(player.photoUrl!)
+            : null,
+        child: player.photoUrl == null
+            ? Text(
+                player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              )
+            : null,
+      ),
+      title: Text(
+        player.name,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundImage: player.photoUrl != null
-                ? CachedNetworkImageProvider(player.photoUrl!)
-                : null,
-            child: player.photoUrl == null
-                ? Text(
-                    player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
-                    style: const TextStyle(fontSize: 20),
-                  )
-                : null,
-          ),
-          const SizedBox(width: AppDimens.spaceMd),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  player.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (player.playerId != null && player.playerId!.isNotEmpty)
-                  Text(
-                    CfPlayerIdFormat.displayLabel(player.playerId),
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.gold),
-                  ),
-                Text(
-                  player.role,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+          if (idLabel != null)
+            Text(
+              idLabel,
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 12,
+                letterSpacing: 0.3,
+              ),
             ),
+          Text(
+            player.role,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
-          const Icon(Icons.check_circle_outline, color: AppColors.gold),
         ],
       ),
+      trailing: isAdding
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : FilledButton.tonalIcon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add'),
+              style: FilledButton.styleFrom(
+                foregroundColor: AppColors.gold,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
     );
   }
 }

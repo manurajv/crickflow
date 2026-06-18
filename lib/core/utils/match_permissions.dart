@@ -1,10 +1,14 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/match_model.dart';
+import 'match_scorer_utils.dart';
 
 /// Effective active scorer — falls back for matches created before ownership fields.
 String? effectiveScorerId(MatchModel match) {
   final id = match.currentScorerId;
   if (id != null && id.isNotEmpty) return id;
+  if (match.scorer1UserId != null && match.scorer1UserId!.isNotEmpty) {
+    return match.scorer1UserId;
+  }
   if (match.createdBy != null && match.createdBy!.isNotEmpty) {
     return match.createdBy;
   }
@@ -20,43 +24,43 @@ bool isActiveScorer({
   return effectiveScorerId(match) == userId;
 }
 
-/// Who can score, stream, or complete a match.
-/// All signed-in users except [UserRole.viewer] may organize and score.
+/// Who can manage match settings (legacy — creator or listed scorers).
 bool canManageMatch({
   required MatchModel match,
   required String? userId,
   required UserRole role,
 }) {
   if (userId == null || role == UserRole.viewer) return false;
+  if (isAssignedMatchScorer(match: match, userId: userId)) return true;
   if (match.createdBy == userId) return true;
-  if (match.scorerIds.contains(userId)) return true;
-  return role != UserRole.viewer;
+  return false;
 }
 
-/// Only the active scorer may enter balls, undo, or change match state.
+/// Assigned Scorer 1 or Scorer 2 may enter balls, undo, and change match state.
 bool canScoreMatch({
   required MatchModel match,
   required String? userId,
   required UserRole role,
 }) {
   if (userId == null || role == UserRole.viewer) return false;
-  return isActiveScorer(match: match, userId: userId);
+  return isAssignedMatchScorer(match: match, userId: userId);
 }
 
-/// Read-only live scoring for organizers/scorers who lost active ownership.
+/// Any signed-in user can open live scoring; non-scorers get read-only view.
 bool canViewLiveScoring({
   required MatchModel match,
   required String? userId,
   required UserRole role,
 }) {
-  return canManageMatch(match: match, userId: userId, role: role);
+  if (userId == null || role == UserRole.viewer) return false;
+  return true;
 }
 
 bool canInitiateScorerTransfer({
   required MatchModel match,
   required String? userId,
 }) {
-  return isActiveScorer(match: match, userId: userId);
+  return isAssignedMatchScorer(match: match, userId: userId);
 }
 
 /// Viewer is read-only; everyone else (including players) can create matches.

@@ -63,8 +63,8 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
       !_saving;
 
   Future<void> _letsPlay() async {
-    final draft = ref.read(startMatchDraftProvider);
-    final setup = draft.setup;
+    var draft = ref.read(startMatchDraftProvider);
+    var setup = draft.setup;
 
     if (!setup.playingSquadsReady(draft.rules.playersPerTeam) ||
         !setup.rolesReady) {
@@ -102,6 +102,29 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
 
     setState(() => _saving = true);
     final uid = ref.read(authStateProvider).value?.uid;
+    if (uid != null) {
+      final profile = ref.read(currentUserProfileProvider).valueOrNull;
+      final player =
+          await ref.read(playerRepositoryProvider).getPlayerByUserId(uid);
+      await ref.read(startMatchDraftProvider.notifier).ensureDefaultScorer1(
+            userId: uid,
+            name: profile?.displayName ??
+                profile?.name ??
+                player?.name ??
+                'Scorer',
+            photoUrl: profile?.photoUrl ?? player?.photoUrl,
+            playerId: player?.playerId,
+            playerDocId: player?.id,
+          );
+    }
+
+    draft = ref.read(startMatchDraftProvider);
+    setup = draft.setup;
+    final scorerIds = setup.scorers
+        .map((s) => s.userId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toList();
     final city = draft.location.city.trim();
     final ground = draft.venue.trim();
 
@@ -119,7 +142,8 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
       venue: ground,
       scheduledAt: draft.scheduledAt ?? DateTime.now(),
       createdBy: uid,
-      setup: ref.read(startMatchDraftProvider).setup,
+      scorerIds: scorerIds,
+      setup: setup,
     );
 
     final teams = TossTeamPolicy.firstInningsTeams(match);

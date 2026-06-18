@@ -241,7 +241,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'officials',
-            builder: (_, __) => const MatchOfficialsScreen(),
+            builder: (_, state) => MatchOfficialsScreen(
+              continueWizard: state.uri.queryParameters['wizard'] == '1',
+            ),
             routes: [
               GoRoute(
                 path: 'add',

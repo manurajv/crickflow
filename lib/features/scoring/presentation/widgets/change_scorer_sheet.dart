@@ -49,9 +49,11 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
 
   final _searchController = TextEditingController();
   List<UserModel> _searchResults = [];
+  List<PlayerModel> _playerResults = [];
   bool _searching = false;
   String? _searchError;
   bool _transferring = false;
+  int _replaceSlotIndex = 1;
 
   @override
   void initState() {
@@ -98,15 +100,22 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
       _searching = true;
       _searchError = null;
       _searchResults = [];
+      _playerResults = [];
     });
 
     try {
       final users =
           await ref.read(userRepositoryProvider).searchScorers(query);
+      final players = await ref
+          .read(playerRepositoryProvider)
+          .searchPlayersDirectory(query: query);
       if (mounted) {
         setState(() {
           _searchResults = users;
-          if (users.isEmpty) _searchError = 'No user found';
+          _playerResults = players;
+          if (users.isEmpty && players.isEmpty) {
+            _searchError = 'No player found';
+          }
         });
       }
     } catch (e) {
@@ -115,6 +124,65 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
       }
     } finally {
       if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _replaceWithPlayer(PlayerModel player) async {
+    final userId = player.userId;
+    if (userId == null || userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This player has no linked account — choose another player',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await ScoringUiKit.confirmAction(
+      context,
+      title: 'Change scorer',
+      message:
+          'Assign ${player.name} as Scorer ${_replaceSlotIndex + 1}?',
+      confirmLabel: 'Confirm',
+      cancelLabel: 'Cancel',
+    );
+    if (confirmed != true || !mounted) return;
+
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    final profile = ref.read(currentUserProfileProvider).valueOrNull;
+    if (uid == null) return;
+
+    setState(() => _transferring = true);
+    try {
+      await ref.read(matchRepositoryProvider).replaceAssignedScorer(
+            matchId: widget.match.id,
+            slotIndex: _replaceSlotIndex,
+            replacement: MatchOfficialEntry(
+              userId: userId,
+              playerId: player.playerId ?? player.id,
+              name: player.name,
+              photoUrl: player.photoUrl,
+              slotLabel: _replaceSlotIndex == 0 ? 'Scorer 1' : 'Scorer 2',
+            ),
+            actorUserId: uid,
+            actorName: profile?.displayName ?? 'Scorer',
+          );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${player.name} is now Scorer ${_replaceSlotIndex + 1}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not change scorer: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _transferring = false);
     }
   }
 
@@ -183,7 +251,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
   }
 
   Future<void> _transferToOfficial(MatchOfficialEntry official) async {
-    final userId = official.playerId;
+    final userId = official.userId;
     if (userId == null || userId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -264,6 +332,9 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
           searching: _searching,
           error: _searchError,
           results: _searchResults,
+          playerResults: _playerResults,
+          replaceSlotIndex: _replaceSlotIndex,
+          onReplaceSlotChanged: (i) => setState(() => _replaceSlotIndex = i),
           currentScorerId: currentScorerId,
           onSearch: _searchUsers,
           onUserTap: (u) => _confirmTransfer(
@@ -271,6 +342,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
             toUserName: u.displayName.isNotEmpty ? u.displayName : u.email,
             toUserPhoto: u.photoUrl,
           ),
+          onPlayerTap: _replaceWithPlayer,
         );
     }
   }
@@ -794,21 +866,42 @@ class _SearchTab extends StatelessWidget {
     required this.searching,
     required this.error,
     required this.results,
+    required this.playerResults,
+    required this.replaceSlotIndex,
+    required this.onReplaceSlotChanged,
     required this.currentScorerId,
     required this.onSearch,
     required this.onUserTap,
+    required this.onPlayerTap,
   });
 
   final TextEditingController controller;
   final bool searching;
   final String? error;
   final List<UserModel> results;
+  final List<PlayerModel> playerResults;
+  final int replaceSlotIndex;
+  final ValueChanged<int> onReplaceSlotChanged;
   final String? currentScorerId;
   final VoidCallback onSearch;
   final Future<void> Function(UserModel) onUserTap;
+  final Future<void> Function(PlayerModel) onPlayerTap;
 
   @override
   Widget build(BuildContext context) {
+    final combinedPlayers = <PlayerModel>[
+      ...playerResults,
+      for (final u in results)
+        if (!playerResults.any((p) => p.userId == u.id))
+          PlayerModel(
+            id: u.id,
+            name: u.effectiveName,
+            userId: u.id,
+            playerId: u.playerId,
+            photoUrl: u.photoUrl,
+          ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -817,7 +910,7 @@ class _SearchTab extends StatelessWidget {
           child: Column(
             children: [
               const Text(
-                'Please search the new scorer with mobile, email, or player ID.',
+                'Search by player name or Player ID to assign a scorer.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
@@ -825,24 +918,14 @@ class _SearchTab extends StatelessWidget {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                CfPlayerIdFormat.hint(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted.withValues(alpha: 0.9),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '*A match can be scored by only one scorer at a time.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  color: AppColors.textMuted.withValues(alpha: 0.9),
-                ),
+              const SizedBox(height: 12),
+              SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('Scorer 1')),
+                  ButtonSegment(value: 1, label: Text('Scorer 2')),
+                ],
+                selected: {replaceSlotIndex},
+                onSelectionChanged: (s) => onReplaceSlotChanged(s.first),
               ),
             ],
           ),
@@ -856,7 +939,7 @@ class _SearchTab extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   decoration: InputDecoration(
-                    hintText: 'Mobile, email, or ${CfPlayerIdFormat.prefix} player ID',
+                    hintText: 'Search by name or Player ID (CF000042)',
                     hintStyle: const TextStyle(color: AppColors.textMuted),
                     filled: true,
                     fillColor: AppColors.surfaceElevated,
@@ -873,7 +956,6 @@ class _SearchTab extends StatelessWidget {
                       vertical: 12,
                     ),
                   ),
-                  keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => onSearch(),
                 ),
@@ -912,23 +994,18 @@ class _SearchTab extends StatelessWidget {
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
-            itemCount: results.length,
+            itemCount: combinedPlayers.length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, i) {
-              final u = results[i];
+              final p = combinedPlayers[i];
               final isCurrentScorer =
-                  currentScorerId != null && u.id == currentScorerId;
+                  currentScorerId != null && p.userId == currentScorerId;
               return _SelectablePersonTile(
-                name: u.effectiveName,
-                photoUrl: u.photoUrl,
-                subtitle: [
-                  if (u.playerId != null && u.playerId!.isNotEmpty)
-                    u.playerId!,
-                  if (u.email.isNotEmpty) u.email,
-                  if (u.effectiveMobile.isNotEmpty) u.effectiveMobile,
-                ].join(' · '),
+                name: p.name,
+                photoUrl: p.photoUrl,
+                subtitle: CfPlayerIdFormat.displayLabel(p.playerId),
                 isCurrentScorer: isCurrentScorer,
-                onTap: isCurrentScorer ? null : () => onUserTap(u),
+                onTap: isCurrentScorer ? null : () => onPlayerTap(p),
               );
             },
           ),

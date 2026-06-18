@@ -36,6 +36,34 @@
 
 ---
 
+## Latest (match officials & scorer permissions)
+
+| Item | Status |
+|------|--------|
+| Match type UI — Test: wagon wheel on, special cases off | Done |
+| Match type UI — Indoor: wagon wheel off, special cases on | Done |
+| Match type UI — Limited overs: both visible | Done |
+| Match officials — player name / Player ID search (directory style) | Done |
+| Match officials — snapshots with playerId, name, profilePhoto, userId | Done |
+| Firestore officials — named keys (`umpire1`, `scorer1`, …) + legacy arrays | Done |
+| Scorer 1 auto-assigned to match creator | Done |
+| Scorer 2 selectable; both scorers can score live | Done |
+| Live scoring — non-scorers read-only + “View Match” | Done |
+| Change Scorer — replace Scorer 1/2 slot, Firestore + realtime permissions | Done — deploy rules |
+| Firestore rules — `scorer1UserId` / `scorer2UserId` write access | Done — deploy rules |
+
+---
+
+## Latest (add player UI)
+
+| Item | Status |
+|------|--------|
+| Match squad add-player sheet — card options, inline permanent search, polished guest form | Done |
+| Add registered player screen — name / partial Player ID search (walk-in removed) | Done |
+| `searchAvailablePlayers` — full name + partial CF ID fallback | Done |
+
+---
+
 ## Latest (select team screen)
 
 | Item | Status |

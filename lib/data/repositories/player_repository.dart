@@ -70,10 +70,11 @@ class PlayerRepository {
     final q = query.trim();
     if (q.isNotEmpty && CfPlayerIdFormat.looksLikeCfPlayerId(q)) {
       final player = await getPlayerByPublicId(q);
-      if (player == null) return [];
-      if (alreadyOnSquadIds.contains(player.id)) return [];
-      if (player.isOnTeam(excludeTeamId)) return [];
-      return [player];
+      if (player != null) {
+        if (alreadyOnSquadIds.contains(player.id)) return [];
+        if (player.isOnTeam(excludeTeamId)) return [];
+        return [player];
+      }
     }
 
     final snap = await _col.orderBy('name').limit(300).get();
@@ -87,6 +88,7 @@ class PlayerRepository {
           if (p.isOnTeam(excludeTeamId)) return false;
           if (q.isEmpty) return true;
           if (p.name.toLowerCase().contains(qLower)) return true;
+          if (p.fullName.toLowerCase().contains(qLower)) return true;
           if (p.playerId != null &&
               p.playerId!.toUpperCase().contains(qUpper)) {
             return true;
@@ -94,6 +96,39 @@ class PlayerRepository {
           return false;
         })
         .toList();
+
+    list.sort((a, b) {
+      if (q.isNotEmpty) {
+        final aName = a.name.toLowerCase().startsWith(qLower);
+        final bName = b.name.toLowerCase().startsWith(qLower);
+        if (aName != bName) return aName ? -1 : 1;
+      }
+      return a.name.compareTo(b.name);
+    });
+    return list;
+  }
+
+  /// Directory search for match officials — name, full name, or public Player ID.
+  Future<List<PlayerModel>> searchPlayersDirectory({String query = ''}) async {
+    final q = query.trim();
+    if (q.isNotEmpty && CfPlayerIdFormat.looksLikeCfPlayerId(q)) {
+      final player = await getPlayerByPublicId(q);
+      return player == null ? [] : [player];
+    }
+
+    final snap = await _col.orderBy('name').limit(300).get();
+    final qLower = q.toLowerCase();
+    final qUpper = CfPlayerIdFormat.normalize(q);
+
+    final list = snap.docs.map((d) => PlayerModel.fromMap(d.id, d.data())).where((p) {
+      if (q.isEmpty) return true;
+      if (p.name.toLowerCase().contains(qLower)) return true;
+      if (p.fullName.toLowerCase().contains(qLower)) return true;
+      if (p.playerId != null && p.playerId!.toUpperCase().contains(qUpper)) {
+        return true;
+      }
+      return false;
+    }).toList();
 
     list.sort((a, b) {
       if (q.isNotEmpty) {

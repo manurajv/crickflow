@@ -2,52 +2,66 @@ import 'package:equatable/equatable.dart';
 
 import 'match_player_snapshot.dart';
 
-/// Named official assigned during match setup.
+/// Named official assigned during match setup (snapshot at match creation).
 class MatchOfficialEntry extends Equatable {
   const MatchOfficialEntry({
     this.playerId,
+    this.userId,
     required this.name,
     this.email,
+    this.photoUrl,
     this.slotLabel = '',
   });
 
   final String? playerId;
+  final String? userId;
   final String name;
   final String? email;
+  final String? photoUrl;
   final String slotLabel;
 
   Map<String, dynamic> toMap() => {
-        if (playerId != null) 'playerId': playerId,
+        if (playerId != null && playerId!.isNotEmpty) 'playerId': playerId,
+        if (userId != null && userId!.isNotEmpty) 'userId': userId,
         'name': name,
         if (email != null) 'email': email,
+        if (photoUrl != null && photoUrl!.isNotEmpty) 'profilePhoto': photoUrl,
+        if (photoUrl != null && photoUrl!.isNotEmpty) 'photoUrl': photoUrl,
         if (slotLabel.isNotEmpty) 'slotLabel': slotLabel,
       };
 
   factory MatchOfficialEntry.fromMap(Map<String, dynamic> map) {
     return MatchOfficialEntry(
       playerId: map['playerId'] as String?,
+      userId: map['userId'] as String?,
       name: map['name'] as String? ?? '',
       email: map['email'] as String?,
+      photoUrl: map['profilePhoto'] as String? ?? map['photoUrl'] as String?,
       slotLabel: map['slotLabel'] as String? ?? '',
     );
   }
 
   MatchOfficialEntry copyWith({
     String? playerId,
+    String? userId,
     String? name,
     String? email,
+    String? photoUrl,
     String? slotLabel,
   }) {
     return MatchOfficialEntry(
       playerId: playerId ?? this.playerId,
+      userId: userId ?? this.userId,
       name: name ?? this.name,
       email: email ?? this.email,
+      photoUrl: photoUrl ?? this.photoUrl,
       slotLabel: slotLabel ?? this.slotLabel,
     );
   }
 
   @override
-  List<Object?> get props => [playerId, name, email, slotLabel];
+  List<Object?> get props =>
+      [playerId, userId, name, email, photoUrl, slotLabel];
 }
 
 /// Squad + toss data collected before the match goes live.
@@ -151,6 +165,12 @@ class MatchSetupData extends Equatable {
   bool get tossReady =>
       tossWinnerIsTeamA != null && tossWinnerBatsFirst != null;
 
+  String? get scorer1UserId =>
+      scorers.isNotEmpty ? scorers.first.userId : null;
+
+  String? get scorer2UserId =>
+      scorers.length > 1 ? scorers[1].userId : null;
+
   MatchSetupData copyWith({
     List<MatchPlayerSnapshot>? teamAPlayingPlayers,
     List<MatchPlayerSnapshot>? teamASubstitutePlayers,
@@ -209,13 +229,9 @@ class MatchSetupData extends Equatable {
       if (teamAWicketKeeperId != null) 'teamAWicketKeeperId': teamAWicketKeeperId,
       if (teamBCaptainId != null) 'teamBCaptainId': teamBCaptainId,
       if (teamBWicketKeeperId != null) 'teamBWicketKeeperId': teamBWicketKeeperId,
-      'officials': {
-        'umpires': umpires.map((e) => e.toMap()).toList(),
-        'scorers': scorers.map((e) => e.toMap()).toList(),
-        'commentators': commentators.map((e) => e.toMap()).toList(),
-        if (referee != null) 'referee': referee!.toMap(),
-        'liveStreamers': liveStreamers.map((e) => e.toMap()).toList(),
-      },
+      'officials': _officialsToMap(),
+      if (scorer1UserId != null) 'scorer1UserId': scorer1UserId,
+      if (scorer2UserId != null) 'scorer2UserId': scorer2UserId,
       if (tossWinnerIsTeamA != null) 'tossWinnerIsTeamA': tossWinnerIsTeamA,
       if (tossWinnerBatsFirst != null) 'tossWinnerBatsFirst': tossWinnerBatsFirst,
       if (coinResult != null) 'coinResult': coinResult,
@@ -247,15 +263,11 @@ class MatchSetupData extends Equatable {
       teamAWicketKeeperId: map['teamAWicketKeeperId'] as String?,
       teamBCaptainId: map['teamBCaptainId'] as String?,
       teamBWicketKeeperId: map['teamBWicketKeeperId'] as String?,
-      umpires: _officialList(officials?['umpires']),
-      scorers: _officialList(officials?['scorers']),
-      commentators: _officialList(officials?['commentators']),
-      referee: officials?['referee'] is Map
-          ? MatchOfficialEntry.fromMap(
-              officials!['referee'] as Map<String, dynamic>,
-            )
-          : null,
-      liveStreamers: _officialList(officials?['liveStreamers']),
+      umpires: _umpiresFromOfficials(officials),
+      scorers: _scorersFromOfficials(officials, map),
+      commentators: _commentatorsFromOfficials(officials),
+      referee: _refereeFromOfficials(officials),
+      liveStreamers: _streamersFromOfficials(officials),
       tossWinnerIsTeamA: map['tossWinnerIsTeamA'] as bool?,
       tossWinnerBatsFirst: map['tossWinnerBatsFirst'] as bool?,
       coinResult: map['coinResult'] as String?,
@@ -285,6 +297,113 @@ class MatchSetupData extends Equatable {
   static List<String> _stringList(dynamic raw) {
     if (raw is! List) return [];
     return raw.map((e) => e.toString()).toList();
+  }
+
+  Map<String, dynamic> _officialsToMap() {
+    final map = <String, dynamic>{
+      'umpires': umpires.map((e) => e.toMap()).toList(),
+      'scorers': scorers.map((e) => e.toMap()).toList(),
+      'commentators': commentators.map((e) => e.toMap()).toList(),
+      'liveStreamers': liveStreamers.map((e) => e.toMap()).toList(),
+    };
+    if (referee != null) {
+      map['referee'] = referee!.toMap();
+      map['matchReferee'] = referee!.toMap();
+    }
+
+    const umpireKeys = ['umpire1', 'umpire2', 'thirdUmpire', 'umpire4'];
+    for (var i = 0; i < umpires.length && i < umpireKeys.length; i++) {
+      if (umpires[i].name.isNotEmpty) {
+        map[umpireKeys[i]] = umpires[i].toMap();
+      }
+    }
+    if (scorers.isNotEmpty && scorers.first.name.isNotEmpty) {
+      map['scorer1'] = scorers.first.toMap();
+    }
+    if (scorers.length > 1 && scorers[1].name.isNotEmpty) {
+      map['scorer2'] = scorers[1].toMap();
+    }
+    for (var i = 0; i < commentators.length && i < 2; i++) {
+      if (commentators[i].name.isNotEmpty) {
+        map[i == 0 ? 'commentator1' : 'commentator2'] =
+            commentators[i].toMap();
+      }
+    }
+    if (liveStreamers.isNotEmpty && liveStreamers.first.name.isNotEmpty) {
+      map['liveStreamer1'] = liveStreamers.first.toMap();
+    }
+    return map;
+  }
+
+  static List<MatchOfficialEntry> _umpiresFromOfficials(
+    Map<String, dynamic>? officials,
+  ) {
+    if (officials == null) return const [];
+    final named = [
+      _officialAt(officials, 'umpire1'),
+      _officialAt(officials, 'umpire2'),
+      _officialAt(officials, 'thirdUmpire'),
+      _officialAt(officials, 'umpire4'),
+    ].whereType<MatchOfficialEntry>().toList();
+    if (named.isNotEmpty) return named;
+    return _officialList(officials['umpires']);
+  }
+
+  static List<MatchOfficialEntry> _scorersFromOfficials(
+    Map<String, dynamic>? officials,
+    Map<String, dynamic> map,
+  ) {
+    if (officials != null) {
+      final named = [
+        _officialAt(officials, 'scorer1'),
+        _officialAt(officials, 'scorer2'),
+      ].whereType<MatchOfficialEntry>().toList();
+      if (named.isNotEmpty) return named;
+      final fromArray = _officialList(officials['scorers']);
+      if (fromArray.isNotEmpty) return fromArray;
+    }
+    return const [];
+  }
+
+  static List<MatchOfficialEntry> _commentatorsFromOfficials(
+    Map<String, dynamic>? officials,
+  ) {
+    if (officials == null) return const [];
+    final named = [
+      _officialAt(officials, 'commentator1'),
+      _officialAt(officials, 'commentator2'),
+    ].whereType<MatchOfficialEntry>().toList();
+    if (named.isNotEmpty) return named;
+    return _officialList(officials['commentators']);
+  }
+
+  static MatchOfficialEntry? _refereeFromOfficials(
+    Map<String, dynamic>? officials,
+  ) {
+    if (officials == null) return null;
+    return _officialAt(officials, 'matchReferee') ??
+        _officialAt(officials, 'referee');
+  }
+
+  static List<MatchOfficialEntry> _streamersFromOfficials(
+    Map<String, dynamic>? officials,
+  ) {
+    if (officials == null) return const [];
+    final named = [_officialAt(officials, 'liveStreamer1')]
+        .whereType<MatchOfficialEntry>()
+        .toList();
+    if (named.isNotEmpty) return named;
+    return _officialList(officials['liveStreamers']);
+  }
+
+  static MatchOfficialEntry? _officialAt(
+    Map<String, dynamic> officials,
+    String key,
+  ) {
+    final raw = officials[key];
+    if (raw is! Map) return null;
+    final entry = MatchOfficialEntry.fromMap(Map<String, dynamic>.from(raw));
+    return entry.name.isNotEmpty ? entry : null;
   }
 
   static List<MatchOfficialEntry> _officialList(dynamic raw) {

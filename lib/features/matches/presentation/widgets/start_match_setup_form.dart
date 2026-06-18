@@ -5,6 +5,7 @@ import '../../../../data/models/location_model.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_rules_model.dart';
+import '../../../../data/models/match_setup_draft_models.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
 import 'ground_search_field.dart';
 import 'match_wide_no_ball_rules_section.dart';
@@ -25,9 +26,11 @@ class StartMatchSetupForm extends StatefulWidget {
     required this.onLocationResolved,
     required this.onPickGroundOnMap,
     this.onManageOfficials,
+    this.setup = const MatchSetupData(),
   });
 
   final MatchRulesModel rules;
+  final MatchSetupData setup;
   final TextEditingController cityController;
   final TextEditingController venueController;
   final TextEditingController oversController;
@@ -153,8 +156,9 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
   @override
   Widget build(BuildContext context) {
     final showOvers = !rules.isTestMatch;
+    final showWagonWheel = !rules.isIndoor;
+    final showSpecialCases = !rules.isTestMatch;
     final wwOn = rules.wagonWheelActive;
-    final wwLocked = rules.isIndoor;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -364,53 +368,52 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
         if (showOvers) const SizedBox(height: AppDimens.spaceMd),
 
         // ── 5. Wagon wheel ───────────────────────────────────────────────
-        _SectionCard(
-          title: 'Tracking',
-          icon: Icons.track_changes_outlined,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Wagon wheel',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+        if (showWagonWheel) ...[
+          _SectionCard(
+            title: 'Tracking',
+            icon: Icons.track_changes_outlined,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'Wagon wheel',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      Text(
-                        wwLocked
-                            ? 'Not available for indoor matches'
-                            : 'Capture shot direction after each scoring shot',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                          height: 1.4,
+                        Text(
+                          'Capture shot direction after each scoring shot',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                            height: 1.4,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Switch(
-                  value: wwOn,
-                  activeTrackColor: AppColors.gold,
-                  thumbColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return Colors.white;
-                    }
-                    return null;
-                  }),
-                  onChanged: wwLocked ? null : _setWagonWheel,
-                ),
-              ],
-            ),
-          ],
-        ),
-
-        const SizedBox(height: AppDimens.spaceMd),
+                  Switch(
+                    value: wwOn,
+                    activeTrackColor: AppColors.gold,
+                    thumbColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return Colors.white;
+                      }
+                      return null;
+                    }),
+                    onChanged: _setWagonWheel,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
+        ],
 
         // ── 6. Officials ─────────────────────────────────────────────────
         _SectionCard(
@@ -427,15 +430,15 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'Assign umpires, scorers & more',
+                        children: [
+                          const Text(
+                            'Select match officials',
                             style: TextStyle(fontSize: 14),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            'Optional — can be assigned before toss',
-                            style: TextStyle(
+                            _officialsSummary(widget.setup),
+                            style: const TextStyle(
                               fontSize: 11,
                               color: AppColors.textMuted,
                             ),
@@ -457,8 +460,9 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
 
         const SizedBox(height: AppDimens.spaceMd),
 
-        // ── 7. Advanced (balls per over) — collapsed by default ──────────
-        _AdvancedSection(
+        // ── 7. Advanced (special cases) — collapsed by default ───────────
+        if (showSpecialCases)
+          _AdvancedSection(
           expanded: _advancedExpanded,
           onToggle: () =>
               setState(() => _advancedExpanded = !_advancedExpanded),
@@ -519,6 +523,26 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
         ),
       ],
     );
+  }
+
+  static String _officialsSummary(MatchSetupData setup) {
+    final parts = <String>[];
+    if (setup.scorers.isNotEmpty && setup.scorers.first.name.isNotEmpty) {
+      parts.add('Scorer 1: ${setup.scorers.first.name}');
+    }
+    if (setup.scorers.length > 1 && setup.scorers[1].name.isNotEmpty) {
+      parts.add('Scorer 2: ${setup.scorers[1].name}');
+    }
+    final umpireCount =
+        setup.umpires.where((e) => e.name.isNotEmpty).length;
+    if (umpireCount > 0) parts.add('$umpireCount umpire${umpireCount == 1 ? '' : 's'}');
+    if (setup.referee != null && setup.referee!.name.isNotEmpty) {
+      parts.add('Referee assigned');
+    }
+    if (parts.isEmpty) {
+      return 'Assign umpires, scorers & more before toss';
+    }
+    return parts.join(' · ');
   }
 }
 

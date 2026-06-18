@@ -68,7 +68,7 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
     if (widget.isTeamA) {
       context.push('/match/create/squad/b');
     } else {
-      context.push('/match/create/officials');
+      context.push('/match/create/officials?wizard=1');
     }
   }
 

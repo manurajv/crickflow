@@ -10,6 +10,8 @@ import '../../data/models/over_note_model.dart';
 import '../../data/models/overlay_state_model.dart';
 import '../../data/models/scorer_transfer_models.dart';
 import '../../core/utils/highlight_utils.dart';
+import '../../core/utils/match_scorer_utils.dart';
+import '../../data/models/match_setup_draft_models.dart';
 import '../../domain/services/badge_service.dart';
 import '../../domain/services/commentary_service.dart';
 import '../../domain/services/scoring_engine.dart';
@@ -648,7 +650,22 @@ class MatchRepository {
       'currentInningsIndex': 0,
     };
     if (scorerId != null) {
-      data['scorerIds'] = FieldValue.arrayUnion([scorerId]);
+      final existing = await getMatch(matchId);
+      final scorerUserIds = <String>{scorerId};
+      if (existing != null) {
+        if (existing.scorer1UserId != null &&
+            existing.scorer1UserId!.isNotEmpty) {
+          scorerUserIds.add(existing.scorer1UserId!);
+        }
+        if (existing.scorer2UserId != null &&
+            existing.scorer2UserId!.isNotEmpty) {
+          scorerUserIds.add(existing.scorer2UserId!);
+        }
+        for (final id in existing.scorerIds) {
+          if (id.isNotEmpty) scorerUserIds.add(id);
+        }
+      }
+      data['scorerIds'] = scorerUserIds.toList();
       data['currentScorerId'] = scorerId;
       if (scorerName != null && scorerName.isNotEmpty) {
         data['currentScorerName'] = scorerName;
@@ -811,6 +828,70 @@ class MatchRepository {
       matchId,
       message: 'Scoring transferred from $fromUserName to $toUserName',
       createdBy: fromUserId,
+    );
+  }
+
+  /// Replace Scorer 1 or Scorer 2 on a live match (assigned scorers only).
+  Future<void> replaceAssignedScorer({
+    required String matchId,
+    required int slotIndex,
+    required MatchOfficialEntry replacement,
+    required String actorUserId,
+    required String actorName,
+  }) async {
+    if (slotIndex < 0 || slotIndex > 1) {
+      throw ArgumentError('slotIndex must be 0 (Scorer 1) or 1 (Scorer 2)');
+    }
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+
+    if (!isAssignedMatchScorer(match: match, userId: actorUserId)) {
+      throw StateError('Only assigned scorers can change scorer assignments');
+    }
+
+    final setup = match.setup ?? const MatchSetupData();
+    final scorers = List<MatchOfficialEntry>.from(setup.scorers);
+    while (scorers.length <= slotIndex) {
+      scorers.add(MatchOfficialEntry(name: '', slotLabel: ''));
+    }
+    final previous = scorers[slotIndex];
+    scorers[slotIndex] = replacement.copyWith(
+      slotLabel: slotIndex == 0 ? 'Scorer 1' : 'Scorer 2',
+    );
+    final updatedSetup = setup.copyWith(scorers: scorers);
+    final setupMap = updatedSetup.toMap();
+
+    final scorerUserIds = <String>[];
+    for (final scorer in scorers) {
+      final uid = scorer.userId;
+      if (uid != null && uid.isNotEmpty && !scorerUserIds.contains(uid)) {
+        scorerUserIds.add(uid);
+      }
+    }
+
+    final now = DateTime.now();
+    final record = ScorerTransferRecord(
+      fromUserId: previous.userId ?? '',
+      fromUserName: previous.name.isNotEmpty ? previous.name : 'Previous scorer',
+      toUserId: replacement.userId ?? '',
+      toUserName: replacement.name,
+      timestamp: now,
+    );
+    final history = [...match.scorerTransferHistory, record];
+
+    await _matchDoc(matchId).update({
+      ...setupMap,
+      'scorerIds': scorerUserIds,
+      'scorerTransferHistory': history.map((e) => e.toMap()).toList(),
+      'lastScorerTransferAt': now.toIso8601String(),
+      'updatedAt': now.toIso8601String(),
+    });
+
+    await _appendActivityLog(
+      matchId,
+      message:
+          '${actorName} assigned ${replacement.name} as Scorer ${slotIndex + 1}',
+      createdBy: actorUserId,
     );
   }
 

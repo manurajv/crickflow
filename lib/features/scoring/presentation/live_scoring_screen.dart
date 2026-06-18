@@ -1620,11 +1620,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           }
 
           final role = profile?.role ?? UserRole.organizer;
-          if (!canViewLiveScoring(
-            match: match,
-            userId: uid,
-            role: role,
-          )) {
+          if (uid == null || role == UserRole.viewer) {
             return _lockedView(context);
           }
 
@@ -1809,9 +1805,6 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Widget _readOnlyKeypadPlaceholder(BuildContext context, MatchModel match) {
-    final scorerName = match.currentScorerName.isNotEmpty
-        ? match.currentScorerName
-        : 'another scorer';
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -1820,15 +1813,20 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           children: [
             const Icon(Icons.visibility_outlined, size: 40, color: AppColors.gold),
             const SizedBox(height: 12),
-            Text(
-              'Read-only — $scorerName is scoring',
+            const Text(
+              'You are not an assigned scorer for this match.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => context.push('/match/${widget.matchId}'),
+              child: const Text('View Match'),
+            ),
+            const SizedBox(height: 8),
             OutlinedButton(
               onPressed: () =>
                   context.push('/match/${widget.matchId}/scorecard'),

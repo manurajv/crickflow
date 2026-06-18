@@ -78,9 +78,9 @@ class _AddPlayersBody extends StatelessWidget {
         const SizedBox(height: AppDimens.spaceSm),
         TeamAddMethodTile(
           icon: Icons.badge_outlined,
-          title: 'Add by Player ID',
+          title: 'Add registered player',
           subtitle:
-              'Look up a registered player (e.g. CF000042) and add to squad.',
+              'Search by name or Player ID (full or partial) and add to squad.',
           onTap: () => context.push('/teams/$teamId/add-players/quick'),
         ),
         const SizedBox(height: AppDimens.spaceSm),

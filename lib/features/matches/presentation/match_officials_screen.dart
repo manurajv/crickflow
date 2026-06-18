@@ -1,21 +1,68 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/match_setup_draft_models.dart';
+import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 
 /// Assign umpires, scorers, commentators, referee, and streamers.
-class MatchOfficialsScreen extends ConsumerWidget {
-  const MatchOfficialsScreen({super.key});
+class MatchOfficialsScreen extends ConsumerStatefulWidget {
+  const MatchOfficialsScreen({super.key, this.continueWizard = false});
 
-  static const _umpireSlots = ['1st', '2nd', '3rd', '4th'];
-  static const _scorerSlots = ['1st', '2nd'];
-  static const _commentatorSlots = ['1st', '2nd'];
+  /// When true, Done advances to toss (wizard step after roles). Otherwise pops back.
+  final bool continueWizard;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MatchOfficialsScreen> createState() =>
+      _MatchOfficialsScreenState();
+}
+
+class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
+  static const _umpireSlots = [
+    'Umpire 1',
+    'Umpire 2',
+    'Third Umpire',
+    '4th Umpire',
+  ];
+  static const _scorerSlots = ['Scorer 1', 'Scorer 2'];
+  static const _commentatorSlots = ['Commentator 1', 'Commentator 2'];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureDefaultScorer1());
+  }
+
+  Future<void> _ensureDefaultScorer1() async {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return;
+
+    final profile = ref.read(currentUserProfileProvider).valueOrNull;
+    final player =
+        await ref.read(playerRepositoryProvider).getPlayerByUserId(uid);
+    await ref.read(startMatchDraftProvider.notifier).ensureDefaultScorer1(
+          userId: uid,
+          name: profile?.displayName ?? profile?.name ?? player?.name ?? 'Scorer',
+          photoUrl: profile?.photoUrl ?? player?.photoUrl,
+          playerId: player?.playerId,
+          playerDocId: player?.id,
+        );
+  }
+
+  void _onDone() {
+    if (widget.continueWizard) {
+      context.push('/match/create/toss');
+    } else {
+      context.pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final draft = ref.watch(startMatchDraftProvider);
     final setup = draft.setup;
 
@@ -32,8 +79,7 @@ class MatchOfficialsScreen extends ConsumerWidget {
             icon: Icons.sports,
             onSlotTap: (i) => _openAdd(
               context,
-              ref,
-              title: 'Add an umpire',
+              title: 'Add ${_umpireSlots[i]}',
               slotLabel: _umpireSlots[i],
               type: _OfficialType.umpire,
               index: i,
@@ -47,16 +93,31 @@ class MatchOfficialsScreen extends ConsumerWidget {
             slots: _scorerSlots,
             entries: setup.scorers,
             icon: Icons.fact_check_outlined,
-            onSlotTap: (i) => _openAdd(
-              context,
-              ref,
-              title: 'Add a scorer',
-              slotLabel: _scorerSlots[i],
-              type: _OfficialType.scorer,
-              index: i,
-              entries: setup.scorers,
-            ),
-            onRemove: (i) => _removeAt(ref, _OfficialType.scorer, i, setup),
+            lockedSlots: const {0},
+            onSlotTap: (i) {
+              if (i == 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Scorer 1 is auto-assigned to you as match creator',
+                    ),
+                  ),
+                );
+                return;
+              }
+              _openAdd(
+                context,
+                title: 'Add Scorer 2',
+                slotLabel: 'Scorer 2',
+                type: _OfficialType.scorer,
+                index: i,
+                entries: setup.scorers,
+              );
+            },
+            onRemove: (i) {
+              if (i == 0) return;
+              _removeAt(ref, _OfficialType.scorer, i, setup);
+            },
           ),
           const SizedBox(height: AppDimens.spaceLg),
           _OfficialSection(
@@ -66,8 +127,7 @@ class MatchOfficialsScreen extends ConsumerWidget {
             icon: Icons.headset_mic_outlined,
             onSlotTap: (i) => _openAdd(
               context,
-              ref,
-              title: 'Add a commentator',
+              title: 'Add ${_commentatorSlots[i]}',
               slotLabel: _commentatorSlots[i],
               type: _OfficialType.commentator,
               index: i,
@@ -94,7 +154,7 @@ class MatchOfficialsScreen extends ConsumerWidget {
                       '/match/create/officials/add',
                       extra: {
                         'title': 'Add match referee',
-                        'slotLabel': 'Referee',
+                        'slotLabel': 'Match Referee',
                         'initial': setup.referee,
                       },
                     );
@@ -125,9 +185,8 @@ class MatchOfficialsScreen extends ConsumerWidget {
                   icon: Icons.live_tv_outlined,
                   onTap: () => _openAdd(
                     context,
-                    ref,
                     title: 'Add live streamer',
-                    slotLabel: 'Streamer',
+                    slotLabel: 'Live streamer',
                     type: _OfficialType.streamer,
                     index: 0,
                     entries: setup.liveStreamers,
@@ -146,7 +205,7 @@ class MatchOfficialsScreen extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(AppDimens.spaceMd),
           child: FilledButton(
-            onPressed: () => context.push('/match/create/toss'),
+            onPressed: _onDone,
             style: FilledButton.styleFrom(
               minimumSize:
                   const Size(double.infinity, AppDimens.buttonHeightLarge),
@@ -161,8 +220,7 @@ class MatchOfficialsScreen extends ConsumerWidget {
   }
 
   Future<void> _openAdd(
-    BuildContext context,
-    WidgetRef ref, {
+    BuildContext context, {
     required String title,
     required String slotLabel,
     required _OfficialType type,
@@ -247,6 +305,7 @@ class _OfficialSection extends StatelessWidget {
     required this.icon,
     required this.onSlotTap,
     required this.onRemove,
+    this.lockedSlots = const {},
   });
 
   final String title;
@@ -255,6 +314,7 @@ class _OfficialSection extends StatelessWidget {
   final IconData icon;
   final ValueChanged<int> onSlotTap;
   final ValueChanged<int> onRemove;
+  final Set<int> lockedSlots;
 
   @override
   Widget build(BuildContext context) {
@@ -267,7 +327,7 @@ class _OfficialSection extends StatelessWidget {
         ),
         const SizedBox(height: AppDimens.spaceSm),
         SizedBox(
-          height: 130,
+          height: 140,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: slots.length,
@@ -278,8 +338,11 @@ class _OfficialSection extends StatelessWidget {
                 slotLabel: slots[i],
                 icon: icon,
                 entry: filled ? entries[i] : null,
+                locked: lockedSlots.contains(i),
                 onTap: () => onSlotTap(i),
-                onRemove: filled ? () => onRemove(i) : null,
+                onRemove: filled && !lockedSlots.contains(i)
+                    ? () => onRemove(i)
+                    : null,
               );
             },
           ),
@@ -296,6 +359,7 @@ class _OfficialSlotCard extends StatelessWidget {
     required this.entry,
     required this.onTap,
     this.onRemove,
+    this.locked = false,
   });
 
   final String slotLabel;
@@ -303,12 +367,17 @@ class _OfficialSlotCard extends StatelessWidget {
   final MatchOfficialEntry? entry;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
     final filled = entry != null && entry!.name.isNotEmpty;
+    final idLabel = filled && entry!.playerId != null && entry!.playerId!.isNotEmpty
+        ? entry!.playerId
+        : null;
+
     return SizedBox(
-      width: 100,
+      width: 108,
       child: Material(
         color: AppColors.card,
         borderRadius: AppDimens.cardRadius,
@@ -318,7 +387,9 @@ class _OfficialSlotCard extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: AppDimens.cardRadius,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(
+                color: filled ? AppColors.gold.withValues(alpha: 0.5) : AppColors.border,
+              ),
             ),
             padding: const EdgeInsets.all(8),
             child: Column(
@@ -330,7 +401,10 @@ class _OfficialSlotCard extends StatelessWidget {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: AppColors.surfaceElevated,
-                      child: filled
+                      backgroundImage: filled && entry!.photoUrl != null
+                          ? CachedNetworkImageProvider(entry!.photoUrl!)
+                          : null,
+                      child: filled && entry!.photoUrl == null
                           ? Text(
                               entry!.name[0].toUpperCase(),
                               style: const TextStyle(
@@ -338,24 +412,21 @@ class _OfficialSlotCard extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                               ),
                             )
-                          : Icon(icon, color: AppColors.textSecondary),
+                          : !filled
+                              ? Icon(icon, color: AppColors.textSecondary)
+                              : null,
                     ),
-                    if (filled)
+                    if (locked)
                       Positioned(
                         right: -2,
                         bottom: -2,
                         child: CircleAvatar(
                           radius: 10,
-                          backgroundColor: AppColors.gold,
-                          child: Text(
-                            slotLabel.replaceAll(RegExp(r'[^0-9]'), '').isEmpty
-                                ? '•'
-                                : slotLabel[0],
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
+                          backgroundColor: AppColors.primaryBlue,
+                          child: const Icon(
+                            Icons.lock,
+                            size: 11,
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -369,9 +440,20 @@ class _OfficialSlotCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: filled ? FontWeight.w700 : FontWeight.w500,
-                    color: filled ? AppColors.textPrimary : AppColors.textSecondary,
+                    color:
+                        filled ? AppColors.textPrimary : AppColors.textSecondary,
                   ),
                 ),
+                if (idLabel != null)
+                  Text(
+                    idLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: AppColors.gold,
+                    ),
+                  ),
                 if (filled && onRemove != null)
                   TextButton(
                     onPressed: onRemove,

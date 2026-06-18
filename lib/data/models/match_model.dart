@@ -174,6 +174,8 @@ class MatchModel extends Equatable {
     this.completedAt,
     this.createdBy,
     this.scorerIds = const [],
+    this.scorer1UserId,
+    this.scorer2UserId,
     this.currentScorerId,
     this.currentScorerName = '',
     this.currentScorerPhoto,
@@ -215,6 +217,8 @@ class MatchModel extends Equatable {
   final DateTime? completedAt;
   final String? createdBy;
   final List<String> scorerIds;
+  final String? scorer1UserId;
+  final String? scorer2UserId;
   final String? currentScorerId;
   final String currentScorerName;
   final String? currentScorerPhoto;
@@ -272,6 +276,8 @@ class MatchModel extends Equatable {
       completedAt: DateTime.tryParse(map['completedAt']?.toString() ?? ''),
       createdBy: map['createdBy'] as String?,
       scorerIds: List<String>.from(map['scorerIds'] as List? ?? []),
+      scorer1UserId: map['scorer1UserId'] as String?,
+      scorer2UserId: map['scorer2UserId'] as String?,
       currentScorerId: map['currentScorerId'] as String?,
       currentScorerName: map['currentScorerName'] as String? ?? '',
       currentScorerPhoto: map['currentScorerPhoto'] as String?,

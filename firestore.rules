@@ -37,11 +37,14 @@ service cloud.firestore {
     }
 
     function isMatchScorer(matchId) {
+      let data = matchData(matchId);
       return isSignedIn() && (
+        (('scorer1UserId' in data) && data.scorer1UserId == request.auth.uid) ||
+        (('scorer2UserId' in data) && data.scorer2UserId == request.auth.uid) ||
         isActiveScorer(matchId) ||
         (isLegacyMatchScorer(matchId) && (
           isMatchCreator(matchId) ||
-          request.auth.uid in matchData(matchId).scorerIds
+          request.auth.uid in data.scorerIds
         ))
       );
     }

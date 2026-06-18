@@ -363,6 +363,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
 
     return StartMatchSetupForm(
       rules: draft.rules,
+      setup: draft.setup,
       cityController: _cityController,
       venueController: _venueController,
       oversController: _oversController,
@@ -379,7 +380,10 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
           ref.read(startMatchDraftProvider.notifier).updateVenue(v),
       onLocationResolved: _applyGroundLocation,
       onPickGroundOnMap: _pickGroundOnMap,
-      onManageOfficials: () => context.push('/match/create/officials'),
+      onManageOfficials: () async {
+        await context.push('/match/create/officials');
+        if (mounted) setState(() {});
+      },
     );
   }
 
