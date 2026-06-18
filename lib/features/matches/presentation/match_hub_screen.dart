@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/utils/deep_link_utils.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/match_follow_button.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'tabs/match_commentary_tab.dart';
 import 'tabs/match_highlights_tab.dart';
@@ -110,6 +111,7 @@ class _MatchHubScreenState extends ConsumerState<MatchHubScreen>
                 onPressed: () => _exit(context),
               ),
               actions: [
+                MatchFollowButton(matchId: widget.matchId, compact: true),
                 IconButton(
                   icon: const Icon(Icons.link),
                   tooltip: 'Copy web scorecard',

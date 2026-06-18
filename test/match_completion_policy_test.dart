@@ -50,7 +50,7 @@ void main() {
     expect(InningsCompletionPolicy.isTargetReached(match, chase), isTrue);
     expect(InningsCompletionPolicy.isInningsComplete(match, chase), isTrue);
     expect(
-      InningsCompletionPolicy.endReasonLabel(match, chase),
+      InningsCompletionPolicy.completionReasonLabel(match, chase),
       'Target reached',
     );
   });

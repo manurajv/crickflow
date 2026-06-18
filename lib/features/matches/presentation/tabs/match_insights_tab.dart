@@ -8,6 +8,7 @@ import '../../../../data/models/match_model.dart';
 import '../../../../domain/services/match_insights_service.dart';
 import '../../../../shared/providers/match_insights_provider.dart';
 import '../../../../shared/providers/providers.dart';
+import '../widgets/match_revision_info_panel.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_navigation.dart';
 import '../../../wagon_wheel/presentation/widgets/wagon_wheel_embedded_section.dart';
@@ -21,6 +22,8 @@ class MatchInsightsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final insights = ref.watch(matchInsightsProvider(matchId));
     final match = ref.watch(matchProvider(matchId)).valueOrNull;
+    final revisions =
+        ref.watch(matchRevisionsProvider(matchId)).valueOrNull ?? const [];
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final wwEnabled = match?.rules.wagonWheelEnabled ?? false;
 
@@ -38,6 +41,16 @@ class MatchInsightsTab extends ConsumerWidget {
           ),
           const SizedBox(height: AppDimens.spaceMd),
         ],
+        if (match != null)
+          MatchRevisionInfoPanel(
+            match: match,
+            revisions: revisions,
+            showRevisionHistory: true,
+            showInningsSummaries: true,
+            showTargetInfo: true,
+            compact: true,
+          ),
+        if (match != null) const SizedBox(height: AppDimens.spaceMd),
         if (profile != null && match != null)
           _ContributionCard(
             name: profile.displayName,

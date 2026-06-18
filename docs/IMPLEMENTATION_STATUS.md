@@ -13,6 +13,22 @@
 
 ---
 
+## Latest (notifications)
+
+| Item | Status |
+|------|--------|
+| Team members receive match notifications (fan-out) | Done |
+| Match followers (`matchFollowers/`) + Follow button | Done |
+| Notification preferences (team + follower toggles) | Done |
+| Per-team notification toggle on team detail | Done |
+| Enriched push/in-app messages (score, target, chase) | Done — deploy functions |
+| Second innings notification fix | Done — deploy functions |
+| DLS / target revision notifications | Done — deploy functions |
+| Team join request badge count on team cards | Done |
+| Home bell unread count | Done (existing) |
+
+---
+
 ## Latest (revise target & match result)
 
 | Item | Status |
@@ -22,11 +38,13 @@
 | DLS — overs reduced from locked to scheduled; target only on End Innings | Done |
 | First innings — Continue Innings (overs only, no target) | Done |
 | First innings — End Innings after DLS | Done |
+| End Innings shortcut + break → 2nd innings flow | Done |
 | Second innings — overs + target revision | Done |
 | End Innings — All Out / Declare / Penalty Runs | Done |
 | Match Result — winner, draw, abandoned | Done |
 | Firestore `matchRevisions/` + `matchTimeline/` history | Done |
 | Live banner + match summary DLS card | Done |
+| Scorecard / summary revision badges & history | Done |
 | Live scoring header — scales to avoid overflow with chase/DLS lines | Done |
 | Scorer-only access | Done |
 | Firestore rules deployed | Done |

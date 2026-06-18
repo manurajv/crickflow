@@ -52,8 +52,16 @@ class MatchCardContent extends StatelessWidget {
     final winnerB = MatchScoreDisplay.isTeamWinner(match, match.teamBId);
     final battingA = MatchScoreDisplay.isTeamBattingNow(match, match.teamAId);
     final battingB = MatchScoreDisplay.isTeamBattingNow(match, match.teamBId);
-    final scoreA = MatchScoreDisplay.scoreForTeam(match, match.teamAId);
-    final scoreB = MatchScoreDisplay.scoreForTeam(match, match.teamBId);
+    final scoreA = MatchScoreDisplay.scoreForTeam(
+      match,
+      match.teamAId,
+      showManualEndReason: false,
+    );
+    final scoreB = MatchScoreDisplay.scoreForTeam(
+      match,
+      match.teamBId,
+      showManualEndReason: false,
+    );
     final showScores =
         isLive || isCompleted || scoreA != null || scoreB != null;
     final chase = isLive && showChaseDetails
@@ -193,7 +201,8 @@ class MatchCardContent extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '1st inn ${firstSummary.runs}/${firstSummary.wickets} '
-            '(${firstSummary.overs} ov) · Target ${firstSummary.target}',
+            '(${firstSummary.overs} ov) · Target ${firstSummary.target}'
+            '${match.targetState.dlsApplied ? ' (DLS)' : ''}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: mutedColor,
                 ),

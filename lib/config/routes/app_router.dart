@@ -36,6 +36,7 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/scoring/presentation/live_scoring_screen.dart';
 import '../../features/scoring/presentation/scorer_takeover_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/settings/presentation/notification_settings_screen.dart';
 import '../../features/shell/presentation/main_shell_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/streaming/presentation/live_stream_screen.dart';
@@ -406,6 +407,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/store', builder: (_, __) => const StoreScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(
+        path: '/settings/notifications',
+        builder: (_, __) => const NotificationSettingsScreen(),
+      ),
       GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
       GoRoute(
         path: '/wagon-wheel',

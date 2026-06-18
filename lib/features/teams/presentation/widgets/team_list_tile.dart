@@ -92,12 +92,22 @@ class TeamListTile extends ConsumerWidget {
                         ),
                         if (pendingCount > 0)
                           Container(
-                            width: 8,
-                            height: 8,
                             margin: const EdgeInsets.only(left: 6),
-                            decoration: const BoxDecoration(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
                               color: AppColors.accentRed,
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              pendingCount > 99 ? '99+' : '$pendingCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                       ],

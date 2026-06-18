@@ -12,7 +12,7 @@ class CfSlideToConfirm extends StatefulWidget {
   });
 
   final String label;
-  final VoidCallback onConfirmed;
+  final Future<void> Function() onConfirmed;
   final bool enabled;
 
   @override
@@ -39,7 +39,7 @@ class _CfSlideToConfirmState extends State<CfSlideToConfirm> {
           });
         }
 
-        void onDragEnd(DragEndDetails _) {
+        Future<void> onDragEnd(DragEndDetails _) async {
           if (!widget.enabled || _confirmed) return;
           if (_drag >= maxDrag * 0.85) {
             setState(() {
@@ -47,7 +47,7 @@ class _CfSlideToConfirmState extends State<CfSlideToConfirm> {
               _confirmed = true;
             });
             HapticFeedback.mediumImpact();
-            widget.onConfirmed();
+            await widget.onConfirmed();
           } else {
             setState(() => _drag = 0);
           }

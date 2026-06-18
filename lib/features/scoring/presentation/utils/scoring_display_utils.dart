@@ -565,7 +565,7 @@ class ScoringDisplayUtils {
       InningsCompletionPolicy.isInningsComplete(match, inn);
 
   static String inningsCompleteReason(MatchModel match, InningsModel inn) =>
-      InningsCompletionPolicy.endReasonLabel(match, inn);
+      InningsCompletionPolicy.completionReasonLabel(match, inn);
 
   static bool canUndoInnings(MatchModel match) {
     if (match.status == MatchStatus.inningsBreak) return false;

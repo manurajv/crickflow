@@ -474,6 +474,10 @@ service cloud.firestore {
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) && userPublicPlayerIdImmutable();
       allow delete: if isOwner(userId);
+
+      match /teamNotificationPrefs/{teamId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     function teamPublicCodeImmutable() {
@@ -734,6 +738,18 @@ service cloud.firestore {
         && request.resource.data.userId.size() > 0
         && request.resource.data.title is string
         && request.resource.data.body is string;
+    }
+
+    match /matchFollowers/{followerId} {
+      allow read: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.matchId is string
+        && request.resource.data.matchId.size() > 0;
+      allow delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow update: if false;
     }
 
     match /community_posts/{postId} {

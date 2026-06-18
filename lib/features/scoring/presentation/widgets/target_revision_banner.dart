@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/match_model.dart';
+import '../../../../domain/display/match_revision_display.dart';
+import '../../../../shared/widgets/match_revision_badge.dart';
 
 /// Dismissible live banner for target revisions, DLS, and penalties.
 class TargetRevisionBanner extends StatelessWidget {
@@ -21,49 +23,47 @@ class TargetRevisionBanner extends StatelessWidget {
     final message = state.liveBannerMessage;
     if (message == null || message.isEmpty) return const SizedBox.shrink();
 
+    final badges = <MatchRevisionBadge>[
+      ...MatchRevisionDisplay.badgesForMatch(match),
+    ];
+    if (message.toLowerCase().contains('penalty') &&
+        !badges.any((b) => b.kind == 'penalty')) {
+      badges.add(const MatchRevisionBadge(label: 'PENALTY', kind: 'penalty'));
+    }
+
     return Material(
       color: AppColors.primaryBlue,
       child: SafeArea(
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (state.dlsApplied) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.gold.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.gold),
-                  ),
-                  child: const Text(
-                    'DLS Applied',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.gold,
+              if (badges.isNotEmpty) ...[
+                MatchRevisionBadgeRow(badges: badges, compact: true),
+                const SizedBox(height: 6),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    color: AppColors.textSecondary,
+                    onPressed: onDismiss,
+                    tooltip: 'Dismiss',
                   ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, size: 20),
-                color: AppColors.textSecondary,
-                onPressed: onDismiss,
-                tooltip: 'Dismiss',
+                ],
               ),
             ],
           ),

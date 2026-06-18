@@ -8,12 +8,15 @@ import '../../../../core/utils/match_permissions.dart';
 import '../../../../core/utils/match_score_display.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
+import '../../../../domain/scoring/innings_completion_policy.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/multi_camera_watch_section.dart';
 import '../../../../shared/widgets/scoreboard_card.dart';
 import '../match_center_screen.dart' show openFantasyForMatch;
+import '../../../../shared/widgets/match_follow_button.dart';
 import '../widgets/match_dls_summary_card.dart';
+import '../widgets/match_revision_info_panel.dart';
 
 /// Summary tab — scoreboard, stream, and match actions.
 class MatchSummaryTab extends ConsumerWidget {
@@ -50,15 +53,52 @@ class MatchSummaryTab extends ConsumerWidget {
             ? match.resultSummary
             : null;
 
+        final revisionsAsync = ref.watch(matchRevisionsProvider(matchId));
+        final revisions = revisionsAsync.valueOrNull ?? const [];
+
         return ListView(
           padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+                AppDimens.spaceMd,
+                0,
+              ),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: MatchFollowButton(matchId: matchId),
+              ),
+            ),
             ScoreboardCard(
               match: match,
               innings: match.currentInnings,
               isLive: isLive || isBreak,
             ),
             MatchDlsSummaryCard(match: match),
+            MatchRevisionInfoPanel(
+              match: match,
+              revisions: revisions,
+              showTargetInfo: false,
+            ),
+            if (isCompleted &&
+                match.targetState.dlsApplied &&
+                resultLine != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.spaceMd,
+                  vertical: AppDimens.spaceSm,
+                ),
+                child: Text(
+                  'Result generated after DLS revision.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    color: AppColors.textSecondary.withValues(alpha: 0.9),
+                  ),
+                ),
+              ),
             if (heroLine != null)
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -193,10 +233,20 @@ class MatchSummaryTab extends ConsumerWidget {
                 child: Text('Innings', style: Theme.of(context).textTheme.titleLarge),
               ),
               ...match.innings.map(
-                (inn) => ListTile(
-                  title: Text('Innings ${inn.inningsNumber} — ${inn.status.name}'),
-                  trailing: Text('${inn.totalRuns}/${inn.totalWickets}'),
-                ),
+                (inn) {
+                  final reason = inn.status == InningsStatus.completed
+                      ? InningsCompletionPolicy.endReasonLabel(match, inn)
+                      : '';
+                  final score = reason.isNotEmpty
+                      ? '${inn.totalRuns}/${inn.totalWickets} · $reason'
+                      : '${inn.totalRuns}/${inn.totalWickets}';
+                  return ListTile(
+                    title: Text(
+                      'Innings ${inn.inningsNumber} — ${inn.status.name}',
+                    ),
+                    trailing: Text(score),
+                  );
+                },
               ),
             ],
             if (match.matchHero != null)

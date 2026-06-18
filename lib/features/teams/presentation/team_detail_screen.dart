@@ -17,6 +17,7 @@ import 'widgets/team_detail_banner.dart';
 import 'widgets/team_detail_bottom_bar.dart';
 import 'widgets/team_join_action_button.dart';
 import 'widgets/team_join_requests_panel.dart';
+import 'widgets/team_notification_pref_tile.dart';
 import 'widgets/team_logo_picker.dart';
 import 'widgets/team_qr_view.dart';
 import 'widgets/team_squad_empty_state.dart';
@@ -77,6 +78,9 @@ class TeamDetailScreen extends ConsumerWidget {
               final canManageRequests =
                   TeamSquadUtils.canManageJoinRequests(uid, team);
               final canManageMembers = canManageRequests;
+              final isMember = uid != null &&
+                  (players.any((p) => p.userId == uid || p.id == uid) ||
+                      TeamSquadUtils.isTeamOwner(uid, team));
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -84,6 +88,7 @@ class TeamDetailScreen extends ConsumerWidget {
                   TeamDetailBanner(team: team, squadCount: players.length),
                   if (canManageRequests && uid != null)
                     TeamJoinRequestsPanel(team: team, resolverUid: uid),
+                  if (isMember) TeamNotificationPrefTile(teamId: team.id),
                   const TeamSquadBannersStrip(),
                   Expanded(
                     child: RefreshIndicator(

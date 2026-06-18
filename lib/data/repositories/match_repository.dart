@@ -422,7 +422,9 @@ class MatchRepository {
       inningsNumber: inn.inningsNumber,
       battingTeamId: inn.battingTeamId,
       bowlingTeamId: inn.bowlingTeamId,
-      status: inn.status,
+      status: inn.status == InningsStatus.notStarted
+          ? InningsStatus.inProgress
+          : inn.status,
       totalRuns: inn.totalRuns,
       totalWickets: inn.totalWickets,
       legalBalls: inn.legalBalls,

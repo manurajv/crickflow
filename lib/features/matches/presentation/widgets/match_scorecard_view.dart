@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/enums.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/scorecard_theme_extension.dart';
 import '../../../../core/utils/cricket_math.dart';
@@ -14,6 +15,7 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../../../../domain/scoring/ball_event_aggregator.dart';
 import '../../../../domain/services/scorecard_display_service.dart';
+import '../../../../domain/display/match_revision_display.dart';
 import '../../../../shared/providers/lineup_providers.dart';
 import '../../../../shared/providers/providers.dart';
 
@@ -92,19 +94,49 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
       );
     }
 
+    final topNotices = MatchRevisionDisplay.scorecardTopNotices(match);
+    final topNoticeCount = topNotices.isNotEmpty ? 1 : 0;
+    final theme = Theme.of(context);
+
     return ListView.builder(
       padding: EdgeInsets.only(bottom: widget.bottomPadding),
-      itemCount: match.innings.length,
+      itemCount: match.innings.length + topNoticeCount,
       itemBuilder: (context, index) {
-        final inn = match.innings[index];
+        if (topNoticeCount > 0 && index == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              AppDimens.spaceSm,
+              AppDimens.spaceMd,
+              AppDimens.spaceXs,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final line in topNotices) ...[
+                  Text(
+                    line,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.gold,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
+              ],
+            ),
+          );
+        }
+        final innIndex = topNoticeCount > 0 ? index - 1 : index;
+        final inn = match.innings[innIndex];
         return _InningsScorecardCard(
           match: match,
           innings: inn,
           rules: InningsCompletionPolicy.effectiveRules(match, inn),
           events: events,
           squadNames: squadNames,
-          isExpanded: _expandedIndex == index,
-          onHeaderTap: () => _toggleInnings(index),
+          isExpanded: _expandedIndex == innIndex,
+          onHeaderTap: () => _toggleInnings(innIndex),
         );
       },
     );
@@ -140,7 +172,7 @@ class _InningsScorecardCard extends StatelessWidget {
       rules.ballsPerOver,
     );
     final scoreLine =
-        '${innings.totalRuns}/${innings.totalWickets} ($overs Ov)';
+        '${innings.totalRuns}/${innings.totalWickets} ($overs)';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -178,7 +210,9 @@ class _InningsScorecardCard extends StatelessWidget {
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: colorScheme.onSurface,
-                            fontFeatures: const [FontFeature.tabularFigures()],
+                            fontFeatures: const [
+                              FontFeature.tabularFigures(),
+                            ],
                           ),
                         ),
                         const SizedBox(width: AppDimens.spaceXs),
@@ -314,9 +348,17 @@ class _InningsExpandedBody extends StatelessWidget {
           showStrikerIndicator: isLiveInnings,
         ),
         _ExtrasRow(extras: extras, extrasDetail: extrasDetail),
+        if (innings.penaltyRuns != 0)
+          _PenaltyRunsRow(
+            penaltyRuns: innings.penaltyRuns,
+            penaltyReason: innings.penaltyReason,
+          ),
         _TotalRow(
-          totalLine:
-              '${displayInnings.totalRuns}/${displayInnings.totalWickets} ($overs Ov)',
+          totalLine: InningsCompletionPolicy.scoreLineWithReason(
+            match,
+            displayInnings,
+            overs: overs,
+          ),
           crr: crr,
         ),
         if (toBat.isNotEmpty) _ToBatSection(names: toBat),
@@ -753,6 +795,59 @@ class _ExtrasRow extends StatelessWidget {
                     ),
                     textAlign: TextAlign.end,
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PenaltyRunsRow extends StatelessWidget {
+  const _PenaltyRunsRow({
+    required this.penaltyRuns,
+    required this.penaltyReason,
+  });
+
+  final int penaltyRuns;
+  final String penaltyReason;
+
+  @override
+  Widget build(BuildContext context) {
+    final styles = _ScorecardStyles(context);
+    final sign = penaltyRuns > 0 ? '+' : '';
+    final valueLabel = '$sign$penaltyRuns';
+    final reason = penaltyReason.trim();
+
+    return _DataRow(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Penalty',
+                style: styles.bodyPrimary.copyWith(fontWeight: FontWeight.w500),
+              ),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: valueLabel,
+                        style: styles.statValueBold,
+                      ),
+                      if (reason.isNotEmpty)
+                        TextSpan(
+                          text: ' ($reason)',
+                          style: styles.bodyMuted,
+                        ),
+                    ],
+                  ),
+                  textAlign: TextAlign.end,
+                ),
+              ),
+            ],
           ),
         ],
       ),

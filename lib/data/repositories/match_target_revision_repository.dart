@@ -53,6 +53,26 @@ class MatchTargetRevisionRepository {
     return MatchModel.fromMap(matchId, doc.data()!);
   }
 
+  Stream<List<MatchRevisionModel>> watchMatchRevisions(String matchId) {
+    return _revisions(matchId)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => MatchRevisionModel.fromMap(d.id, d.data()))
+              .toList(),
+        );
+  }
+
+  Future<List<MatchRevisionModel>> fetchMatchRevisions(String matchId) async {
+    final snap = await _revisions(matchId)
+        .orderBy('createdAt', descending: false)
+        .get();
+    return snap.docs
+        .map((d) => MatchRevisionModel.fromMap(d.id, d.data()))
+        .toList();
+  }
+
   Future<void> dismissLiveBanner(String matchId) async {
     final match = await getMatch(matchId);
     if (match == null) return;

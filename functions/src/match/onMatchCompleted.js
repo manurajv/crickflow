@@ -2,7 +2,8 @@ const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { evaluateInningsBadges, pickMatchHero } = require('../utils/badges');
 const { updateTournamentStandings } = require('../utils/tournament');
-const { notifyMatchTopic, createUserNotification } = require('../utils/messaging');
+const { fanOutMatchNotification } = require('../utils/fanOut');
+const { buildMatchResultNotification } = require('../utils/notificationBuilder');
 const {
   resolveBallType,
   applyPlayerStats,
@@ -104,18 +105,18 @@ exports.onMatchCompleted = onDocumentUpdated(
       await updateTournamentStandings(db, after.tournamentId, after);
     }
 
-    const summary = after.resultSummary || 'Match completed';
-    await notifyMatchTopic(matchId, 'Match finished', summary, {
-      status: 'completed',
-    });
-
-    if (after.createdBy) {
-      await createUserNotification(db, after.createdBy, {
-        title: 'Match completed',
-        body: summary,
-        matchId,
-      });
-    }
+    const built = buildMatchResultNotification(after);
+    await fanOutMatchNotification(
+      db,
+      matchId,
+      after,
+      built,
+      after.targetState?.matchOutcome === 'draw'
+        ? 'match_drawn'
+        : after.targetState?.matchOutcome === 'abandoned'
+          ? 'match_abandoned'
+          : 'match_result',
+    );
 
     console.log(
       `Processed match ${matchId}: ${allBadges.length} badges, stats from ${useEvents ? 'ball_events' : 'innings'}`,

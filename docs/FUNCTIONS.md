@@ -9,8 +9,12 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 | Export | Trigger | Purpose |
 |--------|---------|---------|
 | `onMatchCompleted` | `matches/{id}` updated → `status: completed` | **Stats from `ball_events` replay** (fallback innings cache), badges, hero, `statsSource` |
-| `onMatchLive` | `matches/{id}` updated → `status: live` | FCM topic `match_{id}` — match started |
-| `onBallEventCreated` | `matches/{id}/ball_events/{eventId}` created | FCM + `highlights` doc for wicket, four, six |
+| `onMatchLive` | `matches/{id}` updated | Match start, 1st innings complete, 2nd innings start — fan-out + enriched messages |
+| `onMatchRevisionCreated` | `matches/{id}/matchRevisions/{id}` created | DLS / target revision notifications |
+| `onBallEventCreated` | `matches/{id}/ball_events/{eventId}` created | Wicket, four, six, milestones — enriched fan-out |
+| `onMatchCompleted` | `matches/{id}` updated → `status: completed` | Result notification fan-out to team + followers |
+| `onNotificationCreated` | `notifications/{id}` created | FCM bridge for in-app notifications |
+| `onTeamJoinRequestCreated` | join request created | Push to owner/captain/VC |
 | `verifyScoringIntegrity` | Scheduled daily 03:00 (Asia/Colombo) | Logs + writes `scoringIntegrity` on mismatched live/completed matches |
 | `adminVerifyMatchIntegrity` | Callable | Returns replay vs cache issues (organizer / scorer) |
 | `adminPreviewMatchStatsFromEvents` | Callable | Preview per-player agg from events (no write) |
@@ -28,6 +32,10 @@ functions/src/
     onMatchLive.js
     onBallEventCreated.js
   utils/
+    notificationBuilder.js   # enriched notification copy
+    recipients.js          # scorers + team members + followers
+    fanOut.js              # in-app + FCM per user
+    matchFormat.js         # score/overs helpers
     ballEventStats.js      # event replay, collectPlayerAggFromEvents, integrity verify
     stats.js               # apply increments + legacy collectPlayerAgg(innings)
     badges.js              # 50, 100, 3w, 5w
@@ -63,7 +71,6 @@ await httpsCallable(functions, 'adminReprocessMatchStats')({ matchId });
 - [ ] Scheduled cleanup of stale live matches
 - [ ] Email / SMS notifications
 - [ ] Net run rate calculation on tournament rows
-- [ ] Fan-out to all follower user IDs (only `createdBy` gets in-app notification today)
 
 ## Local development
 

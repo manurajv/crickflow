@@ -126,8 +126,11 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
                       icon: shortcut.icon,
                       label: shortcut.label,
                       onTap: () {
+                        final action = shortcut.onTap;
                         Navigator.pop(context);
-                        shortcut.onTap();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          action();
+                        });
                       },
                     );
                   },

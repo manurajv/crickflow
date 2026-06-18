@@ -28,7 +28,7 @@ class ReviseTargetSheet extends StatefulWidget {
   final InningsModel innings;
   final Future<void> Function(ScorerDlsRevisionInput input) onApplyDls;
   final Future<void> Function(int revisedTarget, String reason) onApplyManual;
-  final VoidCallback onEndInnings;
+  final Future<void> Function() onEndInnings;
 
   static Future<void> show(
     BuildContext context, {
@@ -37,7 +37,7 @@ class ReviseTargetSheet extends StatefulWidget {
     required Future<void> Function(ScorerDlsRevisionInput input) onApplyDls,
     required Future<void> Function(int revisedTarget, String reason)
         onApplyManual,
-    required VoidCallback onEndInnings,
+    required Future<void> Function() onEndInnings,
   }) {
     return ScoringUiKit.showSheet<void>(
       context,
@@ -173,13 +173,13 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
         if (!mounted) return;
         Navigator.pop(context);
         if (_firstInningsAction == FirstInningsAction.endInnings) {
-          widget.onEndInnings();
+          await widget.onEndInnings();
         }
         return;
       } else {
         if (_firstInningsAction == FirstInningsAction.endInnings) {
           Navigator.pop(context);
-          widget.onEndInnings();
+          await widget.onEndInnings();
           return;
         }
         final target = int.tryParse(_targetCtrl.text.trim());

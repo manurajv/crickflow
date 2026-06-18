@@ -1169,10 +1169,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         return;
       }
 
-      if (fresh.innings.length == ended.inningsNumber) {
+      if (fresh.innings.length == ended.inningsNumber &&
+          repo.canStartNextInnings(fresh)) {
         await repo.startNextInnings(widget.matchId);
       }
-      if (mounted) context.go('/match/${widget.matchId}/start-innings');
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.go('/match/${widget.matchId}/start-innings');
+          }
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1202,6 +1209,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         ScoringDisplayUtils.isInningsComplete(match, inn)) {
       _showInningsBreakDialog(match, inn, allowUndo: true);
     }
+  }
+
+  void _promptInningsBreakIfNeeded(MatchModel match) {
+    _handleInningsBreakState(match);
   }
 
   Future<void> _undo() async {
@@ -1587,7 +1598,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           );
         }
       },
-      onEndInnings: () => _openEndInningsSheet(match),
+      onEndInnings: () async {
+        final fresh =
+            ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+        await _openEndInningsSheet(fresh);
+      },
     );
   }
 
@@ -1602,24 +1617,31 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       match: match,
       innings: inn,
       onConfirm: (result) async {
-        await ref.read(matchTargetRevisionRepositoryProvider).endInningsWithReason(
-              matchId: widget.matchId,
-              endReason: result.endReason,
-              considerAllOversForNrr: result.considerAllOversForNrr,
-              penaltyRuns: result.penaltyRuns,
-              penaltyReason: result.penaltyReason,
-              userId: uid,
+        try {
+          await ref
+              .read(matchTargetRevisionRepositoryProvider)
+              .endInningsWithReason(
+                matchId: widget.matchId,
+                endReason: result.endReason,
+                considerAllOversForNrr: result.considerAllOversForNrr,
+                penaltyRuns: result.penaltyRuns,
+                penaltyReason: result.penaltyReason,
+                userId: uid,
+              );
+          if (!mounted) return;
+          final fresh =
+              await ref.read(matchRepositoryProvider).getMatch(widget.matchId);
+          if (fresh == null) return;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _promptInningsBreakIfNeeded(fresh);
+          });
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not end innings: $e')),
             );
-        if (!mounted) return;
-        final fresh =
-            await ref.read(matchRepositoryProvider).getMatch(widget.matchId);
-        final idx = match.currentInningsIndex;
-        if (fresh != null && idx < fresh.innings.length) {
-          await _showInningsBreakDialog(
-            fresh,
-            fresh.innings[idx],
-            allowUndo: false,
-          );
+          }
+          rethrow;
         }
       },
     );
@@ -1638,7 +1660,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         onEditLineup: () => _openLineupSheet(match),
         onChangeWicketkeeper: () => _changeWicketKeeper(match),
         onChangeBowler: () => _changeBowler(match),
-        onEndInnings: () => _endInnings(),
+        onEndInnings: () {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _endInnings();
+          });
+        },
         onReviseTarget: canScore ? () => _openReviseTarget(match) : null,
         onEndOver: () => _manualEndOver(match),
         onScorecard: () => context.push('/match/${widget.matchId}/scorecard'),

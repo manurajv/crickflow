@@ -124,6 +124,22 @@
         { "fieldPath": "playerId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "matchFollowers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "matchId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "matchFollowers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

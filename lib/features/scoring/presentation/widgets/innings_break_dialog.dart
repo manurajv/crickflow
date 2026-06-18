@@ -25,7 +25,7 @@ class InningsBreakDialog extends StatelessWidget {
   final InningsModel innings;
   final bool allowUndo;
   final VoidCallback onUndo;
-  final VoidCallback onConfirm;
+  final Future<void> Function() onConfirm;
   final String? confirmLabel;
 
   static Future<void> show(
@@ -34,7 +34,7 @@ class InningsBreakDialog extends StatelessWidget {
     required InningsModel innings,
     required bool allowUndo,
     required VoidCallback onUndo,
-    required VoidCallback onConfirm,
+    required Future<void> Function() onConfirm,
     String? confirmLabel,
   }) {
     return ScoringUiKit.showSheet<void>(

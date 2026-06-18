@@ -165,8 +165,22 @@ class LiveScoringHeader extends StatelessWidget {
           color: AppColors.textSecondary,
         ),
       ),
-      if (chase != null && chase.isChasing) ...[
+        if (chase != null && chase.isChasing) ...[
         const SizedBox(height: 6),
+        if (match.targetState.originalTarget != null &&
+            match.targetState.effectiveRevisedTarget != null &&
+            match.targetState.originalTarget !=
+                match.targetState.effectiveRevisedTarget)
+          Text(
+            'Target: ${match.targetState.originalTarget} → '
+            '${match.targetState.effectiveRevisedTarget}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
         Text(
           'Target ${chase.target}'
           '${match.targetState.dlsApplied ? ' (DLS)' : ''} · '

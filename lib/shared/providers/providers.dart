@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/match_model.dart';
+import '../../data/models/match_revision_model.dart';
 import '../../data/models/overlay_state_model.dart';
 import '../../data/models/team_model.dart';
 import '../../data/models/tournament_model.dart';
@@ -14,6 +15,7 @@ import '../../data/repositories/team_join_request_repository.dart';
 import '../../data/repositories/team_roster_report_repository.dart';
 import '../../data/repositories/team_repository.dart';
 import '../../data/repositories/notification_repository.dart';
+import '../../data/repositories/match_follower_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/fantasy_repository.dart';
@@ -54,6 +56,10 @@ final tournamentRepositoryProvider = Provider((ref) => TournamentRepository());
 final fantasyRepositoryProvider = Provider((ref) => FantasyRepository());
 final notificationServiceProvider = Provider((ref) => NotificationService());
 final notificationRepositoryProvider = Provider((ref) => NotificationRepository());
+final matchFollowerRepositoryProvider =
+    Provider((ref) => MatchFollowerRepository());
+final notificationPreferencesRepositoryProvider =
+    Provider((ref) => NotificationPreferencesRepository());
 final teamRosterReportRepositoryProvider =
     Provider((ref) => TeamRosterReportRepository());
 final streamServiceProvider = Provider<StreamService>((ref) {
@@ -95,6 +101,13 @@ final matchProvider = StreamProvider.family<MatchModel?, String>((ref, id) {
 final ballEventsProvider =
     StreamProvider.family<List<BallEventModel>, String>((ref, matchId) {
   return ref.watch(matchRepositoryProvider).watchBallEvents(matchId);
+});
+
+final matchRevisionsProvider =
+    StreamProvider.family<List<MatchRevisionModel>, String>((ref, matchId) {
+  return ref
+      .watch(matchTargetRevisionRepositoryProvider)
+      .watchMatchRevisions(matchId);
 });
 
 final webrtcSignalingProvider = Provider((ref) => WebrtcSignalingService());

@@ -5,7 +5,9 @@ async function notifyMatchTopic(matchId, title, body, data = {}) {
     await getMessaging().send({
       topic: `match_${matchId}`,
       notification: { title, body },
-      data: { matchId, ...data },
+      data: { matchId, ...Object.fromEntries(
+        Object.entries(data).map(([k, v]) => [k, v == null ? '' : String(v)]),
+      ) },
     });
   } catch (err) {
     console.warn('FCM topic send failed:', err.message);
@@ -19,7 +21,10 @@ async function createUserNotification(db, userId, payload) {
     title: payload.title,
     body: payload.body,
     matchId: payload.matchId || null,
+    teamId: payload.teamId || null,
+    type: payload.type || null,
     read: false,
+    isRead: false,
     createdAt: new Date().toISOString(),
   });
 }

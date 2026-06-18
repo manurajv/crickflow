@@ -115,20 +115,65 @@ class InningsCompletionPolicy {
   }
 
   static bool isInningsComplete(MatchModel match, InningsModel inn) {
+    if (inn.status == InningsStatus.completed) return true;
     if (isTargetReached(match, inn)) return true;
     if (isAllOut(match, inn)) return true;
     if (isOversComplete(match, inn)) return true;
     return false;
   }
 
+  static InningsEndReason? _storedEndReason(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    return switch (raw.trim().toLowerCase()) {
+      'all_out' || 'allout' => InningsEndReason.allOut,
+      'declared' || 'declare' => InningsEndReason.declared,
+      'penalty' => InningsEndReason.manuallyEnded,
+      'manually_ended' || 'manuallyended' => InningsEndReason.manuallyEnded,
+      _ => InningsEndReason.manuallyEnded,
+    };
+  }
+
   static InningsEndReason? endReason(MatchModel match, InningsModel inn) {
+    if (inn.status == InningsStatus.completed) {
+      final stored = _storedEndReason(inn.endReason);
+      if (stored != null) return stored;
+    }
     if (isTargetReached(match, inn)) return InningsEndReason.targetReached;
     if (isAllOut(match, inn)) return InningsEndReason.allOut;
     if (isOversComplete(match, inn)) return InningsEndReason.oversComplete;
     return null;
   }
 
+  /// Label shown only when the scorer manually ended the innings.
   static String endReasonLabel(MatchModel match, InningsModel inn) {
+    if (inn.status != InningsStatus.completed) return '';
+    final raw = inn.endReason?.trim().toLowerCase();
+    if (raw == null || raw.isEmpty) return '';
+
+    return switch (raw) {
+      'penalty' => () {
+        if (inn.penaltyReason.isNotEmpty) {
+          return 'Penalty (${inn.penaltyReason})';
+        }
+        if (inn.penaltyRuns != 0) {
+          final sign = inn.penaltyRuns > 0 ? '+' : '';
+          return 'Penalty $sign${inn.penaltyRuns} runs';
+        }
+        return 'Penalty applied';
+      }(),
+      'declared' || 'declare' => 'Declared',
+      'all_out' || 'allout' => 'All out',
+      'manually_ended' || 'manuallyended' => 'Innings ended',
+      _ => 'Innings ended',
+    };
+  }
+
+  /// Full completion reason for scorer dialogs (includes natural endings).
+  static String completionReasonLabel(MatchModel match, InningsModel inn) {
+    if (inn.status == InningsStatus.completed) {
+      final manual = endReasonLabel(match, inn);
+      if (manual.isNotEmpty) return manual;
+    }
     return switch (endReason(match, inn)) {
       InningsEndReason.targetReached => 'Target reached',
       InningsEndReason.allOut => 'All out',
@@ -137,5 +182,18 @@ class InningsCompletionPolicy {
       InningsEndReason.declared => 'Declared',
       null => '',
     };
+  }
+
+  /// Score line with optional completion reason, e.g. `120/8 (15.0 Ov) · All out`.
+  static String scoreLineWithReason(
+    MatchModel match,
+    InningsModel inn, {
+    required String overs,
+  }) {
+    final base = '${inn.totalRuns}/${inn.totalWickets} ($overs Ov)';
+    if (inn.status != InningsStatus.completed) return base;
+    final reason = endReasonLabel(match, inn);
+    if (reason.isEmpty) return base;
+    return '$base · $reason';
   }
 }

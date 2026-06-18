@@ -73,6 +73,7 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
   EndInningsOption _option = EndInningsOption.allOut;
   bool _considerAllOvers = true;
   int _penaltyRuns = 0;
+  bool _penaltyReasonMissing = false;
   final _penaltyReasonCtrl = TextEditingController();
   final _penaltyRunsCtrl = TextEditingController(text: '0');
   bool _busy = false;
@@ -100,12 +101,13 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
     if (_option == EndInningsOption.penaltyRuns &&
         _penaltyRuns != 0 &&
         _penaltyReasonCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Penalty reason is required')),
-      );
+      setState(() => _penaltyReasonMissing = true);
       return;
     }
-    setState(() => _busy = true);
+    setState(() {
+      _penaltyReasonMissing = false;
+      _busy = true;
+    });
     try {
       await widget.onConfirm(
         EndInningsResult(
@@ -118,6 +120,8 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
         ),
       );
       if (mounted) Navigator.pop(context);
+    } catch (_) {
+      // Error surfaced by caller.
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -222,9 +226,22 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
               ),
               TextField(
                 controller: _penaltyReasonCtrl,
-                decoration: const InputDecoration(
+                onChanged: (_) {
+                  if (_penaltyReasonMissing &&
+                      _penaltyReasonCtrl.text.trim().isNotEmpty) {
+                    setState(() => _penaltyReasonMissing = false);
+                  }
+                },
+                decoration: InputDecoration(
                   labelText: 'Reason',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  errorText: _penaltyReasonMissing ? 'Reason is required' : null,
+                  focusedErrorBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE53935)),
+                  ),
+                  errorBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE53935)),
+                  ),
                 ),
               ),
             ],
@@ -272,7 +289,12 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
             : AppColors.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          onTap: () => setState(() => _option = option),
+          onTap: () => setState(() {
+            _option = option;
+            if (option != EndInningsOption.penaltyRuns) {
+              _penaltyReasonMissing = false;
+            }
+          }),
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(14),

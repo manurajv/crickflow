@@ -74,6 +74,12 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/notifications'),
           ),
           ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Notification Settings'),
+            subtitle: const Text('Team and follow preferences'),
+            onTap: () => context.push('/settings/notifications'),
+          ),
+          ListTile(
             leading: const Icon(Icons.cloud_sync),
             title: const Text('Offline Sync'),
             subtitle: const Text('Firestore persistence enabled'),

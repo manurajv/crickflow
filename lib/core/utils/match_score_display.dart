@@ -4,6 +4,7 @@ import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../domain/scoring/match_completion_policy.dart';
+import '../../domain/display/match_revision_display.dart';
 import 'overs_formatter.dart';
 
 /// First innings totals shown during the break / chase.
@@ -57,10 +58,19 @@ class MatchScoreDisplay {
       teamName(match, inn.bowlingTeamId);
 
   /// Score string for a team from whichever innings they batted (latest).
-  static String? scoreForTeam(MatchModel match, String? teamId) {
+  static String? scoreForTeam(
+    MatchModel match,
+    String? teamId, {
+    bool showManualEndReason = true,
+  }) {
     final inn = inningsBattingTeam(match, teamId);
     if (inn == null) return null;
-    return '${inn.totalRuns}/${inn.totalWickets}';
+    final base = '${inn.totalRuns}/${inn.totalWickets}';
+    if (showManualEndReason && inn.status == InningsStatus.completed) {
+      final reason = InningsCompletionPolicy.endReasonLabel(match, inn);
+      if (reason.isNotEmpty) return '$base · $reason';
+    }
+    return base;
   }
 
   static InningsModel? inningsBattingTeam(MatchModel match, String? teamId) {
@@ -88,7 +98,8 @@ class MatchScoreDisplay {
   /// e.g. "Team A won by 12 runs" — for completed match cards.
   static String? completedResultLine(MatchModel match) {
     if (match.status != MatchStatus.completed) return null;
-    return MatchCompletionPolicy.compute(match).summary;
+    final base = MatchCompletionPolicy.compute(match).summary;
+    return MatchRevisionDisplay.completedResultWithDlsNote(match, base);
   }
 
   static bool isFirstInningsComplete(MatchModel match) {
@@ -162,11 +173,29 @@ class MatchScoreDisplay {
     final cur = match.currentInnings;
     if (first == null) {
       if (cur == null) return null;
-      return '${battingTeamName(match, cur)} ${cur.totalRuns}/${cur.totalWickets}';
+      final base =
+          '${battingTeamName(match, cur)} ${cur.totalRuns}/${cur.totalWickets}';
+      if (cur.status == InningsStatus.completed) {
+        final reason = InningsCompletionPolicy.endReasonLabel(match, cur);
+        if (reason.isNotEmpty) return '$base · $reason';
+      }
+      return base;
     }
 
+    final firstInn = firstInnings(match);
+    final firstScore = firstInn != null &&
+            firstInn.status == InningsStatus.completed
+        ? () {
+            final reason =
+                InningsCompletionPolicy.endReasonLabel(match, firstInn);
+            return reason.isNotEmpty
+                ? '1st inn ${first.runs}/${first.wickets} · $reason'
+                : '1st inn ${first.runs}/${first.wickets}';
+          }()
+        : '1st inn ${first.runs}/${first.wickets}';
+
     final parts = <String>[
-      '1st inn ${first.runs}/${first.wickets}',
+      firstScore,
       'RR ${first.runRate.toStringAsFixed(2)}',
       'Target ${first.target}',
     ];
