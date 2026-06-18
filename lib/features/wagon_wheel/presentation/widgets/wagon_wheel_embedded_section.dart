@@ -16,14 +16,16 @@ class WagonWheelEmbeddedSection extends ConsumerStatefulWidget {
     super.key,
     required this.title,
     required this.baseFilter,
-    required this.fullViewTitle,
+    required     this.fullViewTitle,
     this.showWhenEmpty = true,
+    this.batterBattingStyle,
   });
 
   final String title;
   final WagonWheelFilter baseFilter;
   final String fullViewTitle;
   final bool showWhenEmpty;
+  final String? batterBattingStyle;
 
   @override
   ConsumerState<WagonWheelEmbeddedSection> createState() =>
@@ -152,6 +154,9 @@ class _WagonWheelEmbeddedSectionState
                 WagonWheelChart(
                   shots: data.shots,
                   insights: data.insights,
+                  filter: _filter,
+                  leftHandedByBatterId: data.leftHandedByBatterId,
+                  batterBattingStyle: widget.batterBattingStyle,
                   compact: true,
                 ),
                 if (data.shots.isNotEmpty) ...[

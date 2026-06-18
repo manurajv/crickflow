@@ -2,20 +2,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/match_model.dart';
 import '../../domain/wagon_wheel/wagon_wheel_analytics_service.dart';
+import '../../domain/wagon_wheel/wagon_wheel_batting_orientation.dart';
 import '../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import 'providers.dart';
 
 final wagonWheelAnalyticsServiceProvider =
     Provider((ref) => WagonWheelAnalyticsService());
 
+/// Player batting style for enriching handedness lookup on batter-filtered views.
+final wagonWheelPlayerBattingStyleProvider =
+    FutureProvider.family<String?, String>((ref, playerId) async {
+  final player = await ref.read(playerRepositoryProvider).getPlayer(playerId);
+  return player?.battingStyle;
+});
+
 class WagonWheelAnalyticsData {
   const WagonWheelAnalyticsData({
     this.shots = const [],
     this.insights = const WagonWheelInsights(),
+    this.leftHandedByBatterId = const {},
   });
 
   final List<WagonWheelShotPoint> shots;
   final WagonWheelInsights insights;
+  final Map<String, bool> leftHandedByBatterId;
 }
 
 final wagonWheelAnalyticsProvider = Provider.family<
@@ -36,9 +46,31 @@ final wagonWheelAnalyticsProvider = Provider.family<
     matches: scopedMatches,
     filter: filter,
   );
-  final insights = service.buildInsights(shots);
 
-  return WagonWheelAnalyticsData(shots: shots, insights: insights);
+  var leftHandedLookup =
+      WagonWheelBattingOrientation.leftHandedLookupFromMatches(scopedMatches);
+
+  if (filter.batterId != null) {
+    final profileStyle =
+        ref.watch(wagonWheelPlayerBattingStyleProvider(filter.batterId!)).valueOrNull;
+    leftHandedLookup = WagonWheelBattingOrientation.enrichLeftHandedLookup(
+      leftHandedLookup,
+      batterId: filter.batterId,
+      battingStyle: profileStyle,
+    );
+  }
+
+  final insights = service.buildInsights(
+    shots,
+    leftHandedLookup: leftHandedLookup,
+    fallbackBatterId: filter.batterId,
+  );
+
+  return WagonWheelAnalyticsData(
+    shots: shots,
+    insights: insights,
+    leftHandedByBatterId: leftHandedLookup,
+  );
 });
 
 List<MatchModel> _scopedMatches(

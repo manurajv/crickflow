@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'wagon_wheel_coordinate_mapper.dart';
 
@@ -27,11 +29,18 @@ class WagonWheelFieldGeometry {
 
   static const double pitchWidthFraction = 0.08;
   static const double pitchLengthFraction = 0.28;
-  static const double strikerCreasePitchFraction = 0.44;
+  static const double creaseInsetFraction = 0.14;
 
+  /// Striker end — top wicket on the pitch (bowler end is bottom).
   static double get strikerWicketYPercent =>
+      groundCenterYPercent -
+      pitchLengthFraction * 50 +
+      pitchLengthFraction * 100 * creaseInsetFraction;
+
+  static double get bowlerWicketYPercent =>
       groundCenterYPercent +
-      pitchLengthFraction * 50 * strikerCreasePitchFraction;
+      pitchLengthFraction * 50 -
+      pitchLengthFraction * 100 * creaseInsetFraction;
 
   // ── Boundary zones (normalized: 1.0 = boundary rope radius) ──────────────
 
@@ -223,4 +232,14 @@ class WagonWheelFieldGeometry {
         6 => 'Mark where the six landed — beyond the boundary rope.',
         _ => 'Tap or drag to mark where the ball landed.',
       };
+
+  /// Default scorer marker — down-left toward mid-off (striker at top, RHB view).
+  static Offset defaultMidOffMarker(int batsmanRuns, [Size? fieldSize]) {
+    final size = fieldSize ?? WagonWheelCoordinateMapper.referenceSize;
+    final mapper = WagonWheelCoordinateMapper(size);
+    const angle = math.pi * 0.72;
+    final distance = mapper.maxInsideDistancePixels(angle) * 0.58;
+    final raw = mapper.percentAlongStrikerRay(angle, distance);
+    return clampCoordinate(raw.dx, raw.dy, batsmanRuns, size);
+  }
 }

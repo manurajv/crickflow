@@ -45,9 +45,7 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
   @override
   void initState() {
     super.initState();
-    final initial = WagonWheelFieldGeometry.clampCoordinate(
-      62,
-      38,
+    final initial = WagonWheelFieldGeometry.defaultMidOffMarker(
       widget.batsmanRuns,
       _fieldSize,
     );

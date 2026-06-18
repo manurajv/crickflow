@@ -3,6 +3,7 @@ import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/wagon_wheel_data.dart';
+import 'wagon_wheel_batting_orientation.dart';
 import 'wagon_wheel_filter.dart';
 
 class WagonWheelShotPoint {
@@ -35,6 +36,7 @@ class WagonWheelInsights {
     this.boundaryCount = 0,
     this.offSidePercent = 0,
     this.legSidePercent = 0,
+    this.straightPercent = 0,
     this.boundaryPercent = 0,
     this.favoriteZone = '',
     this.mostCommonBoundaryRegion = '',
@@ -47,6 +49,7 @@ class WagonWheelInsights {
   final int boundaryCount;
   final double offSidePercent;
   final double legSidePercent;
+  final double straightPercent;
   final double boundaryPercent;
   final String favoriteZone;
   final String mostCommonBoundaryRegion;
@@ -122,26 +125,42 @@ class WagonWheelAnalyticsService {
     return points;
   }
 
-  WagonWheelInsights buildInsights(List<WagonWheelShotPoint> shots) {
+  /// All wagon wheel analytics use handedness-adjusted coordinates.
+  WagonWheelInsights buildInsights(
+    List<WagonWheelShotPoint> shots, {
+    Map<String, bool> leftHandedLookup = const {},
+    String? fallbackBatterId,
+    String? fallbackBattingStyle,
+  }) {
     if (shots.isEmpty) return const WagonWheelInsights();
 
     var offSide = 0;
     var legSide = 0;
+    var straight = 0;
     var boundaries = 0;
     final zoneCounts = <String, int>{};
 
     for (final shot in shots) {
-      if (shot.wagonWheel.x >= WagonWheelData.pitchCenterX) {
+      final coords = WagonWheelBattingOrientation.getAnalyticsCoordinates(
+        shot,
+        leftHandedLookup,
+        fallbackBatterId: fallbackBatterId,
+        fallbackBattingStyle: fallbackBattingStyle,
+      );
+
+      if (coords.dx < 40) {
         offSide++;
-      } else {
+      } else if (coords.dx > 60) {
         legSide++;
+      } else {
+        straight++;
       }
 
-      final isBoundary =
-          shot.batsmanRuns == 4 || shot.batsmanRuns == 6;
-      if (isBoundary) boundaries++;
+      if (shot.batsmanRuns == 4 || shot.batsmanRuns == 6) {
+        boundaries++;
+      }
 
-      final zone = _zoneLabel(shot.wagonWheel.x, shot.wagonWheel.y);
+      final zone = WagonWheelBattingOrientation.zoneLabel(coords.dx, coords.dy);
       zoneCounts[zone] = (zoneCounts[zone] ?? 0) + 1;
     }
 
@@ -155,7 +174,13 @@ class WagonWheelAnalyticsService {
         .toList();
     final boundaryZones = <String, int>{};
     for (final s in boundaryShots) {
-      final z = _zoneLabel(s.wagonWheel.x, s.wagonWheel.y);
+      final coords = WagonWheelBattingOrientation.getAnalyticsCoordinates(
+        s,
+        leftHandedLookup,
+        fallbackBatterId: fallbackBatterId,
+        fallbackBattingStyle: fallbackBattingStyle,
+      );
+      final z = WagonWheelBattingOrientation.zoneLabel(coords.dx, coords.dy);
       boundaryZones[z] = (boundaryZones[z] ?? 0) + 1;
     }
     final topBoundaryZone = boundaryZones.entries.isEmpty
@@ -182,6 +207,7 @@ class WagonWheelAnalyticsService {
       boundaryCount: boundaries,
       offSidePercent: total == 0 ? 0 : (offSide / total) * 100,
       legSidePercent: total == 0 ? 0 : (legSide / total) * 100,
+      straightPercent: total == 0 ? 0 : (straight / total) * 100,
       boundaryPercent: total == 0 ? 0 : (boundaries / total) * 100,
       favoriteZone: favorite,
       mostCommonBoundaryRegion: topBoundaryZone,
@@ -192,7 +218,6 @@ class WagonWheelAnalyticsService {
   }
 
   WagonWheelData? _wagonWheelFromEvent(BallEventModel event) {
-    // Parsed via fromMap in BallEventModel once field exists.
     return event.wagonWheel;
   }
 
@@ -208,19 +233,5 @@ class WagonWheelAnalyticsService {
       return event.batsmanRuns;
     }
     return event.batsmanRuns;
-  }
-
-  String _zoneLabel(double x, double y) {
-    final h = x < 40
-        ? 'Leg'
-        : x > 60
-            ? 'Off'
-            : 'Straight';
-    final v = y < 40
-        ? 'Fine'
-        : y > 60
-            ? 'Long'
-            : 'Mid';
-    return '$h $v';
   }
 }

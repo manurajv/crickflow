@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_analytics_service.dart';
+import '../../../../domain/wagon_wheel/wagon_wheel_batting_orientation.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_colors.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_coordinate_mapper.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_field_geometry.dart';
@@ -100,6 +101,7 @@ class WagonWheelRenderer {
     );
 
     _paintWicket(canvas, mapper.strikerWicketPixel);
+    _paintWicket(canvas, mapper.bowlerWicketPixel, dimmed: true);
   }
 
   static void paintShots(
@@ -107,6 +109,9 @@ class WagonWheelRenderer {
     Size size,
     List<WagonWheelShotPoint> shots, {
     int maxShots = 500,
+    Map<String, bool>? leftHandedByBatterId,
+    String? fallbackBatterId,
+    String? fallbackBattingStyle,
   }) {
     final mapper = WagonWheelCoordinateMapper(size);
     final origin = mapper.strikerWicketPixel;
@@ -120,10 +125,13 @@ class WagonWheelRenderer {
     final endpointPaint = Paint();
 
     for (final shot in renderShots) {
-      final end = mapper.percentToPixel(
-        shot.wagonWheel.x,
-        shot.wagonWheel.y,
+      final coords = WagonWheelBattingOrientation.getAnalyticsCoordinates(
+        shot,
+        leftHandedByBatterId ?? const {},
+        fallbackBatterId: fallbackBatterId,
+        fallbackBattingStyle: fallbackBattingStyle,
       );
+      final end = mapper.percentToPixel(coords.dx, coords.dy);
       final color = WagonWheelColors.forBatsmanRuns(shot.batsmanRuns);
       linePaint.color = color.withValues(
         alpha: WagonWheelFieldGeometry.shotLineOpacity,
@@ -198,7 +206,46 @@ class WagonWheelRenderer {
     );
   }
 
-  static void _paintWicket(Canvas canvas, Offset position) {
+  static void paintSideLabels(
+    Canvas canvas,
+    Size size, {
+    required bool leftHanded,
+  }) {
+    final labels = WagonWheelBattingOrientation.sideLabels(leftHanded: leftHanded);
+    final textStyle = TextStyle(
+      color: Colors.white.withValues(alpha: 0.72),
+      fontSize: size.width * 0.038,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.6,
+    );
+    _paintSideLabel(canvas, size, labels.left, Alignment.centerLeft, textStyle);
+    _paintSideLabel(canvas, size, labels.right, Alignment.centerRight, textStyle);
+  }
+
+  static void _paintSideLabel(
+    Canvas canvas,
+    Size size,
+    String text,
+    Alignment alignment,
+    TextStyle style,
+  ) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: size.width * 0.42);
+
+    final dx = alignment == Alignment.centerLeft
+        ? size.width * 0.04
+        : size.width - size.width * 0.04 - tp.width;
+    final dy = size.height * 0.46;
+    tp.paint(canvas, Offset(dx, dy));
+  }
+
+  static void _paintWicket(
+    Canvas canvas,
+    Offset position, {
+    bool dimmed = false,
+  }) {
     canvas.drawCircle(
       position,
       5,
@@ -209,13 +256,18 @@ class WagonWheelRenderer {
     canvas.drawCircle(
       position,
       3.5,
-      Paint()..color = WagonWheelFieldGeometry.wicketColor,
+      Paint()
+        ..color = dimmed
+            ? WagonWheelFieldGeometry.wicketColor.withValues(alpha: 0.55)
+            : WagonWheelFieldGeometry.wicketColor,
     );
     canvas.drawCircle(
       position,
       5,
       Paint()
-        ..color = WagonWheelFieldGeometry.wicketColor.withValues(alpha: 0.5)
+        ..color = WagonWheelFieldGeometry.wicketColor.withValues(
+          alpha: dimmed ? 0.25 : 0.5,
+        )
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
@@ -236,18 +288,25 @@ class WagonWheelRenderer {
   static void paintHeatmapMode(
     Canvas canvas,
     Size size,
-    List<WagonWheelShotPoint> shots,
-  ) {
+    List<WagonWheelShotPoint> shots, {
+    Map<String, bool>? leftHandedByBatterId,
+    String? fallbackBatterId,
+    String? fallbackBattingStyle,
+  }) {
     const grid = 12;
     final cellW = size.width / grid;
     final cellH = size.height / grid;
     final counts = List.generate(grid, (_) => List.filled(grid, 0));
 
     for (final shot in shots) {
-      final col =
-          (shot.wagonWheel.x / 100 * grid).floor().clamp(0, grid - 1);
-      final row =
-          (shot.wagonWheel.y / 100 * grid).floor().clamp(0, grid - 1);
+      final coords = WagonWheelBattingOrientation.getAnalyticsCoordinates(
+        shot,
+        leftHandedByBatterId ?? const {},
+        fallbackBatterId: fallbackBatterId,
+        fallbackBattingStyle: fallbackBattingStyle,
+      );
+      final col = (coords.dx / 100 * grid).floor().clamp(0, grid - 1);
+      final row = (coords.dy / 100 * grid).floor().clamp(0, grid - 1);
       counts[row][col]++;
     }
 
@@ -287,6 +346,11 @@ class WagonWheelFieldCanvas extends StatelessWidget {
     this.markerY,
     this.accentColor,
     this.maxWidth,
+    this.leftHandedByBatterId,
+    this.fallbackBatterId,
+    this.fallbackBattingStyle,
+    this.showSideLabels = false,
+    this.viewAsLeftHanded = false,
   });
 
   final List<WagonWheelShotPoint> shots;
@@ -294,6 +358,11 @@ class WagonWheelFieldCanvas extends StatelessWidget {
   final double? markerY;
   final Color? accentColor;
   final double? maxWidth;
+  final Map<String, bool>? leftHandedByBatterId;
+  final String? fallbackBatterId;
+  final String? fallbackBattingStyle;
+  final bool showSideLabels;
+  final bool viewAsLeftHanded;
 
   @override
   Widget build(BuildContext context) {
@@ -313,6 +382,11 @@ class WagonWheelFieldCanvas extends StatelessWidget {
                 markerX: markerX,
                 markerY: markerY,
                 accentColor: accentColor,
+                leftHandedByBatterId: leftHandedByBatterId,
+                fallbackBatterId: fallbackBatterId,
+                fallbackBattingStyle: fallbackBattingStyle,
+                showSideLabels: showSideLabels,
+                viewAsLeftHanded: viewAsLeftHanded,
               ),
             ),
           ),
@@ -328,18 +402,42 @@ class _WagonWheelCanvasPainter extends CustomPainter {
     this.markerX,
     this.markerY,
     this.accentColor,
+    this.leftHandedByBatterId,
+    this.fallbackBatterId,
+    this.fallbackBattingStyle,
+    this.showSideLabels = false,
+    this.viewAsLeftHanded = false,
   });
 
   final List<WagonWheelShotPoint> shots;
   final double? markerX;
   final double? markerY;
   final Color? accentColor;
+  final Map<String, bool>? leftHandedByBatterId;
+  final String? fallbackBatterId;
+  final String? fallbackBattingStyle;
+  final bool showSideLabels;
+  final bool viewAsLeftHanded;
 
   @override
   void paint(Canvas canvas, Size size) {
     WagonWheelRenderer.paintGround(canvas, size);
     if (shots.isNotEmpty) {
-      WagonWheelRenderer.paintShots(canvas, size, shots);
+      WagonWheelRenderer.paintShots(
+        canvas,
+        size,
+        shots,
+        leftHandedByBatterId: leftHandedByBatterId,
+        fallbackBatterId: fallbackBatterId,
+        fallbackBattingStyle: fallbackBattingStyle,
+      );
+    }
+    if (showSideLabels) {
+      WagonWheelRenderer.paintSideLabels(
+        canvas,
+        size,
+        leftHanded: viewAsLeftHanded,
+      );
     }
     if (markerX != null && markerY != null && accentColor != null) {
       WagonWheelRenderer.paintSelectionPreview(
@@ -357,6 +455,11 @@ class _WagonWheelCanvasPainter extends CustomPainter {
     return oldDelegate.shots != shots ||
         oldDelegate.markerX != markerX ||
         oldDelegate.markerY != markerY ||
-        oldDelegate.accentColor != accentColor;
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.leftHandedByBatterId != leftHandedByBatterId ||
+        oldDelegate.fallbackBatterId != fallbackBatterId ||
+        oldDelegate.fallbackBattingStyle != fallbackBattingStyle ||
+        oldDelegate.showSideLabels != showSideLabels ||
+        oldDelegate.viewAsLeftHanded != viewAsLeftHanded;
   }
 }

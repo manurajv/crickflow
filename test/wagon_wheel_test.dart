@@ -7,6 +7,7 @@ import 'package:crickflow/data/models/match_rules_model.dart';
 import 'package:crickflow/data/models/wagon_wheel_data.dart';
 import 'package:crickflow/domain/services/scoring_engine.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_analytics_service.dart';
+import 'package:crickflow/domain/wagon_wheel/wagon_wheel_batting_orientation.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_coordinate_mapper.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_eligibility.dart';
 import 'package:crickflow/domain/wagon_wheel/wagon_wheel_field_geometry.dart';
@@ -282,11 +283,21 @@ void main() {
       );
     });
 
-    test('striker wicket is below pitch centre', () {
+    test('striker wicket is above pitch centre (top end)', () {
       expect(
         WagonWheelFieldGeometry.strikerWicketYPercent,
+        lessThan(WagonWheelFieldGeometry.groundCenterYPercent),
+      );
+      expect(
+        WagonWheelFieldGeometry.bowlerWicketYPercent,
         greaterThan(WagonWheelFieldGeometry.groundCenterYPercent),
       );
+    });
+
+    test('default mid-off marker sits on off side (left) of pitch', () {
+      final marker = WagonWheelFieldGeometry.defaultMidOffMarker(1, _fieldSize);
+      expect(marker.dx, lessThan(WagonWheelFieldGeometry.groundCenterXPercent));
+      expect(marker.dy, greaterThan(WagonWheelFieldGeometry.strikerWicketYPercent));
     });
 
     test('same percent maps to same pixel ratio on any width', () {
@@ -346,6 +357,138 @@ void main() {
       );
       expect(foursOnly.length, 1);
       expect(foursOnly.first.batsmanRuns, 4);
+    });
+  });
+
+  group('WagonWheelBattingOrientation', () {
+    test('mirrors left-handed display coordinates around pitch centre', () {
+      final mirrored = WagonWheelBattingOrientation.displayCoordinate(
+        30,
+        55,
+        leftHanded: true,
+      );
+      expect(mirrored.dx, 70);
+      expect(mirrored.dy, 55);
+    });
+
+    test('side labels flip for left-handed view', () {
+      final rhb = WagonWheelBattingOrientation.sideLabels(leftHanded: false);
+      final lhb = WagonWheelBattingOrientation.sideLabels(leftHanded: true);
+      expect(rhb.left, 'OFF SIDE');
+      expect(rhb.right, 'LEG SIDE');
+      expect(lhb.left, 'LEG SIDE');
+      expect(lhb.right, 'OFF SIDE');
+    });
+
+    test('getAnalyticsCoordinates mirrors LHB shots', () {
+      final shot = WagonWheelShotPoint(
+        event: BallEventModel(
+          id: '1',
+          matchId: 'm1',
+          inningsNumber: 1,
+          overNumber: 0,
+          ballInOver: 1,
+          eventType: BallEventType.runs,
+          runs: 1,
+          batsmanRuns: 1,
+          strikerId: 'lhb1',
+        ),
+        wagonWheel: const WagonWheelData(x: 30, y: 55),
+        batsmanRuns: 1,
+        batterId: 'lhb1',
+        bowlerId: 'bow1',
+        battingTeamId: 't1',
+        matchId: 'm1',
+        inningsNumber: 1,
+        timestamp: null,
+      );
+      final coords = WagonWheelBattingOrientation.getAnalyticsCoordinates(
+        shot,
+        const {'lhb1': true},
+      );
+      expect(coords.dx, 70);
+      expect(coords.dy, 55);
+    });
+
+    test('analytics classify off side using adjusted coordinates for RHB', () {
+      final service = WagonWheelAnalyticsService();
+      final shots = [
+        WagonWheelShotPoint(
+          event: BallEventModel(
+            id: '1',
+            matchId: 'm1',
+            inningsNumber: 1,
+            overNumber: 0,
+            ballInOver: 1,
+            eventType: BallEventType.runs,
+            runs: 4,
+            batsmanRuns: 4,
+            strikerId: 'b1',
+          ),
+          wagonWheel: const WagonWheelData(x: 35, y: 50),
+          batsmanRuns: 4,
+          batterId: 'b1',
+          bowlerId: 'bow1',
+          battingTeamId: 't1',
+          matchId: 'm1',
+          inningsNumber: 1,
+          timestamp: null,
+        ),
+      ];
+      final insights = service.buildInsights(
+        shots,
+        leftHandedLookup: const {'b1': false},
+      );
+      expect(insights.offSidePercent, 100);
+      expect(insights.legSidePercent, 0);
+    });
+
+    test('LHB pull to square leg counts as leg side after mirror', () {
+      final service = WagonWheelAnalyticsService();
+      final shots = [
+        WagonWheelShotPoint(
+          event: BallEventModel(
+            id: '1',
+            matchId: 'm1',
+            inningsNumber: 1,
+            overNumber: 0,
+            ballInOver: 1,
+            eventType: BallEventType.runs,
+            runs: 4,
+            batsmanRuns: 4,
+            strikerId: 'lhb1',
+          ),
+          wagonWheel: const WagonWheelData(x: 30, y: 50),
+          batsmanRuns: 4,
+          batterId: 'lhb1',
+          bowlerId: 'bow1',
+          battingTeamId: 't1',
+          matchId: 'm1',
+          inningsNumber: 1,
+          timestamp: null,
+        ),
+      ];
+      final insights = service.buildInsights(
+        shots,
+        leftHandedLookup: const {'lhb1': true},
+      );
+      expect(insights.legSidePercent, 100);
+      expect(insights.offSidePercent, 0);
+    });
+
+    test('aggregate views hide side labels', () {
+      expect(
+        WagonWheelBattingOrientation.showSideLabels(
+          const WagonWheelFilter(matchId: 'm1'),
+        ),
+        isFalse,
+      );
+      expect(
+        WagonWheelBattingOrientation.showSideLabels(
+          const WagonWheelFilter(batterId: 'b1'),
+        ),
+        isTrue,
+      );
     });
   });
 }

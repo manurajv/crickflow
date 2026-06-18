@@ -28,6 +28,11 @@ class WagonWheelCoordinateMapper {
         size.height * WagonWheelFieldGeometry.strikerWicketYPercent / 100,
       );
 
+  Offset get bowlerWicketPixel => Offset(
+        size.width * WagonWheelFieldGeometry.strikerWicketXPercent / 100,
+        size.height * WagonWheelFieldGeometry.bowlerWicketYPercent / 100,
+      );
+
   Offset percentToPixel(double x, double y) => Offset(
         size.width * x / 100,
         size.height * y / 100,

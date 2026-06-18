@@ -39,7 +39,7 @@ Broadcast-style wagon wheel for CrickFlow: scorers mark shot direction on a top-
 | 17 | Bowler / team dedicated screens | ⏳ Pending | Providers exist; UI entry points TBD |
 | 18 | Custom ground image asset | ⏳ Pending | `WagonWheelGroundRenderer` ready for image overlay |
 | 19 | Zone validation (1–3 inside, 4 rope, 6 outside) | ✅ Done | `wagon_wheel_field_geometry.dart` |
-| 20 | Striker wicket line origin | ✅ Done | Lines from batsman end, not pitch centre |
+| 20 | Striker wicket line origin | ✅ Done | Lines from top (striker) end; bowler end at bottom |
 | 21 | Pitch length + boundary visuals | ✅ Done | ~33% shorter pitch; dark outside ground |
 | 22 | Six line emphasis | ✅ Superseded | Phase 3: uniform line style for all runs |
 | 23 | Uniform shot lines (colour only) | ✅ Done | `shotLineWidth`, `shotEndpointRadius` |
@@ -48,6 +48,7 @@ Broadcast-style wagon wheel for CrickFlow: scorers mark shot direction on a top-
 | 26b | Six manual placement outside boundary only | ✅ Done | Inside taps snap along angle |
 | 26 | Shared `WagonWheelRenderer` + fixed aspect | ✅ Done | No drift between screens |
 | 27 | Simplified full-view filters | ✅ Done | Batter/bowler/team/innings/runs only |
+| 28 | LHB display mirror + off/leg labels | ✅ Done | `wagon_wheel_batting_orientation.dart` |
 | 23 | AI / CV auto-detection | ⏳ Future | Schema supports `source`, `confidence` |
 | 24 | Dot ball / wicket wagon wheel | ⏳ Future | Eligibility hooks ready |
 | 25 | Advanced filters (PP, death, spin vs pace) | ⏳ Future | Filter model extensible |
@@ -102,6 +103,7 @@ Coordinates are **always percentages** (0–100), never pixels. Pitch centre: `(
 | Field geometry | `lib/domain/wagon_wheel/wagon_wheel_field_geometry.dart` |
 | Ground renderer | `lib/features/wagon_wheel/presentation/widgets/wagon_wheel_ground_renderer.dart` |
 | Analytics | `lib/domain/wagon_wheel/wagon_wheel_analytics_service.dart` |
+| Handedness coords | `lib/domain/wagon_wheel/wagon_wheel_batting_orientation.dart` |
 | Selection UI | `lib/features/wagon_wheel/presentation/wagon_wheel_selection_sheet.dart` |
 | Painter | `lib/features/wagon_wheel/presentation/widgets/wagon_wheel_ground_painter.dart` |
 | Full view | `lib/features/wagon_wheel/presentation/wagon_wheel_view_screen.dart` |

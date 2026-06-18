@@ -104,6 +104,7 @@ class PlayerDetailScreen extends ConsumerWidget {
                 title: 'Batting wagon wheel',
                 fullViewTitle: '${player.name} — batting',
                 baseFilter: WagonWheelFilter(batterId: playerId),
+                batterBattingStyle: player.battingStyle,
               ),
               if (player.stats.wickets > 0) ...[
                 const SizedBox(height: AppDimens.spaceMd),

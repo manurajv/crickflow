@@ -103,6 +103,8 @@ class _WagonWheelViewScreenState extends ConsumerState<WagonWheelViewScreen> {
           WagonWheelChart(
             shots: data.shots,
             insights: data.insights,
+            filter: _filter,
+            leftHandedByBatterId: data.leftHandedByBatterId,
           ),
           const SizedBox(height: AppDimens.spaceSm),
           const WagonWheelRunLegend(),
@@ -125,6 +127,12 @@ class _WagonWheelViewScreenState extends ConsumerState<WagonWheelViewScreen> {
               'Leg side',
               '${data.insights.legSidePercent.toStringAsFixed(0)}%',
             ),
+            if (data.insights.straightPercent > 0)
+              _insightTile(
+                context,
+                'Straight',
+                '${data.insights.straightPercent.toStringAsFixed(0)}%',
+              ),
             if (data.insights.boundaryCount > 0)
               _insightTile(
                 context,
