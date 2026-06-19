@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/match_permissions.dart';
 import '../../../../core/utils/match_score_display.dart';
@@ -37,6 +38,7 @@ class MatchSummaryTab extends ConsumerWidget {
         if (match == null) {
           return const Center(child: Text('Match not found'));
         }
+        final cf = context.cf;
         final isLive = match.status == MatchStatus.live;
         final isBreak = match.status == MatchStatus.inningsBreak;
         final isCompleted = match.status == MatchStatus.completed;
@@ -140,18 +142,18 @@ class MatchSummaryTab extends ConsumerWidget {
             ],
             if (match.location.displayLabel.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.location_on, color: AppColors.gold),
+                leading: Icon(Icons.location_on, color: cf.info),
                 title: Text(match.location.displayLabel),
                 subtitle: Text(match.venue),
               ),
             if (!canManage)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
                 child: Card(
                   child: ListTile(
-                    leading: Icon(Icons.visibility, color: AppColors.gold),
-                    title: Text('Spectator view'),
-                    subtitle: Text(
+                    leading: Icon(Icons.visibility, color: cf.info),
+                    title: const Text('Spectator view'),
+                    subtitle: const Text(
                       'Use tabs for scorecard and highlights. Member mode in Profile to score.',
                     ),
                   ),
@@ -255,9 +257,9 @@ class MatchSummaryTab extends ConsumerWidget {
               Card(
                 margin: const EdgeInsets.all(AppDimens.spaceMd),
                 child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: AppColors.gold,
-                    child: Icon(Icons.star, color: Colors.black),
+                  leading: CircleAvatar(
+                    backgroundColor: cf.accent,
+                    child: Icon(Icons.star, color: cf.onAccent),
                   ),
                   title: Text('Match Hero: ${match.matchHero!.playerName}'),
                   subtitle: Text(match.matchHero!.reason),

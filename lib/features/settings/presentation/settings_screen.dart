@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/deep_link_utils.dart';
 import '../../../shared/providers/providers.dart';
+import 'widgets/appearance_theme_section.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -62,6 +63,8 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          const AppearanceThemeSection(),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Profile'),

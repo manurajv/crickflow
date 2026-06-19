@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../data/models/team_model.dart';
 import '../../../../shared/providers/team_players_provider.dart';
@@ -29,6 +29,7 @@ class TeamSquadPlayerCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
     final theme = Theme.of(context);
     final fullNameAsync = ref.watch(playerSquadFullNameProvider(player));
     final fullName = fullNameAsync.valueOrNull ?? TeamSquadUtils.squadFullName(player);
@@ -43,11 +44,7 @@ class TeamSquadPlayerCard extends ConsumerWidget {
         horizontal: AppDimens.spaceMd,
         vertical: 5,
       ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.65)),
-      ),
+      decoration: cfCardDecoration(context),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -91,7 +88,7 @@ class TeamSquadPlayerCard extends ConsumerWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.primaryBlueLight,
+                            color: cf.info,
                             fontSize: 13,
                           ),
                         ),
@@ -101,9 +98,9 @@ class TeamSquadPlayerCard extends ConsumerWidget {
                 ),
                 if (isOwnerViewer && onOwnerMenu != null)
                   PopupMenuButton<String>(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.more_vert,
-                      color: AppColors.textSecondary,
+                      color: cf.textSecondary,
                       size: 20,
                     ),
                     padding: EdgeInsets.zero,
@@ -170,6 +167,7 @@ class _CopyablePlayerId extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return GestureDetector(
       onTap: () async {
         await Clipboard.setData(ClipboardData(text: playerId));
@@ -188,10 +186,10 @@ class _CopyablePlayerId extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.textMuted,
+              color: cf.textMuted,
               letterSpacing: 0.4,
               decoration: TextDecoration.underline,
-              decorationColor: AppColors.textMuted.withValues(alpha: 0.5),
+              decorationColor: cf.textMuted.withValues(alpha: 0.5),
             ),
       ),
     );
@@ -215,6 +213,7 @@ class _PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SizedBox(
       width: 58,
       height: 58,
@@ -223,7 +222,7 @@ class _PlayerAvatar extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 29,
-            backgroundColor: AppColors.primaryBlue,
+            backgroundColor: CfColors.primaryBlue,
             backgroundImage: player.photoUrl != null
                 ? CachedNetworkImageProvider(player.photoUrl!)
                 : null,
@@ -239,22 +238,28 @@ class _PlayerAvatar extends StatelessWidget {
                 : null,
           ),
           if (isOwner)
-            const Positioned(
+            Positioned(
               left: -2,
               bottom: -2,
-              child: _CircleBadge(label: 'O', color: AppColors.gold),
+              child: _CircleBadge(label: 'O', color: cf.accent),
             ),
           if (isCaptain)
-            const Positioned(
+            Positioned(
               right: -2,
               bottom: -2,
-              child: _CircleBadge(label: 'C', color: AppColors.primaryBlue),
+              child: _CircleBadge(
+                label: 'C',
+                color: CfColors.primaryBlue,
+              ),
             )
           else if (isViceCaptain)
-            const Positioned(
+            Positioned(
               right: -2,
               bottom: -2,
-              child: _CircleBadge(label: 'VC', color: AppColors.primaryBlue),
+              child: _CircleBadge(
+                label: 'VC',
+                color: CfColors.primaryBlue,
+              ),
             ),
         ],
       ),
@@ -270,6 +275,7 @@ class _CircleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final compact = label.length > 1;
     return Container(
       width: compact ? 22 : 20,
@@ -278,12 +284,12 @@ class _CircleBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.surfaceElevated, width: 2),
+        border: Border.all(color: cf.surfaceElevated, width: 2),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: label == 'O' ? Colors.black : Colors.white,
+          color: label == 'O' ? cf.onAccent : Colors.white,
           fontSize: compact ? 9 : 10,
           fontWeight: FontWeight.w800,
           height: 1,

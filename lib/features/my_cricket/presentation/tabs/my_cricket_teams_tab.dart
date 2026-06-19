@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../shared/providers/notification_provider.dart';
 import '../../../../shared/providers/my_player_provider.dart';
@@ -11,6 +11,7 @@ import '../../../teams/presentation/utils/teams_list_filter.dart';
 import '../../../teams/presentation/widgets/team_list_scope.dart';
 import '../../../teams/presentation/widgets/team_list_tile.dart';
 import '../../../teams/presentation/widgets/teams_list_toolbar.dart';
+import '../widgets/my_cricket_action_banner.dart';
 
 class MyCricketTeamsTab extends ConsumerStatefulWidget {
   const MyCricketTeamsTab({super.key});
@@ -55,25 +56,10 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          color: AppColors.surfaceElevated,
-          child: ListTile(
-            dense: true,
-            title: const Text('Want to create a team?'),
-            trailing: FilledButton(
-              onPressed: _openCreateTeam,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Create'),
-            ),
-          ),
-        ),
-        TeamsSearchBar(
-          query: _search,
-          debounceMs: 0,
-          onChanged: (v) => setState(() => _search = v),
+        MyCricketActionBanner(
+          title: 'Want to create a team?',
+          actionLabel: 'Create',
+          onAction: _openCreateTeam,
         ),
         TeamsScopeFilterBar(
           scope: _scope,
@@ -84,6 +70,11 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
             _country = c;
             _city = city;
           }),
+        ),
+        TeamsSearchBar(
+          query: _search,
+          debounceMs: 0,
+          onChanged: (v) => setState(() => _search = v),
         ),
         Expanded(
           child: RefreshIndicator(
@@ -129,7 +120,7 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
                   padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
                   itemCount: list.length,
                   separatorBuilder: (context, index) =>
-                      const Divider(height: 1, color: AppColors.border),
+                      Divider(height: 1, color: context.cf.border),
                   itemBuilder: (context, index) => TeamListTile(
                         team: list[index],
                         listScope: _scope,
@@ -171,6 +162,7 @@ class _EmptyTeamsState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cf = context.cf;
     final (title, subtitle) = hasFilters
         ? (
             'No teams match your filters',
@@ -203,7 +195,7 @@ class _EmptyTeamsState extends StatelessWidget {
           Icon(
             Icons.groups_outlined,
             size: 56,
-            color: AppColors.textSecondary.withValues(alpha: 0.45),
+            color: cf.textMuted.withValues(alpha: 0.6),
           ),
           const SizedBox(height: AppDimens.spaceMd),
           Text(
@@ -217,7 +209,7 @@ class _EmptyTeamsState extends StatelessWidget {
           Text(
             subtitle,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
+              color: cf.textSecondary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -226,8 +218,8 @@ class _EmptyTeamsState extends StatelessWidget {
             FilledButton(
               onPressed: onCreate,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: Colors.black,
+                backgroundColor: cf.accent,
+                foregroundColor: cf.onAccent,
               ),
               child: const Text('Create team'),
             ),

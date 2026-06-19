@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/match_permissions.dart';
 import '../../../../data/models/match_model.dart';
@@ -10,9 +10,10 @@ import '../../../../data/models/player_model.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/widgets/location_filter_bar.dart';
 import '../../../../shared/widgets/match_list_card.dart';
+import '../../../teams/presentation/utils/teams_list_filter.dart';
 import '../../my_cricket_filters.dart';
+import '../widgets/my_cricket_action_banner.dart';
 
 class MyCricketMatchesTab extends ConsumerStatefulWidget {
   const MyCricketMatchesTab({super.key});
@@ -24,22 +25,6 @@ class MyCricketMatchesTab extends ConsumerStatefulWidget {
 
 class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
   MyCricketListScope _scope = MyCricketListScope.yours;
-  String _country = '';
-  String _city = '';
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final profile = ref.read(currentUserProfileProvider).valueOrNull;
-      if (profile != null && !profile.location.isEmpty) {
-        setState(() {
-          _country = profile.location.country;
-          _city = profile.location.city;
-        });
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +34,15 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
     final player = ref.watch(myPlayerProvider).valueOrNull;
     final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
     final userTeamIds = userTeams.map((t) => t.id).toSet();
+    final memberTeamIds = TeamsListFilter.memberTeamIds(
+      teams: userTeams,
+      uid: uid,
+      player: player,
+    );
+    final networkTeamIds = TeamsListFilter.opponentTeamIds(
+      matches: matchesAsync.valueOrNull ?? [],
+      memberTeamIds: memberTeamIds,
+    );
     final canCreate = canCreateMatches(
       ref.watch(currentUserProfileProvider).valueOrNull?.role ??
           UserRole.organizer,
@@ -58,30 +52,12 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (canCreate)
-          Material(
-            color: AppColors.surfaceElevated,
-            child: ListTile(
-              dense: true,
-              title: const Text('Want to start a match?'),
-              trailing: FilledButton(
-                onPressed: () => context.push('/match/create'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
-                ),
-                child: const Text('Start'),
-              ),
-            ),
+          MyCricketActionBanner(
+            title: 'Want to start a match?',
+            actionLabel: 'Start',
+            onAction: () => context.push('/match/create'),
           ),
-        _scopeChips(),
-        LocationFilterBar(
-          initialCountry: _country,
-          initialCity: _city,
-          onFilterChanged: (c, city) => setState(() {
-            _country = c;
-            _city = city;
-          }),
-        ),
+        _scopeChips(context),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async => ref.invalidate(matchesProvider),
@@ -92,6 +68,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                   uid: uid,
                   player: player,
                   userTeamIds: userTeamIds,
+                  networkTeamIds: networkTeamIds,
                 );
                 if (search.isNotEmpty) {
                   final q = search.toLowerCase();
@@ -106,13 +83,26 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                 }
                 if (list.isEmpty) {
                   return ListView(
-                    children: const [
-                      SizedBox(height: 48),
-                      Center(child: Text('No matches in this filter')),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      MatchListEmptyState(
+                        message: 'No matches found',
+                        onCreateMatch: canCreate
+                            ? () => context.push('/match/create')
+                            : null,
+                        onClearFilters: search.isNotEmpty
+                            ? () {
+                                ref
+                                    .read(myCricketSearchProvider.notifier)
+                                    .state = '';
+                              }
+                            : null,
+                      ),
                     ],
                   );
                 }
                 return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 16),
                   itemCount: list.length,
                   itemBuilder: (_, i) => MatchListCard(match: list[i]),
@@ -128,7 +118,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
     );
   }
 
-  Widget _scopeChips() {
+  Widget _scopeChips(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(
@@ -139,11 +129,13 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
       ),
       child: Row(
         children: [
-          _scopeChip('Your', MyCricketListScope.yours),
+          _scopeChip(context, 'Your', MyCricketListScope.yours),
           const SizedBox(width: AppDimens.spaceXs),
-          _scopeChip('Played', MyCricketListScope.played),
+          _scopeChip(context, 'Played', MyCricketListScope.played),
           const SizedBox(width: AppDimens.spaceXs),
-          _scopeChip('All', MyCricketListScope.all),
+          _scopeChip(context, 'Network', MyCricketListScope.network),
+          const SizedBox(width: AppDimens.spaceXs),
+          _scopeChip(context, 'All', MyCricketListScope.all),
         ],
       ),
     );
@@ -154,30 +146,45 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
     String? uid,
     PlayerModel? player,
     required Set<String> userTeamIds,
+    required Set<String> networkTeamIds,
   }) {
-    return matches.where((m) {
-      if (!locationMatchesFilter(m.location, _country, _city)) return false;
-      return filterMatchByScope(
-        m,
-        _scope,
-        uid: uid,
-        player: player,
-        userTeamIds: userTeamIds,
-      );
-    }).toList();
+    return matches
+        .where(
+          (m) => filterMatchByScope(
+            m,
+            _scope,
+            uid: uid,
+            player: player,
+            userTeamIds: userTeamIds,
+            networkTeamIds: networkTeamIds,
+          ),
+        )
+        .toList();
   }
 
-  Widget _scopeChip(String label, MyCricketListScope scope) {
+  Widget _scopeChip(
+    BuildContext context,
+    String label,
+    MyCricketListScope scope,
+  ) {
+    final cf = context.cf;
     final selected = _scope == scope;
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => setState(() => _scope = scope),
-      selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
-      checkmarkColor: AppColors.gold,
-      labelStyle: TextStyle(
-        color: selected ? AppColors.gold : AppColors.textSecondary,
-        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+    return Material(
+      color: selected ? cf.accent : cf.sectionBackground,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: () => setState(() => _scope = scope),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: selected ? cf.onAccent : cf.textSecondary,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+          ),
+        ),
       ),
     );
   }

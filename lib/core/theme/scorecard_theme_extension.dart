@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
-
-/// Scorecard-specific surfaces — registered on [ThemeData.extensions] so
-/// light/dark switches stay centralized in [AppTheme].
+/// Scorecard-specific surfaces — registered on [ThemeData.extensions].
 @immutable
 class ScorecardTheme extends ThemeExtension<ScorecardTheme> {
   const ScorecardTheme({
@@ -14,36 +11,27 @@ class ScorecardTheme extends ThemeExtension<ScorecardTheme> {
     required this.summaryRowBackground,
   });
 
-  /// Batter, bowler, fall-of-wicket, extras rows.
   final Color dataRowBackground;
-
-  /// Column header band (Batters, Bowlers, etc.).
   final Color sectionHeaderBackground;
-
-  /// Collapsed innings team header.
   final Color inningsHeaderBackground;
-
-  /// Expanded innings team header.
   final Color inningsHeaderExpandedBackground;
-
-  /// Total / emphasis summary band.
   final Color summaryRowBackground;
 
   static const dark = ScorecardTheme(
-    dataRowBackground: AppColors.card,
-    sectionHeaderBackground: AppColors.surface,
-    inningsHeaderBackground: AppColors.surface,
-    inningsHeaderExpandedBackground: AppColors.background,
-    summaryRowBackground: AppColors.card,
+    dataRowBackground: Color(0xFF1A2332),
+    sectionHeaderBackground: Color(0xFF141B2D),
+    inningsHeaderBackground: Color(0xFF141B2D),
+    inningsHeaderExpandedBackground: Color(0xFF0A0E17),
+    summaryRowBackground: Color(0xFF1A2332),
   );
 
-  /// Placeholder for future light theme — swap values in [AppTheme.lightTheme].
+  /// Clean white/grey scorecard rows for light mode.
   static const light = ScorecardTheme(
-    dataRowBackground: Color(0xFFF3F4F6),
-    sectionHeaderBackground: Color(0xFFE8EAED),
+    dataRowBackground: Color(0xFFFFFFFF),
+    sectionHeaderBackground: Color(0xFFF2F4F7),
     inningsHeaderBackground: Color(0xFFFFFFFF),
-    inningsHeaderExpandedBackground: Color(0xFFE8EAED),
-    summaryRowBackground: Color(0xFFF3F4F6),
+    inningsHeaderExpandedBackground: Color(0xFFFAFAFA),
+    summaryRowBackground: Color(0xFFF2F4F7),
   );
 
   @override

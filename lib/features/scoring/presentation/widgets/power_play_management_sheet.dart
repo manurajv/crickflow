@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/providers.dart';
@@ -137,6 +137,7 @@ class _PowerPlayManagementSheetState
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final inn = widget.match.currentInnings;
     final activeLabel = inn != null
         ? ScoringDisplayUtils.activePowerplayLabel(widget.match, inn)
@@ -157,8 +158,8 @@ class _PowerPlayManagementSheetState
                 ),
                 child: Text(
                   'Current Active Power Play: $activeLabel',
-                  style: const TextStyle(
-                    color: AppColors.gold,
+                  style: TextStyle(
+                    color: cf.accent,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

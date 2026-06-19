@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/player_profile_constants.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Searchable country picker with pinned cricket nations at the top.
 Future<CricketCountry?> showCountryPickerSheet(BuildContext context) {
+  final cf = context.cf;
+
   return showModalBottomSheet<CricketCountry>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: AppColors.surface,
+    backgroundColor: cf.card,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (ctx) => const _CountryPickerSheet(),
   );
@@ -53,6 +55,8 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
   Widget build(BuildContext context) {
     final items = _filtered;
     final showSectionHeader = _query.isEmpty && items.length > _pinnedCount;
+    final cf = context.cf;
+    final theme = Theme.of(context);
 
     return DraggableScrollableSheet(
       expand: false,
@@ -84,10 +88,10 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                         )
                       : null,
                   filled: true,
-                  fillColor: AppColors.surfaceElevated,
+                  fillColor: cf.sectionBackground,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: BorderSide(color: cf.border),
                   ),
                 ),
                 onChanged: (v) => setState(() => _query = v),
@@ -108,8 +112,8 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                       ),
                       child: Text(
                         'All countries',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: AppColors.textSecondary,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                              color: cf.textSecondary,
                             ),
                       ),
                     );
@@ -123,8 +127,8 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                     subtitle: Text(c.dialCode),
                     trailing: Text(
                       c.code,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                            color: cf.textMuted,
                           ),
                     ),
                     shape: RoundedRectangleBorder(

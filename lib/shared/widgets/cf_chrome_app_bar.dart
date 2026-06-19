@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/cf_colors.dart';
 import '../../core/theme/app_dimens.dart';
 
 /// Branded app bar — matches bottom navigation chrome (surface + border).
@@ -44,8 +44,8 @@ class CfChromeAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: centerTitle,
       actions: actions,
       bottom: bottom,
-      flexibleSpace: const DecoratedBox(
-        decoration: BoxDecoration(gradient: AppColors.appBarGradient),
+      flexibleSpace: DecoratedBox(
+        decoration: BoxDecoration(gradient: context.cf.appBarGradient),
       ),
     );
   }

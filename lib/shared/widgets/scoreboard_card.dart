@@ -26,7 +26,7 @@ class ScoreboardCard extends StatelessWidget {
         horizontal: AppDimens.spaceMd,
         vertical: AppDimens.spaceXs,
       ),
-      decoration: matchHeroCardDecoration(match),
+      decoration: matchHeroCardDecoration(match, context),
       child: Padding(
         padding: AppDimens.cardPadding,
         child: MatchCardContent(

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/cf_team_id_format.dart';
 import '../../../../core/utils/team_invite_utils.dart';
 import '../../../../data/models/team_model.dart';
@@ -70,15 +70,15 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final link = TeamInviteUtils.inviteLink(_team);
     final theme = Theme.of(context);
 
-    return Card(
-      elevation: 0,
-      color: AppColors.surfaceElevated,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: cf.sectionBackground,
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+        border: Border.all(color: cf.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spaceMd),
@@ -90,10 +90,10 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2),
-                  child: const Icon(
+                  backgroundColor: cf.accent.withValues(alpha: 0.12),
+                  child: Icon(
                     Icons.group_add_outlined,
-                    color: AppColors.primaryBlueLight,
+                    color: cf.accent,
                   ),
                 ),
                 const SizedBox(width: AppDimens.spaceMd),
@@ -105,13 +105,14 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
                         'Invite your squad',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w600,
+                          color: cf.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Share the link or QR — players can join ${_team.name} in CrickFlow.',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: cf.textSecondary,
                         ),
                       ),
                     ],
@@ -127,7 +128,7 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
                       height: 180,
                       child: Center(child: CircularProgressIndicator()),
                     )
-                  : TeamQrView(team: _team, size: 180),
+                  : TeamQrView(team: _team, size: 180, showTeamCode: false),
             ),
             if (_team.teamCode != null && _team.teamCode!.isNotEmpty) ...[
               const SizedBox(height: AppDimens.spaceSm),
@@ -135,7 +136,8 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
                 child: Text(
                   'Team ID · ${CfTeamIdFormat.displayLabel(_team.teamCode)}',
                   style: theme.textTheme.labelLarge?.copyWith(
-                    color: AppColors.gold,
+                    color: cf.link,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -148,11 +150,9 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
                 vertical: AppDimens.spaceSm,
               ),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: cf.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.border.withValues(alpha: 0.6),
-                ),
+                border: Border.all(color: cf.border),
               ),
               child: Row(
                 children: [
@@ -162,15 +162,14 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
+                        color: cf.textMuted,
                       ),
                     ),
                   ),
                   IconButton(
                     tooltip: 'Copy link',
                     onPressed: _copyLink,
-                    icon: const Icon(Icons.copy_outlined, size: 20),
-                    color: AppColors.primaryBlueLight,
+                    icon: Icon(Icons.copy_outlined, size: 20, color: cf.link),
                   ),
                 ],
               ),
@@ -185,8 +184,8 @@ class _TeamInviteShareCardState extends ConsumerState<TeamInviteShareCard> {
                     label: const Text('Share'),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 48),
-                      foregroundColor: AppColors.primaryBlueLight,
-                      side: const BorderSide(color: AppColors.primaryBlue),
+                      foregroundColor: cf.link,
+                      side: BorderSide(color: cf.accent.withValues(alpha: 0.55)),
                     ),
                   ),
                 ),

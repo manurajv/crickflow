@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 
@@ -111,6 +111,7 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final maxGridHeight = MediaQuery.sizeOf(context).height * 0.5;
 
     return SafeArea(
@@ -162,8 +163,8 @@ class _ScoringQuickOptionsSheetState extends State<ScoringQuickOptionsSheet> {
                 onPressed: () => setState(() => _expanded = !_expanded),
                 child: Text(
                   _expanded ? 'Show less' : 'Show more',
-                  style: const TextStyle(
-                    color: AppColors.gold,
+                  style: TextStyle(
+                    color: cf.link,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

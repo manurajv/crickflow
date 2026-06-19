@@ -79,24 +79,16 @@ class TeamsListFilter {
     if (q.isEmpty) return _sortByName(list);
 
     final qLower = q.toLowerCase();
-    final normalizedCode = CfTeamIdFormat.normalize(q);
 
     list = list.where((t) {
       if (t.name.toLowerCase().contains(qLower)) return true;
-      if (t.teamCode != null &&
-          CfTeamIdFormat.normalize(t.teamCode!) == normalizedCode) {
-        return true;
-      }
-      if (t.teamCode != null &&
-          t.teamCode!.toUpperCase().contains(normalizedCode)) {
-        return true;
-      }
+      if (CfTeamIdFormat.matchesPartialQuery(t.teamCode, q)) return true;
       if (t.location.city.toLowerCase().contains(qLower)) return true;
       if (t.location.country.toLowerCase().contains(qLower)) return true;
       return false;
     }).toList();
 
-    return _sortByName(list, queryPrefix: qLower);
+    return _sortByName(list, query: q, queryPrefix: qLower);
   }
 
   static List<String> distinctCities(
@@ -120,8 +112,14 @@ class TeamsListFilter {
   static List<TeamModel> _sortByName(
     List<TeamModel> list, {
     String queryPrefix = '',
+    String query = '',
   }) {
     list.sort((a, b) {
+      if (query.isNotEmpty) {
+        final aCode = CfTeamIdFormat.matchesPartialQuery(a.teamCode, query);
+        final bCode = CfTeamIdFormat.matchesPartialQuery(b.teamCode, query);
+        if (aCode != bCode) return aCode ? -1 : 1;
+      }
       if (queryPrefix.isNotEmpty) {
         final aStarts = a.name.toLowerCase().startsWith(queryPrefix);
         final bStarts = b.name.toLowerCase().startsWith(queryPrefix);

@@ -11,6 +11,16 @@ class AppDateUtils {
     return DateFormat('d MMM yyyy').format(date);
   }
 
+  /// Card header date — e.g. "12-Jun-26"
+  static String formatCardDate(DateTime date) {
+    return DateFormat('dd-MMM-yy').format(date);
+  }
+
+  /// Scheduled line — e.g. "12-Jun-26 at 08:00 PM"
+  static String formatCardSchedule(DateTime date) {
+    return '${formatCardDate(date)} at ${formatTime(date)}';
+  }
+
   /// Short day + date, no year. e.g. "Wed, 18 Jun"
   static String formatShortDay(DateTime date) {
     return DateFormat('EEE, d MMM').format(date);

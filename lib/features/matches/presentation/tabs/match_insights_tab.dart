@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../domain/services/match_insights_service.dart';
@@ -20,6 +21,7 @@ class MatchInsightsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
     final insights = ref.watch(matchInsightsProvider(matchId));
     final match = ref.watch(matchProvider(matchId)).valueOrNull;
     final revisions =
@@ -36,7 +38,7 @@ class MatchInsightsTab extends ConsumerWidget {
           Text(
             insights.resultLine!,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.gold,
+                  color: cf.scoreEmphasis,
                 ),
           ),
           const SizedBox(height: AppDimens.spaceMd),
@@ -190,6 +192,7 @@ class _LiveChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
       child: Row(
@@ -197,7 +200,7 @@ class _LiveChip extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppColors.liveIndicator,
+              color: cf.statusLive,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -270,21 +273,22 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF1A2744), AppColors.card],
+            colors: [const Color(0xFF1A2744), cf.card],
           ),
         ),
         padding: AppDimens.cardPadding,
         child: Row(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 28,
-              backgroundColor: AppColors.gold,
-              child: Icon(Icons.star, color: Colors.black, size: 28),
+              backgroundColor: cf.accent,
+              child: Icon(Icons.star, color: cf.onAccent, size: 28),
             ),
             const SizedBox(width: AppDimens.spaceMd),
             Expanded(
@@ -322,6 +326,7 @@ class _PerformerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Card(
       margin: const EdgeInsets.only(bottom: AppDimens.spaceXs),
       child: ListTile(
@@ -329,8 +334,8 @@ class _PerformerTile extends StatelessWidget {
         onTap: onTap,
         leading: CircleAvatar(
           radius: 18,
-          backgroundColor: AppColors.surfaceElevated,
-          child: Icon(icon, size: 18, color: AppColors.primaryBlueLight),
+          backgroundColor: cf.surfaceElevated,
+          child: Icon(icon, size: 18, color: cf.info),
         ),
         title: Text(
           performer.playerName,
@@ -345,7 +350,7 @@ class _PerformerTile extends StatelessWidget {
         trailing: Text(
           performer.impactScore.toStringAsFixed(0),
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.gold,
+                color: cf.scoreEmphasis,
               ),
         ),
       ),

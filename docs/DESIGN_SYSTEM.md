@@ -2,10 +2,16 @@
 
 ## Theme
 
-- **Mode:** Dark only (Phase 1)
-- **Style:** Sports broadcast / premium
+- **Modes:** Light (default) + Dark
+- **Switch:** Settings → Appearance
+- **Tokens:** `CfColors` on `ThemeData.extensions` — use `context.cf` in widgets
+- **Light typography:** Primary `#111111`, Secondary `#555555`, Hint `#999999`
+- **Light surfaces:** Background `#F6F7F9`, Cards `#FFFFFF`, Section `#FAFAFA`
+- **Light accents:** Blue for links/selected/actions — **no yellow text**
+- **Status chips:** LIVE `#D32F2F`, UPCOMING `#1565C0`, COMPLETED `#757575`
+- **Dark:** Broadcast-style gold accents (unchanged)
 
-## Colors
+## Colors (dark reference)
 
 | Token | Hex | Usage |
 |-------|-----|-------|

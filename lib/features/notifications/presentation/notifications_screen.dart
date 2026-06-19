@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/navigation/notification_navigation.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../data/models/notification_model.dart';
 import '../../../shared/providers/notification_provider.dart';
@@ -55,6 +55,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       body: notificationsAsync.when(
         data: (list) {
           if (list.isEmpty) {
+            final cf = context.cf;
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(AppDimens.spaceXl),
@@ -64,7 +65,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     Icon(
                       Icons.notifications_none_outlined,
                       size: 64,
-                      color: AppColors.textSecondary.withValues(alpha: 0.4),
+                      color: cf.textMuted.withValues(alpha: 0.4),
                     ),
                     const SizedBox(height: AppDimens.spaceMd),
                     Text(
@@ -78,7 +79,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       'Team join requests and match updates will appear here.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: cf.textSecondary,
                           ),
                     ),
                   ],
@@ -203,9 +204,10 @@ class _NotificationCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
     final n = notification;
     final theme = Theme.of(context);
-    final palette = _paletteForType(n.type);
+    final palette = _paletteForType(n.type, context);
     final actionLabel = n.actionLabel;
 
     return Material(
@@ -216,12 +218,12 @@ class _NotificationCard extends ConsumerWidget {
         child: Ink(
           decoration: BoxDecoration(
             color: n.read
-                ? AppColors.surfaceElevated
-                : AppColors.surfaceElevated.withValues(alpha: 0.98),
+                ? cf.surfaceElevated
+                : cf.surfaceElevated.withValues(alpha: 0.98),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: n.read
-                  ? AppColors.border.withValues(alpha: 0.55)
+                  ? cf.border.withValues(alpha: 0.55)
                   : palette.accent.withValues(alpha: 0.45),
             ),
             boxShadow: n.read
@@ -305,7 +307,7 @@ class _NotificationCard extends ConsumerWidget {
                             Text(
                               n.body,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
+                                color: cf.textSecondary,
                                 height: 1.35,
                               ),
                             ),
@@ -314,7 +316,7 @@ class _NotificationCard extends ConsumerWidget {
                               Text(
                                 AppDateUtils.timeAgo(n.createdAt!),
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppColors.textMuted,
+                                  color: cf.textMuted,
                                 ),
                               ),
                             ],
@@ -325,7 +327,7 @@ class _NotificationCard extends ConsumerWidget {
                                   Text(
                                     actionLabel,
                                     style: theme.textTheme.labelLarge?.copyWith(
-                                      color: AppColors.gold,
+                                      color: cf.link,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -333,7 +335,7 @@ class _NotificationCard extends ConsumerWidget {
                                   Icon(
                                     Icons.arrow_forward_ios,
                                     size: 12,
-                                    color: AppColors.gold.withValues(alpha: 0.9),
+                                    color: cf.link,
                                   ),
                                 ],
                               ),
@@ -347,9 +349,9 @@ class _NotificationCard extends ConsumerWidget {
                                   icon: const Icon(Icons.flag_outlined, size: 16),
                                   label: const Text('Report to admin'),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.accentRed,
+                                    foregroundColor: cf.error,
                                     side: BorderSide(
-                                      color: AppColors.accentRed.withValues(
+                                      color: cf.error.withValues(
                                         alpha: 0.6,
                                       ),
                                     ),
@@ -376,42 +378,43 @@ class _NotificationCard extends ConsumerWidget {
     );
   }
 
-  _NotificationPalette _paletteForType(String? type) {
+  _NotificationPalette _paletteForType(String? type, BuildContext context) {
+    final cf = context.cf;
     return switch (type) {
       'team_join_request' => _NotificationPalette(
           icon: Icons.group_add_outlined,
-          accent: AppColors.gold,
-          background: AppColors.gold.withValues(alpha: 0.12),
+          accent: cf.accent,
+          background: cf.accent.withValues(alpha: 0.12),
         ),
       'team_join_accepted' => _NotificationPalette(
           icon: Icons.check_circle_outline,
-          accent: AppColors.accentGreen,
-          background: AppColors.accentGreen.withValues(alpha: 0.12),
+          accent: cf.success,
+          background: cf.success.withValues(alpha: 0.12),
         ),
       'team_join_rejected' => _NotificationPalette(
           icon: Icons.cancel_outlined,
-          accent: AppColors.accentRed,
-          background: AppColors.accentRed.withValues(alpha: 0.12),
+          accent: cf.error,
+          background: cf.error.withValues(alpha: 0.12),
         ),
       'team_member_removed' => _NotificationPalette(
           icon: Icons.person_remove_outlined,
-          accent: AppColors.primaryBlueLight,
-          background: AppColors.primaryBlue.withValues(alpha: 0.15),
+          accent: cf.info,
+          background: CfColors.primaryBlue.withValues(alpha: 0.15),
         ),
       'team_member_added' => _NotificationPalette(
           icon: Icons.group_add_outlined,
-          accent: AppColors.primaryBlue,
-          background: AppColors.primaryBlue.withValues(alpha: 0.12),
+          accent: cf.accent,
+          background: cf.accent.withValues(alpha: 0.12),
         ),
       'admin_roster_report' => _NotificationPalette(
           icon: Icons.admin_panel_settings_outlined,
-          accent: AppColors.accentRed,
-          background: AppColors.accentRed.withValues(alpha: 0.12),
+          accent: cf.error,
+          background: cf.error.withValues(alpha: 0.12),
         ),
       _ => _NotificationPalette(
           icon: Icons.notifications_outlined,
-          accent: AppColors.primaryBlueLight,
-          background: AppColors.primaryBlue.withValues(alpha: 0.15),
+          accent: cf.info,
+          background: CfColors.primaryBlue.withValues(alpha: 0.15),
         ),
     };
   }

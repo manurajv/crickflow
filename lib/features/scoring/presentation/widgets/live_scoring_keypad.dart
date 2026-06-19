@@ -1,7 +1,7 @@
 import 'dart:math' show max;
 
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import 'scoring_extra_dialogs.dart';
 
 /// Extras row (bottom) + left column (UNDO / 5,7 / OUT) + run grid (0–6).
@@ -35,13 +35,14 @@ class LiveScoringKeypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final busyH = isBusy ? 3.0 : 0.0;
     final totalH = max(0.0, height);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         if (totalH < 1) {
-          return const ColoredBox(color: AppColors.card);
+          return ColoredBox(color: cf.card);
         }
 
         final colW =
@@ -83,13 +84,13 @@ class LiveScoringKeypad extends StatelessWidget {
 
         if (mainH < 20) {
           return ColoredBox(
-            color: AppColors.card,
+            color: cf.card,
             child: SizedBox(height: totalH),
           );
         }
 
         return ColoredBox(
-          color: AppColors.card,
+          color: cf.card,
           child: SizedBox(
             height: totalH,
             child: Column(
@@ -152,7 +153,7 @@ class LiveScoringKeypad extends StatelessWidget {
                                     onTap: () => onRun(4),
                                     w: colW,
                                     h: runRowH,
-                                    accent: AppColors.primaryBlue,
+                                    accent: cf.accent,
                                     sublabel: 'Four',
                                   ),
                                   SizedBox(width: _gap),
@@ -161,7 +162,9 @@ class LiveScoringKeypad extends StatelessWidget {
                                     onTap: () => onRun(6),
                                     w: colW,
                                     h: runRowH,
-                                    accent: AppColors.goldDark,
+                                    accent: cf.isLight
+                                        ? cf.scoreEmphasis
+                                        : CfColors.goldDark,
                                     sublabel: 'Six',
                                   ),
                                 ],
@@ -179,7 +182,7 @@ class LiveScoringKeypad extends StatelessWidget {
                               child: _Key(
                                 label: 'UNDO',
                                 onTap: onUndo,
-                                accent: AppColors.gold,
+                                accent: cf.accent,
                                 fontSize: 13,
                               ),
                             ),
@@ -200,7 +203,7 @@ class LiveScoringKeypad extends StatelessWidget {
                               child: _Key(
                                 label: 'OUT',
                                 onTap: onOut,
-                                accent: AppColors.accentRed,
+                                accent: cf.error,
                                 bold: true,
                                 fontSize: 14,
                               ),
@@ -255,9 +258,9 @@ class LiveScoringKeypad extends StatelessWidget {
                   ),
                 ),
                 if (isBusy)
-                  const LinearProgressIndicator(
+                  LinearProgressIndicator(
                     minHeight: 2,
-                    color: AppColors.primaryBlue,
+                    color: cf.accent,
                   ),
               ],
             ),
@@ -287,11 +290,12 @@ class _Key extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.surfaceElevated,
+      color: cf.surfaceElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: cf.border),
       ),
       child: InkWell(
         onTap: onTap,
@@ -309,7 +313,7 @@ class _Key extends StatelessWidget {
                         fontSize: fontSize,
                         fontWeight:
                             bold ? FontWeight.w800 : FontWeight.w700,
-                        color: accent ?? AppColors.textPrimary,
+                        color: accent ?? cf.textPrimary,
                       ),
                     )
                   : Column(
@@ -320,14 +324,14 @@ class _Key extends StatelessWidget {
                           style: TextStyle(
                             fontSize: fontSize,
                             fontWeight: FontWeight.w700,
-                            color: accent ?? AppColors.textPrimary,
+                            color: accent ?? cf.textPrimary,
                           ),
                         ),
                         Text(
                           sublabel!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 9,
-                            color: AppColors.textMuted,
+                            color: cf.textMuted,
                           ),
                         ),
                       ],

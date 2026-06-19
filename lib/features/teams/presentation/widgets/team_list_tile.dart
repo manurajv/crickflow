@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/team_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/team_join_request_provider.dart';
@@ -38,6 +38,7 @@ class TeamListTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
     final theme = Theme.of(context);
     final locationLine = _locationLine;
     final captainId = team.captainId;
@@ -98,7 +99,7 @@ class TeamListTile extends ConsumerWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.accentRed,
+                              color: cf.error,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -134,9 +135,9 @@ class TeamListTile extends ConsumerWidget {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 onPressed: () => showTeamInviteShareSheet(context, team),
-                icon: const Icon(
+                icon: Icon(
                   Icons.qr_code_2,
-                  color: AppColors.gold,
+                  color: cf.accent,
                   size: 24,
                 ),
               ),
@@ -176,6 +177,7 @@ class TeamLogoAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final logoUrl = team.profileImageUrl;
     final hasImage = logoUrl != null;
 
@@ -189,18 +191,18 @@ class TeamLogoAvatar extends StatelessWidget {
             : const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF1565C0), AppColors.primaryBlue],
+                colors: [Color(0xFF1565C0), CfColors.primaryBlue],
               ),
-        color: hasImage ? AppColors.surfaceElevated : null,
+        color: hasImage ? cf.surfaceElevated : null,
         border: Border.all(
           color: hasImage
-              ? AppColors.gold.withValues(alpha: 0.55)
-              : AppColors.primaryBlue.withValues(alpha: 0.6),
+              ? cf.accent.withValues(alpha: 0.55)
+              : CfColors.primaryBlue.withValues(alpha: 0.6),
           width: borderWidth,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
+            color: cf.cardShadow,
             blurRadius: 7,
             offset: const Offset(0, 2),
           ),
@@ -259,11 +261,12 @@ class _TeamMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final theme = Theme.of(context);
     return Row(
       children: [
         if (icon != null)
-          Icon(icon, size: 13, color: AppColors.textSecondary)
+          Icon(icon, size: 13, color: cf.textSecondary)
         else
           Container(
             width: 16,
@@ -271,12 +274,12 @@ class _TeamMetaRow extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.gold, width: 1),
+              border: Border.all(color: cf.accent, width: 1),
             ),
             child: Text(
               badgeLabel!,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.gold,
+                color: cf.accent,
                 fontWeight: FontWeight.w700,
                 fontSize: 10,
                 height: 1,
@@ -290,7 +293,7 @@ class _TeamMetaRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
+              color: cf.textSecondary,
             ),
           ),
         ),

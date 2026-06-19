@@ -3,8 +3,8 @@ import '../../data/models/match_model.dart';
 import '../../data/models/player_model.dart';
 import '../../data/models/tournament_model.dart';
 
-/// Your · Played · All filters for My Cricket tabs.
-enum MyCricketListScope { yours, played, all }
+/// Your · Played · Network · All filters for My Cricket tabs.
+enum MyCricketListScope { yours, played, network, all }
 
 bool userOwnsOrScoresMatch(MatchModel m, String? uid) {
   if (uid == null) return false;
@@ -32,6 +32,7 @@ bool filterMatchByScope(
   String? uid,
   PlayerModel? player,
   Set<String> userTeamIds = const {},
+  Set<String> networkTeamIds = const {},
 }) {
   switch (scope) {
     case MyCricketListScope.all:
@@ -51,6 +52,20 @@ bool filterMatchByScope(
             player: player,
             userTeamIds: userTeamIds,
           );
+    case MyCricketListScope.network:
+      if (userParticipatedInMatch(
+        m,
+        uid: uid,
+        player: player,
+        userTeamIds: userTeamIds,
+      )) {
+        return false;
+      }
+      final a = m.teamAId;
+      final b = m.teamBId;
+      if (a != null && networkTeamIds.contains(a)) return true;
+      if (b != null && networkTeamIds.contains(b)) return true;
+      return false;
   }
 }
 
@@ -81,5 +96,7 @@ bool filterTournamentByScope(
     case MyCricketListScope.played:
       return t.status == TournamentStatus.completed &&
           userParticipatedInTournament(t, uid: uid, userTeamIds: userTeamIds);
+    case MyCricketListScope.network:
+      return false;
   }
 }

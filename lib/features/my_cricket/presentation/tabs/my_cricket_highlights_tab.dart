@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/utils/date_utils.dart';
 import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../shared/widgets/match_list_card.dart';
+import '../widgets/my_cricket_action_banner.dart';
 
 /// Recent completed matches with quick links to highlights timeline.
 class MyCricketHighlightsTab extends ConsumerWidget {
@@ -21,27 +20,17 @@ class MyCricketHighlightsTab extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          color: AppColors.surfaceElevated,
-          child: ListTile(
-            dense: true,
-            title: const Text('AI-style highlight moments'),
-            subtitle: const Text('Boundaries & wickets from ball-by-ball scoring'),
-            trailing: FilledButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Open a completed match → Highlights tab'),
-                  ),
-                );
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
-                foregroundColor: Colors.white,
+        MyCricketActionBanner(
+          title: 'AI-style highlight moments',
+          subtitle: 'Boundaries & wickets from ball-by-ball scoring',
+          actionLabel: 'How it works',
+          onAction: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Open a completed match → Highlights tab'),
               ),
-              child: const Text('How it works'),
-            ),
-          ),
+            );
+          },
         ),
         Expanded(
           child: matchesAsync.when(
@@ -70,28 +59,12 @@ class MyCricketHighlightsTab extends ConsumerWidget {
               }
 
               return ListView.builder(
-                padding: const EdgeInsets.all(AppDimens.spaceMd),
+                padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
                 itemCount: list.length,
-                itemBuilder: (_, i) {
-                  final m = list[i];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: AppDimens.spaceSm),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: AppColors.primaryBlue,
-                        child: Icon(Icons.play_arrow, color: Colors.white),
-                      ),
-                      title: Text(m.title),
-                      subtitle: Text(
-                        '${m.teamAName} vs ${m.teamBName}'
-                        '${m.scheduledAt != null ? ' · ${AppDateUtils.formatShort(m.scheduledAt!)}' : ''}',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () =>
-                          context.push('/match/${m.id}/highlights'),
-                    ),
-                  );
-                },
+                itemBuilder: (_, i) => MatchListCard(
+                  match: list[i],
+                  showTournamentHeader: false,
+                ),
               );
             },
             loading: () =>

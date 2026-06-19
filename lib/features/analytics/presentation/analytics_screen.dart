@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/match_model.dart';
 import '../../../shared/providers/providers.dart';
@@ -160,16 +161,17 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     IconData icon, {
     Color? color,
   }) {
+    final cf = context.cf;
     return Card(
       margin: const EdgeInsets.only(bottom: AppDimens.spaceXs),
       child: ListTile(
         dense: true,
-        leading: Icon(icon, color: color ?? AppColors.gold, size: AppDimens.iconLg),
+        leading: Icon(icon, color: color ?? cf.accent, size: AppDimens.iconLg),
         title: Text(title),
         trailing: Text(
           value,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: AppColors.primaryBlueLight,
+                color: cf.info,
               ),
         ),
       ),

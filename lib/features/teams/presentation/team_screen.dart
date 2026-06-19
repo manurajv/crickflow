@@ -162,7 +162,6 @@ class _TeamsBrowseTab extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TeamsSearchBar(query: query, onChanged: onSearchChanged),
             TeamsScopeFilterBar(
               scope: scope,
               country: filterCountry,
@@ -170,6 +169,7 @@ class _TeamsBrowseTab extends ConsumerWidget {
               onScopeChanged: onScopeChanged,
               onLocationChanged: onFilterChanged,
             ),
+            TeamsSearchBar(query: query, onChanged: onSearchChanged),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async => ref.invalidate(allTeamsProvider),

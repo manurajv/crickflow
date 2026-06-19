@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
@@ -36,6 +36,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final striker = ScoringDisplayUtils.batsman(innings, innings.strikerId);
     final nonStriker =
         ScoringDisplayUtils.batsman(innings, innings.nonStrikerId);
@@ -49,10 +50,10 @@ class LiveScoringPlayersStrip extends StatelessWidget {
             vertical: 8,
             horizontal: AppDimens.spaceSm,
           ),
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceElevated,
+          decoration: BoxDecoration(
+            color: cf.surfaceElevated,
             border: Border(
-              bottom: BorderSide(color: AppColors.border, width: 0.5),
+              bottom: BorderSide(color: cf.border, width: 0.5),
             ),
           ),
           child: Row(
@@ -74,7 +75,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
               Container(
                 width: 1,
                 height: 44,
-                color: AppColors.border,
+                color: cf.border,
               ),
               Expanded(
                 child: _BatsmanCell(
@@ -95,7 +96,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
           ),
         ),
         Container(
-          color: AppColors.card,
+          color: cf.card,
           padding: const EdgeInsets.fromLTRB(
             AppDimens.spaceMd,
             AppDimens.spaceMd,
@@ -112,10 +113,10 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                   Expanded(
                     child: Text(
                       bowler?.playerName ?? 'Select bowler',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
-                        color: AppColors.textPrimary,
+                        color: cf.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -126,10 +127,10 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                       bowler,
                       rules.ballsPerOver,
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                      color: cf.textSecondary,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -208,8 +209,8 @@ class _BatsmanCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent =
-        isOnStrike ? AppColors.gold : AppColors.textMuted;
+    final cf = context.cf;
+    final accent = isOnStrike ? cf.scoreEmphasis : cf.textMuted;
 
     final content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -227,10 +228,10 @@ class _BatsmanCell extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
-                    color: AppColors.textPrimary,
+                    color: cf.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -238,18 +239,18 @@ class _BatsmanCell extends StatelessWidget {
                   children: [
                     Text(
                       score,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                        color: cf.textSecondary,
                       ),
                     ),
                     if (onReplace != null) ...[
                       Text(
                         ' · ',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textMuted,
+                          color: cf.textMuted,
                         ),
                       ),
                       _ReplaceLink(label: 'Replace', onTap: onReplace!),
@@ -257,9 +258,9 @@ class _BatsmanCell extends StatelessWidget {
                     if (onTap != null) ...[
                       Text(
                         ' · ',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textMuted,
+                          color: cf.textMuted,
                         ),
                       ),
                       _ReplaceLink(label: 'Change', onTap: onTap!),
@@ -294,16 +295,17 @@ class _ReplaceLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return GestureDetector(
       onTap: onTap,
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: AppColors.gold,
+          color: cf.link,
           decoration: TextDecoration.underline,
-          decorationColor: AppColors.gold,
+          decorationColor: cf.link,
         ),
       ),
     );
@@ -330,9 +332,10 @@ class _BowlingSideOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final activeColor =
-        selected ? AppColors.gold : AppColors.textMuted.withValues(alpha: 0.5);
-    final idleColor = AppColors.textMuted.withValues(alpha: 0.22);
+        selected ? cf.accent : cf.textMuted.withValues(alpha: 0.5);
+    final idleColor = cf.textMuted.withValues(alpha: 0.22);
 
     return Material(
       color: Colors.transparent,
@@ -381,8 +384,8 @@ class _BowlingSideOption extends StatelessWidget {
                   fontWeight:
                       selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected
-                      ? AppColors.textPrimary
-                      : AppColors.textMuted,
+                      ? cf.textPrimary
+                      : cf.textMuted,
                 ),
               ),
             ],

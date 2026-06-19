@@ -2,9 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../shared/widgets/cf_underlined_field.dart';
+import '../../../../core/theme/cf_colors.dart';
 import 'team_list_scope.dart';
 import 'teams_location_filter_sheet.dart';
 
@@ -15,14 +14,12 @@ class TeamsSearchBar extends StatefulWidget {
     required this.query,
     required this.onChanged,
     this.hint = 'Search team name or ID (TM00042)',
-    this.showLabel = false,
     this.debounceMs = 200,
   });
 
   final String query;
   final ValueChanged<String> onChanged;
   final String hint;
-  final bool showLabel;
   final int debounceMs;
 
   @override
@@ -32,6 +29,8 @@ class TeamsSearchBar extends StatefulWidget {
 class _TeamsSearchBarState extends State<TeamsSearchBar> {
   late final TextEditingController _controller;
   Timer? _debounce;
+
+  static const double _fieldHeight = 46;
 
   @override
   void initState() {
@@ -56,39 +55,79 @@ class _TeamsSearchBarState extends State<TeamsSearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
-        AppDimens.spaceSm,
+        0,
         AppDimens.spaceMd,
         AppDimens.spaceSm,
       ),
-      child: CfUnderlinedField(
-        controller: _controller,
-        label: widget.showLabel ? 'Search teams' : null,
-        hint: widget.hint,
-        textInputAction: TextInputAction.search,
-        suffix: _controller.text.isNotEmpty
-            ? IconButton(
-                icon: const Icon(Icons.close, size: 20),
-                onPressed: () {
-                  _controller.clear();
-                  widget.onChanged('');
-                  setState(() {});
-                },
-              )
-            : null,
-        onChanged: (v) {
-          setState(() {});
-          _debounce?.cancel();
-          if (widget.debounceMs <= 0) {
-            widget.onChanged(v.trim());
-            return;
-          }
-          _debounce = Timer(Duration(milliseconds: widget.debounceMs), () {
-            widget.onChanged(v.trim());
-          });
-        },
+      child: Container(
+        height: _fieldHeight,
+        decoration: BoxDecoration(
+          color: cf.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: cf.border),
+        ),
+        alignment: Alignment.center,
+        child: TextField(
+          controller: _controller,
+          textInputAction: TextInputAction.search,
+          textAlignVertical: TextAlignVertical.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: cf.textPrimary,
+            height: 1.2,
+          ),
+          decoration: InputDecoration(
+            hintText: widget.hint,
+            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: cf.textHint,
+              height: 1.2,
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              size: 22,
+              color: cf.textMuted,
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: _fieldHeight,
+            ),
+            suffixIcon: _controller.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.close, size: 20, color: cf.textMuted),
+                    onPressed: () {
+                      _controller.clear();
+                      widget.onChanged('');
+                      setState(() {});
+                    },
+                  )
+                : null,
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: _fieldHeight,
+            ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            isDense: true,
+          ),
+          onChanged: (v) {
+            setState(() {});
+            _debounce?.cancel();
+            if (widget.debounceMs <= 0) {
+              widget.onChanged(v.trim());
+              return;
+            }
+            _debounce = Timer(Duration(milliseconds: widget.debounceMs), () {
+              widget.onChanged(v.trim());
+            });
+          },
+        ),
       ),
     );
   }
@@ -115,6 +154,8 @@ class TeamsScopeFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -130,18 +171,18 @@ class TeamsScopeFilterBar extends StatelessWidget {
             child: Row(
               children: [
                 for (final s in TeamListScope.values) ...[
-                  _TeamsFilterChip(
+                  _TeamsScopeChip(
                     label: s.chipLabel,
                     selected: scope == s,
-                    onSelected: () => onScopeChanged(s),
+                    onTap: () => onScopeChanged(s),
                   ),
                   const SizedBox(width: AppDimens.spaceXs),
                 ],
-                _TeamsFilterChip(
+                _TeamsScopeChip(
                   label: 'Location',
                   selected: _locationActive,
                   icon: Icons.place_outlined,
-                  onSelected: () => showTeamsLocationFilterSheet(
+                  onTap: () => showTeamsLocationFilterSheet(
                     context,
                     country: country,
                     city: city,
@@ -165,8 +206,8 @@ class TeamsScopeFilterBar extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                            color: cf.textSecondary,
+                          ),
                     ),
                   ),
                   TextButton(
@@ -175,7 +216,10 @@ class TeamsScopeFilterBar extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    child: const Text('Clear'),
+                    child: Text(
+                      'Clear',
+                      style: TextStyle(color: cf.link),
+                    ),
                   ),
                 ],
               ),
@@ -186,38 +230,51 @@ class TeamsScopeFilterBar extends StatelessWidget {
   }
 }
 
-class _TeamsFilterChip extends StatelessWidget {
-  const _TeamsFilterChip({
+class _TeamsScopeChip extends StatelessWidget {
+  const _TeamsScopeChip({
     required this.label,
     required this.selected,
-    required this.onSelected,
+    required this.onTap,
     this.icon,
   });
 
   final String label;
   final bool selected;
-  final VoidCallback onSelected;
+  final VoidCallback onTap;
   final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
-    return FilterChip(
-      avatar: icon != null
-          ? Icon(
-              icon,
-              size: 18,
-              color: selected ? AppColors.gold : AppColors.textSecondary,
-            )
-          : null,
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onSelected(),
-      selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
-      checkmarkColor: AppColors.gold,
-      showCheckmark: icon == null,
-      labelStyle: TextStyle(
-        color: selected ? AppColors.gold : AppColors.textSecondary,
-        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+    final cf = context.cf;
+
+    final foreground = selected ? cf.onAccent : cf.textSecondary;
+    final iconColor = selected ? cf.onAccent : cf.textMuted;
+
+    return Material(
+      color: selected ? cf.accent : cf.sectionBackground,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: iconColor),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

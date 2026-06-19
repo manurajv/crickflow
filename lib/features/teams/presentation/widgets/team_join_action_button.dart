@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../data/models/team_model.dart';
 import '../../../../shared/providers/providers.dart';
@@ -116,13 +116,12 @@ class _TeamJoinActionButtonState extends ConsumerState<TeamJoinActionButton> {
 
     if (request?.isPending == true) {
       if (widget.compact) {
+        final cf = context.cf;
         return TextButton(
           onPressed: null,
           child: Text(
             'Requested',
-            style: TextStyle(
-              color: AppColors.textSecondary.withValues(alpha: 0.9),
-            ),
+            style: TextStyle(color: cf.textMuted),
           ),
         );
       }
@@ -134,8 +133,10 @@ class _TeamJoinActionButtonState extends ConsumerState<TeamJoinActionButton> {
     }
 
     if (widget.compact) {
+      final cf = context.cf;
       return TextButton(
         onPressed: _submitting ? null : _requestJoin,
+        style: TextButton.styleFrom(foregroundColor: cf.link),
         child: _submitting
             ? const SizedBox(
                 width: 16,

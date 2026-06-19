@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/providers.dart';
@@ -66,8 +67,10 @@ class _MatchBreakBannerState extends ConsumerState<MatchBreakBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final br = widget.match.activeMatchBreak!;
     final started = DateFormat.jm().format(br.startTime);
+    final titleEmphasis = cf.isLight ? Colors.white : CfColors.gold;
 
     return Material(
       color: AppColors.primaryBlue,
@@ -79,10 +82,10 @@ class _MatchBreakBannerState extends ConsumerState<MatchBreakBanner> {
           children: [
             Text(
               '${br.breakType} Break',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
-                color: AppColors.gold,
+                color: titleEmphasis,
               ),
             ),
             Text('Started: $started'),

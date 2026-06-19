@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
 import 'app_dimens.dart';
+import 'cf_colors.dart';
 
 /// Reference-style underline text fields used app-wide.
 class CfInputTheme {
@@ -11,24 +11,27 @@ class CfInputTheme {
   static const EdgeInsets fieldPadding =
       EdgeInsets.symmetric(vertical: AppDimens.fieldPaddingVertical);
 
-  static InputDecorationTheme decorationTheme(TextTheme textTheme) {
+  static InputDecorationTheme decorationTheme(
+    TextTheme textTheme,
+    CfColors cf,
+  ) {
     final labelStyle = textTheme.bodyLarge?.copyWith(
-      color: AppColors.textSecondary,
+      color: cf.textSecondary,
       fontSize: labelFontSize,
     );
     final hintStyle = textTheme.bodyLarge?.copyWith(
-      color: AppColors.textMuted,
+      color: cf.textHint,
       fontSize: fieldFontSize,
     );
 
-    const underline = UnderlineInputBorder(
-      borderSide: BorderSide(color: AppColors.border),
+    final underline = UnderlineInputBorder(
+      borderSide: BorderSide(color: cf.border),
     );
-    const underlineFocused = UnderlineInputBorder(
-      borderSide: BorderSide(color: AppColors.gold, width: 2),
+    final underlineFocused = UnderlineInputBorder(
+      borderSide: BorderSide(color: cf.accent, width: 2),
     );
-    const underlineError = UnderlineInputBorder(
-      borderSide: BorderSide(color: AppColors.accentRed),
+    final underlineError = UnderlineInputBorder(
+      borderSide: BorderSide(color: cf.error),
     );
 
     return InputDecorationTheme(
@@ -37,31 +40,34 @@ class CfInputTheme {
       contentPadding: fieldPadding,
       labelStyle: labelStyle,
       hintStyle: hintStyle,
-      floatingLabelStyle: labelStyle?.copyWith(color: AppColors.gold),
+      floatingLabelStyle: labelStyle?.copyWith(color: cf.accent),
       border: underline,
       enabledBorder: underline,
       focusedBorder: underlineFocused,
       errorBorder: underlineError,
       focusedErrorBorder: underlineError,
       disabledBorder: UnderlineInputBorder(
-        borderSide: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+        borderSide: BorderSide(color: cf.border.withValues(alpha: 0.5)),
       ),
     );
   }
 
-  static TextStyle fieldTextStyle(TextTheme textTheme) => textTheme.bodyLarge!.copyWith(
+  static TextStyle fieldTextStyle(TextTheme textTheme) =>
+      textTheme.bodyLarge!.copyWith(
         fontSize: fieldFontSize,
         height: 1.35,
       );
 
-  /// Smaller underline for filter bars / quick search rows.
-  static InputDecorationTheme compactDecorationTheme(TextTheme textTheme) {
-    return decorationTheme(textTheme).copyWith(
+  static InputDecorationTheme compactDecorationTheme(
+    TextTheme textTheme,
+    CfColors cf,
+  ) {
+    return decorationTheme(textTheme, cf).copyWith(
       contentPadding: const EdgeInsets.symmetric(
         vertical: AppDimens.fieldPaddingVerticalCompact,
       ),
       labelStyle: textTheme.bodyMedium?.copyWith(
-        color: AppColors.textSecondary,
+        color: cf.textSecondary,
       ),
     );
   }

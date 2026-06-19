@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/badge_gallery.dart';
 import '../../../shared/widgets/cf_button.dart';
@@ -24,6 +24,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profileAsync = ref.watch(currentUserProfileProvider);
 
     if (uid == null) {
+      final cf = context.cf;
       return ShellTabScaffold(
         title: const Text('Profile'),
         body: Center(
@@ -32,7 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.person_outline, size: 64, color: AppColors.gold),
+                Icon(Icons.person_outline, size: 64, color: cf.textMuted),
                 const SizedBox(height: AppDimens.spaceMd),
                 Text(
                   'Sign in to manage your profile',
@@ -45,7 +46,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   'Sign in to score, join teams, and stream.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: cf.textSecondary,
                       ),
                 ),
                 const SizedBox(height: AppDimens.spaceXl),
@@ -69,14 +70,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
+          final cf = context.cf;
+
           return ListView(
             padding: AppDimens.listPadding,
             children: [
               if (!user.onboardingCompleted)
                 Card(
-                  color: AppColors.gold.withValues(alpha: 0.12),
+                  color: cf.accent.withValues(alpha: 0.12),
                   child: ListTile(
-                    leading: const Icon(Icons.info_outline, color: AppColors.gold),
+                    leading: Icon(Icons.info_outline, color: cf.accent),
                     title: const Text('Complete your player profile'),
                     subtitle: const Text(
                       'Required before scoring or managing teams',
@@ -86,9 +89,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
               Center(
-                child: CircleAvatar(
+                child:                 CircleAvatar(
                   radius: 36,
-                  backgroundColor: AppColors.primaryBlue,
+                  backgroundColor: CfColors.primaryBlue,
                   backgroundImage: user.photoUrl != null
                       ? NetworkImage(user.photoUrl!)
                       : null,
@@ -115,7 +118,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     user.effectivePlayerIdDisplay,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: cf.textSecondary,
                           letterSpacing: 0.5,
                         ),
                   ),
@@ -124,17 +127,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Text(
                   '@${user.displayName}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: cf.textSecondary),
                 ),
               Text(
                 user.email,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: cf.textSecondary),
               ),
               const SizedBox(height: AppDimens.spaceSm),
               Chip(
                 label: Text(user.role.name.toUpperCase()),
-                backgroundColor: AppColors.gold.withValues(alpha: 0.2),
+                backgroundColor: cf.accent.withValues(alpha: 0.2),
               ),
               const SizedBox(height: AppDimens.spaceLg),
               Text('Location', style: Theme.of(context).textTheme.titleMedium),

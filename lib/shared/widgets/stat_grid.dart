@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_dimens.dart';
+import '../../core/theme/cf_colors.dart';
 
 class StatCellData {
   const StatCellData({required this.value, required this.label});
@@ -8,7 +9,7 @@ class StatCellData {
   final String label;
 }
 
-/// Three-column stats grid (reference-inspired, CrickFlow theme).
+/// Professional dashboard stats grid — white cards, dark text in light mode.
 class StatGrid extends StatelessWidget {
   const StatGrid({super.key, required this.cells});
 
@@ -44,29 +45,27 @@ class _StatCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: cfCardDecoration(context),
       child: Column(
         children: [
           Text(
             data.value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  color: cf.textPrimary,
                 ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             data.label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
+                  fontWeight: FontWeight.w500,
                 ),
             textAlign: TextAlign.center,
             maxLines: 1,

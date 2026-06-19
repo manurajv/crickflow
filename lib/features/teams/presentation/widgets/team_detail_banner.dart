@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/team_model.dart';
 import 'team_list_tile.dart' show TeamLogoAvatar;
 
@@ -27,6 +27,7 @@ class TeamDetailBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final cover = team.coverImageUrl;
 
     return SizedBox(
@@ -46,15 +47,15 @@ class TeamDetailBanner extends StatelessWidget {
                 )
               : const _PlaceholderCover(),
 
-          // Dark gradient scrim at the bottom so logo/text sit on it cleanly
-          const Positioned.fill(
+          // Gradient scrim at the bottom so logo/text sit on it cleanly
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  stops: [0.35, 1.0],
-                  colors: [Colors.transparent, Color(0xBB0A0E17)],
+                  stops: const [0.35, 1.0],
+                  colors: [Colors.transparent, cf.bannerScrimEnd],
                 ),
               ),
             ),
@@ -78,10 +79,10 @@ class TeamDetailBanner extends StatelessWidget {
                       if (team.location.displayLabel.isNotEmpty)
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.place_outlined,
                               size: 11,
-                              color: AppColors.textSecondary,
+                              color: cf.textSecondary,
                             ),
                             const SizedBox(width: 3),
                             Expanded(
@@ -89,9 +90,9 @@ class TeamDetailBanner extends StatelessWidget {
                                 team.location.displayLabel,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
-                                  color: AppColors.textSecondary,
+                                  color: cf.textSecondary,
                                   height: 1.3,
                                 ),
                               ),
@@ -101,9 +102,9 @@ class TeamDetailBanner extends StatelessWidget {
                       if (_memberCount > 0)
                         Text(
                           '$_memberCount ${_memberCount == 1 ? 'player' : 'players'}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: AppColors.textSecondary,
+                            color: cf.textSecondary,
                             height: 1.3,
                           ),
                         ),
@@ -124,6 +125,7 @@ class _PlaceholderCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -131,8 +133,8 @@ class _PlaceholderCover extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             const Color(0xFF0D2B6B),
-            AppColors.primaryBlue.withValues(alpha: 0.45),
-            AppColors.surfaceElevated,
+            CfColors.primaryBlue.withValues(alpha: 0.45),
+            cf.surfaceElevated,
           ],
           stops: const [0.0, 0.5, 1.0],
         ),
@@ -147,8 +149,9 @@ class TeamSquadBannersStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.primaryBlue.withValues(alpha: 0.15),
+      color: cf.accent.withValues(alpha: 0.15),
       child: InkWell(
         onTap: () {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -156,9 +159,9 @@ class TeamSquadBannersStrip extends StatelessWidget {
           );
         },
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: AppColors.border, width: 0.5),
+              bottom: BorderSide(color: cf.border, width: 0.5),
             ),
           ),
           padding: const EdgeInsets.symmetric(
@@ -170,7 +173,7 @@ class TeamSquadBannersStrip extends StatelessWidget {
               Icon(
                 Icons.collections_outlined,
                 size: 18,
-                color: AppColors.gold.withValues(alpha: 0.9),
+                color: cf.accent,
               ),
               const SizedBox(width: AppDimens.spaceSm),
               Expanded(
@@ -181,9 +184,9 @@ class TeamSquadBannersStrip extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
-                color: AppColors.textSecondary,
+                color: cf.textSecondary,
                 size: 20,
               ),
             ],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/cf_colors.dart';
 
 /// Slide-to-confirm control (e.g. umpire confirms innings break).
 class CfSlideToConfirm extends StatefulWidget {
@@ -25,6 +25,7 @@ class _CfSlideToConfirmState extends State<CfSlideToConfirm> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return LayoutBuilder(
       builder: (context, constraints) {
         const thumbSize = 52.0;
@@ -58,9 +59,9 @@ class _CfSlideToConfirmState extends State<CfSlideToConfirm> {
           child: Container(
             height: thumbSize + pad * 2,
             decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
+              color: cf.surfaceElevated,
               borderRadius: BorderRadius.circular(thumbSize),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: cf.border),
             ),
             child: Stack(
               alignment: Alignment.centerLeft,
@@ -73,10 +74,10 @@ class _CfSlideToConfirmState extends State<CfSlideToConfirm> {
                       child: Text(
                         widget.label,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
+                          color: cf.textSecondary,
                         ),
                       ),
                     ),
@@ -92,7 +93,9 @@ class _CfSlideToConfirmState extends State<CfSlideToConfirm> {
                       height: thumbSize,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _confirmed ? AppColors.gold : AppColors.primaryBlue,
+                        color: _confirmed
+                            ? (cf.isLight ? cf.accent : CfColors.gold)
+                            : CfColors.primaryBlue,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.35),
@@ -103,7 +106,7 @@ class _CfSlideToConfirmState extends State<CfSlideToConfirm> {
                       ),
                       child: Icon(
                         _confirmed ? Icons.check : Icons.chevron_right,
-                        color: _confirmed ? Colors.black : AppColors.textPrimary,
+                        color: _confirmed ? cf.onAccent : cf.textPrimary,
                       ),
                     ),
                   ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/cf_colors.dart';
 import '../../core/utils/cricket_math.dart';
 import '../../core/utils/overs_formatter.dart';
 import '../../data/models/innings_model.dart';
@@ -21,11 +21,11 @@ class ScorecardBattingTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (batsmen.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
           'No batting data yet',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(color: context.cf.textSecondary),
         ),
       );
     }
@@ -49,21 +49,21 @@ class _BattingHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(
+    final headerStyle = TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.w600,
-      color: AppColors.textSecondary,
+      color: context.cf.textSecondary,
     );
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 6),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(flex: 4, child: Text('Batter', style: style)),
-          Expanded(child: Text('R', style: style, textAlign: TextAlign.end)),
-          Expanded(child: Text('B', style: style, textAlign: TextAlign.end)),
-          Expanded(child: Text('4s', style: style, textAlign: TextAlign.end)),
-          Expanded(child: Text('6s', style: style, textAlign: TextAlign.end)),
-          Expanded(child: Text('SR', style: style, textAlign: TextAlign.end)),
+          Expanded(flex: 4, child: Text('Batter', style: headerStyle)),
+          Expanded(child: Text('R', style: headerStyle, textAlign: TextAlign.end)),
+          Expanded(child: Text('B', style: headerStyle, textAlign: TextAlign.end)),
+          Expanded(child: Text('4s', style: headerStyle, textAlign: TextAlign.end)),
+          Expanded(child: Text('6s', style: headerStyle, textAlign: TextAlign.end)),
+          Expanded(child: Text('SR', style: headerStyle, textAlign: TextAlign.end)),
         ],
       ),
     );
@@ -106,7 +106,7 @@ class _BattingRow extends StatelessWidget {
                   '$name$onCreaseSuffix',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: AppColors.primaryBlue,
+                    color: CfColors.primaryBlue,
                   ),
                 ),
                 if (dismissal.isNotEmpty)
@@ -115,9 +115,9 @@ class _BattingRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textSecondary,
+                      color: context.cf.textSecondary,
                     ),
                   ),
               ],
@@ -178,9 +178,9 @@ class ScorecardFallOfWickets extends StatelessWidget {
           (f) => Text(
             '${f.wicketNumber} ${f.batsmanName.isNotEmpty ? f.batsmanName : f.batsmanId} '
             '${f.teamScore} (${_overLabel(f.legalBalls)})',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: AppColors.textSecondary,
+              color: context.cf.textSecondary,
             ),
           ),
         ),

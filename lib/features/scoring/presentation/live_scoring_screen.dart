@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
@@ -1752,12 +1752,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       });
     });
 
+    final cf = context.cf;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: cf.background,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        backgroundColor: AppColors.chromeBackground,
-        foregroundColor: AppColors.chromeForeground,
+        backgroundColor: cf.chromeBackground,
+        foregroundColor: cf.chromeForeground,
         elevation: 0,
         title: matchAsync.when(
           data: (m) {
@@ -1769,11 +1771,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               ScoringDisplayUtils.battingTeamName(m, inn).toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
                 letterSpacing: 0.3,
-                color: AppColors.textPrimary,
+                color: cf.textPrimary,
               ),
             );
           },
@@ -1782,9 +1784,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.ios_share_outlined,
-              color: AppColors.chromeForeground,
+              color: cf.chromeForeground,
             ),
             tooltip: 'Share',
             onPressed: () {
@@ -1794,9 +1796,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.settings_outlined,
-              color: AppColors.chromeForeground,
+              color: cf.chromeForeground,
             ),
             onPressed: () {
               final m = matchAsync.valueOrNull;
@@ -1855,15 +1857,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               ),
               if (_scorerTransferBanner != null)
                 MaterialBanner(
-                  backgroundColor: AppColors.surfaceElevated,
+                  backgroundColor: cf.surfaceElevated,
                   content: Text(
                     _scorerTransferBanner!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: AppColors.gold,
+                      color: cf.info,
                     ),
                   ),
-                  leading: const Icon(Icons.info_outline, color: AppColors.gold),
+                  leading: Icon(Icons.info_outline, color: cf.info),
                   actions: [
                     TextButton(
                       onPressed: () =>
@@ -1973,10 +1975,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: const BoxDecoration(
-                      color: AppColors.surface,
+                    decoration: BoxDecoration(
+                      color: cf.surface,
                       border: Border(
-                        top: BorderSide(color: AppColors.border),
+                        top: BorderSide(color: cf.border),
                       ),
                     ),
                     child: Row(
@@ -1984,15 +1986,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                       children: [
                         Text(
                           canScore ? 'Scoring shortcuts' : 'View shortcuts',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
-                            color: AppColors.textSecondary,
+                            color: cf.textSecondary,
                           ),
                         ),
-                        const Icon(
+                        Icon(
                           Icons.keyboard_arrow_up,
-                          color: AppColors.gold,
+                          color: cf.accent,
                           size: 22,
                         ),
                       ],
@@ -2010,14 +2012,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Widget _breakKeypadPlaceholder(BuildContext context) {
+    final cf = context.cf;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.pause_circle_outline,
-                size: 40, color: AppColors.gold),
+            Icon(Icons.pause_circle_outline,
+                size: 40, color: cf.accent),
             const SizedBox(height: 12),
             const Text(
               'Match on break',
@@ -2028,10 +2031,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Scoring is paused. Slide to resume on the banner above.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: cf.textSecondary),
             ),
           ],
         ),
@@ -2040,20 +2043,21 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Widget _readOnlyKeypadPlaceholder(BuildContext context, MatchModel match) {
+    final cf = context.cf;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.visibility_outlined, size: 40, color: AppColors.gold),
+            Icon(Icons.visibility_outlined, size: 40, color: cf.accent),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'You are not an assigned scorer for this match.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: cf.textSecondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -2074,13 +2078,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   Widget _lockedView(BuildContext context) {
+    final cf = context.cf;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_outline, size: 48, color: AppColors.gold),
+            Icon(Icons.lock_outline, size: 48, color: cf.accent),
             const SizedBox(height: 16),
             const Text(
               'Scoring is limited to match organizers and scorers.',

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
+import '../../core/theme/cf_colors.dart';
 
 /// Shared bottom-sheet chrome for live scoring flows (CrickFlow theme).
 class ScoringUiKit {
@@ -20,7 +20,7 @@ class ScoringUiKit {
   }) {
     return showModalBottomSheet<T>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.cf.surface,
       shape: sheetShape,
       isScrollControlled: isScrollControlled,
       useRootNavigator: useRootNavigator,
@@ -30,7 +30,6 @@ class ScoringUiKit {
     );
   }
 
-  /// Draggable list sheet with shared CrickFlow chrome (live scoring + setup).
   static Future<T?> showDraggableSheet<T>(
     BuildContext context, {
     required Widget Function(BuildContext ctx, ScrollController scrollController)
@@ -65,7 +64,7 @@ class ScoringUiKit {
   static Widget sheetCloseButton(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.close, size: 22),
-      color: AppColors.textSecondary,
+      color: context.cf.textSecondary,
       tooltip: 'Close',
       onPressed: () => Navigator.pop(context),
     );
@@ -78,9 +77,10 @@ class ScoringUiKit {
     String confirmLabel = 'Yes, I\'m sure',
     String cancelLabel = 'Cancel',
   }) {
+    final cf = context.cf;
     return showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: cf.surface,
       shape: sheetShape,
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -92,33 +92,26 @@ class ScoringUiKit {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFE0B2),
+                  color: cf.error.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFFF9800), width: 2),
+                  border: Border.all(color: cf.error.withValues(alpha: 0.4), width: 2),
                 ),
-                child: const Icon(
-                  Icons.error_outline,
-                  color: Color(0xFFE65100),
-                  size: 32,
-                ),
+                child: Icon(Icons.error_outline, color: cf.error, size: 32),
               ),
               const SizedBox(height: 20),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  color: cf.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 15, color: cf.textSecondary),
               ),
               const SizedBox(height: 24),
               Row(
@@ -127,9 +120,9 @@ class ScoringUiKit {
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(ctx, false),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        backgroundColor: AppColors.surfaceElevated,
-                        side: const BorderSide(color: AppColors.border),
+                        foregroundColor: cf.textPrimary,
+                        backgroundColor: cf.card,
+                        side: BorderSide(color: cf.border),
                         minimumSize: const Size(0, 48),
                       ),
                       child: Text(cancelLabel),
@@ -140,8 +133,8 @@ class ScoringUiKit {
                     child: FilledButton(
                       onPressed: () => Navigator.pop(ctx, true),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.gold,
-                        foregroundColor: Colors.black,
+                        backgroundColor: CfColors.primaryBlue,
+                        foregroundColor: cf.onPrimary,
                         minimumSize: const Size(0, 48),
                       ),
                       child: Text(confirmLabel),
@@ -157,7 +150,6 @@ class ScoringUiKit {
   }
 }
 
-/// Drag handle + centered title with divider lines.
 class ScoringSheetHeader extends StatelessWidget {
   const ScoringSheetHeader({
     super.key,
@@ -172,6 +164,7 @@ class ScoringSheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Column(
       children: [
         Container(
@@ -179,7 +172,7 @@ class ScoringSheetHeader extends StatelessWidget {
           width: 40,
           height: 4,
           decoration: BoxDecoration(
-            color: AppColors.border,
+            color: cf.border,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -196,9 +189,7 @@ class ScoringSheetHeader extends StatelessWidget {
                   style: TextStyle(
                     fontSize: mutedTitle ? 14 : 16,
                     fontWeight: mutedTitle ? FontWeight.w500 : FontWeight.w700,
-                    color: mutedTitle
-                        ? AppColors.textMuted
-                        : AppColors.textPrimary,
+                    color: mutedTitle ? cf.textMuted : cf.textPrimary,
                   ),
                 ),
               ),
@@ -228,14 +219,10 @@ class _HeaderLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      color: AppColors.border,
-    );
+    return Container(height: 1, color: context.cf.border);
   }
 }
 
-/// Outlined grid cell for WD/NB/bye shortcuts.
 class ScoringGridButton extends StatelessWidget {
   const ScoringGridButton({
     super.key,
@@ -252,13 +239,14 @@ class ScoringGridButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: selected ? AppColors.gold : AppColors.card,
+      color: selected ? cf.accent.withValues(alpha: 0.12) : cf.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(
-          color: AppColors.gold,
-          width: selected ? 2 : 1.2,
+          color: selected ? cf.accent : cf.border,
+          width: selected ? 2 : 1,
         ),
       ),
       child: InkWell(
@@ -274,7 +262,7 @@ class ScoringGridButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: selected ? Colors.black : AppColors.gold,
+                  color: selected ? cf.accent : cf.textPrimary,
                 ),
               ),
               if (subtitle != null) ...[
@@ -283,7 +271,7 @@ class ScoringGridButton extends StatelessWidget {
                   subtitle!,
                   style: TextStyle(
                     fontSize: 10,
-                    color: selected ? Colors.black54 : AppColors.textMuted,
+                    color: cf.textMuted,
                   ),
                 ),
               ],
@@ -295,7 +283,6 @@ class ScoringGridButton extends StatelessWidget {
   }
 }
 
-/// Icon + label shortcut tile (quick options / wicket types).
 class ScoringShortcutTile extends StatelessWidget {
   const ScoringShortcutTile({
     super.key,
@@ -312,6 +299,7 @@ class ScoringShortcutTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -320,17 +308,17 @@ class ScoringShortcutTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 28, color: iconColor ?? AppColors.textPrimary),
+            Icon(icon, size: 28, color: iconColor ?? cf.textPrimary),
             const SizedBox(height: 8),
             Text(
               label,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
+                color: cf.textSecondary,
                 height: 1.2,
               ),
             ),

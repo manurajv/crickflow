@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../data/models/team_model.dart';
 
@@ -22,6 +22,7 @@ class TeamPlayerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final tags = <String>[
       if (player.role.isNotEmpty) player.role,
       if (player.battingStyle.isNotEmpty) player.battingStyle,
@@ -46,7 +47,7 @@ class TeamPlayerTile extends StatelessWidget {
                     onTap: onPhotoTap,
                     child: CircleAvatar(
                       radius: 28,
-                      backgroundColor: AppColors.primaryBlue,
+                      backgroundColor: CfColors.primaryBlue,
                       backgroundImage: player.photoUrl != null
                           ? CachedNetworkImageProvider(player.photoUrl!)
                           : null,
@@ -74,15 +75,15 @@ class TeamPlayerTile extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.gold.withValues(alpha: 0.9),
+                          color: cf.accent,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Captain',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black,
+                            color: cf.onAccent,
                           ),
                         ),
                       ),
@@ -102,13 +103,13 @@ class TeamPlayerTile extends StatelessWidget {
                       Text(
                         tags.join(' • '),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.primaryBlueLight,
+                          color: cf.info,
                         ),
                       ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textMuted),
+              Icon(Icons.chevron_right, color: cf.textMuted),
             ],
           ),
         ),

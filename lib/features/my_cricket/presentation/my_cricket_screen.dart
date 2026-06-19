@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/my_cricket_ui_provider.dart';
@@ -56,6 +56,7 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final canCreate = canCreateMatches(
       ref.watch(currentUserProfileProvider).valueOrNull?.role ??
           UserRole.organizer,
@@ -83,10 +84,10 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
           controller: _tabs,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          indicatorColor: AppColors.gold,
-          labelColor: AppColors.gold,
-          unselectedLabelColor: AppColors.textSecondary,
-          dividerColor: AppColors.border,
+          indicatorColor: cf.accent,
+          labelColor: cf.accent,
+          unselectedLabelColor: cf.textSecondary,
+          dividerColor: cf.border,
           tabs: const [
             Tab(text: 'Matches'),
             Tab(text: 'Tournaments'),
@@ -100,8 +101,8 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
           ? FloatingActionButton.extended(
               heroTag: 'my_cricket_start_match_fab',
               onPressed: () => context.push('/match/create'),
-              backgroundColor: AppColors.gold,
-              foregroundColor: Colors.black,
+              backgroundColor: cf.fabBackground,
+              foregroundColor: cf.fabForeground,
               icon: const Icon(Icons.sports_cricket),
               label: const Text('Start match'),
             )

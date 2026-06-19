@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
 import '../../../player_onboarding/presentation/widgets/country_picker_sheet.dart';
 
@@ -12,11 +12,16 @@ Future<void> showTeamsLocationFilterSheet(
   required String city,
   required void Function(String country, String city) onApply,
 }) async {
+  final cf = context.cf;
+
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: AppColors.surface,
+    backgroundColor: cf.card,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
     builder: (ctx) {
       return _TeamsLocationFilterSheet(
         initialCountry: country,
@@ -78,6 +83,9 @@ class _TeamsLocationFilterSheetState extends State<_TeamsLocationFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+    final theme = Theme.of(context);
+
     return Padding(
       padding: EdgeInsets.only(
         left: AppDimens.spaceMd,
@@ -90,9 +98,10 @@ class _TeamsLocationFilterSheetState extends State<_TeamsLocationFilterSheet> {
         children: [
           Text(
             'Filter by location',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: cf.textPrimary,
+            ),
           ),
           const SizedBox(height: AppDimens.spaceMd),
           CfUnderlinedField(
@@ -102,10 +111,10 @@ class _TeamsLocationFilterSheetState extends State<_TeamsLocationFilterSheet> {
             hint: 'All countries',
             readOnly: true,
             onTap: _pickCountry,
-            suffix: const Icon(
+            suffix: Icon(
               Icons.expand_more,
               size: 20,
-              color: AppColors.textSecondary,
+              color: cf.textSecondary,
             ),
           ),
           const SizedBox(height: AppDimens.spaceMd),
@@ -117,14 +126,17 @@ class _TeamsLocationFilterSheetState extends State<_TeamsLocationFilterSheet> {
           const SizedBox(height: AppDimens.spaceLg),
           Row(
             children: [
-              TextButton(onPressed: _clear, child: const Text('Clear')),
+              TextButton(
+                onPressed: _clear,
+                child: Text('Clear', style: TextStyle(color: cf.link)),
+              ),
               const Spacer(),
               FilledButton(
                 onPressed: () =>
                     widget.onApply(_country, _cityController.text.trim()),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
+                  backgroundColor: cf.accent,
+                  foregroundColor: cf.onAccent,
                 ),
                 child: const Text('Apply'),
               ),

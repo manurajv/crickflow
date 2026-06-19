@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/enums.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/user_model.dart';
 import '../../../shared/providers/notification_provider.dart';
@@ -38,6 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final matchesAsync = ref.watch(matchesProvider);
     final uid = ref.watch(authStateProvider).value?.uid;
     final isGuest = uid == null;
@@ -65,8 +66,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ? FloatingActionButton.extended(
               heroTag: 'home_new_match_fab',
               onPressed: openCreateMatch,
-              backgroundColor: AppColors.gold,
-              foregroundColor: Colors.black,
+              backgroundColor: cf.fabBackground,
+              foregroundColor: cf.fabForeground,
               icon: const Icon(Icons.add),
               label: const Text('New Match'),
             )
@@ -86,12 +87,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           icon: Badge(
             isLabelVisible: unreadCount > 0,
             label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
-            backgroundColor: AppColors.accentRed,
+            backgroundColor: CfColors.accentRed,
             child: Icon(
               unreadCount > 0
                   ? Icons.notifications
                   : Icons.notifications_outlined,
-              color: unreadCount > 0 ? AppColors.gold : null,
+              color: unreadCount > 0 ? cf.accent : null,
             ),
           ),
         ),
@@ -172,15 +173,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
-                                    ?.copyWith(color: AppColors.liveIndicator),
+                                    ?.copyWith(color: cf.statusLive),
                               )
                             : null,
                       ),
                       ...live.take(5).map(
-                            (m) => MatchListCard(
-                              match: m,
-                              showQuickLinks: false,
-                            ),
+                            (m) => MatchListCard(match: m),
                           ),
                     ],
                     _SectionHeader(
@@ -191,10 +189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                     ...rest.map(
-                      (m) => MatchListCard(
-                        match: m,
-                        showQuickLinks: false,
-                      ),
+                      (m) => MatchListCard(match: m),
                     ),
                   ],
                 );
@@ -215,6 +210,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _viewerBanner(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -224,7 +220,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       child: Card(
         child: ListTile(
-          leading: const Icon(Icons.visibility, color: AppColors.gold),
+          leading: Icon(Icons.visibility, color: cf.info),
           title: const Text('Viewer mode'),
           subtitle: const Text('Browse scores and scorecards'),
           trailing: TextButton(
@@ -248,14 +244,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Icon(
             Icons.sports_cricket,
             size: 48,
-            color: AppColors.textMuted.withValues(alpha: 0.6),
+            color: context.cf.textMuted.withValues(alpha: 0.6),
           ),
           const SizedBox(height: AppDimens.spaceMd),
           Text(
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: context.cf.textSecondary,
                 ),
           ),
           if (action != null) ...[
@@ -276,6 +272,7 @@ class _WelcomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Container(
       margin: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -288,9 +285,9 @@ class _WelcomeHeader extends StatelessWidget {
         vertical: AppDimens.spaceLg,
       ),
       decoration: BoxDecoration(
-        gradient: AppColors.heroGradient,
+        gradient: cf.heroGradient,
         borderRadius: AppDimens.cardRadius,
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cf.border),
       ),
       child: Row(
         children: [
@@ -330,13 +327,13 @@ class _WelcomeHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.gold.withValues(alpha: 0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
             ),
             child: const Icon(
               Icons.sports_cricket,
-              color: AppColors.gold,
+              color: Colors.white,
               size: 28,
             ),
           ),
@@ -379,6 +376,7 @@ class _QuickActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SizedBox(
       height: 88,
       child: ListView(
@@ -388,7 +386,7 @@ class _QuickActionsRow extends StatelessWidget {
           _QuickActionChip(
             icon: Icons.sports_cricket,
             label: 'New match',
-            color: AppColors.gold,
+            color: cf.accent,
             onTap: onCreateMatch,
           ),
           _QuickActionChip(
@@ -432,11 +430,12 @@ class _QuickActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = color ?? AppColors.primaryBlueLight;
+    final cf = context.cf;
+    final accent = color ?? cf.accent;
     return Padding(
       padding: const EdgeInsets.only(right: AppDimens.spaceSm),
       child: Material(
-        color: AppColors.card,
+        color: cf.card,
         borderRadius: AppDimens.cardRadius,
         child: InkWell(
           onTap: onTap,
@@ -447,11 +446,9 @@ class _QuickActionChip extends StatelessWidget {
               horizontal: AppDimens.spaceSm,
               vertical: AppDimens.spaceMd,
             ),
-            decoration: BoxDecoration(
-              borderRadius: AppDimens.cardRadius,
-              border: Border.all(
-                color: accent.withValues(alpha: color != null ? 0.5 : 0.25),
-              ),
+            decoration: cfCardDecoration(
+              context,
+              borderColor: accent.withValues(alpha: color != null ? 0.5 : 0.25),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

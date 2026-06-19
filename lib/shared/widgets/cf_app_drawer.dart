@@ -6,7 +6,7 @@ import '../../core/auth/auth_gate.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
 import '../../data/models/user_model.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/cf_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../providers/my_cricket_ui_provider.dart';
 import '../providers/providers.dart';
@@ -24,7 +24,7 @@ class CfAppDrawer extends ConsumerWidget {
     final showOrganizerActions = isGuest || role != UserRole.viewer;
 
     return Drawer(
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.cf.surface,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -223,12 +223,13 @@ class _DrawerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final name = profile?.displayName ?? 'Guest';
     final email = profile?.email ?? '';
     final role = profile?.role.name ?? 'member';
 
     return Material(
-      color: AppColors.chromeBackground,
+      color: cf.chromeBackground,
       child: InkWell(
         onTap: () {
           Navigator.pop(context);
@@ -245,7 +246,7 @@ class _DrawerHeader extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: AppColors.primaryBlue,
+                backgroundColor: CfColors.primaryBlue,
                 backgroundImage: profile?.photoUrl != null
                     ? NetworkImage(profile!.photoUrl!)
                     : null,
@@ -268,7 +269,7 @@ class _DrawerHeader extends StatelessWidget {
                     Text(
                       name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.textPrimary,
+                            color: cf.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                       maxLines: 2,
@@ -288,16 +289,16 @@ class _DrawerHeader extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.gold.withValues(alpha: 0.2),
+                        color: cf.accent.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppColors.gold.withValues(alpha: 0.5),
+                          color: cf.accent.withValues(alpha: 0.5),
                         ),
                       ),
                       child: Text(
                         role == UserRole.viewer.name ? 'Viewer' : 'Member',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.gold,
+                              color: cf.accent,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -305,7 +306,7 @@ class _DrawerHeader extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+              Icon(Icons.chevron_right, color: cf.textSecondary),
             ],
           ),
         ),
@@ -331,7 +332,7 @@ class _DrawerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       dense: subtitle == null,
-      leading: Icon(icon, color: AppColors.primaryBlueLight, size: 22),
+      leading: Icon(icon, color: CfColors.primaryBlueLight, size: 22),
       title: Text(label, style: Theme.of(context).textTheme.titleMedium),
       subtitle: subtitle != null
           ? Text(subtitle!, style: Theme.of(context).textTheme.bodySmall)

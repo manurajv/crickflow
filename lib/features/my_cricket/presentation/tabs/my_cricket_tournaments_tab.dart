@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/location_filter_bar.dart';
 import '../../../../shared/widgets/tournament_list_card.dart';
 import '../../my_cricket_filters.dart';
+import '../widgets/my_cricket_action_banner.dart';
 
 class MyCricketTournamentsTab extends ConsumerStatefulWidget {
   const MyCricketTournamentsTab({super.key});
@@ -34,20 +35,10 @@ class _MyCricketTournamentsTabState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          color: AppColors.surfaceElevated,
-          child: ListTile(
-            dense: true,
-            title: const Text('Want to host a tournament?'),
-            trailing: FilledButton(
-              onPressed: () => context.push('/tournaments'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Register'),
-            ),
-          ),
+        MyCricketActionBanner(
+          title: 'Want to host a tournament?',
+          actionLabel: 'Register',
+          onAction: () => context.push('/tournaments'),
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -130,15 +121,16 @@ class _MyCricketTournamentsTabState
   }
 
   Widget _scopeChip(String label, MyCricketListScope scope) {
+    final cf = context.cf;
     final selected = _scope == scope;
     return FilterChip(
       label: Text(label),
       selected: selected,
       onSelected: (_) => setState(() => _scope = scope),
-      selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
-      checkmarkColor: AppColors.gold,
+      selectedColor: cf.accent.withValues(alpha: 0.15),
+      checkmarkColor: cf.accent,
       labelStyle: TextStyle(
-        color: selected ? AppColors.gold : AppColors.textSecondary,
+        color: selected ? cf.accent : cf.textSecondary,
         fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
       ),
     );

@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/my_player_stats_breakdown_provider.dart';
 import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
+import '../widgets/my_cricket_action_banner.dart';
 
 class MyCricketStatsTab extends ConsumerStatefulWidget {
   const MyCricketStatsTab({super.key});
@@ -40,9 +42,14 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
             children: [
               _PlayerHeader(player: player),
               const SizedBox(height: AppDimens.spaceSm),
-              _analyzeBanner(context, player),
+              MyCricketActionBanner(
+                inset: false,
+                title: 'Want to improve your stats?',
+                actionLabel: 'Analyze',
+                onAction: () => context.push('/players/${player.id}'),
+              ),
               const SizedBox(height: AppDimens.spaceMd),
-              _modeChips(),
+              _modeChips(context),
               const SizedBox(height: AppDimens.spaceMd),
               _sectionHeader(context, 'Overall'),
               StatGrid(
@@ -183,51 +190,32 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
     );
   }
 
-  Widget _analyzeBanner(BuildContext context, PlayerModel player) {
-    return Material(
-      color: AppColors.surfaceElevated,
-      borderRadius: AppDimens.cardRadius,
-      child: ListTile(
-        dense: true,
-        title: const Text('Want to improve your stats?'),
-        trailing: FilledButton(
-          onPressed: () => context.push('/players/${player.id}'),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primaryBlue,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-          ),
-          child: const Text('Analyze'),
-        ),
-      ),
-    );
-  }
-
-  Widget _modeChips() {
+  Widget _modeChips(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _modeChip('Batting', PlayerStatViewMode.batting),
+          _modeChip(context, 'Batting', PlayerStatViewMode.batting),
           const SizedBox(width: AppDimens.spaceXs),
-          _modeChip('Bowling', PlayerStatViewMode.bowling),
+          _modeChip(context, 'Bowling', PlayerStatViewMode.bowling),
           const SizedBox(width: AppDimens.spaceXs),
-          _modeChip('Fielding', PlayerStatViewMode.fielding),
+          _modeChip(context, 'Fielding', PlayerStatViewMode.fielding),
         ],
       ),
     );
   }
 
-  Widget _modeChip(String label, PlayerStatViewMode mode) {
+  Widget _modeChip(BuildContext context, String label, PlayerStatViewMode mode) {
+    final cf = context.cf;
     final selected = _mode == mode;
     return FilterChip(
       label: Text(label),
       selected: selected,
       onSelected: (_) => setState(() => _mode = mode),
-      selectedColor: AppColors.primaryBlue.withValues(alpha: 0.4),
-      checkmarkColor: AppColors.gold,
+      selectedColor: cf.accent.withValues(alpha: 0.15),
+      checkmarkColor: cf.accent,
       labelStyle: TextStyle(
-        color: selected ? AppColors.gold : AppColors.textSecondary,
+        color: selected ? cf.accent : cf.textSecondary,
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
       ),
     );

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+
 import '../../core/constants/enums.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/cf_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/match_score_display.dart';
 import '../../core/utils/overs_formatter.dart';
 import '../../data/models/match_model.dart';
+import '../../domain/scoring/innings_completion_policy.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
+import 'match_team_avatar.dart';
 
 enum MatchCardStyle {
   /// Surface card for feeds and lists.
@@ -26,6 +29,8 @@ class MatchCardContent extends StatelessWidget {
     this.showFooterHint = true,
     this.showChaseDetails = true,
     this.showTossLine = false,
+    this.teamALogoUrl,
+    this.teamBLogoUrl,
   });
 
   final MatchModel match;
@@ -34,6 +39,8 @@ class MatchCardContent extends StatelessWidget {
   final bool showFooterHint;
   final bool showChaseDetails;
   final bool showTossLine;
+  final String? teamALogoUrl;
+  final String? teamBLogoUrl;
 
   bool get _isHero => style == MatchCardStyle.hero;
 
@@ -42,144 +49,143 @@ class MatchCardContent extends StatelessWidget {
       match.status == MatchStatus.draft ||
       match.status == MatchStatus.tossCompleted;
 
+  bool get _isLive =>
+      match.status == MatchStatus.live ||
+      match.status == MatchStatus.inningsBreak;
+
+  bool get _isCompleted => match.status == MatchStatus.completed;
+
   @override
   Widget build(BuildContext context) {
-    final isLive = match.status == MatchStatus.live ||
-        match.status == MatchStatus.inningsBreak;
-    final isCompleted = match.status == MatchStatus.completed;
-    final status = matchStatusUi(match.status);
+    final cf = context.cf;
+    final status = matchStatusUi(match, cf);
     final winnerA = MatchScoreDisplay.isTeamWinner(match, match.teamAId);
     final winnerB = MatchScoreDisplay.isTeamWinner(match, match.teamBId);
     final battingA = MatchScoreDisplay.isTeamBattingNow(match, match.teamAId);
     final battingB = MatchScoreDisplay.isTeamBattingNow(match, match.teamBId);
-    final scoreA = MatchScoreDisplay.scoreForTeam(
-      match,
-      match.teamAId,
-      showManualEndReason: false,
-    );
-    final scoreB = MatchScoreDisplay.scoreForTeam(
-      match,
-      match.teamBId,
-      showManualEndReason: false,
-    );
-    final showScores =
-        isLive || isCompleted || scoreA != null || scoreB != null;
-    final chase = isLive && showChaseDetails
-        ? MatchScoreDisplay.chaseLine(match)
-        : null;
+    final showScores = _isLive || _isCompleted;
+    final chase = _isLive && showChaseDetails ? _cardChaseLine(match) : null;
     final result =
-        isCompleted ? MatchScoreDisplay.completedResultLine(match) : null;
-    final firstSummary =
-        isCompleted ? null : MatchScoreDisplay.completedFirstInnings(match);
+        _isCompleted ? MatchScoreDisplay.completedResultLine(match) : null;
     final cur = match.currentInnings;
     final rules = match.rules;
 
-    final nameColor = _isHero ? Colors.white : AppColors.textPrimary;
-    final mutedColor = _isHero ? Colors.white70 : AppColors.textSecondary;
-    final scoreStyle = _isHero
-        ? Theme.of(context).textTheme.displayMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            )
-        : Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            );
+    final nameColor = _isHero ? Colors.white : cf.textPrimary;
+    final mutedColor = _isHero ? Colors.white70 : cf.textSecondary;
 
-    Color teamNameColor(bool winner, bool batting) {
-      if (winner || batting) return AppColors.gold;
-      return _isHero ? Colors.white.withValues(alpha: 0.88) : nameColor;
+    Color teamNameColor(bool winner, bool batting, bool loser) {
+      if (_isHero) {
+        if (winner || batting) return Colors.white;
+        return Colors.white.withValues(alpha: 0.75);
+      }
+      if (winner || batting) return cf.scoreEmphasis;
+      if (loser && _isCompleted) return cf.textMuted;
+      return nameColor;
     }
 
-    Color teamScoreColor(bool winner, bool batting) {
-      if (winner || batting) return AppColors.gold;
-      return _isHero ? Colors.white : nameColor;
+    FontWeight teamWeight(bool winner, bool batting) {
+      if (winner || batting || _isUpcoming) return FontWeight.w700;
+      return FontWeight.w600;
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── status chip + meta (overs · venue, no date) ─────────────────
-        Row(
-          children: [
-            MatchStatusChip(label: status.label, color: status.color),
-            const SizedBox(width: AppDimens.spaceSm),
-            Expanded(
-              child: Text(
-                matchCardMetaLine(match),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: mutedColor,
-                    ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-              ),
-            ),
-          ],
-        ),
-
-        // ── upcoming: date + time block ──────────────────────────────────
-        if (_isUpcoming && match.scheduledAt != null && !_isHero) ...[
-          const SizedBox(height: AppDimens.spaceSm),
-          _UpcomingDateBlock(scheduledAt: match.scheduledAt!),
-        ],
-
         if (tournamentLabel != null) ...[
-          const SizedBox(height: 6),
           Text(
             tournamentLabel!,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.textMuted,
+                  color: mutedColor,
                   fontWeight: FontWeight.w600,
                 ),
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
+          const SizedBox(height: 4),
         ],
-        const SizedBox(height: AppDimens.spaceSm),
-
-        // ── teams row ────────────────────────────────────────────────────
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _TeamColumn(
-                name: match.teamAName,
-                score: showScores ? (scoreA ?? '—') : null,
-                alignEnd: false,
-                nameColor: teamNameColor(winnerA, battingA),
-                scoreStyle: scoreStyle?.copyWith(
-                  color: teamScoreColor(winnerA, battingA),
-                ),
-                nameWeight:
-                    winnerA || battingA ? FontWeight.w800 : FontWeight.w700,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
-                'vs',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.gold,
-                      fontWeight: FontWeight.w700,
+                matchTypeDisplayLabel(match),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: mutedColor,
+                      fontWeight: FontWeight.w500,
                     ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            Expanded(
-              child: _TeamColumn(
-                name: match.teamBName,
-                score: showScores ? (scoreB ?? '—') : null,
-                alignEnd: true,
-                nameColor: teamNameColor(winnerB, battingB),
-                scoreStyle: scoreStyle?.copyWith(
-                  color: teamScoreColor(winnerB, battingB),
-                ),
-                nameWeight:
-                    winnerB || battingB ? FontWeight.w800 : FontWeight.w700,
-              ),
+            const SizedBox(width: AppDimens.spaceSm),
+            MatchStatusChip(
+              label: status.label,
+              color: status.color,
+              showLivePulse: status.label == 'LIVE',
             ),
           ],
         ),
+        const SizedBox(height: 4),
+        Text(
+          matchCardMetaLine(match),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: mutedColor,
+              ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: AppDimens.spaceMd),
+        if (_isUpcoming) ...[
+          _UpcomingTeamsBlock(
+            teamAName: match.teamAName,
+            teamBName: match.teamBName,
+            teamALogoUrl: teamALogoUrl,
+            teamBLogoUrl: teamBLogoUrl,
+            nameColor: nameColor,
+            isHero: _isHero,
+          ),
+          if (match.scheduledAt != null) ...[
+            const SizedBox(height: AppDimens.spaceSm),
+            Text(
+              'Match scheduled to begin on '
+              '${AppDateUtils.formatCardSchedule(match.scheduledAt!)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: mutedColor,
+                    height: 1.35,
+                  ),
+            ),
+          ],
+        ] else ...[
+          _TeamScoreRow(
+            name: match.teamAName,
+            score: showScores
+                ? matchCardScoreLine(match, match.teamAId)
+                : null,
+            logoUrl: teamALogoUrl,
+            nameColor: teamNameColor(
+              winnerA,
+              battingA,
+              !winnerA && _isCompleted,
+            ),
+            nameWeight: teamWeight(winnerA, battingA),
+            isHero: _isHero,
+          ),
+          const SizedBox(height: 8),
+          _TeamScoreRow(
+            name: match.teamBName,
+            score: showScores
+                ? matchCardScoreLine(match, match.teamBId)
+                : null,
+            logoUrl: teamBLogoUrl,
+            nameColor: teamNameColor(
+              winnerB,
+              battingB,
+              !winnerB && _isCompleted,
+            ),
+            nameWeight: teamWeight(winnerB, battingB),
+            isHero: _isHero,
+          ),
+        ],
         if (showTossLine &&
             cur != null &&
             ScoringDisplayUtils.showTossLineDuringFirstInnings(
@@ -190,227 +196,191 @@ class MatchCardContent extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             ScoringDisplayUtils.tossSummaryLine(match)!,
-            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: mutedColor,
                   fontWeight: FontWeight.w500,
                 ),
           ),
         ],
-        if (firstSummary != null && showChaseDetails) ...[
-          const SizedBox(height: 6),
-          Text(
-            '1st inn ${firstSummary.runs}/${firstSummary.wickets} '
-            '(${firstSummary.overs} ov) · Target ${firstSummary.target}'
-            '${match.targetState.dlsApplied ? ' (DLS)' : ''}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: mutedColor,
-                ),
-          ),
-        ],
-        if (cur != null &&
-            showChaseDetails &&
-            cur.status == InningsStatus.inProgress &&
-            cur.inningsNumber >= 2 &&
-            firstSummary != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            '${MatchScoreDisplay.battingTeamName(match, cur)} · '
-            '${OversFormatter.formatOvers(cur.legalBalls, rules.ballsPerOver)} ov · '
-            'CRR ${MatchScoreDisplay.runRateFor(cur, rules, match: match).toStringAsFixed(2)}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: mutedColor,
-                ),
-          ),
-        ] else if (cur != null &&
-            showChaseDetails &&
-            cur.status == InningsStatus.inProgress &&
-            firstSummary == null &&
-            isLive) ...[
-          const SizedBox(height: 4),
-          Text(
-            '${OversFormatter.formatOvers(cur.legalBalls, rules.ballsPerOver)} ov · '
-            'RR ${MatchScoreDisplay.runRateFor(cur, rules, match: match).toStringAsFixed(2)}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: mutedColor,
-                ),
-          ),
-        ],
         if (chase != null) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: AppDimens.spaceSm),
           Text(
             chase,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.gold,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: _isHero ? Colors.white : cf.textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
           ),
         ] else if (result != null) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: AppDimens.spaceSm),
           Text(
             result,
-            textAlign: _isHero ? TextAlign.center : TextAlign.start,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.gold,
-                  fontWeight: FontWeight.w700,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: _isHero ? Colors.white : cf.textPrimary,
+                  fontWeight: FontWeight.w600,
                 ),
           ),
         ],
       ],
     );
   }
-}
 
-/// Date + time block shown on upcoming match cards.
-class _UpcomingDateBlock extends StatelessWidget {
-  const _UpcomingDateBlock({required this.scheduledAt});
-
-  final DateTime scheduledAt;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    final matchDay =
-        DateTime(scheduledAt.year, scheduledAt.month, scheduledAt.day);
-
-    final String dayLabel;
-    if (matchDay == today) {
-      dayLabel = 'Today';
-    } else if (matchDay == tomorrow) {
-      dayLabel = 'Tomorrow';
-    } else {
-      dayLabel = AppDateUtils.formatShortDay(scheduledAt); // e.g. "Wed, 18 Jun"
+  static String? _cardChaseLine(MatchModel match) {
+    final cur = match.currentInnings;
+    final first = MatchScoreDisplay.completedFirstInnings(match);
+    if (cur == null ||
+        first == null ||
+        cur.inningsNumber < 2 ||
+        cur.status != InningsStatus.inProgress) {
+      return MatchScoreDisplay.chaseLine(match);
     }
-
-    final timeLabel = AppDateUtils.formatTime(scheduledAt); // e.g. "3:30 PM"
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spaceSm,
-        vertical: 5,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gold.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: AppColors.gold.withValues(alpha: 0.25),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.calendar_today_outlined,
-            size: 12,
-            color: AppColors.gold,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            dayLabel,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppColors.gold,
-              height: 1,
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 10,
-            margin: const EdgeInsets.symmetric(horizontal: 6),
-            color: AppColors.gold.withValues(alpha: 0.4),
-          ),
-          const Icon(
-            Icons.access_time_outlined,
-            size: 12,
-            color: AppColors.gold,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            timeLabel,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.gold,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
-    );
+    final rules = InningsCompletionPolicy.effectiveRules(match, cur);
+    final target = first.target;
+    final runsNeeded = (target - cur.totalRuns).clamp(0, 9999);
+    final ballsRemaining =
+        (rules.totalBalls - cur.legalBalls).clamp(0, rules.totalBalls);
+    if (runsNeeded <= 0) return 'Target reached';
+    if (ballsRemaining <= 0) return 'Need $runsNeeded runs';
+    return 'Need $runsNeeded runs from $ballsRemaining balls';
   }
 }
 
+class _UpcomingTeamsBlock extends StatelessWidget {
+  const _UpcomingTeamsBlock({
+    required this.teamAName,
+    required this.teamBName,
+    this.teamALogoUrl,
+    this.teamBLogoUrl,
+    required this.nameColor,
+    required this.isHero,
+  });
 
-class MatchStatusChip extends StatelessWidget {
-  const MatchStatusChip({super.key, required this.label, required this.color});
-
-  final String label;
-  final Color color;
+  final String teamAName;
+  final String teamBName;
+  final String? teamALogoUrl;
+  final String? teamBLogoUrl;
+  final Color nameColor;
+  final bool isHero;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.55)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 10,
-            ),
-      ),
+    final style = Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: nameColor,
+          height: 1.25,
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _UpcomingTeamLine(
+          name: teamAName,
+          logoUrl: teamALogoUrl,
+          style: style,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Text(
+            'vs',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: isHero
+                      ? Colors.white54
+                      : context.cf.textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ),
+        _UpcomingTeamLine(
+          name: teamBName,
+          logoUrl: teamBLogoUrl,
+          style: style,
+        ),
+      ],
     );
   }
 }
 
-class _TeamColumn extends StatelessWidget {
-  const _TeamColumn({
+class _UpcomingTeamLine extends StatelessWidget {
+  const _UpcomingTeamLine({
+    required this.name,
+    this.logoUrl,
+    required this.style,
+  });
+
+  final String name;
+  final String? logoUrl;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        MatchTeamAvatar(name: name, logoUrl: logoUrl, size: 26),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            name,
+            style: style,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TeamScoreRow extends StatelessWidget {
+  const _TeamScoreRow({
     required this.name,
     required this.score,
-    required this.alignEnd,
+    this.logoUrl,
     required this.nameColor,
-    required this.scoreStyle,
     required this.nameWeight,
+    required this.isHero,
   });
 
   final String name;
   final String? score;
-  final bool alignEnd;
+  final String? logoUrl;
   final Color nameColor;
-  final TextStyle? scoreStyle;
   final FontWeight nameWeight;
+  final bool isHero;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+    final scoreStyle = isHero
+        ? Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            )
+        : Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: nameColor,
+            );
+
+    return Row(
       children: [
-        Text(
-          name,
-          textAlign: alignEnd ? TextAlign.end : TextAlign.start,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: nameWeight,
-                color: nameColor,
-              ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        MatchTeamAvatar(name: name, logoUrl: logoUrl, size: 26),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            name,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: nameWeight,
+                  color: nameColor,
+                  height: 1.2,
+                ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         if (score != null) ...[
-          const SizedBox(height: 2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
-            child: Text(score!, style: scoreStyle),
+          const SizedBox(width: 8),
+          Text(
+            score!,
+            style: scoreStyle,
+            textAlign: TextAlign.right,
           ),
         ],
       ],
@@ -418,139 +388,193 @@ class _TeamColumn extends StatelessWidget {
   }
 }
 
-({String label, Color color}) matchStatusUi(MatchStatus status) {
-  return switch (status) {
-    MatchStatus.live || MatchStatus.inningsBreak => (
-        label: 'Live',
-        color: AppColors.liveIndicator,
+class MatchStatusChip extends StatelessWidget {
+  const MatchStatusChip({
+    super.key,
+    required this.label,
+    required this.color,
+    this.showLivePulse = false,
+  });
+
+  final String label;
+  final Color color;
+  final bool showLivePulse;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
       ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showLivePulse) ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                  letterSpacing: 0.2,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+({String label, Color color}) matchStatusUi(MatchModel match, CfColors cf) {
+  if (match.isMatchBreakActive) {
+    final breakType = match.activeMatchBreak!.breakType.toLowerCase();
+    if (breakType.contains('rain')) {
+      return (label: 'Rain Delay', color: cf.info);
+    }
+    if (breakType.contains('lunch')) {
+      return (label: 'Lunch', color: cf.info);
+    }
+    if (breakType.contains('drink')) {
+      return (label: 'Drinks', color: cf.info);
+    }
+    if (breakType.contains('stump')) {
+      return (label: 'Stumps', color: cf.statusCompleted);
+    }
+    return (
+      label: match.activeMatchBreak!.breakType,
+      color: cf.info,
+    );
+  }
+
+  return switch (match.status) {
+    MatchStatus.live => (label: 'LIVE', color: cf.statusLive),
+    MatchStatus.inningsBreak => (label: 'BREAK', color: cf.info),
     MatchStatus.scheduled ||
     MatchStatus.tossCompleted ||
     MatchStatus.draft => (
         label: 'Upcoming',
-        color: AppColors.gold,
+        color: cf.statusUpcoming,
       ),
     MatchStatus.completed => (
         label: 'Result',
-        color: AppColors.primaryBlueLight,
+        color: cf.statusCompleted,
       ),
     MatchStatus.abandoned => (
         label: 'Abandoned',
-        color: AppColors.textMuted,
+        color: cf.textMuted,
       ),
   };
 }
 
+String matchTypeDisplayLabel(MatchModel match) {
+  if (match.matchType == MatchType.tournament) {
+    if (match.title.isNotEmpty && match.title != 'Match') {
+      return match.title;
+    }
+    return 'Tournament Match';
+  }
+  final lower = match.title.toLowerCase();
+  if (lower.contains('practice')) return 'Practice Match';
+  if (lower.contains('friendly')) return 'Friendly Match';
+  if (lower.contains('league')) return 'League Match';
+  return 'Individual Match';
+}
+
 String matchCardMetaLine(MatchModel match) {
   final parts = <String>[];
-  // Date is shown in the dedicated _UpcomingDateBlock for upcoming matches,
-  // and not needed in the meta line for live/completed either — venue is enough.
-  parts.add('${match.rules.totalOvers} Ov');
+  final date = match.scheduledAt ?? match.startedAt ?? match.completedAt;
+  if (date != null) {
+    parts.add(AppDateUtils.formatCardDate(date));
+  }
+  parts.add('${match.rules.totalOvers} Ov.');
   if (match.venue.isNotEmpty) {
     parts.add(match.venue);
   } else if (match.location.displayLabel.isNotEmpty) {
     parts.add(match.location.displayLabel);
   }
-  return parts.join(' · ');
+  return parts.join(' | ');
+}
+
+String? matchCardScoreLine(MatchModel match, String? teamId) {
+  final inn = MatchScoreDisplay.inningsBattingTeam(match, teamId);
+  if (inn == null) return null;
+  final rules = InningsCompletionPolicy.effectiveRules(match, inn);
+  final overs = OversFormatter.formatOvers(inn.legalBalls, rules.ballsPerOver);
+  return '${inn.totalRuns}/${inn.totalWickets} ($overs)';
 }
 
 String matchCardFooterHint(MatchModel match) {
-  // Upcoming date/time is now shown in _UpcomingDateBlock inside MatchCardContent.
-  // Footer hint is only used for non-standard states.
-  if (match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak ||
-      match.status == MatchStatus.completed ||
-      match.status == MatchStatus.scheduled ||
-      match.status == MatchStatus.draft ||
-      match.status == MatchStatus.tossCompleted) {
-    return '';
-  }
   return '';
 }
 
-BoxDecoration matchListCardDecoration(MatchModel match) {
+BoxDecoration matchListCardDecoration(MatchModel match, BuildContext context) {
+  final cf = context.cf;
   final isLive = match.status == MatchStatus.live ||
       match.status == MatchStatus.inningsBreak;
-  final isUpcoming = match.status == MatchStatus.scheduled ||
-      match.status == MatchStatus.draft ||
-      match.status == MatchStatus.tossCompleted;
-
-  if (isLive) {
-    return BoxDecoration(
-      color: AppColors.card,
-      borderRadius: AppDimens.cardRadius,
-      border: Border.all(
-        color: AppColors.liveIndicator.withValues(alpha: 0.45),
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: AppColors.liveIndicator.withValues(alpha: 0.12),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    );
-  }
-
-  if (isUpcoming) {
-    return BoxDecoration(
-      color: AppColors.card,
-      borderRadius: AppDimens.cardRadius,
-      border: Border.all(
-        color: AppColors.gold.withValues(alpha: 0.45),
-        width: 1,
-      ),
-    );
-  }
 
   return BoxDecoration(
-    color: AppColors.card,
-    borderRadius: AppDimens.cardRadius,
-    border: Border.all(color: AppColors.border),
+    color: cf.card,
+    borderRadius: BorderRadius.circular(16),
+    border: isLive
+        ? Border.all(color: cf.statusLive.withValues(alpha: 0.35))
+        : Border.all(color: cf.border.withValues(alpha: cf.isLight ? 0.6 : 1)),
+    boxShadow: [
+      BoxShadow(
+        color: isLive
+            ? cf.statusLive.withValues(alpha: cf.isLight ? 0.08 : 0.14)
+            : cf.cardShadow,
+        blurRadius: isLive ? 12 : 8,
+        offset: const Offset(0, 2),
+      ),
+    ],
   );
 }
 
-BoxDecoration matchHeroCardDecoration(MatchModel match) {
+BoxDecoration matchHeroCardDecoration(MatchModel match, BuildContext context) {
+  final cf = context.cf;
   final isLive = match.status == MatchStatus.live ||
       match.status == MatchStatus.inningsBreak;
-  final isCompleted = match.status == MatchStatus.completed;
 
   if (isLive) {
-    return BoxDecoration(
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [AppColors.scoreboardBg, Color(0xFF1565C0)],
-      ),
-      borderRadius: AppDimens.cardRadius,
-      boxShadow: [
-        BoxShadow(
-          color: AppColors.primaryBlue.withValues(alpha: 0.35),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    );
-  }
-
-  if (isCompleted) {
     return BoxDecoration(
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          AppColors.surfaceElevated,
-          AppColors.card,
-        ],
+        colors: [cf.scoreboardBg, const Color(0xFF1565C0)],
       ),
-      borderRadius: AppDimens.cardRadius,
-      border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: CfColors.primaryBlue.withValues(alpha: 0.35),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
     );
   }
 
   return BoxDecoration(
-    color: AppColors.card,
-    borderRadius: AppDimens.cardRadius,
-    border: Border.all(color: AppColors.border),
+    color: cf.card,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: cf.border),
+    boxShadow: [
+      BoxShadow(
+        color: cf.cardShadow,
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      ),
+    ],
   );
 }

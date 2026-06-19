@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/prefs_keys.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../shared/widgets/cf_button.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -50,6 +51,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+    final heroEmphasis = cf.isLight ? Colors.white : CfColors.gold;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.heroGradient),
@@ -75,7 +78,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(p.$1, size: 52, color: AppColors.gold),
+                          Icon(p.$1, size: 52, color: heroEmphasis),
                           const SizedBox(height: AppDimens.spaceXl),
                           Text(
                             p.$2,
@@ -109,7 +112,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: i == _page ? AppColors.gold : Colors.white24,
+                      color: i == _page ? heroEmphasis : Colors.white24,
                     ),
                   ),
                 ),
@@ -136,7 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Text(
                 AppConstants.appName,
                 style: TextStyle(
-                  color: AppColors.gold.withValues(alpha: 0.7),
+                  color: heroEmphasis.withValues(alpha: 0.7),
                   fontSize: 12,
                 ),
               ),

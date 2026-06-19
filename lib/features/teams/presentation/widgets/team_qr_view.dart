@@ -2,8 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/cf_team_id_format.dart';
 import '../../../../core/utils/deep_link_utils.dart';
 import '../../../../data/models/team_model.dart';
@@ -35,6 +35,8 @@ class TeamQrView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -43,6 +45,7 @@ class TeamQrView extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cf.border),
           ),
           child: team.qrUrl != null && team.qrUrl!.isNotEmpty
               ? ClipRRect(
@@ -58,13 +61,13 @@ class TeamQrView extends StatelessWidget {
                   data: _payload,
                   version: QrVersions.auto,
                   size: size,
-                  eyeStyle: const QrEyeStyle(
+                  eyeStyle: QrEyeStyle(
                     eyeShape: QrEyeShape.square,
-                    color: AppColors.accentRed,
+                    color: cf.accent,
                   ),
-                  dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleStyle: QrDataModuleStyle(
                     dataModuleShape: QrDataModuleShape.square,
-                    color: AppColors.accentRed,
+                    color: cf.accent,
                   ),
                 ),
         ),
@@ -75,10 +78,10 @@ class TeamQrView extends StatelessWidget {
           Text(
             CfTeamIdFormat.displayLabel(team.teamCode),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: AppColors.gold,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-            ),
+                  color: cf.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
           ),
         ],
       ],

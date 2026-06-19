@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/providers.dart';
@@ -113,6 +113,7 @@ class _MatchBreaksSheetState extends ConsumerState<MatchBreaksSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final history = widget.match.matchBreakHistory;
 
     return SafeArea(
@@ -131,8 +132,8 @@ class _MatchBreaksSheetState extends ConsumerState<MatchBreaksSheet> {
                 ),
                 child: Text(
                   '${widget.match.activeMatchBreak!.breakType} break in progress — use the banner to resume.',
-                  style: const TextStyle(
-                    color: AppColors.gold,
+                  style: TextStyle(
+                    color: cf.accent,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -152,7 +153,7 @@ class _MatchBreaksSheetState extends ConsumerState<MatchBreaksSheet> {
                 itemBuilder: (context, i) {
                   final t = _types[i];
                   return Material(
-                    color: AppColors.surfaceElevated,
+                    color: cf.surfaceElevated,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
@@ -162,7 +163,7 @@ class _MatchBreaksSheetState extends ConsumerState<MatchBreaksSheet> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(t.icon, color: AppColors.gold, size: 28),
+                          Icon(t.icon, color: cf.accent, size: 28),
                           const SizedBox(height: 8),
                           Text(
                             t.label,

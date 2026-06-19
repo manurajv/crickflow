@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cf_colors.dart';
 
 /// Root shell with unified bottom navigation (Home · Discover · Matches · Community · Profile).
 class MainShellScaffold extends StatelessWidget {
@@ -23,8 +23,8 @@ class MainShellScaffold extends StatelessWidget {
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: context.cf.border, width: 0.5)),
         ),
         child: NavigationBar(
           selectedIndex: navigationShell.currentIndex,

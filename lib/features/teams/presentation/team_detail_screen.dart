@@ -467,10 +467,12 @@ class _TeamDetailBottomBar extends ConsumerWidget {
     String? secondaryLabel;
     VoidCallback? onSecondary;
     var secondaryEnabled = true;
-    var secondaryIsGold = false;
+    var secondaryIsPrimary = false;
+    var secondaryIsDestructive = false;
 
     if (onSquad) {
       secondaryLabel = 'Leave team';
+      secondaryIsDestructive = true;
       onSecondary = () async {
         var leaving = currentPlayer;
         leaving ??= await ref.read(playerRepositoryProvider).getPlayer(uid);
@@ -483,7 +485,7 @@ class _TeamDetailBottomBar extends ConsumerWidget {
         secondaryEnabled = false;
       } else {
         secondaryLabel = 'Join team';
-        secondaryIsGold = true;
+        secondaryIsPrimary = true;
         onSecondary = () => sendTeamJoinRequest(
           ref: ref,
           context: context,
@@ -497,7 +499,8 @@ class _TeamDetailBottomBar extends ConsumerWidget {
       secondaryLabel: secondaryLabel,
       onSecondary: onSecondary,
       secondaryEnabled: secondaryEnabled,
-      secondaryIsGold: secondaryIsGold,
+      secondaryIsPrimary: secondaryIsPrimary,
+      secondaryIsDestructive: secondaryIsDestructive,
     );
   }
 }

@@ -108,12 +108,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               }
               return Column(
                 children: shown
-                    .map(
-                      (m) => MatchListCard(
-                        match: m,
-                        showQuickLinks: false,
-                      ),
-                    )
+                    .map((m) => MatchListCard(match: m))
                     .toList(),
               );
             },

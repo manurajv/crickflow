@@ -35,26 +35,41 @@ class TeamInviteUtils {
         '$link';
   }
 
-  static String whatsAppMessage(TeamModel team) {
-    // WhatsApp supports *bold* in plain text; avoid markdown elsewhere.
-    return shareMessage(team);
-  }
-
   static Future<void> copyLink(TeamModel team) async {
     await Clipboard.setData(ClipboardData(text: inviteLink(team)));
   }
 
   static Future<void> shareLink(TeamModel team) async {
-    await Share.share(shareMessage(team), subject: 'Join ${team.name} on CrickFlow');
+    await Share.share(
+      shareMessage(team),
+      subject: 'Join ${team.name} on CrickFlow',
+    );
   }
 
+  /// Opens WhatsApp with the same invite text pre-filled so the user can pick
+  /// a contact and send without pasting.
   static Future<void> shareWhatsApp(TeamModel team) async {
-    final text = Uri.encodeComponent(whatsAppMessage(team));
-    final uri = Uri.parse('https://wa.me/?text=$text');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      await shareLink(team);
+    final message = shareMessage(team);
+    final encoded = Uri.encodeComponent(message);
+
+    final targets = [
+      Uri.parse('whatsapp://send?text=$encoded'),
+      Uri.parse('https://api.whatsapp.com/send?text=$encoded'),
+      Uri.parse('https://wa.me/?text=$encoded'),
+    ];
+
+    for (final uri in targets) {
+      try {
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (launched) return;
+      } catch (_) {
+        // Try next scheme / host.
+      }
     }
+
+    await shareLink(team);
   }
 }

@@ -13,6 +13,54 @@
 
 ---
 
+## Latest (match card & Matches tab redesign)
+
+| Item | Status |
+|------|--------|
+| Unified `MatchListCard` — CricHeroes-style white cards (16px radius, subtle shadow) | Done |
+| `MatchCardContent` — type header, date \| overs \| venue, vertical team rows, right-aligned scores | Done |
+| Status pills — Upcoming orange, LIVE red (+ pulse dot), Result grey, break/rain blue | Done |
+| State-specific actions — Squads/Details, Live Score/Scorecard/Insights, Scorecard/Insights/Leaderboard | Done |
+| Team avatars on cards (`MatchTeamAvatar` — logo or initials) | Done |
+| Matches tab — Start banner, Your/Played/Network/All chips, empty state | Done |
+| Home, Discover, Highlights use same `MatchListCard` | Done |
+
+---
+
+## Latest (light theme refinement)
+
+| Item | Status |
+|------|--------|
+| Professional light palette — #111111 text, #F6F7F9 bg, white cards | Done |
+| Semantic tokens — accent, scoreEmphasis, link, statusLive/Upcoming/Completed | Done |
+| No yellow text in light mode — gold reserved for dark broadcast UI | Done |
+| Match cards — white cards, status chips (LIVE red, Upcoming orange, Result grey) | Done |
+| Stat grid — dashboard-style white cards with shadows | Done |
+| App bar / nav — white chrome, blue selected nav in light mode | Done |
+| Buttons — primary blue, secondary white/grey border, danger red | Done |
+| Banners / team / scoring sheets migrated to `context.cf` | Done |
+| `cfCardDecoration()` shared card helper | Done |
+
+---
+
+## Latest (light / dark theme)
+
+| Item | Status |
+|------|--------|
+| Light theme (`AppTheme.lightTheme`) — outdoor-friendly palette | Done |
+| Dark theme retained (`AppTheme.darkTheme`) | Done |
+| Default theme = Light (`ThemeMode.light`) | Done |
+| Theme persistence via SharedPreferences (`theme_mode`) | Done |
+| Cold start — preference loaded before `runApp` (no flicker) | Done |
+| `ThemeService` + `themeModeProvider` (Riverpod) | Done |
+| `CfColors` theme extension + `context.cf` helper | Done |
+| Settings → Appearance (Light / Dark segmented control) | Done |
+| `ThemeMode.system` storage ready (UI not exposed yet) | Done |
+| Shared widgets + live scoring migrated to `context.cf` | Done |
+| Remaining screens — Material theme applies; legacy `AppColors` surfaces migrate incrementally | Partial |
+
+---
+
 ## Latest (live scoring quick shortcuts)
 
 | Item | Status |

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
@@ -312,13 +313,14 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
   }
 
   Widget _buildFirstInningsForm() {
+    final cf = context.cf;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         RadioListTile<ReviseTargetMethod>(
           value: ReviseTargetMethod.dls,
           groupValue: _method,
-          activeColor: AppColors.gold,
+          activeColor: cf.accent,
           title: const Text('Apply DLS Method'),
           subtitle: const Text(
             'Reduce overs now; enter target only when ending innings',
@@ -387,7 +389,7 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
         RadioListTile<ReviseTargetMethod>(
           value: ReviseTargetMethod.other,
           groupValue: _method,
-          activeColor: AppColors.gold,
+          activeColor: cf.accent,
           title: const Text('Apply Other Method'),
           onChanged: (v) => setState(() => _method = v!),
         ),
@@ -456,10 +458,11 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
     required bool selected,
     required VoidCallback onTap,
   }) {
+    final cf = context.cf;
     return Material(
       color: selected
-          ? AppColors.gold.withValues(alpha: 0.12)
-          : AppColors.card,
+          ? cf.accent.withValues(alpha: 0.12)
+          : cf.card,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -469,7 +472,7 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppColors.gold : AppColors.border,
+              color: selected ? cf.accent : cf.border,
               width: selected ? 2 : 1,
             ),
           ),
@@ -480,15 +483,15 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
                 title,
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: selected ? AppColors.gold : AppColors.textPrimary,
+                  color: selected ? cf.accent : cf.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
               ),
             ],

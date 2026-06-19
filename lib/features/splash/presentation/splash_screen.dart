@@ -7,7 +7,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/constants/prefs_keys.dart';
 import '../../../core/routing/deep_link_handler.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/user_model.dart';
 import '../../../shared/providers/providers.dart';
@@ -84,7 +84,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.heroGradient),
+        decoration: BoxDecoration(gradient: context.cf.heroGradient),
         child: FadeTransition(
           opacity: _fade,
           child: Center(
@@ -92,7 +92,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.sports_cricket,
-                    size: 80, color: AppColors.gold.withValues(alpha: 0.9)),
+                    size: 80, color: CfColors.gold.withValues(alpha: 0.9)),
                 const SizedBox(height: 24),
                 Text(
                   AppConstants.appName,
@@ -105,11 +105,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 Text(
                   'Score • Stream • Shine',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.gold,
+                        color: CfColors.gold,
                       ),
                 ),
                 const SizedBox(height: 48),
-                const CircularProgressIndicator(color: AppColors.gold),
+                CircularProgressIndicator(color: CfColors.gold),
               ],
             ),
           ),
