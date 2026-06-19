@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/player_profile_constants.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cf_player_id_format.dart';
 import '../../../../data/models/match_player_snapshot.dart';
@@ -14,6 +13,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/team_players_provider.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Bottom sheet: permanently add a team player or create a match-only guest.
 Future<MatchPlayerSnapshot?> showAddMatchSquadPlayerSheet(
@@ -24,7 +24,7 @@ Future<MatchPlayerSnapshot?> showAddMatchSquadPlayerSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: AppColors.card,
+    backgroundColor: context.cf.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -191,6 +191,7 @@ class _AddMatchSquadPlayerSheetState
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
 
@@ -208,6 +209,7 @@ class _AddMatchSquadPlayerSheetState
   }
 
   Widget _buildChoose() {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -229,14 +231,14 @@ class _AddMatchSquadPlayerSheetState
           Text(
             'Add a permanent team member or a match-only guest for this match.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
           ),
           const SizedBox(height: AppDimens.spaceLg),
           _OptionCard(
             icon: Icons.group_add_outlined,
-            iconColor: AppColors.primaryBlueLight,
-            iconBackground: AppColors.primaryBlue.withValues(alpha: 0.2),
+            iconColor: cf.link,
+            iconBackground: cf.accent.withValues(alpha: 0.2),
             title: 'Add to team permanently',
             subtitle: 'Search by name or Player ID and add to the team roster.',
             onTap: _openPermanentMode,
@@ -256,6 +258,7 @@ class _AddMatchSquadPlayerSheetState
   }
 
   Widget _buildPermanentSearch() {
+    final cf = context.cf;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -289,7 +292,7 @@ class _AddMatchSquadPlayerSheetState
           child: Text(
             'Search by name or Player ID (full or partial).',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
           ),
         ),
@@ -334,7 +337,7 @@ class _AddMatchSquadPlayerSheetState
                 ? 'No matches — try another name or ID.'
                 : '${_results.length} player${_results.length == 1 ? '' : 's'} available',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
           ),
         ),
@@ -361,6 +364,7 @@ class _AddMatchSquadPlayerSheetState
   }
 
   Widget _buildEmptySearch() {
+    final cf = context.cf;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spaceXl),
@@ -370,7 +374,7 @@ class _AddMatchSquadPlayerSheetState
             Icon(
               Icons.person_search_outlined,
               size: 48,
-              color: AppColors.textSecondary.withValues(alpha: 0.5),
+              color: cf.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: AppDimens.spaceMd),
             Text(
@@ -387,6 +391,7 @@ class _AddMatchSquadPlayerSheetState
   }
 
   Widget _buildGuestForm() {
+    final cf = context.cf;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -417,16 +422,16 @@ class _AddMatchSquadPlayerSheetState
           Text(
             'Guest players exist only for this match and are not added to the team roster.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
           ),
           const SizedBox(height: AppDimens.spaceLg),
           Card(
             elevation: 0,
-            color: AppColors.surfaceElevated,
+            color: cf.sectionBackground,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+              side: BorderSide(color: cf.border.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(AppDimens.spaceMd),
@@ -522,13 +527,14 @@ class _OptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: AppColors.surfaceElevated,
+      color: cf.sectionBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+        side: BorderSide(color: cf.border.withValues(alpha: 0.5)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -557,13 +563,13 @@ class _OptionCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: cf.textSecondary,
                           ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+              Icon(Icons.chevron_right, color: cf.textSecondary),
             ],
           ),
         ),
@@ -585,6 +591,7 @@ class _PermanentPlayerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final idLabel = player.playerId != null && player.playerId!.isNotEmpty
         ? CfPlayerIdFormat.displayLabel(player.playerId)
         : null;
@@ -596,7 +603,7 @@ class _PermanentPlayerTile extends StatelessWidget {
       ),
       leading: CircleAvatar(
         radius: 26,
-        backgroundColor: AppColors.surfaceElevated,
+        backgroundColor: cf.sectionBackground,
         backgroundImage: player.photoUrl != null
             ? CachedNetworkImageProvider(player.photoUrl!)
             : null,
@@ -617,15 +624,15 @@ class _PermanentPlayerTile extends StatelessWidget {
           if (idLabel != null)
             Text(
               idLabel,
-              style: const TextStyle(
-                color: AppColors.gold,
+              style: TextStyle(
+                color: cf.accent,
                 fontSize: 12,
                 letterSpacing: 0.3,
               ),
             ),
           Text(
             player.role,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: cf.textSecondary),
           ),
         ],
       ),
@@ -640,7 +647,7 @@ class _PermanentPlayerTile extends StatelessWidget {
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Add'),
               style: FilledButton.styleFrom(
-                foregroundColor: AppColors.gold,
+                foregroundColor: cf.accent,
                 visualDensity: VisualDensity.compact,
               ),
             ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_navigation.dart';
 import '../../../../shared/providers/wagon_wheel_filter_options_provider.dart';
@@ -175,7 +175,7 @@ class _WagonWheelEmbeddedSectionState
               'Off ${data.insights.offSidePercent.toStringAsFixed(0)}% · '
               'Leg ${data.insights.legSidePercent.toStringAsFixed(0)}%',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: context.cf.textSecondary,
                   ),
             ),
           ),
@@ -184,13 +184,19 @@ class _WagonWheelEmbeddedSectionState
   }
 
   Widget _quickChip(String label, bool selected, VoidCallback onTap) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: FilterChip(
         label: Text(label, style: const TextStyle(fontSize: 10)),
         selected: selected,
         onSelected: (_) => onTap(),
-        selectedColor: AppColors.gold.withValues(alpha: 0.3),
+        selectedColor: cf.accent.withValues(alpha: 0.15),
+        checkmarkColor: cf.accent,
+        labelStyle: TextStyle(
+          color: selected ? cf.accent : cf.textSecondary,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        ),
         visualDensity: VisualDensity.compact,
         padding: EdgeInsets.zero,
       ),

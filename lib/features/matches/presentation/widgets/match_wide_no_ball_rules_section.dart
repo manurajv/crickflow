@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_rules_model.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Wide / no-ball rule controls shared by match setup and rules edit screens.
 class MatchWideNoBallRulesSection extends StatelessWidget {
@@ -17,6 +17,7 @@ class MatchWideNoBallRulesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -58,12 +59,13 @@ class _SubLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: AppColors.textSecondary,
+        color: cf.textSecondary,
       ),
     );
   }
@@ -82,13 +84,14 @@ class _RuleSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
       title: Text(label, style: const TextStyle(fontSize: 14)),
       value: value,
       onChanged: onChanged,
-      activeThumbColor: AppColors.gold,
+      activeThumbColor: cf.accent,
     );
   }
 }
@@ -110,6 +113,7 @@ class _StepperRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -117,8 +121,8 @@ class _StepperRow extends StatelessWidget {
           Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
           IconButton.filled(
             style: IconButton.styleFrom(
-              backgroundColor: AppColors.surfaceElevated,
-              foregroundColor: AppColors.textPrimary,
+              backgroundColor: cf.sectionBackground,
+              foregroundColor: cf.textPrimary,
               minimumSize: const Size(36, 36),
             ),
             onPressed: value > min ? () => onChanged(value - 1) : null,
@@ -130,8 +134,8 @@ class _StepperRow extends StatelessWidget {
           ),
           IconButton.filled(
             style: IconButton.styleFrom(
-              backgroundColor: AppColors.surfaceElevated,
-              foregroundColor: AppColors.textPrimary,
+              backgroundColor: cf.sectionBackground,
+              foregroundColor: cf.textPrimary,
               minimumSize: const Size(36, 36),
             ),
             onPressed: value < max ? () => onChanged(value + 1) : null,

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/my_player_provider.dart';
@@ -13,6 +12,8 @@ import '../../teams/presentation/utils/teams_list_filter.dart';
 import '../../teams/presentation/widgets/team_list_scope.dart';
 import '../../teams/presentation/widgets/teams_list_toolbar.dart';
 import '../../teams/presentation/widgets/teams_location_filter_sheet.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../core/theme/cf_colors.dart';
 
 /// Pick a team for Team A or Team B during start-match flow.
 class SelectTeamForMatchScreen extends ConsumerStatefulWidget {
@@ -66,6 +67,7 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final draft = ref.watch(startMatchDraftProvider);
     final blockedTeam = widget.slot == 'b' ? draft.teamA : draft.teamB;
     final blockedSlotLabel = widget.slot == 'b' ? 'Team A' : 'Team B';
@@ -77,9 +79,9 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
             ? null
             : TabBar(
                 controller: _tabs,
-                indicatorColor: AppColors.gold,
-                labelColor: AppColors.gold,
-                unselectedLabelColor: AppColors.textSecondary,
+                indicatorColor: cf.accent,
+                labelColor: cf.accent,
+                unselectedLabelColor: cf.textSecondary,
                 tabs: const [
                   Tab(text: 'Your teams'),
                   Tab(text: 'All teams'),
@@ -166,6 +168,7 @@ class _SelectTeamLocationFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -185,8 +188,8 @@ class _SelectTeamLocationFilterBar extends StatelessWidget {
                     Icons.place_outlined,
                     size: 18,
                     color: _locationActive
-                        ? AppColors.gold
-                        : AppColors.textSecondary,
+                        ? cf.accent
+                        : cf.textSecondary,
                   ),
                   label: const Text('Location'),
                   selected: _locationActive,
@@ -196,13 +199,13 @@ class _SelectTeamLocationFilterBar extends StatelessWidget {
                     city: city,
                     onApply: onLocationChanged,
                   ),
-                  selectedColor: AppColors.primaryBlue.withValues(alpha: 0.35),
-                  checkmarkColor: AppColors.gold,
+                  selectedColor: cf.accent.withValues(alpha: 0.35),
+                  checkmarkColor: cf.accent,
                   showCheckmark: false,
                   labelStyle: TextStyle(
                     color: _locationActive
-                        ? AppColors.gold
-                        : AppColors.textSecondary,
+                        ? cf.accent
+                        : cf.textSecondary,
                     fontWeight:
                         _locationActive ? FontWeight.w600 : FontWeight.w500,
                   ),
@@ -224,7 +227,7 @@ class _SelectTeamLocationFilterBar extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: cf.textSecondary,
                           ),
                     ),
                   ),
@@ -344,6 +347,7 @@ class _SelectTeamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final theme = Theme.of(context);
 
     return Opacity(
@@ -361,7 +365,7 @@ class _SelectTeamCard extends StatelessWidget {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: AppColors.primaryBlue,
+                  backgroundColor: cf.accent,
                   backgroundImage: team.logoUrl != null
                       ? CachedNetworkImageProvider(team.logoUrl!)
                       : null,
@@ -379,15 +383,15 @@ class _SelectTeamCard extends StatelessWidget {
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: isBlocked
-                              ? AppColors.textSecondary
-                              : AppColors.textPrimary,
+                              ? cf.textSecondary
+                              : cf.textPrimary,
                         ),
                       ),
                       if (team.location.displayLabel.isNotEmpty)
                         Text(
                           team.location.displayLabel,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: cf.textSecondary,
                           ),
                         ),
                       if (isBlocked) ...[
@@ -397,13 +401,13 @@ class _SelectTeamCard extends StatelessWidget {
                             Icon(
                               Icons.check_circle_outline,
                               size: 14,
-                              color: AppColors.gold.withValues(alpha: 0.8),
+                              color: cf.accent.withValues(alpha: 0.8),
                             ),
                             const SizedBox(width: 4),
                             Text(
                               'Selected as $blockedSlotLabel',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.gold,
+                                color: cf.accent,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -420,22 +424,22 @@ class _SelectTeamCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceElevated,
+                      color: cf.sectionBackground,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: cf.border),
                     ),
                     child: Text(
                       'Already selected',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: cf.textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   )
                 else
-                  const Icon(
+                  Icon(
                     Icons.chevron_right,
-                    color: AppColors.textSecondary,
+                    color: cf.textSecondary,
                   ),
               ],
             ),
@@ -457,6 +461,7 @@ class _SelectTeamEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
@@ -468,7 +473,7 @@ class _SelectTeamEmptyState extends StatelessWidget {
           Icon(
             Icons.groups_outlined,
             size: 56,
-            color: AppColors.textSecondary.withValues(alpha: 0.45),
+            color: cf.textSecondary.withValues(alpha: 0.45),
           ),
           const SizedBox(height: AppDimens.spaceMd),
           Text(
@@ -484,16 +489,13 @@ class _SelectTeamEmptyState extends StatelessWidget {
               'Try adjusting your search or location filter.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: cf.textSecondary,
               ),
             ),
             const SizedBox(height: AppDimens.spaceLg),
             FilledButton(
               onPressed: onClearFilters,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: Colors.black,
-              ),
+              style: ScoringUiKit.primaryButtonStyle(context),
               child: const Text('Clear filters'),
             ),
           ],
@@ -508,6 +510,7 @@ class _AddTeamTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppDimens.spaceLg),
       child: Column(
@@ -517,7 +520,7 @@ class _AddTeamTab extends StatelessWidget {
           Icon(
             Icons.groups_outlined,
             size: 56,
-            color: AppColors.textSecondary.withValues(alpha: 0.45),
+            color: cf.textSecondary.withValues(alpha: 0.45),
           ),
           const SizedBox(height: AppDimens.spaceMd),
           Text(
@@ -531,7 +534,7 @@ class _AddTeamTab extends StatelessWidget {
             'Set up your team and use it in this match.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
+              color: cf.textSecondary,
             ),
           ),
           const SizedBox(height: AppDimens.spaceLg),
@@ -539,9 +542,7 @@ class _AddTeamTab extends StatelessWidget {
             onPressed: () => context.push('/teams/create'),
             icon: const Icon(Icons.add),
             label: const Text('Create team'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.gold,
-              foregroundColor: Colors.black,
+            style: ScoringUiKit.primaryButtonStyle(context).copyWith(
             ),
           ),
         ],

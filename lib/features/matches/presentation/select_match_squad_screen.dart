@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/match_player_snapshot.dart';
 import '../../../data/models/player_model.dart';
@@ -11,6 +10,9 @@ import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import 'widgets/add_match_squad_player_sheet.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../shared/widgets/start_match_ui.dart';
+import '../../../core/theme/cf_colors.dart';
 
 enum _SquadSlot { playing, substitute, none }
 
@@ -84,8 +86,8 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
   }
 
   Future<bool> _confirmAddAsSubstitute() async {
-    final result = await showDialog<bool>(
-      context: context,
+    final result = await ScoringUiKit.showThemedDialog<bool>(
+      context,
       builder: (ctx) => AlertDialog(
         title: const Text('Playing Squad is full'),
         content: const Text('Add as substitute?'),
@@ -96,6 +98,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
+            style: ScoringUiKit.primaryButtonStyle(ctx),
             child: const Text('Add Substitute'),
           ),
         ],
@@ -183,6 +186,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final draft = ref.watch(startMatchDraftProvider);
     final team = _team(draft);
     final teamId = team?.id;
@@ -196,7 +200,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: cf.background,
       appBar: AppBar(
         title: Text(_teamName(draft)),
       ),
@@ -223,6 +227,9 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const StartMatchFlowProgress(
+                currentIndex: StartMatchFlowStep.squads,
+              ),
               Padding(
                 padding: AppDimens.listPadding,
                 child: Row(
@@ -243,7 +250,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Add player'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue,
+                        backgroundColor: cf.accent,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 12,
@@ -258,10 +265,10 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
                   padding: AppDimens.listPadding,
                   children: [
                     _SquadSectionHeader(
-                      title: 'Playing Squad',
+                      title: 'PLAYING XI',
                       countLabel: '${_playing.length} / $limit',
                       expanded: _playingExpanded,
-                      accentColor: AppColors.primaryBlue,
+                      accentColor: cf.accent,
                       onToggle: () =>
                           setState(() => _playingExpanded = !_playingExpanded),
                     ),
@@ -286,12 +293,12 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
                       const SizedBox(height: AppDimens.spaceMd),
                     ],
                     _SquadSectionHeader(
-                      title: 'Substitute Players',
+                      title: 'SUBSTITUTE',
                       countLabel: _substitutes.isEmpty
                           ? '0 Subs'
                           : '${_substitutes.length} Sub${_substitutes.length == 1 ? '' : 's'}',
                       expanded: _subsExpanded,
-                      accentColor: Colors.orange.shade700,
+                      accentColor: cf.statusUpcoming,
                       onToggle: () =>
                           setState(() => _subsExpanded = !_subsExpanded),
                     ),
@@ -330,7 +337,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
                               ? 'No players on this team yet'
                               : 'All players are in the squad',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.textSecondary),
+                          style: TextStyle(color: cf.textSecondary),
                         ),
                       )
                     else
@@ -355,13 +362,10 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
                   padding: const EdgeInsets.all(AppDimens.spaceMd),
                   child: FilledButton(
                     onPressed: _saveAndNext,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(
-                        double.infinity,
-                        AppDimens.buttonHeightLarge,
+                    style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+                      minimumSize: WidgetStateProperty.all(
+                        const Size(double.infinity, AppDimens.buttonHeightLarge),
                       ),
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: Colors.black,
                     ),
                     child: Text('Next (${_playing.length}/$limit playing)'),
                   ),
@@ -424,6 +428,7 @@ class _SquadSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return InkWell(
       onTap: onToggle,
       borderRadius: BorderRadius.circular(8),
@@ -458,7 +463,7 @@ class _SquadSectionHeader extends StatelessWidget {
             ),
             Icon(
               expanded ? Icons.expand_less : Icons.expand_more,
-              color: AppColors.textSecondary,
+              color: cf.textSecondary,
             ),
           ],
         ),
@@ -474,12 +479,13 @@ class _EmptySectionHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
       child: Text(
         text,
-        style: const TextStyle(
-          color: AppColors.textSecondary,
+        style: TextStyle(
+          color: cf.textSecondary,
           fontSize: 13,
         ),
       ),
@@ -495,6 +501,7 @@ class _SquadBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -528,11 +535,12 @@ class _SelectedPlayerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final isPlaying = slot == _SquadSlot.playing;
-    final accent = isPlaying ? AppColors.primaryBlue : Colors.orange.shade700;
+    final accent = isPlaying ? cf.accent : cf.statusUpcoming;
 
     return Material(
-      color: AppColors.card,
+      color: cf.card,
       borderRadius: AppDimens.cardRadius,
       child: Container(
         decoration: BoxDecoration(
@@ -559,11 +567,11 @@ class _SelectedPlayerTile extends StatelessWidget {
                     ),
                   ),
                   if (snapshot.isMatchOnlyPlayer)
-                    const Text(
+                    Text(
                       'Guest',
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.textSecondary,
+                        color: cf.textSecondary,
                       ),
                     ),
                 ],
@@ -598,8 +606,9 @@ class _AvailablePlayerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.card,
+      color: cf.card,
       borderRadius: AppDimens.cardRadius,
       child: InkWell(
         onTap: onAddPlaying,
@@ -607,7 +616,7 @@ class _AvailablePlayerTile extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: AppDimens.cardRadius,
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: cf.border),
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: AppDimens.spaceMd,
@@ -629,7 +638,7 @@ class _AvailablePlayerTile extends StatelessWidget {
               TextButton(
                 onPressed: onAddSubstitute,
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.orange.shade800,
+                  foregroundColor: cf.statusUpcoming,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 child: const Text('Add as Substitute'),
@@ -650,9 +659,10 @@ class _PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return CircleAvatar(
       radius: 24,
-      backgroundColor: AppColors.surfaceElevated,
+      backgroundColor: cf.sectionBackground,
       backgroundImage:
           photoUrl != null ? CachedNetworkImageProvider(photoUrl!) : null,
       child: photoUrl == null

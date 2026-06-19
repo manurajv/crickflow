@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../../../../domain/services/scoring_engine.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Wide / no-ball / bye / leg-bye / running runs (reference-style).
 class ScoringExtraDialogs {
@@ -82,6 +82,7 @@ class ScoringExtraDialogs {
     return ScoringUiKit.showSheet<int>(
       context,
       builder: (ctx) {
+        final cf = ctx.cf;
         final width = MediaQuery.sizeOf(ctx).width;
         final hPad = AppDimens.spaceMd;
         final gap = 10.0;
@@ -151,13 +152,13 @@ class ScoringExtraDialogs {
                   ],
                 ),
                 const SizedBox(height: AppDimens.spaceSm),
-                const Text(
+                Text(
                   '4 and 6 count as runs, not boundaries.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
-                    color: AppColors.textMuted,
+                    color: cf.textMuted,
                   ),
                 ),
               ],
@@ -177,6 +178,7 @@ class ScoringExtraDialogs {
     return ScoringUiKit.showSheet<BallEventInput>(
       context,
       builder: (ctx) {
+        final cf = ctx.cf;
         final width = MediaQuery.sizeOf(ctx).width;
         final hPad = AppDimens.spaceMd;
         final gap = 10.0;
@@ -241,6 +243,7 @@ class ScoringExtraDialogs {
     return ScoringUiKit.showSheet<BallEventInput>(
       context,
       builder: (ctx) {
+        final cf = ctx.cf;
         final width = MediaQuery.sizeOf(ctx).width;
         final hPad = AppDimens.spaceMd;
         final gap = 8.0;
@@ -268,7 +271,7 @@ class ScoringExtraDialogs {
                   title: title,
                   trailing: IconButton(
                     icon: const Icon(Icons.settings_outlined, size: 20),
-                    color: AppColors.textMuted,
+                    color: cf.textMuted,
                     onPressed: () => Navigator.pop(ctx),
                     tooltip: 'Close',
                   ),
@@ -310,9 +313,11 @@ Future<int?> _showCustomRuns(BuildContext context) {
   return ScoringUiKit.showSheet<int>(
     context,
     isScrollControlled: true,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => Material(
-        color: AppColors.surface,
+    builder: (ctx) {
+      final cf = ctx.cf;
+      return StatefulBuilder(
+        builder: (innerCtx, setState) => Material(
+        color: cf.surface,
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             AppDimens.spaceMd,
@@ -332,29 +337,26 @@ Future<int?> _showCustomRuns(BuildContext context) {
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
                   hintText: '1',
                   filled: true,
-                  fillColor: AppColors.surfaceElevated,
+                  fillColor: cf.sectionBackground,
                 ),
                 onChanged: (v) => setState(() => runs = int.tryParse(v) ?? 1),
               ),
               const SizedBox(height: AppDimens.spaceLg),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, runs.clamp(0, 12)),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 48),
-                ),
+                style: ScoringUiKit.primaryButtonStyle(ctx),
                 child: const Text('OK'),
               ),
             ],
           ),
         ),
       ),
-    ),
+      );
+    },
   );
 }
 
@@ -383,6 +385,7 @@ class _RunningRunsInputSheetState extends State<_RunningRunsInputSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -400,41 +403,41 @@ class _RunningRunsInputSheetState extends State<_RunningRunsInputSheet> {
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
               autofocus: true,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: cf.textPrimary,
               ),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: AppColors.card,
+                fillColor: cf.card,
                 contentPadding: const EdgeInsets.symmetric(
                   vertical: 14,
                   horizontal: 16,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(color: cf.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(color: cf.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: AppColors.gold, width: 1.5),
+                  borderSide: BorderSide(color: cf.accent, width: 1.5),
                 ),
               ),
               onSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               '*4 and 6 will not be considered boundaries.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
-                color: AppColors.textMuted,
+                color: cf.textMuted,
               ),
             ),
             const SizedBox(height: 20),
@@ -445,8 +448,8 @@ class _RunningRunsInputSheetState extends State<_RunningRunsInputSheet> {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 48),
-                      foregroundColor: AppColors.textSecondary,
-                      side: const BorderSide(color: AppColors.border),
+                      foregroundColor: cf.textSecondary,
+                      side: BorderSide(color: cf.border),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -455,11 +458,7 @@ class _RunningRunsInputSheetState extends State<_RunningRunsInputSheet> {
                 Expanded(
                   child: FilledButton(
                     onPressed: _submit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: Colors.black,
-                      minimumSize: const Size(0, 48),
-                    ),
+                    style: ScoringUiKit.primaryButtonStyle(context),
                     child: const Text('Ok'),
                   ),
                 ),
@@ -527,6 +526,7 @@ class _NoBallDetailsSheetState extends State<_NoBallDetailsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final width = MediaQuery.sizeOf(context).width;
     final hPad = AppDimens.spaceMd;
     final gap = 8.0;
@@ -556,7 +556,7 @@ class _NoBallDetailsSheetState extends State<_NoBallDetailsSheet> {
               title: 'No ball (NB=$nb)',
               trailing: IconButton(
                 icon: const Icon(Icons.settings_outlined, size: 20),
-                color: AppColors.textMuted,
+                color: cf.textMuted,
                 onPressed: () => Navigator.pop(context),
                 tooltip: 'Close',
               ),
@@ -582,7 +582,7 @@ class _NoBallDetailsSheetState extends State<_NoBallDetailsSheet> {
             ),
             if (_needsRunType) ...[
               const SizedBox(height: AppDimens.spaceMd),
-              const Divider(height: 1, color: AppColors.border),
+              Divider(height: 1, color: cf.border),
               const SizedBox(height: AppDimens.spaceSm),
               Row(
                 children: [
@@ -628,6 +628,7 @@ class _NoBallRunTypeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -643,7 +644,7 @@ class _NoBallRunTypeChip extends StatelessWidget {
                     ? Icons.radio_button_checked
                     : Icons.radio_button_off,
                 size: 20,
-                color: selected ? AppColors.gold : AppColors.textMuted,
+                color: selected ? cf.accent : cf.textMuted,
               ),
               const SizedBox(height: 4),
               Text(
@@ -653,8 +654,8 @@ class _NoBallRunTypeChip extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
+                      ? cf.textPrimary
+                      : cf.textSecondary,
                 ),
               ),
             ],

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/lineup_providers.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import 'cf_selection_card.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Bottom sheet to flip toss winner's bat/bowl choice (swaps batting & bowling).
 class EditTossDecisionSheet extends ConsumerStatefulWidget {
@@ -97,6 +97,7 @@ class _EditTossDecisionSheetState extends ConsumerState<EditTossDecisionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final elected = _winnerBatsFirst ? 'bat' : 'bowl';
     final otherTeam = _winnerBatsFirst
         ? (widget.match.setup!.tossWinnerIsTeamA!
@@ -107,7 +108,7 @@ class _EditTossDecisionSheetState extends ConsumerState<EditTossDecisionSheet> {
             : widget.match.teamBName);
 
     return Material(
-      color: AppColors.surface,
+      color: cf.surface,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -125,7 +126,7 @@ class _EditTossDecisionSheetState extends ConsumerState<EditTossDecisionSheet> {
             '$_winnerName won the toss. Changing bat/bowl will swap which team '
             'is batting and bowling for this innings.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
           ),
           const SizedBox(height: AppDimens.spaceLg),
@@ -156,7 +157,7 @@ class _EditTossDecisionSheetState extends ConsumerState<EditTossDecisionSheet> {
             '$_winnerName will $elected · $otherTeam will ${_winnerBatsFirst ? 'bowl' : 'bat'}',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.gold,
+                  color: cf.accent,
                   fontWeight: FontWeight.w600,
                 ),
           ),

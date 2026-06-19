@@ -8,7 +8,12 @@ import '../../../../domain/wagon_wheel/wagon_wheel_field_geometry.dart';
 class WagonWheelRenderer {
   WagonWheelRenderer._();
 
-  static void paintGround(Canvas canvas, Size size) {
+  static void paintGround(
+    Canvas canvas,
+    Size size, {
+    bool isLight = false,
+  }) {
+    final palette = WagonWheelFieldGeometry.forTheme(isLight);
     final mapper = WagonWheelCoordinateMapper(size);
     final rect = Offset.zero & size;
     final boundaryR = mapper.boundaryRadiusPixels;
@@ -18,7 +23,7 @@ class WagonWheelRenderer {
 
     canvas.drawRRect(
       groundRRect,
-      Paint()..color = WagonWheelFieldGeometry.outsideFieldColor,
+      Paint()..color = palette.outsideFieldColor,
     );
 
     canvas.save();
@@ -29,12 +34,12 @@ class WagonWheelRenderer {
     canvas.drawRect(
       rect,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            WagonWheelFieldGeometry.insideFieldTop,
-            WagonWheelFieldGeometry.insideFieldBottom,
+            palette.insideFieldTop,
+            palette.insideFieldBottom,
           ],
         ).createShader(rect),
     );
@@ -44,7 +49,7 @@ class WagonWheelRenderer {
       center,
       boundaryR + 6,
       Paint()
-        ..color = WagonWheelFieldGeometry.outsideFieldEdge
+        ..color = palette.outsideFieldEdge
         ..style = PaintingStyle.stroke
         ..strokeWidth = 8,
     );
@@ -53,7 +58,7 @@ class WagonWheelRenderer {
       center,
       boundaryR,
       Paint()
-        ..color = WagonWheelFieldGeometry.boundaryRopeGlow
+        ..color = palette.boundaryRopeGlow
         ..style = PaintingStyle.stroke
         ..strokeWidth = WagonWheelFieldGeometry.boundaryRopeGlowWidth,
     );
@@ -62,13 +67,13 @@ class WagonWheelRenderer {
       center,
       boundaryR,
       Paint()
-        ..color = WagonWheelFieldGeometry.boundaryRopeColor
+        ..color = palette.boundaryRopeColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = WagonWheelFieldGeometry.boundaryRopeStrokeWidth,
     );
 
     final innerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.07)
+      ..color = palette.innerCircleColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawCircle(
@@ -80,11 +85,11 @@ class WagonWheelRenderer {
     final pitchRect = WagonWheelFieldGeometry.pitchRect(size);
     canvas.drawRRect(
       RRect.fromRectAndRadius(pitchRect, const Radius.circular(2)),
-      Paint()..color = WagonWheelFieldGeometry.pitchColor,
+      Paint()..color = palette.pitchColor,
     );
 
     final creasePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.6)
+      ..color = palette.creaseColor
       ..strokeWidth = 1.2;
     final pitchH = pitchRect.height;
     final creaseY1 = pitchRect.top + pitchH * 0.14;
@@ -100,8 +105,8 @@ class WagonWheelRenderer {
       creasePaint,
     );
 
-    _paintWicket(canvas, mapper.strikerWicketPixel);
-    _paintWicket(canvas, mapper.bowlerWicketPixel, dimmed: true);
+    _paintWicket(canvas, mapper.strikerWicketPixel, palette: palette);
+    _paintWicket(canvas, mapper.bowlerWicketPixel, dimmed: true, palette: palette);
   }
 
   static void paintShots(
@@ -210,10 +215,12 @@ class WagonWheelRenderer {
     Canvas canvas,
     Size size, {
     required bool leftHanded,
+    bool isLight = false,
   }) {
+    final palette = WagonWheelFieldGeometry.forTheme(isLight);
     final labels = WagonWheelBattingOrientation.sideLabels(leftHanded: leftHanded);
     final textStyle = TextStyle(
-      color: Colors.white.withValues(alpha: 0.72),
+      color: palette.sideLabelColor,
       fontSize: size.width * 0.038,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.6,
@@ -245,12 +252,14 @@ class WagonWheelRenderer {
     Canvas canvas,
     Offset position, {
     bool dimmed = false,
+    WagonWheelFieldPalette? palette,
   }) {
+    final p = palette ?? WagonWheelFieldPalette.dark;
     canvas.drawCircle(
       position,
       5,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.25)
+        ..color = p.markerShadowColor
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
     canvas.drawCircle(
@@ -258,14 +267,14 @@ class WagonWheelRenderer {
       3.5,
       Paint()
         ..color = dimmed
-            ? WagonWheelFieldGeometry.wicketColor.withValues(alpha: 0.55)
-            : WagonWheelFieldGeometry.wicketColor,
+            ? p.wicketColor.withValues(alpha: 0.55)
+            : p.wicketColor,
     );
     canvas.drawCircle(
       position,
       5,
       Paint()
-        ..color = WagonWheelFieldGeometry.wicketColor.withValues(
+        ..color = p.wicketColor.withValues(
           alpha: dimmed ? 0.25 : 0.5,
         )
         ..style = PaintingStyle.stroke
@@ -366,6 +375,7 @@ class WagonWheelFieldCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = maxWidth ??
@@ -382,6 +392,7 @@ class WagonWheelFieldCanvas extends StatelessWidget {
                 markerX: markerX,
                 markerY: markerY,
                 accentColor: accentColor,
+                isLight: isLight,
                 leftHandedByBatterId: leftHandedByBatterId,
                 fallbackBatterId: fallbackBatterId,
                 fallbackBattingStyle: fallbackBattingStyle,
@@ -402,6 +413,7 @@ class _WagonWheelCanvasPainter extends CustomPainter {
     this.markerX,
     this.markerY,
     this.accentColor,
+    this.isLight = false,
     this.leftHandedByBatterId,
     this.fallbackBatterId,
     this.fallbackBattingStyle,
@@ -413,6 +425,7 @@ class _WagonWheelCanvasPainter extends CustomPainter {
   final double? markerX;
   final double? markerY;
   final Color? accentColor;
+  final bool isLight;
   final Map<String, bool>? leftHandedByBatterId;
   final String? fallbackBatterId;
   final String? fallbackBattingStyle;
@@ -421,7 +434,7 @@ class _WagonWheelCanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    WagonWheelRenderer.paintGround(canvas, size);
+    WagonWheelRenderer.paintGround(canvas, size, isLight: isLight);
     if (shots.isNotEmpty) {
       WagonWheelRenderer.paintShots(
         canvas,
@@ -437,6 +450,7 @@ class _WagonWheelCanvasPainter extends CustomPainter {
         canvas,
         size,
         leftHanded: viewAsLeftHanded,
+        isLight: isLight,
       );
     }
     if (markerX != null && markerY != null && accentColor != null) {
@@ -456,6 +470,7 @@ class _WagonWheelCanvasPainter extends CustomPainter {
         oldDelegate.markerX != markerX ||
         oldDelegate.markerY != markerY ||
         oldDelegate.accentColor != accentColor ||
+        oldDelegate.isLight != isLight ||
         oldDelegate.leftHandedByBatterId != leftHandedByBatterId ||
         oldDelegate.fallbackBatterId != fallbackBatterId ||
         oldDelegate.fallbackBattingStyle != fallbackBattingStyle ||

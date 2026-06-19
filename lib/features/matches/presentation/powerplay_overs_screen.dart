@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 
 /// Select over numbers for up to three powerplays (no overlap between slots).
 class PowerplayOversScreen extends StatefulWidget {
@@ -50,6 +50,7 @@ class _PowerplayOversScreenState extends State<PowerplayOversScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final overs = widget.totalOvers.clamp(1, 50);
 
     return Scaffold(
@@ -79,7 +80,7 @@ class _PowerplayOversScreenState extends State<PowerplayOversScreen> {
             '* Batting power play overs can be adjusted later during scoring.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   fontStyle: FontStyle.italic,
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
           ),
           const SizedBox(height: AppDimens.spaceXl),
@@ -92,7 +93,7 @@ class _PowerplayOversScreenState extends State<PowerplayOversScreen> {
             onPressed: () => Navigator.pop(context, _slots),
             style: FilledButton.styleFrom(
               minimumSize: const Size(double.infinity, AppDimens.buttonHeightLarge),
-              backgroundColor: AppColors.primaryBlue,
+              backgroundColor: cf.accent,
             ),
             child: const Text('Done'),
           ),
@@ -117,6 +118,7 @@ class _OverGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -134,10 +136,10 @@ class _OverGrid extends StatelessWidget {
 
         return Material(
           color: isSelected
-              ? AppColors.primaryBlue
+              ? cf.accent
               : blocked
-                  ? AppColors.surfaceElevated.withValues(alpha: 0.5)
-                  : AppColors.surface,
+                  ? cf.sectionBackground.withValues(alpha: 0.5)
+                  : cf.surface,
           borderRadius: BorderRadius.circular(6),
           child: InkWell(
             onTap: blocked ? null : () => onToggle(over),
@@ -146,7 +148,7 @@ class _OverGrid extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: isSelected ? AppColors.gold : AppColors.border,
+                  color: isSelected ? cf.accent : cf.border,
                 ),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -158,8 +160,8 @@ class _OverGrid extends StatelessWidget {
                   color: isSelected
                       ? Colors.white
                       : blocked
-                          ? AppColors.textMuted
-                          : AppColors.textPrimary,
+                          ? cf.textMuted
+                          : cf.textPrimary,
                 ),
               ),
             ),

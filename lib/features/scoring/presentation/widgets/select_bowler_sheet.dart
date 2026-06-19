@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/lineup_player.dart';
 import '../../../../data/models/match_model.dart';
+import '../../../../shared/widgets/lineup_player_avatar.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../utils/scoring_display_utils.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 class SelectBowlerSheet extends StatelessWidget {
   const SelectBowlerSheet({
@@ -63,8 +64,9 @@ class SelectBowlerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.surface,
+      color: cf.surface,
       child: Column(
         children: [
           ScoringSheetHeader(
@@ -81,9 +83,9 @@ class SelectBowlerSheet extends StatelessWidget {
             child: Text(
               '$_battingLabel: ${innings.totalRuns}/${innings.totalWickets} '
               '(${CricketMath.formatOvers(innings.legalBalls, ballsPerOver)} ov)',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                color: cf.textPrimary,
               ),
             ),
           ),
@@ -99,7 +101,7 @@ class SelectBowlerSheet extends StatelessWidget {
                 'Previous over bowler cannot bowl again immediately',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textSecondary.withValues(alpha: 0.9),
+                  color: cf.textSecondary.withValues(alpha: 0.9),
                 ),
               ),
             ),
@@ -109,7 +111,7 @@ class SelectBowlerSheet extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
               itemCount: bowlingSquad.length,
               separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: AppColors.border),
+                  Divider(height: 1, color: cf.border),
               itemBuilder: (_, i) {
                 final p = bowlingSquad[i];
                 final isKeeper = wicketKeeperId != null &&
@@ -137,26 +139,25 @@ class SelectBowlerSheet extends StatelessWidget {
                 final selected = innings.currentBowlerId == p.id;
                 return ListTile(
                   enabled: !disabled,
-                  leading: CircleAvatar(
+                  leading: LineupPlayerAvatar(
+                    name: p.name,
+                    photoUrl: p.photoUrl,
+                    radius: 22,
                     backgroundColor: disabled
-                        ? AppColors.surface
+                        ? cf.surface
                         : selected
-                            ? AppColors.primaryBlue
-                            : AppColors.surfaceElevated,
-                    child: Icon(
-                      Icons.sports_baseball_outlined,
-                      size: 20,
-                      color: disabled
-                          ? AppColors.textMuted
-                          : selected
-                              ? AppColors.gold
-                              : AppColors.textSecondary,
-                    ),
+                            ? cf.accent.withValues(alpha: 0.15)
+                            : cf.sectionBackground,
+                    foregroundColor: disabled
+                        ? cf.textMuted
+                        : selected
+                            ? cf.accent
+                            : cf.textSecondary,
                   ),
                   title: Text(
                     p.name,
                     style: TextStyle(
-                      color: disabled ? AppColors.textMuted : null,
+                      color: disabled ? cf.textMuted : null,
                     ),
                   ),
                   subtitle: Text(
@@ -169,7 +170,7 @@ class SelectBowlerSheet extends StatelessWidget {
                                 : '$overs over(s)',
                   ),
                   trailing: selected && !disabled
-                      ? const Icon(Icons.check_circle, color: AppColors.gold)
+                      ? Icon(Icons.check_circle, color: cf.accent)
                       : null,
                   onTap: disabled
                       ? null

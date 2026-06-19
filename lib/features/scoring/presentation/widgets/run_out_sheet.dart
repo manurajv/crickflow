@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/dismissal_fielder.dart';
 import '../../../../data/models/innings_model.dart';
@@ -10,6 +9,7 @@ import '../../../../data/models/match_rules_model.dart';
 import '../../../../shared/widgets/fielder_picker_sheet.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import 'crease_picker_sheets.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Result of the run-out scoring sheet.
 class RunOutResult {
@@ -152,19 +152,21 @@ class _RunOutSheetState extends State<RunOutSheet> {
     );
   }
 
-  Widget _validationMessage(String message) => Padding(
+  Widget _validationMessage(String message) {
+    final cf = context.cf;
+    return Padding(
         padding: const EdgeInsets.only(top: 6),
         child: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded,
-                size: 16, color: AppColors.accentRed),
+            Icon(Icons.warning_amber_rounded,
+                size: 16, color: cf.error),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.accentRed,
+                  color: cf.error,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -172,16 +174,18 @@ class _RunOutSheetState extends State<RunOutSheet> {
           ],
         ),
       );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final rules = widget.rules;
     final showDismissedError = _showValidation && _dismissedMissing;
     final showFielderError = _showValidation && _fielderMissing;
     final showDirectHitError = _showValidation && _directHitConflict;
 
     return Material(
-      color: AppColors.surface,
+      color: cf.surface,
       child: Column(
         children: [
           ScoringSheetHeader(title: 'Run out'),
@@ -249,7 +253,7 @@ class _RunOutSheetState extends State<RunOutSheet> {
                               height: 24,
                               child: Checkbox(
                                 value: _directHit,
-                                activeColor: AppColors.gold,
+                                activeColor: cf.accent,
                                 materialTapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap,
                                 visualDensity: VisualDensity.compact,
@@ -369,7 +373,7 @@ class _RunOutSheetState extends State<RunOutSheet> {
                               style: TextStyle(fontSize: 13)),
                           value: NoBallRunsMode.bat,
                           groupValue: _noBallMode,
-                          activeColor: AppColors.gold,
+                          activeColor: cf.accent,
                           onChanged: (v) => setState(() => _noBallMode = v!),
                         ),
                       ),
@@ -380,7 +384,7 @@ class _RunOutSheetState extends State<RunOutSheet> {
                               const Text('Bye', style: TextStyle(fontSize: 13)),
                           value: NoBallRunsMode.bye,
                           groupValue: _noBallMode,
-                          activeColor: AppColors.gold,
+                          activeColor: cf.accent,
                           onChanged: (v) => setState(() => _noBallMode = v!),
                         ),
                       ),
@@ -391,7 +395,7 @@ class _RunOutSheetState extends State<RunOutSheet> {
                               style: TextStyle(fontSize: 13)),
                           value: NoBallRunsMode.legBye,
                           groupValue: _noBallMode,
-                          activeColor: AppColors.gold,
+                          activeColor: cf.accent,
                           onChanged: (v) => setState(() => _noBallMode = v!),
                         ),
                       ),
@@ -413,14 +417,7 @@ class _RunOutSheetState extends State<RunOutSheet> {
               ),
               child: FilledButton(
                 onPressed: _isValid ? _submit : () => _submit(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
-                  disabledBackgroundColor:
-                      AppColors.gold.withValues(alpha: 0.45),
-                  disabledForegroundColor: Colors.black54,
-                  minimumSize: const Size(double.infinity, 48),
-                ),
+                style: ScoringUiKit.primaryButtonStyle(context),
                 child: const Text(
                   'Confirm run out',
                   style: TextStyle(fontWeight: FontWeight.w700),
@@ -433,17 +430,20 @@ class _RunOutSheetState extends State<RunOutSheet> {
     );
   }
 
-  Widget _sectionTitle(String text) => Padding(
+  Widget _sectionTitle(String text) {
+    final cf = context.cf;
+    return Padding(
         padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
         child: Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: cf.textPrimary,
           ),
         ),
       );
+  }
 }
 
 class _WhoCard extends StatelessWidget {
@@ -461,16 +461,17 @@ class _WhoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final borderColor = hasError
-        ? AppColors.accentRed
+        ? cf.error
         : selected
-            ? AppColors.gold
-            : AppColors.border;
+            ? cf.accent
+            : cf.border;
 
     return Material(
       color: selected
-          ? AppColors.gold.withValues(alpha: 0.15)
-          : AppColors.card,
+          ? cf.accent.withValues(alpha: 0.15)
+          : cf.card,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -488,23 +489,23 @@ class _WhoCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 32,
-                backgroundColor: AppColors.surfaceElevated,
+                backgroundColor: cf.sectionBackground,
                 child: Text(
                   option.name.isNotEmpty
                       ? option.name.trim()[0].toUpperCase()
                       : '?',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.gold,
+                    color: cf.accent,
                   ),
                 ),
               ),
               if (selected)
-                const Padding(
-                  padding: EdgeInsets.only(top: 4),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
                   child:
-                      Icon(Icons.check_circle, color: AppColors.gold, size: 20),
+                      Icon(Icons.check_circle, color: cf.accent, size: 20),
                 ),
               const SizedBox(height: 8),
               Text(
@@ -519,10 +520,10 @@ class _WhoCard extends StatelessWidget {
               ),
               Text(
                 option.roleLabel,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontStyle: FontStyle.italic,
-                  color: AppColors.textMuted,
+                  color: cf.textMuted,
                 ),
               ),
             ],
@@ -550,10 +551,11 @@ class _FielderSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Opacity(
       opacity: enabled ? 1 : 0.45,
       child: Material(
-        color: AppColors.card,
+        color: cf.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: enabled ? onTap : null,
@@ -563,7 +565,7 @@ class _FielderSlot extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: hasError ? AppColors.accentRed : AppColors.border,
+                color: hasError ? cf.error : cf.border,
                 width: hasError ? 2 : 1,
               ),
             ),
@@ -573,7 +575,7 @@ class _FielderSlot extends StatelessWidget {
                 Icon(
                   fielder != null ? Icons.check_circle : Icons.sports,
                   size: 40,
-                  color: fielder != null ? AppColors.gold : AppColors.textMuted,
+                  color: fielder != null ? cf.accent : cf.textMuted,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -585,8 +587,8 @@ class _FielderSlot extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: fielder != null
-                        ? AppColors.textPrimary
-                        : AppColors.textMuted,
+                        ? cf.textPrimary
+                        : cf.textMuted,
                   ),
                 ),
               ],
@@ -611,12 +613,13 @@ class _DeliveryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return FilterChip(
       label: Text(label),
       selected: selected,
       onSelected: (_) => onTap(),
-      selectedColor: AppColors.gold.withValues(alpha: 0.35),
-      checkmarkColor: AppColors.gold,
+      selectedColor: cf.accent.withValues(alpha: 0.35),
+      checkmarkColor: cf.accent,
     );
   }
 }
@@ -634,11 +637,12 @@ class _RunChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SizedBox(
       width: 48,
       height: 48,
       child: Material(
-        color: selected ? AppColors.gold : AppColors.card,
+        color: selected ? cf.accent : cf.card,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: onTap,
@@ -647,7 +651,7 @@ class _RunChip extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: selected ? AppColors.gold : AppColors.border,
+                color: selected ? cf.accent : cf.border,
               ),
             ),
             alignment: Alignment.center,
@@ -655,7 +659,7 @@ class _RunChip extends StatelessWidget {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
-                color: selected ? Colors.black : AppColors.textPrimary,
+                color: selected ? cf.onAccent : cf.textPrimary,
               ),
             ),
           ),

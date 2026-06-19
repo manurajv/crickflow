@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/wagon_wheel_data.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_colors.dart';
 
@@ -11,6 +11,7 @@ class WagonWheelRunLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final items = [
       (WagonWheelShotType.single, '1'),
       (WagonWheelShotType.double, '2'),
@@ -40,7 +41,7 @@ class WagonWheelRunLegend extends StatelessWidget {
               item.$2,
               style: TextStyle(
                 fontSize: compact ? 10 : 11,
-                color: AppColors.textSecondary,
+                color: cf.textSecondary,
               ),
             ),
           ],

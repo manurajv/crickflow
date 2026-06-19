@@ -153,7 +153,7 @@ class LiveScoringKeypad extends StatelessWidget {
                                     onTap: () => onRun(4),
                                     w: colW,
                                     h: runRowH,
-                                    accent: cf.accent,
+                                    accent: cf.success,
                                     sublabel: 'Four',
                                   ),
                                   SizedBox(width: _gap),
@@ -162,9 +162,7 @@ class LiveScoringKeypad extends StatelessWidget {
                                     onTap: () => onRun(6),
                                     w: colW,
                                     h: runRowH,
-                                    accent: cf.isLight
-                                        ? cf.scoreEmphasis
-                                        : CfColors.goldDark,
+                                    accent: cf.statusUpcoming,
                                     sublabel: 'Six',
                                   ),
                                 ],
@@ -292,14 +290,14 @@ class _Key extends StatelessWidget {
   Widget build(BuildContext context) {
     final cf = context.cf;
     return Material(
-      color: cf.surfaceElevated,
+      color: cf.card,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: cf.border),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
         child: Center(
           child: FittedBox(
             fit: BoxFit.scaleDown,

@@ -1,9 +1,12 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../shared/widgets/start_match_ui.dart';
 
 enum _RoleTab { captain, wicketKeeper }
 
@@ -87,14 +90,14 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final draft = ref.watch(startMatchDraftProvider);
     final setup = draft.setup;
-    final squadIds = setup.squadIdsForTeam(widget.isTeamA);
-    final names = setup.squadNamesForTeam(widget.isTeamA);
+    final squad = setup.playingPlayersForTeam(widget.isTeamA);
     final teamName =
         widget.isTeamA ? draft.resolvedTeamAName : draft.resolvedTeamBName;
 
-    if (squadIds.isEmpty) {
+    if (squad.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text(teamName)),
         body: const Center(child: Text('Select squad first')),
@@ -102,7 +105,7 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: cf.background,
       appBar: AppBar(
         title: const Text('Captain & wicket keeper'),
         actions: [
@@ -111,9 +114,9 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
             child: Center(
               child: Text(
                 teamName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: AppColors.gold,
+                  color: cf.accent,
                 ),
               ),
             ),
@@ -123,6 +126,7 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const StartMatchFlowProgress(currentIndex: StartMatchFlowStep.roles),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppDimens.spaceMd,
@@ -154,17 +158,17 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
           Expanded(
             child: ListView.separated(
               padding: AppDimens.listPadding,
-              itemCount: squadIds.length,
+              itemCount: squad.length,
               separatorBuilder: (_, __) =>
                   const SizedBox(height: AppDimens.spaceSm),
               itemBuilder: (_, i) {
-                final id = squadIds[i];
-                final name = names[id] ?? 'Player';
-                final selected = _selectedForTab() == id;
+                final player = squad[i];
+                final selected = _selectedForTab() == player.id;
                 return _RolePlayerTile(
-                  name: name,
+                  name: player.name,
+                  photoUrl: player.photoUrl,
                   selected: selected,
-                  onTap: () => _selectPlayer(id),
+                  onTap: () => _selectPlayer(player.id),
                 );
               },
             ),
@@ -174,11 +178,10 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
               padding: const EdgeInsets.all(AppDimens.spaceMd),
               child: FilledButton(
                 onPressed: _onNext,
-                style: FilledButton.styleFrom(
-                  minimumSize:
-                      const Size(double.infinity, AppDimens.buttonHeightLarge),
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
+                style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+                  minimumSize: WidgetStateProperty.all(
+                    const Size(double.infinity, AppDimens.buttonHeightLarge),
+                  ),
                 ),
                 child: const Text('Next'),
               ),
@@ -203,8 +206,9 @@ class _RoleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: selected ? AppColors.primaryBlue : AppColors.surfaceElevated,
+      color: selected ? cf.accent : cf.sectionBackground,
       borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
@@ -215,14 +219,14 @@ class _RoleChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: selected ? AppColors.gold : AppColors.border,
+              color: selected ? cf.accent : cf.border,
             ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              color: selected ? Colors.white : AppColors.textSecondary,
+              color: selected ? Colors.white : cf.textSecondary,
             ),
           ),
         ),
@@ -234,18 +238,23 @@ class _RoleChip extends StatelessWidget {
 class _RolePlayerTile extends StatelessWidget {
   const _RolePlayerTile({
     required this.name,
+    this.photoUrl,
     required this.selected,
     required this.onTap,
   });
 
   final String name;
+  final String? photoUrl;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
+
     return Material(
-      color: AppColors.card,
+      color: cf.card,
       borderRadius: AppDimens.cardRadius,
       child: InkWell(
         onTap: onTap,
@@ -254,7 +263,7 @@ class _RolePlayerTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: AppDimens.cardRadius,
             border: Border.all(
-              color: selected ? AppColors.gold : AppColors.border,
+              color: selected ? cf.accent : cf.border,
               width: selected ? 2 : 1,
             ),
           ),
@@ -269,24 +278,30 @@ class _RolePlayerTile extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 26,
-                    backgroundColor: AppColors.surfaceElevated,
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    backgroundColor: cf.sectionBackground,
+                    backgroundImage: hasPhoto
+                        ? CachedNetworkImageProvider(photoUrl!)
+                        : null,
+                    child: hasPhoto
+                        ? null
+                        : Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: cf.textSecondary,
+                            ),
+                          ),
                   ),
                   if (selected)
                     Container(
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryBlue.withValues(alpha: 0.6),
+                        color: cf.accent.withValues(alpha: 0.55),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.check, color: Colors.white),
+                      child: Icon(Icons.check, color: cf.onAccent, size: 28),
                     ),
                 ],
               ),
@@ -294,9 +309,10 @@ class _RolePlayerTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
+                    color: cf.textPrimary,
                   ),
                 ),
               ),

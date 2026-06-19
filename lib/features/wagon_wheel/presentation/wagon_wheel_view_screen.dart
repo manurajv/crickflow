@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_analytics_service.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_filter_options.dart';
@@ -224,6 +224,7 @@ class _SummaryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Card(
       child: Padding(
         padding: AppDimens.cardPadding,
@@ -235,7 +236,7 @@ class _SummaryHeader extends StatelessWidget {
                 Text(
                   '$shotCount',
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: AppColors.gold,
+                        color: cf.accent,
                         fontWeight: FontWeight.bold,
                       ),
                 ),
@@ -257,7 +258,7 @@ class _SummaryHeader extends StatelessWidget {
                     .map(
                       (l) => Chip(
                         label: Text(l, style: const TextStyle(fontSize: 10)),
-                        backgroundColor: AppColors.surfaceElevated,
+                        backgroundColor: cf.sectionBackground,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                       ),

@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/match_setup_draft_models.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../shared/widgets/start_match_ui.dart';
 
 /// Assign umpires, scorers, commentators, referee, and streamers.
 class MatchOfficialsScreen extends ConsumerStatefulWidget {
@@ -63,15 +65,23 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final draft = ref.watch(startMatchDraftProvider);
     final setup = draft.setup;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: cf.background,
       appBar: AppBar(title: const Text('Match officials')),
-      body: ListView(
-        padding: AppDimens.listPadding,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const StartMatchFlowProgress(
+            currentIndex: StartMatchFlowStep.officials,
+          ),
+          Expanded(
+            child: ListView(
+              padding: AppDimens.listPadding,
+              children: [
           _OfficialSection(
             title: 'Select umpires',
             slots: _umpireSlots,
@@ -199,6 +209,9 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
             ],
           ),
           const SizedBox(height: 80),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -206,11 +219,10 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
           padding: const EdgeInsets.all(AppDimens.spaceMd),
           child: FilledButton(
             onPressed: _onDone,
-            style: FilledButton.styleFrom(
-              minimumSize:
-                  const Size(double.infinity, AppDimens.buttonHeightLarge),
-              backgroundColor: AppColors.gold,
-              foregroundColor: Colors.black,
+            style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+              minimumSize: WidgetStateProperty.all(
+                const Size(double.infinity, AppDimens.buttonHeightLarge),
+              ),
             ),
             child: const Text('Done'),
           ),
@@ -318,6 +330,7 @@ class _OfficialSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -371,6 +384,7 @@ class _OfficialSlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final filled = entry != null && entry!.name.isNotEmpty;
     final idLabel = filled && entry!.playerId != null && entry!.playerId!.isNotEmpty
         ? entry!.playerId
@@ -379,7 +393,7 @@ class _OfficialSlotCard extends StatelessWidget {
     return SizedBox(
       width: 108,
       child: Material(
-        color: AppColors.card,
+        color: cf.card,
         borderRadius: AppDimens.cardRadius,
         child: InkWell(
           onTap: onTap,
@@ -388,7 +402,7 @@ class _OfficialSlotCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: AppDimens.cardRadius,
               border: Border.all(
-                color: filled ? AppColors.gold.withValues(alpha: 0.5) : AppColors.border,
+                color: filled ? cf.accent.withValues(alpha: 0.5) : cf.border,
               ),
             ),
             padding: const EdgeInsets.all(8),
@@ -400,7 +414,7 @@ class _OfficialSlotCard extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 28,
-                      backgroundColor: AppColors.surfaceElevated,
+                      backgroundColor: cf.sectionBackground,
                       backgroundImage: filled && entry!.photoUrl != null
                           ? CachedNetworkImageProvider(entry!.photoUrl!)
                           : null,
@@ -413,7 +427,7 @@ class _OfficialSlotCard extends StatelessWidget {
                               ),
                             )
                           : !filled
-                              ? Icon(icon, color: AppColors.textSecondary)
+                              ? Icon(icon, color: cf.textSecondary)
                               : null,
                     ),
                     if (locked)
@@ -422,7 +436,7 @@ class _OfficialSlotCard extends StatelessWidget {
                         bottom: -2,
                         child: CircleAvatar(
                           radius: 10,
-                          backgroundColor: AppColors.primaryBlue,
+                          backgroundColor: cf.accent,
                           child: const Icon(
                             Icons.lock,
                             size: 11,
@@ -441,7 +455,7 @@ class _OfficialSlotCard extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: filled ? FontWeight.w700 : FontWeight.w500,
                     color:
-                        filled ? AppColors.textPrimary : AppColors.textSecondary,
+                        filled ? cf.textPrimary : cf.textSecondary,
                   ),
                 ),
                 if (idLabel != null)
@@ -449,9 +463,9 @@ class _OfficialSlotCard extends StatelessWidget {
                     idLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 9,
-                      color: AppColors.gold,
+                      color: cf.accent,
                     ),
                   ),
                 if (filled && onRemove != null)
@@ -461,7 +475,7 @@ class _OfficialSlotCard extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      foregroundColor: AppColors.accentRed,
+                      foregroundColor: cf.error,
                     ),
                     child: const Text('Remove', style: TextStyle(fontSize: 10)),
                   ),
@@ -491,6 +505,7 @@ class _OtherOfficialCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final filled = entry != null && entry!.name.isNotEmpty;
     return _OfficialSlotCard(
       slotLabel: label,

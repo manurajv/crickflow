@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Animated gold coin for the toss screen (3D flip on Y axis).
 class TossCoinFlip extends StatefulWidget {
@@ -95,6 +95,7 @@ class _TossCoinFlipState extends State<TossCoinFlip>
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -171,8 +172,8 @@ class _TossCoinFlipState extends State<TossCoinFlip>
             fontSize: 15,
             fontWeight: FontWeight.w700,
             color: _shownResult == null
-                ? AppColors.textSecondary
-                : AppColors.gold,
+                ? cf.textSecondary
+                : cf.accent,
           ),
         ),
         if (!_flipping && _shownResult != null)
@@ -200,6 +201,7 @@ class _CoinFace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Container(
       width: size,
       height: size,
@@ -209,22 +211,22 @@ class _CoinFace extends StatelessWidget {
           colors: isHeads
               ? [
                   const Color(0xFFFFE082),
-                  AppColors.gold,
+                  cf.accent,
                   const Color(0xFFFF8F00),
                 ]
               : [
-                  AppColors.surfaceElevated,
-                  AppColors.surface,
-                  AppColors.card,
+                  cf.sectionBackground,
+                  cf.surface,
+                  cf.card,
                 ],
         ),
         border: Border.all(
-          color: highlighted ? AppColors.gold : AppColors.border,
+          color: highlighted ? cf.accent : cf.border,
           width: highlighted ? 3.5 : 2.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.gold.withValues(alpha: highlighted ? 0.45 : 0.2),
+            color: cf.accent.withValues(alpha: highlighted ? 0.45 : 0.2),
             blurRadius: highlighted ? 20 : 10,
             spreadRadius: highlighted ? 1 : 0,
             offset: const Offset(0, 8),
@@ -246,7 +248,7 @@ class _CoinFace extends StatelessWidget {
               fontWeight: FontWeight.w800,
               color: isHeads
                   ? Colors.black.withValues(alpha: 0.55)
-                  : AppColors.gold.withValues(alpha: 0.85),
+                  : cf.accent.withValues(alpha: 0.85),
               letterSpacing: 1.2,
             ),
           ),
@@ -254,7 +256,7 @@ class _CoinFace extends StatelessWidget {
           Icon(
             isHeads ? Icons.sports_cricket : Icons.circle_outlined,
             size: 40,
-            color: isHeads ? Colors.black87 : AppColors.gold,
+            color: isHeads ? Colors.black87 : cf.accent,
           ),
           const SizedBox(height: 6),
           Text(
@@ -263,7 +265,7 @@ class _CoinFace extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.5,
-              color: isHeads ? Colors.black87 : AppColors.textPrimary,
+              color: isHeads ? Colors.black87 : cf.textPrimary,
             ),
           ),
         ],

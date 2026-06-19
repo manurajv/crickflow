@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/wagon_wheel_data.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_colors.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_coordinate_mapper.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_field_geometry.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
 import 'widgets/wagon_wheel_renderer.dart';
 
 /// Full-screen wagon wheel capture shown after a valid batting shot.
@@ -20,13 +21,15 @@ class WagonWheelSelectionSheet extends StatefulWidget {
     BuildContext context, {
     required int batsmanRuns,
   }) {
+    final cf = context.cf;
     return showModalBottomSheet<WagonWheelData>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       isDismissible: false,
       enableDrag: false,
-      backgroundColor: AppColors.surface,
+      backgroundColor: cf.card,
+      shape: ScoringUiKit.sheetShape,
       builder: (_) => WagonWheelSelectionSheet(batsmanRuns: batsmanRuns),
     );
   }
@@ -90,6 +93,7 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final shotType = WagonWheelShotType.fromBatsmanRuns(widget.batsmanRuns);
     final color = WagonWheelColors.forShotType(shotType);
     final height = MediaQuery.sizeOf(context).height * 0.88;
@@ -114,12 +118,14 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                     children: [
                       Text(
                         'Wagon wheel',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: cf.textPrimary,
+                            ),
                       ),
                       Text(
                         hint,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
+                              color: cf.textSecondary,
                             ),
                       ),
                       if (_wasClamped)
@@ -135,7 +141,7 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                                 .textTheme
                                 .bodySmall
                                 ?.copyWith(
-                                  color: AppColors.gold,
+                                  color: cf.link,
                                   fontSize: 11,
                                 ),
                           ),
@@ -147,7 +153,7 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.2),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: color),
                   ),
@@ -205,9 +211,10 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize:
-                          const Size(0, AppDimens.buttonHeightLarge),
+                    style: ScoringUiKit.outlinedButtonStyle(context).copyWith(
+                      minimumSize: WidgetStateProperty.all(
+                        const Size(0, AppDimens.buttonHeightLarge),
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -217,11 +224,10 @@ class _WagonWheelSelectionSheetState extends State<WagonWheelSelectionSheet> {
                   flex: 2,
                   child: FilledButton(
                     onPressed: _confirm,
-                    style: FilledButton.styleFrom(
-                      minimumSize:
-                          const Size(0, AppDimens.buttonHeightLarge),
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: Colors.black,
+                    style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+                      minimumSize: WidgetStateProperty.all(
+                        const Size(0, AppDimens.buttonHeightLarge),
+                      ),
                     ),
                     child: const Text('Confirm shot'),
                   ),

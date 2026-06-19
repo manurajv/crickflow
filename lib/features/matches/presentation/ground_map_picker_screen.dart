@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/services/google_maps_location_service.dart';
@@ -11,6 +10,8 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_underlined_field.dart';
 import 'models/ground_pick_result.dart';
 import 'widgets/ground_map_web_view.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../core/theme/cf_colors.dart';
 
 /// Full-screen map to search and pin a ground location.
 class GroundMapPickerScreen extends ConsumerStatefulWidget {
@@ -199,6 +200,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final locationLine = _resolvedLocation.displayLabel;
 
     return Scaffold(
@@ -242,13 +244,13 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
               child: Material(
                 elevation: 2,
                 borderRadius: BorderRadius.circular(12),
-                color: AppColors.surfaceElevated,
+                color: cf.sectionBackground,
                 child: ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _suggestions.length.clamp(0, 4),
                   separatorBuilder: (_, __) =>
-                      const Divider(height: 1, color: AppColors.border),
+                      Divider(height: 1, color: cf.border),
                   itemBuilder: (_, i) {
                     final s = _suggestions[i];
                     return ListTile(
@@ -270,7 +272,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
               child: Text(
                 _statusMessage!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: cf.textSecondary,
                     ),
               ),
             ),
@@ -285,7 +287,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
                   ),
           ),
           Material(
-            color: AppColors.card,
+            color: cf.card,
             elevation: 8,
             child: SafeArea(
               top: false,
@@ -303,7 +305,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
                       Text(
                         locationLine,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
+                              color: cf.textSecondary,
                             ),
                       ),
                     const SizedBox(height: AppDimens.spaceSm),
@@ -316,14 +318,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
                     const SizedBox(height: AppDimens.spaceMd),
                     FilledButton(
                       onPressed: _confirm,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.gold,
-                        foregroundColor: Colors.black,
-                        minimumSize: const Size(
-                          double.infinity,
-                          AppDimens.buttonHeightLarge,
-                        ),
-                      ),
+                      style: ScoringUiKit.primaryButtonStyle(context),
                       child: const Text('Use this location'),
                     ),
                   ],

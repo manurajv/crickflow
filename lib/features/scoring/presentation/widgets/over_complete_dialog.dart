@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/ball_event_model.dart';
@@ -8,6 +7,7 @@ import '../../../../data/models/match_rules_model.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../utils/scoring_display_utils.dart';
 import 'over_timeline.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 class OverCompleteDialog extends StatelessWidget {
   const OverCompleteDialog({
@@ -59,6 +59,7 @@ class OverCompleteDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final runs = ScoringDisplayUtils.overRuns(overEvents);
     final wickets = ScoringDisplayUtils.overWickets(overEvents);
     final extras = ScoringDisplayUtils.overExtras(overEvents);
@@ -74,7 +75,7 @@ class OverCompleteDialog extends StatelessWidget {
     );
 
     return Material(
-      color: AppColors.card,
+      color: cf.card,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -126,23 +127,23 @@ class OverCompleteDialog extends StatelessWidget {
                 vertical: 4,
               ),
               decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
+                color: cf.sectionBackground,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: cf.border),
               ),
               child: Column(
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
                     child: Row(
-                      children: const [
+                      children: [
                         Expanded(
                           child: Text(
                             'Batter',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textMuted,
+                              color: cf.textMuted,
                             ),
                           ),
                         ),
@@ -151,7 +152,7 @@ class OverCompleteDialog extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textMuted,
+                            color: cf.textMuted,
                           ),
                         ),
                       ],
@@ -164,7 +165,7 @@ class OverCompleteDialog extends StatelessWidget {
                       overEvents,
                     ),
                   ),
-                  const Divider(height: 1, color: AppColors.border),
+                  Divider(height: 1, color: cf.border),
                   _PlayerRow(
                     name: nonStriker?.playerName ?? '—',
                     stat: ScoringDisplayUtils.batsmanOverScoreLine(
@@ -183,14 +184,7 @@ class OverCompleteDialog extends StatelessWidget {
                 Navigator.pop(context);
                 onStartNextOver();
               },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: Colors.black,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+              style: ScoringUiKit.primaryButtonStyle(context),
               child: const Text(
                 'Select bowler for next over',
                 style: TextStyle(fontWeight: FontWeight.w700),
@@ -216,15 +210,16 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       decoration: BoxDecoration(
         color: highlight
-            ? AppColors.gold.withValues(alpha: 0.12)
-            : AppColors.surfaceElevated,
+            ? cf.accent.withValues(alpha: 0.12)
+            : cf.sectionBackground,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: highlight ? AppColors.gold.withValues(alpha: 0.5) : AppColors.border,
+          color: highlight ? cf.accent.withValues(alpha: 0.5) : cf.border,
         ),
       ),
       child: Column(
@@ -234,16 +229,16 @@ class _StatChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: highlight ? AppColors.gold : AppColors.textPrimary,
+              color: highlight ? cf.accent : cf.textPrimary,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: AppColors.textMuted,
+              color: cf.textMuted,
             ),
           ),
         ],
@@ -263,6 +258,7 @@ class _PlayerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -279,10 +275,10 @@ class _PlayerRow extends StatelessWidget {
           ),
           Text(
             stat,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
+              color: cf.textSecondary,
             ),
           ),
         ],

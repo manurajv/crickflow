@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import 'facing_problem_sheet.dart';
 import 'scoring_mistake_sheet.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Need Help hub from quick shortcuts.
 class NeedHelpSheet extends StatelessWidget {
@@ -25,6 +25,7 @@ class NeedHelpSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
@@ -33,7 +34,7 @@ class NeedHelpSheet extends StatelessWidget {
           children: [
             const ScoringSheetHeader(title: 'Need Help'),
             ListTile(
-              leading: const Icon(Icons.history, color: AppColors.gold),
+              leading: Icon(Icons.history, color: cf.accent),
               title: const Text('Scoring Mistake'),
               subtitle: const Text('Undo history & recent balls'),
               onTap: () {
@@ -42,8 +43,8 @@ class NeedHelpSheet extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.report_problem_outlined,
-                  color: AppColors.gold),
+              leading: Icon(Icons.report_problem_outlined,
+                  color: cf.accent),
               title: const Text('Facing Problem'),
               subtitle: const Text('Report app or scoring issues'),
               onTap: () {

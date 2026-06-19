@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/lineup_player.dart';
+import '../../../../shared/widgets/lineup_player_avatar.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Pick one player from a squad list (start innings / replace).
 class SelectLineupPlayerSheet extends StatelessWidget {
@@ -50,11 +51,12 @@ class SelectLineupPlayerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final visible =
         players.where((p) => !excludeIds.contains(p.id)).toList();
 
     return Material(
-      color: AppColors.surface,
+      color: cf.surface,
       child: Column(
         children: [
           ScoringSheetHeader(
@@ -71,20 +73,20 @@ class SelectLineupPlayerSheet extends StatelessWidget {
               ),
               child: Text(
                 subtitle!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
               ),
             ),
           Expanded(
             child: visible.isEmpty
-                ? const Center(
+                ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(AppDimens.spaceMd),
+                      padding: const EdgeInsets.all(AppDimens.spaceMd),
                       child: Text(
                         'No players available',
-                        style: TextStyle(color: AppColors.textSecondary),
+                        style: TextStyle(color: cf.textSecondary),
                       ),
                     ),
                   )
@@ -92,9 +94,9 @@ class SelectLineupPlayerSheet extends StatelessWidget {
                     controller: scrollController,
                     padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
                     itemCount: visible.length,
-                    separatorBuilder: (_, __) => const Divider(
+                    separatorBuilder: (_, __) => Divider(
                       height: 1,
-                      color: AppColors.border,
+                      color: cf.border,
                     ),
                     itemBuilder: (_, i) {
                       final p = visible[i];
@@ -102,34 +104,29 @@ class SelectLineupPlayerSheet extends StatelessWidget {
                       final disabled = disabledReason != null;
                       return ListTile(
                         enabled: !disabled,
-                        leading: CircleAvatar(
+                        leading: LineupPlayerAvatar(
+                          name: p.name,
+                          photoUrl: p.photoUrl,
+                          radius: 24,
                           backgroundColor: disabled
-                              ? AppColors.surface
-                              : AppColors.surfaceElevated,
-                          child: Text(
-                            p.name.isNotEmpty
-                                ? p.name[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: disabled
-                                  ? AppColors.textMuted
-                                  : AppColors.gold,
-                            ),
-                          ),
+                              ? cf.surface
+                              : cf.sectionBackground,
+                          foregroundColor: disabled
+                              ? cf.textMuted
+                              : cf.accent,
                         ),
                         title: Text(
                           p.name,
                           style: TextStyle(
-                            color: disabled ? AppColors.textMuted : null,
+                            color: disabled ? cf.textMuted : null,
                           ),
                         ),
                         subtitle: disabledReason != null
                             ? Text(
                                 disabledReason,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.textMuted,
+                                  color: cf.textMuted,
                                 ),
                               )
                             : null,

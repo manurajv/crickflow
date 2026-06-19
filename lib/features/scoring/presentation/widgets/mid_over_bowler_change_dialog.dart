@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Confirmation + optional reason when changing bowler during an active over.
 class MidOverBowlerChangeDialog extends StatefulWidget {
@@ -63,6 +63,7 @@ class _MidOverBowlerChangeDialogState extends State<MidOverBowlerChangeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -74,14 +75,14 @@ class _MidOverBowlerChangeDialogState extends State<MidOverBowlerChangeDialog> {
             Text(
               'You are changing the bowler during an active over '
               '(${widget.overDisplay}.${widget.ballInOver}).',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: cf.textSecondary),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Reason (optional)',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: cf.textPrimary,
               ),
             ),
             const SizedBox(height: 8),

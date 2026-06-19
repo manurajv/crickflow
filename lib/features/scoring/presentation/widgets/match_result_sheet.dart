@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Match result picker — winner, draw, or abandoned.
 class MatchResultSheet extends StatefulWidget {
@@ -88,6 +88,7 @@ class _MatchResultSheetState extends State<MatchResultSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -97,13 +98,13 @@ class _MatchResultSheetState extends State<MatchResultSheet> {
           children: [
             const ScoringSheetHeader(title: 'Match Result'),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Who won the match?',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: cf.textSecondary,
               ),
             ),
             const SizedBox(height: AppDimens.spaceMd),
@@ -127,7 +128,7 @@ class _MatchResultSheetState extends State<MatchResultSheet> {
             const SizedBox(height: AppDimens.spaceMd),
             CheckboxListTile(
               value: _isDraw,
-              activeColor: AppColors.gold,
+              activeColor: cf.accent,
               onChanged: (v) => setState(() {
                 _isDraw = v ?? false;
                 if (_isDraw) {
@@ -141,7 +142,7 @@ class _MatchResultSheetState extends State<MatchResultSheet> {
             ),
             CheckboxListTile(
               value: _isAbandoned,
-              activeColor: AppColors.gold,
+              activeColor: cf.accent,
               onChanged: (v) => setState(() {
                 _isAbandoned = v ?? false;
                 if (_isAbandoned) {
@@ -172,7 +173,7 @@ class _MatchResultSheetState extends State<MatchResultSheet> {
             const SizedBox(height: 8),
             CheckboxListTile(
               value: _considerAllOvers,
-              activeColor: AppColors.gold,
+              activeColor: cf.accent,
               onChanged: (v) => setState(() => _considerAllOvers = v ?? true),
               title: const Text(
                 'Consider all overs for NRR calculation',
@@ -202,12 +203,13 @@ class _MatchResultSheetState extends State<MatchResultSheet> {
   }
 
   Widget _teamCard({required String? teamId, required String name}) {
+    final cf = context.cf;
     if (teamId == null) return const SizedBox.shrink();
     final selected = !_winnerDisabled && _winnerTeamId == teamId;
     return Material(
       color: selected
-          ? AppColors.gold.withValues(alpha: 0.15)
-          : AppColors.card,
+          ? cf.accent.withValues(alpha: 0.15)
+          : cf.card,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: _winnerDisabled
@@ -223,7 +225,7 @@ class _MatchResultSheetState extends State<MatchResultSheet> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppColors.gold : AppColors.border,
+              color: selected ? cf.accent : cf.border,
               width: selected ? 2 : 1,
             ),
           ),
@@ -234,10 +236,10 @@ class _MatchResultSheetState extends State<MatchResultSheet> {
               fontWeight: FontWeight.w800,
               fontSize: 16,
               color: _winnerDisabled
-                  ? AppColors.textSecondary
+                  ? cf.textSecondary
                   : selected
-                      ? AppColors.gold
-                      : AppColors.textPrimary,
+                      ? cf.accent
+                      : cf.textPrimary,
             ),
           ),
         ),

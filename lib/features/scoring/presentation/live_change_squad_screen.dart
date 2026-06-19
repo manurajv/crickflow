@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_player_snapshot.dart';
@@ -10,6 +9,7 @@ import '../../../../data/models/player_model.dart';
 import '../../../../shared/providers/lineup_providers.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../matches/presentation/widgets/add_match_squad_player_sheet.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 enum _SquadSlot { playing, substitute, none }
 
@@ -289,6 +289,7 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final matchAsync = ref.watch(matchProvider(widget.matchId));
     final teamId = _teamId;
 
@@ -314,7 +315,7 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
         }
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: cf.background,
           appBar: AppBar(
             title: const Text('Change Squad'),
             actions: [
@@ -435,11 +436,11 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
                         ),
                         const SizedBox(height: AppDimens.spaceSm),
                         if (available.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             child: Text(
                               'All roster players are in the match squad',
-                              style: TextStyle(color: AppColors.textSecondary),
+                              style: TextStyle(color: cf.textSecondary),
                             ),
                           )
                         else
@@ -539,6 +540,7 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return InkWell(
       onTap: onToggle,
       child: Padding(
@@ -551,7 +553,7 @@ class _SectionHeader extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
-            Text(count, style: const TextStyle(color: AppColors.gold)),
+            Text(count, style: TextStyle(color: cf.accent)),
             Icon(expanded ? Icons.expand_less : Icons.expand_more),
           ],
         ),
@@ -575,6 +577,7 @@ class _PlayerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Card(
       margin: const EdgeInsets.only(bottom: AppDimens.spaceSm),
       child: ListTile(

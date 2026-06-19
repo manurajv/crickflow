@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cf_player_id_format.dart';
 import '../../../../core/utils/match_display_id.dart';
@@ -15,6 +14,7 @@ import '../../../../data/models/player_model.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 enum _ChangeScorerTab { qrCode, teams, officials, search }
 
@@ -270,6 +270,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return SafeArea(
@@ -383,6 +384,7 @@ class _RadioTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Row(
       children: [
         Expanded(
@@ -431,6 +433,7 @@ class _RadioTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -446,7 +449,7 @@ class _RadioTab extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: selected ? AppColors.primaryBlue : AppColors.border,
+                  color: selected ? cf.accent : cf.border,
                   width: 2,
                 ),
               ),
@@ -455,8 +458,8 @@ class _RadioTab extends StatelessWidget {
                       child: Container(
                         width: 10,
                         height: 10,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primaryBlue,
+                        decoration: BoxDecoration(
+                          color: cf.accent,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -471,8 +474,8 @@ class _RadioTab extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   color: selected
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
+                      ? cf.textPrimary
+                      : cf.textSecondary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -497,25 +500,26 @@ class _QrTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceLg),
       child: Column(
         children: [
-          const Text(
+          Text(
             'Ask the new scorer to scan below QR code.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary,
+              color: cf.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Match ID: $displayId',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: AppColors.textSecondary,
+              color: cf.textSecondary,
             ),
           ),
           const SizedBox(height: 24),
@@ -535,13 +539,13 @@ class _QrTab extends StatelessWidget {
                 data: payload!,
                 version: QrVersions.auto,
                 size: 220,
-                eyeStyle: const QrEyeStyle(
+                eyeStyle: QrEyeStyle(
                   eyeShape: QrEyeShape.square,
-                  color: AppColors.accentRed,
+                  color: cf.error,
                 ),
-                dataModuleStyle: const QrDataModuleStyle(
+                dataModuleStyle: QrDataModuleStyle(
                   dataModuleShape: QrDataModuleShape.square,
-                  color: AppColors.accentRed,
+                  color: cf.error,
                 ),
               ),
             ),
@@ -569,6 +573,7 @@ class _TeamsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
     final teamId = teamA ? match.teamAId : match.teamBId;
     final teamName = teamA ? match.teamAName : match.teamBName;
     final setup = match.setup;
@@ -576,15 +581,15 @@ class _TeamsTab extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: AppDimens.spaceLg),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceLg),
           child: Text(
             'Who will score from one of the teams?',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary,
+              color: cf.textPrimary,
             ),
           ),
         ),
@@ -640,8 +645,9 @@ class _TeamPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: selected ? AppColors.primaryBlue : AppColors.surfaceElevated,
+      color: selected ? cf.accent : cf.sectionBackground,
       borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
@@ -656,7 +662,7 @@ class _TeamPill extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 14,
-              color: selected ? Colors.white : AppColors.textSecondary,
+              color: selected ? Colors.white : cf.textSecondary,
             ),
           ),
         ),
@@ -684,6 +690,7 @@ class _TeamPlayersList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
     if (teamId == null || teamId!.isEmpty) {
       return const Center(child: Text('No team selected'));
     }
@@ -719,7 +726,7 @@ class _TeamPlayersList extends ConsumerWidget {
           return Center(
             child: Text(
               'No players in $teamName playing XI',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: cf.textSecondary),
             ),
           );
         }
@@ -762,6 +769,7 @@ class _OfficialsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final setup = match.setup;
     final officials = <_OfficialRow>[];
 
@@ -800,23 +808,23 @@ class _OfficialsTab extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceLg),
       child: Column(
         children: [
-          const Text(
+          Text(
             'Transfer scoring to a match official.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary,
+              color: cf.textPrimary,
             ),
           ),
           const SizedBox(height: 24),
           if (officials.isEmpty)
             TextButton(
               onPressed: onAddOfficials,
-              child: const Text(
+              child: Text(
                 'Add match officials',
                 style: TextStyle(
-                  color: AppColors.primaryBlue,
+                  color: cf.accent,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                 ),
@@ -835,9 +843,9 @@ class _OfficialsTab extends StatelessWidget {
                       Expanded(
                         child: Text(
                           o.entry.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                            color: cf.textPrimary,
                           ),
                         ),
                       ),
@@ -846,15 +854,15 @@ class _OfficialsTab extends StatelessWidget {
                   ),
                   subtitle: Text(
                     o.role,
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(color: cf.textSecondary),
                   ),
                   trailing: Icon(
                     isCurrentScorer
                         ? Icons.sports_score
                         : Icons.check_circle_outline,
                     color: isCurrentScorer
-                        ? AppColors.gold
-                        : AppColors.textMuted,
+                        ? cf.accent
+                        : cf.textMuted,
                   ),
                   onTap: isCurrentScorer
                       ? null
@@ -866,9 +874,9 @@ class _OfficialsTab extends StatelessWidget {
             const SizedBox(height: 16),
             TextButton(
               onPressed: onAddOfficials,
-              child: const Text(
+              child: Text(
                 'Add match officials',
-                style: TextStyle(color: AppColors.primaryBlue),
+                style: TextStyle(color: cf.accent),
               ),
             ),
           ],
@@ -913,6 +921,7 @@ class _SearchTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final combinedPlayers = <PlayerModel>[
       ...playerResults,
@@ -935,13 +944,13 @@ class _SearchTab extends StatelessWidget {
           child: Column(
             children: [
               if (!keyboardOpen) ...[
-                const Text(
+                Text(
                   'Search by player name or Player ID to assign a scorer.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+                    color: cf.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -968,16 +977,16 @@ class _SearchTab extends StatelessWidget {
                   autofocus: false,
                   decoration: InputDecoration(
                     hintText: 'Search by name or Player ID',
-                    hintStyle: const TextStyle(color: AppColors.textMuted),
+                    hintStyle: TextStyle(color: cf.textMuted),
                     filled: true,
-                    fillColor: AppColors.surfaceElevated,
+                    fillColor: cf.sectionBackground,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(color: cf.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(color: cf.border),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -992,7 +1001,7 @@ class _SearchTab extends StatelessWidget {
               FilledButton(
                 onPressed: searching ? null : onSearch,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
+                  backgroundColor: cf.accent,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(88, 48),
                   shape: RoundedRectangleBorder(
@@ -1016,7 +1025,7 @@ class _SearchTab extends StatelessWidget {
             child: Text(
               error!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.accentRed),
+              style: TextStyle(color: cf.error),
             ),
           ),
         Expanded(
@@ -1024,7 +1033,7 @@ class _SearchTab extends StatelessWidget {
               ? Center(
                   child: Text(
                     searching ? 'Searching…' : 'Search for a player',
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(color: cf.textSecondary),
                   ),
                 )
               : ListView.separated(
@@ -1069,12 +1078,13 @@ class _SelectablePersonTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 4),
       enabled: onTap != null,
       leading: CircleAvatar(
         radius: 22,
-        backgroundColor: AppColors.surfaceElevated,
+        backgroundColor: cf.sectionBackground,
         backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
             ? CachedNetworkImageProvider(photoUrl!)
             : null,
@@ -1093,8 +1103,8 @@ class _SelectablePersonTile extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: isCurrentScorer
-                    ? AppColors.gold
-                    : AppColors.textPrimary,
+                    ? cf.accent
+                    : cf.textPrimary,
               ),
             ),
           ),
@@ -1104,15 +1114,15 @@ class _SelectablePersonTile extends StatelessWidget {
       subtitle: subtitle != null && subtitle!.isNotEmpty
           ? Text(
               subtitle!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textSecondary,
+                color: cf.textSecondary,
               ),
             )
           : null,
       trailing: Icon(
         isCurrentScorer ? Icons.sports_score : Icons.check_circle_outline,
-        color: isCurrentScorer ? AppColors.gold : AppColors.textMuted,
+        color: isCurrentScorer ? cf.accent : cf.textMuted,
       ),
       onTap: onTap,
     );
@@ -1124,20 +1134,21 @@ class _CurrentScorerBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Container(
       margin: const EdgeInsets.only(left: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.gold.withValues(alpha: 0.15),
+        color: cf.accent.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+        border: Border.all(color: cf.accent.withValues(alpha: 0.5)),
       ),
-      child: const Text(
+      child: Text(
         'Scoring',
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w800,
-          color: AppColors.gold,
+          color: cf.accent,
           letterSpacing: 0.3,
         ),
       ),

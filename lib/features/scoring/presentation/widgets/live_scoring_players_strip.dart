@@ -46,15 +46,15 @@ class LiveScoringPlayersStrip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
+          decoration: BoxDecoration(
+            color: cf.card,
+            border: Border(
+              bottom: BorderSide(color: cf.border, width: 1),
+            ),
+          ),
           padding: const EdgeInsets.symmetric(
             vertical: 8,
             horizontal: AppDimens.spaceSm,
-          ),
-          decoration: BoxDecoration(
-            color: cf.surfaceElevated,
-            border: Border(
-              bottom: BorderSide(color: cf.border, width: 0.5),
-            ),
           ),
           child: Row(
             children: [
@@ -213,65 +213,108 @@ class _BatsmanCell extends StatelessWidget {
     final accent = isOnStrike ? cf.scoreEmphasis : cf.textMuted;
 
     final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(Icons.sports_cricket, size: 15, color: accent),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    color: cf.textPrimary,
-                  ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Container(
+        decoration: isOnStrike
+            ? BoxDecoration(
+                color: cf.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: cf.accent.withValues(alpha: 0.45),
+                  width: 1.5,
                 ),
-                const SizedBox(height: 2),
-                Row(
+              )
+            : const BoxDecoration(),
+        padding: EdgeInsets.symmetric(
+          horizontal: isOnStrike ? 6 : 0,
+          vertical: isOnStrike ? 4 : 0,
+        ),
+        child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.sports_cricket, size: 15, color: accent),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      score,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: cf.textSecondary,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                              color: cf.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (isOnStrike)
+                          Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cf.accent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'ON STRIKE',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                color: cf.onAccent,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    if (onReplace != null) ...[
-                      Text(
-                        ' · ',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cf.textMuted,
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          score,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: cf.textSecondary,
+                          ),
                         ),
-                      ),
-                      _ReplaceLink(label: 'Replace', onTap: onReplace!),
-                    ],
-                    if (onTap != null) ...[
-                      Text(
-                        ' · ',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cf.textMuted,
-                        ),
-                      ),
-                      _ReplaceLink(label: 'Change', onTap: onTap!),
-                    ],
+                        if (onReplace != null) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cf.textMuted,
+                            ),
+                          ),
+                          _ReplaceLink(label: 'Replace', onTap: onReplace!),
+                        ],
+                        if (onTap != null) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cf.textMuted,
+                            ),
+                          ),
+                          _ReplaceLink(label: 'Change', onTap: onTap!),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
     );
 
     if (onTap == null) return content;

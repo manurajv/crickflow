@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+
 import '../../core/theme/app_dimens.dart';
+import '../../core/theme/cf_colors.dart';
 import '../../data/models/lineup_player.dart';
+import 'lineup_player_avatar.dart';
 import 'scoring_ui_kit.dart';
 
 /// Searchable fielder picker from the bowling squad.
@@ -56,8 +58,9 @@ class _FielderPickerSheetState extends State<FielderPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.surface,
+      color: cf.card,
       child: Column(
         children: [
           ScoringSheetHeader(
@@ -72,14 +75,24 @@ class _FielderPickerSheetState extends State<FielderPickerSheet> {
               AppDimens.spaceSm,
             ),
             child: TextField(
+              style: TextStyle(color: cf.textPrimary),
               decoration: InputDecoration(
                 hintText: 'Search players',
-                prefixIcon: const Icon(Icons.search),
+                hintStyle: TextStyle(color: cf.textHint),
+                prefixIcon: Icon(Icons.search, color: cf.textSecondary),
                 filled: true,
-                fillColor: AppColors.surfaceElevated,
+                fillColor: cf.sectionBackground,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+                  borderSide: BorderSide(color: cf.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: cf.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: cf.accent, width: 1.5),
                 ),
                 isDense: true,
               ),
@@ -88,12 +101,12 @@ class _FielderPickerSheetState extends State<FielderPickerSheet> {
           ),
           Expanded(
             child: _eligible.isEmpty
-                ? const Center(
+                ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(AppDimens.spaceMd),
+                      padding: const EdgeInsets.all(AppDimens.spaceMd),
                       child: Text(
                         'No players found',
-                        style: TextStyle(color: AppColors.textSecondary),
+                        style: TextStyle(color: cf.textSecondary),
                       ),
                     ),
                   )
@@ -101,22 +114,22 @@ class _FielderPickerSheetState extends State<FielderPickerSheet> {
                     controller: widget.scrollController,
                     padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
                     itemCount: _eligible.length,
-                    separatorBuilder: (_, __) =>
-                        const Divider(height: 1, color: AppColors.border),
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: cf.border,
+                    ),
                     itemBuilder: (_, i) {
                       final p = _eligible[i];
                       return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: AppColors.surfaceElevated,
-                          child: Text(
-                            p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.gold,
-                            ),
-                          ),
+                        leading: LineupPlayerAvatar(
+                          name: p.name,
+                          photoUrl: p.photoUrl,
+                          radius: 22,
                         ),
-                        title: Text(p.name),
+                        title: Text(
+                          p.name,
+                          style: TextStyle(color: cf.textPrimary),
+                        ),
                         onTap: () => Navigator.pop(context, p),
                       );
                     },

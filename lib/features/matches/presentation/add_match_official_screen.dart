@@ -4,11 +4,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/match_setup_draft_models.dart';
 import '../../../data/models/player_model.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
 
 /// Pick a registered player as a match official (name + Player ID search).
 class AddMatchOfficialScreen extends ConsumerStatefulWidget {
@@ -95,8 +96,9 @@ class _AddMatchOfficialScreenState extends ConsumerState<AddMatchOfficialScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: cf.background,
       appBar: AppBar(title: Text(widget.title)),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -139,7 +141,7 @@ class _AddMatchOfficialScreenState extends ConsumerState<AddMatchOfficialScreen>
                   ? 'No matches — try another name or Player ID.'
                   : '${_results.length} player${_results.length == 1 ? '' : 's'} found',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: cf.textSecondary,
                   ),
             ),
           ),
@@ -170,11 +172,10 @@ class _AddMatchOfficialScreenState extends ConsumerState<AddMatchOfficialScreen>
           padding: const EdgeInsets.all(AppDimens.spaceMd),
           child: FilledButton(
             onPressed: _selected != null ? _confirm : null,
-            style: FilledButton.styleFrom(
-              minimumSize:
-                  const Size(double.infinity, AppDimens.buttonHeightLarge),
-              backgroundColor: AppColors.gold,
-              foregroundColor: Colors.black,
+            style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+              minimumSize: WidgetStateProperty.all(
+                const Size(double.infinity, AppDimens.buttonHeightLarge),
+              ),
             ),
             child: const Text('Done'),
           ),
@@ -184,6 +185,7 @@ class _AddMatchOfficialScreenState extends ConsumerState<AddMatchOfficialScreen>
   }
 
   Widget _emptyState() {
+    final cf = context.cf;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spaceXl),
@@ -193,7 +195,7 @@ class _AddMatchOfficialScreenState extends ConsumerState<AddMatchOfficialScreen>
             Icon(
               Icons.person_search_outlined,
               size: 56,
-              color: AppColors.textSecondary.withValues(alpha: 0.5),
+              color: cf.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: AppDimens.spaceMd),
             Text(
@@ -223,13 +225,14 @@ class _PlayerPickTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final idLabel = player.playerId != null && player.playerId!.isNotEmpty
         ? player.playerId
         : null;
 
     return Material(
       color: selected
-          ? AppColors.gold.withValues(alpha: 0.08)
+          ? cf.accent.withValues(alpha: 0.08)
           : Colors.transparent,
       child: ListTile(
         onTap: onTap,
@@ -239,7 +242,7 @@ class _PlayerPickTile extends StatelessWidget {
         ),
         leading: CircleAvatar(
           radius: 26,
-          backgroundColor: AppColors.surfaceElevated,
+          backgroundColor: cf.sectionBackground,
           backgroundImage: player.photoUrl != null
               ? CachedNetworkImageProvider(player.photoUrl!)
               : null,
@@ -257,16 +260,16 @@ class _PlayerPickTile extends StatelessWidget {
         subtitle: idLabel != null
             ? Text(
                 idLabel,
-                style: const TextStyle(
-                  color: AppColors.gold,
+                style: TextStyle(
+                  color: cf.accent,
                   fontSize: 12,
                   letterSpacing: 0.3,
                 ),
               )
             : null,
         trailing: selected
-            ? const Icon(Icons.check_circle, color: AppColors.gold)
-            : const Icon(Icons.circle_outlined, color: AppColors.textMuted),
+            ? Icon(Icons.check_circle, color: cf.accent)
+            : Icon(Icons.circle_outlined, color: cf.textMuted),
       ),
     );
   }

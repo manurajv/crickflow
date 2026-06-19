@@ -18,15 +18,64 @@ class ScoringUiKit {
     bool isDismissible = true,
     bool enableDrag = true,
   }) {
+    final cf = context.cf;
     return showModalBottomSheet<T>(
       context: context,
-      backgroundColor: context.cf.surface,
+      backgroundColor: cf.card,
       shape: sheetShape,
       isScrollControlled: isScrollControlled,
       useRootNavigator: useRootNavigator,
       isDismissible: isDismissible,
       enableDrag: enableDrag,
       builder: builder,
+    );
+  }
+
+  static ButtonStyle primaryButtonStyle(BuildContext context) {
+    final cf = context.cf;
+    return FilledButton.styleFrom(
+      backgroundColor: cf.accent,
+      foregroundColor: cf.onAccent,
+      minimumSize: const Size(0, 48),
+      elevation: cf.isLight ? 0 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+      ),
+    );
+  }
+
+  static ButtonStyle outlinedButtonStyle(BuildContext context) {
+    final cf = context.cf;
+    return OutlinedButton.styleFrom(
+      foregroundColor: cf.textPrimary,
+      backgroundColor: cf.card,
+      side: BorderSide(color: cf.border),
+      minimumSize: const Size(0, 48),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+      ),
+    );
+  }
+
+  static Future<T?> showThemedDialog<T>(
+    BuildContext context, {
+    required WidgetBuilder builder,
+  }) {
+    final cf = context.cf;
+    return showDialog<T>(
+      context: context,
+      builder: (ctx) => Theme(
+        data: Theme.of(ctx).copyWith(
+          dialogTheme: DialogThemeData(
+            backgroundColor: cf.card,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+        child: builder(ctx),
+      ),
     );
   }
 
@@ -80,7 +129,7 @@ class ScoringUiKit {
     final cf = context.cf;
     return showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: cf.surface,
+      backgroundColor: cf.card,
       shape: sheetShape,
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -119,12 +168,7 @@ class ScoringUiKit {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: cf.textPrimary,
-                        backgroundColor: cf.card,
-                        side: BorderSide(color: cf.border),
-                        minimumSize: const Size(0, 48),
-                      ),
+                      style: outlinedButtonStyle(context),
                       child: Text(cancelLabel),
                     ),
                   ),
@@ -132,11 +176,7 @@ class ScoringUiKit {
                   Expanded(
                     child: FilledButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: CfColors.primaryBlue,
-                        foregroundColor: cf.onPrimary,
-                        minimumSize: const Size(0, 48),
-                      ),
+                      style: primaryButtonStyle(context),
                       child: Text(confirmLabel),
                     ),
                   ),

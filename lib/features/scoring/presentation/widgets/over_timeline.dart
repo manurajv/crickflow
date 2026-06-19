@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../utils/scoring_display_utils.dart';
 
@@ -24,6 +25,7 @@ class OverTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final deliveries = events
         .where((e) => ScoringDisplayUtils.ballBubbleLabel(e).isNotEmpty)
         .toList();
@@ -35,20 +37,20 @@ class OverTimeline extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textMuted,
+                color: cf.textMuted,
               ),
             ),
             if (overExtras > 0 && showExtrasLabel) ...[
               const Spacer(),
               Text(
                 'Extras $overExtras',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.gold,
+                  color: cf.accent,
                 ),
               ),
             ],
@@ -56,11 +58,11 @@ class OverTimeline extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         if (deliveries.isEmpty)
-          const Text(
+          Text(
             'No deliveries recorded',
             style: TextStyle(
               fontSize: 12,
-              color: AppColors.textMuted,
+              color: cf.textMuted,
             ),
           )
         else
@@ -85,8 +87,12 @@ class _DeliveryBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final isWicket = event.eventType == BallEventType.wicket;
-    final isBoundary = event.runs >= 4 && event.eventType == BallEventType.runs;
+    final isSix =
+        event.eventType == BallEventType.runs && event.runs >= 6;
+    final isFour =
+        event.eventType == BallEventType.runs && event.runs == 4;
     final isExtra = event.eventType == BallEventType.wide ||
         event.eventType == BallEventType.noBall ||
         event.eventType == BallEventType.bye ||
@@ -94,6 +100,34 @@ class _DeliveryBubble extends StatelessWidget {
         (event.eventType == BallEventType.wicket &&
             event.runOutDeliveryKind != null &&
             event.runOutDeliveryKind != RunOutDeliveryKind.normal);
+
+    final bg = isWicket
+        ? cf.error
+        : isSix
+            ? cf.statusUpcoming.withValues(alpha: 0.18)
+            : isFour
+                ? cf.success.withValues(alpha: 0.15)
+                : isExtra
+                    ? cf.accent.withValues(alpha: 0.12)
+                    : cf.sectionBackground;
+
+    final border = isWicket
+        ? cf.error
+        : isSix
+            ? cf.statusUpcoming.withValues(alpha: 0.65)
+            : isFour
+                ? cf.success.withValues(alpha: 0.55)
+                : isExtra
+                    ? cf.accent.withValues(alpha: 0.45)
+                    : cf.border;
+
+    final textColor = isWicket
+        ? Colors.white
+        : isSix
+            ? cf.statusUpcoming
+            : isFour
+                ? cf.success
+                : cf.textPrimary;
 
     return Padding(
       padding: const EdgeInsets.only(right: OverTimeline._ballGap),
@@ -103,22 +137,8 @@ class _DeliveryBubble extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isWicket
-              ? AppColors.accentRed
-              : isBoundary
-                  ? AppColors.gold.withValues(alpha: 0.35)
-                  : isExtra
-                      ? AppColors.primaryBlue.withValues(alpha: 0.25)
-                      : AppColors.surfaceElevated,
-          border: Border.all(
-            color: isWicket
-                ? AppColors.accentRed
-                : isBoundary
-                    ? AppColors.gold
-                    : isExtra
-                        ? AppColors.primaryBlue
-                        : AppColors.border,
-          ),
+          color: bg,
+          border: Border.all(color: border),
         ),
         child: Text(
           ScoringDisplayUtils.ballBubbleLabel(event),
@@ -129,7 +149,7 @@ class _DeliveryBubble extends StatelessWidget {
                 ? 9
                 : 11,
             fontWeight: FontWeight.w700,
-            color: isWicket ? Colors.white : AppColors.textPrimary,
+            color: textColor,
           ),
         ),
       ),

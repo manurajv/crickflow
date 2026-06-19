@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
@@ -73,7 +72,7 @@ class _MatchBreakBannerState extends ConsumerState<MatchBreakBanner> {
     final titleEmphasis = cf.isLight ? Colors.white : CfColors.gold;
 
     return Material(
-      color: AppColors.primaryBlue,
+      color: cf.accent,
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spaceMd),
         child: Column(

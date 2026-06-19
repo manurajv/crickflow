@@ -1,7 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Reference-style selectable card (toss, bat/bowl, squad role).
 class CfSelectionCard extends StatelessWidget {
@@ -30,30 +31,40 @@ class CfSelectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SizedBox(
       width: width,
       height: height,
       child: Material(
-        color: AppColors.card,
-        borderRadius: AppDimens.cardRadius,
+        color: cf.card,
+        borderRadius: BorderRadius.circular(16),
+        elevation: 0,
+        shadowColor: cf.cardShadow,
         child: InkWell(
           onTap: onTap,
-          borderRadius: AppDimens.cardRadius,
+          borderRadius: BorderRadius.circular(16),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: AppDimens.cardRadius,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: selected ? AppColors.gold : AppColors.border,
+                color: selected ? cf.accent : cf.border,
                 width: selected ? 2 : 1,
               ),
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: AppColors.gold.withValues(alpha: 0.2),
-                        blurRadius: 8,
+                        color: cf.accent.withValues(alpha: 0.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
                     ]
-                  : null,
+                  : [
+                      BoxShadow(
+                        color: cf.cardShadow,
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
             ),
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -62,13 +73,13 @@ class CfSelectionCard extends StatelessWidget {
                 if (icon != null)
                   CircleAvatar(
                     radius: 28,
-                    backgroundColor: AppColors.primaryBlue,
-                    child: Icon(icon, color: AppColors.gold, size: 28),
+                    backgroundColor: cf.accent.withValues(alpha: 0.12),
+                    child: Icon(icon, color: cf.accent, size: 28),
                   )
                 else
                   CircleAvatar(
                     radius: 28,
-                    backgroundColor: AppColors.primaryBlue,
+                    backgroundColor: cf.accent,
                     backgroundImage: imageUrl != null
                         ? CachedNetworkImageProvider(imageUrl!)
                         : null,
@@ -92,16 +103,16 @@ class CfSelectionCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: selected ? AppColors.gold : AppColors.textPrimary,
+                    color: selected ? cf.accent : cf.textPrimary,
                   ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     subtitle!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textSecondary,
+                      color: cf.textSecondary,
                     ),
                   ),
                 ],

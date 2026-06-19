@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/lineup_player.dart';
@@ -14,6 +13,7 @@ import '../../scoring/presentation/utils/scoring_display_utils.dart';
 import 'match_scoring_rules_screen.dart';
 import 'widgets/innings_player_slot_card.dart';
 import 'widgets/select_lineup_player_sheet.dart';
+import '../../../core/theme/cf_colors.dart';
 
 /// After toss: pick opening striker, non-striker, and bowler before live scoring.
 class StartInningsScreen extends ConsumerStatefulWidget {
@@ -169,6 +169,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final matchAsync = ref.watch(matchProvider(widget.matchId));
     final squadsAsync = ref.watch(matchLineupSquadsProvider(widget.matchId));
 
@@ -180,7 +181,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: cf.background,
       appBar: AppBar(
         title: const Text('Start innings'),
         actions: [
@@ -231,7 +232,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                     child: Text(
                       'Squads are empty. Add players to teams in match setup.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary),
+                      style: TextStyle(color: cf.textSecondary),
                     ),
                   ),
                 );
@@ -249,10 +250,10 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                     children: [
                       Text(
                         'Batting — ${_battingTeamName(match)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
-                          color: AppColors.textPrimary,
+                          color: cf.textPrimary,
                         ),
                       ),
                       const SizedBox(height: AppDimens.spaceSm),
@@ -277,10 +278,10 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                       const SizedBox(height: AppDimens.spaceXl),
                       Text(
                         'Bowling — ${_bowlingTeamName(match)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
-                          color: AppColors.textPrimary,
+                          color: cf.textPrimary,
                         ),
                       ),
                       const SizedBox(height: AppDimens.spaceSm),
@@ -310,8 +311,8 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                           ),
                         );
                       },
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: Colors.black,
+                      backgroundColor: cf.fabBackground,
+                      foregroundColor: cf.fabForeground,
                       child: const Icon(Icons.photo_camera_outlined),
                     ),
                   ),
@@ -329,7 +330,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
               children: [
                 Expanded(
                   child: Material(
-                    color: AppColors.surface,
+                    color: cf.surface,
                     child: InkWell(
                       onTap: () {
                         Navigator.of(context).push(
@@ -340,14 +341,14 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                           ),
                         );
                       },
-                      child: const SizedBox(
+                      child: SizedBox(
                         height: AppDimens.buttonHeightLarge,
                         child: Center(
                           child: Text(
                             'Match rules',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
+                              color: cf.textSecondary,
                             ),
                           ),
                         ),
@@ -357,19 +358,19 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                 ),
                 Expanded(
                   child: Material(
-                    color: AppColors.primaryBlue,
+                    color: cf.accent,
                     child: InkWell(
                       onTap: _canStart ? () => _startScoring(match) : null,
                       child: SizedBox(
                         height: AppDimens.buttonHeightLarge,
                         child: Center(
                           child: _starting
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: AppColors.textPrimary,
+                                    color: cf.onAccent,
                                   ),
                                 )
                               : Text(
@@ -377,8 +378,8 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     color: _canStart
-                                        ? AppColors.textPrimary
-                                        : AppColors.textMuted,
+                                        ? cf.onAccent
+                                        : cf.onAccent.withValues(alpha: 0.45),
                                   ),
                                 ),
                         ),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/scorer_qr_utils.dart';
 import '../../../shared/providers/providers.dart';
 import 'widgets/scorer_takeover_dialog.dart';
+import '../../../core/theme/cf_colors.dart';
 
 /// Entry point when a user scans a scorer takeover QR code.
 class ScorerTakeoverScreen extends ConsumerStatefulWidget {
@@ -72,9 +72,10 @@ class _ScorerTakeoverScreenState extends ConsumerState<ScorerTakeoverScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.background,
-      body: Center(child: CircularProgressIndicator()),
+    final cf = context.cf;
+    return Scaffold(
+      backgroundColor: cf.background,
+      body: const Center(child: CircularProgressIndicator()),
     );
   }
 }

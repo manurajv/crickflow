@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/innings_model.dart';
@@ -201,6 +200,7 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -218,7 +218,7 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
               const SizedBox(height: 8),
               Text(
                 _error!,
-                style: const TextStyle(color: Color(0xFFE53935), fontSize: 13),
+                style: TextStyle(color: cf.error, fontSize: 13),
               ),
             ],
             const SizedBox(height: AppDimens.spaceMd),
@@ -252,6 +252,7 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
   }
 
   Widget _buildSecondInningsForm() {
+    final cf = context.cf;
     final current =
         InningsCompletionPolicy.chaseTarget(widget.match, widget.innings);
     return Column(
@@ -259,9 +260,9 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
       children: [
         Text(
           'Current Target: $current',
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
+            color: cf.textSecondary,
           ),
         ),
         const SizedBox(height: AppDimens.spaceMd),
@@ -272,10 +273,10 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
           ),
           child: Text(
             '$_oversReducedFrom overs',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: cf.textPrimary,
             ),
           ),
         ),
@@ -343,10 +344,10 @@ class _ReviseTargetSheetState extends State<ReviseTargetSheet> {
                   ),
                   child: Text(
                     '$_oversReducedFrom overs',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: cf.textPrimary,
                     ),
                   ),
                 ),

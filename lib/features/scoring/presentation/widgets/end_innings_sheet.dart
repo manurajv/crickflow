@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 enum EndInningsOption { allOut, declare, penaltyRuns }
 
@@ -129,6 +129,7 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -168,9 +169,9 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
             const SizedBox(height: AppDimens.spaceMd),
             Text(
               _nrrNote,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textSecondary,
+                color: cf.textSecondary,
               ),
             ),
             if (_option == EndInningsOption.penaltyRuns) ...[
@@ -236,11 +237,11 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
                   labelText: 'Reason',
                   border: const OutlineInputBorder(),
                   errorText: _penaltyReasonMissing ? 'Reason is required' : null,
-                  focusedErrorBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE53935)),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: cf.error),
                   ),
-                  errorBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE53935)),
+                  errorBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: cf.error),
                   ),
                 ),
               ),
@@ -248,7 +249,7 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
             const SizedBox(height: AppDimens.spaceMd),
             CheckboxListTile(
               value: _considerAllOvers,
-              activeColor: AppColors.gold,
+              activeColor: cf.accent,
               onChanged: (v) => setState(() => _considerAllOvers = v ?? true),
               title: const Text(
                 'Consider all overs for NRR calculation',
@@ -280,13 +281,14 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
     String subtitle,
     IconData icon,
   ) {
+    final cf = context.cf;
     final selected = _option == option;
     return SizedBox(
       width: 140,
       child: Material(
         color: selected
-            ? AppColors.gold.withValues(alpha: 0.12)
-            : AppColors.card,
+            ? cf.accent.withValues(alpha: 0.12)
+            : cf.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => setState(() {
@@ -301,13 +303,13 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: selected ? AppColors.gold : AppColors.border,
+                color: selected ? cf.accent : cf.border,
                 width: selected ? 2 : 1,
               ),
             ),
             child: Column(
               children: [
-                Icon(icon, color: selected ? AppColors.gold : AppColors.textSecondary),
+                Icon(icon, color: selected ? cf.accent : cf.textSecondary),
                 const SizedBox(height: 8),
                 Text(
                   title,
@@ -315,16 +317,16 @@ class _EndInningsSheetState extends State<EndInningsSheet> {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: selected ? AppColors.gold : AppColors.textPrimary,
+                    color: selected ? cf.accent : cf.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: cf.textSecondary,
                   ),
                 ),
               ],

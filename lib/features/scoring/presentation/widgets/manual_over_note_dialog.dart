@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Required when an over ends with a different legal-ball count than configured.
 class ManualOverNoteDialog extends StatefulWidget {
@@ -64,8 +64,9 @@ class _ManualOverNoteDialogState extends State<ManualOverNoteDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.card,
+      color: cf.card,
       child: Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.paddingOf(context).bottom + 16,
@@ -81,10 +82,10 @@ class _ManualOverNoteDialogState extends State<ManualOverNoteDialog> {
                 'Expected ${widget.expectedBalls} legal balls, '
                 'actual ${widget.actualBalls}.\n\n'
                 'Why was the over ended manually?',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 1.4,
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
               ),
             ),
@@ -96,7 +97,7 @@ class _ManualOverNoteDialogState extends State<ManualOverNoteDialog> {
                 onChanged: (v) => setState(() => _selected = v),
                 title: Text(reason, style: const TextStyle(fontSize: 14)),
                 dense: true,
-                activeColor: AppColors.gold,
+                activeColor: cf.accent,
               ),
             ),
             if (_selected == 'Other')
@@ -117,11 +118,7 @@ class _ManualOverNoteDialogState extends State<ManualOverNoteDialog> {
                 onPressed: _resolvedReason == null
                     ? null
                     : () => Navigator.pop(context, _resolvedReason),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 48),
-                ),
+                style: ScoringUiKit.primaryButtonStyle(context),
                 child: const Text(
                   'Confirm',
                   style: TextStyle(fontWeight: FontWeight.w700),

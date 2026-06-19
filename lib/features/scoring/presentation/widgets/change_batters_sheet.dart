@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// User selection from the Change Batters sheet.
 class ChangeBattersResult {
@@ -94,8 +94,9 @@ class _ChangeBattersSheetState extends State<ChangeBattersSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.surface,
+      color: cf.surface,
       child: Column(
         children: [
           const ScoringSheetHeader(title: 'Change Batters'),
@@ -148,11 +149,7 @@ class _ChangeBattersSheetState extends State<ChangeBattersSheet> {
                   const SizedBox(height: AppDimens.spaceSm),
                   FilledButton(
                     onPressed: _confirmWithNote,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: Colors.black,
-                      minimumSize: const Size(double.infinity, 44),
-                    ),
+                    style: ScoringUiKit.primaryButtonStyle(context),
                     child: const Text(
                       'Confirm',
                       style: TextStyle(fontWeight: FontWeight.w700),
@@ -183,10 +180,11 @@ class _OptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
       child: Material(
-        color: AppColors.card,
+        color: cf.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -198,11 +196,11 @@ class _OptionTile extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: cf.border),
             ),
             child: Row(
               children: [
-                Icon(icon, color: AppColors.gold),
+                Icon(icon, color: cf.accent),
                 const SizedBox(width: AppDimens.spaceMd),
                 Expanded(
                   child: Column(
@@ -210,26 +208,26 @@ class _OptionTile extends StatelessWidget {
                     children: [
                       Text(
                         label,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
-                          color: AppColors.textPrimary,
+                          color: cf.textPrimary,
                         ),
                       ),
                       if (subtitle != null) ...[
                         const SizedBox(height: 2),
                         Text(
                           subtitle!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textMuted,
+                            color: cf.textMuted,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                Icon(Icons.chevron_right, color: cf.textMuted),
               ],
             ),
           ),

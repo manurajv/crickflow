@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/innings_model.dart';
@@ -10,6 +9,7 @@ import '../../../../data/models/match_player_snapshot.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../utils/scoring_display_utils.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 enum BowlerPickMode {
   /// Quick shortcut / replace bowler — current bowler disabled.
@@ -173,12 +173,13 @@ class _ChangeBowlerSheetState extends State<ChangeBowlerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final title = widget.mode == BowlerPickMode.nextOver
         ? 'Select bowler — over ${widget.overNumber}'
         : 'Change bowler';
 
     return Material(
-      color: AppColors.surface,
+      color: cf.surface,
       child: Column(
         children: [
           ScoringSheetHeader(
@@ -196,9 +197,9 @@ class _ChangeBowlerSheetState extends State<ChangeBowlerSheet> {
               '${ScoringDisplayUtils.battingTeamName(widget.match, widget.innings)}: '
               '${widget.innings.totalRuns}/${widget.innings.totalWickets} '
               '(${CricketMath.formatOvers(widget.innings.legalBalls, _ballsPerOver)} ov)',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                color: cf.textPrimary,
               ),
             ),
           ),
@@ -214,7 +215,7 @@ class _ChangeBowlerSheetState extends State<ChangeBowlerSheet> {
                 hintText: 'Search bowlers',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: AppColors.surfaceElevated,
+                fillColor: cf.sectionBackground,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
@@ -226,10 +227,10 @@ class _ChangeBowlerSheetState extends State<ChangeBowlerSheet> {
           ),
           Expanded(
             child: _filteredSquad.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No players found',
-                      style: TextStyle(color: AppColors.textSecondary),
+                      style: TextStyle(color: cf.textSecondary),
                     ),
                   )
                 : ListView.separated(
@@ -237,7 +238,7 @@ class _ChangeBowlerSheetState extends State<ChangeBowlerSheet> {
                     padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
                     itemCount: _filteredSquad.length,
                     separatorBuilder: (_, __) =>
-                        const Divider(height: 1, color: AppColors.border),
+                        Divider(height: 1, color: cf.border),
                     itemBuilder: (_, i) => _BowlerTile(
                       player: _filteredSquad[i],
                       match: widget.match,
@@ -285,6 +286,7 @@ class _BowlerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final reason = ChangeBowlerSheet.ineligibility(
       player: player,
       match: match,
@@ -307,8 +309,8 @@ class _BowlerTile extends StatelessWidget {
       enabled: !disabled,
       leading: CircleAvatar(
         backgroundColor: disabled
-            ? AppColors.surface
-            : AppColors.surfaceElevated,
+            ? cf.surface
+            : cf.sectionBackground,
         backgroundImage:
             photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
         child: photoUrl == null || photoUrl.isEmpty
@@ -316,7 +318,7 @@ class _BowlerTile extends StatelessWidget {
                 player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: disabled ? AppColors.textMuted : AppColors.gold,
+                  color: disabled ? cf.textMuted : cf.accent,
                 ),
               )
             : null,
@@ -325,7 +327,7 @@ class _BowlerTile extends StatelessWidget {
         player.name,
         style: TextStyle(
           fontWeight: FontWeight.w600,
-          color: disabled ? AppColors.textMuted : AppColors.textPrimary,
+          color: disabled ? cf.textMuted : cf.textPrimary,
         ),
       ),
       subtitle: Column(
@@ -334,8 +336,8 @@ class _BowlerTile extends StatelessWidget {
           if (disabled)
             Text(
               ChangeBowlerSheet.ineligibilityLabel(reason, match.rules),
-              style: const TextStyle(
-                color: AppColors.accentRed,
+              style: TextStyle(
+                color: cf.error,
                 fontSize: 12,
               ),
             )

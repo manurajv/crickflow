@@ -39,8 +39,8 @@ class _MatchBreaksSheetState extends ConsumerState<MatchBreaksSheet> {
 
   Future<String?> _promptReason(String breakType) async {
     final ctrl = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
+    final result = await ScoringUiKit.showThemedDialog<String>(
+      context,
       builder: (ctx) => AlertDialog(
         title: Text('$breakType Break'),
         content: TextField(

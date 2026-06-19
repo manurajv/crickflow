@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_analytics_service.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_batting_orientation.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_filter.dart';
@@ -37,7 +37,7 @@ class WagonWheelChart extends StatelessWidget {
             'No wagon wheel data yet.\nEnable tracking in match settings.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: context.cf.textSecondary,
                 ),
           ),
         ),
@@ -95,11 +95,16 @@ class _InsightsRow extends StatelessWidget {
   }
 
   Widget _chip(String label) {
-    return Chip(
-      label: Text(label, style: const TextStyle(fontSize: 11)),
-      backgroundColor: AppColors.surfaceElevated,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
+    return Builder(
+      builder: (context) {
+        final cf = context.cf;
+        return Chip(
+          label: Text(label, style: const TextStyle(fontSize: 11)),
+          backgroundColor: cf.sectionBackground,
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+        );
+      },
     );
   }
 }

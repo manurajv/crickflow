@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/lineup_player.dart';
 import '../../data/models/match_model.dart';
+import '../../data/models/match_setup_draft_models.dart';
 import '../../domain/scoring/toss_team_policy.dart';
 import 'providers.dart';
 
@@ -83,9 +84,41 @@ List<LineupPlayer> _matchPlayingSquad({
   final names = setup.squadNamesForTeam(isTeamA);
   return [
     for (final id in ids)
-      loaded.where((p) => p.id == id).firstOrNull ??
-          LineupPlayer(id: id, name: names[id] ?? 'Player'),
+      _resolveLineupPlayer(
+        id: id,
+        fallbackName: names[id] ?? 'Player',
+        loaded: loaded,
+        setup: setup,
+        isTeamA: isTeamA,
+      ),
   ];
+}
+
+LineupPlayer _resolveLineupPlayer({
+  required String id,
+  required String fallbackName,
+  required List<LineupPlayer> loaded,
+  required MatchSetupData setup,
+  required bool isTeamA,
+}) {
+  final snapshot = setup.findPlayingSnapshot(isTeamA, id);
+  final fromLoaded = loaded.where((p) => p.id == id).firstOrNull;
+  if (fromLoaded != null) {
+    final photo = fromLoaded.photoUrl ?? snapshot?.photoUrl;
+    if (photo != fromLoaded.photoUrl) {
+      return LineupPlayer(
+        id: fromLoaded.id,
+        name: fromLoaded.name,
+        photoUrl: photo,
+      );
+    }
+    return fromLoaded;
+  }
+  return LineupPlayer(
+    id: id,
+    name: snapshot?.name ?? fallbackName,
+    photoUrl: snapshot?.photoUrl,
+  );
 }
 
 String _teamDisplayName(MatchModel match, String? teamId, {required bool isA}) {

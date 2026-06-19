@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../data/models/location_model.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../../../../data/models/match_setup_draft_models.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
 import 'ground_search_field.dart';
 import 'match_wide_no_ball_rules_section.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 class StartMatchSetupForm extends StatefulWidget {
   const StartMatchSetupForm({
@@ -155,6 +155,7 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final showOvers = !rules.isTestMatch;
     final showWagonWheel = !rules.isIndoor;
     final showSpecialCases = !rules.isTestMatch;
@@ -309,7 +310,7 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                     icon: const Icon(Icons.autorenew, size: 16),
                     label: const Text('Reset to auto'),
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.gold,
+                      foregroundColor: cf.accent,
                       visualDensity: VisualDensity.compact,
                       padding:
                           const EdgeInsets.symmetric(horizontal: 4),
@@ -323,9 +324,9 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                   rules.isManualOversPerBowler
                       ? 'Bowler limit set manually.'
                       : 'Bowler limit auto-calculated (total ÷ 5, rounded up).',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textMuted,
+                    color: cf.textMuted,
                   ),
                 ),
               ),
@@ -338,24 +339,24 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.bolt_outlined,
                         size: 18,
-                        color: AppColors.gold,
+                        color: cf.accent,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _powerplaySummary(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: AppColors.textPrimary,
+                            color: cf.textPrimary,
                           ),
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right,
-                        color: AppColors.textSecondary,
+                        color: cf.textSecondary,
                         size: 18,
                       ),
                     ],
@@ -378,8 +379,8 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
+                      children: [
+                        const Text(
                           'Wagon wheel',
                           style: TextStyle(
                             fontSize: 14,
@@ -390,7 +391,7 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                           'Capture shot direction after each scoring shot',
                           style: TextStyle(
                             fontSize: 11,
-                            color: AppColors.textMuted,
+                            color: cf.textMuted,
                             height: 1.4,
                           ),
                         ),
@@ -399,7 +400,7 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                   ),
                   Switch(
                     value: wwOn,
-                    activeTrackColor: AppColors.gold,
+                    activeTrackColor: cf.accent,
                     thumbColor: WidgetStateProperty.resolveWith((states) {
                       if (states.contains(WidgetState.selected)) {
                         return Colors.white;
@@ -438,17 +439,17 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                           const SizedBox(height: 2),
                           Text(
                             _officialsSummary(widget.setup),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: AppColors.textMuted,
+                              color: cf.textMuted,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.chevron_right,
-                      color: AppColors.gold,
+                      color: cf.accent,
                       size: 20,
                     ),
                   ],
@@ -474,9 +475,9 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
               const SizedBox(height: 8),
               Text(
                 'Playing squad size for each team (6-a-side, 7-a-side, 11-a-side, etc.).',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textMuted,
+                  color: cf.textMuted,
                   height: 1.4,
                 ),
               ),
@@ -496,9 +497,9 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
               const SizedBox(height: 8),
               Text(
                 'Standard cricket uses 6 balls per over. Change only for special formats.',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textMuted,
+                  color: cf.textMuted,
                   height: 1.4,
                 ),
               ),
@@ -563,11 +564,12 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: cf.card,
         borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        border: Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(color: cf.border, width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spaceMd),
@@ -577,14 +579,14 @@ class _SectionCard extends StatelessWidget {
             // Header row
             Row(
               children: [
-                Icon(icon, size: 16, color: AppColors.gold),
+                Icon(icon, size: 16, color: cf.accent),
                 const SizedBox(width: 6),
                 Text(
                   isRequired ? '$title *' : title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textSecondary,
+                    color: cf.textSecondary,
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -605,12 +607,13 @@ class _SubLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: AppColors.textSecondary,
+        color: cf.textSecondary,
       ),
     );
   }
@@ -629,6 +632,7 @@ class _ChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -637,11 +641,11 @@ class _ChoiceChip extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primaryBlue.withValues(alpha: 0.25)
-              : AppColors.surfaceElevated,
+              ? cf.accent.withValues(alpha: 0.25)
+              : cf.sectionBackground,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? AppColors.gold : AppColors.border,
+            color: selected ? cf.accent : cf.border,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -650,7 +654,7 @@ class _ChoiceChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? AppColors.gold : AppColors.textSecondary,
+            color: selected ? cf.accent : cf.textSecondary,
           ),
         ),
       ),
@@ -671,6 +675,7 @@ class _AdvancedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -683,22 +688,22 @@ class _AdvancedSection extends StatelessWidget {
               vertical: AppDimens.spaceSm,
             ),
             decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
+              color: cf.sectionBackground,
               borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-              border: Border.all(color: AppColors.border, width: 0.5),
+              border: Border.all(color: cf.border, width: 0.5),
             ),
             child: Row(
               children: [
-                const Icon(Icons.tune_outlined,
-                    size: 16, color: AppColors.textSecondary),
+                Icon(Icons.tune_outlined,
+                    size: 16, color: cf.textSecondary),
                 const SizedBox(width: 6),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Special cases',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                      color: cf.textSecondary,
                     ),
                   ),
                 ),
@@ -707,7 +712,7 @@ class _AdvancedSection extends StatelessWidget {
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
                   size: 20,
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
               ],
             ),
@@ -733,6 +738,7 @@ class _PlayersPerTeamStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Row(
       children: [
         _StepButton(
@@ -745,18 +751,18 @@ class _PlayersPerTeamStepper extends StatelessWidget {
               Text(
                 '$value',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  color: cf.textPrimary,
                 ),
               ),
-              const Text(
+              Text(
                 'players per team',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textMuted,
+                  color: cf.textMuted,
                 ),
               ),
             ],
@@ -782,6 +788,7 @@ class _BallsPerOverStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Row(
       children: [
         _StepButton(
@@ -794,18 +801,18 @@ class _BallsPerOverStepper extends StatelessWidget {
               Text(
                 '$value',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  color: cf.textPrimary,
                 ),
               ),
-              const Text(
+              Text(
                 'balls per over',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textMuted,
+                  color: cf.textMuted,
                 ),
               ),
             ],
@@ -827,6 +834,7 @@ class _StepButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final enabled = onTap != null;
     return GestureDetector(
       onTap: onTap,
@@ -835,17 +843,17 @@ class _StepButton extends StatelessWidget {
         height: 40,
         decoration: BoxDecoration(
           color: enabled
-              ? AppColors.gold.withValues(alpha: 0.15)
-              : AppColors.surfaceElevated,
+              ? cf.accent.withValues(alpha: 0.15)
+              : cf.sectionBackground,
           shape: BoxShape.circle,
           border: Border.all(
-            color: enabled ? AppColors.gold : AppColors.border,
+            color: enabled ? cf.accent : cf.border,
           ),
         ),
         child: Icon(
           icon,
           size: 20,
-          color: enabled ? AppColors.gold : AppColors.textMuted,
+          color: enabled ? cf.accent : cf.textMuted,
         ),
       ),
     );
@@ -863,6 +871,7 @@ class _MatchTypePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Row(
       children: CricketMatchType.values.map((type) {
         final isSelected = type == selected;
@@ -876,11 +885,11 @@ class _MatchTypePicker extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.primaryBlue
-                      : AppColors.surfaceElevated,
+                      ? cf.accent
+                      : cf.sectionBackground,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isSelected ? AppColors.gold : AppColors.border,
+                    color: isSelected ? cf.accent : cf.border,
                     width: isSelected ? 1.5 : 1,
                   ),
                 ),
@@ -891,8 +900,8 @@ class _MatchTypePicker extends StatelessWidget {
                       StartMatchSetupForm._matchTypeIcon(type),
                       size: 22,
                       color: isSelected
-                          ? AppColors.gold
-                          : AppColors.textSecondary,
+                          ? cf.accent
+                          : cf.textSecondary,
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -906,7 +915,7 @@ class _MatchTypePicker extends StatelessWidget {
                             : FontWeight.w500,
                         color: isSelected
                             ? Colors.white
-                            : AppColors.textPrimary,
+                            : cf.textPrimary,
                       ),
                     ),
                   ],

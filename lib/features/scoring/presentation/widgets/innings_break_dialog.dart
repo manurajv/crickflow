@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/innings_model.dart';
@@ -8,6 +7,7 @@ import '../../../../shared/widgets/cf_slide_to_confirm.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../../domain/scoring/match_completion_policy.dart';
 import '../utils/scoring_display_utils.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Shown when an innings ends (overs or all out) or during an innings break.
 class InningsBreakDialog extends StatelessWidget {
@@ -60,6 +60,7 @@ class InningsBreakDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final rules = match.rules;
     final reason = ScoringDisplayUtils.inningsCompleteReason(match, innings);
     final team = ScoringDisplayUtils.battingTeamName(match, innings);
@@ -86,7 +87,7 @@ class InningsBreakDialog extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Material(
-        color: AppColors.card,
+        color: cf.card,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
           child: Column(
@@ -101,10 +102,10 @@ class InningsBreakDialog extends StatelessWidget {
               Text(
                 reason,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.gold,
+                  color: cf.accent,
                 ),
               ),
             ],
@@ -121,30 +122,30 @@ class InningsBreakDialog extends StatelessWidget {
             Text(
               '${innings.totalRuns}/${innings.totalWickets} ($overs ov)',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
+                color: cf.textPrimary,
               ),
             ),
             if (target != null) ...[
               const SizedBox(height: 8),
               if (dlsApplied)
-                const Text(
+                Text(
                   'DLS Applied',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.gold,
+                    color: cf.accent,
                   ),
                 ),
               Text(
                 'Target for next innings: $target',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
               ),
             ],

@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/location_model.dart';
 import '../../../../data/services/google_maps_location_service.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
 import '../models/ground_pick_result.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Ground name search with Places autocomplete + link to map picker.
 class GroundSearchField extends ConsumerStatefulWidget {
@@ -92,6 +92,7 @@ class _GroundSearchFieldState extends ConsumerState<GroundSearchField> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -107,7 +108,7 @@ class _GroundSearchFieldState extends ConsumerState<GroundSearchField> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : IconButton(
-                  icon: const Icon(Icons.map_outlined, color: AppColors.gold),
+                  icon: Icon(Icons.map_outlined, color: cf.accent),
                   tooltip: 'Pick on map',
                   onPressed: widget.onPickOnMap,
                 ),
@@ -118,7 +119,7 @@ class _GroundSearchFieldState extends ConsumerState<GroundSearchField> {
           Text(
             _statusMessage!,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
           ),
         ],
@@ -127,13 +128,13 @@ class _GroundSearchFieldState extends ConsumerState<GroundSearchField> {
           Material(
             elevation: 2,
             borderRadius: BorderRadius.circular(12),
-            color: AppColors.surfaceElevated,
+            color: cf.sectionBackground,
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _suggestions.length.clamp(0, 5),
               separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: AppColors.border),
+                  Divider(height: 1, color: cf.border),
               itemBuilder: (_, i) {
                 final s = _suggestions[i];
                 return ListTile(
@@ -153,7 +154,7 @@ class _GroundSearchFieldState extends ConsumerState<GroundSearchField> {
             icon: const Icon(Icons.pin_drop_outlined, size: 18),
             label: const Text('Not listed? Pick on map'),
             style: TextButton.styleFrom(
-              foregroundColor: AppColors.gold,
+              foregroundColor: cf.accent,
               visualDensity: VisualDensity.compact,
             ),
           ),

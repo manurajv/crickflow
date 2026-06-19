@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/enums.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/match_model.dart';
@@ -14,6 +13,9 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import 'models/ground_pick_result.dart';
 import 'widgets/start_match_setup_form.dart';
+import '../../../core/theme/cf_colors.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../shared/widgets/start_match_ui.dart';
 
 /// Start match: select teams → setup → create.
 class StartMatchFlowScreen extends ConsumerStatefulWidget {
@@ -228,58 +230,33 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
       appBar: AppBar(
         title: Text(_step == 0 ? 'Select playing teams' : 'Start a match'),
       ),
-      body: _step == 0 ? _teamsStep(draft) : _setupStep(draft),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          StartMatchFlowProgress(
+            currentIndex: _step == 0
+                ? StartMatchFlowStep.teams
+                : StartMatchFlowStep.setup,
+          ),
+          Expanded(
+            child: _step == 0 ? _teamsStep(draft) : _setupStep(draft),
+          ),
+        ],
+      ),
       bottomNavigationBar: _bottomBar(draft),
     );
   }
 
   Widget _teamsStep(StartMatchDraft draft) {
+    final cf = context.cf;
     return ListView(
       padding: AppDimens.listPadding,
       children: [
-        // ── info strip ───────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spaceMd,
-            vertical: AppDimens.spaceSm,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.primaryBlue.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-            border: Border.all(
-              color: AppColors.primaryBlue.withValues(alpha: 0.35),
-              width: 0.5,
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.info_outline,
-                size: 16,
-                color: AppColors.primaryBlueLight,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Scoring a match on CrickFlow is free.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.primaryBlueLight,
-                      ),
-                ),
-              ),
-            ],
-          ),
+        StartMatchInfoBanner(
+          message: 'Scoring a match on CrickFlow is free.',
         ),
         const SizedBox(height: AppDimens.spaceLg),
-
-        // ── VS card ───────────────────────────────────────────────────────
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-            border: Border.all(color: AppColors.border, width: 0.5),
-          ),
-          padding: const EdgeInsets.all(AppDimens.spaceLg),
+        StartMatchCard(
           child: Column(
             children: [
               // Team A slot
@@ -298,7 +275,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                   children: [
                     Expanded(
                       child: Divider(
-                        color: AppColors.border,
+                        color: cf.border,
                         thickness: 0.5,
                       ),
                     ),
@@ -310,8 +287,8 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                         height: 40,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.surfaceElevated,
-                          border: Border.all(color: AppColors.border),
+                          color: cf.sectionBackground,
+                          border: Border.all(color: cf.border),
                         ),
                         child: Center(
                           child: Text(
@@ -320,7 +297,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                                 .textTheme
                                 .labelLarge
                                 ?.copyWith(
-                                  color: AppColors.gold,
+                                  color: cf.accent,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -330,7 +307,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                     ),
                     Expanded(
                       child: Divider(
-                        color: AppColors.border,
+                        color: cf.border,
                         thickness: 0.5,
                       ),
                     ),
@@ -404,11 +381,10 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                         setState(() => _step = 1);
                       }
                     : null,
-                style: FilledButton.styleFrom(
-                  minimumSize:
-                      const Size(double.infinity, AppDimens.buttonHeightLarge),
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
+                style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+                  minimumSize: WidgetStateProperty.all(
+                    const Size(double.infinity, AppDimens.buttonHeightLarge),
+                  ),
                 ),
                 child: const Text('Continue to match setup'),
               )
@@ -419,9 +395,13 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                       onPressed: _saving
                           ? null
                           : () => _submitMatch(scheduleOnly: true),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, AppDimens.buttonHeightLarge),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      style: ScoringUiKit.outlinedButtonStyle(context).copyWith(
+                        minimumSize: WidgetStateProperty.all(
+                          const Size(0, AppDimens.buttonHeightLarge),
+                        ),
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(horizontal: 8),
+                        ),
                       ),
                       child: const Text(
                         'Schedule',
@@ -434,10 +414,13 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                   Expanded(
                     child: FilledButton(
                       onPressed: _saving ? null : _goToSquadFlow,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, AppDimens.buttonHeightLarge),
-                        backgroundColor: AppColors.primaryBlue,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+                        minimumSize: WidgetStateProperty.all(
+                          const Size(0, AppDimens.buttonHeightLarge),
+                        ),
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(horizontal: 8),
+                        ),
                       ),
                       child: _saving
                           ? const SizedBox(
@@ -474,6 +457,7 @@ class _TeamSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final hasTeam = name.isNotEmpty;
     return InkWell(
       onTap: onSelect,
@@ -491,16 +475,16 @@ class _TeamSlot extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.surfaceElevated,
+                  color: cf.sectionBackground,
                   border: Border.all(
-                    color: AppColors.border,
+                    color: cf.border,
                     width: 1.5,
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.add,
                   size: 24,
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
               ),
             const SizedBox(width: AppDimens.spaceMd),
@@ -510,10 +494,10 @@ class _TeamSlot extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                      color: cf.textSecondary,
                       letterSpacing: 0.4,
                     ),
                   ),
@@ -525,16 +509,16 @@ class _TeamSlot extends StatelessWidget {
                       fontWeight:
                           hasTeam ? FontWeight.w700 : FontWeight.w400,
                       color: hasTeam
-                          ? AppColors.textPrimary
-                          : AppColors.textMuted,
+                          ? cf.textPrimary
+                          : cf.textMuted,
                     ),
                   ),
                   if (team?.location.displayLabel.isNotEmpty == true)
                     Text(
                       team!.location.displayLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.textMuted,
+                        color: cf.textMuted,
                       ),
                     ),
                 ],
@@ -542,7 +526,7 @@ class _TeamSlot extends StatelessWidget {
             ),
             Icon(
               hasTeam ? Icons.swap_horiz : Icons.chevron_right,
-              color: AppColors.gold,
+              color: cf.accent,
               size: 22,
             ),
           ],
@@ -572,6 +556,7 @@ class _MatchTeamAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final logoUrl = team.profileImageUrl;
     final hasImage = logoUrl != null;
 
@@ -582,21 +567,21 @@ class _MatchTeamAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: hasImage
             ? null
-            : const LinearGradient(
+            : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF1565C0), AppColors.primaryBlue],
+                colors: [const Color(0xFF1565C0), cf.accent],
               ),
-        color: hasImage ? AppColors.surfaceElevated : null,
+        color: hasImage ? cf.sectionBackground : null,
         border: Border.all(
           color: hasImage
-              ? AppColors.gold.withValues(alpha: 0.55)
-              : AppColors.primaryBlue.withValues(alpha: 0.6),
+              ? cf.accent.withValues(alpha: 0.55)
+              : cf.accent.withValues(alpha: 0.6),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
+            color: cf.cardShadow,
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),

@@ -74,8 +74,12 @@ class WagonWheelFieldGeometry {
   static const double selectionMarkerRadius = 12.0;
   static const double selectionMarkerCoreRadius = 6.0;
 
-  // ── Colours ──────────────────────────────────────────────────────────────
+  // ── Theme palettes (use [forTheme] in renderer) ───────────────────────────
 
+  static WagonWheelFieldPalette forTheme(bool isLight) =>
+      isLight ? WagonWheelFieldPalette.light : WagonWheelFieldPalette.dark;
+
+  // Legacy dark tokens — prefer [WagonWheelFieldPalette.dark].
   static const Color insideFieldTop = Color(0xFF2E7D32);
   static const Color insideFieldBottom = Color(0xFF1B5E20);
   static const Color outsideFieldColor = Color(0xFF3A3A3A);
@@ -242,4 +246,65 @@ class WagonWheelFieldGeometry {
     final raw = mapper.percentAlongStrikerRay(angle, distance);
     return clampCoordinate(raw.dx, raw.dy, batsmanRuns, size);
   }
+}
+
+/// Field colours for wagon wheel rendering — light vs dark chrome.
+class WagonWheelFieldPalette {
+  const WagonWheelFieldPalette({
+    required this.insideFieldTop,
+    required this.insideFieldBottom,
+    required this.outsideFieldColor,
+    required this.outsideFieldEdge,
+    required this.boundaryRopeColor,
+    required this.boundaryRopeGlow,
+    required this.pitchColor,
+    required this.wicketColor,
+    required this.sideLabelColor,
+    required this.innerCircleColor,
+    required this.creaseColor,
+    required this.markerShadowColor,
+  });
+
+  final Color insideFieldTop;
+  final Color insideFieldBottom;
+  final Color outsideFieldColor;
+  final Color outsideFieldEdge;
+  final Color boundaryRopeColor;
+  final Color boundaryRopeGlow;
+  final Color pitchColor;
+  final Color wicketColor;
+  final Color sideLabelColor;
+  final Color innerCircleColor;
+  final Color creaseColor;
+  final Color markerShadowColor;
+
+  static const dark = WagonWheelFieldPalette(
+    insideFieldTop: Color(0xFF2E7D32),
+    insideFieldBottom: Color(0xFF1B5E20),
+    outsideFieldColor: Color(0xFF3A3A3A),
+    outsideFieldEdge: Color(0xFF2C2C2C),
+    boundaryRopeColor: Color(0xFFF5F5F5),
+    boundaryRopeGlow: Color(0x40FFFFFF),
+    pitchColor: Color(0xFF8D6E63),
+    wicketColor: Color(0xFFECEFF1),
+    sideLabelColor: Color(0xB8FFFFFF),
+    innerCircleColor: Color(0x12FFFFFF),
+    creaseColor: Color(0x99FFFFFF),
+    markerShadowColor: Color(0x73000000),
+  );
+
+  static const light = WagonWheelFieldPalette(
+    insideFieldTop: Color(0xFF4CAF50),
+    insideFieldBottom: Color(0xFF2E7D32),
+    outsideFieldColor: Color(0xFFE8EAED),
+    outsideFieldEdge: Color(0xFFD0D5DD),
+    boundaryRopeColor: Color(0xFFFFFFFF),
+    boundaryRopeGlow: Color(0x4DFFFFFF),
+    pitchColor: Color(0xFF9D7B6B),
+    wicketColor: Color(0xFF424242),
+    sideLabelColor: Color(0xF0FFFFFF),
+    innerCircleColor: Color(0x1FFFFFFF),
+    creaseColor: Color(0xCCFFFFFF),
+    markerShadowColor: Color(0x33000000),
+  );
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
@@ -11,6 +10,9 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import 'widgets/cf_selection_card.dart';
 import 'widgets/toss_coin_flip.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../shared/widgets/start_match_ui.dart';
+import '../../../core/theme/cf_colors.dart';
 
 /// Toss: coin flip, then winner, bat/bowl, then create match and start scoring.
 class MatchTossScreen extends ConsumerStatefulWidget {
@@ -190,6 +192,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final draft = ref.watch(startMatchDraftProvider);
     final setup = draft.setup;
 
@@ -232,7 +235,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: cf.background,
       appBar: AppBar(
         title: const Text('Toss'),
         actions: [
@@ -247,18 +250,23 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: AppDimens.listPadding,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const StartMatchFlowProgress(currentIndex: StartMatchFlowStep.toss),
+          Expanded(
+            child: ListView(
+              padding: AppDimens.listPadding,
+              children: [
           const _SectionTitle('Flip the coin'),
           const SizedBox(height: AppDimens.spaceSm),
           Text(
             _tossChoicesEnabled
                 ? 'Record who won and what they chose.'
                 : 'Flip first, then select the toss winner and bat or bowl.',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: AppColors.textSecondary,
+              color: cf.textSecondary,
             ),
           ),
           const SizedBox(height: AppDimens.spaceLg),
@@ -332,6 +340,9 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
             ),
           ),
           const SizedBox(height: AppDimens.spaceXl),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -355,10 +366,10 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
               const Spacer(),
               FilledButton(
                 onPressed: _canPlay ? _letsPlay : null,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(160, AppDimens.buttonHeightLarge),
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
+                style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+                  minimumSize: WidgetStateProperty.all(
+                    const Size(160, AppDimens.buttonHeightLarge),
+                  ),
                 ),
                 child: _saving
                     ? const SizedBox(
@@ -383,6 +394,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Text(
       text,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(

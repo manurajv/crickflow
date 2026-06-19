@@ -40,6 +40,8 @@
 | Buttons — primary blue, secondary white/grey border, danger red | Done |
 | Banners / team / scoring sheets migrated to `context.cf` | Done |
 | `cfCardDecoration()` shared card helper | Done |
+| Start Match wizard — step chips (Teams → Setup → Squads → Roles → Officials → Toss) | Done |
+| Live scoring — all sheets/dialogs use `ScoringUiKit` white surfaces | Done |
 
 ---
 
@@ -56,8 +58,11 @@
 | `CfColors` theme extension + `context.cf` helper | Done |
 | Settings → Appearance (Light / Dark segmented control) | Done |
 | `ThemeMode.system` storage ready (UI not exposed yet) | Done |
-| Shared widgets + live scoring migrated to `context.cf` | Done |
-| Remaining screens — Material theme applies; legacy `AppColors` surfaces migrate incrementally | Partial |
+| Scoring presentation sheets/dialogs + start-match flow screens migrated to `context.cf` | Done |
+| Start Match — `StartMatchCard`, step progress bar, white setup cards | Done |
+| Live scoring header — light: white card + dark score text (outdoor readability) | Done |
+| Batter strip — ON STRIKE badge, accent border, white surfaces | Done |
+| Remaining screens — post-match hub tabs, scorecard view, highlights still use legacy `AppColors` | Partial |
 
 ---
 

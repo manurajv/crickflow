@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../utils/scoring_display_utils.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Batter on crease with live stats for picker cards.
 class CreaseBatterOption {
@@ -263,6 +263,7 @@ class _CreasePickerBodyState extends State<_CreasePickerBody> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -280,8 +281,8 @@ class _CreasePickerBodyState extends State<_CreasePickerBody> {
             Text(
               widget.subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
+              style: TextStyle(
+                color: cf.textSecondary,
                 fontSize: 14,
               ),
             ),
@@ -312,8 +313,8 @@ class _CreasePickerBodyState extends State<_CreasePickerBody> {
                       }
                     },
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: AppColors.background,
+                backgroundColor: cf.accent,
+                foregroundColor: cf.background,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: Text(
@@ -341,11 +342,12 @@ class _BatterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final borderColor =
-        selected ? AppColors.gold : AppColors.border.withValues(alpha: 0.35);
+        selected ? cf.accent : cf.border.withValues(alpha: 0.35);
     final bg = selected
-        ? AppColors.gold.withValues(alpha: 0.12)
-        : AppColors.surfaceElevated;
+        ? cf.accent.withValues(alpha: 0.12)
+        : cf.sectionBackground;
 
     return Material(
       color: bg,
@@ -369,18 +371,18 @@ class _BatterCard extends StatelessWidget {
                   children: [
                     Text(
                       option.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        color: cf.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       option.roleLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.gold,
+                        color: cf.accent,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -392,24 +394,24 @@ class _BatterCard extends StatelessWidget {
                 children: [
                   Text(
                     '${option.runs} (${option.balls})',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: cf.textPrimary,
                     ),
                   ),
-                  const Text(
+                  Text(
                     'R (B)',
                     style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textSecondary,
+                      color: cf.textSecondary,
                     ),
                   ),
                 ],
               ),
               if (selected) ...[
                 const SizedBox(width: AppDimens.spaceSm),
-                const Icon(Icons.check_circle, color: AppColors.gold),
+                Icon(Icons.check_circle, color: cf.accent),
               ],
             ],
           ),
@@ -427,23 +429,24 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final initial = name.isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     if (photoUrl != null && photoUrl!.isNotEmpty) {
       return CircleAvatar(
         radius: 28,
         backgroundImage: NetworkImage(photoUrl!),
-        backgroundColor: AppColors.surfaceElevated,
+        backgroundColor: cf.sectionBackground,
       );
     }
     return CircleAvatar(
       radius: 28,
-      backgroundColor: AppColors.surfaceElevated,
+      backgroundColor: cf.sectionBackground,
       child: Text(
         initial,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w700,
-          color: AppColors.gold,
+          color: cf.accent,
         ),
       ),
     );

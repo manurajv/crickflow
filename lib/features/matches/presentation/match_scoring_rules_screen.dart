@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/match_rules_model.dart';
+import '../../../core/theme/cf_colors.dart';
+import '../../../shared/widgets/scoring_ui_kit.dart';
 
 /// Wide / no-ball / wagon wheel scoring rules (reference: Match rules wd, nb, ww).
 class MatchScoringRulesScreen extends StatefulWidget {
@@ -32,6 +33,7 @@ class _MatchScoringRulesScreenState extends State<MatchScoringRulesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final wwLocked = _rules.isIndoor;
 
     return Scaffold(
@@ -75,7 +77,7 @@ class _MatchScoringRulesScreenState extends State<MatchScoringRulesScreen> {
                       'and no-ball off the bat. Wide, bye, leg bye, and '
                       'penalty runs are skipped.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: cf.textSecondary,
                     fontStyle: FontStyle.italic,
                   ),
             ),
@@ -107,13 +109,6 @@ class _MatchScoringRulesScreenState extends State<MatchScoringRulesScreen> {
             max: 10,
             onChanged: (v) => _update(_rules.copyWith(noBallRuns: v)),
           ),
-          const SizedBox(height: AppDimens.spaceMd),
-          _SectionTitle('Impact player'),
-          _RuleSwitch(
-            label: 'Enable impact player rule',
-            value: _rules.impactPlayerEnabled,
-            onChanged: (v) => _update(_rules.copyWith(impactPlayerEnabled: v)),
-          ),
           const SizedBox(height: AppDimens.spaceXl),
         ],
       ),
@@ -137,11 +132,10 @@ class _MatchScoringRulesScreenState extends State<MatchScoringRulesScreen> {
                 flex: 2,
                 child: FilledButton(
                   onPressed: () => Navigator.pop(context, _rules),
-                  style: FilledButton.styleFrom(
-                    minimumSize:
-                        const Size(0, AppDimens.buttonHeightLarge),
-                    backgroundColor: AppColors.gold,
-                    foregroundColor: Colors.black,
+                  style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+                    minimumSize: WidgetStateProperty.all(
+                      const Size(0, AppDimens.buttonHeightLarge),
+                    ),
                   ),
                   child: const Text('Done'),
                 ),
@@ -161,6 +155,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
       child: Text(
@@ -188,12 +183,13 @@ class _RuleSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(label, style: const TextStyle(fontSize: 15)),
       value: value,
       onChanged: enabled ? onChanged : null,
-      activeThumbColor: AppColors.gold,
+      activeThumbColor: cf.accent,
     );
   }
 }
@@ -215,6 +211,7 @@ class _StepperRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppDimens.spaceSm),
       child: Row(
@@ -222,8 +219,8 @@ class _StepperRow extends StatelessWidget {
           Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
           IconButton.filled(
             style: IconButton.styleFrom(
-              backgroundColor: AppColors.surfaceElevated,
-              foregroundColor: AppColors.textPrimary,
+              backgroundColor: cf.sectionBackground,
+              foregroundColor: cf.textPrimary,
             ),
             onPressed: value > min ? () => onChanged(value - 1) : null,
             icon: const Icon(Icons.remove, size: 18),
@@ -237,8 +234,8 @@ class _StepperRow extends StatelessWidget {
           ),
           IconButton.filled(
             style: IconButton.styleFrom(
-              backgroundColor: AppColors.surfaceElevated,
-              foregroundColor: AppColors.textPrimary,
+              backgroundColor: cf.sectionBackground,
+              foregroundColor: cf.textPrimary,
             ),
             onPressed: value < max ? () => onChanged(value + 1) : null,
             icon: const Icon(Icons.add, size: 18),

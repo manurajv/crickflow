@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimens.dart';
+
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/lineup_player.dart';
+import '../../../../shared/widgets/lineup_player_avatar.dart';
 
 /// Striker / non-striker / bowler slot on Start innings (reference-style).
 class InningsPlayerSlotCard extends StatelessWidget {
@@ -22,6 +23,7 @@ class InningsPlayerSlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final selected = player != null;
     final name = player?.name ?? placeholder;
 
@@ -30,8 +32,8 @@ class InningsPlayerSlotCard extends StatelessWidget {
       child: AspectRatio(
         aspectRatio: 0.85,
         child: Material(
-          color: AppColors.card,
-          borderRadius: AppDimens.cardRadius,
+          color: cf.card,
+          borderRadius: BorderRadius.circular(16),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
@@ -40,28 +42,22 @@ class InningsPlayerSlotCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Container(
-                    color: AppColors.surfaceElevated,
+                    color: cf.sectionBackground,
                     child: selected
                         ? Center(
-                            child: CircleAvatar(
+                            child: LineupPlayerAvatar(
+                              name: name,
+                              photoUrl: player?.photoUrl,
                               radius: 36,
-                              backgroundColor: AppColors.primaryBlue,
-                              child: Text(
-                                name.isNotEmpty
-                                    ? name[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.gold,
-                                ),
-                              ),
+                              backgroundColor: cf.sectionBackground,
+                              foregroundColor: cf.accent,
+                              fontSize: 28,
                             ),
                           )
                         : Icon(
                             icon,
                             size: 56,
-                            color: AppColors.textMuted.withValues(alpha: 0.45),
+                            color: cf.textMuted.withValues(alpha: 0.45),
                           ),
                   ),
                 ),
@@ -70,10 +66,10 @@ class InningsPlayerSlotCard extends StatelessWidget {
                     horizontal: 8,
                     vertical: 10,
                   ),
-                  decoration: const BoxDecoration(
-                    color: AppColors.surface,
+                  decoration: BoxDecoration(
+                    color: cf.card,
                     border: Border(
-                      top: BorderSide(color: AppColors.border, width: 0.5),
+                      top: BorderSide(color: cf.border, width: 0.5),
                     ),
                   ),
                   child: Text(
@@ -85,9 +81,7 @@ class InningsPlayerSlotCard extends StatelessWidget {
                       fontSize: 11,
                       fontWeight:
                           selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected
-                          ? AppColors.textPrimary
-                          : AppColors.textMuted,
+                      color: selected ? cf.textPrimary : cf.textMuted,
                     ),
                   ),
                 ),

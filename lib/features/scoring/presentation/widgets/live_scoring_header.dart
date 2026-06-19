@@ -6,7 +6,7 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
 import '../utils/scoring_display_utils.dart';
 
-/// Scoreboard header — centered, CrickFlow theme.
+/// Scoreboard header — light: high-contrast card; dark: gradient hero.
 class LiveScoringHeader extends StatelessWidget {
   const LiveScoringHeader({
     super.key,
@@ -34,7 +34,30 @@ class LiveScoringHeader extends StatelessWidget {
         ScoringDisplayUtils.inningsOversDisplay(innings, rules);
     final crr = ScoringDisplayUtils.currentRunRate(innings, rules);
     final chase = ScoringDisplayUtils.chaseDisplay(match, innings, rules);
-    final heroEmphasis = cf.isLight ? Colors.white : CfColors.gold;
+
+    final isLight = cf.isLight;
+    final scoreColor = Colors.white;
+    final metaColor = Colors.white.withValues(alpha: isLight ? 0.82 : 0.75);
+    final emphasisColor = isLight ? Colors.white : CfColors.gold;
+    final watermarkColor = isLight
+        ? Colors.white.withValues(alpha: 0.1)
+        : CfColors.gold.withValues(alpha: 0.08);
+
+    final content = _headerContent(
+      cf: cf,
+      scoreColor: scoreColor,
+      metaColor: metaColor,
+      emphasisColor: emphasisColor,
+      ppBadgeBg: isLight
+          ? Colors.white.withValues(alpha: 0.22)
+          : CfColors.primaryBlue,
+      ppBadgeFg: Colors.white,
+      tossLine: tossLine,
+      ppLabel: ppLabel,
+      oversText: oversText,
+      crr: crr,
+      chase: chase,
+    );
 
     return Container(
       width: double.infinity,
@@ -50,9 +73,7 @@ class LiveScoringHeader extends StatelessWidget {
             child: Icon(
               Icons.sports_cricket,
               size: 80,
-              color: cf.isLight
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : CfColors.gold.withValues(alpha: 0.08),
+              color: watermarkColor,
             ),
           ),
           Center(
@@ -68,15 +89,7 @@ class LiveScoringHeader extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
-                  children: _headerContent(
-                    cf: cf,
-                    heroEmphasis: heroEmphasis,
-                    tossLine: tossLine,
-                    ppLabel: ppLabel,
-                    oversText: oversText,
-                    crr: crr,
-                    chase: chase,
-                  ),
+                  children: content,
                 ),
               ),
             ),
@@ -88,7 +101,11 @@ class LiveScoringHeader extends StatelessWidget {
 
   List<Widget> _headerContent({
     required CfColors cf,
-    required Color heroEmphasis,
+    required Color scoreColor,
+    required Color metaColor,
+    required Color emphasisColor,
+    required Color ppBadgeBg,
+    required Color ppBadgeFg,
     required String? tossLine,
     required String? ppLabel,
     required String oversText,
@@ -109,30 +126,25 @@ class LiveScoringHeader extends StatelessWidget {
                 vertical: 4,
               ),
               decoration: BoxDecoration(
-                color: CfColors.primaryBlue,
+                color: ppBadgeBg,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: cf.isLight
-                      ? Colors.white.withValues(alpha: 0.6)
-                      : CfColors.gold.withValues(alpha: 0.6),
-                ),
               ),
               child: Text(
                 ppLabel,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: heroEmphasis,
+                  color: ppBadgeFg,
                 ),
               ),
             ),
           ],
           Text(
             '${innings.totalRuns}/${innings.totalWickets}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: scoreColor,
               height: 1,
               letterSpacing: -1,
             ),
@@ -140,10 +152,10 @@ class LiveScoringHeader extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             '($oversText/${rules.totalOvers})',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.white70,
+              fontWeight: FontWeight.w600,
+              color: metaColor,
             ),
           ),
         ],
@@ -155,10 +167,10 @@ class LiveScoringHeader extends StatelessWidget {
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: Colors.white70,
+            color: metaColor,
             height: 1.3,
           ),
         ),
@@ -169,13 +181,13 @@ class LiveScoringHeader extends StatelessWidget {
             ? 'CRR ${crr.toStringAsFixed(2)}  ·  Extras ${innings.extras}'
             : 'CRR ${crr.toStringAsFixed(2)}',
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Colors.white70,
+          color: metaColor,
         ),
       ),
-        if (chase != null && chase.isChasing) ...[
+      if (chase != null && chase.isChasing) ...[
         const SizedBox(height: 6),
         if (match.targetState.originalTarget != null &&
             match.targetState.effectiveRevisedTarget != null &&
@@ -185,10 +197,10 @@ class LiveScoringHeader extends StatelessWidget {
             'Target: ${match.targetState.originalTarget} → '
             '${match.targetState.effectiveRevisedTarget}',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Colors.white70,
+              color: metaColor,
             ),
           ),
         Text(
@@ -199,17 +211,17 @@ class LiveScoringHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: heroEmphasis,
+            color: emphasisColor,
             height: 1.25,
           ),
         ),
         Text(
           'RRR ${chase.requiredRunRate.toStringAsFixed(2)}',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: Colors.white70,
+            color: metaColor,
           ),
         ),
       ] else if (chase != null && !chase.isChasing) ...[
@@ -232,7 +244,7 @@ class LiveScoringHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w800,
-            color: heroEmphasis,
+            color: emphasisColor,
             letterSpacing: 1.2,
           ),
         ),

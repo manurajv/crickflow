@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 enum OverCompletionChoice { endOver, continueOver }
 
@@ -34,8 +34,9 @@ class OverCompletionPromptDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.card,
+      color: cf.card,
       child: Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.paddingOf(context).bottom + 16,
@@ -51,10 +52,10 @@ class OverCompletionPromptDialog extends StatelessWidget {
                 'Legal deliveries: $legalDeliveries / $expectedBalls\n\n'
                 'What would you like to do?',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   height: 1.45,
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
               ),
             ),
@@ -64,11 +65,7 @@ class OverCompletionPromptDialog extends StatelessWidget {
               child: FilledButton(
                 onPressed: () =>
                     Navigator.pop(context, OverCompletionChoice.endOver),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 48),
-                ),
+                style: ScoringUiKit.primaryButtonStyle(context),
                 child: const Text(
                   'End over',
                   style: TextStyle(fontWeight: FontWeight.w700),
@@ -85,8 +82,8 @@ class OverCompletionPromptDialog extends StatelessWidget {
                 ),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 48),
-                  foregroundColor: AppColors.gold,
-                  side: const BorderSide(color: AppColors.gold),
+                  foregroundColor: cf.accent,
+                  side: BorderSide(color: cf.accent),
                 ),
                 child: const Text(
                   'Continue over',

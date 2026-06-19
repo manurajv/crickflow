@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Recent ball events for scorer corrections (undo via existing flow).
 class ScoringMistakeSheet extends ConsumerStatefulWidget {
@@ -55,6 +55,7 @@ class _ScoringMistakeSheetState extends ConsumerState<ScoringMistakeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final eventsAsync = ref.watch(ballEventsProvider(widget.matchId));
 
     return SafeArea(
@@ -87,7 +88,7 @@ class _ScoringMistakeSheetState extends ConsumerState<ScoringMistakeSheet> {
                   Text(
                     'Last 20 scoring events.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: cf.textSecondary,
                         ),
                   ),
                 ],
@@ -137,6 +138,7 @@ class _EventRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final over =
         '${event.overNumber}.${event.ballInOver} (Inn ${event.inningsNumber})';
     final type = event.eventType.name;
@@ -161,17 +163,17 @@ class _EventRow extends StatelessWidget {
           Text('Batter: $batter · Bowler: $bowler'),
           if (wicket != null)
             Text('Wicket: $wicket',
-                style: const TextStyle(color: AppColors.gold)),
+                style: TextStyle(color: cf.accent)),
           if (highlightEdit)
-            const Text(
+            Text(
               'Ball event record',
-              style: TextStyle(color: AppColors.gold, fontSize: 12),
+              style: TextStyle(color: cf.accent, fontSize: 12),
             ),
           if (event.commentary.isNotEmpty)
             Text(
               event.commentary,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
+              style: TextStyle(
+                color: cf.textSecondary,
                 fontSize: 12,
               ),
             ),

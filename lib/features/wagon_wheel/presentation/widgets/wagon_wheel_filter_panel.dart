@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_filter_options.dart';
 
@@ -139,7 +139,12 @@ class WagonWheelFilterPanel extends StatelessWidget {
                   label: Text(f.label, style: const TextStyle(fontSize: 11)),
                   selected: selected,
                   onSelected: (_) => onChanged(filter.copyWith(runFilter: f)),
-                  selectedColor: AppColors.gold.withValues(alpha: 0.3),
+                  selectedColor: context.cf.accent.withValues(alpha: 0.15),
+                  checkmarkColor: context.cf.accent,
+                  labelStyle: TextStyle(
+                    color: selected ? context.cf.accent : context.cf.textSecondary,
+                    fontSize: 11,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               );
@@ -167,7 +172,12 @@ class WagonWheelFilterPanel extends StatelessWidget {
               ? filter.copyWith(clearInnings: true)
               : filter.copyWith(inningsNumber: innings),
         ),
-        selectedColor: AppColors.gold.withValues(alpha: 0.3),
+        selectedColor: context.cf.accent.withValues(alpha: 0.15),
+        checkmarkColor: context.cf.accent,
+        labelStyle: TextStyle(
+          color: selected ? context.cf.accent : context.cf.textSecondary,
+          fontSize: 11,
+        ),
         visualDensity: VisualDensity.compact,
       ),
     );
