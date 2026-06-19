@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
@@ -22,6 +24,9 @@ import '../../domain/scoring/match_completion_policy.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../domain/scoring/scoring_integrity_check.dart';
 import '../../domain/scoring/toss_team_policy.dart';
+import '../local/match_local_store.dart';
+import '../local/pending_sync_action.dart';
+import '../services/offline_sync_service.dart';
 import '../services/public_scorecard_sync.dart';
 
 class MatchRepository {
@@ -30,17 +35,25 @@ class MatchRepository {
     ScoringEngine? scoringEngine,
     BadgeService? badgeService,
     PublicScorecardSync? publicScorecardSync,
+    MatchLocalStore? localStore,
+    OfflineSyncService? syncService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _scoringEngine = scoringEngine ?? ScoringEngine(),
         _badgeService = badgeService ?? BadgeService(),
         _publicSync = publicScorecardSync ?? PublicScorecardSync(),
+        _localStore = localStore,
+        _syncService = syncService,
         _uuid = const Uuid();
 
   final FirebaseFirestore _firestore;
   final ScoringEngine _scoringEngine;
   final BadgeService _badgeService;
   final PublicScorecardSync _publicSync;
+  final MatchLocalStore? _localStore;
+  final OfflineSyncService? _syncService;
   final Uuid _uuid;
+
+  bool get _offlineEnabled => _localStore != null && _syncService != null;
 
   CollectionReference<Map<String, dynamic>> get _matches =>
       _firestore.collection(AppConstants.matchesCollection);
@@ -54,6 +67,165 @@ class MatchRepository {
   CollectionReference<Map<String, dynamic>> _activityLogs(String matchId) =>
       _matchDoc(matchId).collection('activity_logs');
 
+  bool _isActiveScoring(MatchModel match) =>
+      match.status == MatchStatus.live ||
+      match.status == MatchStatus.inningsBreak;
+
+  Future<MatchModel?> _getMatchFromFirestore(String id) async {
+    try {
+      final doc = await _matches.doc(id).get();
+      if (!doc.exists) return null;
+      return MatchModel.fromMap(doc.id, doc.data()!);
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable') {
+        final cached =
+            await _matches.doc(id).get(const GetOptions(source: Source.cache));
+        if (!cached.exists) return null;
+        return MatchModel.fromMap(cached.id, cached.data()!);
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<BallEventModel>> _fetchBallEventsFromFirestore(
+    String matchId,
+  ) async {
+    final snap = await _ballEvents(matchId).orderBy('sequence').get();
+    return snap.docs
+        .map((d) => BallEventModel.fromMap(d.id, d.data()))
+        .toList();
+  }
+
+  Future<void> _persistMatchLocally(
+    MatchModel match, {
+    OverlayStateModel? overlay,
+  }) async {
+    final local = _localStore;
+    if (local == null) return;
+    await local.saveSnapshot(
+      matchId: match.id,
+      match: match,
+      overlay: overlay,
+    );
+  }
+
+  Future<void> _enqueueMatchUpdate(
+    MatchModel match, {
+    List<String> fieldDeletes = const [],
+  }) async {
+    final sync = _syncService;
+    final local = _localStore;
+    if (sync == null || local == null) {
+      final data = match.toMap();
+      for (final field in fieldDeletes) {
+        data[field] = FieldValue.delete();
+      }
+      await _matchDoc(match.id).update(data);
+      await _syncPublicScorecard(match);
+      return;
+    }
+    await _persistMatchLocally(match);
+    await sync.enqueue(
+      sync.newAction(
+        matchId: match.id,
+        type: SyncActionType.matchUpdate,
+        payload: {
+          'matchData': match.toMap(),
+          if (fieldDeletes.isNotEmpty) 'fieldDeletes': fieldDeletes,
+        },
+      ),
+    );
+  }
+
+  Future<void> _enqueueMatchPatch(
+    String matchId,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = await getMatch(matchId);
+    if (existing == null) throw StateError('Match not found');
+    final merged = MatchModel.fromMap(
+      matchId,
+      {
+        ...existing.toMap(),
+        ...patch,
+        'updatedAt': DateTime.now().toIso8601String(),
+      },
+    );
+    await _enqueueMatchUpdate(merged);
+  }
+
+  Future<void> _enqueueFirestoreBatch({
+    required String matchId,
+    required List<FirestoreBatchOp> operations,
+  }) async {
+    final sync = _syncService;
+    if (sync == null) {
+      final batch = _firestore.batch();
+      for (final op in operations) {
+        final ref = _resolveBatchRef(op);
+        switch (op.op) {
+          case 'set':
+            batch.set(ref, op.data ?? {}, SetOptions(merge: op.merge));
+          case 'update':
+            batch.update(ref, op.data ?? {});
+          case 'delete':
+            batch.delete(ref);
+        }
+      }
+      await batch.commit();
+      return;
+    }
+    await sync.enqueue(
+      sync.newAction(
+        matchId: matchId,
+        type: SyncActionType.firestoreBatch,
+        payload: {
+          'operations': operations.map((o) => o.toMap()).toList(),
+        },
+      ),
+    );
+  }
+
+  DocumentReference<Map<String, dynamic>> _resolveBatchRef(
+    FirestoreBatchOp op,
+  ) {
+    var ref = _firestore.collection(op.collection).doc(op.docId);
+    if (op.subcollection != null && op.subDocId != null) {
+      ref = ref.collection(op.subcollection!).doc(op.subDocId!);
+    }
+    return ref;
+  }
+
+  Future<void> _ensureLocalSnapshot(String matchId) async {
+    final local = _localStore;
+    if (local == null || local.hasLocalSnapshot(matchId)) return;
+    final remote = await _getMatchFromFirestore(matchId);
+    if (remote == null) return;
+    final events = await _fetchBallEventsFromFirestore(matchId);
+    OverlayStateModel? overlay;
+    try {
+      final overlayDoc = await _matchDoc(matchId)
+          .collection('overlay')
+          .doc('current')
+          .get();
+      if (overlayDoc.exists) {
+        overlay = OverlayStateModel.fromMap(overlayDoc.data()!);
+      }
+    } catch (_) {}
+    await local.importFromRemote(
+      match: remote,
+      events: events,
+      overlay: overlay,
+    );
+  }
+
+  Stream<MatchModel?> _watchMatchRemote(String id) {
+    return _matches.doc(id).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return MatchModel.fromMap(doc.id, doc.data()!);
+    });
+  }
+
   Future<String> createMatch(MatchModel match) async {
     final id = match.id.isEmpty ? _uuid.v4() : match.id;
     await _matches.doc(id).set(match.toMap());
@@ -61,8 +233,7 @@ class MatchRepository {
   }
 
   Future<void> updateMatch(MatchModel match) async {
-    await _matches.doc(match.id).update(match.toMap());
-    await _syncPublicScorecard(match);
+    await _enqueueMatchUpdate(match);
   }
 
   Future<void> _syncPublicScorecard(
@@ -84,26 +255,43 @@ class MatchRepository {
   }
 
   Future<MatchModel?> getMatch(String id) async {
-    try {
-      final doc = await _matches.doc(id).get();
-      if (!doc.exists) return null;
-      return MatchModel.fromMap(doc.id, doc.data()!);
-    } on FirebaseException catch (e) {
-      if (e.code == 'unavailable') {
-        final cached =
-            await _matches.doc(id).get(const GetOptions(source: Source.cache));
-        if (!cached.exists) return null;
-        return MatchModel.fromMap(cached.id, cached.data()!);
-      }
-      rethrow;
+    final local = _localStore;
+    if (local != null) {
+      final cached = await local.getMatch(id);
+      if (cached != null) return cached;
     }
+    return _getMatchFromFirestore(id);
   }
 
   Stream<MatchModel?> watchMatch(String id) {
-    return _matches.doc(id).snapshots().map((doc) {
-      if (!doc.exists) return null;
-      return MatchModel.fromMap(doc.id, doc.data()!);
+    if (!_offlineEnabled) return _watchMatchRemote(id);
+
+    final controller = StreamController<MatchModel?>.broadcast();
+    MatchModel? localMatch;
+    MatchModel? remoteMatch;
+
+    void emit() {
+      if (localMatch != null &&
+          (_localStore!.hasPendingSync(id) || _isActiveScoring(localMatch!))) {
+        controller.add(localMatch);
+      } else {
+        controller.add(remoteMatch ?? localMatch);
+      }
+    }
+
+    final localSub = _localStore!.watchMatch(id).listen((match) {
+      localMatch = match;
+      emit();
     });
+    final remoteSub = _watchMatchRemote(id).listen((match) {
+      remoteMatch = match;
+      emit();
+    });
+    controller.onCancel = () {
+      localSub.cancel();
+      remoteSub.cancel();
+    };
+    return controller.stream;
   }
 
   Stream<List<MatchModel>> watchMatches({String? createdBy}) {
@@ -139,10 +327,11 @@ class MatchRepository {
   }
 
   Future<List<BallEventModel>> fetchBallEvents(String matchId) async {
-    final snap = await _ballEvents(matchId).orderBy('sequence').get();
-    return snap.docs
-        .map((d) => BallEventModel.fromMap(d.id, d.data()))
-        .toList();
+    final local = _localStore;
+    if (local != null && local.hasLocalSnapshot(matchId)) {
+      return local.getBallEvents(matchId);
+    }
+    return _fetchBallEventsFromFirestore(matchId);
   }
 
   Future<int> lastBallSequence(String matchId) async {
@@ -183,6 +372,8 @@ class MatchRepository {
       wagonWheel: input.wagonWheel ?? built.wagonWheel,
       undoGroupId: input.undoGroupId ?? built.undoGroupId,
     );
+
+    await _ensureLocalSnapshot(match.id);
 
     await _commitMatchState(
       matchId: match.id,
@@ -340,17 +531,39 @@ class MatchRepository {
 
     final overlay = _scoringEngine.buildOverlayForMatch(replayed);
 
-    final batch = _firestore.batch();
-    for (final e in toRemove) {
-      batch.delete(_ballEvents(matchId).doc(e.id));
-    }
-    batch.update(_matchDoc(matchId), replayed.toMap());
-    batch.set(
-      _matchDoc(matchId).collection('overlay').doc('current'),
-      overlay.toMap(),
+    await _localStore?.removeBallEvents(
+      matchId,
+      toRemove.map((e) => e.id),
     );
-    await batch.commit();
-    await _syncPublicScorecard(replayed, overlay: overlay);
+    await _persistMatchLocally(replayed, overlay: overlay);
+    await _localStore?.setBallEvents(matchId, allEvents);
+
+    final sync = _syncService;
+    if (sync == null) {
+      final batch = _firestore.batch();
+      for (final e in toRemove) {
+        batch.delete(_ballEvents(matchId).doc(e.id));
+      }
+      batch.update(_matchDoc(matchId), replayed.toMap());
+      batch.set(
+        _matchDoc(matchId).collection('overlay').doc('current'),
+        overlay.toMap(),
+      );
+      await batch.commit();
+      await _syncPublicScorecard(replayed, overlay: overlay);
+    } else {
+      await sync.enqueue(
+        sync.newAction(
+          matchId: matchId,
+          type: SyncActionType.undoBalls,
+          payload: {
+            'matchData': replayed.toMap(),
+            'overlayData': overlay.toMap(),
+            'deletedEventIds': toRemove.map((e) => e.id).toList(),
+          },
+        ),
+      );
+    }
 
     ScoringIntegrityCheck.assertProjectionMatchesEvents(
       match: replayed,
@@ -450,13 +663,28 @@ class MatchRepository {
     final updated = match.copyWith(innings: inningsList);
     final overlay = _scoringEngine.buildOverlayForMatch(updated);
 
-    final batch = _firestore.batch();
-    batch.update(_matchDoc(matchId), updated.toMap());
-    batch.set(
-      _matchDoc(matchId).collection('overlay').doc('current'),
-      overlay.toMap(),
-    );
-    await batch.commit();
+    await _persistMatchLocally(updated, overlay: overlay);
+    final sync = _syncService;
+    if (sync == null) {
+      final batch = _firestore.batch();
+      batch.update(_matchDoc(matchId), updated.toMap());
+      batch.set(
+        _matchDoc(matchId).collection('overlay').doc('current'),
+        overlay.toMap(),
+      );
+      await batch.commit();
+    } else {
+      await sync.enqueue(
+        sync.newAction(
+          matchId: matchId,
+          type: SyncActionType.matchOverlay,
+          payload: {
+            'matchData': updated.toMap(),
+            'overlayData': overlay.toMap(),
+          },
+        ),
+      );
+    }
   }
 
   Future<MatchModel?> completeMatch(String matchId) async {
@@ -492,7 +720,7 @@ class MatchRepository {
       resultSummary: summary,
     );
 
-    await _matchDoc(matchId).update(completed.toMap());
+    await _enqueueMatchUpdate(completed);
     return completed;
   }
 
@@ -521,11 +749,10 @@ class MatchRepository {
       isSuperOver: true,
     );
 
-    await _matchDoc(matchId).update({
+    await _enqueueMatchPatch(matchId, {
       'innings': [...match.innings.map((i) => i.toMap()), superInnings.toMap()],
       'currentInningsIndex': match.innings.length,
       'status': MatchStatus.inningsBreak.name,
-      'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
@@ -552,11 +779,10 @@ class MatchRepository {
       targetRuns: target,
     );
 
-    await _matchDoc(matchId).update({
+    await _enqueueMatchPatch(matchId, {
       'innings': [...match.innings.map((i) => i.toMap()), secondSo.toMap()],
       'currentInningsIndex': match.innings.length,
       'status': MatchStatus.inningsBreak.name,
-      'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
@@ -596,43 +822,132 @@ class MatchRepository {
     required BallEventModel event,
     required OverlayStateModel overlay,
   }) async {
-    final batch = _firestore.batch();
-    batch.update(_matchDoc(matchId), matchData);
-    batch.set(_ballEvents(matchId).doc(event.id), event.toMap());
-    batch.set(
-      _matchDoc(matchId).collection('overlay').doc('current'),
-      overlay.toMap(),
-    );
-    await batch.commit();
     final match = MatchModel.fromMap(matchId, matchData);
-    await _syncPublicScorecard(match, overlay: overlay);
+    await _localStore?.appendBallEvent(matchId, event);
+    await _persistMatchLocally(match, overlay: overlay);
+
+    final sync = _syncService;
+    if (sync == null) {
+      final batch = _firestore.batch();
+      batch.update(_matchDoc(matchId), matchData);
+      batch.set(_ballEvents(matchId).doc(event.id), event.toMap());
+      batch.set(
+        _matchDoc(matchId).collection('overlay').doc('current'),
+        overlay.toMap(),
+      );
+      await batch.commit();
+      await _syncPublicScorecard(match, overlay: overlay);
+      return;
+    }
+
+    await sync.enqueue(
+      sync.newAction(
+        matchId: matchId,
+        type: SyncActionType.ballCommit,
+        payload: {
+          'matchData': matchData,
+          'eventId': event.id,
+          'eventData': event.toMap(),
+          'overlayData': overlay.toMap(),
+        },
+      ),
+    );
   }
 
   Stream<OverlayStateModel?> watchOverlay(String matchId) {
-    return _matchDoc(matchId)
+    if (!_offlineEnabled) {
+      return _matchDoc(matchId)
+          .collection('overlay')
+          .doc('current')
+          .snapshots()
+          .map((doc) {
+        if (!doc.exists) return null;
+        return OverlayStateModel.fromMap(doc.data()!);
+      });
+    }
+
+    final controller = StreamController<OverlayStateModel?>.broadcast();
+    OverlayStateModel? localOverlay;
+    OverlayStateModel? remoteOverlay;
+
+    void emit() {
+      if (_localStore!.hasPendingSync(matchId) || localOverlay != null) {
+        controller.add(localOverlay ?? remoteOverlay);
+      } else {
+        controller.add(remoteOverlay ?? localOverlay);
+      }
+    }
+
+    final localSub = _localStore!.watchOverlay(matchId).listen((overlay) {
+      localOverlay = overlay;
+      emit();
+    });
+    final remoteSub = _matchDoc(matchId)
         .collection('overlay')
         .doc('current')
         .snapshots()
         .map((doc) {
       if (!doc.exists) return null;
       return OverlayStateModel.fromMap(doc.data()!);
+    }).listen((overlay) {
+      remoteOverlay = overlay;
+      emit();
     });
+    controller.onCancel = () {
+      localSub.cancel();
+      remoteSub.cancel();
+    };
+    return controller.stream;
   }
 
   Stream<List<BallEventModel>> watchBallEvents(String matchId) {
-    return _ballEvents(matchId)
+    if (!_offlineEnabled) {
+      return _ballEvents(matchId)
+          .orderBy('sequence')
+          .snapshots()
+          .map((snap) => snap.docs
+              .map((d) => BallEventModel.fromMap(d.id, d.data()))
+              .toList());
+    }
+
+    final controller = StreamController<List<BallEventModel>>.broadcast();
+    List<BallEventModel> localEvents = [];
+    List<BallEventModel> remoteEvents = [];
+
+    void emit() {
+      if (_localStore!.hasLocalSnapshot(matchId) &&
+          (_localStore!.hasPendingSync(matchId) || localEvents.isNotEmpty)) {
+        controller.add(localEvents);
+      } else {
+        controller.add(
+          remoteEvents.isNotEmpty ? remoteEvents : localEvents,
+        );
+      }
+    }
+
+    final localSub = _localStore!.watchBallEvents(matchId).listen((events) {
+      localEvents = events;
+      emit();
+    });
+    final remoteSub = _ballEvents(matchId)
         .orderBy('sequence')
         .snapshots()
         .map((snap) => snap.docs
             .map((d) => BallEventModel.fromMap(d.id, d.data()))
-            .toList());
+            .toList())
+        .listen((events) {
+      remoteEvents = events;
+      emit();
+    });
+    controller.onCancel = () {
+      localSub.cancel();
+      remoteSub.cancel();
+    };
+    return controller.stream;
   }
 
   Future<List<BallEventModel>> getBallEvents(String matchId) async {
-    final snap = await _ballEvents(matchId).orderBy('sequence').get();
-    return snap.docs
-        .map((d) => BallEventModel.fromMap(d.id, d.data()))
-        .toList();
+    return fetchBallEvents(matchId);
   }
 
   Future<void> startMatch(
@@ -684,7 +999,17 @@ class MatchRepository {
       data['scorerOwnershipToken'] = _uuid.v4();
       data['lastScorerTransferAt'] = DateTime.now().toIso8601String();
     }
-    await _matchDoc(matchId).update(data);
+    await _enqueueMatchPatch(matchId, data);
+    final started = await getMatch(matchId);
+    if (started != null) {
+      await _ensureLocalSnapshot(matchId);
+      final events = await _localStore?.getBallEvents(matchId) ?? [];
+      await _localStore?.importFromRemote(
+        match: started,
+        events: events,
+        overlay: await _localStore?.getOverlay(matchId),
+      );
+    }
   }
 
   /// Correct toss winner's bat/bowl choice; resets innings 1 with swapped teams.
@@ -751,9 +1076,10 @@ class MatchRepository {
   }
 
   Future<void> addScorer(String matchId, String userId) async {
-    await _matchDoc(matchId).update({
-      'scorerIds': FieldValue.arrayUnion([userId]),
-    });
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+    final scorerIds = <String>{...match.scorerIds, userId}.toList();
+    await _enqueueMatchPatch(matchId, {'scorerIds': scorerIds});
   }
 
   /// Ensures ownership token exists (for QR takeover on legacy matches).
@@ -821,22 +1147,44 @@ class MatchRepository {
       timestamp: now,
     );
     final history = [...match.scorerTransferHistory, record];
+    final scorerIds = <String>{...match.scorerIds, toUserId}.toList();
 
-    await _matchDoc(matchId).update({
+    await _enqueueMatchPatch(matchId, {
       'currentScorerId': toUserId,
       'currentScorerName': toUserName,
       if (toUserPhoto != null) 'currentScorerPhoto': toUserPhoto,
       'lastScorerTransferAt': now.toIso8601String(),
       'scorerTransferHistory': history.map((e) => e.toMap()).toList(),
-      'scorerIds': FieldValue.arrayUnion([toUserId]),
-      'updatedAt': now.toIso8601String(),
+      'scorerIds': scorerIds,
     });
 
-    await _appendActivityLog(
-      matchId,
-      message: 'Scoring transferred from $fromUserName to $toUserName',
-      createdBy: fromUserId,
-    );
+    if (_offlineEnabled) {
+      await _enqueueFirestoreBatch(
+        matchId: matchId,
+        operations: [
+          FirestoreBatchOp(
+            op: 'set',
+            collection: AppConstants.matchesCollection,
+            docId: matchId,
+            subcollection: 'activity_logs',
+            subDocId: _uuid.v4(),
+            data: {
+              'message':
+                  'Scoring transferred from $fromUserName to $toUserName',
+              'type': 'scorer_transfer',
+              'createdBy': fromUserId,
+              'createdAt': now.toIso8601String(),
+            },
+          ),
+        ],
+      );
+    } else {
+      await _appendActivityLog(
+        matchId,
+        message: 'Scoring transferred from $fromUserName to $toUserName',
+        createdBy: fromUserId,
+      );
+    }
   }
 
   /// Replace Scorer 1 or Scorer 2 on a live match (assigned scorers only).
@@ -867,7 +1215,6 @@ class MatchRepository {
       slotLabel: slotIndex == 0 ? 'Scorer 1' : 'Scorer 2',
     );
     final updatedSetup = setup.copyWith(scorers: scorers);
-    final setupMap = updatedSetup.toMap();
 
     final scorerUserIds = <String>[];
     for (final scorer in scorers) {
@@ -887,20 +1234,41 @@ class MatchRepository {
     );
     final history = [...match.scorerTransferHistory, record];
 
-    await _matchDoc(matchId).update({
-      ...setupMap,
+    await _enqueueMatchPatch(matchId, {
+      ...updatedSetup.toMap(),
       'scorerIds': scorerUserIds,
       'scorerTransferHistory': history.map((e) => e.toMap()).toList(),
       'lastScorerTransferAt': now.toIso8601String(),
-      'updatedAt': now.toIso8601String(),
     });
 
-    await _appendActivityLog(
-      matchId,
-      message:
-          '${actorName} assigned ${replacement.name} as Scorer ${slotIndex + 1}',
-      createdBy: actorUserId,
-    );
+    if (_offlineEnabled) {
+      await _enqueueFirestoreBatch(
+        matchId: matchId,
+        operations: [
+          FirestoreBatchOp(
+            op: 'set',
+            collection: AppConstants.matchesCollection,
+            docId: matchId,
+            subcollection: 'activity_logs',
+            subDocId: _uuid.v4(),
+            data: {
+              'message':
+                  '$actorName assigned ${replacement.name} as Scorer ${slotIndex + 1}',
+              'type': 'scorer_transfer',
+              'createdBy': actorUserId,
+              'createdAt': now.toIso8601String(),
+            },
+          ),
+        ],
+      );
+    } else {
+      await _appendActivityLog(
+        matchId,
+        message:
+            '$actorName assigned ${replacement.name} as Scorer ${slotIndex + 1}',
+        createdBy: actorUserId,
+      );
+    }
   }
 
   /// Accept takeover via QR — caller becomes active scorer.
@@ -964,10 +1332,9 @@ class MatchRepository {
       isSuperOver: inn.isSuperOver,
     );
 
-    await _matchDoc(matchId).update({
+    await _enqueueMatchPatch(matchId, {
       'innings': inningsList.map((i) => i.toMap()).toList(),
       'status': MatchStatus.inningsBreak.name,
-      'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
@@ -1014,12 +1381,11 @@ class MatchRepository {
 
     final inningsList = [...match.innings, nextInnings];
 
-    await _matchDoc(matchId).update({
+    await _enqueueMatchPatch(matchId, {
       'innings': inningsList.map((i) => i.toMap()).toList(),
       'currentInningsIndex': inningsList.length - 1,
       'status': MatchStatus.live.name,
       'overlayVersion': match.overlayVersion + 1,
-      'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
@@ -1068,21 +1434,18 @@ class MatchRepository {
     final subsKey =
         isTeamA ? 'teamASubstitutePlayers' : 'teamBSubstitutePlayers';
     final squadIdsKey = isTeamA ? 'teamASquadIds' : 'teamBSquadIds';
-    await _matchDoc(matchId).update({
+    await _enqueueMatchPatch(matchId, {
       playingKey: playing.map((p) => p.toMap()).toList(),
       subsKey: substitutes.map((p) => p.toMap()).toList(),
       squadIdsKey: playing.map((p) => p.id).toList(),
-      'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
   Future<void> updateMatchRules(String matchId, MatchRulesModel rules) async {
     final match = await getMatch(matchId);
     if (match == null) throw StateError('Match not found');
-    await _matchDoc(matchId).update({
-      'rules': rules.toMap(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+    final updated = match.copyWith(rules: rules);
+    await _enqueueMatchUpdate(updated);
   }
 
   Future<void> startMatchBreak({
@@ -1102,9 +1465,10 @@ class MatchRepository {
       startedBy: startedBy,
       reason: reason,
     );
-    await _matchDoc(matchId).update({
+    final updated = match.copyWith(activeMatchBreak: active);
+    await _persistMatchLocally(updated);
+    await _enqueueMatchPatch(matchId, {
       'activeMatchBreak': active.toMap(),
-      'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
@@ -1125,11 +1489,14 @@ class MatchRepository {
       reason: active.reason,
     );
     final history = [...match.matchBreakHistory, entry];
-    await _matchDoc(matchId).update({
-      'activeMatchBreak': FieldValue.delete(),
-      'matchBreakHistory': history.map((e) => e.toMap()).toList(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+    final updated = match.copyWith(
+      clearActiveMatchBreak: true,
+      matchBreakHistory: history,
+    );
+    await _enqueueMatchUpdate(
+      updated,
+      fieldDeletes: const ['activeMatchBreak'],
+    );
   }
 }
 

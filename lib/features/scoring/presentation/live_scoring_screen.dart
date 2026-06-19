@@ -48,6 +48,7 @@ import 'widgets/need_help_sheet.dart';
 import 'widgets/power_play_management_sheet.dart';
 import 'widgets/match_breaks_sheet.dart';
 import 'widgets/match_break_banner.dart';
+import 'widgets/offline_sync_badge.dart';
 import 'live_change_squad_screen.dart';
 import '../../../data/models/wagon_wheel_data.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_eligibility.dart';
@@ -1847,6 +1848,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
           return Column(
             children: [
+              OfflineSyncBadge(matchId: widget.matchId),
               TargetRevisionBanner(
                 match: match,
                 onDismiss: () async {

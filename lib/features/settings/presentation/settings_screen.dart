@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/deep_link_utils.dart';
+import '../../../shared/providers/offline_sync_provider.dart';
 import '../../../shared/providers/providers.dart';
 import 'widgets/appearance_theme_section.dart';
 
@@ -85,16 +86,19 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.cloud_sync),
             title: const Text('Offline Sync'),
-            subtitle: const Text('Firestore persistence enabled'),
+            subtitle: const Text('Local-first scoring with cloud sync'),
             onTap: () {
+              final pending = ref.read(matchLocalStoreProvider).totalPendingCount();
               showDialog<void>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Offline sync'),
-                  content: const Text(
-                    'CrickFlow caches Firestore data on your device. '
-                    'Scores and match updates sync automatically when you reconnect. '
-                    'No extra setup is required.',
+                  content: Text(
+                    'CrickFlow saves every scoring action on your device first, '
+                    'then syncs to Firebase when you are online.\n\n'
+                    'Pending actions: $pending\n\n'
+                    'You can complete an entire match without internet. '
+                    'Local data is authoritative until sync completes.',
                   ),
                   actions: [
                     TextButton(

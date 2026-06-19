@@ -4,6 +4,7 @@ import 'config/routes/app_router.dart';
 import 'core/constants/app_constants.dart';
 import 'core/routing/deep_link_handler.dart';
 import 'core/theme/app_theme.dart';
+import 'shared/providers/offline_sync_provider.dart';
 import 'shared/providers/theme_provider.dart';
 import 'shared/widgets/fcm_registration_listener.dart';
 
@@ -24,6 +25,7 @@ class _CrickFlowAppState extends ConsumerState<CrickFlowApp> {
       final router = ref.read(routerProvider);
       _deepLinkHandler = DeepLinkHandler(router);
       _deepLinkHandler!.init();
+      ref.read(offlineSyncServiceProvider).start();
     });
   }
 

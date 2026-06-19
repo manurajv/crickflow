@@ -8,6 +8,9 @@ import '../../data/models/match_model.dart';
 import '../../data/models/match_revision_model.dart';
 import '../../data/models/match_timeline_event_model.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
+import '../local/match_local_store.dart';
+import '../local/pending_sync_action.dart';
+import '../services/offline_sync_service.dart';
 
 /// Input for scorer-assisted DLS (official target entered manually).
 class ScorerDlsRevisionInput {
@@ -32,11 +35,19 @@ class ScorerDlsRevisionInput {
 class MatchTargetRevisionRepository {
   MatchTargetRevisionRepository({
     FirebaseFirestore? firestore,
+    MatchLocalStore? localStore,
+    OfflineSyncService? syncService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _localStore = localStore,
+        _syncService = syncService,
         _uuid = const Uuid();
 
   final FirebaseFirestore _firestore;
+  final MatchLocalStore? _localStore;
+  final OfflineSyncService? _syncService;
   final Uuid _uuid;
+
+  bool get _offlineEnabled => _localStore != null && _syncService != null;
 
   DocumentReference<Map<String, dynamic>> _matchDoc(String matchId) =>
       _firestore.collection(AppConstants.matchesCollection).doc(matchId);
@@ -48,9 +59,55 @@ class MatchTargetRevisionRepository {
       _matchDoc(matchId).collection('matchTimeline');
 
   Future<MatchModel?> getMatch(String matchId) async {
+    final local = _localStore;
+    if (local != null) {
+      final cached = await local.getMatch(matchId);
+      if (cached != null) return cached;
+    }
     final doc = await _matchDoc(matchId).get();
     if (!doc.exists) return null;
     return MatchModel.fromMap(matchId, doc.data()!);
+  }
+
+  Future<void> _persistLocally(MatchModel match) async {
+    await _localStore?.saveSnapshot(matchId: match.id, match: match);
+  }
+
+  Future<void> _queueBatch({
+    required String matchId,
+    required MatchModel match,
+    required List<FirestoreBatchOp> operations,
+  }) async {
+    await _persistLocally(match);
+    final sync = _syncService;
+    if (sync == null) {
+      final batch = _firestore.batch();
+      for (final op in operations) {
+        var ref = _firestore.collection(op.collection).doc(op.docId);
+        if (op.subcollection != null && op.subDocId != null) {
+          ref = ref.collection(op.subcollection!).doc(op.subDocId!);
+        }
+        switch (op.op) {
+          case 'set':
+            batch.set(ref, op.data ?? {}, SetOptions(merge: op.merge));
+          case 'update':
+            batch.update(ref, op.data ?? {});
+          case 'delete':
+            batch.delete(ref);
+        }
+      }
+      await batch.commit();
+      return;
+    }
+    await sync.enqueue(
+      sync.newAction(
+        matchId: matchId,
+        type: SyncActionType.firestoreBatch,
+        payload: {
+          'operations': operations.map((o) => o.toMap()).toList(),
+        },
+      ),
+    );
   }
 
   Stream<List<MatchRevisionModel>> watchMatchRevisions(String matchId) {
@@ -79,7 +136,18 @@ class MatchTargetRevisionRepository {
     final updated = match.copyWith(
       targetState: match.targetState.copyWith(liveBannerDismissed: true),
     );
-    await _matchDoc(matchId).update(updated.toMap());
+    await _persistLocally(updated);
+    if (_offlineEnabled) {
+      await _syncService!.enqueue(
+        _syncService!.newAction(
+          matchId: matchId,
+          type: SyncActionType.matchUpdate,
+          payload: {'matchData': updated.toMap()},
+        ),
+      );
+    } else {
+      await _matchDoc(matchId).update(updated.toMap());
+    }
   }
 
   int _currentTarget(MatchModel match, InningsModel inn) {
@@ -331,20 +399,6 @@ class MatchTargetRevisionRepository {
       overlayVersion: match.overlayVersion + 1,
     );
 
-    final batch = _firestore.batch();
-    batch.update(_matchDoc(matchId), updated.toMap());
-
-    if (penaltyRuns != 0) {
-      final rev = MatchRevisionModel(
-        id: _uuid.v4(),
-        type: penaltyRuns > 0 ? 'penalty_added' : 'penalty_removed',
-        penaltyRuns: penaltyRuns,
-        reason: penaltyReason,
-        createdBy: userId,
-      );
-      batch.set(_revisions(matchId).doc(rev.id), rev.toMap());
-    }
-
     final timelineTitle = switch (endReason) {
       'declared' => 'Innings Declared',
       'all_out' => 'Innings Ended (All Out)',
@@ -356,10 +410,17 @@ class MatchTargetRevisionRepository {
       subtitle: penaltyRuns != 0 ? 'Penalty: $penaltyRuns' : '',
       createdBy: userId,
     );
-    batch.set(_timeline(matchId).doc(timeline.id), timeline.toMap());
-
+    MatchTimelineEventModel? penaltyTimeline;
+    MatchRevisionModel? penaltyRevision;
     if (penaltyRuns != 0) {
-      final penaltyTimeline = MatchTimelineEventModel(
+      penaltyRevision = MatchRevisionModel(
+        id: _uuid.v4(),
+        type: penaltyRuns > 0 ? 'penalty_added' : 'penalty_removed',
+        penaltyRuns: penaltyRuns,
+        reason: penaltyReason,
+        createdBy: userId,
+      );
+      penaltyTimeline = MatchTimelineEventModel(
         id: _uuid.v4(),
         title: penaltyRuns > 0
             ? 'Penalty Runs Added'
@@ -367,13 +428,69 @@ class MatchTargetRevisionRepository {
         subtitle: '$penaltyRuns runs — $penaltyReason',
         createdBy: userId,
       );
-      batch.set(
-        _timeline(matchId).doc(penaltyTimeline.id),
-        penaltyTimeline.toMap(),
-      );
     }
 
-    await batch.commit();
+    if (_offlineEnabled) {
+      final operations = <FirestoreBatchOp>[
+        FirestoreBatchOp(
+          op: 'update',
+          collection: AppConstants.matchesCollection,
+          docId: matchId,
+          data: updated.toMap(),
+        ),
+        FirestoreBatchOp(
+          op: 'set',
+          collection: AppConstants.matchesCollection,
+          docId: matchId,
+          subcollection: 'matchTimeline',
+          subDocId: timeline.id,
+          data: timeline.toMap(),
+        ),
+      ];
+      if (penaltyRevision != null) {
+        operations.add(
+          FirestoreBatchOp(
+            op: 'set',
+            collection: AppConstants.matchesCollection,
+            docId: matchId,
+            subcollection: 'matchRevisions',
+            subDocId: penaltyRevision.id,
+            data: penaltyRevision.toMap(),
+          ),
+        );
+      }
+      if (penaltyTimeline != null) {
+        operations.add(
+          FirestoreBatchOp(
+            op: 'set',
+            collection: AppConstants.matchesCollection,
+            docId: matchId,
+            subcollection: 'matchTimeline',
+            subDocId: penaltyTimeline.id,
+            data: penaltyTimeline.toMap(),
+          ),
+        );
+      }
+      await _queueBatch(
+        matchId: matchId,
+        match: updated,
+        operations: operations,
+      );
+    } else {
+      final batch = _firestore.batch();
+      batch.update(_matchDoc(matchId), updated.toMap());
+      if (penaltyRevision != null) {
+        batch.set(_revisions(matchId).doc(penaltyRevision.id), penaltyRevision.toMap());
+      }
+      batch.set(_timeline(matchId).doc(timeline.id), timeline.toMap());
+      if (penaltyTimeline != null) {
+        batch.set(
+          _timeline(matchId).doc(penaltyTimeline.id),
+          penaltyTimeline.toMap(),
+        );
+      }
+      await batch.commit();
+    }
     return updated;
   }
 
@@ -432,9 +549,6 @@ class MatchTargetRevisionRepository {
       overlayVersion: match.overlayVersion + 1,
     );
 
-    final batch = _firestore.batch();
-    batch.update(_matchDoc(matchId), updated.toMap());
-
     final timelineTitle = isAbandoned
         ? 'Match Abandoned'
         : isDraw
@@ -446,9 +560,34 @@ class MatchTargetRevisionRepository {
       subtitle: resultSummary,
       createdBy: userId,
     );
-    batch.set(_timeline(matchId).doc(timeline.id), timeline.toMap());
 
-    await batch.commit();
+    if (_offlineEnabled) {
+      await _queueBatch(
+        matchId: matchId,
+        match: updated,
+        operations: [
+          FirestoreBatchOp(
+            op: 'update',
+            collection: AppConstants.matchesCollection,
+            docId: matchId,
+            data: updated.toMap(),
+          ),
+          FirestoreBatchOp(
+            op: 'set',
+            collection: AppConstants.matchesCollection,
+            docId: matchId,
+            subcollection: 'matchTimeline',
+            subDocId: timeline.id,
+            data: timeline.toMap(),
+          ),
+        ],
+      );
+    } else {
+      final batch = _firestore.batch();
+      batch.update(_matchDoc(matchId), updated.toMap());
+      batch.set(_timeline(matchId).doc(timeline.id), timeline.toMap());
+      await batch.commit();
+    }
     return updated;
   }
 
@@ -460,17 +599,40 @@ class MatchTargetRevisionRepository {
     required String timelineSubtitle,
     required String userId,
   }) async {
-    final batch = _firestore.batch();
-    batch.update(_matchDoc(matchId), match.toMap());
-    batch.set(_revisions(matchId).doc(revision.id), revision.toMap());
     final timeline = MatchTimelineEventModel(
       id: _uuid.v4(),
       title: timelineTitle,
       subtitle: timelineSubtitle,
       createdBy: userId,
     );
-    batch.set(_timeline(matchId).doc(timeline.id), timeline.toMap());
-    await batch.commit();
+    await _queueBatch(
+      matchId: matchId,
+      match: match,
+      operations: [
+        FirestoreBatchOp(
+          op: 'update',
+          collection: AppConstants.matchesCollection,
+          docId: matchId,
+          data: match.toMap(),
+        ),
+        FirestoreBatchOp(
+          op: 'set',
+          collection: AppConstants.matchesCollection,
+          docId: matchId,
+          subcollection: 'matchRevisions',
+          subDocId: revision.id,
+          data: revision.toMap(),
+        ),
+        FirestoreBatchOp(
+          op: 'set',
+          collection: AppConstants.matchesCollection,
+          docId: matchId,
+          subcollection: 'matchTimeline',
+          subDocId: timeline.id,
+          data: timeline.toMap(),
+        ),
+      ],
+    );
   }
 
   InningsModel _inningsWithTarget(InningsModel cur, int target) {

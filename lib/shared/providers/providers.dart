@@ -28,13 +28,20 @@ import '../../data/services/team_qr_service.dart';
 import '../../data/services/stream_service.dart';
 import '../../data/services/user_profile_cache_service.dart';
 import '../../data/services/webrtc_signaling_service.dart';
+import 'offline_sync_provider.dart';
 
 // Repositories
 final authRepositoryProvider = Provider((ref) => AuthRepository());
 final userRepositoryProvider = Provider((ref) => UserRepository());
-final matchRepositoryProvider = Provider((ref) => MatchRepository());
+final matchRepositoryProvider = Provider((ref) => MatchRepository(
+      localStore: ref.watch(matchLocalStoreProvider),
+      syncService: ref.watch(offlineSyncServiceProvider),
+    ));
 final matchTargetRevisionRepositoryProvider =
-    Provider((ref) => MatchTargetRevisionRepository());
+    Provider((ref) => MatchTargetRevisionRepository(
+          localStore: ref.watch(matchLocalStoreProvider),
+          syncService: ref.watch(offlineSyncServiceProvider),
+        ));
 final teamQrServiceProvider = Provider(
   (ref) => TeamQrService(storage: ref.watch(storageServiceProvider)),
 );

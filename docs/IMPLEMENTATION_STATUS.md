@@ -222,11 +222,25 @@
 | Firestore rules — leadership join-request + roster management | Done — deploy rules |
 | Realtime member counts — `memberCount` synced on roster changes | Done |
 | Teams tab location filter reset on tab enter | Done |
-| Offline — Firestore persistence enabled (`firebase_bootstrap.dart`) | Done |
+| Offline — local-first scoring + Firestore persistence | Done |
 
 ---
 
-## Latest (guest mode + player onboarding)
+## Latest (offline-first match scoring)
+
+| Item | Status |
+|------|--------|
+| Hive local store — match snapshots, ball events, overlay (`MatchLocalStore`) | Done |
+| Offline sync queue — ball commits, undo, match updates, Firestore batches | Done |
+| `OfflineSyncService` — connectivity-aware sequential flush | Done |
+| `MatchRepository` — local-first writes; hybrid match/event/overlay streams | Done |
+| `MatchTargetRevisionRepository` — DLS, target revision, end innings, match result offline | Done |
+| Match snapshot on start + first score (`ensureLocalSnapshot`) | Done |
+| Live scoring badge — ONLINE / OFFLINE / SYNCING + pending count | Done |
+| Settings offline sync info updated | Done |
+| Firestore persistence retained as secondary cache (`firebase_bootstrap.dart`) | Done |
+
+---
 
 | Item | Status |
 |------|--------|
