@@ -1,275 +1,152 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/match_permissions.dart';
-import '../../../../core/utils/match_score_display.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
-import '../../../../domain/scoring/innings_completion_policy.dart';
+import '../../../../domain/services/match_summary_models.dart';
+import '../../../../shared/providers/match_summary_provider.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/multi_camera_watch_section.dart';
-import '../../../../shared/widgets/scoreboard_card.dart';
-import '../match_center_screen.dart' show openFantasyForMatch;
-import '../../../../shared/widgets/match_follow_button.dart';
-import '../widgets/match_dls_summary_card.dart';
-import '../widgets/match_revision_info_panel.dart';
 import '../widgets/match_break_history_section.dart';
+import '../widgets/summary/match_summary_sections.dart';
 
-/// Summary tab — scoreboard, stream, and match actions.
+/// Broadcast-style match summary — result, insights, heroes, and quick actions.
 class MatchSummaryTab extends ConsumerWidget {
-  const MatchSummaryTab({super.key, required this.matchId});
+  const MatchSummaryTab({
+    super.key,
+    required this.matchId,
+    this.onNavigateTab,
+  });
 
   final String matchId;
+  final void Function(int tabIndex)? onNavigateTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final matchAsync = ref.watch(matchProvider(matchId));
-    final repo = ref.watch(matchRepositoryProvider);
-    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
-    final uid = ref.watch(authStateProvider).value?.uid;
+    final summary = ref.watch(matchSummaryProvider(matchId));
 
     return matchAsync.when(
       data: (match) {
         if (match == null) {
           return const Center(child: Text('Match not found'));
         }
-        final cf = context.cf;
-        final isLive = match.status == MatchStatus.live;
-        final isBreak = match.status == MatchStatus.inningsBreak;
-        final isCompleted = match.status == MatchStatus.completed;
-        final multiInnings = match.rules.maxInnings > 1;
-        final canNext = multiInnings && repo.canStartNextInnings(match);
-        final canManage = canManageMatch(
+
+        if (!summary.hasData && !summary.isLive) {
+          return _PreMatchBody(matchId: matchId, match: match);
+        }
+
+        return _SummaryBody(
+          matchId: matchId,
           match: match,
-          userId: uid,
-          role: profile?.role ?? UserRole.organizer,
-        );
-        final resultLine = MatchScoreDisplay.completedResultLine(match);
-        final heroLine = isCompleted &&
-                match.resultSummary.isNotEmpty &&
-                match.resultSummary != resultLine
-            ? match.resultSummary
-            : null;
-
-        final revisionsAsync = ref.watch(matchRevisionsProvider(matchId));
-        final revisions = revisionsAsync.valueOrNull ?? const [];
-
-        return ListView(
-          padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppDimens.spaceMd,
-                AppDimens.spaceSm,
-                AppDimens.spaceMd,
-                0,
-              ),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: MatchFollowButton(matchId: matchId),
-              ),
-            ),
-            ScoreboardCard(
-              match: match,
-              innings: match.currentInnings,
-              isLive: isLive || isBreak,
-            ),
-            MatchDlsSummaryCard(match: match),
-            MatchRevisionInfoPanel(
-              match: match,
-              revisions: revisions,
-              showTargetInfo: false,
-            ),
-            MatchBreakHistorySection(match: match),
-            if (isCompleted &&
-                match.targetState.dlsApplied &&
-                resultLine != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spaceMd,
-                  vertical: AppDimens.spaceSm,
-                ),
-                child: Text(
-                  'Result generated after DLS revision.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                    color: AppColors.textSecondary.withValues(alpha: 0.9),
-                  ),
-                ),
-              ),
-            if (heroLine != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spaceMd,
-                  vertical: AppDimens.spaceSm,
-                ),
-                child: Text(
-                  heroLine,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            if (match.stream.status == StreamStatus.live ||
-                match.stream.status == StreamStatus.connecting) ...[
-              MultiCameraWatchSection(
-                primaryUrl: match.stream.youtubeWatchUrl,
-                secondaryUrl: match.stream.secondaryYoutubeWatchUrl,
-                primaryLabel: match.stream.cameraALabel,
-                secondaryLabel: match.stream.cameraBLabel,
-              ),
-              if (match.stream.webrtcEnabled)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimens.spaceMd,
-                  ),
-                  child: CfButton(
-                    label: 'Low latency (beta)',
-                    icon: Icons.speed,
-                    isOutlined: true,
-                    onPressed: () => context.push('/match/$matchId/webrtc'),
-                  ),
-                ),
-            ],
-            if (match.location.displayLabel.isNotEmpty)
-              ListTile(
-                leading: Icon(Icons.location_on, color: cf.info),
-                title: Text(match.location.displayLabel),
-                subtitle: Text(match.venue),
-              ),
-            if (!canManage)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
-                child: Card(
-                  child: ListTile(
-                    leading: Icon(Icons.visibility, color: cf.info),
-                    title: const Text('Spectator view'),
-                    subtitle: const Text(
-                      'Use tabs for scorecard and highlights. Member mode in Profile to score.',
-                    ),
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
-              child: Wrap(
-                spacing: AppDimens.spaceSm,
-                runSpacing: AppDimens.spaceSm,
-                children: [
-                  if (canManage &&
-                      !isCompleted &&
-                      match.status != MatchStatus.live &&
-                      match.status != MatchStatus.completed &&
-                      match.status != MatchStatus.inningsBreak)
-                    CfButton(
-                      label: match.status == MatchStatus.tossCompleted
-                          ? 'Set lineup'
-                          : 'Start Scoring',
-                      icon: Icons.play_arrow,
-                      onPressed: () => _startMatch(context, ref, match),
-                    ),
-                  if (canManage && isLive && !isCompleted)
-                    CfButton(
-                      label: multiInnings ? 'End Innings' : 'End Match',
-                      icon: Icons.stop_circle_outlined,
-                      isOutlined: true,
-                      onPressed: () => _endInnings(context, ref, match, multiInnings),
-                    ),
-                  if (canManage && isBreak && canNext && !isCompleted)
-                    CfButton(
-                      label: 'Start 2nd Innings',
-                      icon: Icons.skip_next,
-                      isGold: true,
-                      onPressed: () => _startNextInnings(context, ref),
-                    ),
-                  if (canManage &&
-                      !isCompleted &&
-                      (isLive ||
-                          isBreak ||
-                          match.status == MatchStatus.scheduled))
-                    CfButton(
-                      label: 'Live Score',
-                      icon: Icons.scoreboard,
-                      isGold: !isBreak,
-                      onPressed: () => context.push('/match/$matchId/score'),
-                    ),
-                  if (canManage && !isCompleted)
-                    CfButton(
-                      label: 'Go Live',
-                      icon: Icons.videocam,
-                      isOutlined: true,
-                      onPressed: () => context.push('/match/$matchId/stream'),
-                    ),
-                  if (canManage && (isLive || isBreak) && !isCompleted)
-                    CfButton(
-                      label: 'Complete Match',
-                      icon: Icons.flag,
-                      isOutlined: true,
-                      onPressed: () => _completeMatch(context, ref),
-                    ),
-                  CfButton(
-                    label: 'Fantasy',
-                    icon: Icons.sports_esports,
-                    isOutlined: true,
-                    onPressed: () =>
-                        openFantasyForMatch(context, ref, match, canManage),
-                  ),
-                ],
-              ),
-            ),
-            if (match.innings.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppDimens.spaceMd,
-                  AppDimens.spaceLg,
-                  AppDimens.spaceMd,
-                  AppDimens.spaceSm,
-                ),
-                child: Text('Innings', style: Theme.of(context).textTheme.titleLarge),
-              ),
-              ...match.innings.map(
-                (inn) {
-                  final reason = inn.status == InningsStatus.completed
-                      ? InningsCompletionPolicy.endReasonLabel(match, inn)
-                      : '';
-                  final score = reason.isNotEmpty
-                      ? '${inn.totalRuns}/${inn.totalWickets} · $reason'
-                      : '${inn.totalRuns}/${inn.totalWickets}';
-                  return ListTile(
-                    title: Text(
-                      'Innings ${inn.inningsNumber} — ${inn.status.name}',
-                    ),
-                    trailing: Text(score),
-                  );
-                },
-              ),
-            ],
-            if (match.matchHero != null)
-              Card(
-                margin: const EdgeInsets.all(AppDimens.spaceMd),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: cf.accent,
-                    child: Icon(Icons.star, color: cf.onAccent),
-                  ),
-                  title: Text('Match Hero: ${match.matchHero!.playerName}'),
-                  subtitle: Text(match.matchHero!.reason),
-                ),
-              ),
-          ],
+          summary: summary,
+          onNavigateTab: onNavigateTab,
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
+    );
+  }
+}
+
+class _SummaryBody extends ConsumerWidget {
+  const _SummaryBody({
+    required this.matchId,
+    required this.match,
+    required this.summary,
+    this.onNavigateTab,
+  });
+
+  final String matchId;
+  final MatchModel match;
+  final MatchSummarySnapshot summary;
+  final void Function(int tabIndex)? onNavigateTab;
+
+  void _goTab(BuildContext context, String tab) {
+    context.go('/match/$matchId?tab=$tab');
+  }
+
+  void _tabOrGo(BuildContext context, int index, String tabName) {
+    if (onNavigateTab != null) {
+      onNavigateTab!(index);
+    } else {
+      _goTab(context, tabName);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+    final uid = ref.watch(authStateProvider).value?.uid;
+    final repo = ref.watch(matchRepositoryProvider);
+    final canManage = canManageMatch(
+      match: match,
+      userId: uid,
+      role: profile?.role ?? UserRole.organizer,
+    );
+    final isLive = match.status == MatchStatus.live;
+    final isBreak = match.status == MatchStatus.inningsBreak;
+    final isCompleted = match.status == MatchStatus.completed;
+    final multiInnings = match.rules.maxInnings > 1;
+    final canNext = multiInnings && repo.canStartNextInnings(match);
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
+      children: [
+        if (summary.insight != null)
+          SummaryInsightCard(insight: summary.insight!),
+        if (summary.result != null)
+          SummaryResultCard(
+            match: match,
+            result: summary.result!,
+            isLive: summary.isLive,
+          ),
+        SummaryHeroesSection(heroes: summary.heroes),
+        SummaryStarPerformersSection(
+          batters: summary.starBatters,
+          bowlers: summary.starBowlers,
+          fielders: summary.starFielders,
+          allRounders: summary.starAllRounders,
+        ),
+        SummaryAwardsSection(awards: summary.awards),
+        SummaryQuickActions(
+          matchId: matchId,
+          onTab: (index) => _tabOrGo(
+            context,
+            index,
+            switch (index) {
+              1 => 'scorecard',
+              2 => 'comms',
+              3 => 'insights',
+              5 => 'mvp',
+              _ => 'summary',
+            },
+          ),
+        ),
+        MatchBreakHistorySection(match: match),
+        if (match.stream.status == StreamStatus.live ||
+            match.stream.status == StreamStatus.connecting)
+          MultiCameraWatchSection(
+            primaryUrl: match.stream.youtubeWatchUrl,
+            secondaryUrl: match.stream.secondaryYoutubeWatchUrl,
+            primaryLabel: match.stream.cameraALabel,
+            secondaryLabel: match.stream.cameraBLabel,
+          ),
+        SummaryManageActions(
+          canManage: canManage,
+          isCompleted: isCompleted,
+          isLive: isLive,
+          isBreak: isBreak,
+          canNext: canNext,
+          onStart: () => _startMatch(context, ref, match),
+          onNextInnings: () => _startNextInnings(context, ref),
+        ),
+      ],
     );
   }
 
@@ -297,24 +174,6 @@ class MatchSummaryTab extends ConsumerWidget {
     if (context.mounted) context.push('/match/$matchId/score');
   }
 
-  Future<void> _endInnings(
-    BuildContext context,
-    WidgetRef ref,
-    MatchModel match,
-    bool multiInnings,
-  ) async {
-    if (!multiInnings) {
-      await _completeMatch(context, ref);
-      return;
-    }
-    await ref.read(matchRepositoryProvider).endCurrentInnings(matchId);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Innings ended')),
-      );
-    }
-  }
-
   Future<void> _startNextInnings(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(matchRepositoryProvider).startNextInnings(matchId);
@@ -327,36 +186,52 @@ class MatchSummaryTab extends ConsumerWidget {
       }
     }
   }
+}
 
-  Future<void> _completeMatch(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Complete match?'),
-        content: const Text('Stats will be finalized and badges assigned.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+class _PreMatchBody extends ConsumerWidget {
+  const _PreMatchBody({
+    required this.matchId,
+    required this.match,
+  });
+
+  final String matchId;
+  final MatchModel match;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summary = ref.watch(matchSummaryProvider(matchId));
+    final cf = context.cf;
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
+      children: [
+        if (summary.result != null)
+          SummaryResultCard(
+            match: match,
+            result: summary.result!,
+            isLive: false,
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Complete'),
+        Padding(
+          padding: AppDimens.listPadding,
+          child: Text(
+            'Summary fills in once scoring starts.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: cf.textSecondary),
           ),
-        ],
-      ),
+        ),
+        SummaryQuickActions(
+          matchId: matchId,
+          onTab: (index) => context.go(
+            '/match/$matchId?tab=${switch (index) {
+              1 => 'scorecard',
+              2 => 'comms',
+              3 => 'insights',
+              5 => 'mvp',
+              _ => 'summary',
+            }}',
+          ),
+        ),
+      ],
     );
-    if (confirmed != true || !context.mounted) return;
-
-    final completed =
-        await ref.read(matchRepositoryProvider).completeMatch(matchId);
-    if (completed != null) {
-      await ref
-          .read(tournamentRepositoryProvider)
-          .advanceKnockoutFromMatch(completed);
-    }
-    if (context.mounted) {
-      context.go('/match/$matchId');
-    }
   }
 }

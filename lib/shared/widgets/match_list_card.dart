@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/enums.dart';
-import '../../core/theme/cf_colors.dart';
 import '../../core/theme/app_dimens.dart';
+import '../../core/theme/cf_colors.dart';
+import '../../core/utils/match_card_navigation.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/team_model.dart';
 import '../../data/models/tournament_model.dart';
@@ -59,7 +60,14 @@ class MatchListCard extends ConsumerWidget {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => _openMatchHub(context),
+              onTap: () {
+                final uid = ref.read(authStateProvider).value?.uid;
+                openMatchFromListCard(
+                  context,
+                  match: match,
+                  userId: uid,
+                );
+              },
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: AppDimens.cardPadding,

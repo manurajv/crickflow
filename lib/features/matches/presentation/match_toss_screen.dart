@@ -121,7 +121,10 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     }
 
     draft = ref.read(startMatchDraftProvider);
-    setup = draft.setup;
+    setup = draft.setup.withViceCaptainsFromTeams(
+      teamAViceCaptainId: draft.teamA?.viceCaptainId,
+      teamBViceCaptainId: draft.teamB?.viceCaptainId,
+    );
     final scorerIds = setup.scorers
         .map((s) => s.userId)
         .whereType<String>()

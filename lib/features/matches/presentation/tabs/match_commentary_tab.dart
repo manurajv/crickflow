@@ -63,14 +63,14 @@ class _MatchCommentaryTabState extends ConsumerState<MatchCommentaryTab> {
           filter: _filter,
         );
 
-        final players = squadsAsync.valueOrNull;
+        final squads = squadsAsync.valueOrNull;
         final playerMap = <String, PlayerModel>{};
-        if (players != null) {
-          for (final p in players.teamAPlayers) {
-            playerMap[p.id] = p;
+        if (squads != null) {
+          for (final p in squads.teamAPlayers) {
+            playerMap[p.id] = p.toPlayerModel();
           }
-          for (final p in players.teamBPlayers) {
-            playerMap[p.id] = p;
+          for (final p in squads.teamBPlayers) {
+            playerMap[p.id] = p.toPlayerModel();
           }
         }
 

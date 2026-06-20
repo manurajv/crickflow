@@ -34,6 +34,21 @@ bool isAssignedMatchScorer({
   return assignedScorerUserIds(match).contains(userId);
 }
 
+/// Scorer 1 or 2 on the match sheet (not generic scorerIds / creator fallback).
+bool isPrimaryMatchScorer({
+  required MatchModel match,
+  required String? userId,
+}) {
+  if (userId == null || userId.isEmpty) return false;
+  if (match.scorer1UserId == userId || match.scorer2UserId == userId) {
+    return true;
+  }
+  final scorers = match.setup?.scorers ?? const <MatchOfficialEntry>[];
+  if (scorers.isNotEmpty && scorers.first.userId == userId) return true;
+  if (scorers.length > 1 && scorers[1].userId == userId) return true;
+  return false;
+}
+
 MatchOfficialEntry? assignedScorerEntry(MatchModel match, int index) {
   final scorers = match.setup?.scorers ?? const <MatchOfficialEntry>[];
   if (index >= scorers.length) return null;

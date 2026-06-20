@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/cf_colors.dart';
 import '../../domain/display/match_revision_display.dart';
 
 /// Highlight chip for DLS / target / penalty / end-innings badges.
@@ -23,39 +23,44 @@ class MatchRevisionBadgeChip extends StatelessWidget {
   final String kind;
   final bool compact;
 
-  Color get _color {
+  Color _colorForKind(CfColors cf) {
     switch (kind) {
       case 'dls':
+        return cf.info;
       case 'target':
-        return AppColors.gold;
+        return cf.accent;
       case 'penalty':
-        return const Color(0xFFFF9800);
+        return cf.statusUpcoming;
       case 'end':
+        return cf.textSecondary;
       case 'result':
-        return AppColors.textSecondary;
+        return cf.textMuted;
       default:
-        return AppColors.gold;
+        return cf.accent;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+    final color = _colorForKind(cf);
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 8 : 10,
         vertical: compact ? 3 : 4,
       ),
       decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: cf.isLight ? 0.08 : 0.14),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _color.withValues(alpha: 0.85)),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: compact ? 10 : 11,
           fontWeight: FontWeight.w800,
-          color: _color,
+          color: color,
           letterSpacing: 0.4,
         ),
       ),

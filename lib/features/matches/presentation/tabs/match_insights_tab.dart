@@ -4,6 +4,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../../../shared/providers/match_analytics_provider.dart';
+import '../../../../shared/providers/match_summary_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/wagon_wheel_provider.dart';
 import '../../../wagon_wheel/presentation/widgets/wagon_wheel_embedded_section.dart';
@@ -12,6 +13,7 @@ import '../widgets/insights/insights_manhattan_section.dart';
 import '../widgets/insights/insights_partnership_section.dart';
 import '../widgets/insights/insights_run_rate_section.dart';
 import '../widgets/insights/insights_section_widgets.dart';
+import '../widgets/insights/insights_team_comparison_section.dart';
 import '../widgets/insights/insights_test_sections.dart';
 import '../widgets/insights/insights_worm_section.dart';
 
@@ -24,6 +26,8 @@ class MatchInsightsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
     final analytics = ref.watch(matchAnalyticsProvider(matchId));
+    final teamComparison =
+        ref.watch(matchSummaryProvider(matchId)).teamComparison;
     final match = ref.watch(matchProvider(matchId)).valueOrNull;
     final wwEnabled = match?.rules.wagonWheelEnabled ?? false;
     final wwData = ref.watch(
@@ -59,6 +63,16 @@ class MatchInsightsTab extends ConsumerWidget {
             penalties: analytics.penalties,
           ),
         ),
+
+        if (teamComparison != null)
+          InsightsCollapsibleSection(
+            title: 'Team Comparison',
+            subtitle: '${teamComparison.teamAName} vs ${teamComparison.teamBName}',
+            child: InsightsTeamComparisonSection(
+              comparison: teamComparison,
+              cf: cf,
+            ),
+          ),
 
         if (isTest) ...[
           if (match != null)

@@ -706,9 +706,7 @@ class MatchRepository {
     final winnerId = match.winnerTeamId ?? result.winnerTeamId;
     final summary = match.resultSummary.isNotEmpty
         ? match.resultSummary
-        : (hero != null
-            ? '${hero.playerName} — ${hero.reason}'
-            : result.summary);
+        : result.summary;
 
     final completed = match.copyWith(
       status: MatchStatus.completed,

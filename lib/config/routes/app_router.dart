@@ -23,6 +23,7 @@ import '../../data/models/location_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../features/matches/presentation/match_highlights_screen.dart';
 import '../../features/matches/presentation/match_hub_screen.dart';
+import '../../features/matches/presentation/match_mvp_how_screen.dart';
 import '../../features/matches/presentation/matches_list_screen.dart';
 import '../../features/matches/presentation/scorecard_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
@@ -301,6 +302,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => MatchHubScreen(
           matchId: state.pathParameters['id']!,
           initialTab: state.uri.queryParameters['tab'] ?? 'summary',
+        ),
+      ),
+      GoRoute(
+        path: '/match/:id/mvp/how',
+        builder: (_, state) => MatchMvpHowScreen(
+          matchId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(

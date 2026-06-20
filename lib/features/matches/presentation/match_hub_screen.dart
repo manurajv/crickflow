@@ -136,7 +136,10 @@ class _MatchHubScreenState extends ConsumerState<MatchHubScreen>
             body: TabBarView(
               controller: _tabController,
               children: [
-                MatchSummaryTab(matchId: widget.matchId),
+                MatchSummaryTab(
+                  matchId: widget.matchId,
+                  onNavigateTab: _tabController.animateTo,
+                ),
                 MatchScorecardTab(matchId: widget.matchId),
                 MatchCommentaryTab(matchId: widget.matchId),
                 MatchInsightsTab(matchId: widget.matchId),

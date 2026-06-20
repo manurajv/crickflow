@@ -3,13 +3,52 @@
 
 
 
-**Last updated:** Insights tab professional analytics  
+**Last updated:** Match Summary tab redesign & format-aware MVP engine  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+---
+
+## Latest (Match Summary tab — broadcast-style redesign)
+
+| Item | Status |
+|------|--------|
+| `MatchSummaryService` — aggregates match, analytics, MVP, ball events into cached snapshot | Done |
+| `matchSummaryProvider` — Riverpod cache (reuses `matchAnalyticsProvider` + `matchMvpProvider`) | Done |
+| Match Result card — scores, result line, format, venue, date, duration, toss, POTM | Done |
+| AI Performance Insights — personalized viewer copy, helpful/not helpful, read more | Done |
+| Heroes — horizontal scroll: POTM, Fighter, Best Batter/Bowler/Fielder with MVP scores | Done |
+| Star Performers — responsive grid (batters, bowlers, fielders, all-rounders) | Done |
+| Best Partnership card — highest stand, contribution progress bar | Done |
+| Team Comparison — side-by-side runs, wickets, boundaries, dots, extras, SR/RR | Done |
+| Match Timeline — powerplay, milestones, wickets, innings break, DLS, penalties | Done |
+| Match Awards & Badges — auto-generated from stats (century, 3/5 wkts, six hitter, etc.) | Done |
+| Quick Actions — follow, share, scorecard, insights, comms, MVP tab navigation | Done |
+| Light/dark theme cards; DLS/revisions/manage actions preserved | Done |
+| Unit tests — `test/match_summary_service_test.dart` | Done |
+
+---
+
+## Latest (MVP tab — format-aware scoring & redesigned UI)
+
+| Item | Status |
+|------|--------|
+| `MatchMvpService` — bat/bowl/field breakdown, par score, SR/economy weighting by format | Done |
+| Clutch & partnership bonuses, wicket value by batting order, death-over impact | Done |
+| Player Of The Match (#1) & Fighter Of The Match (CricHeroes rules) | Done |
+| `matchMvpProvider` — cached Riverpod board (no per-rebuild recalculation) | Done |
+| MVP tab — podium (top 3), ranked list, expandable breakdown, award banners | Done |
+| Filters — All, Batters, Bowlers, Fielders, Team A/B, POTM, FOTM | Done |
+| How MVP is Calculated? explanation screen (`/match/:id/mvp/how`) | Done |
+| Custom overs, balls per over, Test/ODI/T20/T10 support — no hardcoded 20-over assumptions | Done |
+| Light theme cards, blue accents, no yellow text | Done |
+| Unit tests — `test/match_mvp_service_test.dart` | Done |
 
 ---
 
@@ -376,12 +415,14 @@
 |------|--------|
 | 5-tab bottom shell (Home · Discover · Matches · Community · Profile) | Done |
 | Match hub tabs (Summary · Scorecard · Comms · Insights · Squads · MVP · Highlights) | Done |
+| Match Summary tab (result card, AI insight, heroes, stars, awards, partnership, comparison, timeline) | Done |
 | Comms tab — commentary center (filters, over summaries, milestones, match events) | Done |
 | Comms tab — CricHeroes-style UI (5 filters, compact timeline, no raw debug text) | Done |
 | Comms tab — live-scoring ball bubbles, boundary descriptions in Full, overs layout | Done |
 | Comms tab — themed over highlights, powerplays in Full, powerplay cards with icons | Done |
-| Match insights (hero, top bat/bowl, milestones, live MVP points) | Done (client-side) |
-| Match squads (dual-column rosters, C/VC badges) | Done |
+| Match insights (hero, top bat/bowl, milestones) | Done (client-side) |
+| Match MVP tab (format-aware bat/bowl/field scoring, POTM, Fighter, filters) | Done |
+| Match squads — side-by-side playing XI + substitutes from match setup snapshots, C/VC/WK badges | Done |
 | Community posts (`community_posts`, feed, create, filters) | Done |
 | Discover → Community category deep links | Done |
 | Unified app bar + bottom nav colors (gold selected, surface chrome) | Done |

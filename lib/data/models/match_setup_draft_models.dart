@@ -72,8 +72,10 @@ class MatchSetupData extends Equatable {
     this.teamBPlayingPlayers = const [],
     this.teamBSubstitutePlayers = const [],
     this.teamACaptainId,
+    this.teamAViceCaptainId,
     this.teamAWicketKeeperId,
     this.teamBCaptainId,
+    this.teamBViceCaptainId,
     this.teamBWicketKeeperId,
     this.umpires = const [],
     this.scorers = const [],
@@ -90,8 +92,10 @@ class MatchSetupData extends Equatable {
   final List<MatchPlayerSnapshot> teamBPlayingPlayers;
   final List<MatchPlayerSnapshot> teamBSubstitutePlayers;
   final String? teamACaptainId;
+  final String? teamAViceCaptainId;
   final String? teamAWicketKeeperId;
   final String? teamBCaptainId;
+  final String? teamBViceCaptainId;
   final String? teamBWicketKeeperId;
   final List<MatchOfficialEntry> umpires;
   final List<MatchOfficialEntry> scorers;
@@ -171,14 +175,35 @@ class MatchSetupData extends Equatable {
   String? get scorer2UserId =>
       scorers.length > 1 ? scorers[1].userId : null;
 
+  /// Snapshots team vice-captain ids when they are in the playing XI.
+  MatchSetupData withViceCaptainsFromTeams({
+    String? teamAViceCaptainId,
+    String? teamBViceCaptainId,
+  }) {
+    final playingA = teamAPlayingPlayers.map((p) => p.id).toSet();
+    final playingB = teamBPlayingPlayers.map((p) => p.id).toSet();
+    return copyWith(
+      teamAViceCaptainId:
+          teamAViceCaptainId != null && playingA.contains(teamAViceCaptainId)
+              ? teamAViceCaptainId
+              : null,
+      teamBViceCaptainId:
+          teamBViceCaptainId != null && playingB.contains(teamBViceCaptainId)
+              ? teamBViceCaptainId
+              : null,
+    );
+  }
+
   MatchSetupData copyWith({
     List<MatchPlayerSnapshot>? teamAPlayingPlayers,
     List<MatchPlayerSnapshot>? teamASubstitutePlayers,
     List<MatchPlayerSnapshot>? teamBPlayingPlayers,
     List<MatchPlayerSnapshot>? teamBSubstitutePlayers,
     String? teamACaptainId,
+    String? teamAViceCaptainId,
     String? teamAWicketKeeperId,
     String? teamBCaptainId,
+    String? teamBViceCaptainId,
     String? teamBWicketKeeperId,
     List<MatchOfficialEntry>? umpires,
     List<MatchOfficialEntry>? scorers,
@@ -198,8 +223,10 @@ class MatchSetupData extends Equatable {
       teamBSubstitutePlayers:
           teamBSubstitutePlayers ?? this.teamBSubstitutePlayers,
       teamACaptainId: teamACaptainId ?? this.teamACaptainId,
+      teamAViceCaptainId: teamAViceCaptainId ?? this.teamAViceCaptainId,
       teamAWicketKeeperId: teamAWicketKeeperId ?? this.teamAWicketKeeperId,
       teamBCaptainId: teamBCaptainId ?? this.teamBCaptainId,
+      teamBViceCaptainId: teamBViceCaptainId ?? this.teamBViceCaptainId,
       teamBWicketKeeperId: teamBWicketKeeperId ?? this.teamBWicketKeeperId,
       umpires: umpires ?? this.umpires,
       scorers: scorers ?? this.scorers,
@@ -226,8 +253,10 @@ class MatchSetupData extends Equatable {
       'teamASquadIds': playingA.map((e) => e['id']).toList(),
       'teamBSquadIds': playingB.map((e) => e['id']).toList(),
       if (teamACaptainId != null) 'teamACaptainId': teamACaptainId,
+      if (teamAViceCaptainId != null) 'teamAViceCaptainId': teamAViceCaptainId,
       if (teamAWicketKeeperId != null) 'teamAWicketKeeperId': teamAWicketKeeperId,
       if (teamBCaptainId != null) 'teamBCaptainId': teamBCaptainId,
+      if (teamBViceCaptainId != null) 'teamBViceCaptainId': teamBViceCaptainId,
       if (teamBWicketKeeperId != null) 'teamBWicketKeeperId': teamBWicketKeeperId,
       'officials': _officialsToMap(),
       if (scorer1UserId != null) 'scorer1UserId': scorer1UserId,
@@ -260,8 +289,10 @@ class MatchSetupData extends Equatable {
       teamBPlayingPlayers: playingB,
       teamBSubstitutePlayers: subsB,
       teamACaptainId: map['teamACaptainId'] as String?,
+      teamAViceCaptainId: map['teamAViceCaptainId'] as String?,
       teamAWicketKeeperId: map['teamAWicketKeeperId'] as String?,
       teamBCaptainId: map['teamBCaptainId'] as String?,
+      teamBViceCaptainId: map['teamBViceCaptainId'] as String?,
       teamBWicketKeeperId: map['teamBWicketKeeperId'] as String?,
       umpires: _umpiresFromOfficials(officials),
       scorers: _scorersFromOfficials(officials, map),

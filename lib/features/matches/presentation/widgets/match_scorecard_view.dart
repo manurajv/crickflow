@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/enums.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/scorecard_theme_extension.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../core/utils/overs_formatter.dart';
@@ -96,7 +96,7 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
 
     final topNotices = MatchRevisionDisplay.scorecardTopNotices(match);
     final topNoticeCount = topNotices.isNotEmpty ? 1 : 0;
-    final theme = Theme.of(context);
+    final cf = context.cf;
 
     return ListView.builder(
       padding: EdgeInsets.only(bottom: widget.bottomPadding),
@@ -114,14 +114,8 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final line in topNotices) ...[
-                  Text(
-                    line,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.gold,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
+                  _ScorecardNoticeBanner(message: line, cf: cf),
+                  const SizedBox(height: AppDimens.spaceSm),
                 ],
               ],
             ),
@@ -139,6 +133,44 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
           onHeaderTap: () => _toggleInnings(innIndex),
         );
       },
+    );
+  }
+}
+
+class _ScorecardNoticeBanner extends StatelessWidget {
+  const _ScorecardNoticeBanner({
+    required this.message,
+    required this.cf,
+  });
+
+  final String message;
+  final CfColors cf;
+
+  bool get _isDls => message.toLowerCase().startsWith('dls');
+
+  Color get _accent => _isDls ? cf.info : cf.textSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.spaceSm + 4,
+        vertical: AppDimens.spaceSm,
+      ),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: cf.isLight ? 0.08 : 0.14),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _accent.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: cf.textPrimary,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+      ),
     );
   }
 }
@@ -406,7 +438,17 @@ Color _subtleDividerColor(ColorScheme scheme) =>
     scheme.outline.withValues(alpha: 0.22);
 
 ScorecardTheme _scorecardTheme(BuildContext context) =>
-    Theme.of(context).extension<ScorecardTheme>() ?? ScorecardTheme.dark;
+    Theme.of(context).extension<ScorecardTheme>() ??
+    (Theme.of(context).brightness == Brightness.light
+        ? ScorecardTheme.light
+        : ScorecardTheme.dark);
+
+Color _inningsEndReasonColor(CfColors cf, String reason) {
+  final lower = reason.toLowerCase();
+  if (lower.contains('declared')) return cf.info;
+  if (lower.contains('dls')) return cf.info;
+  return cf.textSecondary;
+}
 
 /// Theme-derived scorecard text styles (no hardcoded colors).
 class _ScorecardStyles {
@@ -867,6 +909,12 @@ class _TotalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final styles = _ScorecardStyles(context);
+    final cf = context.cf;
+    final dotIndex = totalLine.indexOf(' · ');
+    final baseScore =
+        dotIndex >= 0 ? totalLine.substring(0, dotIndex) : totalLine;
+    final reason =
+        dotIndex >= 0 ? totalLine.substring(dotIndex + 3) : null;
 
     return Column(
       children: [
@@ -882,9 +930,23 @@ class _TotalRow extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  totalLine,
+                  baseScore,
                   style: styles.statValueBold,
                 ),
+                if (reason != null) ...[
+                  Text(
+                    ' · ',
+                    style: styles.bodyMuted.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    reason,
+                    style: styles.statValueBold.copyWith(
+                      color: _inningsEndReasonColor(cf, reason),
+                    ),
+                  ),
+                ],
                 const SizedBox(width: AppDimens.spaceMd),
                 Text(
                   'CRR ${crr.toStringAsFixed(2)}',
