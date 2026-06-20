@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/services/commentary_feed_models.dart';
+import '../../domain/services/commentary_feed_service.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_revision_model.dart';
@@ -115,6 +117,17 @@ final matchRevisionsProvider =
   return ref
       .watch(matchTargetRevisionRepositoryProvider)
       .watchMatchRevisions(matchId);
+});
+
+final commentaryFeedProvider =
+    Provider.family<CommentaryFeed, String>((ref, matchId) {
+  final match = ref.watch(matchProvider(matchId)).valueOrNull;
+  final events = ref.watch(ballEventsProvider(matchId)).valueOrNull ?? [];
+  if (match == null) return CommentaryFeed.empty;
+  return CommentaryFeedService.build(
+    match: match,
+    allEvents: events,
+  );
 });
 
 final webrtcSignalingProvider = Provider((ref) => WebrtcSignalingService());

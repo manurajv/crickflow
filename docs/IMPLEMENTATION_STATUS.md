@@ -3,13 +3,37 @@
 
 
 
-**Last updated:** Ball-by-ball architecture Phases A–C complete  
+**Last updated:** Insights tab professional analytics  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Insights tab — professional match analytics)
+
+| Item | Status |
+|------|--------|
+| `MatchAnalyticsService` — cached read-only aggregation from ball events | Done |
+| Match Summary dashboard — top batter, best bowler, partnerships, boundary/dot %, extras, over extremes | Done |
+| `MatchPhaseService` — dynamic powerplay (30%), death (25%), last-N overs, custom slot support | Done |
+| Phase analysis — dynamic labels with over ranges, enriched metrics (RR, boundaries, dot %, SR) | Done |
+| Test match insights — session, new ball, batting control, bowling pressure; T20 phases hidden | Done |
+| Wagon wheel — existing chart preserved; collapsible wrapper + legend | Done |
+| Scoring areas — leg/off/straight pie from handedness-adjusted wagon wheel data | Done |
+| Partnership analysis — horizontal bars, highest highlighted | Done |
+| Partnership analysis — reference-style comparison cards, innings selector, contribution bars | Done |
+| Phase analysis — powerplay/middle/death (limited overs only) | Done |
+| Boundary, bowling impact, extras, dot ball sections | Done |
+| DLS + penalty run badges in match summary | Done |
+| Test match support — hides phase analysis & RRR | Done |
+| Custom `ballsPerOver` respected in all charts | Done |
+| Collapsible sections with lazy chart loading | Done |
+| Light theme — white cards, blue accent, no yellow text | Done |
+| Unit tests — `test/match_analytics_service_test.dart` | Done |
 
 ---
 
@@ -352,6 +376,10 @@
 |------|--------|
 | 5-tab bottom shell (Home · Discover · Matches · Community · Profile) | Done |
 | Match hub tabs (Summary · Scorecard · Comms · Insights · Squads · MVP · Highlights) | Done |
+| Comms tab — commentary center (filters, over summaries, milestones, match events) | Done |
+| Comms tab — CricHeroes-style UI (5 filters, compact timeline, no raw debug text) | Done |
+| Comms tab — live-scoring ball bubbles, boundary descriptions in Full, overs layout | Done |
+| Comms tab — themed over highlights, powerplays in Full, powerplay cards with icons | Done |
 | Match insights (hero, top bat/bowl, milestones, live MVP points) | Done (client-side) |
 | Match squads (dual-column rosters, C/VC badges) | Done |
 | Community posts (`community_posts`, feed, create, filters) | Done |

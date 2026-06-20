@@ -19,6 +19,7 @@ class WagonWheelEmbeddedSection extends ConsumerStatefulWidget {
     required     this.fullViewTitle,
     this.showWhenEmpty = true,
     this.batterBattingStyle,
+    this.showTitle = true,
   });
 
   final String title;
@@ -26,6 +27,7 @@ class WagonWheelEmbeddedSection extends ConsumerStatefulWidget {
   final String fullViewTitle;
   final bool showWhenEmpty;
   final String? batterBattingStyle;
+  final bool showTitle;
 
   @override
   ConsumerState<WagonWheelEmbeddedSection> createState() =>
@@ -76,12 +78,15 @@ class _WagonWheelEmbeddedSectionState
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text(
-                widget.title,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
+            if (widget.showTitle)
+              Expanded(
+                child: Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              )
+            else
+              const Spacer(),
             TextButton(
               onPressed: () => context.push(
                 WagonWheelNavigation.path(

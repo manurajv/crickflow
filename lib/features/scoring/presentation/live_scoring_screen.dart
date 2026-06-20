@@ -13,6 +13,7 @@ import '../../../domain/services/dismissal_formatter.dart';
 import '../../../domain/services/scoring_engine.dart';
 import '../../../domain/scoring/match_completion_policy.dart';
 import '../../../shared/providers/lineup_providers.dart';
+import '../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/player_lineup_picker.dart';
 import '../../../data/models/dismissal_fielder.dart';
@@ -1762,6 +1763,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         backgroundColor: cf.chromeBackground,
         foregroundColor: cf.chromeForeground,
         elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: cf.chromeForeground),
+          tooltip: 'Back',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+              return;
+            }
+            ref.read(myCricketInitialTabProvider.notifier).state = 0;
+            context.go('/matches');
+          },
+        ),
+        automaticallyImplyLeading: false,
         title: matchAsync.when(
           data: (m) {
             final inn = m?.currentInnings;

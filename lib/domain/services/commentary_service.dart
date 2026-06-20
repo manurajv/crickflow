@@ -122,4 +122,156 @@ class CommentaryService {
       bowlerName: event.bowlerName,
     );
   }
+
+  /// Broadcast-style headline: `Bowler to Batter, FOUR`.
+  static String headlineForEvent(
+    BallEventModel event, {
+    required String strikerName,
+    required String bowlerName,
+  }) {
+    final bowler = bowlerName.trim().isNotEmpty ? bowlerName.trim() : 'Bowler';
+    final batter = strikerName.trim().isNotEmpty ? strikerName.trim() : 'Batter';
+    final action = actionLabel(event);
+    return '$bowler to $batter,\n$action';
+  }
+
+  /// Template-based descriptive commentary for the Comms feed.
+  static String descriptiveForEvent(
+    BallEventModel event, {
+    String? strikerName,
+    String? bowlerName,
+  }) {
+    if (event.commentary.trim().isNotEmpty &&
+        event.eventType != BallEventType.runs) {
+      return event.commentary.trim();
+    }
+
+  final idx = event.sequence;
+    return switch (event.eventType) {
+      BallEventType.runs => _runsDescription(event, idx),
+      BallEventType.wicket => _wicketDescription(event, idx),
+      BallEventType.wide => _pick(_wideDescriptions, idx),
+      BallEventType.noBall => _noBallDescription(event, idx),
+      BallEventType.bye => 'They sneak ${_runsWord(event.runs)} as a bye.',
+      BallEventType.legBye => 'Leg bye — ${_runsWord(event.runs)} added.',
+      BallEventType.penalty => 'Penalty runs awarded to the batting side.',
+      _ => forEvent(event),
+    };
+  }
+
+  static String actionLabel(BallEventModel event) {
+    if (event.eventType == BallEventType.wicket && event.isWicket) {
+      return wicketActionLabel(event);
+    }
+    return switch (event.eventType) {
+      BallEventType.runs when event.runs >= 6 => 'SIX',
+      BallEventType.runs when event.runs == 4 => 'FOUR',
+      BallEventType.runs when event.runs == 0 => 'DOT BALL',
+      BallEventType.runs => '${event.runs}',
+      BallEventType.wide => 'WIDE',
+      BallEventType.noBall => 'NO BALL',
+      BallEventType.bye => 'BYE',
+      BallEventType.legBye => 'LEG BYE',
+      BallEventType.penalty => 'PENALTY',
+      BallEventType.wicket => wicketActionLabel(event),
+      _ => event.eventType.name.toUpperCase(),
+    };
+  }
+
+  static String wicketActionLabel(BallEventModel event) {
+    if (event.isMankad || event.wicketType == WicketType.mankad) {
+      return 'OUT Run Out (Mankad)';
+    }
+    return switch (event.wicketType) {
+      WicketType.caught ||
+      WicketType.caughtBehind ||
+      WicketType.caughtAndBowled =>
+        'OUT Caught',
+      WicketType.bowled => 'OUT Bowled',
+      WicketType.lbw => 'OUT LBW',
+      WicketType.stumped => 'OUT Stumped',
+      WicketType.runOut => 'OUT Run Out',
+      WicketType.hitWicket => 'OUT Hit Wicket',
+      WicketType.retiredHurt => 'Retired Hurt',
+      WicketType.retiredOut => 'Retired Out',
+      _ => 'OUT',
+    };
+  }
+
+  static String _runsDescription(BallEventModel event, int idx) {
+    if (event.runs >= 6) return _pick(_sixDescriptions, idx);
+    if (event.runs == 4) return _pick(_fourDescriptions, idx);
+    if (event.runs == 0) return _pick(_dotDescriptions, idx);
+    if (event.runs == 1) return 'Quick single to the fielder.';
+    if (event.runs == 2) return 'Well placed — they pick up two.';
+    if (event.runs == 3) return 'Good running — three runs.';
+    return '${event.runs} run${event.runs == 1 ? '' : 's'} added.';
+  }
+
+  static String _wicketDescription(BallEventModel event, int idx) {
+    if (event.wicketType == WicketType.runOut || event.isMankad) {
+      return _pick(_runOutDescriptions, idx);
+    }
+    return _pick(_wicketDescriptions, idx);
+  }
+
+  static String _noBallDescription(BallEventModel event, int idx) {
+    final add = event.runs - event.extraRuns;
+    if (add >= 6) return 'No ball — massive six off the free hit delivery!';
+    if (add == 4) return 'No ball — boundary off the bat!';
+    return _pick(_noBallDescriptions, idx);
+  }
+
+  static String _runsWord(int runs) => runs == 1 ? 'a run' : '$runs runs';
+
+  static String _pick(List<String> options, int idx) {
+    if (options.isEmpty) return '';
+    return options[idx % options.length];
+  }
+
+  static const _fourDescriptions = [
+    'Beautiful cover drive for four.',
+    'Cracked through the covers — four runs.',
+    'Finds the gap and races away to the boundary.',
+    'Elegant shot — four to the batting side.',
+  ];
+
+  static const _sixDescriptions = [
+    'Massive hit over deep midwicket.',
+    'Into the crowd — maximum!',
+    'Huge six — what a shot.',
+    'Clean strike — sails over the rope.',
+  ];
+
+  static const _dotDescriptions = [
+    'Good tight bowling.',
+    'Dot ball — pressure building.',
+    'Defended solidly — no run.',
+    'Beat the bat — excellent delivery.',
+  ];
+
+  static const _wicketDescriptions = [
+    'Huge breakthrough for the bowling side.',
+    'WICKET! The batter has to go.',
+    'That changes the complexion of the game.',
+    'The bowler strikes — wicket fallen.',
+  ];
+
+  static const _runOutDescriptions = [
+    'Excellent fielding effort results in a run out.',
+    'Sharp work in the field — run out!',
+    'Direct hit — batter short of the crease.',
+  ];
+
+  static const _wideDescriptions = [
+    'Wide down the leg side.',
+    'Too wide — extra run to the batting side.',
+    'Bowler strays — wide called.',
+  ];
+
+  static const _noBallDescriptions = [
+    'No ball — overstepped the crease.',
+    'No ball called by the umpire.',
+    'Front foot no ball — free hit coming.',
+  ];
 }

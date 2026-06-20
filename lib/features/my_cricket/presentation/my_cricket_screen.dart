@@ -65,17 +65,11 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
     return ShellTabScaffold(
       title: const Text('My Cricket'),
       actions: [
-        if (_tabs.index != 2)
+        if (_tabs.index != 2 && _tabs.index != 3)
           IconButton(
             icon: const Icon(Icons.search),
             tooltip: 'Search',
             onPressed: () => _showSearch(context),
-          ),
-        if (canCreate && _tabs.index == 0)
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'New match',
-            onPressed: () => context.push('/match/create'),
           ),
       ],
       bottom: PreferredSize(
