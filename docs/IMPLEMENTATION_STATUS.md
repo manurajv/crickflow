@@ -15,6 +15,55 @@
 
 ---
 
+## Latest (Profile social system — player discovery)
+
+| Item | Status |
+|------|--------|
+| Profile tab redesign — social header (photo, name, CF ID, location, joined, role/styles) | Done |
+| Removed stats overview from profile (runs, wickets, charts → My Cricket Profile later) | Done |
+| Own profile actions — Edit, Share, QR, Settings | Done |
+| Other profile actions — Follow, Share, Message/Report placeholders | Done |
+| `playerFollows/` follow + unfollow with realtime counts | Done |
+| Follow button states — primary Follow / outlined Following + confirm unfollow | Done |
+| Followers / Following / Profile Views counters (realtime via `users/{uid}/social/stats`) | Done |
+| Profile view tracking — skip self, 1 view per viewer per 24h | Done |
+| Profile details cards — gender, DOB, role, styles, country, city; email/phone owner-only | Done |
+| Connections section — followers/following preview, suggested, Find Cricketers | Done |
+| Find Cricketers screen — search by name/CF ID, filter chips, player cards | Done |
+| Filters — All, Popular, Followers, Following, Teammates, Nearby, Recently Joined, Suggested | Done |
+| From Contacts / Mutual Connections — future-ready (hidden / empty) | Done |
+| Public profiles `/player/:playerId` (CF ID, not Firebase uid) | Done |
+| Followers / Following screens with search + realtime lists | Done |
+| Profile QR (`/player/:id/qr`) encodes CF player ID | Done |
+| Share profile — `crickflow://player/CF…` + hosted `/player/CF…` | Done |
+| Follow + milestone notifications (`player_follow`, `follower_milestone`) | Done — deploy functions |
+| Firestore rules + indexes for `playerFollows`, profile views, social stats | Done — deploy rules |
+| Cloud Functions — mirror follow/view counts to user doc | Done — deploy functions |
+| Light + dark theme via `context.cf` cards and accents | Done |
+
+---
+
+## Latest (Edit Profile screen)
+
+| Item | Status |
+|------|--------|
+| Dedicated `/profile/edit` screen — separate from onboarding | Done |
+| Edit Profile button opens edit screen (not onboarding) | Done |
+| Preloads Firestore user + player doc fields | Done |
+| Photo change / crop / compress / remove + Storage upload | Done |
+| Name validation (3–50 chars), read-only Player ID | Done |
+| Location via `OnboardingLocationSection` + district field | Done |
+| Cricket fields — role, batting/bowling styles, dominant hand | Done |
+| Personal — gender, DOB, bio (250 max) | Done |
+| Private — email, phone (owner only) | Done |
+| Sticky Save Changes + loading / double-submit guard | Done |
+| Unsaved changes dialog — Cancel / Discard / Save | Done |
+| Offline queue (`ProfileUpdateQueueService`) + sync on reconnect | Done |
+| `ProfileEditRepository` — Firestore, player doc sync, cache refresh | Done |
+| Profile invalidates immediately after save | Done |
+
+---
+
 ## Latest (Upcoming match details — pre-match hub)
 
 | Item | Status |

@@ -6,4 +6,5 @@ class PrefsKeys {
   static const String cachedPlayerId = 'cached_player_id';
   static const String cachedPlayerIdUid = 'cached_player_id_uid';
   static const String themeMode = 'theme_mode';
+  static const String pendingProfileUpdate = 'pending_profile_update';
 }

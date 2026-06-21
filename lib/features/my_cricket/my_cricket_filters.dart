@@ -1,7 +1,9 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/match_model.dart';
+import '../../data/models/match_player_snapshot.dart';
 import '../../data/models/player_model.dart';
 import '../../data/models/tournament_model.dart';
+import '../../data/models/user_model.dart';
 
 /// Your · Played · Network · All filters for My Cricket tabs.
 enum MyCricketListScope { yours, played, network, all }
@@ -26,13 +28,117 @@ bool userParticipatedInMatch(
   return false;
 }
 
+/// Firebase uids / player doc ids and CF player ids for people you follow.
+class FollowedPlayerRefs {
+  const FollowedPlayerRefs({
+    this.linkedIds = const {},
+    this.cfPlayerIds = const {},
+  });
+
+  final Set<String> linkedIds;
+  final Set<String> cfPlayerIds;
+
+  bool get isEmpty => linkedIds.isEmpty && cfPlayerIds.isEmpty;
+
+  factory FollowedPlayerRefs.fromUsers(Iterable<UserModel> users) {
+    final linked = <String>{};
+    final cf = <String>{};
+    for (final user in users) {
+      if (user.id.isNotEmpty) linked.add(user.id);
+      final cfId = user.playerId;
+      if (cfId != null && cfId.isNotEmpty) cf.add(cfId);
+    }
+    return FollowedPlayerRefs(linkedIds: linked, cfPlayerIds: cf);
+  }
+
+  bool matches({String? docId, String? cfPlayerId}) {
+    if (docId != null && docId.isNotEmpty && linkedIds.contains(docId)) {
+      return true;
+    }
+    if (cfPlayerId != null &&
+        cfPlayerId.isNotEmpty &&
+        cfPlayerIds.contains(cfPlayerId)) {
+      return true;
+    }
+    return false;
+  }
+}
+
+bool matchInvolvesFollowedPlayer(MatchModel m, FollowedPlayerRefs refs) {
+  if (refs.isEmpty) return false;
+
+  for (final followedUid in refs.linkedIds) {
+    if (m.createdBy == followedUid) return true;
+    if (m.scorerIds.contains(followedUid)) return true;
+    if (m.scorer1UserId == followedUid ||
+        m.scorer2UserId == followedUid ||
+        m.currentScorerId == followedUid) {
+      return true;
+    }
+  }
+
+  if (refs.matches(docId: m.playerOfMatchId)) return true;
+  final hero = m.matchHero;
+  if (hero != null && refs.matches(docId: hero.playerId)) return true;
+
+  final setup = m.setup;
+  if (setup != null) {
+    for (final snapshot in <MatchPlayerSnapshot>[
+      ...setup.teamAPlayingPlayers,
+      ...setup.teamASubstitutePlayers,
+      ...setup.teamBPlayingPlayers,
+      ...setup.teamBSubstitutePlayers,
+    ]) {
+      if (refs.matches(docId: snapshot.id, cfPlayerId: snapshot.playerId)) {
+        return true;
+      }
+    }
+
+    for (final official in <String?>[
+      setup.teamACaptainId,
+      setup.teamAViceCaptainId,
+      setup.teamAWicketKeeperId,
+      setup.teamBCaptainId,
+      setup.teamBViceCaptainId,
+      setup.teamBWicketKeeperId,
+    ]) {
+      if (refs.matches(docId: official)) return true;
+    }
+  }
+
+  for (final innings in m.innings) {
+    for (final id in <String?>[
+      innings.strikerId,
+      innings.nonStrikerId,
+      innings.currentBowlerId,
+      innings.currentWicketKeeperId,
+    ]) {
+      if (refs.matches(docId: id)) return true;
+    }
+    for (final batter in innings.batsmen) {
+      if (refs.matches(docId: batter.playerId)) return true;
+    }
+    for (final bowler in innings.bowlers) {
+      if (refs.matches(docId: bowler.playerId)) return true;
+    }
+    for (final fielder in innings.fielders) {
+      if (refs.matches(docId: fielder.playerId)) return true;
+    }
+    for (final fow in innings.fallOfWickets) {
+      if (refs.matches(docId: fow.batsmanId)) return true;
+    }
+  }
+
+  return false;
+}
+
 bool filterMatchByScope(
   MatchModel m,
   MyCricketListScope scope, {
   String? uid,
   PlayerModel? player,
   Set<String> userTeamIds = const {},
-  Set<String> networkTeamIds = const {},
+  FollowedPlayerRefs followedPlayers = const FollowedPlayerRefs(),
 }) {
   switch (scope) {
     case MyCricketListScope.all:
@@ -61,11 +167,7 @@ bool filterMatchByScope(
       )) {
         return false;
       }
-      final a = m.teamAId;
-      final b = m.teamBId;
-      if (a != null && networkTeamIds.contains(a)) return true;
-      if (b != null && networkTeamIds.contains(b)) return true;
-      return false;
+      return matchInvolvesFollowedPlayer(m, followedPlayers);
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import '../../core/constants/enums.dart';
 import '../../core/constants/player_profile_constants.dart';
 import 'location_model.dart';
+import 'player_social_stats_model.dart';
 
 class UserStatsModel extends Equatable {
   const UserStatsModel({
@@ -63,6 +64,7 @@ class UserModel extends Equatable {
     this.bio = '',
     this.onboardingCompleted = true,
     this.playerId,
+    this.socialStats = const PlayerSocialStatsModel(),
     this.createdAt,
     this.updatedAt,
   });
@@ -98,6 +100,7 @@ class UserModel extends Equatable {
   final bool onboardingCompleted;
   /// Public sequential ID (e.g. CF000001). Immutable after onboarding.
   final String? playerId;
+  final PlayerSocialStatsModel socialStats;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -160,6 +163,9 @@ class UserModel extends Equatable {
       bio: map['bio'] as String? ?? '',
       onboardingCompleted: map['onboardingCompleted'] as bool? ?? true,
       playerId: map['playerId'] as String? ?? map['cfPlayerId'] as String?,
+      socialStats: PlayerSocialStatsModel.fromMap(
+        map['socialStats'] as Map<String, dynamic>?,
+      ),
       createdAt: _parseDate(map['createdAt']),
       updatedAt: _parseDate(map['updatedAt']),
     );
@@ -203,6 +209,7 @@ class UserModel extends Equatable {
         'bio': bio,
         'onboardingCompleted': onboardingCompleted,
         'playerId': playerId,
+        'socialStats': socialStats.toMap(),
         'role': role.name,
         'location': location.toMap(),
         'stats': stats.toMap(),
@@ -213,11 +220,13 @@ class UserModel extends Equatable {
       };
 
   UserModel copyWith({
+    String? email,
     String? name,
     String? displayName,
     String? phoneNumber,
     String? mobile,
     String? photoUrl,
+    bool clearPhotoUrl = false,
     UserRole? role,
     LocationModel? location,
     UserStatsModel? stats,
@@ -237,15 +246,16 @@ class UserModel extends Equatable {
     String? bio,
     bool? onboardingCompleted,
     String? playerId,
+    PlayerSocialStatsModel? socialStats,
   }) {
     return UserModel(
       id: id,
-      email: email,
+      email: email ?? this.email,
       name: name ?? this.name,
       displayName: displayName ?? this.displayName,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       mobile: mobile ?? this.mobile,
-      photoUrl: photoUrl ?? this.photoUrl,
+      photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
       role: role ?? this.role,
       location: location ?? this.location,
       stats: stats ?? this.stats,
@@ -266,6 +276,7 @@ class UserModel extends Equatable {
       bio: bio ?? this.bio,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       playerId: playerId ?? this.playerId,
+      socialStats: socialStats ?? this.socialStats,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );

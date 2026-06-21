@@ -31,6 +31,13 @@ class NotificationNavigation {
   }
 
   static String? routeForNotification(NotificationModel notification) {
+    if (notification.type == 'player_follow' ||
+        notification.type == 'follower_milestone') {
+      final playerId = notification.playerId;
+      if (playerId != null && playerId.isNotEmpty) {
+        return '/player/$playerId';
+      }
+    }
     return routeFor(
       type: notification.type,
       teamId: notification.teamId,
@@ -73,6 +80,8 @@ extension NotificationPresentation on NotificationModel {
         'team_join_rejected' => 'Declined',
         'team_member_removed' => 'Team update',
         'team_member_added' => 'Added to team',
+        'player_follow' => 'New follower',
+        'follower_milestone' => 'Milestone',
         'admin_roster_report' => 'Admin alert',
         _ => 'Update',
       };

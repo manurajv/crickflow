@@ -17,6 +17,10 @@ class DeepLinkUtils {
 
   static String teamPath(String teamId) => '/teams/$teamId';
 
+  static String playerPath(String playerId) => '/player/$playerId';
+
+  static String findCricketersPath() => '/find-cricketers';
+
   static Uri matchUri(String matchId) =>
       Uri(scheme: customScheme, host: 'match', path: '/$matchId');
 
@@ -31,6 +35,15 @@ class DeepLinkUtils {
         host: 'teams',
         path: '/$teamId',
       );
+
+  static Uri playerUri(String playerId) => Uri(
+        scheme: customScheme,
+        host: 'player',
+        path: '/$playerId',
+      );
+
+  static Uri hostedPlayerUri(String playerId, {bool useCustomDomain = false}) =>
+      hostedUri(playerPath(playerId), useCustomDomain: useCustomDomain);
 
   static Uri hostedUri(String path, {bool useCustomDomain = false}) => Uri(
         scheme: 'https',

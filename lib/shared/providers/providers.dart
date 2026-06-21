@@ -11,14 +11,16 @@ import '../../data/models/tournament_model.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/match_repository.dart';
+import '../../data/repositories/match_follower_repository.dart';
 import '../../data/repositories/match_target_revision_repository.dart';
 import '../../data/repositories/player_repository.dart';
 import '../../data/repositories/team_join_request_repository.dart';
 import '../../data/repositories/team_roster_report_repository.dart';
 import '../../data/repositories/team_repository.dart';
-import '../../data/repositories/notification_repository.dart';
-import '../../data/repositories/match_follower_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
+import '../../data/repositories/notification_repository.dart';
+import '../../data/repositories/profile_edit_repository.dart';
+import '../../data/services/profile_update_queue_service.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/fantasy_repository.dart';
 import '../../data/models/fantasy_entry_model.dart';
@@ -65,6 +67,17 @@ final tournamentRepositoryProvider = Provider((ref) => TournamentRepository());
 final fantasyRepositoryProvider = Provider((ref) => FantasyRepository());
 final notificationServiceProvider = Provider((ref) => NotificationService());
 final notificationRepositoryProvider = Provider((ref) => NotificationRepository());
+final profileUpdateQueueServiceProvider =
+    Provider((ref) => ProfileUpdateQueueService());
+final profileEditRepositoryProvider = Provider(
+  (ref) => ProfileEditRepository(
+    userRepository: ref.watch(userRepositoryProvider),
+    playerRepository: ref.watch(playerRepositoryProvider),
+    storageService: ref.watch(storageServiceProvider),
+    queueService: ref.watch(profileUpdateQueueServiceProvider),
+    cacheService: ref.watch(userProfileCacheServiceProvider),
+  ),
+);
 final matchFollowerRepositoryProvider =
     Provider((ref) => MatchFollowerRepository());
 final notificationPreferencesRepositoryProvider =

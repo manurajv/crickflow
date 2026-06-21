@@ -49,13 +49,6 @@
       ]
     },
     {
-      "collectionGroup": "fantasy_leagues",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "joinCode", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "entries",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
@@ -139,6 +132,38 @@
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "playerFollows",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "followedUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "playerFollows",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "followerUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "onboardingCompleted", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "onboardingCompleted", "order": "ASCENDING" },
+        { "fieldPath": "socialStats.followersCount", "order": "DESCENDING" }
       ]
     }
   ],

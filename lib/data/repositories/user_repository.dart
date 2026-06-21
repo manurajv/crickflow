@@ -180,6 +180,20 @@ class UserRepository {
     return UserModel.fromMap(snap.docs.first.id, snap.docs.first.data());
   }
 
+  Stream<UserModel?> watchUserByPlayerId(String playerId) {
+    final normalized = CfPlayerIdFormat.normalize(playerId);
+    return _col
+        .where('playerId', isEqualTo: normalized)
+        .limit(1)
+        .snapshots()
+        .map((snap) {
+      if (snap.docs.isEmpty) return null;
+      final user = UserModel.fromMap(snap.docs.first.id, snap.docs.first.data());
+      _profileCache.cacheProfile(user);
+      return user;
+    });
+  }
+
   /// Search by player ID, email, or mobile number.
   Future<List<UserModel>> searchScorers(String query) async {
     final trimmed = query.trim();

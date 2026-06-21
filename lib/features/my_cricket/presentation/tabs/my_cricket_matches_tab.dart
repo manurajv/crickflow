@@ -7,11 +7,12 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/match_permissions.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
+import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/my_player_provider.dart';
+import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/match_list_card.dart';
-import '../../../teams/presentation/utils/teams_list_filter.dart';
 import '../../my_cricket_filters.dart';
 import '../widgets/my_cricket_action_banner.dart';
 
@@ -34,15 +35,10 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
     final player = ref.watch(myPlayerProvider).valueOrNull;
     final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
     final userTeamIds = userTeams.map((t) => t.id).toSet();
-    final memberTeamIds = TeamsListFilter.memberTeamIds(
-      teams: userTeams,
-      uid: uid,
-      player: player,
-    );
-    final networkTeamIds = TeamsListFilter.opponentTeamIds(
-      matches: matchesAsync.valueOrNull ?? [],
-      memberTeamIds: memberTeamIds,
-    );
+    final following = uid == null
+        ? const <UserModel>[]
+        : ref.watch(playerFollowingProvider(uid)).valueOrNull ?? [];
+    final followedPlayers = FollowedPlayerRefs.fromUsers(following);
     final canCreate = canCreateMatches(
       ref.watch(currentUserProfileProvider).valueOrNull?.role ??
           UserRole.organizer,
@@ -68,7 +64,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                   uid: uid,
                   player: player,
                   userTeamIds: userTeamIds,
-                  networkTeamIds: networkTeamIds,
+                  followedPlayers: followedPlayers,
                 );
                 if (search.isNotEmpty) {
                   final q = search.toLowerCase();
@@ -87,9 +83,6 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                     children: [
                       MatchListEmptyState(
                         message: 'No matches found',
-                        onCreateMatch: canCreate
-                            ? () => context.push('/match/create')
-                            : null,
                         onClearFilters: search.isNotEmpty
                             ? () {
                                 ref
@@ -146,7 +139,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
     String? uid,
     PlayerModel? player,
     required Set<String> userTeamIds,
-    required Set<String> networkTeamIds,
+    required FollowedPlayerRefs followedPlayers,
   }) {
     return matches
         .where(
@@ -156,7 +149,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
             uid: uid,
             player: player,
             userTeamIds: userTeamIds,
-            networkTeamIds: networkTeamIds,
+            followedPlayers: followedPlayers,
           ),
         )
         .toList();

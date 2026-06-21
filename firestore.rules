@@ -497,6 +497,21 @@ service cloud.firestore {
         || request.resource.data.playerId == resource.data.playerId;
     }
 
+    function validPlayerFollowCreate(followId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['followerUserId', 'followedUserId', 'createdAt'])
+        && d.followerUserId == request.auth.uid
+        && d.followedUserId is string
+        && d.followedUserId.size() > 0
+        && d.followedUserId != request.auth.uid
+        && followId == d.followerUserId + '_' + d.followedUserId;
+    }
+
+    function canDeletePlayerFollow() {
+      return isSignedIn()
+        && resource.data.followerUserId == request.auth.uid;
+    }
+
     function playerPublicIdImmutable() {
       return !('playerId' in resource.data)
         || resource.data.playerId == null
@@ -513,6 +528,21 @@ service cloud.firestore {
 
       match /teamNotificationPrefs/{teamId} {
         allow read, write: if isOwner(userId);
+      }
+
+      match /profileViews/{viewerId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isSignedIn()
+          && request.auth.uid == viewerId
+          && userId != request.auth.uid
+          && request.resource.data.keys().hasOnly(['lastViewedAt']);
+        allow delete: if false;
+      }
+
+      match /social/{docId} {
+        // Realtime counters — mirrored by Cloud Functions (admin SDK).
+        allow read: if true;
+        allow create, update, delete: if false;
       }
     }
 
@@ -800,6 +830,13 @@ service cloud.firestore {
         && request.resource.data.matchId.size() > 0;
       allow delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /playerFollows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if validPlayerFollowCreate(followId);
+      allow delete: if canDeletePlayerFollow();
       allow update: if false;
     }
 

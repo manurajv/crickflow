@@ -31,6 +31,8 @@ class GuestRoutes {
     if (path.startsWith('/match/') && !_isProtectedMatchPath(path)) return true;
     if (path.startsWith('/teams/') && !path.contains('/add-players')) return true;
     if (path.startsWith('/players/')) return true;
+    if (path.startsWith('/player/')) return true;
+    if (path == '/find-cricketers') return true;
     if (path.startsWith('/fantasy/')) return true;
     return false;
   }
@@ -39,7 +41,11 @@ class GuestRoutes {
     if (path == '/match/create' || path.startsWith('/match/create/')) {
       return true;
     }
-    if (path == '/notifications' || path == '/player-onboarding') return true;
+    if (path == '/notifications' ||
+        path == '/player-onboarding' ||
+        path == '/profile/edit') {
+      return true;
+    }
     if (path.contains('/add-players')) return true;
     return _isProtectedMatchPath(path);
   }

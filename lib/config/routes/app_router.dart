@@ -34,6 +34,12 @@ import '../../features/overlay/presentation/live_overlay_screen.dart';
 import '../../features/players/presentation/player_detail_screen.dart';
 import '../../features/players/presentation/player_screen.dart';
 import '../../features/store/presentation/store_screen.dart';
+import '../../features/profile/presentation/edit_profile_screen.dart';
+import '../../features/profile/presentation/find_cricketers_screen.dart';
+import '../../features/profile/presentation/player_followers_screen.dart';
+import '../../features/profile/presentation/player_following_screen.dart';
+import '../../features/profile/presentation/player_public_profile_screen.dart';
+import '../../features/profile/presentation/player_qr_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/scoring/presentation/live_scoring_screen.dart';
 import '../../features/scoring/presentation/scorer_takeover_screen.dart';
@@ -59,15 +65,33 @@ import '../../core/utils/match_permissions.dart';
 import '../../core/auth/guest_routes.dart';
 import '../../shared/providers/providers.dart';
 
+/// Prevents synchronous [GoRouter.go] loops inside [GoRouter.onException].
+class _RouterExceptionGuard {
+  static bool _recovering = false;
+
+  static bool tryEnter() {
+    if (_recovering) return false;
+    _recovering = true;
+    return true;
+  }
+
+  static void exit() {
+    _recovering = false;
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final refreshListenable = GoRouterRefreshStream(
+    ref.watch(authRepositoryProvider).authStateChanges,
+  );
+  ref.onDispose(refreshListenable.dispose);
 
   return GoRouter(
     initialLocation: '/splash',
-    refreshListenable: GoRouterRefreshStream(
-      ref.watch(authRepositoryProvider).authStateChanges,
-    ),
+    refreshListenable: refreshListenable,
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+
       // Android/iOS may pass `crickflow://teams/<id>` as the platform route.
       final incomingUri = state.uri;
       String? deepPath;
@@ -80,8 +104,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         deepPath = DeepLinkUtils.normalizeLocation(state.matchedLocation);
       }
 
+      final normalizedCurrent =
+          DeepLinkUtils.normalizeLocation(state.matchedLocation) ??
+              state.matchedLocation;
+
       if (deepPath != null &&
-          deepPath != state.matchedLocation &&
+          deepPath != normalizedCurrent &&
           deepPath != incomingUri.path) {
         final location = incomingUri.query.isNotEmpty
             ? '$deepPath?${incomingUri.query}'
@@ -135,14 +163,32 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     onException: (context, state, router) {
-      final path =
-          DeepLinkUtils.pathFromUri(state.uri) ??
-          DeepLinkUtils.normalizeLocation(state.uri.toString());
-      if (path != null) {
-        router.go(path);
+      if (!_RouterExceptionGuard.tryEnter()) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          router.go('/home');
+          _RouterExceptionGuard.exit();
+        });
         return;
       }
-      router.go('/home');
+
+      final failedLocation = state.matchedLocation;
+      final recoveredPath = DeepLinkUtils.pathFromUri(state.uri) ??
+          DeepLinkUtils.normalizeLocation(state.matchedLocation);
+      final target = (recoveredPath != null &&
+              recoveredPath.isNotEmpty &&
+              recoveredPath != failedLocation &&
+              recoveredPath != '/splash' &&
+              recoveredPath != state.uri.path)
+          ? recoveredPath
+          : '/home';
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          router.go(target);
+        } finally {
+          _RouterExceptionGuard.exit();
+        }
+      });
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
@@ -431,10 +477,44 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/store', builder: (_, __) => const StoreScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(
+        path: '/profile/edit',
+        builder: (_, __) => const EditProfileScreen(),
+      ),
+      GoRoute(
         path: '/settings/notifications',
         builder: (_, __) => const NotificationSettingsScreen(),
       ),
       GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
+      GoRoute(
+        path: '/find-cricketers',
+        builder: (_, __) => const FindCricketersScreen(),
+      ),
+      GoRoute(
+        path: '/player/:playerId',
+        builder: (_, state) => PlayerPublicProfileScreen(
+          playerId: state.pathParameters['playerId']!,
+        ),
+        routes: [
+          GoRoute(
+            path: 'followers',
+            builder: (_, state) => PlayerFollowersScreen(
+              playerId: state.pathParameters['playerId']!,
+            ),
+          ),
+          GoRoute(
+            path: 'following',
+            builder: (_, state) => PlayerFollowingScreen(
+              playerId: state.pathParameters['playerId']!,
+            ),
+          ),
+          GoRoute(
+            path: 'qr',
+            builder: (_, state) => PlayerQrScreen(
+              playerId: state.pathParameters['playerId']!,
+            ),
+          ),
+        ],
+      ),
       GoRoute(
         path: '/wagon-wheel',
         builder: (_, state) {
