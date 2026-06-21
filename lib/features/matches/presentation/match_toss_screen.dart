@@ -163,12 +163,17 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     );
 
     try {
-      await ref.read(matchRepositoryProvider).createMatch(
-            match.copyWith(
-              innings: [firstInnings],
-              currentInningsIndex: 0,
-            ),
-          );
+      final repo = ref.read(matchRepositoryProvider);
+      final existing = await repo.getMatch(draft.matchId);
+      final matchToSave = match.copyWith(
+        innings: [firstInnings],
+        currentInningsIndex: 0,
+      );
+      if (existing != null) {
+        await repo.updateMatch(matchToSave);
+      } else {
+        await repo.createMatch(matchToSave);
+      }
       ref.read(startMatchDraftProvider.notifier).reset();
       if (mounted) context.go('/match/${draft.matchId}/start-innings');
     } catch (e) {

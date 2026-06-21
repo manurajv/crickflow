@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../core/utils/match_setup_navigation.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 
@@ -49,7 +50,7 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
     });
   }
 
-  void _onNext() {
+  Future<void> _onNext() async {
     if (_captainId == null || _captainId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select a captain')),
@@ -68,6 +69,18 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
           wicketKeeperId: _wicketKeeperId!,
         );
 
+    try {
+      await persistMatchSetupDraft(ref);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save roles: $e')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
     if (widget.isTeamA) {
       context.push('/match/create/squad/b');
     } else {

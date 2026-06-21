@@ -8,6 +8,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/match_setup_draft_models.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../core/utils/match_setup_navigation.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 
@@ -55,11 +56,32 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
         );
   }
 
-  void _onDone() {
+  Future<void> _persistIfResuming() async {
+    final draft = ref.read(startMatchDraftProvider);
+    if (!draft.isExistingMatch) return;
+    try {
+      await persistMatchSetupDraft(ref);
+    } catch (_) {
+      // Non-blocking when returning to setup.
+    }
+  }
+
+  Future<void> _onDone() async {
     if (widget.continueWizard) {
-      context.push('/match/create/toss');
+      try {
+        await persistMatchSetupDraft(ref);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save officials: $e')),
+          );
+        }
+        return;
+      }
+      if (mounted) context.push('/match/create/toss');
     } else {
-      context.pop();
+      await _persistIfResuming();
+      if (mounted) context.pop();
     }
   }
 
@@ -69,7 +91,13 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
     final draft = ref.watch(startMatchDraftProvider);
     final setup = draft.setup;
 
-    return Scaffold(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop && !widget.continueWizard) {
+          _persistIfResuming();
+        }
+      },
+      child: Scaffold(
       backgroundColor: cf.background,
       appBar: AppBar(title: const Text('Match officials')),
       body: Column(
@@ -228,6 +256,7 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

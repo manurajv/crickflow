@@ -9,8 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/constants/player_profile_constants.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/cf_team_id_format.dart';
 import '../../../../data/models/location_model.dart';
 import '../../../../data/models/team_model.dart';
@@ -128,6 +128,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
       context: context,
       ref: ref,
       action: () async {
+        final cf = context.cf;
         final picker = ImagePicker();
         final picked = await picker.pickImage(source: source, imageQuality: 92);
         if (picked == null) return;
@@ -138,8 +139,8 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: 'Crop logo',
-              toolbarColor: AppColors.surface,
-              toolbarWidgetColor: Colors.white,
+              toolbarColor: cf.surface,
+              toolbarWidgetColor: cf.textPrimary,
               initAspectRatio: CropAspectRatioPreset.square,
               lockAspectRatio: true,
             ),
@@ -265,6 +266,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
   @override
   Widget build(BuildContext context) {
     ref.watch(myPlayerProvider);
+    final cf = context.cf;
 
     if (!_locationReady) {
       return const Center(child: CircularProgressIndicator());
@@ -280,23 +282,24 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
                 'Create your team',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: cf.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Add your team logo, location, and contact details. Team ID (e.g. TM00001) and QR are created when you save.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
               ),
               const SizedBox(height: AppDimens.spaceLg),
               Card(
                 elevation: 0,
-                color: AppColors.surfaceElevated,
+                color: cf.card,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: AppColors.border.withValues(alpha: 0.5),
+                    color: cf.border.withValues(alpha: 0.8),
                   ),
                 ),
                 child: Padding(
@@ -340,11 +343,11 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
               const SizedBox(height: AppDimens.spaceLg),
               Card(
                 elevation: 0,
-                color: AppColors.surfaceElevated,
+                color: cf.card,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: AppColors.border.withValues(alpha: 0.5),
+                    color: cf.border.withValues(alpha: 0.8),
                   ),
                 ),
                 child: Padding(

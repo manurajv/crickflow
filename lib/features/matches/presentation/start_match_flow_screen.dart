@@ -11,6 +11,7 @@ import '../../../data/models/match_rules_model.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../core/utils/match_setup_navigation.dart';
 import 'models/ground_pick_result.dart';
 import 'widgets/start_match_setup_form.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -19,7 +20,17 @@ import '../../../shared/widgets/start_match_ui.dart';
 
 /// Start match: select teams → setup → create.
 class StartMatchFlowScreen extends ConsumerStatefulWidget {
-  const StartMatchFlowScreen({super.key});
+  const StartMatchFlowScreen({
+    super.key,
+    this.resumeMatchId,
+    this.initialStep = 0,
+  });
+
+  /// When set, loads an existing match into the draft instead of resetting.
+  final String? resumeMatchId;
+
+  /// 0 = teams, 1 = setup (match setup step).
+  final int initialStep;
 
   @override
   ConsumerState<StartMatchFlowScreen> createState() =>
@@ -37,8 +48,27 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(startMatchDraftProvider.notifier).reset();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final resumeId = widget.resumeMatchId;
+      if (resumeId != null && resumeId.isNotEmpty) {
+        final draft = ref.read(startMatchDraftProvider);
+        if (draft.matchId != resumeId || !draft.isExistingMatch) {
+          final match =
+              await ref.read(matchRepositoryProvider).getMatch(resumeId);
+          if (!mounted) return;
+          if (match != null) {
+            await hydrateStartMatchDraftFromMatch(ref, match);
+          }
+        }
+        if (mounted) {
+          setState(() => _step = widget.initialStep.clamp(0, 1));
+        }
+      } else if (widget.initialStep == 0 &&
+          !ref.read(startMatchDraftProvider).hasBothTeams) {
+        ref.read(startMatchDraftProvider.notifier).reset();
+      } else if (widget.initialStep == 1) {
+        if (mounted) setState(() => _step = 1);
+      }
     });
   }
 
@@ -192,9 +222,14 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     );
 
     try {
-      await ref.read(matchRepositoryProvider).createMatch(match);
-      ref.read(startMatchDraftProvider.notifier).reset();
-      if (mounted) context.go('/match/${draft.matchId}');
+      if (draft.isExistingMatch) {
+        await persistMatchSetupDraft(ref);
+        if (mounted) context.pop();
+      } else {
+        await ref.read(matchRepositoryProvider).createMatch(match);
+        ref.read(startMatchDraftProvider.notifier).reset();
+        if (mounted) context.go('/match/${draft.matchId}');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -206,7 +241,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     }
   }
 
-  void _goToSquadFlow() {
+  Future<void> _goToSquadFlow() async {
     final draft = ref.read(startMatchDraftProvider);
     if (!draft.canProceedToSquad) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -219,7 +254,19 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     ref.read(startMatchDraftProvider.notifier)
       ..updateLocation(draft.location.copyWith(city: city))
       ..updateVenue(ground);
-    context.push('/match/create/squad/a');
+    if (draft.isExistingMatch) {
+      try {
+        await persistMatchSetupDraft(ref);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save setup: $e')),
+          );
+        }
+        return;
+      }
+    }
+    if (mounted) context.push('/match/create/squad/a');
   }
 
   @override
@@ -390,27 +437,30 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
               )
             : Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _saving
-                          ? null
-                          : () => _submitMatch(scheduleOnly: true),
-                      style: ScoringUiKit.outlinedButtonStyle(context).copyWith(
-                        minimumSize: WidgetStateProperty.all(
-                          const Size(0, AppDimens.buttonHeightLarge),
+                  if (!draft.isExistingMatch) ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _saving
+                            ? null
+                            : () => _submitMatch(scheduleOnly: true),
+                        style:
+                            ScoringUiKit.outlinedButtonStyle(context).copyWith(
+                          minimumSize: WidgetStateProperty.all(
+                            const Size(0, AppDimens.buttonHeightLarge),
+                          ),
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(horizontal: 8),
+                          ),
                         ),
-                        padding: WidgetStateProperty.all(
-                          const EdgeInsets.symmetric(horizontal: 8),
+                        child: const Text(
+                          'Schedule',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      child: const Text(
-                        'Schedule',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: AppDimens.spaceMd),
+                    const SizedBox(width: AppDimens.spaceMd),
+                  ],
                   Expanded(
                     child: FilledButton(
                       onPressed: _saving ? null : _goToSquadFlow,

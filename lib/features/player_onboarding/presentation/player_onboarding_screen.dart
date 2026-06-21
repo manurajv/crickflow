@@ -9,8 +9,8 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/player_profile_constants.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/location_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
@@ -62,9 +62,19 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
 
     final profile = await ref.read(userRepositoryProvider).getUser(authUser.uid) ??
         await ref.read(authRepositoryProvider).ensureProfileForAuthUser(authUser);
+    final player =
+        await ref.read(playerRepositoryProvider).getPlayerByUserId(authUser.uid);
     if (!mounted) return;
+
+    var bowling = profile.bowlingStyle;
+    if (bowling == null &&
+        player != null &&
+        player.bowlingStyle.isNotEmpty) {
+      bowling = PlayerBowlingStyleLabels.fromStored(player.bowlingStyle);
+    }
+
     setState(() {
-      _photoUrl = profile.photoUrl;
+      _photoUrl = profile.photoUrl ?? player?.photoUrl;
       _nameController.text = profile.name.isNotEmpty
           ? profile.name
           : profile.displayName;
@@ -92,8 +102,13 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
       _dob = profile.dateOfBirth;
       _gender = profile.gender;
       _playingRole = profile.playerRole;
-      _battingStyle = profile.battingStyle;
-      _bowlingStyle = profile.bowlingStyle;
+      _battingStyle = profile.battingStyle ??
+          PlayerBattingStyleLabels.fromStored(player?.battingStyle);
+      if (bowling != null) {
+        _bowlingStyle = bowling;
+        _bowlingCategory = bowling.category;
+        _bowlingArm = bowling.bowlingArm;
+      }
       if (profile.jerseyNumber != null) {
         _jerseyController.text = '${profile.jerseyNumber}';
       }
@@ -129,6 +144,7 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
+    final cf = context.cf;
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, imageQuality: 92);
     if (picked == null) return;
@@ -139,8 +155,8 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop photo',
-          toolbarColor: AppColors.surface,
-          toolbarWidgetColor: Colors.white,
+          toolbarColor: cf.surface,
+          toolbarWidgetColor: cf.textPrimary,
           initAspectRatio: CropAspectRatioPreset.square,
           lockAspectRatio: true,
         ),
@@ -174,10 +190,11 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
       firstDate: DateTime(1940),
       lastDate: now,
       builder: (context, child) {
+        final cf = context.cf;
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: AppColors.gold,
+                  primary: cf.accent,
                 ),
           ),
           child: child!,
@@ -375,7 +392,9 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Scaffold(
+      backgroundColor: cf.background,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -425,6 +444,7 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
   }
 
   Widget _photoStep() {
+    final cf = context.cf;
     ImageProvider? image;
     if (_photoFile != null) {
       image = FileImage(_photoFile!);
@@ -443,17 +463,17 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
               shape: BoxShape.circle,
               border: Border.all(
                 color: image != null
-                    ? AppColors.gold.withValues(alpha: 0.6)
-                    : AppColors.border,
+                    ? cf.accent.withValues(alpha: 0.6)
+                    : cf.border,
                 width: 3,
               ),
             ),
             child: CircleAvatar(
               radius: 64,
-              backgroundColor: AppColors.surface,
+              backgroundColor: cf.surfaceElevated,
               backgroundImage: image,
               child: image == null
-                  ? const Icon(Icons.person, size: 64, color: AppColors.textMuted)
+                  ? Icon(Icons.person, size: 64, color: cf.textMuted)
                   : null,
             ),
           ),
@@ -483,6 +503,7 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
   }
 
   Widget _basicDetailsStep() {
+    final cf = context.cf;
     return OnboardingStepCard(
       title: 'Basic details',
       subtitle: 'Tell us about yourself. Fields marked * are required.',
@@ -580,7 +601,7 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
                     ? 'Select date'
                     : '${_dob!.day}/${_dob!.month}/${_dob!.year}',
                 style: TextStyle(
-                  color: _dob == null ? AppColors.textMuted : null,
+                  color: _dob == null ? cf.textMuted : cf.textPrimary,
                 ),
               ),
             ),

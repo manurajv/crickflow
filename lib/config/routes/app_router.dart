@@ -24,6 +24,7 @@ import '../../data/models/match_setup_draft_models.dart';
 import '../../features/matches/presentation/match_highlights_screen.dart';
 import '../../features/matches/presentation/match_hub_screen.dart';
 import '../../features/matches/presentation/match_mvp_how_screen.dart';
+import '../../features/matches/presentation/team_head_to_head_screen.dart';
 import '../../features/matches/presentation/matches_list_screen.dart';
 import '../../features/matches/presentation/scorecard_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
@@ -200,7 +201,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/match/create',
-        builder: (_, __) => const StartMatchFlowScreen(),
+        builder: (_, state) {
+          final stepParam = state.uri.queryParameters['step'];
+          final initialStep = stepParam == 'setup'
+              ? 1
+              : 0;
+          return StartMatchFlowScreen(
+            resumeMatchId: state.uri.queryParameters['matchId'],
+            initialStep: initialStep,
+          );
+        },
         routes: [
           GoRoute(
             path: 'select-team',
@@ -307,6 +317,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/match/:id/mvp/how',
         builder: (_, state) => MatchMvpHowScreen(
+          matchId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/match/:id/head-to-head',
+        builder: (_, state) => TeamHeadToHeadScreen(
           matchId: state.pathParameters['id']!,
         ),
       ),

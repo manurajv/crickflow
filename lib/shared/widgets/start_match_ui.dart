@@ -1,35 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
+import '../../core/utils/match_setup_navigation.dart';
+import '../providers/start_match_draft_provider.dart';
 
-/// Step indices for the create-match wizard.
-abstract final class StartMatchFlowStep {
-  static const labels = [
-    'Teams',
-    'Setup',
-    'Squads',
-    'Roles',
-    'Officials',
-    'Toss',
-  ];
-
-  static const teams = 0;
-  static const setup = 1;
-  static const squads = 2;
-  static const roles = 3;
-  static const officials = 4;
-  static const toss = 5;
-}
+export '../../core/utils/match_setup_navigation.dart' show StartMatchFlowStep;
 
 /// Step chip row pinned below the app bar in start-match screens.
-class StartMatchFlowProgress extends StatelessWidget {
+class StartMatchFlowProgress extends ConsumerWidget {
   const StartMatchFlowProgress({super.key, required this.currentIndex});
 
   final int currentIndex;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final draft = ref.watch(startMatchDraftProvider);
     return Padding(
       padding: const EdgeInsets.only(
         top: AppDimens.spaceSm,
@@ -38,6 +25,9 @@ class StartMatchFlowProgress extends StatelessWidget {
       child: StartMatchStepBar(
         steps: StartMatchFlowStep.labels,
         currentIndex: currentIndex,
+        isStepTappable: (index) =>
+            index != currentIndex && isStartMatchStepComplete(index, draft),
+        onStepTap: (index) => navigateToStartMatchStep(context, index, draft),
       ),
     );
   }
@@ -83,10 +73,14 @@ class StartMatchStepBar extends StatelessWidget {
     super.key,
     required this.steps,
     required this.currentIndex,
+    this.isStepTappable,
+    this.onStepTap,
   });
 
   final List<String> steps;
   final int currentIndex;
+  final bool Function(int index)? isStepTappable;
+  final ValueChanged<int>? onStepTap;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +95,14 @@ class StartMatchStepBar extends StatelessWidget {
               label: steps[i],
               index: i + 1,
               isActive: i == currentIndex,
-              isComplete: i < currentIndex,
+              isComplete: isStartMatchStepCompleteFromBar(
+                stepIndex: i,
+                currentIndex: currentIndex,
+                isStepTappable: isStepTappable,
+              ),
+              onTap: isStepTappable?.call(i) == true && onStepTap != null
+                  ? () => onStepTap!(i)
+                  : null,
             ),
             if (i < steps.length - 1)
               Padding(
@@ -119,18 +120,30 @@ class StartMatchStepBar extends StatelessWidget {
   }
 }
 
+bool isStartMatchStepCompleteFromBar({
+  required int stepIndex,
+  required int currentIndex,
+  required bool Function(int index)? isStepTappable,
+}) {
+  if (stepIndex == currentIndex) return false;
+  if (isStepTappable != null) return isStepTappable(stepIndex);
+  return stepIndex < currentIndex;
+}
+
 class _StepChip extends StatelessWidget {
   const _StepChip({
     required this.label,
     required this.index,
     required this.isActive,
     required this.isComplete,
+    this.onTap,
   });
 
   final String label;
   final int index;
   final bool isActive;
   final bool isComplete;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +159,7 @@ class _StepChip extends StatelessWidget {
             ? cf.accent
             : cf.textSecondary;
 
-    return Container(
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
@@ -178,6 +191,17 @@ class _StepChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+
+    if (onTap == null) return chip;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: chip,
       ),
     );
   }

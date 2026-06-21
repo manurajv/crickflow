@@ -24,18 +24,11 @@ class MatchScorecardTab extends ConsumerWidget {
         final showInsight = match.status == MatchStatus.completed &&
             summary.insight != null;
 
-        if (!showInsight) {
-          return MatchScorecardView(match: match);
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SummaryInsightCard(insight: summary.insight!),
-            Expanded(
-              child: MatchScorecardView(match: match),
-            ),
-          ],
+        return MatchScorecardView(
+          match: match,
+          header: showInsight
+              ? SummaryInsightCard(insight: summary.insight!)
+              : null,
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

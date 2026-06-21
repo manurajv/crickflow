@@ -9,6 +9,7 @@ import '../../../data/models/player_model.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../core/utils/match_setup_navigation.dart';
 import 'widgets/add_match_squad_player_sheet.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
@@ -143,7 +144,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
     await _tryAddPlaying(guest);
   }
 
-  void _saveAndNext() {
+  Future<void> _saveAndNext() async {
     final limit = ref.read(startMatchDraftProvider).rules.playersPerTeam;
     if (_playing.length != limit) {
       final need = limit - _playing.length;
@@ -160,6 +161,18 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
           substitutes: List.unmodifiable(_substitutes),
         );
 
+    try {
+      await persistMatchSetupDraft(ref);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save squad: $e')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
     if (widget.isTeamA) {
       context.push('/match/create/roles/a');
     } else {

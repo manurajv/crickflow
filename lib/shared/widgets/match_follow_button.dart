@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../shared/providers/notification_provider.dart';
 import '../../shared/providers/providers.dart';
+import 'match_quick_action_button.dart';
 
 /// Follow / Following toggle for match spectators.
 class MatchFollowButton extends ConsumerWidget {
@@ -12,15 +13,24 @@ class MatchFollowButton extends ConsumerWidget {
     super.key,
     required this.matchId,
     this.compact = false,
+    this.quickAction = false,
   });
 
   final String matchId;
   final bool compact;
+  final bool quickAction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uid = ref.watch(authStateProvider).value?.uid;
     if (uid == null || uid.isEmpty) {
+      if (quickAction) {
+        return MatchQuickActionButton(
+          icon: Icons.notifications_none,
+          label: 'Follow',
+          onPressed: () => _promptSignIn(context),
+        );
+      }
       return compact
           ? TextButton(
               onPressed: () => _promptSignIn(context),
@@ -57,6 +67,15 @@ class MatchFollowButton extends ConsumerWidget {
           );
         }
       }
+    }
+
+    if (quickAction) {
+      return MatchQuickActionButton(
+        icon: icon,
+        label: label,
+        onPressed: busy ? null : toggle,
+        highlighted: following,
+      );
     }
 
     if (compact) {

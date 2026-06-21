@@ -64,6 +64,7 @@ class MatchListCard extends ConsumerWidget {
                 final uid = ref.read(authStateProvider).value?.uid;
                 openMatchFromListCard(
                   context,
+                  ref: ref,
                   match: match,
                   userId: uid,
                 );

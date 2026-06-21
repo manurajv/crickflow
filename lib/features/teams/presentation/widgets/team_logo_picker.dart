@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Circular team logo picker (used in profile sheet & edit form).
 ///
@@ -48,6 +48,7 @@ class TeamLogoPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final image = _image;
     final hasImage = image != null;
     final badgeSize = size * 0.28;
@@ -66,23 +67,17 @@ class TeamLogoPicker extends StatelessWidget {
                 height: size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: hasImage
-                      ? null
-                      : const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF1565C0), AppColors.primaryBlue],
-                        ),
-                  color: hasImage ? AppColors.surfaceElevated : null,
+                  gradient: hasImage ? null : cf.heroGradient,
+                  color: hasImage ? cf.surfaceElevated : null,
                   border: Border.all(
                     color: hasImage
-                        ? AppColors.gold.withValues(alpha: 0.6)
-                        : AppColors.border,
+                        ? cf.accent.withValues(alpha: 0.6)
+                        : cf.border,
                     width: 3,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
+                      color: cf.cardShadow,
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -109,17 +104,17 @@ class TeamLogoPicker extends StatelessWidget {
                     width: badgeSize,
                     height: badgeSize,
                     decoration: BoxDecoration(
-                      color: AppColors.gold,
+                      color: cf.fabBackground,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.surface,
+                        color: cf.surface,
                         width: 2,
                       ),
                     ),
                     child: Icon(
                       Icons.camera_alt_outlined,
                       size: badgeSize * 0.54,
-                      color: Colors.black,
+                      color: cf.fabForeground,
                     ),
                   ),
                 ),
@@ -130,7 +125,7 @@ class TeamLogoPicker extends StatelessWidget {
         Text(
           'Team logo',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.textSecondary,
+            color: cf.textSecondary,
           ),
         ),
       ],

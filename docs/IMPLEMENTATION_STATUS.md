@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Match Summary tab redesign & format-aware MVP engine  
+**Last updated:** Upcoming match details (pre-match hub)  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -12,6 +12,75 @@
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
 
 ---
+
+---
+
+## Latest (Upcoming match details — pre-match hub)
+
+| Item | Status |
+|------|--------|
+| **Upcoming-only tabs** — `draft` / `scheduled` / `tossCompleted`: Match Info + Squads only; Live, Summary, Scorecard, Insights, Comms, MVP, Highlights hidden | Done |
+| Default tab **Match Info**; deep links to hidden tabs fall back to Info | Done |
+| `UpcomingMatchInfoTab` — hero preview card (teams, format, venue, date/time, status badge) | Done |
+| Live countdown (informational only); past scheduled time → “waiting for scorer to start” | Done |
+| Match start remains scorer-controlled (`Start Match` in scoring flow) — countdown/time never auto-live | Done |
+| Head-to-head from completed matches between team pair; empty → “No previous meetings” | Done |
+| **View more insights** → `/match/:id/head-to-head` (`TeamHeadToHeadScreen`) | Done |
+| Match information + officials (reuses Info tab sections) | Done |
+| Milestones to unlock — squad career stats via `UpcomingMilestonesService` | Done |
+| Match banners (generated placeholders) + Generate Banner CTA when empty | Done |
+| Quick actions — share, follow (`MatchFollowButton`), teams, tournament, venue, Google Calendar | Done |
+| Squads tab — existing `MatchSquadsTab` + match setup snapshot (unchanged layout) | Done |
+| `MatchUpcomingService` + `matchUpcomingProvider`; hub prefetches provider for upcoming matches | Done |
+| `test/match_live_service_test.dart` — upcoming tab config (2 tabs only) | Done |
+| Scorer **Live Score** on upcoming → match setup wizard (Setup step or resume squads/roles/officials/toss); never auto-`startMatch()` | Done |
+| `StartMatchDraftNotifier.loadFromMatch` + `match_setup_navigation.dart` — hydrate draft, persist progress to Firestore | Done |
+| Officials from Setup step save on Done/back; scorer can leave and resume setup later | Done |
+| Setup wizard step bar — tap completed steps to jump back (Teams → Setup → Squads → …) | Done |
+| Upcoming Squads tab — full team roster when playing XI not selected yet (same layout as live) | Done |
+
+---
+
+## Latest (Live tab — real-time match experience)
+
+| Item | Status |
+|------|--------|
+| **Dynamic hub tabs** — Live while `live`/`inningsBreak`; Summary when `completed`/`abandoned`; neither pre-match | Done |
+| Tab order (live): Info, Live, Scorecard, Insights, Comms, Squads, MVP, Highlights | Done |
+| Tab order (completed): Info, Summary, Scorecard, Insights, Comms, Squads, MVP, Highlights | Done |
+| Last hub tab **Highlights** (`?tab=highlights`, alias `?tab=gallery`) | Done |
+| Auto-switch Live → Summary when match completes | Done |
+| `MatchLiveService` + `matchLiveProvider` — score, CRR/RRR, chase, DLS, partnership, projections | Done |
+| Live tab — score header, batters/bowlers stats tables, target revision, milestones, last-over commentary | Done |
+| Live viewers row — total views + live viewer count under CRR/RRR | Done |
+| `MatchAudienceRepository` — `engagement/stats.totalViews`, `liveAudience/{uid}` heartbeat | Done |
+| Firestore rules for `engagement/*` + `liveAudience/*` (deployed) | Done |
+| Embedded commentary — over summary + ball-by-ball (reuses Comms widgets) | Done |
+| Powerplay / death-over phase label from `MatchPhaseService` + custom slots | Done |
+| Target revision panel (DLS, penalties, revised target) | Done |
+| `test/match_live_service_test.dart` — tab visibility + chase snapshot | Done |
+
+---
+
+## Latest (Match Info tab — metadata & administration)
+
+| Item | Status |
+|------|--------|
+| **Info tab first** — live order: Info, Live, Scorecard, Insights, Comms, Squads, MVP, Highlights; completed: Summary replaces Live | Done |
+| `MatchInfoService` + `matchInfoProvider` — snapshot from match doc, revisions, timeline | Done |
+| Match Overview — tournament, round, format, venue, toss, result, match ID | Done |
+| Match Configuration — overs, balls/over, players, powerplay, DLS, custom rules | Done |
+| Teams — captain, vice captain, wicketkeeper from `MatchSetupData` snapshot | Done |
+| Match Officials — scorers, umpires, commentators, streamers, referee | Done |
+| Match Notes — chronological timeline (milestones, breaks, DLS, result) | Done |
+| Match Events — admin log (scorer changes, revisions, penalties, abandoned) | Done |
+| DLS / target revision + penalty runs + abandoned match sections | Done |
+| Match Conditions — ground, pitch, day/night, ball type (when available) | Done |
+| Quick Links — squads, points table, leaderboard, tournament, teams, venue | Done |
+| `watchMatchTimeline` stream + light/dark themed cards | Done |
+| `publicMatchId` — 8-digit id assigned at match start (Info tab, not Firestore id) | Done |
+| Info venue tap → Google Maps directions from current location | Done |
+| Info tab — teams section removed; venue removed from quick links | Done |
 
 ---
 
@@ -414,7 +483,7 @@
 | Item | Status |
 |------|--------|
 | 5-tab bottom shell (Home · Discover · Matches · Community · Profile) | Done |
-| Match hub tabs (Summary · Scorecard · Comms · Insights · Squads · MVP · Highlights) | Done |
+| Match hub tabs (dynamic Live/Summary · Scorecard · Insights · Comms · Squads · MVP · Highlights) | Done |
 | Match Summary tab (result card, AI insight, heroes, stars, awards, partnership, comparison, timeline) | Done |
 | Comms tab — commentary center (filters, over summaries, milestones, match events) | Done |
 | Comms tab — CricHeroes-style UI (5 filters, compact timeline, no raw debug text) | Done |

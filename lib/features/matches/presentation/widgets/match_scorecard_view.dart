@@ -25,10 +25,12 @@ class MatchScorecardView extends ConsumerStatefulWidget {
     super.key,
     required this.match,
     this.bottomPadding = AppDimens.spaceXl,
+    this.header,
   });
 
   final MatchModel match;
   final double bottomPadding;
+  final Widget? header;
 
   @override
   ConsumerState<MatchScorecardView> createState() => _MatchScorecardViewState();
@@ -95,14 +97,20 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
     }
 
     final topNotices = MatchRevisionDisplay.scorecardTopNotices(match);
+    final headerCount = widget.header != null ? 1 : 0;
     final topNoticeCount = topNotices.isNotEmpty ? 1 : 0;
     final cf = context.cf;
 
     return ListView.builder(
       padding: EdgeInsets.only(bottom: widget.bottomPadding),
-      itemCount: match.innings.length + topNoticeCount,
+      itemCount: match.innings.length + topNoticeCount + headerCount,
       itemBuilder: (context, index) {
-        if (topNoticeCount > 0 && index == 0) {
+        if (headerCount > 0 && index == 0) {
+          return widget.header!;
+        }
+
+        final afterHeader = index - headerCount;
+        if (topNoticeCount > 0 && afterHeader == 0) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(
               AppDimens.spaceMd,
@@ -121,7 +129,8 @@ class _MatchScorecardViewState extends ConsumerState<MatchScorecardView> {
             ),
           );
         }
-        final innIndex = topNoticeCount > 0 ? index - 1 : index;
+
+        final innIndex = afterHeader - topNoticeCount;
         final inn = match.innings[innIndex];
         return _InningsScorecardCard(
           match: match,

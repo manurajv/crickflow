@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/match_card_navigation.dart';
 import '../../../../core/utils/match_permissions.dart';
-import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../domain/services/match_summary_models.dart';
 import '../../../../shared/providers/match_summary_provider.dart';
@@ -24,7 +24,7 @@ class MatchSummaryTab extends ConsumerWidget {
   });
 
   final String matchId;
-  final void Function(int tabIndex)? onNavigateTab;
+  final void Function(String tabName)? onNavigateTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,15 +65,15 @@ class _SummaryBody extends ConsumerWidget {
   final String matchId;
   final MatchModel match;
   final MatchSummarySnapshot summary;
-  final void Function(int tabIndex)? onNavigateTab;
+  final void Function(String tabName)? onNavigateTab;
 
   void _goTab(BuildContext context, String tab) {
     context.go('/match/$matchId?tab=$tab');
   }
 
-  void _tabOrGo(BuildContext context, int index, String tabName) {
+  void _tabOrGo(BuildContext context, String tabName) {
     if (onNavigateTab != null) {
-      onNavigateTab!(index);
+      onNavigateTab!(tabName);
     } else {
       _goTab(context, tabName);
     }
@@ -116,17 +116,8 @@ class _SummaryBody extends ConsumerWidget {
         SummaryAwardsSection(awards: summary.awards),
         SummaryQuickActions(
           matchId: matchId,
-          onTab: (index) => _tabOrGo(
-            context,
-            index,
-            switch (index) {
-              1 => 'scorecard',
-              2 => 'comms',
-              3 => 'insights',
-              5 => 'mvp',
-              _ => 'summary',
-            },
-          ),
+          matchTitle: match.title,
+          onTab: (tabName) => _tabOrGo(context, tabName),
         ),
         MatchBreakHistorySection(match: match),
         if (match.stream.status == StreamStatus.live ||
@@ -155,23 +146,11 @@ class _SummaryBody extends ConsumerWidget {
     WidgetRef ref,
     MatchModel match,
   ) async {
-    if (match.status == MatchStatus.tossCompleted) {
-      if (context.mounted) context.push('/match/$matchId/start-innings');
-      return;
-    }
-    final uid = ref.read(authStateProvider).value?.uid;
-    final firstInnings = InningsModel(
-      inningsNumber: 1,
-      battingTeamId: match.teamAId ?? 'team_a',
-      bowlingTeamId: match.teamBId ?? 'team_b',
-      status: InningsStatus.inProgress,
+    await openMatchScoring(
+      context,
+      ref: ref,
+      match: match,
     );
-    await ref.read(matchRepositoryProvider).startMatch(
-          matchId,
-          firstInnings,
-          scorerId: uid,
-        );
-    if (context.mounted) context.push('/match/$matchId/score');
   }
 
   Future<void> _startNextInnings(BuildContext context, WidgetRef ref) async {
@@ -221,15 +200,8 @@ class _PreMatchBody extends ConsumerWidget {
         ),
         SummaryQuickActions(
           matchId: matchId,
-          onTab: (index) => context.go(
-            '/match/$matchId?tab=${switch (index) {
-              1 => 'scorecard',
-              2 => 'comms',
-              3 => 'insights',
-              5 => 'mvp',
-              _ => 'summary',
-            }}',
-          ),
+          matchTitle: match.title,
+          onTab: (tabName) => context.go('/match/$matchId?tab=$tabName'),
         ),
       ],
     );

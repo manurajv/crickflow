@@ -5,6 +5,7 @@ import '../../data/models/match_setup_draft_models.dart';
 import '../../data/models/player_model.dart';
 import '../../data/models/team_model.dart';
 import '../../data/repositories/player_repository.dart';
+import '../../domain/scoring/match_lifecycle.dart';
 import 'providers.dart';
 
 /// One team's frozen match squad from [MatchSetupData].
@@ -91,38 +92,76 @@ final matchDualSquadsProvider =
   }
 
   final setup = match.setup;
-  if (setup == null) {
-    return MatchDualSquads(
-      teamA: MatchSquadSide(
-        teamName: match.teamAName,
-        teamLogoUrl: teamA?.profileImageUrl,
-      ),
-      teamB: MatchSquadSide(
-        teamName: match.teamBName,
-        teamLogoUrl: teamB?.profileImageUrl,
-      ),
-    );
-  }
+  MatchSquadSide sideA;
+  MatchSquadSide sideB;
 
-  return MatchDualSquads(
-    teamA: await _sideFromSetup(
+  if (setup == null) {
+    sideA = MatchSquadSide(
+      teamName: match.teamAName,
+      teamLogoUrl: teamA?.profileImageUrl,
+    );
+    sideB = MatchSquadSide(
+      teamName: match.teamBName,
+      teamLogoUrl: teamB?.profileImageUrl,
+    );
+  } else {
+    sideA = await _sideFromSetup(
       setup: setup,
       isTeamA: true,
       teamId: match.teamAId,
       teamName: match.teamAName,
       teamLogoUrl: teamA?.profileImageUrl,
       playerRepo: playerRepo,
-    ),
-    teamB: await _sideFromSetup(
+    );
+    sideB = await _sideFromSetup(
       setup: setup,
       isTeamA: false,
       teamId: match.teamBId,
       teamName: match.teamBName,
       teamLogoUrl: teamB?.profileImageUrl,
       playerRepo: playerRepo,
-    ),
-  );
+    );
+  }
+
+  if (MatchLifecycle.isUpcoming(match)) {
+    sideA = await _applyUpcomingRosterFallback(
+      side: sideA,
+      team: teamA,
+      teamId: match.teamAId,
+      playerRepo: playerRepo,
+    );
+    sideB = await _applyUpcomingRosterFallback(
+      side: sideB,
+      team: teamB,
+      teamId: match.teamBId,
+      playerRepo: playerRepo,
+    );
+  }
+
+  return MatchDualSquads(teamA: sideA, teamB: sideB);
 });
+
+/// When no playing XI is picked yet, show the full team roster (upcoming matches).
+Future<MatchSquadSide> _applyUpcomingRosterFallback({
+  required MatchSquadSide side,
+  required TeamModel? team,
+  required String? teamId,
+  required PlayerRepository playerRepo,
+}) async {
+  if (side.hasPlaying) return side;
+  if (teamId == null || teamId.isEmpty) return side;
+
+  final roster = await playerRepo.getPlayersByTeam(teamId);
+  if (roster.isEmpty) return side;
+
+  return MatchSquadSide(
+    teamName: side.teamName,
+    teamLogoUrl: side.teamLogoUrl,
+    playing: roster.map(MatchPlayerSnapshot.fromPlayer).toList(),
+    captainId: team?.captainId,
+    viceCaptainId: team?.viceCaptainId,
+  );
+}
 
 Future<MatchSquadSide> _sideFromSetup({
   required MatchSetupData setup,

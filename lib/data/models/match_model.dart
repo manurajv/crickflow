@@ -199,6 +199,7 @@ class MatchModel extends Equatable {
     this.targetState = const MatchTargetStateModel(),
     this.activeMatchBreak,
     this.matchBreakHistory = const [],
+    this.publicMatchId,
   });
 
   final String id;
@@ -247,6 +248,8 @@ class MatchModel extends Equatable {
   final MatchTargetStateModel targetState;
   final ActiveMatchBreakModel? activeMatchBreak;
   final List<MatchBreakHistoryEntry> matchBreakHistory;
+  /// Short numeric id assigned when scoring starts (shown in Info tab).
+  final String? publicMatchId;
 
   bool get isMatchBreakActive =>
       activeMatchBreak != null && activeMatchBreak!.isActive;
@@ -331,6 +334,7 @@ class MatchModel extends Equatable {
             ),
           )
           .toList(),
+      publicMatchId: map['publicMatchId'] as String?,
     );
   }
 
@@ -397,6 +401,8 @@ class MatchModel extends Equatable {
         if (matchBreakHistory.isNotEmpty)
           'matchBreakHistory':
               matchBreakHistory.map((e) => e.toMap()).toList(),
+        if (publicMatchId != null && publicMatchId!.isNotEmpty)
+          'publicMatchId': publicMatchId,
       };
 
   MatchModel copyWith({
@@ -434,6 +440,7 @@ class MatchModel extends Equatable {
     ActiveMatchBreakModel? activeMatchBreak,
     bool clearActiveMatchBreak = false,
     List<MatchBreakHistoryEntry>? matchBreakHistory,
+    String? publicMatchId,
   }) {
     return MatchModel(
       id: id,
@@ -479,6 +486,7 @@ class MatchModel extends Equatable {
           ? null
           : (activeMatchBreak ?? this.activeMatchBreak),
       matchBreakHistory: matchBreakHistory ?? this.matchBreakHistory,
+      publicMatchId: publicMatchId ?? this.publicMatchId,
     );
   }
 

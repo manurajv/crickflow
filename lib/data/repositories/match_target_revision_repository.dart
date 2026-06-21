@@ -121,6 +121,17 @@ class MatchTargetRevisionRepository {
         );
   }
 
+  Stream<List<MatchTimelineEventModel>> watchMatchTimeline(String matchId) {
+    return _timeline(matchId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => MatchTimelineEventModel.fromMap(d.id, d.data()))
+              .toList(),
+        );
+  }
+
   Future<List<MatchRevisionModel>> fetchMatchRevisions(String matchId) async {
     final snap = await _revisions(matchId)
         .orderBy('createdAt', descending: false)

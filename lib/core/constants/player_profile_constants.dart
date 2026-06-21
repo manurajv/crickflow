@@ -87,6 +87,17 @@ extension PlayerBattingStyleLabels on PlayerBattingStyle {
         PlayerBattingStyle.rightHandBatsman => 'Right Hand Batsman',
         PlayerBattingStyle.leftHandBatsman => 'Left Hand Batsman',
       };
+
+  static PlayerBattingStyle? fromStored(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final byName = enumFromName(PlayerBattingStyle.values, raw);
+    if (byName != null) return byName;
+    final normalized = raw.trim().toLowerCase();
+    for (final style in PlayerBattingStyle.values) {
+      if (style.label.toLowerCase() == normalized) return style;
+    }
+    return null;
+  }
 }
 
 extension PlayerBowlingCategoryLabels on PlayerBowlingCategory {
@@ -158,6 +169,45 @@ extension PlayerBowlingStyleLabels on PlayerBowlingStyle {
       PlayerBowlingStyle.leftArmWristSpin,
     ];
   }
+
+  /// Parses enum name (Firestore user doc) or display label (player doc).
+  static PlayerBowlingStyle? fromStored(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final byName = enumFromName(PlayerBowlingStyle.values, raw);
+    if (byName != null) return byName;
+    final normalized = raw.trim().toLowerCase();
+    for (final style in PlayerBowlingStyle.values) {
+      if (style.label.toLowerCase() == normalized) return style;
+    }
+    return null;
+  }
+
+  PlayerBowlingCategory get category => switch (this) {
+        PlayerBowlingStyle.doNotBowl => PlayerBowlingCategory.doNotBowl,
+        PlayerBowlingStyle.rightArmFast ||
+        PlayerBowlingStyle.leftArmFast =>
+          PlayerBowlingCategory.fast,
+        PlayerBowlingStyle.rightArmMediumFast ||
+        PlayerBowlingStyle.leftArmMediumFast =>
+          PlayerBowlingCategory.mediumFast,
+        PlayerBowlingStyle.rightArmMedium ||
+        PlayerBowlingStyle.leftArmMedium =>
+          PlayerBowlingCategory.medium,
+        _ => PlayerBowlingCategory.spin,
+      };
+
+  PlayerBowlingArm? get bowlingArm => switch (this) {
+        PlayerBowlingStyle.doNotBowl => null,
+        PlayerBowlingStyle.rightArmFast ||
+        PlayerBowlingStyle.rightArmMediumFast ||
+        PlayerBowlingStyle.rightArmMedium ||
+        PlayerBowlingStyle.rightArmOffSpin ||
+        PlayerBowlingStyle.rightArmLegSpin ||
+        PlayerBowlingStyle.rightArmLegBreak ||
+        PlayerBowlingStyle.rightArmGoogly =>
+          PlayerBowlingArm.rightArm,
+        _ => PlayerBowlingArm.leftArm,
+      };
 }
 
 extension PlayerPrimaryPositionLabels on PlayerPrimaryPosition {

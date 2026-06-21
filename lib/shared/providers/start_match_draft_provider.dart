@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/match_media_naming.dart';
 import '../../data/models/location_model.dart';
+import '../../data/models/match_model.dart';
 import '../../data/models/match_player_snapshot.dart';
 import '../../data/models/match_rules_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
@@ -33,6 +34,7 @@ class StartMatchDraft {
     this.scheduledAt,
     this.media = const [],
     this.setup = const MatchSetupData(),
+    this.isExistingMatch = false,
   }) : rules = rules ?? MatchRulesModel.standardT20();
 
   final String matchId;
@@ -46,6 +48,7 @@ class StartMatchDraft {
   final DateTime? scheduledAt;
   final List<MatchDraftMedia> media;
   final MatchSetupData setup;
+  final bool isExistingMatch;
 
   String get resolvedTeamAName =>
       teamA?.name ?? (teamAName.isNotEmpty ? teamAName : '');
@@ -74,6 +77,7 @@ class StartMatchDraft {
     DateTime? scheduledAt,
     List<MatchDraftMedia>? media,
     MatchSetupData? setup,
+    bool? isExistingMatch,
   }) {
     return StartMatchDraft(
       matchId: matchId,
@@ -87,6 +91,7 @@ class StartMatchDraft {
       scheduledAt: scheduledAt ?? this.scheduledAt,
       media: media ?? this.media,
       setup: setup ?? this.setup,
+      isExistingMatch: isExistingMatch ?? this.isExistingMatch,
     );
   }
 }
@@ -106,6 +111,27 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
       matchId: const Uuid().v4(),
       rules: MatchRulesModel.standardT20(),
       scheduledAt: DateTime.now(),
+    );
+  }
+
+  /// Hydrates the in-memory wizard from an existing scheduled match.
+  void loadFromMatch({
+    required MatchModel match,
+    TeamModel? teamA,
+    TeamModel? teamB,
+  }) {
+    state = StartMatchDraft(
+      matchId: match.id,
+      teamA: teamA,
+      teamB: teamB,
+      teamAName: match.teamAName,
+      teamBName: match.teamBName,
+      rules: match.rules,
+      location: match.location,
+      venue: match.venue,
+      scheduledAt: match.scheduledAt ?? DateTime.now(),
+      setup: match.setup ?? const MatchSetupData(),
+      isExistingMatch: true,
     );
   }
 

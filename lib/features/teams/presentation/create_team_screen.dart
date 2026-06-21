@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/cf_colors.dart';
 import 'widgets/create_team_form.dart';
 
 /// Standalone screen that just hosts the create-team form.
@@ -10,7 +11,9 @@ class CreateTeamScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Scaffold(
+      backgroundColor: cf.background,
       appBar: AppBar(
         title: const Text('Create team'),
         centerTitle: false,

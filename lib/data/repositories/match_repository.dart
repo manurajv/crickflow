@@ -6,12 +6,14 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
+import '../../data/models/location_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/over_metadata_model.dart';
 import '../../data/models/over_note_model.dart';
 import '../../data/models/overlay_state_model.dart';
 import '../../data/models/scorer_transfer_models.dart';
 import '../../core/utils/highlight_utils.dart';
+import '../../core/utils/match_public_id_utils.dart';
 import '../../core/utils/match_scorer_utils.dart';
 import '../../data/models/match_break_model.dart';
 import '../../data/models/match_rules_model.dart';
@@ -305,6 +307,30 @@ class MatchRepository {
           .map((d) => MatchModel.fromMap(d.id, d.data()))
           .toList();
     });
+  }
+
+  Future<List<MatchModel>> fetchHeadToHeadMatches({
+    required String teamAId,
+    required String teamBId,
+    int limit = 50,
+  }) async {
+    if (teamAId.isEmpty || teamBId.isEmpty) return const [];
+
+    final snap = await _matches
+        .where('status', isEqualTo: MatchStatus.completed.name)
+        .orderBy('completedAt', descending: true)
+        .limit(120)
+        .get();
+
+    return snap.docs
+        .map((d) => MatchModel.fromMap(d.id, d.data()))
+        .where(
+          (m) =>
+              (m.teamAId == teamAId && m.teamBId == teamBId) ||
+              (m.teamAId == teamBId && m.teamBId == teamAId),
+        )
+        .take(limit)
+        .toList();
   }
 
   /// All recent matches; live matches sorted to the top.
@@ -970,6 +996,11 @@ class MatchRepository {
       'innings': [firstInnings.toMap()],
       'currentInningsIndex': 0,
     };
+    if (existing == null ||
+        existing.publicMatchId == null ||
+        existing.publicMatchId!.isEmpty) {
+      data['publicMatchId'] = generatePublicMatchId();
+    }
     if (scorerId != null) {
       final existing = await getMatch(matchId);
       final scorerUserIds = <String>{scorerId};
@@ -1417,6 +1448,39 @@ class MatchRepository {
       wickets: first.totalWickets,
       teamId: first.battingTeamId,
     );
+  }
+
+  /// Persists wizard progress (squads, roles, officials, rules, venue) on scheduled matches.
+  Future<void> syncMatchSetupFromDraft({
+    required String matchId,
+    required MatchRulesModel rules,
+    required LocationModel location,
+    required String venue,
+    required DateTime? scheduledAt,
+    required String teamAName,
+    required String teamBName,
+    String? teamAId,
+    String? teamBId,
+    required MatchSetupData setup,
+  }) async {
+    final scorerIds = setup.scorers
+        .map((s) => s.userId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toList();
+    await _enqueueMatchPatch(matchId, {
+      'title': '$teamAName vs $teamBName',
+      if (teamAId != null) 'teamAId': teamAId,
+      if (teamBId != null) 'teamBId': teamBId,
+      'teamAName': teamAName,
+      'teamBName': teamBName,
+      'rules': rules.toMap(),
+      'location': location.toMap(),
+      'venue': venue,
+      if (scheduledAt != null) 'scheduledAt': scheduledAt.toIso8601String(),
+      ...setup.toMap(),
+      if (scorerIds.isNotEmpty) 'scorerIds': scorerIds,
+    });
   }
 
   Future<void> updateMatchSquad({

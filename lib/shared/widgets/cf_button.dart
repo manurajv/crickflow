@@ -12,6 +12,7 @@ class CfButton extends StatelessWidget {
     this.isGold = false,
     this.isOutlined = false,
     this.isDanger = false,
+    this.compact = false,
   });
 
   final String label;
@@ -22,17 +23,22 @@ class CfButton extends StatelessWidget {
   final bool isGold;
   final bool isOutlined;
   final bool isDanger;
+  /// When true, button sizes to content (for toolbars/rows). Default is full width.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final minSize = compact
+        ? const Size(0, AppDimens.buttonHeight)
+        : const Size(double.infinity, AppDimens.buttonHeight);
     if (isOutlined) {
       return OutlinedButton.icon(
         onPressed: isLoading ? null : onPressed,
         icon: _icon(cf),
         label: Text(label),
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, AppDimens.buttonHeight),
+          minimumSize: minSize,
           padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
         ),
       );
@@ -54,7 +60,7 @@ class CfButton extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: bg,
         foregroundColor: fg,
-        minimumSize: const Size(double.infinity, AppDimens.buttonHeight),
+        minimumSize: minSize,
         padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
         elevation: cf.isLight ? 0 : 1,
       ),

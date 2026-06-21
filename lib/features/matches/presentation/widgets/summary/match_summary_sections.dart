@@ -5,13 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/constants/enums.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
-import '../../../../../core/utils/deep_link_utils.dart';
+import '../../../../../core/utils/match_share_utils.dart';
 import '../../../../../data/models/match_model.dart';
 import '../../../../../domain/services/match_summary_models.dart';
 import '../../../../../shared/widgets/cf_button.dart';
 import '../../../../../shared/widgets/lineup_player_avatar.dart';
 import '../../../../../shared/widgets/match_card_ui.dart';
 import '../../../../../shared/widgets/match_follow_button.dart';
+import '../../../../../shared/widgets/match_quick_action_button.dart';
 
 class SummarySectionHeader extends StatelessWidget {
   const SummarySectionHeader({super.key, required this.title, this.subtitle});
@@ -978,15 +979,16 @@ class SummaryQuickActions extends StatelessWidget {
   const SummaryQuickActions({
     super.key,
     required this.matchId,
+    required this.matchTitle,
     required this.onTab,
   });
 
   final String matchId;
-  final void Function(int tabIndex) onTab;
+  final String matchTitle;
+  final void Function(String tabName) onTab;
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -998,34 +1000,28 @@ class SummaryQuickActions extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: MatchFollowButton(matchId: matchId),
-                  ),
-                  const SizedBox(width: AppDimens.spaceSm),
-                  Expanded(
-                    child: _QuickActionButton(
-                      cf: cf,
-                      icon: Icons.share_outlined,
-                      label: 'Share Match',
-                      onPressed: () {
-                        final url = DeepLinkUtils.publicLiveScorecardUri(matchId)
-                            .toString();
-                        Clipboard.setData(ClipboardData(text: url));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Match link copied'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
+                    child: MatchFollowButton(
+                      matchId: matchId,
+                      quickAction: true,
                     ),
                   ),
                   const SizedBox(width: AppDimens.spaceSm),
                   Expanded(
-                    child: _QuickActionButton(
-                      cf: cf,
+                    child: MatchQuickActionButton(
+                      icon: Icons.share_outlined,
+                      label: 'Share Match',
+                      onPressed: () => shareMatchLink(
+                        matchId: matchId,
+                        title: matchTitle,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimens.spaceSm),
+                  Expanded(
+                    child: MatchQuickActionButton(
                       icon: Icons.list_alt,
                       label: 'Scorecard',
-                      onPressed: () => onTab(1),
+                      onPressed: () => onTab('scorecard'),
                     ),
                   ),
                 ],
@@ -1034,29 +1030,26 @@ class SummaryQuickActions extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _QuickActionButton(
-                      cf: cf,
+                    child: MatchQuickActionButton(
                       icon: Icons.insights_outlined,
                       label: 'Insights',
-                      onPressed: () => onTab(3),
+                      onPressed: () => onTab('insights'),
                     ),
                   ),
                   const SizedBox(width: AppDimens.spaceSm),
                   Expanded(
-                    child: _QuickActionButton(
-                      cf: cf,
+                    child: MatchQuickActionButton(
                       icon: Icons.forum_outlined,
                       label: 'Comms',
-                      onPressed: () => onTab(2),
+                      onPressed: () => onTab('comms'),
                     ),
                   ),
                   const SizedBox(width: AppDimens.spaceSm),
                   Expanded(
-                    child: _QuickActionButton(
-                      cf: cf,
+                    child: MatchQuickActionButton(
                       icon: Icons.emoji_events_outlined,
                       label: 'MVP',
-                      onPressed: () => onTab(5),
+                      onPressed: () => onTab('mvp'),
                     ),
                   ),
                 ],
@@ -1065,50 +1058,6 @@ class SummaryQuickActions extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _QuickActionButton extends StatelessWidget {
-  const _QuickActionButton({
-    required this.cf,
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final CfColors cf;
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        visualDensity: VisualDensity.compact,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: cf.accent, size: 18),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: cf.textPrimary,
-              height: 1.1,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

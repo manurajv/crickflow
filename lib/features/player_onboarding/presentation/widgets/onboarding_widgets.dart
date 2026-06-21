@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 /// Material 3 card wrapper for onboarding step content.
 class OnboardingStepCard extends StatelessWidget {
@@ -17,6 +17,7 @@ class OnboardingStepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return ListView(
       padding: AppDimens.listPadding,
       children: [
@@ -24,6 +25,7 @@ class OnboardingStepCard extends StatelessWidget {
           title,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
+                color: cf.textPrimary,
               ),
         ),
         if (subtitle != null) ...[
@@ -31,17 +33,17 @@ class OnboardingStepCard extends StatelessWidget {
           Text(
             subtitle!,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: cf.textSecondary,
                 ),
           ),
         ],
         const SizedBox(height: AppDimens.spaceLg),
         Card(
           elevation: 0,
-          color: AppColors.surfaceElevated,
+          color: cf.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+            side: BorderSide(color: cf.border.withValues(alpha: 0.8)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppDimens.spaceMd),
@@ -68,6 +70,7 @@ class OnboardingProgressHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -86,8 +89,8 @@ class OnboardingProgressHeader extends StatelessWidget {
               curve: Curves.easeOutCubic,
               builder: (_, value, __) => LinearProgressIndicator(
                 value: value,
-                backgroundColor: AppColors.border,
-                color: AppColors.gold,
+                backgroundColor: cf.border,
+                color: cf.accent,
                 minHeight: 6,
               ),
             ),
@@ -99,13 +102,13 @@ class OnboardingProgressHeader extends StatelessWidget {
               Text(
                 'Step ${step + 1} of $stepCount',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: cf.textSecondary,
                     ),
               ),
               Text(
                 '${(progress * 100).round()}%',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.gold,
+                      color: cf.accent,
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -132,14 +135,15 @@ class OnboardingChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return FilterChip(
       label: Text(label),
       selected: selected,
       showCheckmark: true,
-      selectedColor: AppColors.gold.withValues(alpha: 0.25),
-      checkmarkColor: AppColors.gold,
+      selectedColor: cf.accent.withValues(alpha: 0.18),
+      checkmarkColor: cf.accent,
       side: BorderSide(
-        color: selected ? AppColors.gold : AppColors.border,
+        color: selected ? cf.accent : cf.border,
       ),
       onSelected: (_) => onSelected(),
     );
@@ -163,13 +167,14 @@ class OnboardingRadioTile<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return RadioListTile<T>(
       value: value,
       groupValue: groupValue,
       title: Text(title),
       dense: true,
       contentPadding: EdgeInsets.zero,
-      activeColor: AppColors.gold,
+      activeColor: cf.accent,
       onChanged: onChanged,
     );
   }
