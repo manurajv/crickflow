@@ -906,9 +906,14 @@ class _TimelineRow extends StatelessWidget {
 }
 
 class SummaryAwardsSection extends StatelessWidget {
-  const SummaryAwardsSection({super.key, required this.awards});
+  const SummaryAwardsSection({
+    super.key,
+    required this.awards,
+    this.sectionTitle = 'Badges unlocked',
+  });
 
   final List<MatchSummaryAward> awards;
+  final String sectionTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -918,7 +923,7 @@ class SummaryAwardsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SummarySectionHeader(title: 'Match Awards & Badges'),
+        SummarySectionHeader(title: sectionTitle),
         SizedBox(
           height: 118,
           child: ListView.separated(

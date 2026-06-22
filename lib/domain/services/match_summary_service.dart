@@ -12,6 +12,8 @@ import 'match_analytics_models.dart';
 import 'match_mvp_models.dart';
 import 'match_phase_service.dart';
 import 'match_summary_models.dart';
+import 'player_badge_catalog_service.dart';
+import 'player_badge_progression_service.dart';
 
 class _PlayerStats {
   _PlayerStats({
@@ -62,10 +64,14 @@ class _PlayerStats {
 
 /// Read-only match summary for the Summary tab.
 class MatchSummaryService {
-  MatchSummaryService({BallEventAggregator? aggregator})
-      : _aggregator = aggregator ?? BallEventAggregator();
+  MatchSummaryService({
+    BallEventAggregator? aggregator,
+    PlayerBadgeProgressionService? badgeProgression,
+  })  : _aggregator = aggregator ?? BallEventAggregator(),
+        _badgeProgression = badgeProgression ?? const PlayerBadgeProgressionService();
 
   final BallEventAggregator _aggregator;
+  final PlayerBadgeProgressionService _badgeProgression;
 
   MatchSummarySnapshot build({
     required MatchModel match,
@@ -100,7 +106,7 @@ class MatchSummaryService {
       ballEvents: ballEvents,
       revisions: revisions,
     );
-    final awards = _buildAwards(match, mvp, players, analytics, partnership);
+    final awards = _buildBadgeUnlocks(match, ballEvents);
 
     return MatchSummarySnapshot(
       hasData: match.innings.isNotEmpty || ballEvents.isNotEmpty,
@@ -202,6 +208,15 @@ class MatchSummaryService {
           s.runOuts += f.runOuts;
           s.stumpings += f.stumpings;
         }
+      } else {
+        for (final f in inn.fielders) {
+          if (f.playerId.isEmpty) continue;
+          ensure(f.playerId, f.playerName, inn.bowlingTeamId);
+          final s = map[f.playerId]!;
+          s.catches += f.catches;
+          s.runOuts += f.runOuts;
+          s.stumpings += f.stumpings;
+        }
       }
     }
 
@@ -251,9 +266,12 @@ class MatchSummaryService {
     String? viewerPlayerId,
     String? viewerName,
   }) {
-    if (!analytics.hasData && mvp.players.isEmpty) return null;
+    if (!analytics.hasData && mvp.players.isEmpty && players.isEmpty) {
+      return null;
+    }
 
     final subject = _insightSubject(
+      match: match,
       mvp: mvp,
       players: players,
       viewerPlayerId: viewerPlayerId,
@@ -262,7 +280,9 @@ class MatchSummaryService {
     if (subject == null) return null;
 
     final share = _teamEffortShare(
+      match: match,
       mvp: mvp,
+      players: players,
       playerId: subject.playerId,
       teamId: subject.teamId,
     );
@@ -299,6 +319,7 @@ class MatchSummaryService {
     String teamName,
     String? photoUrl,
   })? _insightSubject({
+    required MatchModel match,
     required MatchMvpSnapshot mvp,
     required Map<String, _PlayerStats> players,
     String? viewerPlayerId,
@@ -325,6 +346,24 @@ class MatchSummaryService {
           photoUrl: mvpPlayer.photoUrl ?? stats?.photoUrl,
         );
       }
+      final viewerStats = players[viewerPlayerId];
+      if (viewerStats != null &&
+          (viewerStats.runs > 0 ||
+              viewerStats.wickets > 0 ||
+              viewerStats.catches +
+                      viewerStats.runOuts +
+                      viewerStats.stumpings >
+                  0)) {
+        return (
+          playerId: viewerPlayerId,
+          playerName: viewerName?.isNotEmpty == true
+              ? viewerName!
+              : viewerStats.name,
+          teamId: _teamIdForPlayer(match, viewerPlayerId),
+          teamName: viewerStats.teamName,
+          photoUrl: viewerStats.photoUrl,
+        );
+      }
     }
 
     final potm = mvp.playerOfTheMatch;
@@ -339,22 +378,82 @@ class MatchSummaryService {
       );
     }
 
+    final potmId = match.playerOfMatchId;
+    if (potmId != null && potmId.isNotEmpty) {
+      final stats = players[potmId];
+      if (stats != null) {
+        return (
+          playerId: potmId,
+          playerName: stats.name,
+          teamId: _teamIdForPlayer(match, potmId),
+          teamName: stats.teamName,
+          photoUrl: stats.photoUrl,
+        );
+      }
+    }
+
+    final topRuns = players.values.where((p) => p.runs > 0).toList()
+      ..sort((a, b) => b.runs.compareTo(a.runs));
+    if (topRuns.isNotEmpty) {
+      final stats = topRuns.first;
+      return (
+        playerId: stats.playerId,
+        playerName: stats.name,
+        teamId: _teamIdForPlayer(match, stats.playerId),
+        teamName: stats.teamName,
+        photoUrl: stats.photoUrl,
+      );
+    }
+
     return null;
   }
 
+  String _teamIdForPlayer(MatchModel match, String playerId) {
+    final setup = match.setup;
+    if (setup == null) return '';
+    if (setup.teamAPlayingPlayers.any((p) => p.id == playerId)) {
+      return match.teamAId ?? '';
+    }
+    if (setup.teamBPlayingPlayers.any((p) => p.id == playerId)) {
+      return match.teamBId ?? '';
+    }
+    return '';
+  }
+
   double _teamEffortShare({
+    required MatchModel match,
     required MatchMvpSnapshot mvp,
+    required Map<String, _PlayerStats> players,
     required String playerId,
     required String teamId,
   }) {
-    final teamTotal = mvp.players
-        .where((p) => p.teamId == teamId)
-        .fold<double>(0, (sum, p) => sum + p.totalMvp);
+    if (mvp.players.isNotEmpty) {
+      final teamTotal = mvp.players
+          .where((p) => p.teamId == teamId)
+          .fold<double>(0, (sum, p) => sum + p.totalMvp);
+      if (teamTotal <= 0) return 0;
+
+      final playerTotal = mvp.players
+          .where((p) => p.playerId == playerId)
+          .fold<double>(0, (sum, p) => sum + p.totalMvp);
+      if (playerTotal <= 0) return 0;
+
+      return (playerTotal / teamTotal) * 100;
+    }
+
+    final teamPlayers = players.values
+        .where((p) => _teamIdForPlayer(match, p.playerId) == teamId)
+        .toList();
+    if (teamPlayers.isEmpty) return 0;
+
+    double impact(_PlayerStats p) =>
+        p.runs + p.wickets * 25 + (p.catches + p.runOuts + p.stumpings) * 12;
+    final teamTotal = teamPlayers.fold<double>(0, (sum, p) => sum + impact(p));
     if (teamTotal <= 0) return 0;
 
-    final playerTotal = mvp.players
-        .where((p) => p.playerId == playerId)
-        .fold<double>(0, (sum, p) => sum + p.totalMvp);
+    final subject = players[playerId];
+    if (subject == null) return 0;
+    final playerTotal = impact(subject);
     if (playerTotal <= 0) return 0;
 
     return (playerTotal / teamTotal) * 100;
@@ -481,6 +580,75 @@ class MatchSummaryService {
       add(bestFielder.first, SummaryHeroKind.bestFielder, 'Best Fielder');
     }
 
+    if (heroes.isNotEmpty) return heroes;
+    return _buildHeroesFromScorecard(match, players);
+  }
+
+  List<SummaryHeroCard> _buildHeroesFromScorecard(
+    MatchModel match,
+    Map<String, _PlayerStats> players,
+  ) {
+    if (players.isEmpty) return const [];
+
+    SummaryHeroCard cardFor(
+      _PlayerStats stats,
+      SummaryHeroKind kind,
+      String title,
+    ) {
+      return SummaryHeroCard(
+        kind: kind,
+        title: title,
+        playerName: stats.name,
+        teamName: stats.teamName,
+        photoUrl: stats.photoUrl,
+        battingLine: stats.battingLine,
+        bowlingLine: stats.bowlingLine,
+        fieldingLine: stats.fieldingLine,
+        mvpScore: stats.totalMvp,
+      );
+    }
+
+    final heroes = <SummaryHeroCard>[];
+    final potmId = match.playerOfMatchId;
+    if (potmId != null && potmId.isNotEmpty) {
+      final stats = players[potmId];
+      if (stats != null) {
+        heroes.add(
+          cardFor(stats, SummaryHeroKind.playerOfMatch, 'Player Of The Match'),
+        );
+      }
+    }
+
+    final batters = players.values.where((p) => p.runs > 0).toList()
+      ..sort((a, b) => b.runs.compareTo(a.runs));
+    if (batters.isNotEmpty &&
+        (potmId == null || batters.first.playerId != potmId)) {
+      heroes.add(
+        cardFor(batters.first, SummaryHeroKind.bestBatter, 'Best Batter'),
+      );
+    }
+
+    final bowlers = players.values.where((p) => p.wickets > 0).toList()
+      ..sort((a, b) => b.wickets.compareTo(a.wickets));
+    if (bowlers.isNotEmpty) {
+      heroes.add(
+        cardFor(bowlers.first, SummaryHeroKind.bestBowler, 'Best Bowler'),
+      );
+    }
+
+    final fielders = players.values
+        .where((p) => p.catches + p.runOuts + p.stumpings > 0)
+        .toList()
+      ..sort(
+        (a, b) => (b.catches + b.runOuts + b.stumpings)
+            .compareTo(a.catches + a.runOuts + a.stumpings),
+      );
+    if (fielders.isNotEmpty) {
+      heroes.add(
+        cardFor(fielders.first, SummaryHeroKind.bestFielder, 'Best Fielder'),
+      );
+    }
+
     return heroes;
   }
 
@@ -541,7 +709,7 @@ class MatchSummaryService {
           )
           .toList(),
       fielders
-          .take(4)
+          .take(2)
           .map((p) => toCard(p, p.fieldingLine, p.teamName))
           .toList(),
       allRounders
@@ -798,121 +966,38 @@ class MatchSummaryService {
     return events;
   }
 
-  List<MatchSummaryAward> _buildAwards(
+  List<MatchSummaryAward> _buildBadgeUnlocks(
     MatchModel match,
-    MatchMvpSnapshot mvp,
-    Map<String, _PlayerStats> players,
-    MatchAnalyticsSnapshot analytics,
-    SummaryPartnershipCard? partnership,
+    List<BallEventModel> ballEvents,
   ) {
-    final awards = <MatchSummaryAward>[];
-    final list = players.values.toList();
+    if (match.status != MatchStatus.completed) return const [];
 
-    void add(String emoji, String title, _PlayerStats? p, [String sub = '']) {
-      if (p == null) return;
-      awards.add(
-        MatchSummaryAward(
-          emoji: emoji,
-          title: title,
-          playerName: p.name,
-          subtitle: sub,
-        ),
-      );
-    }
+    final catalogById = {
+      for (final def in PlayerBadgeCatalogService.catalog) def.id: def,
+    };
+    final unlocks = _badgeProgression.evaluateMatchBadgeUnlocks(
+      match: match,
+      ballEvents: ballEvents,
+    );
 
-    if (mvp.playerOfTheMatch != null) {
-      final p = players[mvp.playerOfTheMatch!.playerId];
-      add('🏆', 'Player Of The Match', p, 'MVP ${mvp.playerOfTheMatch!.totalMvp.toStringAsFixed(2)}');
-    }
-    if (mvp.fighterOfTheMatch != null) {
-      final p = players[mvp.fighterOfTheMatch!.playerId];
-      add('💪', 'Fighter Of The Match', p);
-    }
-
-    if (match.winnerTeamId != null) {
-      final winnerName = MatchScoreDisplay.teamName(match, match.winnerTeamId);
-      if (winnerName.isNotEmpty) {
-        awards.add(
+    return [
+      for (final unlock in unlocks)
+        if (catalogById.containsKey(unlock.badgeId))
           MatchSummaryAward(
-            emoji: '🔥',
-            title: 'Match Winner',
-            playerName: winnerName,
-            subtitle: 'Team award',
+            emoji: _badgeEmoji(catalogById[unlock.badgeId]!.tier),
+            title: catalogById[unlock.badgeId]!.title,
+            playerName: unlock.playerName,
+            subtitle: unlock.performanceSnapshot,
           ),
-        );
-      }
-    }
-
-    final century = list.where((p) => p.runs >= 100).toList()
-      ..sort((a, b) => b.runs.compareTo(a.runs));
-    if (century.isNotEmpty) {
-      add('🏏', 'Century Hero', century.first, '${century.first.runs} runs');
-    }
-
-    final sixHitter = list.where((p) => p.sixes > 0).toList()
-      ..sort((a, b) => b.sixes.compareTo(a.sixes));
-    if (sixHitter.isNotEmpty) {
-      add('💥', 'Six Hitter', sixHitter.first, '${sixHitter.first.sixes} sixes');
-    }
-
-    final threeWkts = list.where((p) => p.wickets >= 3).toList()
-      ..sort((a, b) => b.wickets.compareTo(a.wickets));
-    for (final p in threeWkts.take(2)) {
-      add(
-        '🎯',
-        p.wickets >= 5 ? '5 Wickets' : '3 Wickets',
-        p,
-        p.bowlingLine,
-      );
-    }
-
-    final fastScorer = list.where((p) => p.balls >= 6 && p.strikeRate >= 150).toList()
-      ..sort((a, b) => b.strikeRate.compareTo(a.strikeRate));
-    if (fastScorer.isNotEmpty) {
-      add(
-        '⚡',
-        'Fast Scorer',
-        fastScorer.first,
-        'SR ${fastScorer.first.strikeRate.toStringAsFixed(0)}',
-      );
-    }
-
-    final safeHands = list.where((p) => p.catches > 0).toList()
-      ..sort((a, b) => b.catches.compareTo(a.catches));
-    if (safeHands.isNotEmpty) {
-      add('🧤', 'Safe Hands', safeHands.first, '${safeHands.first.catches} catches');
-    }
-
-    if (partnership != null) {
-      awards.add(
-        MatchSummaryAward(
-          emoji: '🤝',
-          title: 'Best Partnership',
-          playerName: '${partnership.batterAName} & ${partnership.batterBName}',
-          subtitle: '${partnership.runs} runs',
-        ),
-      );
-    }
-
-    final runMachine = list.where((p) => p.runs > 0).toList()
-      ..sort((a, b) => b.runs.compareTo(a.runs));
-    if (runMachine.isNotEmpty && runMachine.first.runs < 100) {
-      add('🏃', 'Run Machine', runMachine.first, '${runMachine.first.runs} runs');
-    }
-
-    final srKing = list.where((p) => p.balls >= 10).toList()
-      ..sort((a, b) => b.strikeRate.compareTo(a.strikeRate));
-    if (srKing.isNotEmpty && srKing.first.strikeRate >= 120) {
-      add(
-        '🚀',
-        'Strike Rate King',
-        srKing.first,
-        'SR ${srKing.first.strikeRate.toStringAsFixed(0)}',
-      );
-    }
-
-    return awards;
+    ];
   }
+
+  static String _badgeEmoji(BadgeTier tier) => switch (tier) {
+        BadgeTier.bronze => '🥉',
+        BadgeTier.silver => '🥈',
+        BadgeTier.gold => '🥇',
+        BadgeTier.diamond => '💎',
+      };
 
   static String? _scoreLine(MatchModel match, String? teamId) {
     final inn = MatchScoreDisplay.inningsBattingTeam(match, teamId);

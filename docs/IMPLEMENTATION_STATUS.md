@@ -15,6 +15,29 @@
 
 ---
 
+## Latest (My Cricket Profile module)
+
+| Item | Status |
+|------|--------|
+| My Cricket Profile screen — `/my-cricket-profile` + `/player/:id/cricket` | Done |
+| Profile header — photo, name, CF ID, location, role, styles, cluster tags | Done |
+| Social counters — followers, following, profile views (reused) | Done |
+| Actions — Share, QR, Follow, Edit Profile (own) | Done |
+| Tabs — Matches, Stats, Trophies, Badges, Teams, Connections (no Highlights/Photos) | Done |
+| Matches tab — Upcoming/Live/Completed + filters (overs, ball, type, year, team) | Done |
+| Stats tab — Batting, Bowling, Fielding (reused) + Captain section | Done |
+| Captain stats — wins, toss %, chases, timeline, by year/format | Done |
+| Player clusters — batting (SR/pattern) + bowling (economy/wickets) from match data | Done |
+| Trophies — 5 MVP award types (POTM, Fighter, Best Batter/Bowler/Fielder); tap for career list | Done |
+| Badges — repeatable (unlockCount, history) vs one-time (unlocked date only); highest-eligible-only match progression | Done |
+| Teams tab — per-team stats, sort recent/matches/performance | Done |
+| Connections tab — following, followers, mutuals, search, Find Cricketers link | Done |
+| Cached Riverpod providers — `myCricketProfileProvider`, `playerCricketProfileByIdProvider` | Done |
+| Profile tab + public profile — Open Cricket Profile CTA | Done |
+| Light + dark theme via `context.cf` cards | Done |
+
+---
+
 ## Latest (Profile social system — player discovery)
 
 | Item | Status |

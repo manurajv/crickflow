@@ -98,9 +98,58 @@ enum BadgeType {
   batting,
   bowling,
   fielding,
+  captaincy,
+  career,
   milestone,
+  special,
   team,
   matchHero,
+}
+
+enum BadgeTier { bronze, silver, gold, diamond }
+
+/// Whether a badge can be earned multiple times or only once per career.
+enum BadgeRepeatability { repeatable, oneTime }
+
+enum BattingClusterType {
+  steadyBatter,
+  classicist,
+  accumulator,
+  hardHitter,
+  destroyer,
+}
+
+enum BowlingClusterType {
+  aspirant,
+  wildcard,
+  economist,
+  spearhead,
+}
+
+enum TrophyTier { gold, silver, bronze }
+
+enum TrophyCategory { match, tournament }
+
+/// Match award categories shown on the profile Trophies tab.
+enum PlayerTrophyKind {
+  playerOfMatch('Player Of The Match', '🏆'),
+  fighterOfMatch('Fighter Of The Match', '💪'),
+  bestBatter('Best Batter', '🏏'),
+  bestBowler('Best Bowler', '🎯'),
+  bestFielder('Best Fielder', '🧤');
+
+  const PlayerTrophyKind(this.label, this.emoji);
+
+  final String label;
+  final String emoji;
+
+  static const profileKinds = [
+    playerOfMatch,
+    fighterOfMatch,
+    bestBatter,
+    bestBowler,
+    bestFielder,
+  ];
 }
 
 enum StreamStatus { idle, connecting, live, ended, error }

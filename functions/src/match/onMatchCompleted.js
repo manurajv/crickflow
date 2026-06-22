@@ -1,6 +1,7 @@
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { evaluateInningsBadges, pickMatchHero } = require('../utils/badges');
+const { pickMatchHero } = require('../utils/badges');
+const { evaluateMatchBadges, applyBadgeAwards } = require('../utils/badgeProgression');
 const { updateTournamentStandings } = require('../utils/tournament');
 const { fanOutMatchNotification } = require('../utils/fanOut');
 const { buildMatchResultNotification } = require('../utils/notificationBuilder');
@@ -66,28 +67,20 @@ exports.onMatchCompleted = onDocumentUpdated(
       }
     }
 
-    const allBadges = [];
-    for (const inn of derivedInnings) {
-      allBadges.push(...evaluateInningsBadges(matchId, inn));
-    }
+    const matchWithInnings = { ...after, id: matchId, innings: derivedInnings };
+    const badgeAwardsByPlayer = evaluateMatchBadges(matchWithInnings);
+    const awardedBadgeIds = new Set();
 
-    for (const badge of allBadges) {
-      const badgeRef = db.collection('badges').doc(badge.id);
-      batch.set(badgeRef, badge, { merge: true });
-      if (badge.playerId) {
-        const playerRef = db.collection('players').doc(badge.playerId);
-        batch.set(
-          playerRef,
-          { badgeIds: FieldValue.arrayUnion(badge.id) },
-          { merge: true },
-        );
-      }
+    for (const [playerId, awards] of Object.entries(badgeAwardsByPlayer)) {
+      if (!awards.length) continue;
+      applyBadgeAwards(batch, db, playerId, awards, FieldValue);
+      for (const a of awards) awardedBadgeIds.add(a.badgeId);
     }
 
     const hero =
       after.matchHero ||
       pickMatchHero({ ...after, innings: derivedInnings });
-    const badgeIds = allBadges.map((b) => b.id);
+    const badgeIds = [...awardedBadgeIds];
 
     batch.update(event.data.after.ref, {
       statsProcessed: true,
@@ -119,7 +112,7 @@ exports.onMatchCompleted = onDocumentUpdated(
     );
 
     console.log(
-      `Processed match ${matchId}: ${allBadges.length} badges, stats from ${useEvents ? 'ball_events' : 'innings'}`,
+      `Processed match ${matchId}: ${badgeIds.length} badge awards, stats from ${useEvents ? 'ball_events' : 'innings'}`,
     );
   },
 );

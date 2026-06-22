@@ -10,6 +10,7 @@ import '../../../data/models/match_model.dart';
 import '../../../data/repositories/match_audience_repository.dart';
 import '../../../shared/providers/match_audience_provider.dart';
 import '../../../shared/providers/match_live_provider.dart';
+import '../../../shared/providers/match_summary_provider.dart';
 import '../../../shared/providers/match_upcoming_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
@@ -229,6 +230,11 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
       ref.watch(matchLiveProvider(widget.matchId));
     } else if (MatchHubTabConfig.isUpcomingMatch(match)) {
       ref.watch(matchUpcomingProvider(widget.matchId));
+    } else if (MatchHubTabConfig.showsSummaryTab(match)) {
+      // Summary heroes/insights/fielders need ball events — subscribe early so
+      // the first paint is not empty while TabBarView lazy-builds other tabs.
+      ref.watch(ballEventsProvider(widget.matchId));
+      ref.watch(matchSummaryProvider(widget.matchId));
     }
 
     return PopScope(

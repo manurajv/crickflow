@@ -63,7 +63,10 @@ class _BadgeChip extends StatelessWidget {
       BadgeType.batting => Icons.sports_cricket,
       BadgeType.bowling => Icons.sports_baseball,
       BadgeType.fielding => Icons.back_hand,
+      BadgeType.captaincy => Icons.military_tech_outlined,
+      BadgeType.career => Icons.timeline,
       BadgeType.milestone => Icons.flag,
+      BadgeType.special => Icons.auto_awesome,
       BadgeType.team => Icons.groups,
       BadgeType.matchHero => Icons.star,
     };

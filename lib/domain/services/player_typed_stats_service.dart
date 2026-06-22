@@ -106,6 +106,53 @@ class PlayerTypedStatsService {
     );
   }
 
+  PlayerTypedStatsResult aggregateOverallDetailed({
+    required List<MatchModel> completedMatches,
+    required String playerId,
+    String? authUid,
+    String? playerTeamId,
+    Set<String> userTeamIds = const {},
+  }) {
+    final agg = _Agg();
+    final bpoCounts = <int, int>{};
+
+    for (final match in completedMatches) {
+      if (!userParticipatedInMatch(
+        match,
+        uid: authUid,
+        player: playerTeamId != null
+            ? PlayerModel(id: playerId, name: '', teamId: playerTeamId)
+            : null,
+        userTeamIds: userTeamIds,
+      )) {
+        continue;
+      }
+
+      var playedInMatch = false;
+      for (final inn in match.innings) {
+        playedInMatch = _accumulateInnings(
+              agg,
+              inn,
+              playerId,
+              match.rules.ballsPerOver,
+            ) ||
+            playedInMatch;
+      }
+      if (playedInMatch) {
+        agg.matchesPlayed += 1;
+        final bpo = match.rules.ballsPerOver;
+        bpoCounts[bpo] = (bpoCounts[bpo] ?? 0) + 1;
+      }
+    }
+
+    return PlayerTypedStatsResult(
+      stats: agg.toStats(),
+      ballsPerOver: bpoCounts.length == 1 ? bpoCounts.keys.first : null,
+      bowlingActualOvers:
+          agg.bowlingActualOvers > 0 ? agg.bowlingActualOvers : null,
+    );
+  }
+
   bool _accumulateInnings(
     _Agg agg,
     InningsModel inn,

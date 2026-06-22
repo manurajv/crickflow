@@ -36,6 +36,7 @@ import '../../features/players/presentation/player_screen.dart';
 import '../../features/store/presentation/store_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/find_cricketers_screen.dart';
+import '../../features/my_cricket_profile/presentation/my_cricket_profile_screen.dart';
 import '../../features/profile/presentation/player_followers_screen.dart';
 import '../../features/profile/presentation/player_following_screen.dart';
 import '../../features/profile/presentation/player_public_profile_screen.dart';
@@ -486,6 +487,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
       GoRoute(
+        path: '/my-cricket-profile',
+        builder: (_, __) => const MyCricketProfileScreen(),
+      ),
+      GoRoute(
         path: '/find-cricketers',
         builder: (_, __) => const FindCricketersScreen(),
       ),
@@ -505,6 +510,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'following',
             builder: (_, state) => PlayerFollowingScreen(
               playerId: state.pathParameters['playerId']!,
+            ),
+          ),
+          GoRoute(
+            path: 'cricket',
+            builder: (_, state) => MyCricketProfileScreen(
+              playerId: state.pathParameters['playerId'],
             ),
           ),
           GoRoute(

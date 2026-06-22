@@ -2,12 +2,21 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
+import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
+import '../../../../domain/services/captain_stats_service.dart';
+import '../../../../features/my_cricket/my_cricket_filters.dart';
+import '../../../../features/my_cricket_profile/presentation/widgets/captain_stats_section.dart';
+import '../../../../features/my_cricket_profile/presentation/widgets/profile_match_filter_button.dart';
 import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/my_player_stats_breakdown_provider.dart';
+import '../../../../shared/providers/player_cricket_profile_provider.dart';
+import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
 import '../widgets/my_cricket_action_banner.dart';
@@ -20,63 +29,106 @@ class MyCricketStatsTab extends ConsumerStatefulWidget {
 }
 
 class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
-  PlayerStatViewMode _mode = PlayerStatViewMode.batting;
+  _StatsMode _mode = _StatsMode.batting;
 
   @override
   Widget build(BuildContext context) {
-    final breakdownAsync = ref.watch(myPlayerStatsBreakdownProvider);
+    final playerAsync = ref.watch(myPlayerProvider);
+    final matchesAsync = ref.watch(matchesProvider);
+    final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
+    final userTeamIds = userTeams.map((t) => t.id).toSet();
+    final uid = ref.watch(authStateProvider).value?.uid;
 
-    return breakdownAsync.when(
-      data: (breakdown) {
-        if (breakdown == null) {
+    return playerAsync.when(
+      data: (player) {
+        if (player == null) {
           return _noPlayer(context);
         }
-        final player = ref.watch(myPlayerProvider).value!;
-        return RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(myPlayerProvider);
-            ref.invalidate(myPlayerStatsBreakdownProvider);
-          },
-          child: ListView(
-            padding: AppDimens.listPadding,
-            children: [
-              _PlayerHeader(player: player),
-              const SizedBox(height: AppDimens.spaceSm),
-              MyCricketActionBanner(
-                inset: false,
-                title: 'Want to improve your stats?',
-                actionLabel: 'Analyze',
-                onAction: () => context.push('/players/${player.id}'),
-              ),
-              const SizedBox(height: AppDimens.spaceMd),
-              _modeChips(context),
-              const SizedBox(height: AppDimens.spaceMd),
-              _sectionHeader(context, 'Overall'),
-              StatGrid(
-                cells: playerStatCells(breakdown.overall, _mode),
-              ),
-              ...breakdown.typedSections.expand(
-                (section) => [
-                  const SizedBox(height: AppDimens.spaceLg),
-                  _sectionHeader(context, section.title),
-                  StatGrid(
-                    cells: playerStatCells(
-                      section.stats,
-                      _mode,
-                      ballsPerOver: section.ballsPerOver,
-                      bowlingActualOvers: section.bowlingActualOvers,
-                    ),
+
+        return matchesAsync.when(
+          data: (matches) {
+            final participated = matches
+                .where(
+                  (m) => userParticipatedInMatch(
+                    m,
+                    uid: uid,
+                    player: player,
+                    userTeamIds: userTeamIds,
                   ),
+                )
+                .toList();
+            final filters = ref.watch(profileMatchFiltersProvider);
+            final service = ref.watch(playerTypedStatsServiceProvider);
+            final breakdown = buildProfileFilteredStatsBreakdown(
+              player: player,
+              participatedMatches: participated,
+              filters: filters,
+              service: service,
+            );
+            final captainStats = const CaptainStatsService().compute(
+              playerId: player.id,
+              completedMatches: participated
+                  .where((m) => m.status == MatchStatus.completed)
+                  .toList(),
+            );
+
+            return RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(myPlayerProvider);
+                ref.invalidate(matchesProvider);
+              },
+              child: ListView(
+                padding: AppDimens.listPadding,
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _PlayerHeader(player: player),
+                  const SizedBox(height: AppDimens.spaceSm),
+                  MyCricketActionBanner(
+                    inset: false,
+                    title: 'Want to improve your stats?',
+                    actionLabel: 'Analyze',
+                    onAction: () => context.push('/players/${player.id}'),
+                  ),
+                  const SizedBox(height: AppDimens.spaceMd),
+                  _modeChips(context),
+                  const SizedBox(height: AppDimens.spaceMd),
+                  if (_mode == _StatsMode.captain)
+                    CaptainStatsSection(stats: captainStats)
+                  else ...[
+                    _overallHeader(context, participated),
+                    StatGrid(
+                      cells: playerStatCells(
+                        breakdown.overall,
+                        _mode.asViewMode,
+                      ),
+                    ),
+                    ...breakdown.typedSections.expand(
+                      (section) => [
+                        const SizedBox(height: AppDimens.spaceLg),
+                        _sectionHeader(context, section.title),
+                        StatGrid(
+                          cells: playerStatCells(
+                            section.stats,
+                            _mode.asViewMode,
+                            ballsPerOver: section.ballsPerOver,
+                            bowlingActualOvers: section.bowlingActualOvers,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppDimens.spaceLg),
+                    Text(
+                      'Type sections appear after you complete a match in that format. '
+                      'Set ball type when creating a match (Leather / Tennis / Indoor).',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ],
               ),
-              const SizedBox(height: AppDimens.spaceLg),
-              Text(
-                'Type sections appear after you complete a match in that format. '
-                'Set ball type when creating a match (Leather / Tennis / Indoor).',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('$e')),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -84,24 +136,30 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
     );
   }
 
-  Widget _sectionHeader(BuildContext context, String title) {
+  Widget _overallHeader(BuildContext context, List<MatchModel> participated) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
       child: Row(
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
-          if (title == 'Overall') ...[
-            const Spacer(),
-            TextButton(
-              onPressed: () {
-                final p = ref.read(myPlayerProvider).valueOrNull;
-                if (p != null) context.push('/players/${p.id}');
-              },
-              child: const Text('Full profile'),
+          Expanded(
+            child: Text(
+              'Overall',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-          ],
+          ),
+          ProfileMatchFilterButton(
+            matches: participated,
+            compact: true,
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
+      child: Text(title, style: Theme.of(context).textTheme.titleLarge),
     );
   }
 
@@ -191,22 +249,29 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
   }
 
   Widget _modeChips(BuildContext context) {
+    final cf = context.cf;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _modeChip(context, 'Batting', PlayerStatViewMode.batting),
+          _chip(context, cf, 'Batting', _StatsMode.batting),
           const SizedBox(width: AppDimens.spaceXs),
-          _modeChip(context, 'Bowling', PlayerStatViewMode.bowling),
+          _chip(context, cf, 'Bowling', _StatsMode.bowling),
           const SizedBox(width: AppDimens.spaceXs),
-          _modeChip(context, 'Fielding', PlayerStatViewMode.fielding),
+          _chip(context, cf, 'Fielding', _StatsMode.fielding),
+          const SizedBox(width: AppDimens.spaceXs),
+          _chip(context, cf, 'Captain', _StatsMode.captain),
         ],
       ),
     );
   }
 
-  Widget _modeChip(BuildContext context, String label, PlayerStatViewMode mode) {
-    final cf = context.cf;
+  Widget _chip(
+    BuildContext context,
+    CfColors cf,
+    String label,
+    _StatsMode mode,
+  ) {
     final selected = _mode == mode;
     return FilterChip(
       label: Text(label),
@@ -220,4 +285,15 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
       ),
     );
   }
+}
+
+enum _StatsMode { batting, bowling, fielding, captain }
+
+extension on _StatsMode {
+  PlayerStatViewMode get asViewMode => switch (this) {
+        _StatsMode.batting => PlayerStatViewMode.batting,
+        _StatsMode.bowling => PlayerStatViewMode.bowling,
+        _StatsMode.fielding => PlayerStatViewMode.fielding,
+        _StatsMode.captain => PlayerStatViewMode.fielding,
+      };
 }

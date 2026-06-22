@@ -787,7 +787,8 @@ class LiveHeroCarousel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (heroes.isNotEmpty) SummaryHeroesSection(heroes: heroes),
-        if (awards.isNotEmpty) SummaryAwardsSection(awards: awards),
+        if (awards.isNotEmpty)
+          SummaryAwardsSection(awards: awards),
       ],
     );
   }

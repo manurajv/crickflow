@@ -60,7 +60,7 @@ class ProfileScreen extends ConsumerWidget {
       title: const Text('Profile'),
       actions: [
         TextButton(
-          onPressed: () {},
+          onPressed: () => context.push('/my-cricket-profile'),
           child: Text(
             'My Cricket Profile',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(

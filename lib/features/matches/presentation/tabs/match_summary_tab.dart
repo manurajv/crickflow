@@ -30,6 +30,7 @@ class MatchSummaryTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final matchAsync = ref.watch(matchProvider(matchId));
     final summary = ref.watch(matchSummaryProvider(matchId));
+    final ballEventsAsync = ref.watch(ballEventsProvider(matchId));
 
     return matchAsync.when(
       data: (match) {
@@ -41,10 +42,16 @@ class MatchSummaryTab extends ConsumerWidget {
           return _PreMatchBody(matchId: matchId, match: match);
         }
 
+        final awaitingBallData = match.status == MatchStatus.completed &&
+            ballEventsAsync.isLoading &&
+            summary.heroes.isEmpty &&
+            summary.insight == null;
+
         return _SummaryBody(
           matchId: matchId,
           match: match,
           summary: summary,
+          awaitingBallData: awaitingBallData,
           onNavigateTab: onNavigateTab,
         );
       },
@@ -59,12 +66,14 @@ class _SummaryBody extends ConsumerWidget {
     required this.matchId,
     required this.match,
     required this.summary,
+    this.awaitingBallData = false,
     this.onNavigateTab,
   });
 
   final String matchId;
   final MatchModel match;
   final MatchSummarySnapshot summary;
+  final bool awaitingBallData;
   final void Function(String tabName)? onNavigateTab;
 
   void _goTab(BuildContext context, String tab) {
@@ -98,22 +107,29 @@ class _SummaryBody extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
       children: [
-        if (summary.insight != null)
-          SummaryInsightCard(insight: summary.insight!),
         if (summary.result != null)
           SummaryResultCard(
             match: match,
             result: summary.result!,
             isLive: summary.isLive,
           ),
-        SummaryHeroesSection(heroes: summary.heroes),
-        SummaryStarPerformersSection(
-          batters: summary.starBatters,
-          bowlers: summary.starBowlers,
-          fielders: summary.starFielders,
-          allRounders: summary.starAllRounders,
-        ),
-        SummaryAwardsSection(awards: summary.awards),
+        if (awaitingBallData)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppDimens.spaceLg),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else ...[
+          if (summary.insight != null)
+            SummaryInsightCard(insight: summary.insight!),
+          SummaryHeroesSection(heroes: summary.heroes),
+          SummaryStarPerformersSection(
+            batters: summary.starBatters,
+            bowlers: summary.starBowlers,
+            fielders: summary.starFielders,
+            allRounders: summary.starAllRounders,
+          ),
+          SummaryAwardsSection(awards: summary.awards),
+        ],
         SummaryQuickActions(
           matchId: matchId,
           matchTitle: match.title,
