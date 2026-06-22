@@ -41,6 +41,8 @@ class WagonWheelFilterPanel extends StatelessWidget {
     this.locked = const WagonWheelLockedFilters(),
     this.compact = false,
     this.onReset,
+    this.hideInningsFilter = false,
+    this.opponentTeamLabel = false,
   });
 
   final WagonWheelFilter filter;
@@ -49,6 +51,8 @@ class WagonWheelFilterPanel extends StatelessWidget {
   final WagonWheelLockedFilters locked;
   final bool compact;
   final VoidCallback? onReset;
+  final bool hideInningsFilter;
+  final bool opponentTeamLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -85,18 +89,36 @@ class WagonWheelFilterPanel extends StatelessWidget {
           _dropdown(
             context,
             label: 'Bowler',
-            value: filter.bowlerId,
+            value: filter.batterCareerMode
+                ? filter.bowlerNameKey
+                : filter.bowlerId,
             items: options.bowlers,
-            onSelected: (id) => onChanged(
-              id == null
-                  ? filter.copyWith(clearBowlerId: true)
-                  : filter.copyWith(bowlerId: id),
-            ),
+            onSelected: (id) {
+              if (filter.batterCareerMode) {
+                onChanged(
+                  id == null
+                      ? filter.copyWith(clearBowlerNameKey: true)
+                      : filter.copyWith(
+                          bowlerNameKey: id,
+                          clearBowlerId: true,
+                        ),
+                );
+              } else {
+                onChanged(
+                  id == null
+                      ? filter.copyWith(clearBowlerId: true)
+                      : filter.copyWith(
+                          bowlerId: id,
+                          clearBowlerNameKey: true,
+                        ),
+                );
+              }
+            },
           ),
         if (!locked.team && options.teams.isNotEmpty)
           _dropdown(
             context,
-            label: 'Team',
+            label: opponentTeamLabel ? 'Opponent' : 'Team',
             value: filter.teamId,
             items: options.teams,
             onSelected: (id) => onChanged(
@@ -105,7 +127,7 @@ class WagonWheelFilterPanel extends StatelessWidget {
                   : filter.copyWith(teamId: id),
             ),
           ),
-        if (options.inningsNumbers.length > 1) ...[
+        if (!hideInningsFilter && options.inningsNumbers.length > 1) ...[
           const SizedBox(height: AppDimens.spaceSm),
           Text('Innings', style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 4),

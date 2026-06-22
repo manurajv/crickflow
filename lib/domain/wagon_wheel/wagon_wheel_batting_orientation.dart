@@ -63,10 +63,7 @@ class WagonWheelBattingOrientation {
   }
 
   static bool showSideLabels(WagonWheelFilter filter) =>
-      filter.batterId != null &&
-      filter.bowlerId == null &&
-      filter.teamId == null &&
-      filter.tournamentId == null;
+      filter.batterId != null;
 
   static ({String left, String right}) sideLabels({required bool leftHanded}) {
     if (leftHanded) {

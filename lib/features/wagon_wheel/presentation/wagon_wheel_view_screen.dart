@@ -50,6 +50,8 @@ class _WagonWheelViewScreenState extends ConsumerState<WagonWheelViewScreen> {
         tournamentId:
             _locked.tournament ? widget.initialFilter.tournamentId : null,
         viewMode: _filter.viewMode,
+        batterCareerMode: widget.initialFilter.batterCareerMode,
+        opponentTeamFilter: widget.initialFilter.opponentTeamFilter,
       );
     });
   }
@@ -65,9 +67,12 @@ class _WagonWheelViewScreenState extends ConsumerState<WagonWheelViewScreen> {
               _filter.tournamentId ?? widget.initialFilter.tournamentId,
           batterId: _filter.batterId ?? widget.initialFilter.batterId,
           teamId: _filter.teamId ?? widget.initialFilter.teamId,
+          batterCareerMode: widget.initialFilter.batterCareerMode,
         ),
       ),
     );
+
+    final careerMode = widget.initialFilter.batterCareerMode;
 
     return Scaffold(
       appBar: CfChromeAppBar(
@@ -95,8 +100,15 @@ class _WagonWheelViewScreenState extends ConsumerState<WagonWheelViewScreen> {
               filter: _filter,
               options: options,
               locked: _locked,
-              onChanged: (f) => setState(() => _filter = f),
+              onChanged: (f) => setState(
+                () => _filter = f.copyWith(
+                  batterCareerMode: widget.initialFilter.batterCareerMode,
+                  opponentTeamFilter: widget.initialFilter.opponentTeamFilter,
+                ),
+              ),
               onReset: _resetFilters,
+              hideInningsFilter: careerMode,
+              opponentTeamLabel: widget.initialFilter.opponentTeamFilter,
             ),
             const Divider(height: AppDimens.spaceLg),
           ],
@@ -175,13 +187,22 @@ class _WagonWheelViewScreenState extends ConsumerState<WagonWheelViewScreen> {
     if (_filter.batterId != null) {
       labels.add(_labelFor(options.batters, _filter.batterId!, 'Batter'));
     }
-    if (_filter.bowlerId != null) {
+    if (_filter.bowlerNameKey != null) {
+      labels.add(
+        _labelFor(options.bowlers, _filter.bowlerNameKey!, 'Bowler'),
+      );
+    } else if (_filter.bowlerId != null) {
       labels.add(_labelFor(options.bowlers, _filter.bowlerId!, 'Bowler'));
     }
     if (_filter.teamId != null) {
-      labels.add(_labelFor(options.teams, _filter.teamId!, 'Team'));
+      labels.add(_labelFor(
+        options.teams,
+        _filter.teamId!,
+        widget.initialFilter.opponentTeamFilter ? 'Opponent' : 'Team',
+      ));
     }
-    if (_filter.inningsNumber != null) {
+    if (!widget.initialFilter.batterCareerMode &&
+        _filter.inningsNumber != null) {
       labels.add('Inn ${_filter.inningsNumber}');
     }
     if (_filter.runFilter != WagonWheelRunFilter.all) {

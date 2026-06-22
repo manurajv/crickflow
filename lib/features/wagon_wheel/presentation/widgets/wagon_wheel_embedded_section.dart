@@ -20,6 +20,7 @@ class WagonWheelEmbeddedSection extends ConsumerStatefulWidget {
     this.showWhenEmpty = true,
     this.batterBattingStyle,
     this.showTitle = true,
+    this.batterCareerMode = false,
   });
 
   final String title;
@@ -28,6 +29,9 @@ class WagonWheelEmbeddedSection extends ConsumerStatefulWidget {
   final bool showWhenEmpty;
   final String? batterBattingStyle;
   final bool showTitle;
+
+  /// Player analytics: bowlers faced, opponent teams, no innings filter.
+  final bool batterCareerMode;
 
   @override
   ConsumerState<WagonWheelEmbeddedSection> createState() =>
@@ -41,16 +45,29 @@ class _WagonWheelEmbeddedSectionState
   @override
   void initState() {
     super.initState();
-    _filter = widget.baseFilter;
+    _filter = _withCareerFlags(widget.baseFilter);
+  }
+
+  WagonWheelFilter _withCareerFlags(WagonWheelFilter f) {
+    if (!widget.batterCareerMode) return f;
+    return f.copyWith(
+      batterCareerMode: true,
+      opponentTeamFilter: true,
+      clearInnings: true,
+    );
   }
 
   @override
   void didUpdateWidget(covariant WagonWheelEmbeddedSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.baseFilter != widget.baseFilter) {
-      _filter = widget.baseFilter.copyWith(
+    if (oldWidget.baseFilter != widget.baseFilter ||
+        oldWidget.batterCareerMode != widget.batterCareerMode) {
+      _filter = _withCareerFlags(widget.baseFilter).copyWith(
         runFilter: _filter.runFilter,
-        inningsNumber: _filter.inningsNumber,
+        bowlerId: _filter.bowlerId,
+        teamId: _filter.teamId,
+        clearInnings: widget.batterCareerMode,
+        inningsNumber: widget.batterCareerMode ? null : _filter.inningsNumber,
       );
     }
   }
@@ -65,6 +82,7 @@ class _WagonWheelEmbeddedSectionState
           tournamentId: widget.baseFilter.tournamentId,
           batterId: widget.baseFilter.batterId,
           teamId: widget.baseFilter.teamId,
+          batterCareerMode: widget.batterCareerMode,
         ),
       ),
     );
@@ -98,54 +116,36 @@ class _WagonWheelEmbeddedSectionState
             ),
           ],
         ),
-        if (options.inningsNumbers.length > 1 ||
-            data.shots.isNotEmpty) ...[
+        if (!widget.batterCareerMode &&
+            options.inningsNumbers.length > 1) ...[
           const SizedBox(height: 4),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                if (options.inningsNumbers.length > 1) ...[
-                  _quickChip('All inn', _filter.inningsNumber == null, () {
-                    setState(
-                      () => _filter = _filter.copyWith(clearInnings: true),
-                    );
-                  }),
-                  ...options.inningsNumbers.map((n) {
-                    return _quickChip(
-                      n == 1 ? '1st' : n == 2 ? '2nd' : 'Inn $n',
-                      _filter.inningsNumber == n,
-                      () => setState(
-                        () => _filter = _filter.copyWith(inningsNumber: n),
-                      ),
-                    );
-                  }),
-                ],
-                _quickChip(
-                  '4s & 6s',
-                  _filter.runFilter == WagonWheelRunFilter.boundaries,
-                  () => setState(() {
-                    _filter = _filter.copyWith(
-                      runFilter: _filter.runFilter ==
-                              WagonWheelRunFilter.boundaries
-                          ? WagonWheelRunFilter.all
-                          : WagonWheelRunFilter.boundaries,
-                    );
-                  }),
-                ),
-                _quickChip(
-                  'Sixes',
-                  _filter.runFilter == WagonWheelRunFilter.sixes,
-                  () => setState(() {
-                    _filter = _filter.copyWith(
-                      runFilter: _filter.runFilter == WagonWheelRunFilter.sixes
-                          ? WagonWheelRunFilter.all
-                          : WagonWheelRunFilter.sixes,
-                    );
-                  }),
-                ),
+                _quickChip('All inn', _filter.inningsNumber == null, () {
+                  setState(
+                    () => _filter = _filter.copyWith(clearInnings: true),
+                  );
+                }),
+                ...options.inningsNumbers.map((n) {
+                  return _quickChip(
+                    n == 1 ? '1st' : n == 2 ? '2nd' : 'Inn $n',
+                    _filter.inningsNumber == n,
+                    () => setState(
+                      () => _filter = _filter.copyWith(inningsNumber: n),
+                    ),
+                  );
+                }),
+                ..._runTypeChips(),
               ],
             ),
+          ),
+        ] else if (data.shots.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: _runTypeChips()),
           ),
         ],
         const SizedBox(height: AppDimens.spaceSm),
@@ -186,6 +186,33 @@ class _WagonWheelEmbeddedSectionState
           ),
       ],
     );
+  }
+
+  List<Widget> _runTypeChips() {
+    return [
+      _quickChip(
+        '4s & 6s',
+        _filter.runFilter == WagonWheelRunFilter.boundaries,
+        () => setState(() {
+          _filter = _filter.copyWith(
+            runFilter: _filter.runFilter == WagonWheelRunFilter.boundaries
+                ? WagonWheelRunFilter.all
+                : WagonWheelRunFilter.boundaries,
+          );
+        }),
+      ),
+      _quickChip(
+        'Sixes',
+        _filter.runFilter == WagonWheelRunFilter.sixes,
+        () => setState(() {
+          _filter = _filter.copyWith(
+            runFilter: _filter.runFilter == WagonWheelRunFilter.sixes
+                ? WagonWheelRunFilter.all
+                : WagonWheelRunFilter.sixes,
+          );
+        }),
+      ),
+    ];
   }
 
   Widget _quickChip(String label, bool selected, VoidCallback onTap) {

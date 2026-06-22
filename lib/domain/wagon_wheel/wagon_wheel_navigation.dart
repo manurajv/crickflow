@@ -11,6 +11,7 @@ class WagonWheelNavigation {
   }) {
     final q = <String, String>{'title': title};
     if (filter.batterId != null) q['batterId'] = filter.batterId!;
+    if (filter.bowlerNameKey != null) q['bowlerNameKey'] = filter.bowlerNameKey!;
     if (filter.bowlerId != null) q['bowlerId'] = filter.bowlerId!;
     if (filter.teamId != null) q['teamId'] = filter.teamId!;
     if (filter.matchId != null) q['matchId'] = filter.matchId!;
@@ -18,6 +19,8 @@ class WagonWheelNavigation {
     if (filter.inningsNumber != null) {
       q['innings'] = '${filter.inningsNumber}';
     }
+    if (filter.opponentTeamFilter) q['opponentTeam'] = '1';
+    if (filter.batterCareerMode) q['career'] = '1';
     if (filter.runFilter != WagonWheelRunFilter.all) {
       q['runs'] = filter.runFilter.name;
     }

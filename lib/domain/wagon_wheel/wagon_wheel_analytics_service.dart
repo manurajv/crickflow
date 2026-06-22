@@ -5,6 +5,7 @@ import '../../data/models/match_model.dart';
 import '../../data/models/wagon_wheel_data.dart';
 import 'wagon_wheel_batting_orientation.dart';
 import 'wagon_wheel_filter.dart';
+import 'wagon_wheel_filter_options.dart';
 
 class WagonWheelShotPoint {
   const WagonWheelShotPoint({
@@ -86,13 +87,24 @@ class WagonWheelAnalyticsService {
       if (filter.batterId != null && event.strikerId != filter.batterId) {
         continue;
       }
-      if (filter.bowlerId != null && event.bowlerId != filter.bowlerId) {
+      if (filter.bowlerNameKey != null) {
+        if (WagonWheelFilterOptionsService.bowlerIdentityKey(match, event) !=
+            filter.bowlerNameKey) {
+          continue;
+        }
+      } else if (filter.bowlerId != null && event.bowlerId != filter.bowlerId) {
         continue;
       }
 
       final inn = _inningsForEvent(match, event.inningsNumber);
       final battingTeamId = inn?.battingTeamId;
-      if (filter.teamId != null && battingTeamId != filter.teamId) continue;
+      if (filter.teamId != null) {
+        if (filter.opponentTeamFilter) {
+          if (inn?.bowlingTeamId != filter.teamId) continue;
+        } else if (battingTeamId != filter.teamId) {
+          continue;
+        }
+      }
 
       final ts = event.timestamp;
       if (filter.fromDate != null &&

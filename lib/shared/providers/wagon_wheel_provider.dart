@@ -4,6 +4,7 @@ import '../../data/models/match_model.dart';
 import '../../domain/wagon_wheel/wagon_wheel_analytics_service.dart';
 import '../../domain/wagon_wheel/wagon_wheel_batting_orientation.dart';
 import '../../domain/wagon_wheel/wagon_wheel_filter.dart';
+import '../../domain/wagon_wheel/wagon_wheel_filter_options.dart';
 import 'providers.dart';
 
 final wagonWheelAnalyticsServiceProvider =
@@ -83,6 +84,16 @@ List<MatchModel> _scopedMatches(
   if (filter.tournamentId != null) {
     return matches
         .where((m) => m.tournamentId == filter.tournamentId)
+        .toList();
+  }
+  if (filter.batterCareerMode && filter.batterId != null) {
+    return matches
+        .where(
+          (m) => WagonWheelFilterOptionsService.matchHasBatter(
+            m,
+            filter.batterId!,
+          ),
+        )
         .toList();
   }
   return matches;

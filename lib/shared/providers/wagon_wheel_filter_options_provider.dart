@@ -11,6 +11,7 @@ class WagonWheelOptionsScope {
     this.tournamentId,
     this.batterId,
     this.teamId,
+    this.batterCareerMode = false,
   });
 
   final String? matchId;
@@ -18,16 +19,21 @@ class WagonWheelOptionsScope {
   final String? batterId;
   final String? teamId;
 
+  /// Batter career analytics — bowlers faced, opponent teams, no innings.
+  final bool batterCareerMode;
+
   @override
   bool operator ==(Object other) =>
       other is WagonWheelOptionsScope &&
       matchId == other.matchId &&
       tournamentId == other.tournamentId &&
       batterId == other.batterId &&
-      teamId == other.teamId;
+      teamId == other.teamId &&
+      batterCareerMode == other.batterCareerMode;
 
   @override
-  int get hashCode => Object.hash(matchId, tournamentId, batterId, teamId);
+  int get hashCode =>
+      Object.hash(matchId, tournamentId, batterId, teamId, batterCareerMode);
 }
 
 final wagonWheelFilterOptionsServiceProvider =
@@ -46,7 +52,12 @@ final wagonWheelFilterOptionsProvider = Provider.family<
     events.addAll(ev);
   }
 
-  return service.build(matches: matches, events: events);
+  return service.build(
+    matches: matches,
+    events: events,
+    batterCareerMode: scope.batterCareerMode,
+    batterId: scope.batterId,
+  );
 });
 
 List<MatchModel> _scopedMatches(
@@ -58,6 +69,14 @@ List<MatchModel> _scopedMatches(
   }
   if (scope.tournamentId != null) {
     return all.where((m) => m.tournamentId == scope.tournamentId).toList();
+  }
+  if (scope.batterCareerMode && scope.batterId != null) {
+    return all
+        .where((m) => WagonWheelFilterOptionsService.matchHasBatter(
+              m,
+              scope.batterId!,
+            ))
+        .toList();
   }
   if (scope.batterId != null || scope.teamId != null) {
     return all;

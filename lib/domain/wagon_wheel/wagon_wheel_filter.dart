@@ -50,6 +50,9 @@ class WagonWheelFilter extends Equatable {
     this.fromDate,
     this.toDate,
     this.viewMode = WagonWheelViewMode.lines,
+    this.batterCareerMode = false,
+    this.opponentTeamFilter = false,
+    this.bowlerNameKey,
   });
 
   final String? batterId;
@@ -63,6 +66,15 @@ class WagonWheelFilter extends Equatable {
   final DateTime? toDate;
   final WagonWheelViewMode viewMode;
 
+  /// Player analytics: career wagon wheel for a locked batter.
+  final bool batterCareerMode;
+
+  /// When true, [teamId] matches the bowling (opponent) team in the innings.
+  final bool opponentTeamFilter;
+
+  /// Career batter view: filter by name + bowling type identity (dedupes ids).
+  final String? bowlerNameKey;
+
   WagonWheelFilter copyWith({
     String? batterId,
     String? bowlerId,
@@ -74,8 +86,12 @@ class WagonWheelFilter extends Equatable {
     DateTime? fromDate,
     DateTime? toDate,
     WagonWheelViewMode? viewMode,
+    bool? batterCareerMode,
+    bool? opponentTeamFilter,
+    String? bowlerNameKey,
     bool clearBatterId = false,
     bool clearBowlerId = false,
+    bool clearBowlerNameKey = false,
     bool clearTeamId = false,
     bool clearMatchId = false,
     bool clearTournamentId = false,
@@ -96,6 +112,10 @@ class WagonWheelFilter extends Equatable {
       fromDate: clearFromDate ? null : (fromDate ?? this.fromDate),
       toDate: clearToDate ? null : (toDate ?? this.toDate),
       viewMode: viewMode ?? this.viewMode,
+      batterCareerMode: batterCareerMode ?? this.batterCareerMode,
+      opponentTeamFilter: opponentTeamFilter ?? this.opponentTeamFilter,
+      bowlerNameKey:
+          clearBowlerNameKey ? null : (bowlerNameKey ?? this.bowlerNameKey),
     );
   }
 
@@ -111,5 +131,8 @@ class WagonWheelFilter extends Equatable {
         fromDate,
         toDate,
         viewMode,
+        batterCareerMode,
+        opponentTeamFilter,
+        bowlerNameKey,
       ];
 }

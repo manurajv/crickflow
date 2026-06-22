@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
@@ -10,6 +11,7 @@ import '../../../../shared/providers/my_player_stats_breakdown_provider.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
+import '../../../my_cricket/presentation/widgets/my_cricket_action_banner.dart';
 import '../widgets/captain_stats_section.dart';
 import '../widgets/profile_match_filter_button.dart';
 
@@ -52,6 +54,14 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
         padding: AppDimens.listPadding,
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
+          MyCricketActionBanner(
+            inset: false,
+            title: 'Deep dive into your game',
+            actionLabel: 'Analyze',
+            onAction: () =>
+                context.push('/players/${widget.player.id}/analysis'),
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
           _modeChips(context, cf),
           const SizedBox(height: AppDimens.spaceMd),
           if (_mode == _StatsMode.captain)

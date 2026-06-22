@@ -87,7 +87,8 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
                     inset: false,
                     title: 'Want to improve your stats?',
                     actionLabel: 'Analyze',
-                    onAction: () => context.push('/players/${player.id}'),
+                    onAction: () =>
+                        context.push('/players/${player.id}/analysis'),
                   ),
                   const SizedBox(height: AppDimens.spaceMd),
                   _modeChips(context),

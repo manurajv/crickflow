@@ -37,6 +37,7 @@ import '../../features/store/presentation/store_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/find_cricketers_screen.dart';
 import '../../features/my_cricket_profile/presentation/my_cricket_profile_screen.dart';
+import '../../features/my_cricket_profile/presentation/player_analysis_screen.dart';
 import '../../features/profile/presentation/player_followers_screen.dart';
 import '../../features/profile/presentation/player_following_screen.dart';
 import '../../features/profile/presentation/player_public_profile_screen.dart';
@@ -474,6 +475,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/players/:id',
         builder: (_, state) =>
             PlayerDetailScreen(playerId: state.pathParameters['id']!),
+        routes: [
+          GoRoute(
+            path: 'analysis',
+            builder: (_, state) => PlayerAnalysisScreen(
+              playerId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
       ),
       GoRoute(path: '/store', builder: (_, __) => const StoreScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
@@ -549,6 +558,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             initialFilter: WagonWheelFilter(
               batterId: q['batterId'],
               bowlerId: q['bowlerId'],
+              bowlerNameKey: q['bowlerNameKey'],
               teamId: q['teamId'],
               matchId: q['matchId'],
               tournamentId: q['tournamentId'],
@@ -557,6 +567,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               viewMode: viewMode ?? WagonWheelViewMode.lines,
               fromDate: DateTime.tryParse(q['from'] ?? ''),
               toDate: DateTime.tryParse(q['to'] ?? ''),
+              batterCareerMode: q['career'] == '1',
+              opponentTeamFilter: q['opponentTeam'] == '1',
             ),
           );
         },

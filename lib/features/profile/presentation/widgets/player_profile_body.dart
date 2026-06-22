@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/user_model.dart';
@@ -75,21 +74,6 @@ class _PlayerProfileBodyState extends ConsumerState<PlayerProfileBody> {
           user: widget.user,
           isOwnProfile: widget.isOwnProfile,
           viewerId: widget.viewerId,
-        ),
-        const SizedBox(height: AppDimens.spaceMd),
-        Center(
-          child: OutlinedButton.icon(
-            onPressed: () {
-              final id = widget.user.playerId;
-              if (id == null || id.isEmpty) {
-                context.push('/my-cricket-profile');
-              } else {
-                context.push('/player/$id/cricket');
-              }
-            },
-            icon: const Icon(Icons.sports_cricket),
-            label: const Text('Open Cricket Profile'),
-          ),
         ),
         const SizedBox(height: AppDimens.spaceXl),
       ],

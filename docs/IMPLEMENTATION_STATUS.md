@@ -26,6 +26,8 @@
 | Tabs — Matches, Stats, Trophies, Badges, Teams, Connections (no Highlights/Photos) | Done |
 | Matches tab — Upcoming/Live/Completed + filters (overs, ball, type, year, team) | Done |
 | Stats tab — Batting, Bowling, Fielding (reused) + Captain section | Done |
+| **Analysis screen** — `/players/:id/analysis` — collapsible dashboard (batting/bowling/fielding/captaincy/opponent/situation/progression/heatmaps) | Done |
+| Analyze CTA — My Cricket Stats + Profile Stats tabs → Analysis screen | Done |
 | Captain stats — wins, toss %, chases, timeline, by year/format | Done |
 | Player clusters — batting (SR/pattern) + bowling (economy/wickets) from match data | Done |
 | Trophies — 5 MVP award types (POTM, Fighter, Best Batter/Bowler/Fielder); tap for career list | Done |
