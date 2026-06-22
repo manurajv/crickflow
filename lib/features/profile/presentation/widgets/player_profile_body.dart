@@ -8,6 +8,7 @@ import 'profile_actions_bar.dart';
 import 'profile_connections_section.dart';
 import 'profile_details_section.dart';
 import 'profile_header.dart';
+import 'profile_hub_section.dart';
 
 class PlayerProfileBody extends ConsumerStatefulWidget {
   const PlayerProfileBody({
@@ -64,6 +65,10 @@ class _PlayerProfileBodyState extends ConsumerState<PlayerProfileBody> {
           isOwnProfile: widget.isOwnProfile,
           viewerId: widget.viewerId,
         ),
+        if (widget.isOwnProfile) ...[
+          const SizedBox(height: AppDimens.spaceXl),
+          const ProfileHubSection(),
+        ],
         const SizedBox(height: AppDimens.spaceXl),
         ProfileDetailsSection(
           user: widget.user,

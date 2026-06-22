@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Upcoming match details (pre-match hub)  
+**Last updated:** Side navigation drawer + profile hub  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -12,6 +12,17 @@
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
 
 ---
+
+---
+
+## Latest (Side navigation & profile hub)
+
+| Item | Status |
+|------|--------|
+| Side drawer — grouped sections (Quick actions, My cricket, Explore, Account); Main section removed | Done |
+| Drawer routes — My Cricket sub-tabs switch correctly even when already on `/matches` | Done |
+| Drawer header — guest sign-in CTA; signed-in avatar, CF ID, cricket profile shortcut (no settings) | Done |
+| Profile app bar — settings icon removed (settings in actions bar + drawer Account) | Done |
 
 ---
 

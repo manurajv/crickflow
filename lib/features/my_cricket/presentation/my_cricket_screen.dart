@@ -38,13 +38,14 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
     super.initState();
     _tabs = TabController(length: 5, vsync: this);
     _tabs.addListener(_onTabChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final initial = ref.read(myCricketInitialTabProvider);
-      if (initial > 0 && initial < _tabs.length) {
-        _tabs.animateTo(initial);
-        ref.read(myCricketInitialTabProvider.notifier).state = 0;
-      }
-    });
+  }
+
+  void _applyPendingTab(int tab) {
+    if (tab < 0 || tab >= _tabs.length) return;
+    if (_tabs.index != tab) {
+      _tabs.animateTo(tab);
+    }
+    ref.read(myCricketInitialTabProvider.notifier).state = -1;
   }
 
   @override
@@ -56,6 +57,17 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(myCricketInitialTabProvider, (previous, next) {
+      _applyPendingTab(next);
+    });
+
+    final pendingTab = ref.watch(myCricketInitialTabProvider);
+    if (pendingTab >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _applyPendingTab(pendingTab);
+      });
+    }
+
     final cf = context.cf;
     final canCreate = canCreateMatches(
       ref.watch(currentUserProfileProvider).valueOrNull?.role ??

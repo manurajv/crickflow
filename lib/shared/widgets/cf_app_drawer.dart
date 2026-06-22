@@ -1,17 +1,20 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+
 import '../../core/auth/auth_gate.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
-import '../../data/models/user_model.dart';
-import '../../core/theme/cf_colors.dart';
 import '../../core/theme/app_dimens.dart';
+import '../../core/theme/cf_colors.dart';
+import '../../core/utils/cf_player_id_format.dart';
+import '../../data/models/user_model.dart';
 import '../providers/my_cricket_ui_provider.dart';
 import '../providers/providers.dart';
 
-/// Side navigation — ecosystem shortcuts (CrickFlow chrome, not reference clone).
+/// Side navigation aligned with shell tabs and cricket shortcuts.
 class CfAppDrawer extends ConsumerWidget {
   const CfAppDrawer({super.key});
 
@@ -29,14 +32,23 @@ class CfAppDrawer extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _DrawerHeader(profile: profile),
+            _DrawerHeader(
+              profile: profile,
+              isGuest: isGuest,
+              onOpenProfile: () => _goShell(context, '/profile'),
+              onSignIn: () {
+                Navigator.pop(context);
+                context.push('/login');
+              },
+            ),
             Expanded(
               child: ListView(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
                 children: [
                   if (showOrganizerActions) ...[
+                    const _DrawerSectionHeader('Quick actions'),
                     _DrawerTile(
-                      icon: Icons.sports_cricket,
+                      icon: Icons.play_circle_outline,
                       label: 'Start a match',
                       subtitle: 'Ball-by-ball scoring',
                       onTap: () {
@@ -69,53 +81,54 @@ class CfAppDrawer extends ConsumerWidget {
                         );
                       },
                     ),
-                    _DrawerTile(
-                      icon: Icons.videocam_outlined,
-                      label: 'Go live',
-                      subtitle: 'From Match Center stream tab',
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Open a match → Summary → Go Live',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1),
                   ],
+                  const _DrawerSectionHeader('My cricket'),
                   _DrawerTile(
-                    icon: Icons.home_outlined,
-                    label: 'Home',
-                    onTap: () => _goTab(context, 0),
+                    icon: Icons.format_list_bulleted_outlined,
+                    label: 'Matches',
+                    onTap: () => _goMyCricket(context, ref, tab: 0),
                   ),
                   _DrawerTile(
-                    icon: Icons.sports_cricket_outlined,
-                    label: 'My matches',
-                    onTap: () => _goTab(context, 2),
-                  ),
-                  _DrawerTile(
-                    icon: Icons.analytics_outlined,
-                    label: 'My performance',
-                    onTap: () {
-                      Navigator.pop(context);
-                      ref.read(myCricketInitialTabProvider.notifier).state = 3;
-                      context.go('/matches');
-                    },
+                    icon: Icons.emoji_events_outlined,
+                    label: 'Tournaments',
+                    onTap: () => _goMyCricket(context, ref, tab: 1),
                   ),
                   _DrawerTile(
                     icon: Icons.groups_outlined,
                     label: 'Teams',
+                    onTap: () => _goMyCricket(context, ref, tab: 2),
+                  ),
+                  _DrawerTile(
+                    icon: Icons.analytics_outlined,
+                    label: 'Stats & analysis',
+                    onTap: () => _goMyCricket(context, ref, tab: 3),
+                  ),
+                  _DrawerTile(
+                    icon: Icons.movie_outlined,
+                    label: 'Highlights',
+                    onTap: () => _goMyCricket(context, ref, tab: 4),
+                  ),
+                  const _DrawerSectionHeader('Explore'),
+                  _DrawerTile(
+                    icon: Icons.person_search_outlined,
+                    label: 'Find cricketers',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/teams');
+                      requireAuthVoid(
+                        context: context,
+                        ref: ref,
+                        returnPath: '/find-cricketers',
+                        action: () async {
+                          if (context.mounted) {
+                            context.push('/find-cricketers');
+                          }
+                        },
+                      );
                     },
                   ),
                   _DrawerTile(
-                    icon: Icons.person_outline,
-                    label: 'Players',
+                    icon: Icons.people_outline,
+                    label: 'Player directory',
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/players');
@@ -129,26 +142,7 @@ class CfAppDrawer extends ConsumerWidget {
                       context.push('/fantasy');
                     },
                   ),
-                  _DrawerTile(
-                    icon: Icons.explore_outlined,
-                    label: 'Discover',
-                    onTap: () => _goTab(context, 1),
-                  ),
-                  _DrawerTile(
-                    icon: Icons.forum_outlined,
-                    label: 'Community',
-                    onTap: () => _goTab(context, 3),
-                  ),
-                  const Divider(height: 1),
-                  _DrawerTile(
-                    icon: Icons.workspace_premium_outlined,
-                    label: 'CrickFlow PRO',
-                    subtitle: 'Premium tools',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/store');
-                    },
-                  ),
+                  const _DrawerSectionHeader('Account'),
                   _DrawerTile(
                     icon: Icons.notifications_outlined,
                     label: 'Notifications',
@@ -159,7 +153,9 @@ class CfAppDrawer extends ConsumerWidget {
                         ref: ref,
                         returnPath: '/notifications',
                         action: () async {
-                          if (context.mounted) context.push('/notifications');
+                          if (context.mounted) {
+                            context.push('/notifications');
+                          }
                         },
                       );
                     },
@@ -170,6 +166,15 @@ class CfAppDrawer extends ConsumerWidget {
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/settings');
+                    },
+                  ),
+                  _DrawerTile(
+                    icon: Icons.workspace_premium_outlined,
+                    label: 'CrickFlow PRO',
+                    subtitle: 'Premium tools',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/store');
                     },
                   ),
                   _DrawerTile(
@@ -189,7 +194,9 @@ class CfAppDrawer extends ConsumerWidget {
               padding: AppDimens.cardPadding,
               child: Text(
                 '${AppConstants.appName} v${AppConstants.appVersion}',
-                style: Theme.of(context).textTheme.bodySmall,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: context.cf.textMuted,
+                    ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -199,114 +206,276 @@ class CfAppDrawer extends ConsumerWidget {
     );
   }
 
-  void _goTab(BuildContext context, int index) {
+  static void _goShell(BuildContext context, String path) {
     Navigator.pop(context);
-    switch (index) {
-      case 0:
-        context.go('/home');
-      case 1:
-        context.go('/discover');
-      case 2:
-        context.go('/matches');
-      case 3:
-        context.go('/community');
-      case 4:
-        context.go('/profile');
-    }
+    context.go(path);
+  }
+
+  static void _goMyCricket(
+    BuildContext context,
+    WidgetRef ref, {
+    required int tab,
+  }) {
+    Navigator.pop(context);
+    ref.read(myCricketInitialTabProvider.notifier).state = tab;
+    context.go('/matches');
   }
 }
 
-class _DrawerHeader extends StatelessWidget {
-  const _DrawerHeader({this.profile});
+class _DrawerSectionHeader extends StatelessWidget {
+  const _DrawerSectionHeader(this.label);
 
-  final UserModel? profile;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    final name = profile?.displayName ?? 'Guest';
-    final email = profile?.email ?? '';
-    final role = profile?.role.name ?? 'member';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spaceMd,
+        AppDimens.spaceMd,
+        AppDimens.spaceMd,
+        AppDimens.spaceXs,
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: cf.textMuted,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
+            ),
+      ),
+    );
+  }
+}
+
+class _DrawerHeader extends StatelessWidget {
+  const _DrawerHeader({
+    required this.isGuest,
+    required this.onOpenProfile,
+    required this.onSignIn,
+    this.profile,
+  });
+
+  final UserModel? profile;
+  final bool isGuest;
+  final VoidCallback onOpenProfile;
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+
+    if (isGuest) {
+      return Material(
+        color: cf.chromeBackground,
+        child: InkWell(
+          onTap: onSignIn,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+              AppDimens.spaceLg,
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: cf.surfaceElevated,
+                  child: Icon(Icons.person_outline, color: cf.textSecondary),
+                ),
+                const SizedBox(width: AppDimens.spaceMd),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Guest',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: cf.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Sign in to sync your cricket',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cf.textSecondary,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.login, color: cf.accent, size: 22),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final name = profile?.effectiveName ?? 'Player';
+    final playerId = profile?.playerId;
+    final role = profile?.role ?? UserRole.organizer;
+    final isViewer = role == UserRole.viewer;
 
     return Material(
       color: cf.chromeBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onOpenProfile,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                AppDimens.spaceMd,
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: CfColors.primaryBlue,
+                    backgroundImage: profile?.photoUrl != null
+                        ? CachedNetworkImageProvider(profile!.photoUrl!)
+                        : null,
+                    child: profile?.photoUrl == null
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: AppDimens.spaceMd),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                color: cf.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (playerId != null && playerId.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            CfPlayerIdFormat.displayLabel(playerId),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: cf.textSecondary,
+                                      letterSpacing: 0.3,
+                                    ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cf.accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: cf.accent.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Text(
+                            isViewer ? 'Viewer' : 'Member',
+                            style:
+                                Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: cf.accent,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: cf.textMuted),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              0,
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+            ),
+            child: _HeaderAction(
+              icon: Icons.insights_outlined,
+              label: 'Cricket profile',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/my-cricket-profile');
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+
+    return Material(
+      color: cf.surfaceElevated,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: () {
-          Navigator.pop(context);
-          context.push('/profile');
-        },
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppDimens.spaceMd,
-            AppDimens.spaceMd,
-            AppDimens.spaceMd,
-            AppDimens.spaceLg,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spaceSm,
+            vertical: AppDimens.spaceSm + 2,
           ),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: CfColors.primaryBlue,
-                backgroundImage: profile?.photoUrl != null
-                    ? NetworkImage(profile!.photoUrl!)
-                    : null,
-                child: profile?.photoUrl == null
-                    ? Text(
-                        name.isNotEmpty ? name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: AppDimens.spaceMd),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: cf.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (email.isNotEmpty)
-                      Text(
-                        email,
-                        style: Theme.of(context).textTheme.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              Icon(icon, size: 16, color: cf.accent),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: cf.textPrimary,
+                        fontWeight: FontWeight.w600,
                       ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cf.accent.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: cf.accent.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Text(
-                        role == UserRole.viewer.name ? 'Viewer' : 'Member',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: cf.accent,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                    ),
-                  ],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(Icons.chevron_right, color: cf.textSecondary),
             ],
           ),
         ),
@@ -319,8 +488,8 @@ class _DrawerTile extends StatelessWidget {
   const _DrawerTile({
     required this.icon,
     required this.label,
-    this.subtitle,
     required this.onTap,
+    this.subtitle,
   });
 
   final IconData icon;
@@ -330,12 +499,27 @@ class _DrawerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+
     return ListTile(
       dense: subtitle == null,
+      visualDensity: VisualDensity.compact,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       leading: Icon(icon, color: CfColors.primaryBlueLight, size: 22),
-      title: Text(label, style: Theme.of(context).textTheme.titleMedium),
+      title: Text(
+        label,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: cf.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
+      ),
       subtitle: subtitle != null
-          ? Text(subtitle!, style: Theme.of(context).textTheme.bodySmall)
+          ? Text(
+              subtitle!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cf.textSecondary,
+                  ),
+            )
           : null,
       onTap: onTap,
     );

@@ -58,18 +58,6 @@ class ProfileScreen extends ConsumerWidget {
 
     return ShellTabScaffold(
       title: const Text('Profile'),
-      actions: [
-        TextButton(
-          onPressed: () => context.push('/my-cricket-profile'),
-          child: Text(
-            'My Cricket Profile',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: context.cf.accent,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
-      ],
       body: profileAsync.when(
         data: (user) {
           if (user == null) {
