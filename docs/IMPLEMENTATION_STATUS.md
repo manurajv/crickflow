@@ -46,7 +46,10 @@
 | Tournament join screen — QR deep link, team picker for multi-team leadership, back → My Cricket Tournaments | Done |
 | Tournament Teams tab — sections, empty state, add team bottom sheet, join screen | Done |
 | Tournament Teams tab — approve/reject/remove confirm sheets; per-team logo via `teamByIdProvider` | Done |
-| Add existing team — success sheet, navigate to Teams tab, root navigator for modals | Done |
+| Tournament list — My Cricket Tournaments tab only; `/tournaments` redirects to My Cricket | Done |
+| Tournament dashboard — open for all users (viewer RBAC); join via banner / `/join` route | Done |
+| Tournament invite notifications — Accept/Reject in-app; no organiser dashboard redirect | Done |
+| Firestore — team leadership can add roster on invitation accept (`leadershipRosterTeamId`) | Done — deploy rules |
 | QR cold start — prefetch initial App Link in `main()`; splash resolves link in parallel | Done |
 | Tournament team notifications — 6 types with Accept/Reject in notifications | Done |
 | Group ↔ team assignment UI | Pending |

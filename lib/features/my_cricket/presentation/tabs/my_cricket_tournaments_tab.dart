@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/constants/enums.dart';
 import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
@@ -10,7 +9,6 @@ import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/tournament_list_card.dart';
 import '../../my_cricket_filters.dart';
 import '../widgets/my_cricket_action_banner.dart';
@@ -35,21 +33,8 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
     );
   }
 
-  void _openTournament(TournamentModel tournament, String? uid) {
-    if (uid != null && tournament.effectiveOrganizerId == uid) {
-      context.push('/tournaments/${tournament.id}');
-      return;
-    }
-
-    final role = uid == null
-        ? TournamentRole.viewer
-        : ref.read(tournamentMemberRoleProvider((tournament.id, uid)));
-    if (role == TournamentRole.owner || role == TournamentRole.admin) {
-      context.push('/tournaments/${tournament.id}');
-      return;
-    }
-
-    context.push('/tournaments/${tournament.id}/join');
+  void _openTournament(TournamentModel tournament) {
+    context.push('/tournaments/${tournament.id}');
   }
 
   @override
@@ -132,7 +117,7 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
                     final t = list[i];
                     return TournamentListCard(
                       tournament: t,
-                      onTap: () => _openTournament(t, uid),
+                      onTap: () => _openTournament(t),
                       trailing: t.tournamentCode != null
                           ? Text(
                               t.tournamentCode!,

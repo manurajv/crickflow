@@ -50,6 +50,11 @@ class NotificationNavigation {
         return '/player/$playerId';
       }
     }
+    // Tournament invitations are handled with Accept/Reject on the notifications
+    // screen — do not route team leadership to the organiser dashboard.
+    if (notification.type == TournamentNotificationTypes.invitation) {
+      return null;
+    }
     return routeFor(
       type: notification.type,
       teamId: notification.teamId,

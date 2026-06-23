@@ -137,7 +137,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                         title: Text(t.name),
                         subtitle: Text(t.location.displayLabel),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push('/tournaments'),
+                        onTap: () => context.push('/tournaments/${t.id}'),
                       ),
                     )
                     .toList(),

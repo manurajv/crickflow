@@ -99,17 +99,6 @@ class _TournamentDashboardScreenState
           );
         }
 
-        final canManageDashboard = uid != null &&
-            (tournament.effectiveOrganizerId == uid ||
-                role == TournamentRole.owner ||
-                role == TournamentRole.admin);
-        if (!canManageDashboard) {
-          return _TournamentDashboardAccessDenied(
-            tournamentId: widget.tournamentId,
-            tournamentName: tournament.name,
-          );
-        }
-
         final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
         _titleThreshold = _coverHeight - topInset - 1;
 
@@ -377,66 +366,6 @@ class _TournamentHeaderBanner extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _TournamentDashboardAccessDenied extends ConsumerWidget {
-  const _TournamentDashboardAccessDenied({
-    required this.tournamentId,
-    required this.tournamentName,
-  });
-
-  final String tournamentId;
-  final String tournamentName;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cf = context.cf;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(tournamentName),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              goToMyCricketTournamentsTab(ref, context);
-            }
-          },
-        ),
-      ),
-      body: Padding(
-        padding: AppDimens.screenPadding,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.lock_outline, size: 56, color: cf.textMuted),
-            const SizedBox(height: AppDimens.spaceMd),
-            Text(
-              'Organizer access only',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppDimens.spaceSm),
-            Text(
-              'Only the tournament organizer can open the management dashboard.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: cf.textSecondary,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppDimens.spaceLg),
-            FilledButton(
-              onPressed: () => context.go('/tournaments/$tournamentId/join'),
-              child: const Text('Join with your team'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

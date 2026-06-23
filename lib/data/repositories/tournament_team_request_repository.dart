@@ -86,7 +86,7 @@ class TournamentTeamRequestRepository {
   }) async {
     await _assertCanInvite(tournament: tournament, team: team);
 
-    if (TeamLeadershipUtils.isTeamOwner(organizerUserId, team)) {
+    if (await _canManageTeamJoinRequests(organizerUserId, team)) {
       return addTeamDirectlyAsOrganizer(
         tournament: tournament,
         team: team,
@@ -239,7 +239,7 @@ class TournamentTeamRequestRepository {
       throw StateError('Not allowed to respond to this invitation');
     }
 
-    await _approveAndAddTeam(
+    await _approveInvitationAsTeamLeadership(
       request: request,
       resolverUserId: resolverUserId,
     );
@@ -403,6 +403,27 @@ class TournamentTeamRequestRepository {
         'updatedAt': DateTime.now().toIso8601String(),
       });
     }
+  }
+
+  Future<void> _approveInvitationAsTeamLeadership({
+    required TournamentTeamRequestModel request,
+    required String resolverUserId,
+  }) async {
+    final team = await _teams.getTeam(request.teamId);
+    if (team == null) throw StateError('Team not found');
+
+    final now = DateTime.now();
+    await _col.doc(request.id).update({
+      'status': TournamentTeamRequestStatus.approved.name,
+      'approvedByUserId': resolverUserId,
+      'updatedAt': now.toIso8601String(),
+    });
+
+    await _tournaments.addTeamToTournamentViaLeadershipAccept(
+      tournamentId: request.tournamentId,
+      teamId: request.teamId,
+      teamName: team.name,
+    );
   }
 
   Future<void> _approveAndAddTeam({

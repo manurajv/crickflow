@@ -91,17 +91,19 @@ class TournamentTeamsScreen extends ConsumerWidget {
         final hasAny = requests.isNotEmpty || legacyApproved.isNotEmpty;
 
         if (!hasAny) {
-          return _EmptyTeamsState(
-            canManage: canManage,
-            onInvite: () => showAddTeamToTournamentSheet(
-              context: context,
-              ref: ref,
-              tournament: liveTournament,
-            ),
-            onAddManual: () => showAddTeamToTournamentSheet(
-              context: context,
-              ref: ref,
-              tournament: liveTournament,
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(tournamentTeamRequestsProvider(liveTournament.id));
+              ref.invalidate(tournamentProvider(liveTournament.id));
+              ref.invalidate(allTeamsProvider);
+            },
+            child: _EmptyTeamsState(
+              canManage: canManage,
+              onAddTeam: () => showAddTeamToTournamentSheet(
+                context: context,
+                ref: ref,
+                tournament: liveTournament,
+              ),
             ),
           );
         }
@@ -117,34 +119,15 @@ class TournamentTeamsScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               if (canManage) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: CfButton(
-                        label: 'Invite teams',
-                        isGold: true,
-                        compact: true,
-                        onPressed: () => showAddTeamToTournamentSheet(
-                          context: context,
-                          ref: ref,
-                          tournament: liveTournament,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppDimens.spaceSm),
-                    Expanded(
-                      child: CfButton(
-                        label: 'Add team',
-                        isOutlined: true,
-                        compact: true,
-                        onPressed: () => showAddTeamToTournamentSheet(
-                          context: context,
-                          ref: ref,
-                          tournament: liveTournament,
-                        ),
-                      ),
-                    ),
-                  ],
+                CfButton(
+                  label: 'Add team',
+                  isGold: true,
+                  compact: true,
+                  onPressed: () => showAddTeamToTournamentSheet(
+                    context: context,
+                    ref: ref,
+                    tournament: liveTournament,
+                  ),
                 ),
                 const SizedBox(height: AppDimens.spaceMd),
               ],
@@ -524,13 +507,11 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
 class _EmptyTeamsState extends StatelessWidget {
   const _EmptyTeamsState({
     required this.canManage,
-    required this.onInvite,
-    required this.onAddManual,
+    required this.onAddTeam,
   });
 
   final bool canManage;
-  final VoidCallback onInvite;
-  final VoidCallback onAddManual;
+  final VoidCallback onAddTeam;
 
   @override
   Widget build(BuildContext context) {
@@ -547,7 +528,7 @@ class _EmptyTeamsState extends StatelessWidget {
         ),
         const SizedBox(height: AppDimens.spaceMd),
         Text(
-          'No teams added yet',
+          'No teams yet',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
@@ -555,7 +536,9 @@ class _EmptyTeamsState extends StatelessWidget {
         ),
         const SizedBox(height: AppDimens.spaceSm),
         Text(
-          'Invite teams to join your tournament or add teams manually.',
+          canManage
+              ? 'Add teams by sharing your join link, searching existing teams, or creating a new one.'
+              : 'Teams will appear here once the organiser adds them or they join the tournament.',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: cf.textSecondary,
@@ -563,13 +546,7 @@ class _EmptyTeamsState extends StatelessWidget {
         ),
         if (canManage) ...[
           const SizedBox(height: AppDimens.spaceXl),
-          CfButton(label: 'Invite teams', isGold: true, onPressed: onInvite),
-          const SizedBox(height: AppDimens.spaceSm),
-          CfButton(
-            label: 'Add team manually',
-            isOutlined: true,
-            onPressed: onAddManual,
-          ),
+          CfButton(label: 'Add team', isGold: true, onPressed: onAddTeam),
         ],
       ],
     );

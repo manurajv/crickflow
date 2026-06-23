@@ -58,7 +58,6 @@ import '../../features/teams/presentation/team_detail_screen.dart';
 import '../../features/teams/presentation/team_edit_screen.dart';
 import '../../features/teams/presentation/create_team_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
-import '../../features/tournaments/presentation/tournament_screen.dart';
 import '../../features/tournaments/presentation/tournament_dashboard_screen.dart';
 import '../../features/tournaments/presentation/tournament_dashboard_sections.dart';
 import '../../features/tournaments/presentation/tournament_create_flow_screen.dart';
@@ -173,26 +172,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
       }
 
-      // Tournament invite links — external opens go to join, not dashboard.
-      final tournamentInvite = RegExp(r'^/tournaments/([^/]+)$').firstMatch(path);
-      if (tournamentInvite != null) {
-        final id = tournamentInvite.group(1)!;
-        final qp = state.uri.queryParameters;
-        final fromExternal = incomingUri.scheme == DeepLinkUtils.customScheme ||
-            (incomingUri.scheme == 'https' &&
-                (incomingUri.host == DeepLinkUtils.httpsHost ||
-                    incomingUri.host == DeepLinkUtils.firebaseHostingHost));
-        if (fromExternal ||
-            qp.containsKey('code') ||
-            qp['from'] == 'qr') {
-          final query = StringBuffer('from=qr');
-          if (qp.containsKey('code')) {
-            query.write('&code=${Uri.encodeComponent(qp['code']!)}');
-          }
-          return '/tournaments/$id/join?$query';
-        }
-      }
-
+      // Tournament dashboard is public; join flow is linked from the dashboard banner.
       return null;
     },
     onException: (context, state, router) {
@@ -459,7 +439,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/tournaments',
-        builder: (_, __) => const TournamentScreen(),
+        redirect: (_, state) {
+          if (state.uri.path == '/tournaments') {
+            return '/matches?tab=1';
+          }
+          return null;
+        },
         routes: [
           GoRoute(
             path: 'create',

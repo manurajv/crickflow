@@ -11,7 +11,6 @@ class GuestRoutes {
   };
 
   static const browseRoots = {
-    '/tournaments',
     '/teams',
     '/players',
     '/analytics',

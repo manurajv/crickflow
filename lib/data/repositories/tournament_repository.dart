@@ -152,6 +152,32 @@ class TournamentRepository {
     ));
   }
 
+  /// Used when team leadership accepts a tournament invitation — Firestore rules
+  /// require [leadershipRosterTeamId] on the write to authorize the roster add.
+  Future<void> addTeamToTournamentViaLeadershipAccept({
+    required String tournamentId,
+    required String teamId,
+    required String teamName,
+  }) async {
+    final t = await getTournament(tournamentId);
+    if (t == null) return;
+
+    final teamIds = List<String>.from(t.teamIds);
+    if (!teamIds.contains(teamId)) teamIds.add(teamId);
+
+    final pointsTable = List<PointsTableEntry>.from(t.pointsTable);
+    if (!pointsTable.any((e) => e.teamId == teamId)) {
+      pointsTable.add(PointsTableEntry(teamId: teamId, teamName: teamName));
+    }
+
+    await _col.doc(tournamentId).update({
+      'teamIds': teamIds,
+      'pointsTable': pointsTable.map((e) => e.toMap()).toList(),
+      'leadershipRosterTeamId': teamId,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
   Future<void> removeTeamFromTournament({
     required String tournamentId,
     required String teamId,

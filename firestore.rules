@@ -821,7 +821,9 @@ service cloud.firestore {
     match /tournaments/{tournamentId} {
       allow read: if true;
       allow create: if isTournamentOrganizerOnCreate();
-      allow update, delete: if isTournamentOrganizer(tournamentId);
+      allow update: if isTournamentOrganizer(tournamentId)
+        || isTeamLeadershipAcceptingInvitation(tournamentId);
+      allow delete: if isTournamentOrganizer(tournamentId);
     }
 
     match /tournament_groups/{groupId} {
@@ -894,6 +896,40 @@ service cloud.firestore {
 
     function canManageTournamentTeams(tournamentId) {
       return isTournamentOrganizer(tournamentId);
+    }
+
+    function tournamentTeamRequestDocId(tournamentId, teamId) {
+      return tournamentId + '_' + teamId;
+    }
+
+    function tournamentTeamRequestPath(tournamentId, teamId) {
+      return /databases/$(database)/documents/tournament_team_requests/$(tournamentTeamRequestDocId(tournamentId, teamId));
+    }
+
+    function hasApprovedInvitationByUser(tournamentId, teamId) {
+      let path = tournamentTeamRequestPath(tournamentId, teamId);
+      return exists(path)
+        && get(path).data.status == 'approved'
+        && get(path).data.requestType == 'invitation'
+        && get(path).data.approvedByUserId == request.auth.uid;
+    }
+
+    /// Team owner/captain/VC accepting an organiser invitation may add their team
+    /// to the tournament roster (request must already be marked approved).
+    function isTeamLeadershipAcceptingInvitation(tournamentId) {
+      let marker = request.resource.data.get('leadershipRosterTeamId', '');
+      let oldIds = resource.data.get('teamIds', []);
+      let newIds = request.resource.data.get('teamIds', []);
+      return marker is string
+        && marker.size() > 0
+        && canManageTeamRequests(marker)
+        && !(marker in oldIds)
+        && marker in newIds
+        && newIds.size() == oldIds.size() + 1
+        && newIds.hasAll(oldIds)
+        && hasApprovedInvitationByUser(tournamentId, marker)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['teamIds', 'pointsTable', 'leadershipRosterTeamId', 'updatedAt']);
     }
 
     function validTournamentTeamRequestCreate() {

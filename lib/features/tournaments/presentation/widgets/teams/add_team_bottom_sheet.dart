@@ -31,22 +31,138 @@ Future<void> showAddTeamToTournamentSheet({
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    useRootNavigator: true,
     builder: (sheetContext) => AddTeamBottomSheet(
       tournament: tournament,
       hostContext: context,
+      parentRef: ref,
     ),
   );
+}
+
+/// Team IDs already in the tournament (approved roster or legacy points table).
+Set<String> tournamentAddedTeamIds({
+  required TournamentModel tournament,
+  required List<TournamentTeamRequestModel> requests,
+}) {
+  final ids = <String>{...tournament.teamIds};
+  for (final request in requests) {
+    if (request.status == TournamentTeamRequestStatus.approved) {
+      ids.add(request.teamId);
+    }
+  }
+  for (final entry in tournament.pointsTable) {
+    ids.add(entry.teamId);
+  }
+  return ids;
+}
+
+/// Search, pick, and add a team — uses [parentRef] from the caller so work
+/// continues after the add-team sheet is closed.
+Future<void> addExistingTeamToTournament({
+  required BuildContext context,
+  required WidgetRef ref,
+  required TournamentModel tournament,
+}) async {
+  final rootContext = rootNavigatorKey.currentContext ?? context;
+  if (!rootContext.mounted) return;
+
+  final teams = await ref.read(allTeamsProvider.future);
+  if (!rootContext.mounted) return;
+
+  if (teams.isEmpty) {
+    ScaffoldMessenger.of(rootContext).showSnackBar(
+      const SnackBar(content: Text('No teams found in CrickFlow yet')),
+    );
+    return;
+  }
+
+  final freshTournament =
+      await ref.read(tournamentProvider(tournament.id).future);
+  if (freshTournament == null || !rootContext.mounted) return;
+
+  final requests =
+      await ref.read(tournamentTeamRequestsProvider(tournament.id).future);
+  if (!rootContext.mounted) return;
+
+  final addedTeamIds = tournamentAddedTeamIds(
+    tournament: freshTournament,
+    requests: requests,
+  );
+
+  final picked = await showTournamentTeamSearchSheet(
+    context: rootContext,
+    teams: teams,
+    addedTeamIds: addedTeamIds,
+  );
+  if (picked == null || !rootContext.mounted) return;
+
+  if (addedTeamIds.contains(picked.id)) {
+    ScaffoldMessenger.of(rootContext).showSnackBar(
+      SnackBar(content: Text('${picked.name} is already in this tournament')),
+    );
+    return;
+  }
+
+  final uid = ref.read(authStateProvider).value?.uid;
+  if (uid == null) return;
+
+  try {
+    final result = await ref
+        .read(tournamentTeamRequestRepositoryProvider)
+        .createInvitation(
+          tournament: freshTournament,
+          team: picked,
+          organizerUserId: uid,
+        );
+    ref.invalidate(tournamentTeamRequestsProvider(tournament.id));
+    ref.invalidate(tournamentProvider(tournament.id));
+    ref.invalidate(allTeamsProvider);
+    ref.invalidate(teamByIdProvider(picked.id));
+    if (!rootContext.mounted) return;
+
+    if (result.status == TournamentTeamRequestStatus.approved) {
+      await showTournamentTeamAddedSheet(
+        context: rootContext,
+        title: 'Team added',
+        message: '${picked.name} is now in ${freshTournament.name}.',
+        sectionHint: 'See them under Approved teams below.',
+      );
+    } else {
+      await showTournamentTeamAddedSheet(
+        context: rootContext,
+        title: 'Invitation sent',
+        message:
+            '${picked.name} has been invited to join ${freshTournament.name}.',
+        sectionHint:
+            'Team owner, captain, or vice captain can accept from notifications or the Invited teams section.',
+      );
+    }
+  } catch (e) {
+    if (!rootContext.mounted) return;
+    ScaffoldMessenger.of(rootContext).showSnackBar(
+      SnackBar(
+        content: Text('Could not add team: $e'),
+        backgroundColor: Theme.of(rootContext).colorScheme.error,
+      ),
+    );
+  }
 }
 
 Future<TeamModel?> showTournamentTeamSearchSheet({
   required BuildContext context,
   required List<TeamModel> teams,
+  Set<String> addedTeamIds = const {},
 }) {
   return showModalBottomSheet<TeamModel>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (_) => _TeamSearchSheet(teams: teams),
+    useRootNavigator: true,
+    builder: (_) => _TeamSearchSheet(
+      teams: teams,
+      addedTeamIds: addedTeamIds,
+    ),
   );
 }
 
@@ -55,10 +171,12 @@ class AddTeamBottomSheet extends ConsumerWidget {
     super.key,
     required this.tournament,
     required this.hostContext,
+    required this.parentRef,
   });
 
   final TournamentModel tournament;
   final BuildContext hostContext;
+  final WidgetRef parentRef;
 
   String get _joinLink =>
       DeepLinkUtils.hostedTournamentJoinUri(tournament.id).toString();
@@ -157,7 +275,16 @@ class AddTeamBottomSheet extends ConsumerWidget {
                   label: 'Search teams',
                   isOutlined: true,
                   compact: true,
-                  onPressed: () => _pickExistingTeam(context, ref),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await Future<void>.delayed(Duration.zero);
+                    if (!hostContext.mounted) return;
+                    await addExistingTeamToTournament(
+                      context: hostContext,
+                      ref: parentRef,
+                      tournament: tournament,
+                    );
+                  },
                 ),
               ),
               _OptionCard(
@@ -214,83 +341,10 @@ class AddTeamBottomSheet extends ConsumerWidget {
     }
   }
 
-  Future<void> _pickExistingTeam(
-    BuildContext sheetContext,
-    WidgetRef ref,
-  ) async {
-    Navigator.pop(sheetContext);
-
-    final teams = await ref.read(allTeamsProvider.future);
-    final rootContext = rootNavigatorKey.currentContext ?? hostContext;
-    if (!rootContext.mounted) return;
-
-    if (teams.isEmpty) {
-      ScaffoldMessenger.of(rootContext).showSnackBar(
-        const SnackBar(content: Text('No teams found in CrickFlow yet')),
-      );
-      return;
-    }
-
-    final picked = await showTournamentTeamSearchSheet(
-      context: rootContext,
-      teams: teams,
-    );
-    if (picked == null || !rootContext.mounted) return;
-
-    final uid = ref.read(authStateProvider).value?.uid;
-    if (uid == null) return;
-
-    final freshTournament =
-        await ref.read(tournamentProvider(tournament.id).future);
-    if (freshTournament == null || !rootContext.mounted) return;
-
-    try {
-      final result = await ref
-          .read(tournamentTeamRequestRepositoryProvider)
-          .createInvitation(
-            tournament: freshTournament,
-            team: picked,
-            organizerUserId: uid,
-          );
-      ref.invalidate(tournamentTeamRequestsProvider(tournament.id));
-      ref.invalidate(tournamentProvider(tournament.id));
-      ref.invalidate(allTeamsProvider);
-      ref.invalidate(teamByIdProvider(picked.id));
-      if (!rootContext.mounted) return;
-
-      rootContext.go('/tournaments/${freshTournament.id}/teams');
-
-      if (result.status == TournamentTeamRequestStatus.approved) {
-        await showTournamentTeamAddedSheet(
-          context: rootContext,
-          title: 'Team added',
-          message: '${picked.name} is now in ${freshTournament.name}.',
-          sectionHint: 'See them under Approved teams below.',
-        );
-      } else {
-        await showTournamentTeamAddedSheet(
-          context: rootContext,
-          title: 'Invitation sent',
-          message:
-              '${picked.name} has been invited to ${freshTournament.name}.',
-          sectionHint: 'Track status under Invited teams below.',
-        );
-      }
-    } catch (e) {
-      if (!rootContext.mounted) return;
-      ScaffoldMessenger.of(rootContext).showSnackBar(
-        SnackBar(
-          content: Text('Could not add team: $e'),
-          backgroundColor: Theme.of(rootContext).colorScheme.error,
-        ),
-      );
-    }
-  }
-
   void _createTeam(BuildContext context) {
     Navigator.pop(context);
     final tournamentId = Uri.encodeComponent(tournament.id);
-    context.push('/teams/create?tournamentId=$tournamentId');
+    hostContext.push('/teams/create?tournamentId=$tournamentId');
   }
 }
 
@@ -353,9 +407,13 @@ class _OptionCard extends StatelessWidget {
 }
 
 class _TeamSearchSheet extends StatefulWidget {
-  const _TeamSearchSheet({required this.teams});
+  const _TeamSearchSheet({
+    required this.teams,
+    required this.addedTeamIds,
+  });
 
   final List<TeamModel> teams;
+  final Set<String> addedTeamIds;
 
   @override
   State<_TeamSearchSheet> createState() => _TeamSearchSheetState();
@@ -464,6 +522,8 @@ class _TeamSearchSheetState extends State<_TeamSearchSheet> {
                       itemCount: filtered.length,
                       itemBuilder: (_, i) {
                         final team = filtered[i];
+                        final alreadyAdded =
+                            widget.addedTeamIds.contains(team.id);
                         return ListTile(
                           leading: TeamLogoAvatar(team: team, size: 44),
                           title: Text(team.name),
@@ -472,13 +532,46 @@ class _TeamSearchSheetState extends State<_TeamSearchSheet> {
                                   CfTeamIdFormat.displayLabel(team.teamCode),
                                 )
                               : null,
-                          onTap: () => Navigator.pop(context, team),
+                          trailing: alreadyAdded
+                              ? const _AlreadyAddedBadge()
+                              : null,
+                          enabled: !alreadyAdded,
+                          onTap: alreadyAdded
+                              ? null
+                              : () => Navigator.pop(context, team),
                         );
                       },
                     ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AlreadyAddedBadge extends StatelessWidget {
+  const _AlreadyAddedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.spaceSm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: cf.accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cf.accent.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        'Already added',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: cf.accent,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }

@@ -427,10 +427,11 @@ class MatchInfoService {
     );
 
     if (match.tournamentId != null && match.tournamentId!.isNotEmpty) {
+      final tournamentId = match.tournamentId!;
       links.add(
-        const MatchInfoQuickLink(
+        MatchInfoQuickLink(
           label: 'Points table',
-          route: '/tournaments',
+          route: '/tournaments/$tournamentId/points-table',
           iconName: 'leaderboard',
         ),
       );
@@ -446,9 +447,9 @@ class MatchInfoService {
 
     if (match.tournamentId != null && match.tournamentId!.isNotEmpty) {
       links.add(
-        const MatchInfoQuickLink(
+        MatchInfoQuickLink(
           label: 'Tournament',
-          route: '/tournaments',
+          route: '/tournaments/${match.tournamentId}',
           iconName: 'trophy',
         ),
       );

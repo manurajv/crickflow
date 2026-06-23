@@ -10,6 +10,8 @@ import '../../../core/utils/date_utils.dart';
 import '../../../data/models/notification_model.dart';
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/providers/tournament_providers.dart';
+import '../../../shared/providers/tournament_team_request_provider.dart';
 import '../../tournaments/domain/tournament_notification_actions.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
@@ -117,6 +119,10 @@ class _NotificationCard extends ConsumerWidget {
     await ref.read(notificationRepositoryProvider).markRead(notification.id);
     if (!context.mounted) return;
 
+    if (notification.type == TournamentNotificationTypes.invitation) {
+      return;
+    }
+
     final route = NotificationNavigation.routeForNotification(notification);
     if (route != null) {
       context.push(route);
@@ -141,10 +147,25 @@ class _NotificationCard extends ConsumerWidget {
         );
       }
       await ref.read(notificationRepositoryProvider).markRead(notification.id);
+      final tournamentId = notification.tournamentId;
+      if (tournamentId != null && tournamentId.isNotEmpty) {
+        ref.invalidate(tournamentTeamRequestsProvider(tournamentId));
+        ref.invalidate(tournamentProvider(tournamentId));
+      }
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(accept ? 'Accepted' : 'Rejected'),
+          content: Text(
+            accept
+                ? (notification.type ==
+                        TournamentNotificationTypes.invitation
+                    ? 'Invitation accepted'
+                    : 'Accepted')
+                : (notification.type ==
+                        TournamentNotificationTypes.invitation
+                    ? 'Invitation declined'
+                    : 'Rejected'),
+          ),
         ),
       );
     } catch (e) {
@@ -247,7 +268,9 @@ class _NotificationCard extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _onTap(context, ref),
+        onTap: n.type == TournamentNotificationTypes.invitation
+            ? null
+            : () => _onTap(context, ref),
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           decoration: BoxDecoration(

@@ -26,6 +26,7 @@ class MyCricketScreen extends ConsumerStatefulWidget {
 class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
+  var _routeTabApplied = false;
 
   void _onTabChanged() {
     if (_tabs.index == 2) {
@@ -47,6 +48,20 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
       _tabs.animateTo(tab);
     }
     ref.read(myCricketInitialTabProvider.notifier).state = -1;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeTabApplied) return;
+    _routeTabApplied = true;
+    final tab = GoRouterState.of(context).uri.queryParameters['tab'];
+    final index = int.tryParse(tab ?? '');
+    if (index != null && index >= 0 && index < _tabs.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _applyPendingTab(index);
+      });
+    }
   }
 
   @override

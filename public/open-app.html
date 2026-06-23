@@ -60,12 +60,14 @@
         if (parts[2] === 'join') {
           appPath = '/tournaments/' + parts[1] + '/join';
         } else {
-          appPath = '/tournaments/' + parts[1] + '/join';
+          appPath = '/tournaments/' + parts[1];
         }
         var params = new URLSearchParams(location.search);
-        params.set('from', 'qr');
-        appPath += '?' + params.toString();
-        msg = 'Tournament invite — open in CrickFlow to join with your team.';
+        if (parts[2] === 'join' || params.has('code') || params.get('from') === 'qr') {
+          params.set('from', 'qr');
+          appPath += '?' + params.toString();
+        }
+        msg = 'Tournament — open in CrickFlow to view and join with your team.';
       }
 
       var deepPath = appPath.charAt(0) === '/' ? appPath.slice(1) : appPath;
