@@ -29,6 +29,7 @@ import '../../data/services/google_maps_location_service.dart';
 import '../../data/services/notification_service.dart';
 import '../../data/services/storage_service.dart';
 import '../../data/services/team_qr_service.dart';
+import '../../data/services/tournament_qr_export_service.dart';
 import '../../data/services/stream_service.dart';
 import '../../data/services/user_profile_cache_service.dart';
 import '../../data/services/webrtc_signaling_service.dart';
@@ -94,6 +95,14 @@ final userProfileCacheServiceProvider =
     Provider((ref) => UserProfileCacheService());
 final googleMapsLocationServiceProvider =
     Provider((ref) => GoogleMapsLocationService());
+final tournamentQrExportServiceProvider =
+    Provider((ref) => const TournamentQrExportService());
+
+final userProfileByIdProvider =
+    StreamProvider.family<UserModel?, String>((ref, userId) {
+  if (userId.isEmpty) return Stream.value(null);
+  return ref.watch(userRepositoryProvider).watchUser(userId);
+});
 
 // Auth
 final authStateProvider = StreamProvider<User?>((ref) {
@@ -163,6 +172,10 @@ final teamsProvider = StreamProvider<List<TeamModel>>((ref) {
 
 final allTeamsProvider = StreamProvider<List<TeamModel>>((ref) {
   return ref.watch(teamRepositoryProvider).watchTeams();
+});
+
+final teamByIdProvider = StreamProvider.family<TeamModel?, String>((ref, teamId) {
+  return ref.watch(teamRepositoryProvider).watchTeam(teamId);
 });
 
 final tournamentsProvider = StreamProvider<List<TournamentModel>>((ref) {

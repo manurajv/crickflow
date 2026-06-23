@@ -23,10 +23,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fade;
+  late Future<String?> _launchRouteFuture;
 
   @override
   void initState() {
     super.initState();
+    _launchRouteFuture = _resolveLaunchRoute();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -34,6 +36,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
     Future.delayed(const Duration(milliseconds: 1800), _bootstrap);
+  }
+
+  Future<String?> _resolveLaunchRoute() async {
+    final pending = DeepLinkHandler.takePendingPath();
+    if (pending != null && pending.isNotEmpty) return pending;
+    return DeepLinkHandler.resolveInitialLocation();
   }
 
   Future<void> _bootstrap() async {
@@ -48,10 +56,27 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       return;
     }
 
+    // Re-read in case the uriLinkStream delivered the link after our first poll.
+    final launchRoute = DeepLinkHandler.takePendingPath() ??
+        await _launchRouteFuture ??
+        await DeepLinkHandler.resolveInitialLocation(retry: true);
+
+    if (!mounted) return;
+
+    final router = GoRouter.of(context);
+    final currentPath =
+        router.routerDelegate.currentConfiguration.uri.path;
+
+    // Stream/deep-link handler may have navigated off splash already — don't reset to home.
+    if (launchRoute == null &&
+        currentPath != '/splash' &&
+        DeepLinkHandler.isTournamentJoinRoute(currentPath)) {
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      final pending = DeepLinkHandler.takePendingPath();
-      context.go(pending ?? '/home');
+      context.go(launchRoute ?? '/home');
       return;
     }
 
@@ -69,8 +94,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       context.go('/player-onboarding');
       return;
     }
-    final pending = DeepLinkHandler.takePendingPath();
-    final route = pending ?? homeRouteForRole(profile?.role ?? UserRole.organizer);
+
+    if (launchRoute == null &&
+        currentPath != '/splash' &&
+        DeepLinkHandler.isTournamentJoinRoute(currentPath)) {
+      return;
+    }
+
+    final route =
+        launchRoute ?? homeRouteForRole(profile?.role ?? UserRole.organizer);
     if (mounted) context.go(route);
   }
 

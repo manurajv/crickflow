@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../data/models/match_model.dart';
+import '../../data/models/tournament/tournament_activity_model.dart';
 import '../../data/models/tournament/tournament_group_model.dart';
 import '../../data/models/tournament/tournament_member_model.dart';
 import '../../data/models/tournament/tournament_official_model.dart';
@@ -9,11 +10,90 @@ import '../../data/models/tournament/tournament_round_model.dart';
 import '../../data/models/tournament/tournament_rules_model.dart';
 import '../../data/models/tournament/tournament_sponsor_model.dart';
 import '../../data/models/tournament_model.dart';
+import '../../domain/services/tournament_activity_service.dart';
 import '../../domain/services/points_table_engine_service.dart';
 import '../../domain/services/tournament_permission_service.dart';
 import '../../domain/services/tournament_statistics_service.dart';
 import '../../data/repositories/tournament_sub_repositories.dart';
 import 'providers.dart';
+
+final tournamentStatisticsServiceProvider =
+    Provider((ref) => const TournamentStatisticsService());
+
+final tournamentActivityServiceProvider =
+    Provider((ref) => const TournamentActivityService());
+
+final tournamentRecentActivityProvider =
+    Provider.family<List<TournamentActivityItem>, String>((ref, tournamentId) {
+  final tournament = ref.watch(tournamentProvider(tournamentId)).valueOrNull;
+  if (tournament == null) return [];
+
+  final matches =
+      ref.watch(tournamentMatchesProvider(tournamentId)).valueOrNull ?? [];
+  final groups =
+      ref.watch(tournamentGroupsProvider(tournamentId)).valueOrNull ?? [];
+  final officials =
+      ref.watch(tournamentOfficialsProvider(tournamentId)).valueOrNull ?? [];
+  final sponsors =
+      ref.watch(tournamentSponsorsProvider(tournamentId)).valueOrNull ?? [];
+
+  return ref.watch(tournamentActivityServiceProvider).buildRecentActivity(
+        tournament: tournament,
+        matches: matches,
+        groups: groups,
+        officials: officials,
+        sponsors: sponsors,
+      );
+});
+
+final tournamentOverviewStatsProvider =
+    Provider.family<TournamentOverviewStats, String>((ref, tournamentId) {
+  final tournament = ref.watch(tournamentProvider(tournamentId)).valueOrNull;
+  final groups =
+      ref.watch(tournamentGroupsProvider(tournamentId)).valueOrNull ?? [];
+  final officials =
+      ref.watch(tournamentOfficialsProvider(tournamentId)).valueOrNull ?? [];
+  final sponsors =
+      ref.watch(tournamentSponsorsProvider(tournamentId)).valueOrNull ?? [];
+  final matches =
+      ref.watch(tournamentMatchesProvider(tournamentId)).valueOrNull ?? [];
+
+  final officialsByRole = <TournamentOfficialRole, int>{};
+  for (final role in TournamentOfficialRole.values) {
+    officialsByRole[role] = 0;
+  }
+  for (final official in officials) {
+    officialsByRole[official.role] = (officialsByRole[official.role] ?? 0) + 1;
+  }
+
+  return TournamentOverviewStats(
+    teamCount: tournament?.teamIds.length ?? 0,
+    matchCount:
+        matches.isNotEmpty ? matches.length : tournament?.matchIds.length ?? 0,
+    groupCount: groups.length,
+    officialCount: officials.length,
+    sponsorCount: sponsors.length,
+    officialsByRole: officialsByRole,
+  );
+});
+
+class TournamentOverviewStats {
+  const TournamentOverviewStats({
+    required this.teamCount,
+    required this.matchCount,
+    required this.groupCount,
+    required this.officialCount,
+    required this.sponsorCount,
+    required this.officialsByRole,
+  });
+
+  final int teamCount;
+  final int matchCount;
+  final int groupCount;
+  final int officialCount;
+  final int sponsorCount;
+  final Map<TournamentOfficialRole, int> officialsByRole;
+}
 
 final tournamentGroupRepositoryProvider =
     Provider((ref) => TournamentGroupRepository());
@@ -34,8 +114,6 @@ final tournamentPermissionServiceProvider =
     Provider((ref) => const TournamentPermissionService());
 final pointsTableEngineProvider =
     Provider((ref) => const PointsTableEngineService());
-final tournamentStatisticsServiceProvider =
-    Provider((ref) => const TournamentStatisticsService());
 
 final tournamentProvider =
     StreamProvider.family<TournamentModel?, String>((ref, id) {

@@ -33,6 +33,10 @@
         "destination": "/open-app.html"
       },
       {
+        "source": "/tournaments/**",
+        "destination": "/open-app.html"
+      },
+      {
         "source": "/admin",
         "destination": "/admin/index.html"
       },

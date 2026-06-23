@@ -1,9 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/tournament/tournament_create_draft.dart';
-import '../../data/models/tournament/tournament_setup_meta.dart';
-import '../../core/constants/enums.dart';
 import '../../data/models/location_model.dart';
-
 class TournamentCreateDraftNotifier extends StateNotifier<TournamentCreateDraft> {
   TournamentCreateDraftNotifier() : super(TournamentCreateDraft.fresh());
 
@@ -15,13 +12,21 @@ class TournamentCreateDraftNotifier extends StateNotifier<TournamentCreateDraft>
     String email = '',
     LocationModel? location,
   }) {
+    final city = location?.city.isNotEmpty == true ? location!.city : state.city;
     state = state.copyWith(
       organizerName: displayName,
       organizerPhone: phone,
       organizerEmail: email,
-      city: location?.city ?? state.city,
-      location: location ?? state.location,
-      setup: state.setup.copyWith(teamLocation: location ?? state.location),
+      city: city,
+      location: location != null
+          ? location.copyWith(city: city.isNotEmpty ? city : location.city)
+          : state.location,
+      setup: state.setup.copyWith(
+        organizerName: displayName,
+        organizerPhone: phone,
+        organizerEmail: email,
+        teamLocation: location ?? state.location,
+      ),
     );
   }
 

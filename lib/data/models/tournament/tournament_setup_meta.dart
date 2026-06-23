@@ -9,6 +9,7 @@ class TournamentSetupMeta extends Equatable {
     this.organizerPhone = '',
     this.organizerEmail = '',
     this.category = TournamentCategory.open,
+    this.cricketMatchType = CricketMatchType.limitedOvers,
     this.matchFormat = TournamentMatchFormat.limitedOvers,
     this.ballTypeOther = false,
     this.primaryGround = '',
@@ -37,6 +38,7 @@ class TournamentSetupMeta extends Equatable {
   final String organizerPhone;
   final String organizerEmail;
   final TournamentCategory category;
+  final CricketMatchType cricketMatchType;
   final TournamentMatchFormat matchFormat;
   final bool ballTypeOther;
   final String primaryGround;
@@ -74,6 +76,7 @@ class TournamentSetupMeta extends Equatable {
         (e) => e.name == map['matchFormat'],
         orElse: () => TournamentMatchFormat.limitedOvers,
       ),
+      cricketMatchType: _cricketMatchTypeFromMap(map),
       ballTypeOther: map['ballTypeOther'] as bool? ?? false,
       primaryGround: map['primaryGround'] as String? ?? '',
       needMoreTeams: map['needMoreTeams'] as bool? ?? false,
@@ -128,11 +131,28 @@ class TournamentSetupMeta extends Equatable {
     );
   }
 
+  static CricketMatchType _cricketMatchTypeFromMap(Map<String, dynamic> map) {
+    final stored = map['cricketMatchType'] as String?;
+    if (stored != null) {
+      return CricketMatchType.values.firstWhere(
+        (e) => e.name == stored,
+        orElse: () => CricketMatchType.limitedOvers,
+      );
+    }
+    final legacy = map['matchFormat'] as String?;
+    return switch (legacy) {
+      'testMatch' => CricketMatchType.testMatch,
+      'boxTurf' || 'pairCricket' => CricketMatchType.indoor,
+      _ => CricketMatchType.limitedOvers,
+    };
+  }
+
   Map<String, dynamic> toMap() => {
         'organizerName': organizerName,
         'organizerPhone': organizerPhone,
         'organizerEmail': organizerEmail,
         'category': category.name,
+        'cricketMatchType': cricketMatchType.name,
         'matchFormat': matchFormat.name,
         'ballTypeOther': ballTypeOther,
         'primaryGround': primaryGround,
@@ -163,6 +183,7 @@ class TournamentSetupMeta extends Equatable {
     String? organizerPhone,
     String? organizerEmail,
     TournamentCategory? category,
+    CricketMatchType? cricketMatchType,
     TournamentMatchFormat? matchFormat,
     bool? ballTypeOther,
     String? primaryGround,
@@ -191,6 +212,7 @@ class TournamentSetupMeta extends Equatable {
       organizerPhone: organizerPhone ?? this.organizerPhone,
       organizerEmail: organizerEmail ?? this.organizerEmail,
       category: category ?? this.category,
+      cricketMatchType: cricketMatchType ?? this.cricketMatchType,
       matchFormat: matchFormat ?? this.matchFormat,
       ballTypeOther: ballTypeOther ?? this.ballTypeOther,
       primaryGround: primaryGround ?? this.primaryGround,

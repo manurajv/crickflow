@@ -2,28 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_gate.dart';
+import '../../../core/navigation/tournament_join_navigation.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
-import '../../../shared/widgets/location_filter_bar.dart';
 import '../../../shared/widgets/tournament_list_card.dart';
-import 'widgets/tournament_join_code_sheet.dart';
 
-/// Tournament discovery — My / Participating / Nearby / Trending / Upcoming / Completed.
-class TournamentDiscoveryScreen extends ConsumerStatefulWidget {
-  const TournamentDiscoveryScreen({super.key});
+/// Shared tournaments list with discovery tabs (My / Participating / …).
+class TournamentDiscoveryPanel extends ConsumerStatefulWidget {
+  const TournamentDiscoveryPanel({
+    super.key,
+    this.bottomPadding = 88,
+  });
 
+  final double bottomPadding;
   @override
-  ConsumerState<TournamentDiscoveryScreen> createState() =>
-      _TournamentDiscoveryScreenState();
+  ConsumerState<TournamentDiscoveryPanel> createState() =>
+      _TournamentDiscoveryPanelState();
 }
 
-class _TournamentDiscoveryScreenState
-    extends ConsumerState<TournamentDiscoveryScreen>
+class _TournamentDiscoveryPanelState
+    extends ConsumerState<TournamentDiscoveryPanel>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
-  String _filterCountry = '';
-  String _filterCity = '';
 
   static const _tabLabels = [
     'My Tournaments',
@@ -61,26 +62,80 @@ class _TournamentDiscoveryScreenState
     final tab = _tabValues[_tabs.index];
     final list = ref.watch(filteredTournamentsProvider(tab));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tournaments'),
-        actions: [
-          IconButton(
-            tooltip: 'Join with code',
-            icon: const Icon(Icons.qr_code_scanner_outlined),
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              builder: (_) => const TournamentJoinCodeSheet(),
-            ),
-          ),
-        ],
-        bottom: TabBar(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TabBar(
           controller: _tabs,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
+          indicatorColor: cf.accent,
+          labelColor: cf.accent,
+          unselectedLabelColor: cf.textSecondary,
+          dividerColor: cf.border,
           tabs: _tabLabels.map((l) => Tab(text: l)).toList(),
           onTap: (_) => setState(() {}),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async => ref.invalidate(tournamentsProvider),
+            child: list.isEmpty
+                ? ListView(
+                    children: [
+                      const SizedBox(height: 64),
+                      Center(
+                        child: Text(
+                          'No tournaments here yet',
+                          style: TextStyle(color: cf.textSecondary),
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.builder(
+                    padding: EdgeInsets.only(bottom: widget.bottomPadding),
+                    itemCount: list.length,
+                    itemBuilder: (_, i) {
+                      final t = list[i];
+                      return TournamentListCard(
+                        tournament: t,
+                        onTap: () => context.push('/tournaments/${t.id}'),
+                        trailing: t.tournamentCode != null
+                            ? Text(
+                                t.tournamentCode!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(color: cf.accent),
+                              )
+                            : null,
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Full-screen tournaments discovery.
+class TournamentDiscoveryScreen extends ConsumerWidget {
+  const TournamentDiscoveryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tournaments'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              goToMyCricketTournamentsTab(ref, context);
+            }
+          },
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -93,55 +148,7 @@ class _TournamentDiscoveryScreenState
         icon: const Icon(Icons.add),
         label: const Text('Create'),
       ),
-      body: Column(
-        children: [
-          LocationFilterBar(
-            initialCountry: _filterCountry,
-            initialCity: _filterCity,
-            onFilterChanged: (country, city) => setState(() {
-              _filterCountry = country;
-              _filterCity = city;
-            }),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(tournamentsProvider),
-              child: list.isEmpty
-                  ? ListView(
-                      children: [
-                        const SizedBox(height: 64),
-                        Center(
-                          child: Text(
-                            'No tournaments here yet',
-                            style: TextStyle(color: cf.textSecondary),
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 88),
-                      itemCount: list.length,
-                      itemBuilder: (_, i) {
-                        final t = list[i];
-                        return TournamentListCard(
-                          tournament: t,
-                          onTap: () => context.push('/tournaments/${t.id}'),
-                          trailing: t.tournamentCode != null
-                              ? Text(
-                                  t.tournamentCode!,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelMedium
-                                      ?.copyWith(color: cf.accent),
-                                )
-                              : null,
-                        );
-                      },
-                    ),
-            ),
-          ),
-        ],
-      ),
+      body: const TournamentDiscoveryPanel(),
     );
   }
 }

@@ -12,8 +12,9 @@ class TournamentShareSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final code = tournament.tournamentCode ?? '—';
-    final link = DeepLinkUtils.hostedUri('/tournaments/${tournament.id}').toString();
+    final joinLink =
+        DeepLinkUtils.hostedTournamentJoinUri(tournament.id).toString();
+    final code = tournament.tournamentCode?.trim();
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -27,40 +28,46 @@ class TournamentShareSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ListTile(
-            leading: const Icon(Icons.tag),
-            title: const Text('Tournament code'),
-            subtitle: Text(code, style: const TextStyle(fontWeight: FontWeight.bold)),
-            trailing: IconButton(
-              icon: const Icon(Icons.copy),
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: code));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Code copied')),
-                );
-              },
-            ),
-          ),
-          ListTile(
             leading: const Icon(Icons.link),
             title: const Text('Invite link'),
-            subtitle: Text(link, maxLines: 2, overflow: TextOverflow.ellipsis),
+            subtitle: Text(
+              joinLink,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             trailing: IconButton(
               icon: const Icon(Icons.copy),
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: link));
+                Clipboard.setData(ClipboardData(text: joinLink));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Link copied')),
                 );
               },
             ),
           ),
+          if (code != null && code.isNotEmpty)
+            ListTile(
+              leading: const Icon(Icons.tag),
+              title: const Text('Tournament code'),
+              subtitle:
+                  Text(code, style: const TextStyle(fontWeight: FontWeight.bold)),
+              trailing: IconButton(
+                icon: const Icon(Icons.copy),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: code));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Code copied')),
+                  );
+                },
+              ),
+            ),
           const SizedBox(height: 8),
           CfButton(
-            label: 'Share tournament',
+            label: 'Share invite link',
             isGold: true,
             onPressed: () {
               Share.share(
-                'Join ${tournament.name} on CrickFlow!\nCode: $code\n$link',
+                'Join ${tournament.name} on CrickFlow\n$joinLink',
                 subject: tournament.name,
               );
             },

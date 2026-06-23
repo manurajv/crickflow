@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/constants/enums.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
 
@@ -173,6 +174,82 @@ class TournamentCreateNote extends StatelessWidget {
               color: context.cf.textMuted,
             ),
       ),
+    );
+  }
+}
+
+/// Match type row — same options as start-match flow.
+class TournamentCricketMatchTypePicker extends StatelessWidget {
+  const TournamentCricketMatchTypePicker({
+    super.key,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final CricketMatchType selected;
+  final ValueChanged<CricketMatchType> onSelected;
+
+  static String _label(CricketMatchType type) => switch (type) {
+        CricketMatchType.limitedOvers => 'Limited Overs',
+        CricketMatchType.indoor => 'Indoor',
+        CricketMatchType.testMatch => 'Test Match',
+      };
+
+  static IconData _icon(CricketMatchType type) => switch (type) {
+        CricketMatchType.limitedOvers => Icons.sports_cricket,
+        CricketMatchType.indoor => Icons.roofing_outlined,
+        CricketMatchType.testMatch => Icons.calendar_view_day,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Row(
+      children: CricketMatchType.values.map((type) {
+        final isSelected = type == selected;
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => onSelected(type),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected ? cf.accent : cf.sectionBackground,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected ? cf.accent : cf.border,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _icon(type),
+                      size: 22,
+                      color: isSelected ? cf.onAccent : cf.textSecondary,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _label(type),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.2,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? cf.onAccent : cf.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

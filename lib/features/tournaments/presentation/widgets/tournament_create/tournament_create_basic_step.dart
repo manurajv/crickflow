@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../../core/constants/enums.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
+import '../../../../../data/models/location_model.dart';
 import '../../../../../data/models/tournament/tournament_create_draft.dart';
 import '../../../../../data/models/tournament/tournament_setup_meta.dart';
+import '../../../../../features/matches/presentation/models/ground_pick_result.dart';
 import '../../../../../features/matches/presentation/widgets/ground_search_field.dart';
 import '../../../../../shared/widgets/cf_underlined_field.dart';
 import '../../../../../shared/widgets/start_match_ui.dart';
@@ -17,12 +20,10 @@ class TournamentCreateBasicStep extends ConsumerStatefulWidget {
     super.key,
     required this.draft,
     required this.onChanged,
-    this.onPickGroundOnMap,
   });
 
   final TournamentCreateDraft draft;
   final ValueChanged<TournamentCreateDraft> onChanged;
-  final VoidCallback? onPickGroundOnMap;
 
   @override
   ConsumerState<TournamentCreateBasicStep> createState() =>
@@ -33,7 +34,7 @@ class _TournamentCreateBasicStepState
     extends ConsumerState<TournamentCreateBasicStep> {
   late final TextEditingController _nameController;
   late final TextEditingController _cityController;
-  late final TextEditingController _groundController;
+  late final TextEditingController _groundInputController;
   late final TextEditingController _organizerController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
@@ -44,7 +45,7 @@ class _TournamentCreateBasicStepState
     final d = widget.draft;
     _nameController = TextEditingController(text: d.name);
     _cityController = TextEditingController(text: d.city);
-    _groundController = TextEditingController(text: d.ground);
+    _groundInputController = TextEditingController();
     _organizerController = TextEditingController(text: d.organizerName);
     _phoneController = TextEditingController(text: d.organizerPhone);
     _emailController = TextEditingController(text: d.organizerEmail);
@@ -54,7 +55,7 @@ class _TournamentCreateBasicStepState
   void dispose() {
     _nameController.dispose();
     _cityController.dispose();
-    _groundController.dispose();
+    _groundInputController.dispose();
     _organizerController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -63,6 +64,81 @@ class _TournamentCreateBasicStepState
 
   void _patch(TournamentCreateDraft Function(TournamentCreateDraft) fn) {
     widget.onChanged(fn(widget.draft));
+  }
+
+  void _syncControllersFromDraft(TournamentCreateDraft d) {
+    void set(TextEditingController controller, String value) {
+      if (controller.text != value) controller.text = value;
+    }
+
+    set(_cityController, d.city);
+    set(_organizerController, d.organizerName);
+    set(_phoneController, d.organizerPhone);
+    set(_emailController, d.organizerEmail);
+  }
+
+  void _addGround(String name, {LocationModel? location}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    final existing = widget.draft.grounds
+        .map((g) => g.trim().toLowerCase())
+        .toSet();
+    if (existing.contains(trimmed.toLowerCase())) {
+      _groundInputController.clear();
+      return;
+    }
+
+    _groundInputController.clear();
+    _patch((d) {
+      var nextLocation = d.location;
+      var nextCity = d.city;
+      if (location != null) {
+        nextCity = location.city.isNotEmpty ? location.city : d.city;
+        if (location.city.isNotEmpty) {
+          _cityController.text = location.city;
+        }
+        nextLocation = d.location.copyWith(
+          country: location.country.isNotEmpty
+              ? location.country
+              : d.location.country,
+          stateProvince: location.stateProvince,
+          city: nextCity,
+        );
+      }
+      return d.copyWith(
+        grounds: [...d.grounds, trimmed],
+        city: nextCity,
+        location: nextLocation,
+      );
+    });
+  }
+
+  void _removeGround(String name) {
+    _patch((d) => d.copyWith(
+          grounds: d.grounds.where((g) => g != name).toList(),
+        ));
+  }
+
+  void _applyGroundLocation(LocationModel loc) {
+    _addGround(_groundInputController.text, location: loc);
+  }
+
+  Future<void> _pickGroundOnMap() async {
+    final result = await context.push<GroundPickResult>(
+      '/match/create/pick-ground',
+      extra: {
+        'location': widget.draft.location,
+        'groundName': _groundInputController.text.trim(),
+      },
+    );
+    if (result == null || !mounted) return;
+    _addGround(result.groundName, location: result.location);
+  }
+
+  @override
+  void didUpdateWidget(covariant TournamentCreateBasicStep oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncControllersFromDraft(widget.draft);
   }
 
   Future<void> _pickDate({required bool start}) async {
@@ -85,6 +161,43 @@ class _TournamentCreateBasicStepState
   String _dateLabel(DateTime? dt) {
     if (dt == null) return '';
     return DateFormat('dd MMM yyyy').format(dt);
+  }
+
+  Widget _buildGroundsSection(TournamentCreateDraft d) {
+    final cf = context.cf;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (d.grounds.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: d.grounds.map((ground) {
+              return InputChip(
+                label: Text(ground),
+                onDeleted: () => _removeGround(ground),
+                deleteIconColor: cf.textSecondary,
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+        ],
+        GroundSearchField(
+          controller: _groundInputController,
+          onVenueChanged: (_) {},
+          onLocationResolved: _applyGroundLocation,
+          onPickOnMap: _pickGroundOnMap,
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => _addGround(_groundInputController.text),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add ground'),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -124,19 +237,8 @@ class _TournamentCreateBasicStepState
               )),
         ),
         const SizedBox(height: AppDimens.fieldSpacing),
-        GroundSearchField(
-          controller: _groundController,
-          onVenueChanged: (v) => _patch((x) => x.copyWith(ground: v)),
-          onLocationResolved: (loc) => _patch((x) => x.copyWith(
-                location: x.location.copyWith(
-                  country: loc.country.isNotEmpty ? loc.country : x.location.country,
-                  stateProvince: loc.stateProvince,
-                  city: loc.city.isNotEmpty ? loc.city : x.location.city,
-                ),
-                city: loc.city.isNotEmpty ? loc.city : x.city,
-              )),
-          onPickOnMap: widget.onPickGroundOnMap ?? () {},
-        ),
+        const TournamentCreateSectionLabel(label: 'Grounds', required: true),
+        _buildGroundsSection(d),
         const SizedBox(height: AppDimens.fieldSpacing),
         CfUnderlinedField(
           controller: _organizerController,
@@ -163,7 +265,11 @@ class _TournamentCreateBasicStepState
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             '*Get updated with CrickFlow offers and help videos on mail.*',
-            style: TextStyle(fontSize: 11, color: cf.textMuted, fontStyle: FontStyle.italic),
+            style: TextStyle(
+              fontSize: 11,
+              color: cf.textMuted,
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ),
         const SizedBox(height: AppDimens.spaceMd),
@@ -242,16 +348,11 @@ class _TournamentCreateBasicStepState
         ),
         const SizedBox(height: AppDimens.spaceMd),
         const TournamentCreateSectionLabel(label: 'Match type', required: true),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: TournamentMatchFormat.values.map((f) {
-            return TournamentChoiceChip(
-              label: tournamentMatchFormatLabel(f),
-              selected: d.matchFormat == f,
-              onTap: () => _patch((x) => x.copyWith(matchFormat: f)),
-            );
-          }).toList(),
+        const SizedBox(height: 8),
+        TournamentCricketMatchTypePicker(
+          selected: d.cricketMatchType,
+          onSelected: (type) =>
+              _patch((x) => x.copyWith(cricketMatchType: type)),
         ),
         const SizedBox(height: AppDimens.spaceMd),
         StartMatchCard(

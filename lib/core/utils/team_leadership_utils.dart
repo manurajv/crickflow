@@ -1,5 +1,4 @@
 import '../../data/models/player_model.dart';
-
 import '../../data/models/team_model.dart';
 
 
@@ -18,37 +17,50 @@ class TeamLeadershipUtils {
 
 
 
-  static bool isTeamCaptain(String? uid, TeamModel team) {
-
+  static bool isTeamCaptain(String? uid, TeamModel team, {PlayerModel? player}) {
+    if (player != null &&
+        team.captainId != null &&
+        team.captainId!.isNotEmpty &&
+        team.captainId == player.id) {
+      return true;
+    }
     if (uid == null || uid.isEmpty) return false;
-
     final capId = team.captainId;
-
     return capId != null && capId.isNotEmpty && capId == uid;
-
   }
 
-
-
-  static bool isTeamViceCaptain(String? uid, TeamModel team) {
-
+  static bool isTeamViceCaptain(String? uid, TeamModel team, {PlayerModel? player}) {
+    if (player != null &&
+        team.viceCaptainId != null &&
+        team.viceCaptainId!.isNotEmpty &&
+        team.viceCaptainId == player.id) {
+      return true;
+    }
     if (uid == null || uid.isEmpty) return false;
-
     final vcId = team.viceCaptainId;
-
     return vcId != null && vcId.isNotEmpty && vcId == uid;
-
   }
 
-
-
-  static bool canManageJoinRequests(String? uid, TeamModel team) =>
-
+  static bool canManageJoinRequests(
+    String? uid,
+    TeamModel team, {
+    PlayerModel? player,
+  }) =>
       isTeamOwner(uid, team) ||
+      isTeamCaptain(uid, team, player: player) ||
+      isTeamViceCaptain(uid, team, player: player);
 
-      isTeamCaptain(uid, team) ||
-
-      isTeamViceCaptain(uid, team);
+  static List<TeamModel> leadershipTeams({
+    required List<TeamModel> teams,
+    required String? uid,
+    PlayerModel? player,
+  }) {
+    if (uid == null || uid.isEmpty) return const [];
+    return teams
+        .where((team) => canManageJoinRequests(uid, team, player: player))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+  }
 
 
 

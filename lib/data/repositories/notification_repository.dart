@@ -51,6 +51,8 @@ class NotificationRepository {
     String? type,
     String? addedByUserId,
     String? reportId,
+    String? tournamentId,
+    String? requestId,
   }) async {
     if (userId.isEmpty) return;
 
@@ -65,6 +67,8 @@ class NotificationRepository {
       if (type != null) 'type': type,
       if (addedByUserId != null) 'addedByUserId': addedByUserId,
       if (reportId != null) 'reportId': reportId,
+      if (tournamentId != null) 'tournamentId': tournamentId,
+      if (requestId != null) 'requestId': requestId,
       'read': false,
       'isRead': false,
       'createdAt': DateTime.now().toIso8601String(),
@@ -79,6 +83,8 @@ class NotificationRepository {
     required String type,
     String? playerId,
     String? excludeUserId,
+    String? tournamentId,
+    String? requestId,
   }) async {
     final recipients = await _leadershipAuthUserIds(team);
     for (final uid in recipients) {
@@ -90,6 +96,8 @@ class NotificationRepository {
         teamId: team.id,
         playerId: playerId,
         type: type,
+        tournamentId: tournamentId,
+        requestId: requestId,
       );
     }
   }

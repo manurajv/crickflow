@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/tournament_notification_types.dart';
 import '../../../core/navigation/notification_navigation.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -9,6 +10,7 @@ import '../../../core/utils/date_utils.dart';
 import '../../../data/models/notification_model.dart';
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
+import '../../tournaments/domain/tournament_notification_actions.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -118,6 +120,38 @@ class _NotificationCard extends ConsumerWidget {
     final route = NotificationNavigation.routeForNotification(notification);
     if (route != null) {
       context.push(route);
+    }
+  }
+
+  Future<void> _respond(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool accept,
+  }) async {
+    try {
+      if (accept) {
+        await TournamentNotificationActions.accept(
+          ref,
+          notification: notification,
+        );
+      } else {
+        await TournamentNotificationActions.reject(
+          ref,
+          notification: notification,
+        );
+      }
+      await ref.read(notificationRepositoryProvider).markRead(notification.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(accept ? 'Accepted' : 'Rejected'),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
     }
   }
 
@@ -320,7 +354,34 @@ class _NotificationCard extends ConsumerWidget {
                                 ),
                               ),
                             ],
-                            if (actionLabel != null) ...[
+                            if (n.isTournamentActionable) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: FilledButton(
+                                      onPressed: () => _respond(
+                                        context,
+                                        ref,
+                                        accept: true,
+                                      ),
+                                      child: const Text('Accept'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppDimens.spaceSm),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () => _respond(
+                                        context,
+                                        ref,
+                                        accept: false,
+                                      ),
+                                      child: const Text('Reject'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ] else if (actionLabel != null) ...[
                               const SizedBox(height: 10),
                               Row(
                                 children: [
@@ -392,6 +453,27 @@ class _NotificationCard extends ConsumerWidget {
           background: cf.success.withValues(alpha: 0.12),
         ),
       'team_join_rejected' => _NotificationPalette(
+          icon: Icons.cancel_outlined,
+          accent: cf.error,
+          background: cf.error.withValues(alpha: 0.12),
+        ),
+      TournamentNotificationTypes.invitation ||
+      TournamentNotificationTypes.joinRequest =>
+        _NotificationPalette(
+          icon: Icons.emoji_events_outlined,
+          accent: cf.accent,
+          background: cf.accent.withValues(alpha: 0.12),
+        ),
+      TournamentNotificationTypes.joinApproved ||
+      TournamentNotificationTypes.invitationAccepted =>
+        _NotificationPalette(
+          icon: Icons.check_circle_outline,
+          accent: cf.success,
+          background: cf.success.withValues(alpha: 0.12),
+        ),
+      TournamentNotificationTypes.joinRejected ||
+      TournamentNotificationTypes.invitationRejected =>
+        _NotificationPalette(
           icon: Icons.cancel_outlined,
           accent: cf.error,
           background: cf.error.withValues(alpha: 0.12),

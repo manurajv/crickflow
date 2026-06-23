@@ -16,7 +16,7 @@ class TournamentCreateDraft extends Equatable {
     required this.tournamentId,
     this.name = '',
     this.city = '',
-    this.ground = '',
+    this.grounds = const [],
     this.location = const LocationModel(country: AppConstants.defaultCountry),
     this.organizerName = '',
     this.organizerPhone = '',
@@ -27,7 +27,7 @@ class TournamentCreateDraft extends Equatable {
     this.ballType = CricketBallType.tennis,
     this.ballTypeOther = false,
     this.pitchType = PitchType.cement,
-    this.matchFormat = TournamentMatchFormat.limitedOvers,
+    this.cricketMatchType = CricketMatchType.limitedOvers,
     this.format = TournamentFormat.league,
     this.needMoreTeams = false,
     this.needOfficials = false,
@@ -44,7 +44,7 @@ class TournamentCreateDraft extends Equatable {
   final String tournamentId;
   final String name;
   final String city;
-  final String ground;
+  final List<String> grounds;
   final LocationModel location;
   final String organizerName;
   final String organizerPhone;
@@ -55,7 +55,7 @@ class TournamentCreateDraft extends Equatable {
   final CricketBallType ballType;
   final bool ballTypeOther;
   final PitchType pitchType;
-  final TournamentMatchFormat matchFormat;
+  final CricketMatchType cricketMatchType;
   final TournamentFormat format;
   final bool needMoreTeams;
   final bool needOfficials;
@@ -88,7 +88,7 @@ class TournamentCreateDraft extends Equatable {
   bool get canProceedFromBasic =>
       name.trim().isNotEmpty &&
       city.trim().isNotEmpty &&
-      ground.trim().isNotEmpty &&
+      grounds.any((g) => g.trim().isNotEmpty) &&
       organizerName.trim().isNotEmpty &&
       organizerPhone.trim().isNotEmpty &&
       startDate != null &&
@@ -97,7 +97,7 @@ class TournamentCreateDraft extends Equatable {
   TournamentCreateDraft copyWith({
     String? name,
     String? city,
-    String? ground,
+    List<String>? grounds,
     LocationModel? location,
     String? organizerName,
     String? organizerPhone,
@@ -108,7 +108,7 @@ class TournamentCreateDraft extends Equatable {
     CricketBallType? ballType,
     bool? ballTypeOther,
     PitchType? pitchType,
-    TournamentMatchFormat? matchFormat,
+    CricketMatchType? cricketMatchType,
     TournamentFormat? format,
     bool? needMoreTeams,
     bool? needOfficials,
@@ -127,7 +127,7 @@ class TournamentCreateDraft extends Equatable {
       tournamentId: tournamentId,
       name: name ?? this.name,
       city: city ?? this.city,
-      ground: ground ?? this.ground,
+      grounds: grounds ?? this.grounds,
       location: location ?? this.location,
       organizerName: organizerName ?? this.organizerName,
       organizerPhone: organizerPhone ?? this.organizerPhone,
@@ -138,7 +138,7 @@ class TournamentCreateDraft extends Equatable {
       ballType: ballType ?? this.ballType,
       ballTypeOther: ballTypeOther ?? this.ballTypeOther,
       pitchType: pitchType ?? this.pitchType,
-      matchFormat: matchFormat ?? this.matchFormat,
+      cricketMatchType: cricketMatchType ?? this.cricketMatchType,
       format: format ?? this.format,
       needMoreTeams: needMoreTeams ?? this.needMoreTeams,
       needOfficials: needOfficials ?? this.needOfficials,
@@ -155,17 +155,19 @@ class TournamentCreateDraft extends Equatable {
   }
 
   TournamentSetupMeta mergedSetup() {
+    final trimmedGrounds =
+        grounds.map((g) => g.trim()).where((g) => g.isNotEmpty).toList();
     return setup.copyWith(
-      organizerName: organizerName,
-      organizerPhone: organizerPhone,
-      organizerEmail: organizerEmail,
+      organizerName: organizerName.trim(),
+      organizerPhone: organizerPhone.trim(),
+      organizerEmail: organizerEmail.trim(),
       category: category,
-      matchFormat: matchFormat,
+      cricketMatchType: cricketMatchType,
       ballTypeOther: ballTypeOther,
-      primaryGround: ground,
+      primaryGround: trimmedGrounds.isNotEmpty ? trimmedGrounds.first : '',
       needMoreTeams: needMoreTeams,
       needOfficials: needOfficials,
-      teamLocation: location.copyWith(city: city),
+      teamLocation: location.copyWith(city: city.trim()),
       totalTeams: int.tryParse(totalTeamsText),
       teamsRequired: int.tryParse(teamsRequiredText),
     );
@@ -178,6 +180,8 @@ class TournamentCreateDraft extends Equatable {
   }) {
     final meta = mergedSetup();
     final entryFee = double.tryParse(entryFeeText.replaceAll(',', ''));
+    final trimmedGrounds =
+        grounds.map((g) => g.trim()).where((g) => g.isNotEmpty).toList();
     final rules = TournamentRulesModel(
       ballType: ballTypeOther ? CricketBallType.indoor : ballType,
       pitchType: pitchType,
@@ -189,7 +193,7 @@ class TournamentCreateDraft extends Equatable {
       format: format,
       status: TournamentStatus.draft,
       location: location.copyWith(city: city.trim()),
-      grounds: ground.trim().isEmpty ? const [] : [ground.trim()],
+      grounds: trimmedGrounds,
       startDate: startDate,
       endDate: endDate,
       createdBy: uid,

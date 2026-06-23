@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_gate.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/tournament/tournament_create_draft.dart';
+import '../../../data/models/user_model.dart';
 import '../../../domain/services/tournament_create_service.dart';
-import '../../matches/presentation/models/ground_pick_result.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_create_draft_provider.dart';
 import '../../../shared/widgets/start_match_ui.dart';
@@ -26,64 +26,56 @@ class TournamentCreateFlowScreen extends ConsumerStatefulWidget {
 class _TournamentCreateFlowScreenState
     extends ConsumerState<TournamentCreateFlowScreen> {
   int _stepIndex = 0;
+  int _maxStepIndex = 0;
   var _saving = false;
+  var _seededFromProfile = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(tournamentCreateDraftProvider.notifier).reset();
-      final profile = ref.read(currentUserProfileProvider).valueOrNull;
-      if (profile != null) {
-        ref.read(tournamentCreateDraftProvider.notifier).seedFromProfile(
-              displayName: profile.displayName,
-              phone: profile.effectiveMobile,
-              email: profile.email,
-              location: profile.location,
-            );
-      }
+      _seededFromProfile = false;
+      _stepIndex = 0;
+      _maxStepIndex = 0;
     });
+  }
+
+  void _seedOrganizerFromProfile(UserModel profile) {
+    if (_seededFromProfile) return;
+    _seededFromProfile = true;
+    ref.read(tournamentCreateDraftProvider.notifier).seedFromProfile(
+          displayName: profile.effectiveName,
+          phone: profile.effectiveMobile,
+          email: profile.email,
+          location: profile.location,
+        );
+    setState(() {});
   }
 
   void _onDraftChanged(TournamentCreateDraft draft) {
     ref.read(tournamentCreateDraftProvider.notifier).updateDraft(draft);
-    setState(() {});
+    setState(() {
+      final steps = draft.activeSteps;
+      if (_maxStepIndex >= steps.length) {
+        _maxStepIndex = steps.length - 1;
+      }
+      if (_stepIndex >= steps.length) {
+        _stepIndex = steps.length - 1;
+      }
+    });
   }
 
-  Future<void> _pickGroundOnMap(TournamentCreateDraft draft) async {
-    final result = await context.push<GroundPickResult>(
-      '/match/create/pick-ground',
-      extra: {
-        'location': draft.location,
-        'groundName': draft.ground,
-      },
-    );
-    if (result == null || !mounted) return;
-    _onDraftChanged(
-      draft.copyWith(
-        ground: result.groundName,
-        city: result.location.city.isNotEmpty ? result.location.city : draft.city,
-        location: result.location,
-      ),
-    );
+  void _goToStep(int index, {required List<TournamentCreateFlowStep> steps}) {
+    if (index < 0 || index >= steps.length) return;
+    setState(() => _stepIndex = index);
   }
 
-  Future<void> _pickTeamLocationOnMap(TournamentCreateDraft draft) async {
-    final result = await context.push<GroundPickResult>(
-      '/match/create/pick-ground',
-      extra: {
-        'location': draft.setup.teamLocation,
-        'groundName': draft.setup.primaryGround,
-      },
-    );
-    if (result == null || !mounted) return;
-    _onDraftChanged(
-      draft.copyWith(
-        setup: draft.setup.copyWith(teamLocation: result.location),
-        location: result.location,
-        city: result.location.city.isNotEmpty ? result.location.city : draft.city,
-      ),
-    );
+  void _advanceStep(int nextIndex) {
+    setState(() {
+      _stepIndex = nextIndex;
+      if (nextIndex > _maxStepIndex) _maxStepIndex = nextIndex;
+    });
   }
 
   Future<void> _next(TournamentCreateDraft draft) async {
@@ -101,7 +93,7 @@ class _TournamentCreateFlowScreenState
       );
       return;
     }
-    setState(() => _stepIndex++);
+    _advanceStep(_stepIndex + 1);
   }
 
   void _skip(TournamentCreateDraft draft) {
@@ -110,7 +102,7 @@ class _TournamentCreateFlowScreenState
       _submit(draft);
       return;
     }
-    setState(() => _stepIndex++);
+    _advanceStep(_stepIndex + 1);
   }
 
   Future<void> _submit(TournamentCreateDraft draft) async {
@@ -128,10 +120,13 @@ class _TournamentCreateFlowScreenState
     setState(() => _saving = true);
     try {
       final profile = ref.read(currentUserProfileProvider).valueOrNull;
+      final organizerName = draft.organizerName.trim();
       final id = await ref.read(tournamentCreateServiceProvider).submit(
             draft: draft,
             uid: uid,
-            ownerDisplayName: profile?.displayName ?? draft.organizerName,
+            ownerDisplayName: organizerName.isNotEmpty
+                ? organizerName
+                : (profile?.effectiveName ?? ''),
           );
       ref.read(tournamentCreateDraftProvider.notifier).reset();
       if (mounted) context.go('/tournaments/$id');
@@ -148,12 +143,25 @@ class _TournamentCreateFlowScreenState
 
   @override
   Widget build(BuildContext context) {
+    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+    if (profile != null && !_seededFromProfile) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _seededFromProfile) return;
+        _seedOrganizerFromProfile(profile);
+      });
+    }
+
     final draft = ref.watch(tournamentCreateDraftProvider);
     final steps = draft.activeSteps;
     final safeIndex = _stepIndex.clamp(0, steps.length - 1);
-    if (safeIndex != _stepIndex) {
+    final maxIndex = _maxStepIndex.clamp(0, steps.length - 1);
+    if (safeIndex != _stepIndex || maxIndex != _maxStepIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _stepIndex = safeIndex);
+        if (!mounted) return;
+        setState(() {
+          _stepIndex = safeIndex;
+          _maxStepIndex = maxIndex;
+        });
       });
     }
 
@@ -172,13 +180,14 @@ class _TournamentCreateFlowScreenState
             StartMatchStepBar(
               steps: draft.stepLabels,
               currentIndex: safeIndex,
+              isStepTappable: (i) => i <= maxIndex,
+              onStepTap: (i) => _goToStep(i, steps: steps),
             ),
           Expanded(
             child: switch (current) {
               TournamentCreateFlowStep.basic => TournamentCreateBasicStep(
                   draft: draft,
                   onChanged: _onDraftChanged,
-                  onPickGroundOnMap: () => _pickGroundOnMap(draft),
                 ),
               TournamentCreateFlowStep.officials =>
                 TournamentCreateOfficialsStep(
@@ -188,7 +197,6 @@ class _TournamentCreateFlowScreenState
               TournamentCreateFlowStep.teams => TournamentCreateTeamsStep(
                   draft: draft,
                   onChanged: _onDraftChanged,
-                  onPickLocationOnMap: () => _pickTeamLocationOnMap(draft),
                 ),
             },
           ),

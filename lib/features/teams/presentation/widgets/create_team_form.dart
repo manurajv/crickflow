@@ -22,9 +22,14 @@ import 'team_logo_picker.dart';
 
 /// Create team form inside the Teams → Add tab.
 class CreateTeamForm extends ConsumerStatefulWidget {
-  const CreateTeamForm({super.key, this.onCreated});
+  const CreateTeamForm({
+    super.key,
+    this.onCreated,
+    this.navigateToTeamDetailOnCreate = true,
+  });
 
   final void Function(String teamId)? onCreated;
+  final bool navigateToTeamDetailOnCreate;
 
   @override
   ConsumerState<CreateTeamForm> createState() => _CreateTeamFormState();
@@ -249,7 +254,9 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
 
       if (!mounted) return;
       widget.onCreated?.call(_teamId);
-      context.push('/teams/$_teamId');
+      if (widget.navigateToTeamDetailOnCreate) {
+        context.push('/teams/$_teamId');
+      }
       final codeLabel = CfTeamIdFormat.displayLabel(saved.teamCode);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${saved.name} created · Team ID $codeLabel')),

@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Tournament multi-step create wizard  
+**Last updated:** Tournament teams UX — confirm sheets, QR cold-start, logos  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -26,7 +26,11 @@
 | Points table engine (client) + Cloud Function standings (existing) | Done |
 | RBAC — `TournamentPermissionService` + `tournament_members` | Done |
 | Discovery screen — 6 tabs + join-by-code | Done |
-| Tournament dashboard — 11 tabs (overview, teams, groups, fixtures, …) | Done |
+| Tournament dashboard — 13 tabs (overview, matches, leaderboard, points table, stats, teams, groups, fixtures, officials, sponsors, heroes, rules, settings) | Done |
+| Dashboard section routes — `/tournaments/:id/{section}` + `?tab=` query | Done |
+| **Tournament Overview screen** — header, stats grid, organizer, info cards, QR/sharing, activity timeline, quick actions | Done |
+| Overview providers — `tournamentOverviewStatsProvider`, `tournamentRecentActivityProvider`, `userProfileByIdProvider` | Done |
+| `TournamentActivityService` — aggregated timeline from matches, groups, officials, sponsors | Done |
 | Create / edit tournament screens | Done |
 | **Multi-step create wizard** — CricHeroes-style 3-step flow (`TournamentCreateFlowScreen`) | Done |
 | Wizard step 1 — banner/logo, name, city, ground (map picker), organiser, dates, category, ball/pitch/match type | Done |
@@ -36,7 +40,15 @@
 | Storage rules — `tournaments/{id}/banner|logo` uploads | Done — deployed |
 | Routes — `/tournaments`, `/tournaments/create`, `/tournaments/:id` | Done |
 | Share sheet — code + invite link | Done |
-| Firestore rules — new tournament collections | Done — deploy rules |
+| Firestore rules — new tournament collections + `tournament_team_requests` RBAC (read public, invite/join writes) | Done — deployed |
+| **Tournament team requests** — invite/join flows, approval, `tournament_team_requests` collection | Done |
+| Organizer own-team add — direct roster add (no notification); create-team from tournament auto-adds | Done |
+| Tournament join screen — QR deep link, team picker for multi-team leadership, back → My Cricket Tournaments | Done |
+| Tournament Teams tab — sections, empty state, add team bottom sheet, join screen | Done |
+| Tournament Teams tab — approve/reject/remove confirm sheets; per-team logo via `teamByIdProvider` | Done |
+| Add existing team — success sheet, navigate to Teams tab, root navigator for modals | Done |
+| QR cold start — prefetch initial App Link in `main()`; splash resolves link in parallel | Done |
+| Tournament team notifications — 6 types with Accept/Reject in notifications | Done |
 | Group ↔ team assignment UI | Pending |
 | Manual fixture editor | Pending |
 | Tournament notifications | Pending |

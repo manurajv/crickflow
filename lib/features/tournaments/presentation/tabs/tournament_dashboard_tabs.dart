@@ -5,6 +5,7 @@ import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/venue_maps_utils.dart';
 import '../../../../data/models/tournament/tournament_group_model.dart';
 import '../../../../data/models/tournament/tournament_official_model.dart';
 import '../../../../data/models/tournament/tournament_rules_model.dart';
@@ -14,175 +15,6 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/match_list_card.dart';
-import '../widgets/tournament_bracket_widget.dart';
-
-class TournamentOverviewTab extends ConsumerWidget {
-  const TournamentOverviewTab({
-    super.key,
-    required this.tournament,
-    required this.role,
-  });
-
-  final TournamentModel tournament;
-  final TournamentRole role;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cf = context.cf;
-    return ListView(
-      padding: AppDimens.screenPadding,
-      children: [
-        _SectionCard(
-          title: 'About',
-          child: Text(
-            tournament.description.isEmpty
-                ? 'No description yet.'
-                : tournament.description,
-            style: TextStyle(color: cf.textSecondary),
-          ),
-        ),
-        _SectionCard(
-          title: 'Details',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DetailRow(label: 'Format', value: _formatLabel(tournament.format)),
-              _DetailRow(label: 'Status', value: tournament.status.name),
-              _DetailRow(label: 'City', value: tournament.location.displayLabel),
-              if (tournament.ballType != null)
-                _DetailRow(label: 'Ball', value: tournament.ballType!.name),
-              if (tournament.pitchType != null)
-                _DetailRow(label: 'Pitch', value: tournament.pitchType!.name),
-              if (tournament.winningPrize != null)
-                _DetailRow(label: 'Prize', value: tournament.winningPrize!),
-            ],
-          ),
-        ),
-        _SectionCard(
-          title: 'Quick stats',
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _StatChip(label: 'Teams', value: '${tournament.teamIds.length}'),
-              _StatChip(label: 'Matches', value: '${tournament.matchIds.length}'),
-              _StatChip(
-                label: 'Your role',
-                value: role.name,
-              ),
-            ],
-          ),
-        ),
-        if (tournament.bracketRounds.isNotEmpty)
-          _SectionCard(
-            title: 'Knockout bracket',
-            child: TournamentBracketWidget(tournament: tournament),
-          ),
-      ],
-    );
-  }
-
-  String _formatLabel(TournamentFormat f) => switch (f) {
-        TournamentFormat.league => 'League',
-        TournamentFormat.knockout => 'Knockout',
-        TournamentFormat.leagueKnockout => 'League + Knockout',
-        TournamentFormat.custom => 'Custom',
-      };
-}
-
-class TournamentTeamsTab extends ConsumerStatefulWidget {
-  const TournamentTeamsTab({
-    super.key,
-    required this.tournament,
-    required this.role,
-  });
-
-  final TournamentModel tournament;
-  final TournamentRole role;
-
-  @override
-  ConsumerState<TournamentTeamsTab> createState() => _TournamentTeamsTabState();
-}
-
-class _TournamentTeamsTabState extends ConsumerState<TournamentTeamsTab> {
-  Future<void> _registerTeam() async {
-    final teams = await ref.read(teamsProvider.future);
-    if (!mounted || teams.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Create a team first')),
-      );
-      return;
-    }
-
-    final picked = await showDialog<dynamic>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('Register team'),
-        children: teams
-            .map((team) => SimpleDialogOption(
-                  onPressed: () => Navigator.pop(ctx, team),
-                  child: Text(team.name),
-                ))
-            .toList(),
-      ),
-    );
-    if (picked == null) return;
-
-    await ref.read(tournamentRepositoryProvider).addTeamToTournament(
-          tournamentId: widget.tournament.id,
-          teamId: picked.id,
-          teamName: picked.name,
-        );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${picked.name} registered')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final canManage = ref
-        .watch(tournamentPermissionServiceProvider)
-        .canManageTeams(widget.role);
-
-    return ListView(
-      padding: AppDimens.screenPadding,
-      children: [
-        if (canManage)
-          CfButton(
-            label: 'Register team',
-            isGold: true,
-            onPressed: _registerTeam,
-          ),
-        if (canManage) const SizedBox(height: AppDimens.spaceMd),
-        if (widget.tournament.pointsTable.isEmpty)
-          const Center(child: Text('No teams registered yet'))
-        else
-          ...widget.tournament.pointsTable.map(
-            (e) => ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.groups)),
-              title: Text(e.teamName),
-              subtitle: Text('${e.points} pts'),
-              trailing: canManage
-                  ? IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: () async {
-                        await ref
-                            .read(tournamentRepositoryProvider)
-                            .removeTeamFromTournament(
-                              tournamentId: widget.tournament.id,
-                              teamId: e.teamId,
-                            );
-                      },
-                    )
-                  : null,
-              onTap: () => context.push('/teams/${e.teamId}'),
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 class TournamentGroupsTab extends ConsumerWidget {
   const TournamentGroupsTab({
@@ -997,22 +829,57 @@ class _SectionCard extends StatelessWidget {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.mapsQuery,
+  });
 
   final String label;
   final String value;
+  final String? mapsQuery;
+
+  Future<void> _openMaps(BuildContext context) async {
+    final query = mapsQuery?.trim();
+    if (query == null || query.isEmpty) return;
+
+    final ok = await openVenueInGoogleMaps(query: query);
+    if (!context.mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+    final canOpenMaps = mapsQuery != null && mapsQuery!.trim().isNotEmpty;
+
+    final valueStyle = TextStyle(
+      color: cf.accent,
+      decoration: canOpenMaps ? TextDecoration.underline : null,
+      fontWeight: canOpenMaps ? FontWeight.w600 : FontWeight.normal,
+    );
+
+    final valueWidget = canOpenMaps
+        ? InkWell(
+            onTap: () => _openMaps(context),
+            child: Text(value, style: valueStyle),
+          )
+        : Text(value, style: TextStyle(color: cf.textPrimary));
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: TextStyle(color: context.cf.textMuted)),
+            child: Text(label, style: TextStyle(color: cf.textMuted)),
           ),
-          Expanded(child: Text(value)),
+          Expanded(child: valueWidget),
         ],
       ),
     );

@@ -892,6 +892,111 @@ service cloud.firestore {
         );
     }
 
+    function canManageTournamentTeams(tournamentId) {
+      return isTournamentOrganizer(tournamentId);
+    }
+
+    function validTournamentTeamRequestCreate() {
+      let data = request.resource.data;
+      return data.tournamentId is string
+        && data.tournamentId.size() > 0
+        && data.teamId is string
+        && data.teamId.size() > 0
+        && data.requestType in ['invitation', 'join_request']
+        && data.status == 'pending'
+        && data.requestedByUserId is string
+        && data.requestedByUserId == request.auth.uid;
+    }
+
+    function validTournamentTeamRequestStatusTransition() {
+      let next = request.resource.data.status;
+      return next in ['approved', 'rejected', 'withdrawn'];
+    }
+
+    function validTournamentTeamRequestDirectAdd() {
+      let data = request.resource.data;
+      return data.tournamentId is string
+        && data.teamId is string
+        && data.requestType == 'invitation'
+        && data.status == 'approved'
+        && data.requestedByUserId == request.auth.uid
+        && canManageTournamentTeams(data.tournamentId);
+    }
+
+    match /tournament_team_requests/{requestId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+        && (
+          (
+            validTournamentTeamRequestCreate()
+            && (
+              (
+                request.resource.data.requestType == 'invitation'
+                && canManageTournamentTeams(request.resource.data.tournamentId)
+              )
+              || (
+                request.resource.data.requestType == 'join_request'
+                && canManageTeamRequests(request.resource.data.teamId)
+              )
+            )
+          )
+          || validTournamentTeamRequestDirectAdd()
+        );
+
+      allow update: if isSignedIn()
+        && canManageTournamentTeams(resource.data.tournamentId)
+        && request.resource.data.status == 'approved'
+        && request.resource.data.requestType == 'invitation'
+        && request.resource.data.requestedByUserId == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && resource.data.status == 'pending'
+        && validTournamentTeamRequestStatusTransition()
+        && (
+          (
+            resource.data.requestType == 'invitation'
+            && canManageTeamRequests(resource.data.teamId)
+            && request.resource.data.status in ['approved', 'rejected']
+          )
+          || (
+            resource.data.requestType == 'join_request'
+            && canManageTournamentTeams(resource.data.tournamentId)
+            && request.resource.data.status in ['approved', 'rejected']
+          )
+          || (
+            resource.data.requestType == 'join_request'
+            && canManageTeamRequests(resource.data.teamId)
+            && request.resource.data.status == 'withdrawn'
+          )
+        );
+
+      allow update: if isSignedIn()
+        && canManageTournamentTeams(resource.data.tournamentId)
+        && resource.data.status in ['approved', 'rejected']
+        && request.resource.data.status == 'withdrawn'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']);
+
+      allow update: if isSignedIn()
+        && validTournamentTeamRequestCreate()
+        && resource.data.status in ['rejected', 'withdrawn']
+        && request.resource.data.status == 'pending'
+        && (
+          (
+            request.resource.data.requestType == 'invitation'
+            && canManageTournamentTeams(resource.data.tournamentId)
+          )
+          || (
+            request.resource.data.requestType == 'join_request'
+            && canManageTeamRequests(resource.data.teamId)
+          )
+        );
+
+      allow delete: if isSignedIn()
+        && canManageTournamentTeams(resource.data.tournamentId);
+    }
+
     match /badges/{badgeId} {
       allow read: if true;
       allow create: if isSignedIn();

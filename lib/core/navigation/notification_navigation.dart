@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../core/constants/tournament_notification_types.dart';
 import '../../data/models/notification_model.dart';
 
 /// Maps notification payloads to in-app routes.
@@ -10,7 +11,18 @@ class NotificationNavigation {
     String? type,
     String? teamId,
     String? matchId,
+    String? tournamentId,
   }) {
+    if (tournamentId != null &&
+        tournamentId.isNotEmpty &&
+        (type == TournamentNotificationTypes.joinRequest ||
+            type == TournamentNotificationTypes.invitation ||
+            type == TournamentNotificationTypes.joinApproved ||
+            type == TournamentNotificationTypes.joinRejected ||
+            type == TournamentNotificationTypes.invitationAccepted ||
+            type == TournamentNotificationTypes.invitationRejected)) {
+      return '/tournaments/$tournamentId/teams';
+    }
     if (teamId != null &&
         teamId.isNotEmpty &&
         (type == 'team_join_request' ||
@@ -42,6 +54,7 @@ class NotificationNavigation {
       type: notification.type,
       teamId: notification.teamId,
       matchId: notification.matchId,
+      tournamentId: notification.tournamentId,
     );
   }
 
@@ -51,6 +64,9 @@ class NotificationNavigation {
       if (raw['teamId'] != null) 'teamId': raw['teamId'].toString(),
       if (raw['matchId'] != null) 'matchId': raw['matchId'].toString(),
       if (raw['playerId'] != null) 'playerId': raw['playerId'].toString(),
+      if (raw['tournamentId'] != null)
+        'tournamentId': raw['tournamentId'].toString(),
+      if (raw['requestId'] != null) 'requestId': raw['requestId'].toString(),
     };
   }
 
@@ -78,6 +94,12 @@ extension NotificationPresentation on NotificationModel {
         'team_join_request' => 'Join request',
         'team_join_accepted' => 'Accepted',
         'team_join_rejected' => 'Declined',
+        TournamentNotificationTypes.invitation => 'Tournament invite',
+        TournamentNotificationTypes.invitationAccepted => 'Invite accepted',
+        TournamentNotificationTypes.invitationRejected => 'Invite declined',
+        TournamentNotificationTypes.joinRequest => 'Tournament request',
+        TournamentNotificationTypes.joinApproved => 'Join approved',
+        TournamentNotificationTypes.joinRejected => 'Join declined',
         'team_member_removed' => 'Team update',
         'team_member_added' => 'Added to team',
         'player_follow' => 'New follower',
@@ -88,12 +110,23 @@ extension NotificationPresentation on NotificationModel {
 
   bool get isJoinRequest => type == 'team_join_request';
 
+  bool get isTournamentActionable =>
+      type == TournamentNotificationTypes.invitation ||
+      type == TournamentNotificationTypes.joinRequest;
+
   bool get canReportUnauthorizedAdd => type == 'team_member_added';
 
   String? get actionLabel => switch (type) {
         'team_join_request' => 'Review request',
         'team_join_accepted' || 'team_join_rejected' => 'View team',
         'team_member_added' => 'View team',
+        TournamentNotificationTypes.invitation => 'Respond to invite',
+        TournamentNotificationTypes.joinRequest => 'Review request',
+        TournamentNotificationTypes.joinApproved ||
+        TournamentNotificationTypes.joinRejected ||
+        TournamentNotificationTypes.invitationAccepted ||
+        TournamentNotificationTypes.invitationRejected =>
+          'View tournament',
         _ => null,
       };
 }

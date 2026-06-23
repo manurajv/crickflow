@@ -6,7 +6,8 @@
         "appID": "TEAMID.com.mavixas.crickflow",
         "paths": [
           "/match/*",
-          "/teams/*"
+          "/teams/*",
+          "/tournaments/*"
         ]
       }
     ]

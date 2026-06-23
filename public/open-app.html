@@ -29,7 +29,6 @@
       margin-top: 20px;
     }
     p { color: #94a3b8; line-height: 1.5; }
-    code { background: #132238; padding: 4px 8px; border-radius: 4px; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -44,30 +43,35 @@
   <script>
     (function () {
       var parts = location.pathname.split('/').filter(Boolean);
-      var qs = location.search || '';
-      var appPath = '/';
+      var appPath = '/home';
       var msg = 'Open the CrickFlow app.';
       var androidPackage = 'com.mavixas.crickflow';
 
       if (parts[0] === 'match' && parts[1]) {
         appPath = '/match/' + parts[1];
         if (parts[2]) appPath += '/' + parts[2];
-        if (parts[2] === 'takeover') {
-          msg = 'Take over live scoring — open in the CrickFlow app.';
-        } else {
-          msg = 'Match link — open in the CrickFlow app to view the scorecard.';
-        }
+        msg = parts[2] === 'takeover'
+          ? 'Take over live scoring — open in the CrickFlow app.'
+          : 'Match link — open in the CrickFlow app to view the scorecard.';
       } else if (parts[0] === 'teams' && parts[1]) {
         appPath = '/teams/' + parts[1];
         msg = 'Team invite — open in CrickFlow to join the squad.';
-      } else {
-        appPath = '/home';
+      } else if (parts[0] === 'tournaments' && parts[1]) {
+        if (parts[2] === 'join') {
+          appPath = '/tournaments/' + parts[1] + '/join';
+        } else {
+          appPath = '/tournaments/' + parts[1] + '/join';
+        }
+        var params = new URLSearchParams(location.search);
+        params.set('from', 'qr');
+        appPath += '?' + params.toString();
+        msg = 'Tournament invite — open in CrickFlow to join with your team.';
       }
 
       var deepPath = appPath.charAt(0) === '/' ? appPath.slice(1) : appPath;
-      var appUrl = 'crickflow://' + deepPath + qs;
+      var appUrl = 'crickflow://' + deepPath;
       var intentUrl =
-        'intent://' + deepPath + qs +
+        'intent://' + deepPath +
         '#Intent;scheme=crickflow;package=' + androidPackage +
         ';S.browser_fallback_url=' + encodeURIComponent(location.href) +
         ';end';

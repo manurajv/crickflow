@@ -20,6 +20,7 @@ class AppConstants {
   static const String tournamentSponsorsCollection = 'tournament_sponsors';
   static const String tournamentRulesCollection = 'tournament_rules';
   static const String tournamentMembersCollection = 'tournament_members';
+  static const String tournamentTeamRequestsCollection = 'tournament_team_requests';
   static const String ballEventsCollection = 'ball_events';
   static const String notificationsCollection = 'notifications';
   static const String badgesCollection = 'badges';

@@ -21,6 +21,34 @@ class DeepLinkUtils {
 
   static String findCricketersPath() => '/find-cricketers';
 
+  static String tournamentJoinPath(String tournamentId, {bool fromQr = true}) {
+    final path = '/tournaments/$tournamentId/join';
+    return fromQr ? '$path?from=qr' : path;
+  }
+
+  static Uri hostedTournamentJoinUri(
+    String tournamentId, {
+    bool useCustomDomain = false,
+    bool fromQr = true,
+  }) =>
+      hostedUri(
+        tournamentJoinPath(tournamentId, fromQr: fromQr),
+        useCustomDomain: useCustomDomain,
+      );
+
+  /// Maps bare `/tournaments/:id` invite URLs to the join screen path.
+  static String normalizeTournamentInvitePath(
+    String path,
+    Map<String, String> query,
+  ) {
+    final bare = RegExp(r'^/tournaments/([^/]+)$').firstMatch(path);
+    if (bare == null) return path;
+    if (query['from'] == 'qr' || query.containsKey('code')) {
+      return tournamentJoinPath(bare.group(1)!, fromQr: query['from'] == 'qr');
+    }
+    return path;
+  }
+
   static Uri matchUri(String matchId) =>
       Uri(scheme: customScheme, host: 'match', path: '/$matchId');
 

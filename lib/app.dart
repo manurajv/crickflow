@@ -21,10 +21,10 @@ class _CrickFlowAppState extends ConsumerState<CrickFlowApp> {
   @override
   void initState() {
     super.initState();
+    final router = ref.read(routerProvider);
+    _deepLinkHandler = DeepLinkHandler(router);
+    _deepLinkHandler!.init();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final router = ref.read(routerProvider);
-      _deepLinkHandler = DeepLinkHandler(router);
-      _deepLinkHandler!.init();
       ref.read(offlineSyncServiceProvider).start();
     });
   }

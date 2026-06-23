@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/match_permissions.dart';
@@ -77,7 +78,7 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
     return ShellTabScaffold(
       title: const Text('My Cricket'),
       actions: [
-        if (_tabs.index != 2 && _tabs.index != 3)
+        if (_tabs.index == 0 || _tabs.index == 1)
           IconButton(
             icon: const Icon(Icons.search),
             tooltip: 'Search',
@@ -103,16 +104,30 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
           ],
         ),
       ),
-      floatingActionButton: canCreate && _tabs.index == 0
-          ? FloatingActionButton.extended(
-              heroTag: 'my_cricket_start_match_fab',
-              onPressed: () => context.push('/match/create'),
-              backgroundColor: cf.fabBackground,
-              foregroundColor: cf.fabForeground,
-              icon: const Icon(Icons.sports_cricket),
-              label: const Text('Start match'),
-            )
-          : null,
+      floatingActionButton: switch (_tabs.index) {
+        0 when canCreate => FloatingActionButton.extended(
+            heroTag: 'my_cricket_start_match_fab',
+            onPressed: () => context.push('/match/create'),
+            backgroundColor: cf.fabBackground,
+            foregroundColor: cf.fabForeground,
+            icon: const Icon(Icons.sports_cricket),
+            label: const Text('Start match'),
+          ),
+        1 => FloatingActionButton.extended(
+            heroTag: 'my_cricket_create_tournament_fab',
+            onPressed: () => requireAuthVoid(
+              context: context,
+              ref: ref,
+              returnPath: '/matches',
+              action: () => context.push('/tournaments/create'),
+            ),
+            backgroundColor: cf.fabBackground,
+            foregroundColor: cf.fabForeground,
+            icon: const Icon(Icons.app_registration_outlined),
+            label: const Text('Register'),
+          ),
+        _ => null,
+      },
       body: TabBarView(
         controller: _tabs,
         children: const [

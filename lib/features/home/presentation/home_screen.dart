@@ -108,8 +108,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             _WelcomeHeader(profileAsync: profileAsync, isGuest: isGuest),
             if (isViewer) _viewerBanner(context),
-            if (showCreateUi)
-              _QuickActionsRow(onCreateMatch: openCreateMatch),
             LocationFilterBar(
               onFilterChanged: (country, city) {
                 setState(() {
@@ -364,111 +362,6 @@ class _SectionHeader extends StatelessWidget {
           const Spacer(),
           ?trailing,
         ],
-      ),
-    );
-  }
-}
-
-class _QuickActionsRow extends StatelessWidget {
-  const _QuickActionsRow({required this.onCreateMatch});
-
-  final VoidCallback onCreateMatch;
-
-  @override
-  Widget build(BuildContext context) {
-    final cf = context.cf;
-    return SizedBox(
-      height: 88,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
-        children: [
-          _QuickActionChip(
-            icon: Icons.sports_cricket,
-            label: 'New match',
-            color: cf.accent,
-            onTap: onCreateMatch,
-          ),
-          _QuickActionChip(
-            icon: Icons.emoji_events_outlined,
-            label: 'Tournaments',
-            onTap: () => context.push('/tournaments'),
-          ),
-          _QuickActionChip(
-            icon: Icons.groups_outlined,
-            label: 'Teams',
-            onTap: () => context.push('/teams'),
-          ),
-          _QuickActionChip(
-            icon: Icons.person_outline,
-            label: 'Players',
-            onTap: () => context.push('/players'),
-          ),
-          _QuickActionChip(
-            icon: Icons.sports_esports_outlined,
-            label: 'Fantasy',
-            onTap: () => context.push('/fantasy'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionChip extends StatelessWidget {
-  const _QuickActionChip({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final cf = context.cf;
-    final accent = color ?? cf.accent;
-    return Padding(
-      padding: const EdgeInsets.only(right: AppDimens.spaceSm),
-      child: Material(
-        color: cf.card,
-        borderRadius: AppDimens.cardRadius,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppDimens.cardRadius,
-          child: Container(
-            width: 96,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.spaceSm,
-              vertical: AppDimens.spaceMd,
-            ),
-            decoration: cfCardDecoration(
-              context,
-              borderColor: accent.withValues(alpha: color != null ? 0.5 : 0.25),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: accent, size: 22),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        height: 1.15,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

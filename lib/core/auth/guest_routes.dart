@@ -34,7 +34,19 @@ class GuestRoutes {
     if (path.startsWith('/player/')) return true;
     if (path == '/find-cricketers') return true;
     if (path.startsWith('/fantasy/')) return true;
+    if (_isTournamentJoinPath(path)) return true;
+    if (_isTournamentDashboardPath(path)) return true;
     return false;
+  }
+
+  static bool _isTournamentDashboardPath(String path) {
+    return RegExp(r'^/tournaments/[^/]+(?:/.*)?$').hasMatch(path) &&
+        !_isTournamentJoinPath(path) &&
+        path != '/tournaments/create';
+  }
+
+  static bool _isTournamentJoinPath(String path) {
+    return RegExp(r'^/tournaments/[^/]+/join').hasMatch(path);
   }
 
   static bool isProtectedRoute(String path) {

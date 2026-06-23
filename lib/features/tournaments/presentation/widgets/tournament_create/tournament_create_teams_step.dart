@@ -5,7 +5,6 @@ import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/tournament/tournament_create_draft.dart';
 import '../../../../../data/models/tournament/tournament_setup_meta.dart';
-import '../../../../../features/matches/presentation/widgets/ground_search_field.dart';
 import '../../../../../shared/widgets/cf_underlined_field.dart';
 import '../../../../../shared/widgets/start_match_ui.dart';
 import 'tournament_create_ui.dart';
@@ -15,12 +14,10 @@ class TournamentCreateTeamsStep extends ConsumerStatefulWidget {
     super.key,
     required this.draft,
     required this.onChanged,
-    required this.onPickLocationOnMap,
   });
 
   final TournamentCreateDraft draft;
   final ValueChanged<TournamentCreateDraft> onChanged;
-  final VoidCallback onPickLocationOnMap;
 
   @override
   ConsumerState<TournamentCreateTeamsStep> createState() =>
@@ -29,7 +26,7 @@ class TournamentCreateTeamsStep extends ConsumerStatefulWidget {
 
 class _TournamentCreateTeamsStepState
     extends ConsumerState<TournamentCreateTeamsStep> {
-  late final TextEditingController _locationController;
+  late final TextEditingController _cityController;
   late final TextEditingController _entryFeeController;
   late final TextEditingController _totalTeamsController;
   late final TextEditingController _teamsRequiredController;
@@ -39,10 +36,10 @@ class _TournamentCreateTeamsStepState
   void initState() {
     super.initState();
     final d = widget.draft;
-    _locationController = TextEditingController(
-      text: d.setup.teamLocation.displayLabel.isNotEmpty
-          ? d.setup.teamLocation.displayLabel
-          : d.location.displayLabel,
+    _cityController = TextEditingController(
+      text: d.setup.teamLocation.city.isNotEmpty
+          ? d.setup.teamLocation.city
+          : d.city,
     );
     _entryFeeController = TextEditingController(text: d.entryFeeText);
     _totalTeamsController = TextEditingController(text: d.totalTeamsText);
@@ -52,7 +49,7 @@ class _TournamentCreateTeamsStepState
 
   @override
   void dispose() {
-    _locationController.dispose();
+    _cityController.dispose();
     _entryFeeController.dispose();
     _totalTeamsController.dispose();
     _teamsRequiredController.dispose();
@@ -66,6 +63,17 @@ class _TournamentCreateTeamsStepState
 
   void _patchSetup(TournamentSetupMeta Function(TournamentSetupMeta) fn) {
     _patch((d) => d.copyWith(setup: fn(d.setup)));
+  }
+
+  @override
+  void didUpdateWidget(covariant TournamentCreateTeamsStep oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final city = widget.draft.setup.teamLocation.city.isNotEmpty
+        ? widget.draft.setup.teamLocation.city
+        : widget.draft.city;
+    if (_cityController.text != city) {
+      _cityController.text = city;
+    }
   }
 
   @override
@@ -89,22 +97,17 @@ class _TournamentCreateTeamsStepState
               ),
         ),
         const SizedBox(height: AppDimens.spaceLg),
-        GroundSearchField(
-          controller: _locationController,
-          onVenueChanged: (v) => _patchSetup(
-              (s) => s.copyWith(primaryGround: v),
-            ),
-          onLocationResolved: (loc) {
-            _patch((d) => d.copyWith(
-                  location: loc,
-                  city: loc.city.isNotEmpty ? loc.city : d.city,
-                  setup: d.setup.copyWith(teamLocation: loc),
-                ));
-            if (loc.displayLabel.isNotEmpty) {
-              _locationController.text = loc.displayLabel;
-            }
-          },
-          onPickOnMap: widget.onPickLocationOnMap,
+        CfUnderlinedField(
+          controller: _cityController,
+          label: 'City',
+          required: true,
+          onChanged: (v) => _patch((d) => d.copyWith(
+                city: v,
+                location: d.location.copyWith(city: v),
+                setup: d.setup.copyWith(
+                  teamLocation: d.setup.teamLocation.copyWith(city: v),
+                ),
+              )),
         ),
         const SizedBox(height: AppDimens.fieldSpacing),
         CfUnderlinedField(

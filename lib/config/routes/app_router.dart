@@ -60,8 +60,10 @@ import '../../features/teams/presentation/create_team_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_screen.dart';
 import '../../features/tournaments/presentation/tournament_dashboard_screen.dart';
+import '../../features/tournaments/presentation/tournament_dashboard_sections.dart';
 import '../../features/tournaments/presentation/tournament_create_flow_screen.dart';
 import '../../features/tournaments/presentation/tournament_edit_screen.dart';
+import '../../features/tournaments/presentation/tournament_join_screen.dart';
 import '../../features/wagon_wheel/presentation/wagon_wheel_view_screen.dart';
 import '../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../core/routing/deep_link_handler.dart';
@@ -69,6 +71,8 @@ import '../../core/utils/deep_link_utils.dart';
 import '../../core/utils/match_permissions.dart';
 import '../../core/auth/guest_routes.dart';
 import '../../shared/providers/providers.dart';
+
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Prevents synchronous [GoRouter.go] loops inside [GoRouter.onException].
 class _RouterExceptionGuard {
@@ -92,10 +96,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refreshListenable.dispose);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: refreshListenable,
     redirect: (context, state) {
       final authState = ref.read(authStateProvider);
+
+      // Avoid sending users to /home while Firebase auth is still restoring.
+      if (authState.isLoading) return null;
 
       // Android/iOS may pass `crickflow://teams/<id>` as the platform route.
       final incomingUri = state.uri;
@@ -162,6 +170,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (profile != null &&
             (!profile.onboardingCompleted || !canCreateMatches(profile.role))) {
           return profile.onboardingCompleted ? '/home' : '/player-onboarding';
+        }
+      }
+
+      // Tournament invite links — external opens go to join, not dashboard.
+      final tournamentInvite = RegExp(r'^/tournaments/([^/]+)$').firstMatch(path);
+      if (tournamentInvite != null) {
+        final id = tournamentInvite.group(1)!;
+        final qp = state.uri.queryParameters;
+        final fromExternal = incomingUri.scheme == DeepLinkUtils.customScheme ||
+            (incomingUri.scheme == 'https' &&
+                (incomingUri.host == DeepLinkUtils.httpsHost ||
+                    incomingUri.host == DeepLinkUtils.firebaseHostingHost));
+        if (fromExternal ||
+            qp.containsKey('code') ||
+            qp['from'] == 'qr') {
+          final query = StringBuffer('from=qr');
+          if (qp.containsKey('code')) {
+            query.write('&code=${Uri.encodeComponent(qp['code']!)}');
+          }
+          return '/tournaments/$id/join?$query';
         }
       }
 
@@ -422,6 +450,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             LiveOverlayScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
+        path: '/tournaments/:id/join',
+        builder: (_, state) => TournamentJoinScreen(
+          tournamentId: state.pathParameters['id']!,
+          fromExternalLink: state.uri.queryParameters['from'] == 'qr' ||
+              state.uri.queryParameters.containsKey('code'),
+        ),
+      ),
+      GoRoute(
         path: '/tournaments',
         builder: (_, __) => const TournamentScreen(),
         routes: [
@@ -431,9 +467,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: ':id',
-            builder: (_, state) => TournamentDashboardScreen(
-              tournamentId: state.pathParameters['id']!,
-            ),
+            builder: (_, state) {
+              final tabSlug = state.uri.queryParameters['tab'];
+              return TournamentDashboardScreen(
+                tournamentId: state.pathParameters['id']!,
+                initialSection: TournamentDashboardSection.fromSlug(tabSlug),
+              );
+            },
             routes: [
               GoRoute(
                 path: 'edit',
@@ -441,6 +481,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                   tournamentId: state.pathParameters['id']!,
                 ),
               ),
+              for (final section in TournamentDashboardSection.tabOrder)
+                if (section != TournamentDashboardSection.overview)
+                  GoRoute(
+                    path: section.slug,
+                    builder: (_, state) => TournamentDashboardScreen(
+                      tournamentId: state.pathParameters['id']!,
+                      initialSection: section,
+                    ),
+                  ),
             ],
           ),
         ],
@@ -456,7 +505,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/teams/create',
-        builder: (_, __) => const CreateTeamScreen(),
+        builder: (_, state) => CreateTeamScreen(
+          tournamentId: state.uri.queryParameters['tournamentId'],
+        ),
       ),
       GoRoute(
         path: '/teams/:id',

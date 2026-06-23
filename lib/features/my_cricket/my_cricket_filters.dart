@@ -172,7 +172,7 @@ bool filterMatchByScope(
 }
 
 bool userHostsTournament(TournamentModel t, String? uid) {
-  return uid != null && t.createdBy == uid;
+  return uid != null && t.effectiveOrganizerId == uid;
 }
 
 bool userParticipatedInTournament(
@@ -184,11 +184,20 @@ bool userParticipatedInTournament(
   return t.teamIds.any(userTeamIds.contains);
 }
 
+bool tournamentInvolvesFollowedUser(
+  TournamentModel t,
+  FollowedPlayerRefs refs,
+) {
+  if (refs.isEmpty) return false;
+  return refs.linkedIds.contains(t.effectiveOrganizerId);
+}
+
 bool filterTournamentByScope(
   TournamentModel t,
   MyCricketListScope scope, {
   String? uid,
   Set<String> userTeamIds = const {},
+  FollowedPlayerRefs followedPlayers = const FollowedPlayerRefs(),
 }) {
   switch (scope) {
     case MyCricketListScope.all:
@@ -199,6 +208,13 @@ bool filterTournamentByScope(
       return t.status == TournamentStatus.completed &&
           userParticipatedInTournament(t, uid: uid, userTeamIds: userTeamIds);
     case MyCricketListScope.network:
-      return false;
+      if (userParticipatedInTournament(
+        t,
+        uid: uid,
+        userTeamIds: userTeamIds,
+      )) {
+        return false;
+      }
+      return tournamentInvolvesFollowedUser(t, followedPlayers);
   }
 }
