@@ -108,6 +108,10 @@ class TournamentListCard extends StatelessWidget {
           label: 'Completed',
           color: AppColors.primaryBlueLight,
         ),
+      TournamentStatus.cancelled => (
+          label: 'Cancelled',
+          color: AppColors.textMuted,
+        ),
       TournamentStatus.draft => (
           label: 'Draft',
           color: AppColors.textMuted,

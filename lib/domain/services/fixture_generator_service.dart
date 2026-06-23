@@ -29,9 +29,13 @@ class FixtureGeneratorService {
     required List<({String id, String name})> teams,
     required String createdBy,
     MatchRulesModel rules = const MatchRulesModel(),
+    String? roundId,
+    String? groupId,
+    String? roundName,
+    DateTime? scheduleStart,
   }) {
     final pairings = roundRobinPairings(teams);
-    final now = DateTime.now();
+    final start = scheduleStart ?? DateTime.now();
 
     return pairings.asMap().entries.map((entry) {
       final i = entry.key;
@@ -46,12 +50,58 @@ class FixtureGeneratorService {
         teamAName: p.teamAName,
         teamBName: p.teamBName,
         tournamentId: tournament.id,
+        roundId: roundId,
+        groupId: groupId,
+        roundName: roundName,
         rules: rules,
         location: tournament.location,
-        scheduledAt: now.add(Duration(days: i)),
+        scheduledAt: start.add(Duration(days: i)),
         createdBy: createdBy,
       );
     }).toList();
+  }
+
+  /// Round-robin fixtures per group (Group A, B, …).
+  List<MatchModel> buildGroupStageMatches({
+    required TournamentModel tournament,
+    required Map<String, ({String id, String name, List<({String id, String name})> teams})> groups,
+    required String createdBy,
+    MatchRulesModel rules = const MatchRulesModel(),
+    String? roundId,
+    String? roundName,
+    DateTime? scheduleStart,
+  }) {
+    final all = <MatchModel>[];
+    var dayOffset = 0;
+    final start = scheduleStart ?? DateTime.now();
+
+    for (final group in groups.values) {
+      final pairings = roundRobinPairings(group.teams);
+      for (final p in pairings) {
+        all.add(
+          MatchModel(
+            id: '',
+            title: '${tournament.name} (${group.name}) — ${p.teamAName} vs ${p.teamBName}',
+            matchType: MatchType.tournament,
+            status: MatchStatus.scheduled,
+            teamAId: p.teamAId,
+            teamBId: p.teamBId,
+            teamAName: p.teamAName,
+            teamBName: p.teamBName,
+            tournamentId: tournament.id,
+            roundId: roundId,
+            groupId: group.id,
+            roundName: roundName ?? group.name,
+            rules: rules,
+            location: tournament.location,
+            scheduledAt: start.add(Duration(days: dayOffset)),
+            createdBy: createdBy,
+          ),
+        );
+        dayOffset++;
+      }
+    }
+    return all;
   }
 
   int nextPowerOfTwo(int n) {

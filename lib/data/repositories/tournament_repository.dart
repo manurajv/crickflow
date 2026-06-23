@@ -3,13 +3,18 @@ import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
+import '../../core/utils/tournament_code.dart';
 import '../../data/models/bracket_models.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
+import '../../data/models/tournament/tournament_group_model.dart';
+import '../../data/models/tournament/tournament_member_model.dart';
+import '../../data/models/tournament/tournament_round_model.dart';
 import '../../data/models/tournament_model.dart';
 import '../../domain/services/fixture_generator_service.dart';
 import 'match_repository.dart';
 import 'team_repository.dart';
+import 'tournament_sub_repositories.dart';
 
 class TournamentRepository {
   TournamentRepository({
@@ -17,24 +22,55 @@ class TournamentRepository {
     MatchRepository? matchRepository,
     TeamRepository? teamRepository,
     FixtureGeneratorService? fixtureGenerator,
+    TournamentGroupRepository? groupRepository,
+    TournamentRoundRepository? roundRepository,
+    TournamentMemberRepository? memberRepository,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _matchRepository = matchRepository ?? MatchRepository(),
         _teamRepository = teamRepository ?? TeamRepository(),
         _fixtureGenerator = fixtureGenerator ?? FixtureGeneratorService(),
+        _groupRepository = groupRepository ?? TournamentGroupRepository(),
+        _roundRepository = roundRepository ?? TournamentRoundRepository(),
+        _memberRepository = memberRepository ?? TournamentMemberRepository(),
         _uuid = const Uuid();
 
   final FirebaseFirestore _firestore;
   final MatchRepository _matchRepository;
   final TeamRepository _teamRepository;
   final FixtureGeneratorService _fixtureGenerator;
+  final TournamentGroupRepository _groupRepository;
+  final TournamentRoundRepository _roundRepository;
+  final TournamentMemberRepository _memberRepository;
   final Uuid _uuid;
 
   CollectionReference<Map<String, dynamic>> get _col =>
       _firestore.collection(AppConstants.tournamentsCollection);
 
-  Future<String> createTournament(TournamentModel tournament) async {
+  Future<String> createTournament({
+    required TournamentModel tournament,
+    String? ownerDisplayName,
+  }) async {
     final id = tournament.id.isEmpty ? _uuid.v4() : tournament.id;
-    await _col.doc(id).set(tournament.toMap());
+    final code = tournament.tournamentCode ?? generateTournamentCode();
+    final doc = tournament.copyWith(tournamentCode: code);
+    await _col.doc(id).set(doc.toMap());
+
+    final organizerId = doc.effectiveOrganizerId;
+    if (organizerId.isNotEmpty) {
+      try {
+        await _memberRepository.upsertMember(
+          TournamentMemberModel(
+            id: '${id}_$organizerId',
+            tournamentId: id,
+            userId: organizerId,
+            role: TournamentRole.owner,
+            displayName: ownerDisplayName ?? '',
+          ),
+        );
+      } catch (_) {
+        // Owner is recorded on the tournament doc; member row is optional.
+      }
+    }
     return id;
   }
 
@@ -48,6 +84,24 @@ class TournamentRepository {
     return TournamentModel.fromMap(doc.id, doc.data()!);
   }
 
+  Future<TournamentModel?> findByCode(String code) async {
+    final normalized = code.trim().toUpperCase();
+    final snap = await _col
+        .where('tournamentCode', isEqualTo: normalized)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    final doc = snap.docs.first;
+    return TournamentModel.fromMap(doc.id, doc.data());
+  }
+
+  Stream<TournamentModel?> watchTournament(String id) {
+    return _col.doc(id).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return TournamentModel.fromMap(doc.id, doc.data()!);
+    });
+  }
+
   Stream<List<TournamentModel>> watchTournaments() {
     return _col
         .orderBy('createdAt', descending: true)
@@ -55,6 +109,25 @@ class TournamentRepository {
         .map((snap) => snap.docs
             .map((d) => TournamentModel.fromMap(d.id, d.data()))
             .toList());
+  }
+
+  Stream<List<TournamentModel>> watchOrganizerTournaments(String organizerId) {
+    return _col
+        .where('organizerId', isEqualTo: organizerId)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => TournamentModel.fromMap(d.id, d.data()))
+            .toList()
+          ..sort((a, b) =>
+              (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0))));
+  }
+
+  Stream<List<MatchModel>> watchTournamentMatches(String tournamentId) {
+    return _matchRepository.watchMatches().map((matches) => matches
+        .where((m) => m.tournamentId == tournamentId)
+        .toList()
+      ..sort((a, b) =>
+          (a.scheduledAt ?? DateTime(0)).compareTo(b.scheduledAt ?? DateTime(0))));
   }
 
   Future<void> addTeamToTournament({
@@ -79,11 +152,46 @@ class TournamentRepository {
     ));
   }
 
+  Future<void> removeTeamFromTournament({
+    required String tournamentId,
+    required String teamId,
+  }) async {
+    final t = await getTournament(tournamentId);
+    if (t == null) return;
+
+    await updateTournament(t.copyWith(
+      teamIds: t.teamIds.where((id) => id != teamId).toList(),
+      pointsTable: t.pointsTable.where((e) => e.teamId != teamId).toList(),
+    ));
+  }
+
+  Future<List<({String id, String name})>> _resolveTeams(
+    TournamentModel tournament,
+  ) async {
+    final teams = <({String id, String name})>[];
+    for (final teamId in tournament.teamIds) {
+      final team = await _teamRepository.getTeam(teamId);
+      final entry =
+          tournament.pointsTable.where((e) => e.teamId == teamId).firstOrNull;
+      teams.add((
+        id: teamId,
+        name: team?.name ?? entry?.teamName ?? 'Team',
+      ));
+    }
+    return teams;
+  }
+
+  MatchRulesModel _rulesFor(TournamentModel tournament) {
+    return tournament.defaultRules.toMatchRules();
+  }
+
   /// Round-robin league fixtures for all teams in tournament.
   Future<List<String>> generateLeagueFixtures({
     required String tournamentId,
     required String createdBy,
-    MatchRulesModel rules = const MatchRulesModel(),
+    MatchRulesModel? rules,
+    String? roundId,
+    String? roundName,
   }) async {
     final tournament = await getTournament(tournamentId);
     if (tournament == null) throw StateError('Tournament not found');
@@ -91,25 +199,71 @@ class TournamentRepository {
       throw StateError('Add at least 2 teams first');
     }
 
-    final teams = <({String id, String name})>[];
-    for (final teamId in tournament.teamIds) {
-      final team = await _teamRepository.getTeam(teamId);
-      final entry = tournament.pointsTable
-          .where((e) => e.teamId == teamId)
-          .firstOrNull;
-      teams.add((
-        id: teamId,
-        name: team?.name ?? entry?.teamName ?? 'Team',
-      ));
-    }
+    final teams = await _resolveTeams(tournament);
+    final matchRules = rules ?? _rulesFor(tournament);
 
     final matches = _fixtureGenerator.buildLeagueMatches(
       tournament: tournament,
       teams: teams,
       createdBy: createdBy,
-      rules: rules,
+      rules: matchRules,
+      roundId: roundId,
+      roundName: roundName,
     );
 
+    return _persistMatches(tournament, matches);
+  }
+
+  /// Group-stage round robin using [tournament_groups] documents.
+  Future<List<String>> generateGroupStageFixtures({
+    required String tournamentId,
+    required String createdBy,
+    String? roundId,
+    String? roundName,
+  }) async {
+    final tournament = await getTournament(tournamentId);
+    if (tournament == null) throw StateError('Tournament not found');
+
+    final groups = await _groupRepository
+        .watchGroups(tournamentId)
+        .first
+        .timeout(const Duration(seconds: 10));
+
+    if (groups.isEmpty) throw StateError('Create groups first');
+
+    final groupPayload =
+        <String, ({String id, String name, List<({String id, String name})> teams})>{};
+
+    for (final group in groups) {
+      if (group.teamIds.length < 2) continue;
+      final teams = <({String id, String name})>[];
+      for (final teamId in group.teamIds) {
+        final team = await _teamRepository.getTeam(teamId);
+        teams.add((id: teamId, name: team?.name ?? 'Team'));
+      }
+      groupPayload[group.id] = (id: group.id, name: group.name, teams: teams);
+    }
+
+    if (groupPayload.isEmpty) {
+      throw StateError('Each group needs at least 2 teams');
+    }
+
+    final matches = _fixtureGenerator.buildGroupStageMatches(
+      tournament: tournament,
+      groups: groupPayload,
+      createdBy: createdBy,
+      rules: _rulesFor(tournament),
+      roundId: roundId,
+      roundName: roundName,
+    );
+
+    return _persistMatches(tournament, matches);
+  }
+
+  Future<List<String>> _persistMatches(
+    TournamentModel tournament,
+    List<MatchModel> matches,
+  ) async {
     final matchIds = <String>[];
     for (final m in matches) {
       final id = await _matchRepository.createMatch(m);
@@ -128,7 +282,9 @@ class TournamentRepository {
   Future<List<String>> generateKnockoutBracket({
     required String tournamentId,
     required String createdBy,
-    MatchRulesModel rules = const MatchRulesModel(),
+    MatchRulesModel? rules,
+    String? roundId,
+    String? roundName,
   }) async {
     final tournament = await getTournament(tournamentId);
     if (tournament == null) throw StateError('Tournament not found');
@@ -136,24 +292,41 @@ class TournamentRepository {
       throw StateError('Add at least 2 teams first');
     }
 
-    final teams = <({String id, String name})>[];
-    for (final teamId in tournament.teamIds) {
-      final team = await _teamRepository.getTeam(teamId);
-      final entry = tournament.pointsTable
-          .where((e) => e.teamId == teamId)
-          .firstOrNull;
-      teams.add((
-        id: teamId,
-        name: team?.name ?? entry?.teamName ?? 'Team',
-      ));
-    }
+    final teams = await _resolveTeams(tournament);
+    final matchRules = rules ?? _rulesFor(tournament);
 
-    final matches = _fixtureGenerator.buildKnockoutRoundOneMatches(
+    final rawMatches = _fixtureGenerator.buildKnockoutRoundOneMatches(
       tournament: tournament,
       teams: teams,
       createdBy: createdBy,
-      rules: rules,
+      rules: matchRules,
     );
+
+    final matches = rawMatches
+        .map(
+          (m) => MatchModel(
+            id: m.id,
+            title: m.title,
+            matchType: m.matchType,
+            status: m.status,
+            teamAId: m.teamAId,
+            teamBId: m.teamBId,
+            teamAName: m.teamAName,
+            teamBName: m.teamBName,
+            tournamentId: m.tournamentId,
+            roundId: roundId,
+            roundName: roundName,
+            bracketRound: m.bracketRound,
+            bracketSlot: m.bracketSlot,
+            winnerTeamId: m.winnerTeamId,
+            resultSummary: m.resultSummary,
+            rules: m.rules,
+            location: m.location,
+            scheduledAt: m.scheduledAt,
+            createdBy: m.createdBy,
+          ),
+        )
+        .toList();
 
     final roundOneSlots = <BracketSlotModel>[];
     final matchIds = <String>[];
@@ -184,6 +357,41 @@ class TournamentRepository {
     ));
 
     return matchIds;
+  }
+
+  Future<TournamentRoundModel> ensureDefaultRound({
+    required String tournamentId,
+    required RoundType roundType,
+    String? customName,
+  }) async {
+    final existing = await _roundRepository.watchRounds(tournamentId).first;
+    final match = existing.where((r) => r.roundType == roundType).firstOrNull;
+    if (match != null) return match;
+
+    final round = TournamentRoundModel(
+      id: '',
+      tournamentId: tournamentId,
+      name: customName ?? roundType.defaultLabel(),
+      roundType: roundType,
+      sortOrder: existing.length,
+    );
+    final id = await _roundRepository.createRound(round);
+    return round.copyWithId(id);
+  }
+
+  Future<TournamentGroupModel> createGroup({
+    required String tournamentId,
+    required String name,
+    List<String> teamIds = const [],
+  }) async {
+    final group = TournamentGroupModel(
+      id: '',
+      tournamentId: tournamentId,
+      name: name,
+      teamIds: teamIds,
+    );
+    final id = await _groupRepository.createGroup(group);
+    return group.copyWith(id: id);
   }
 
   /// After a knockout match completes, record the winner and fill the next bracket slot.
@@ -246,6 +454,8 @@ class TournamentRepository {
         round: nextRound,
         slot: nextSlot,
         createdBy: match.createdBy ?? '',
+        roundId: match.roundId,
+        roundName: match.roundName,
       );
       if (createdId != null) extraMatchIds.add(createdId);
     }
@@ -262,6 +472,8 @@ class TournamentRepository {
     required int round,
     required int slot,
     required String createdBy,
+    String? roundId,
+    String? roundName,
   }) async {
     if (createdBy.isEmpty) return null;
 
@@ -287,9 +499,11 @@ class TournamentRepository {
       teamAName: s.teamAName,
       teamBName: s.teamBName,
       tournamentId: tournament.id,
+      roundId: roundId,
+      roundName: roundName,
       bracketRound: round,
       bracketSlot: slot,
-      rules: const MatchRulesModel(),
+      rules: _rulesFor(tournament),
       location: tournament.location,
       scheduledAt: DateTime.now(),
       createdBy: createdBy,
@@ -304,33 +518,5 @@ class TournamentRepository {
       teamBName: s.teamBName,
     );
     return id;
-  }
-}
-
-extension _TournamentCopy on TournamentModel {
-  TournamentModel copyWith({
-    List<String>? teamIds,
-    List<String>? matchIds,
-    List<PointsTableEntry>? pointsTable,
-    List<List<BracketSlotModel>>? bracketRounds,
-    TournamentStatus? status,
-  }) {
-    return TournamentModel(
-      id: id,
-      name: name,
-      format: format,
-      status: status ?? this.status,
-      teamIds: teamIds ?? this.teamIds,
-      matchIds: matchIds ?? this.matchIds,
-      pointsTable: pointsTable ?? this.pointsTable,
-      bracketRounds: bracketRounds ?? this.bracketRounds,
-      location: location,
-      bannerUrl: bannerUrl,
-      startDate: startDate,
-      endDate: endDate,
-      createdBy: createdBy,
-      description: description,
-      createdAt: createdAt,
-    );
   }
 }

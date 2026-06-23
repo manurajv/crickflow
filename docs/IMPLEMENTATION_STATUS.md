@@ -3,15 +3,43 @@
 
 
 
-**Last updated:** Side navigation drawer + profile hub  
+**Last updated:** Tournament multi-step create wizard  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
-> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
 
 ---
+
+---
+
+## Latest (Tournament module)
+
+| Item | Status |
+|------|--------|
+| Architecture doc — `docs/TOURNAMENT_MODULE.md` | Done |
+| Extended models — groups, rounds, rules, officials, sponsors, members, points tables | Done |
+| Repositories + Riverpod providers | Done |
+| Fixture generation — league, group stage, knockout (extends existing) | Done |
+| Points table engine (client) + Cloud Function standings (existing) | Done |
+| RBAC — `TournamentPermissionService` + `tournament_members` | Done |
+| Discovery screen — 6 tabs + join-by-code | Done |
+| Tournament dashboard — 11 tabs (overview, teams, groups, fixtures, …) | Done |
+| Create / edit tournament screens | Done |
+| **Multi-step create wizard** — CricHeroes-style 3-step flow (`TournamentCreateFlowScreen`) | Done |
+| Wizard step 1 — banner/logo, name, city, ground (map picker), organiser, dates, category, ball/pitch/match type | Done |
+| Wizard step 2 — officials (roles, days, matches/day, budget, contact) — shown if “need officials” | Done |
+| Wizard step 3 — teams (location, entry fee, teams, prize, schedule, format, notes) — shown if “need more teams” | Done |
+| `TournamentSetupMeta` + draft provider + `TournamentCreateService` (Firestore + optional Community posts) | Done |
+| Storage rules — `tournaments/{id}/banner|logo` uploads | Done — deployed |
+| Routes — `/tournaments`, `/tournaments/create`, `/tournaments/:id` | Done |
+| Share sheet — code + invite link | Done |
+| Firestore rules — new tournament collections | Done — deploy rules |
+| Group ↔ team assignment UI | Pending |
+| Manual fixture editor | Pending |
+| Tournament notifications | Pending |
 
 ---
 

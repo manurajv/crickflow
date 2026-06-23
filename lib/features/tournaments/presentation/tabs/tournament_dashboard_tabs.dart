@@ -1,0 +1,1054 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/constants/enums.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
+import '../../../../data/models/tournament/tournament_group_model.dart';
+import '../../../../data/models/tournament/tournament_official_model.dart';
+import '../../../../data/models/tournament/tournament_rules_model.dart';
+import '../../../../data/models/tournament/tournament_sponsor_model.dart';
+import '../../../../data/models/tournament_model.dart';
+import '../../../../shared/providers/providers.dart';
+import '../../../../shared/providers/tournament_providers.dart';
+import '../../../../shared/widgets/cf_button.dart';
+import '../../../../shared/widgets/match_list_card.dart';
+import '../widgets/tournament_bracket_widget.dart';
+
+class TournamentOverviewTab extends ConsumerWidget {
+  const TournamentOverviewTab({
+    super.key,
+    required this.tournament,
+    required this.role,
+  });
+
+  final TournamentModel tournament;
+  final TournamentRole role;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
+    return ListView(
+      padding: AppDimens.screenPadding,
+      children: [
+        _SectionCard(
+          title: 'About',
+          child: Text(
+            tournament.description.isEmpty
+                ? 'No description yet.'
+                : tournament.description,
+            style: TextStyle(color: cf.textSecondary),
+          ),
+        ),
+        _SectionCard(
+          title: 'Details',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DetailRow(label: 'Format', value: _formatLabel(tournament.format)),
+              _DetailRow(label: 'Status', value: tournament.status.name),
+              _DetailRow(label: 'City', value: tournament.location.displayLabel),
+              if (tournament.ballType != null)
+                _DetailRow(label: 'Ball', value: tournament.ballType!.name),
+              if (tournament.pitchType != null)
+                _DetailRow(label: 'Pitch', value: tournament.pitchType!.name),
+              if (tournament.winningPrize != null)
+                _DetailRow(label: 'Prize', value: tournament.winningPrize!),
+            ],
+          ),
+        ),
+        _SectionCard(
+          title: 'Quick stats',
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _StatChip(label: 'Teams', value: '${tournament.teamIds.length}'),
+              _StatChip(label: 'Matches', value: '${tournament.matchIds.length}'),
+              _StatChip(
+                label: 'Your role',
+                value: role.name,
+              ),
+            ],
+          ),
+        ),
+        if (tournament.bracketRounds.isNotEmpty)
+          _SectionCard(
+            title: 'Knockout bracket',
+            child: TournamentBracketWidget(tournament: tournament),
+          ),
+      ],
+    );
+  }
+
+  String _formatLabel(TournamentFormat f) => switch (f) {
+        TournamentFormat.league => 'League',
+        TournamentFormat.knockout => 'Knockout',
+        TournamentFormat.leagueKnockout => 'League + Knockout',
+        TournamentFormat.custom => 'Custom',
+      };
+}
+
+class TournamentTeamsTab extends ConsumerStatefulWidget {
+  const TournamentTeamsTab({
+    super.key,
+    required this.tournament,
+    required this.role,
+  });
+
+  final TournamentModel tournament;
+  final TournamentRole role;
+
+  @override
+  ConsumerState<TournamentTeamsTab> createState() => _TournamentTeamsTabState();
+}
+
+class _TournamentTeamsTabState extends ConsumerState<TournamentTeamsTab> {
+  Future<void> _registerTeam() async {
+    final teams = await ref.read(teamsProvider.future);
+    if (!mounted || teams.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Create a team first')),
+      );
+      return;
+    }
+
+    final picked = await showDialog<dynamic>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Register team'),
+        children: teams
+            .map((team) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, team),
+                  child: Text(team.name),
+                ))
+            .toList(),
+      ),
+    );
+    if (picked == null) return;
+
+    await ref.read(tournamentRepositoryProvider).addTeamToTournament(
+          tournamentId: widget.tournament.id,
+          teamId: picked.id,
+          teamName: picked.name,
+        );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${picked.name} registered')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canManage = ref
+        .watch(tournamentPermissionServiceProvider)
+        .canManageTeams(widget.role);
+
+    return ListView(
+      padding: AppDimens.screenPadding,
+      children: [
+        if (canManage)
+          CfButton(
+            label: 'Register team',
+            isGold: true,
+            onPressed: _registerTeam,
+          ),
+        if (canManage) const SizedBox(height: AppDimens.spaceMd),
+        if (widget.tournament.pointsTable.isEmpty)
+          const Center(child: Text('No teams registered yet'))
+        else
+          ...widget.tournament.pointsTable.map(
+            (e) => ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.groups)),
+              title: Text(e.teamName),
+              subtitle: Text('${e.points} pts'),
+              trailing: canManage
+                  ? IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () async {
+                        await ref
+                            .read(tournamentRepositoryProvider)
+                            .removeTeamFromTournament(
+                              tournamentId: widget.tournament.id,
+                              teamId: e.teamId,
+                            );
+                      },
+                    )
+                  : null,
+              onTap: () => context.push('/teams/${e.teamId}'),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class TournamentGroupsTab extends ConsumerWidget {
+  const TournamentGroupsTab({
+    super.key,
+    required this.tournament,
+    required this.role,
+  });
+
+  final TournamentModel tournament;
+  final TournamentRole role;
+
+  Future<void> _createGroup(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New group'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Group A'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+
+    try {
+      await ref.read(tournamentRepositoryProvider).createGroup(
+            tournamentId: tournament.id,
+            name: name,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Group "$name" created')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.toString().contains('permission-denied')
+                  ? 'Permission denied — sign in as the tournament organizer.'
+                  : '$e',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final groupsAsync = ref.watch(tournamentGroupsProvider(tournament.id));
+    final canManage =
+        ref.watch(tournamentPermissionServiceProvider).canManageGroups(role);
+
+    return groupsAsync.when(
+      data: (groups) => ListView(
+        padding: AppDimens.screenPadding,
+        children: [
+          if (canManage)
+            CfButton(
+              label: 'Add group',
+              isGold: true,
+              onPressed: () => _createGroup(context, ref),
+            ),
+          if (canManage) const SizedBox(height: AppDimens.spaceMd),
+          if (groups.isEmpty)
+            const Center(child: Text('No groups yet'))
+          else
+            ...groups.map((g) => _GroupTile(group: g, tournament: tournament)),
+        ],
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+    );
+  }
+}
+
+class _GroupTile extends ConsumerWidget {
+  const _GroupTile({required this.group, required this.tournament});
+
+  final TournamentGroupModel group;
+  final TournamentModel tournament;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Card(
+      child: ExpansionTile(
+        title: Text(group.name),
+        subtitle: Text('${group.teamIds.length} teams'),
+        children: [
+          if (group.teamIds.isEmpty)
+            const ListTile(title: Text('Assign teams from Teams tab'))
+          else
+            ...group.teamIds.map((id) {
+              final entry = tournament.pointsTable
+                  .where((e) => e.teamId == id)
+                  .firstOrNull;
+              return ListTile(
+                dense: true,
+                title: Text(entry?.teamName ?? id),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class TournamentFixturesTab extends ConsumerStatefulWidget {
+  const TournamentFixturesTab({
+    super.key,
+    required this.tournament,
+    required this.role,
+  });
+
+  final TournamentModel tournament;
+  final TournamentRole role;
+
+  @override
+  ConsumerState<TournamentFixturesTab> createState() =>
+      _TournamentFixturesTabState();
+}
+
+class _TournamentFixturesTabState extends ConsumerState<TournamentFixturesTab> {
+  var _busy = false;
+
+  Future<void> _generate(Future<List<String>> Function() action, String label) async {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return;
+    setState(() => _busy = true);
+    try {
+      final ids = await action();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$label: ${ids.length} matches created')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canManage = ref
+        .watch(tournamentPermissionServiceProvider)
+        .canManageFixtures(widget.role);
+    final repo = ref.read(tournamentRepositoryProvider);
+    final uid = ref.read(authStateProvider).value?.uid ?? '';
+
+    return ListView(
+      padding: AppDimens.screenPadding,
+      children: [
+        Text(
+          'Generate fixtures automatically or create matches manually from the Matches tab.',
+          style: TextStyle(color: context.cf.textSecondary),
+        ),
+        const SizedBox(height: AppDimens.spaceMd),
+        if (canManage) ...[
+          CfButton(
+            label: 'Round robin (league)',
+            isGold: true,
+            isLoading: _busy,
+            onPressed: _busy
+                ? null
+                : () => _generate(
+                      () => repo.generateLeagueFixtures(
+                        tournamentId: widget.tournament.id,
+                        createdBy: uid,
+                      ),
+                      'League fixtures',
+                    ),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          CfButton(
+            label: 'Group stage fixtures',
+            isOutlined: true,
+            isLoading: _busy,
+            onPressed: _busy
+                ? null
+                : () => _generate(
+                      () => repo.generateGroupStageFixtures(
+                        tournamentId: widget.tournament.id,
+                        createdBy: uid,
+                      ),
+                      'Group fixtures',
+                    ),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          CfButton(
+            label: 'Knockout bracket',
+            isOutlined: true,
+            isLoading: _busy,
+            onPressed: _busy
+                ? null
+                : () => _generate(
+                      () => repo.generateKnockoutBracket(
+                        tournamentId: widget.tournament.id,
+                        createdBy: uid,
+                      ),
+                      'Knockout',
+                    ),
+          ),
+        ] else
+          const Center(child: Text('View-only access')),
+      ],
+    );
+  }
+}
+
+class TournamentMatchesTab extends ConsumerWidget {
+  const TournamentMatchesTab({super.key, required this.tournamentId});
+
+  final String tournamentId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final matchesAsync = ref.watch(tournamentMatchesProvider(tournamentId));
+
+    return matchesAsync.when(
+      data: (matches) {
+        if (matches.isEmpty) {
+          return const Center(child: Text('No matches scheduled'));
+        }
+        return ListView.builder(
+          itemCount: matches.length,
+          itemBuilder: (_, i) => MatchListCard(match: matches[i]),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+    );
+  }
+}
+
+class TournamentPointsTab extends ConsumerWidget {
+  const TournamentPointsTab({super.key, required this.tournament});
+
+  final TournamentModel tournament;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tablesAsync = ref.watch(tournamentPointsTablesProvider(tournament.id));
+    final matchesAsync = ref.watch(tournamentMatchesProvider(tournament.id));
+    final engine = ref.watch(pointsTableEngineProvider);
+
+    return tablesAsync.when(
+      data: (groupTables) {
+        if (groupTables.isNotEmpty) {
+          return ListView(
+            children: groupTables
+                .map((table) => _PointsTableSection(
+                      title: table.groupName.isEmpty
+                          ? 'Points table'
+                          : table.groupName,
+                      entries: table.entries,
+                    ))
+                .toList(),
+          );
+        }
+
+        var entries = tournament.pointsTable;
+        final matches = matchesAsync.valueOrNull ?? [];
+        if (entries.isNotEmpty && matches.isNotEmpty) {
+          entries = engine.rebuildFromMatches(
+            seed: entries,
+            matches: matches,
+            winPts: tournament.defaultRules.pointsPerWin,
+            tiePts: tournament.defaultRules.pointsPerTie,
+            lossPts: tournament.defaultRules.pointsPerLoss,
+            noResultPts: tournament.defaultRules.pointsPerNoResult,
+          );
+        }
+
+        return _PointsTableSection(
+          title: 'Overall standings',
+          entries: entries,
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+    );
+  }
+}
+
+class _PointsTableSection extends StatelessWidget {
+  const _PointsTableSection({required this.title, required this.entries});
+
+  final String title;
+  final List<PointsTableEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    if (entries.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: AppDimens.screenPadding,
+          child: const Text('Points table will populate after matches'),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: AppDimens.screenPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppDimens.spaceSm),
+          Card(
+            child: DataTable(
+              headingTextStyle: TextStyle(
+                color: cf.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              columns: const [
+                DataColumn(label: Text('#')),
+                DataColumn(label: Text('Team')),
+                DataColumn(label: Text('P')),
+                DataColumn(label: Text('W')),
+                DataColumn(label: Text('L')),
+                DataColumn(label: Text('Pts')),
+                DataColumn(label: Text('NRR')),
+              ],
+              rows: entries.map((e) {
+                return DataRow(cells: [
+                  DataCell(Text('${e.position == 0 ? '—' : e.position}')),
+                  DataCell(Text(e.teamName)),
+                  DataCell(Text('${e.played}')),
+                  DataCell(Text('${e.won}')),
+                  DataCell(Text('${e.lost}')),
+                  DataCell(Text('${e.points}')),
+                  DataCell(Text(e.netRunRate.toStringAsFixed(3))),
+                ]);
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TournamentOfficialsTab extends ConsumerWidget {
+  const TournamentOfficialsTab({
+    super.key,
+    required this.tournamentId,
+    required this.role,
+  });
+
+  final String tournamentId;
+  final TournamentRole role;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final officialsAsync = ref.watch(tournamentOfficialsProvider(tournamentId));
+    final canManage =
+        ref.watch(tournamentPermissionServiceProvider).canManageOfficials(role);
+
+    return officialsAsync.when(
+      data: (list) => ListView(
+        padding: AppDimens.screenPadding,
+        children: [
+          if (canManage)
+            CfButton(
+              label: 'Add official',
+              isGold: true,
+              onPressed: () => _addOfficial(context, ref),
+            ),
+          if (list.isEmpty)
+            const Center(child: Text('No officials assigned'))
+          else
+            ...list.map(
+              (o) => ListTile(
+                leading: Icon(_roleIcon(o.role)),
+                title: Text(o.displayName.isEmpty ? o.userId : o.displayName),
+                subtitle: Text('${o.role.name}${o.phone.isNotEmpty ? ' · ${o.phone}' : ''}'),
+                trailing: canManage
+                    ? IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => ref
+                            .read(tournamentOfficialRepositoryProvider)
+                            .removeOfficial(o.id),
+                      )
+                    : null,
+              ),
+            ),
+        ],
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+    );
+  }
+
+  IconData _roleIcon(TournamentOfficialRole role) => switch (role) {
+        TournamentOfficialRole.scorer => Icons.scoreboard,
+        TournamentOfficialRole.umpire => Icons.sports,
+        TournamentOfficialRole.commentator => Icons.mic,
+        TournamentOfficialRole.streamer => Icons.videocam,
+        TournamentOfficialRole.photographer => Icons.camera_alt,
+        TournamentOfficialRole.videographer => Icons.movie,
+      };
+
+  Future<void> _addOfficial(BuildContext context, WidgetRef ref) async {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return;
+    final profile = ref.read(currentUserProfileProvider).valueOrNull;
+
+    await ref.read(tournamentOfficialRepositoryProvider).addOfficial(
+          TournamentOfficialModel(
+            id: '',
+            tournamentId: tournamentId,
+            userId: uid,
+            role: TournamentOfficialRole.scorer,
+            displayName: profile?.displayName ?? '',
+          ),
+        );
+  }
+}
+
+class TournamentSponsorsTab extends ConsumerWidget {
+  const TournamentSponsorsTab({
+    super.key,
+    required this.tournamentId,
+    required this.role,
+  });
+
+  final String tournamentId;
+  final TournamentRole role;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sponsorsAsync = ref.watch(tournamentSponsorsProvider(tournamentId));
+    final canManage =
+        ref.watch(tournamentPermissionServiceProvider).canManageSponsors(role);
+
+    return sponsorsAsync.when(
+      data: (list) => ListView(
+        padding: AppDimens.screenPadding,
+        children: [
+          if (canManage)
+            CfButton(
+              label: 'Add sponsor',
+              isGold: true,
+              onPressed: () => _addSponsor(context, ref),
+            ),
+          if (list.isEmpty)
+            const Center(child: Text('No sponsors yet'))
+          else
+            ...list.map(
+              (s) => ListTile(
+                leading: const Icon(Icons.business, color: AppColors.gold),
+                title: Text(s.name),
+                subtitle: Text(s.type.name),
+                trailing: canManage
+                    ? IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => ref
+                            .read(tournamentSponsorRepositoryProvider)
+                            .removeSponsor(s.id),
+                      )
+                    : null,
+              ),
+            ),
+        ],
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+    );
+  }
+
+  Future<void> _addSponsor(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sponsor name'),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+
+    await ref.read(tournamentSponsorRepositoryProvider).addSponsor(
+          TournamentSponsorModel(
+            id: '',
+            tournamentId: tournamentId,
+            name: name,
+            type: SponsorType.associate,
+          ),
+        );
+  }
+}
+
+class TournamentRulesTab extends ConsumerStatefulWidget {
+  const TournamentRulesTab({
+    super.key,
+    required this.tournamentId,
+    required this.role,
+  });
+
+  final String tournamentId;
+  final TournamentRole role;
+
+  @override
+  ConsumerState<TournamentRulesTab> createState() => _TournamentRulesTabState();
+}
+
+class _TournamentRulesTabState extends ConsumerState<TournamentRulesTab> {
+  TournamentRulesModel? _draft;
+  var _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final rulesAsync = ref.watch(tournamentRulesProvider(widget.tournamentId));
+    final tournament = ref.watch(tournamentProvider(widget.tournamentId)).valueOrNull;
+    final canEdit =
+        ref.watch(tournamentPermissionServiceProvider).canEditRules(widget.role);
+
+    return rulesAsync.when(
+      data: (rules) {
+        final effective = _draft ?? rules;
+        if (tournament != null && effective == const TournamentRulesModel()) {
+          _draft ??= tournament.defaultRules;
+        }
+        final r = _draft ?? effective;
+
+        return ListView(
+          padding: AppDimens.screenPadding,
+          children: [
+            SwitchListTile(
+              title: const Text('Wagon wheel'),
+              value: r.wagonWheelEnabled,
+              onChanged: canEdit
+                  ? (v) => setState(() => _draft = _copy(r, wagonWheelEnabled: v))
+                  : null,
+            ),
+            SwitchListTile(
+              title: const Text('Shot selection'),
+              value: r.wagonWheelShotSelection,
+              onChanged: canEdit
+                  ? (v) =>
+                      setState(() => _draft = _copy(r, wagonWheelShotSelection: v))
+                  : null,
+            ),
+            SwitchListTile(
+              title: const Text('Impact player'),
+              value: r.impactPlayerEnabled,
+              onChanged: canEdit
+                  ? (v) => setState(() => _draft = _copy(r, impactPlayerEnabled: v))
+                  : null,
+            ),
+            SwitchListTile(
+              title: const Text('Wide counts as legal ball'),
+              value: r.wideCountsAsLegalDelivery,
+              onChanged: canEdit
+                  ? (v) => setState(
+                        () => _draft = _copy(r, wideCountsAsLegalDelivery: v),
+                      )
+                  : null,
+            ),
+            SwitchListTile(
+              title: const Text('No ball counts as legal ball'),
+              value: r.noBallCountsAsLegalDelivery,
+              onChanged: canEdit
+                  ? (v) => setState(
+                        () => _draft = _copy(r, noBallCountsAsLegalDelivery: v),
+                      )
+                  : null,
+            ),
+            ListTile(
+              title: const Text('Wide runs'),
+              trailing: Text('${r.wideRuns}'),
+            ),
+            ListTile(
+              title: const Text('No ball runs'),
+              trailing: Text('${r.noBallRuns}'),
+            ),
+            ListTile(
+              title: const Text('Players per team'),
+              trailing: Text('${r.playersPerTeam}'),
+            ),
+            ListTile(
+              title: const Text('Max overs per bowler'),
+              trailing: Text('${r.oversPerBowler}'),
+            ),
+            if (canEdit && _draft != null) ...[
+              const SizedBox(height: AppDimens.spaceMd),
+              CfButton(
+                label: 'Save rules',
+                isGold: true,
+                isLoading: _saving,
+                onPressed: _saving ? null : () => _save(_draft!),
+              ),
+            ],
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+    );
+  }
+
+  TournamentRulesModel _copy(
+    TournamentRulesModel r, {
+    bool? wagonWheelEnabled,
+    bool? wagonWheelShotSelection,
+    bool? impactPlayerEnabled,
+    bool? wideCountsAsLegalDelivery,
+    bool? noBallCountsAsLegalDelivery,
+  }) {
+    return TournamentRulesModel(
+      wideRuns: r.wideRuns,
+      noBallRuns: r.noBallRuns,
+      wideCountsAsLegalDelivery:
+          wideCountsAsLegalDelivery ?? r.wideCountsAsLegalDelivery,
+      noBallCountsAsLegalDelivery:
+          noBallCountsAsLegalDelivery ?? r.noBallCountsAsLegalDelivery,
+      powerplayOvers: r.powerplayOvers,
+      oversPerBowler: r.oversPerBowler,
+      playersPerTeam: r.playersPerTeam,
+      impactPlayerEnabled: impactPlayerEnabled ?? r.impactPlayerEnabled,
+      wagonWheelEnabled: wagonWheelEnabled ?? r.wagonWheelEnabled,
+      wagonWheelShotSelection:
+          wagonWheelShotSelection ?? r.wagonWheelShotSelection,
+      pointsPerWin: r.pointsPerWin,
+      pointsPerTie: r.pointsPerTie,
+      pointsPerLoss: r.pointsPerLoss,
+      pointsPerNoResult: r.pointsPerNoResult,
+      ballType: r.ballType,
+      pitchType: r.pitchType,
+      totalOvers: r.totalOvers,
+      ballsPerOver: r.ballsPerOver,
+      notes: r.notes,
+    );
+  }
+
+  Future<void> _save(TournamentRulesModel rules) async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(tournamentRulesRepositoryProvider).saveRules(
+            tournamentId: widget.tournamentId,
+            rules: rules,
+          );
+      final tournament = ref.read(tournamentProvider(widget.tournamentId)).valueOrNull;
+      if (tournament != null) {
+        await ref.read(tournamentRepositoryProvider).updateTournament(
+              tournament.copyWith(defaultRules: rules),
+            );
+      }
+      if (mounted) {
+        setState(() => _draft = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rules saved')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+}
+
+class TournamentStatsTab extends ConsumerWidget {
+  const TournamentStatsTab({super.key, required this.tournamentId});
+
+  final String tournamentId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tournament = ref.watch(tournamentProvider(tournamentId)).valueOrNull;
+    final matches = ref.watch(tournamentMatchesProvider(tournamentId)).valueOrNull ?? [];
+    if (tournament == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final stats = ref.watch(tournamentStatisticsServiceProvider).compute(
+          tournament: tournament,
+          matches: matches,
+        );
+
+    return ListView(
+      padding: AppDimens.screenPadding,
+      children: [
+        _SectionCard(
+          title: 'Match summary',
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _StatChip(label: 'Total', value: '${stats.totalMatches}'),
+              _StatChip(label: 'Completed', value: '${stats.completedMatches}'),
+              _StatChip(label: 'Live', value: '${stats.liveMatches}'),
+            ],
+          ),
+        ),
+        _SectionCard(
+          title: 'Run aggregate',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DetailRow(label: 'Total runs', value: '${stats.totalRuns}'),
+              _DetailRow(label: 'Total wickets', value: '${stats.totalWickets}'),
+              _DetailRow(
+                label: 'Highest team score',
+                value: '${stats.highestTeamScore}',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class TournamentSettingsTab extends ConsumerWidget {
+  const TournamentSettingsTab({
+    super.key,
+    required this.tournament,
+    required this.role,
+  });
+
+  final TournamentModel tournament;
+  final TournamentRole role;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canEdit =
+        ref.watch(tournamentPermissionServiceProvider).canEditSettings(role);
+
+    return ListView(
+      padding: AppDimens.screenPadding,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.edit_outlined),
+          title: const Text('Edit tournament'),
+          enabled: canEdit,
+          onTap: canEdit
+              ? () => context.push('/tournaments/${tournament.id}/edit')
+              : null,
+        ),
+        ListTile(
+          leading: const Icon(Icons.share_outlined),
+          title: const Text('Share & invite'),
+          onTap: () {},
+        ),
+        ListTile(
+          leading: const Icon(Icons.admin_panel_settings_outlined),
+          title: const Text('Manage access'),
+          subtitle: Text('Your role: ${role.name}'),
+          enabled: canEdit,
+        ),
+        if (role == TournamentRole.owner)
+          ListTile(
+            leading: Icon(Icons.delete_outline, color: context.cf.error),
+            title: Text('Delete tournament', style: TextStyle(color: context.cf.error)),
+            onTap: () {},
+          ),
+      ],
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+      color: cf.card,
+      child: Padding(
+        padding: AppDimens.cardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppDimens.spaceSm),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(label, style: TextStyle(color: context.cf.textMuted)),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: cf.sectionBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cf.border),
+      ),
+      child: Column(
+        children: [
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text(label, style: TextStyle(color: cf.textMuted, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+extension _PointsFirstOrNull<E> on Iterable<E> {
+  E? get firstOrNull {
+    final it = iterator;
+    if (!it.moveNext()) return null;
+    return it.current;
+  }
+}

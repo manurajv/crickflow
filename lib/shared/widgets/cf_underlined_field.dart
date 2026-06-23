@@ -113,7 +113,7 @@ class CfFormSectionTitle extends StatelessWidget {
 }
 
 /// Tappable underline row for date/time pickers.
-class CfPickerField extends StatelessWidget {
+class CfPickerField extends StatefulWidget {
   const CfPickerField({
     super.key,
     required this.label,
@@ -130,14 +130,41 @@ class CfPickerField extends StatelessWidget {
   final IconData icon;
 
   @override
+  State<CfPickerField> createState() => _CfPickerFieldState();
+}
+
+class _CfPickerFieldState extends State<CfPickerField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(CfPickerField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return CfUnderlinedField(
-      label: label,
-      required: required,
-      initialValue: value,
+      controller: _controller,
+      label: widget.label,
+      required: widget.required,
       readOnly: true,
-      onTap: onTap,
-      suffix: Icon(icon, color: AppColors.primaryBlueLight, size: 22),
+      onTap: widget.onTap,
+      suffix: Icon(widget.icon, color: AppColors.primaryBlueLight, size: 22),
     );
   }
 }

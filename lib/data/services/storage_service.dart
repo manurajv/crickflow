@@ -66,6 +66,31 @@ class StorageService {
     return ref.getDownloadURL();
   }
 
+  Future<String?> pickTournamentImage({bool fromCamera = false}) async {
+    final picked = await _picker.pickImage(
+      source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1080,
+      imageQuality: 88,
+    );
+    if (picked == null) return null;
+    return picked.path;
+  }
+
+  Future<String> uploadTournamentBanner(String tournamentId, File file) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    final ref = _storage.ref().child('tournaments/$tournamentId/banner_$uid.jpg');
+    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    return ref.getDownloadURL();
+  }
+
+  Future<String> uploadTournamentLogo(String tournamentId, File file) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    final ref = _storage.ref().child('tournaments/$tournamentId/logo_$uid.jpg');
+    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    return ref.getDownloadURL();
+  }
+
   /// Team invite QR — `teams/{teamId}/invite_qr.png`
   Future<String> uploadTeamQr(String teamId, Uint8List pngBytes) async {
     final ref = _storage.ref().child('teams/$teamId/invite_qr.png');

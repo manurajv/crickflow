@@ -13,6 +13,13 @@ class AppConstants {
   static const String playersCollection = 'players';
   static const String matchesCollection = 'matches';
   static const String tournamentsCollection = 'tournaments';
+  static const String tournamentGroupsCollection = 'tournament_groups';
+  static const String tournamentRoundsCollection = 'tournament_rounds';
+  static const String tournamentPointsTablesCollection = 'tournament_points_tables';
+  static const String tournamentOfficialsCollection = 'tournament_officials';
+  static const String tournamentSponsorsCollection = 'tournament_sponsors';
+  static const String tournamentRulesCollection = 'tournament_rules';
+  static const String tournamentMembersCollection = 'tournament_members';
   static const String ballEventsCollection = 'ball_events';
   static const String notificationsCollection = 'notifications';
   static const String badgesCollection = 'badges';

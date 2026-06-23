@@ -102,9 +102,9 @@ class _MyCricketTournamentsTabState
                   itemCount: list.length,
                   itemBuilder: (_, i) => TournamentListCard(
                     tournament: list[i],
-                    onTap: () => context.push('/tournaments'),
+                    onTap: () => context.push('/tournaments/${list[i].id}'),
                     trailing: TextButton(
-                      onPressed: () => context.push('/tournaments'),
+                      onPressed: () => context.push('/tournaments/${list[i].id}'),
                       child: const Text('Manage'),
                     ),
                   ),

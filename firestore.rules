@@ -9,6 +9,27 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function tournamentDoc(tournamentId) {
+      return get(/databases/$(database)/documents/tournaments/$(tournamentId)).data;
+    }
+
+    function isTournamentOrganizer(tournamentId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/tournaments/$(tournamentId))
+        && (
+          tournamentDoc(tournamentId).get('createdBy', '') == request.auth.uid
+          || tournamentDoc(tournamentId).get('organizerId', '') == request.auth.uid
+        );
+    }
+
+    function isTournamentOrganizerOnCreate() {
+      return isSignedIn()
+        && (
+          request.resource.data.get('createdBy', '') == request.auth.uid
+          || request.resource.data.get('organizerId', '') == request.auth.uid
+        );
+    }
+
     function matchData(matchId) {
       return get(/databases/$(database)/documents/matches/$(matchId)).data;
     }
@@ -799,10 +820,76 @@ service cloud.firestore {
 
     match /tournaments/{tournamentId} {
       allow read: if true;
+      allow create: if isTournamentOrganizerOnCreate();
+      allow update, delete: if isTournamentOrganizer(tournamentId);
+    }
+
+    match /tournament_groups/{groupId} {
+      allow read: if true;
       allow create: if isSignedIn()
-        && request.resource.data.createdBy == request.auth.uid;
+        && request.resource.data.tournamentId is string
+        && isTournamentOrganizer(request.resource.data.tournamentId);
       allow update, delete: if isSignedIn()
-        && resource.data.createdBy == request.auth.uid;
+        && resource.data.tournamentId is string
+        && isTournamentOrganizer(resource.data.tournamentId);
+    }
+
+    match /tournament_rounds/{roundId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.tournamentId is string
+        && isTournamentOrganizer(request.resource.data.tournamentId);
+      allow update, delete: if isSignedIn()
+        && resource.data.tournamentId is string
+        && isTournamentOrganizer(resource.data.tournamentId);
+    }
+
+    match /tournament_points_tables/{tableId} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+        && request.resource.data.tournamentId is string
+        && isTournamentOrganizer(request.resource.data.tournamentId);
+      allow delete: if isSignedIn()
+        && resource.data.tournamentId is string
+        && isTournamentOrganizer(resource.data.tournamentId);
+    }
+
+    match /tournament_officials/{officialId} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+        && request.resource.data.tournamentId is string
+        && isTournamentOrganizer(request.resource.data.tournamentId);
+      allow delete: if isSignedIn()
+        && resource.data.tournamentId is string
+        && isTournamentOrganizer(resource.data.tournamentId);
+    }
+
+    match /tournament_sponsors/{sponsorId} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+        && request.resource.data.tournamentId is string
+        && isTournamentOrganizer(request.resource.data.tournamentId);
+      allow delete: if isSignedIn()
+        && resource.data.tournamentId is string
+        && isTournamentOrganizer(resource.data.tournamentId);
+    }
+
+    match /tournament_rules/{tournamentId} {
+      allow read: if true;
+      allow create, update, delete: if isTournamentOrganizer(tournamentId);
+    }
+
+    match /tournament_members/{memberId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.tournamentId is string
+        && isTournamentOrganizer(request.resource.data.tournamentId);
+      allow update, delete: if isSignedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || isTournamentOrganizer(resource.data.tournamentId)
+        );
     }
 
     match /badges/{badgeId} {

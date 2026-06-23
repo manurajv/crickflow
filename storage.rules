@@ -136,6 +136,14 @@ service firebase.storage {
         && under2Mb();
     }
 
+    match /tournaments/{tournamentId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn()
+        && fileName.matches('(banner|logo)_.*\\.jpg')
+        && isImageJpeg()
+        && under5Mb();
+    }
+
     match /matches/{matchId}/media/{fileName} {
       allow read: if true;
       allow write: if isSignedIn()

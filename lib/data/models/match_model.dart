@@ -164,6 +164,9 @@ class MatchModel extends Equatable {
     this.teamAName = '',
     this.teamBName = '',
     this.tournamentId,
+    this.roundId,
+    this.groupId,
+    this.roundName,
     this.bracketRound,
     this.bracketSlot,
     this.rules = const MatchRulesModel(),
@@ -211,6 +214,9 @@ class MatchModel extends Equatable {
   final String teamAName;
   final String teamBName;
   final String? tournamentId;
+  final String? roundId;
+  final String? groupId;
+  final String? roundName;
   final int? bracketRound;
   final int? bracketSlot;
   final MatchRulesModel rules;
@@ -276,6 +282,9 @@ class MatchModel extends Equatable {
       teamAName: map['teamAName'] as String? ?? '',
       teamBName: map['teamBName'] as String? ?? '',
       tournamentId: map['tournamentId'] as String?,
+      roundId: map['roundId'] as String?,
+      groupId: map['groupId'] as String?,
+      roundName: map['roundName'] as String?,
       bracketRound: map['bracketRound'] as int?,
       bracketSlot: map['bracketSlot'] as int?,
       rules: MatchRulesModel.fromMap(_asStringMap(map['rules'])),
@@ -357,6 +366,9 @@ class MatchModel extends Equatable {
         'teamAName': teamAName,
         'teamBName': teamBName,
         if (tournamentId != null) 'tournamentId': tournamentId,
+        if (roundId != null) 'roundId': roundId,
+        if (groupId != null) 'groupId': groupId,
+        if (roundName != null && roundName!.isNotEmpty) 'roundName': roundName,
         if (bracketRound != null) 'bracketRound': bracketRound,
         if (bracketSlot != null) 'bracketSlot': bracketSlot,
         'rules': rules.toMap(),
@@ -452,6 +464,11 @@ class MatchModel extends Equatable {
       teamAName: teamAName ?? this.teamAName,
       teamBName: teamBName ?? this.teamBName,
       tournamentId: tournamentId,
+      roundId: roundId,
+      groupId: groupId,
+      roundName: roundName,
+      bracketRound: bracketRound,
+      bracketSlot: bracketSlot,
       rules: rules ?? this.rules,
       innings: innings ?? this.innings,
       currentInningsIndex: currentInningsIndex ?? this.currentInningsIndex,

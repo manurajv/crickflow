@@ -31,9 +31,137 @@ enum MatchStatus {
 
 enum InningsStatus { notStarted, inProgress, completed }
 
-enum TournamentFormat { league, knockout, leagueKnockout }
+enum TournamentFormat { league, knockout, leagueKnockout, custom }
 
-enum TournamentStatus { draft, upcoming, live, completed }
+enum TournamentStatus {
+  draft,
+  upcoming,
+  live,
+  completed,
+  cancelled,
+}
+
+/// Tournament access role (RBAC).
+enum TournamentRole { owner, admin, scorer, viewer }
+
+/// Round classification — use [RoundType.custom] with a display name when needed.
+enum RoundType {
+  groupStage,
+  league,
+  knockout,
+  roundOf32,
+  roundOf16,
+  quarterFinal,
+  semiFinal,
+  final_,
+  qualifier1,
+  qualifier2,
+  eliminator,
+  thirdPlace,
+  custom,
+}
+
+extension RoundTypeX on RoundType {
+  String get firestoreName => this == RoundType.final_ ? 'final' : name;
+
+  static RoundType fromFirestore(String? value) {
+    if (value == null || value.isEmpty) return RoundType.custom;
+    if (value == 'final') return RoundType.final_;
+    return RoundType.values.firstWhere(
+      (e) => e.firestoreName == value || e.name == value,
+      orElse: () => RoundType.custom,
+    );
+  }
+
+  String defaultLabel() {
+    return switch (this) {
+      RoundType.groupStage => 'Group Stage',
+      RoundType.league => 'League',
+      RoundType.knockout => 'Knockout',
+      RoundType.roundOf32 => 'Round of 32',
+      RoundType.roundOf16 => 'Round of 16',
+      RoundType.quarterFinal => 'Quarter Final',
+      RoundType.semiFinal => 'Semi Final',
+      RoundType.final_ => 'Final',
+      RoundType.qualifier1 => 'Qualifier 1',
+      RoundType.qualifier2 => 'Qualifier 2',
+      RoundType.eliminator => 'Eliminator',
+      RoundType.thirdPlace => 'Third Place',
+      RoundType.custom => 'Custom',
+    };
+  }
+}
+
+/// Tournament official assignment role.
+enum TournamentOfficialRole {
+  scorer,
+  umpire,
+  commentator,
+  streamer,
+  photographer,
+  videographer,
+}
+
+enum SponsorType {
+  title,
+  poweredBy,
+  associate,
+  mediaPartner,
+}
+
+/// Tournament / series category (organizer classification).
+enum TournamentCategory {
+  open,
+  corporate,
+  community,
+  school,
+  other,
+  series,
+  college,
+  university,
+}
+
+/// Extended match format labels for tournaments.
+enum TournamentMatchFormat {
+  limitedOvers,
+  boxTurf,
+  pairCricket,
+  testMatch,
+  theHundred,
+}
+
+enum WinningPrizeType { cash, trophies, both }
+
+enum TournamentMatchSchedule {
+  weekends,
+  weekdays,
+  allDays,
+}
+
+enum TournamentDayNight {
+  day,
+  night,
+  dayAndNight,
+}
+
+enum OfficialBudgetBand {
+  day500to1000,
+  day1100to1500,
+  day1600to2000,
+  day2000plus,
+  dayNotDecided,
+  match100to500,
+  match600to1000,
+  match1100to1500,
+  match1500plus,
+  matchNotDecided,
+}
+
+enum OfficialContactMethod {
+  inAppMessage,
+  whatsApp,
+  phoneCall,
+}
 
 enum BallEventType {
   runs,

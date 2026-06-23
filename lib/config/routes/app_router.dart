@@ -59,6 +59,9 @@ import '../../features/teams/presentation/team_edit_screen.dart';
 import '../../features/teams/presentation/create_team_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_screen.dart';
+import '../../features/tournaments/presentation/tournament_dashboard_screen.dart';
+import '../../features/tournaments/presentation/tournament_create_flow_screen.dart';
+import '../../features/tournaments/presentation/tournament_edit_screen.dart';
 import '../../features/wagon_wheel/presentation/wagon_wheel_view_screen.dart';
 import '../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../core/routing/deep_link_handler.dart';
@@ -421,6 +424,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/tournaments',
         builder: (_, __) => const TournamentScreen(),
+        routes: [
+          GoRoute(
+            path: 'create',
+            builder: (_, __) => const TournamentCreateFlowScreen(),
+          ),
+          GoRoute(
+            path: ':id',
+            builder: (_, state) => TournamentDashboardScreen(
+              tournamentId: state.pathParameters['id']!,
+            ),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (_, state) => TournamentEditScreen(
+                  tournamentId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: '/teams',
