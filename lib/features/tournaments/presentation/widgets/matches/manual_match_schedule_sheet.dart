@@ -13,6 +13,7 @@ import '../../../../../shared/providers/tournament_match_providers.dart';
 import '../../../../../shared/providers/tournament_providers.dart';
 import '../../../../../shared/widgets/cf_button.dart';
 import '../../../../../shared/widgets/cf_underlined_field.dart';
+import '../../../../../shared/widgets/match_scoring_rules_form.dart';
 import '../tournament_create/tournament_create_ui.dart';
 
 Future<void> showManualMatchScheduleSheet({
@@ -49,10 +50,12 @@ class _ManualMatchScheduleSheetState
   String? _teamBId;
   String? _selectedGround;
   late DateTime _scheduledAt;
+  late MatchRulesModel _rules;
   late final TextEditingController _oversController;
-  CricketMatchType _matchType = CricketMatchType.limitedOvers;
+  late final TextEditingController _oversPerBowlerController;
   var _busy = false;
   var _groundInitialized = false;
+  var _rulesInitialized = false;
 
   @override
   void initState() {
@@ -65,16 +68,72 @@ class _ManualMatchScheduleSheetState
       10,
       0,
     );
-    _oversController = TextEditingController(
-      text: '${widget.tournament.defaultRules.totalOvers}',
-    );
-    _matchType = widget.tournament.setupMeta.cricketMatchType;
+    _rules = widget.tournament.defaultRules.toMatchRules().copyWith(
+          cricketMatchType: widget.tournament.setupMeta.cricketMatchType,
+        );
+    _oversController = TextEditingController(text: '${_rules.totalOvers}');
+    _oversPerBowlerController =
+        TextEditingController(text: '${_rules.oversPerBowler}');
   }
 
   @override
   void dispose() {
     _oversController.dispose();
+    _oversPerBowlerController.dispose();
     super.dispose();
+  }
+
+  void _initRulesFrom(TournamentModel tournament) {
+    if (_rulesInitialized) return;
+    _rules = tournament.defaultRules.toMatchRules().copyWith(
+          cricketMatchType: tournament.setupMeta.cricketMatchType,
+        );
+    _syncOversControllers();
+    _rulesInitialized = true;
+  }
+
+  void _syncOversControllers() {
+    final overs = '${_rules.totalOvers}';
+    final perBowler = '${_rules.oversPerBowler}';
+    if (_oversController.text != overs) _oversController.text = overs;
+    if (_oversPerBowlerController.text != perBowler) {
+      _oversPerBowlerController.text = perBowler;
+    }
+  }
+
+  void _onMatchTypeSelected(CricketMatchType type) {
+    final preserved = _rules;
+    var next = MatchRulesModel.forMatchType(type).copyWith(
+      wideRuns: preserved.wideRuns,
+      noBallRuns: preserved.noBallRuns,
+      wideCountsAsLegalDelivery: preserved.wideCountsAsLegalDelivery,
+      noBallCountsAsLegalDelivery: preserved.noBallCountsAsLegalDelivery,
+      ballsPerOver: preserved.ballsPerOver,
+      playersPerTeam: preserved.playersPerTeam,
+      totalOvers: preserved.totalOvers,
+      oversPerBowler: preserved.oversPerBowler,
+      isManualOversPerBowler: preserved.isManualOversPerBowler,
+      wagonWheelEnabled:
+          type == CricketMatchType.indoor ? false : preserved.wagonWheelEnabled,
+      wagonWheelDots:
+          type == CricketMatchType.indoor ? false : preserved.wagonWheelDots,
+      wagonWheelRuns123:
+          type == CricketMatchType.indoor ? false : preserved.wagonWheelRuns123,
+      wagonWheelShotSelection: type == CricketMatchType.indoor
+          ? false
+          : preserved.wagonWheelShotSelection,
+      cricketMatchType: type,
+    );
+    if (!preserved.isManualOversPerBowler && !next.isTestMatch) {
+      next = next.copyWith(
+        oversPerBowler: MatchRulesModel.calculateOversPerBowler(next.totalOvers),
+        isManualOversPerBowler: false,
+      );
+    }
+    setState(() {
+      _rules = next;
+      _syncOversControllers();
+    });
   }
 
   void _initGroundSelection(TournamentModel live) {
@@ -125,6 +184,7 @@ class _ManualMatchScheduleSheetState
     final live = ref.watch(tournamentProvider(widget.tournament.id)).valueOrNull ??
         widget.tournament;
     _initGroundSelection(live);
+    _initRulesFrom(live);
     final rounds =
         ref.watch(tournamentActiveRoundsProvider(widget.tournament.id));
     final groups =
@@ -133,7 +193,7 @@ class _ManualMatchScheduleSheetState
     final teamOptions = live.teamIds;
     final uid = ref.watch(authStateProvider).value?.uid;
     final grounds = tournamentGroundNames(live);
-    final showOvers = _matchType != CricketMatchType.testMatch;
+    final showOvers = !_rules.isTestMatch;
     final oversValid = !showOvers || _parsedOvers() != null;
     final groundValid = grounds.isNotEmpty && _selectedGround != null;
     final canSave = !_busy &&
@@ -306,19 +366,21 @@ class _ManualMatchScheduleSheetState
             ),
             const SizedBox(height: AppDimens.spaceSm),
             TournamentCricketMatchTypePicker(
-              selected: _matchType,
-              onSelected: (type) => setState(() => _matchType = type),
+              selected: _rules.cricketMatchType,
+              onSelected: _onMatchTypeSelected,
             ),
-            if (showOvers) ...[
-              const SizedBox(height: AppDimens.spaceMd),
-              CfUnderlinedField(
-                controller: _oversController,
-                label: 'Total overs',
-                required: true,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => setState(() {}),
+            const SizedBox(height: AppDimens.spaceMd),
+            MatchScoringRulesForm(
+              rules: _rules,
+              showMatchFormatFields: showOvers,
+              oversController: showOvers ? _oversController : null,
+              oversPerBowlerController: showOvers ? _oversPerBowlerController : null,
+              onChanged: (next) => setState(
+                () => _rules = next.copyWith(
+                  cricketMatchType: _rules.cricketMatchType,
+                ),
               ),
-            ],
+            ),
             const SizedBox(height: AppDimens.spaceLg),
             CfButton(
               label: 'Save match',
@@ -327,17 +389,33 @@ class _ManualMatchScheduleSheetState
               onPressed: !canSave
                   ? null
                   : () async {
-                      final userId = uid;
-                      if (userId == null) return;
                       setState(() => _busy = true);
                       try {
+                        final userId = uid as String;
                         final round = rounds
                             .where((r) => r.id == _roundId)
                             .firstOrNull;
-                        final overs = showOvers
-                            ? _parsedOvers()!
-                            : MatchRulesModel.forMatchType(_matchType)
-                                .totalOvers;
+                        final rules = showOvers
+                            ? _rules.copyWith(
+                                totalOvers: _parsedOvers()!,
+                                cricketMatchType: _rules.cricketMatchType,
+                              )
+                            : MatchRulesModel.forMatchType(_rules.cricketMatchType)
+                                .copyWith(
+                                  wideRuns: _rules.wideRuns,
+                                  noBallRuns: _rules.noBallRuns,
+                                  wideCountsAsLegalDelivery:
+                                      _rules.wideCountsAsLegalDelivery,
+                                  noBallCountsAsLegalDelivery:
+                                      _rules.noBallCountsAsLegalDelivery,
+                                  ballsPerOver: _rules.ballsPerOver,
+                                  playersPerTeam: _rules.playersPerTeam,
+                                  wagonWheelEnabled: _rules.wagonWheelEnabled,
+                                  wagonWheelDots: _rules.wagonWheelDots,
+                                  wagonWheelRuns123: _rules.wagonWheelRuns123,
+                                  wagonWheelShotSelection:
+                                      _rules.wagonWheelShotSelection,
+                                );
                         await ref
                             .read(tournamentRepositoryProvider)
                             .scheduleTournamentMatch(
@@ -350,8 +428,7 @@ class _ManualMatchScheduleSheetState
                               groupId: _groupId,
                               venue: _selectedGround!,
                               scheduledAt: _scheduledAt,
-                              totalOvers: overs,
-                              cricketMatchType: _matchType,
+                              rules: rules,
                             );
                         if (!context.mounted) return;
                         Navigator.pop(context);

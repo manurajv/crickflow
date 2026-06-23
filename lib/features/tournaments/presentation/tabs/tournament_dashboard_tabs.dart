@@ -13,6 +13,7 @@ import '../../../../data/models/tournament_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
+import '../../../../shared/widgets/match_scoring_rules_form.dart';
 
 class TournamentFixturesTab extends ConsumerStatefulWidget {
   const TournamentFixturesTab({
@@ -407,6 +408,17 @@ class _TournamentRulesTabState extends ConsumerState<TournamentRulesTab> {
   TournamentRulesModel? _draft;
   var _saving = false;
 
+  TournamentRulesModel _effectiveRules(
+    TournamentRulesModel rules,
+    TournamentModel? tournament,
+  ) {
+    if (_draft != null) return _draft!;
+    if (tournament != null && rules == const TournamentRulesModel()) {
+      return tournament.defaultRules;
+    }
+    return rules;
+  }
+
   @override
   Widget build(BuildContext context) {
     final rulesAsync = ref.watch(tournamentRulesProvider(widget.tournamentId));
@@ -416,70 +428,21 @@ class _TournamentRulesTabState extends ConsumerState<TournamentRulesTab> {
 
     return rulesAsync.when(
       data: (rules) {
-        final effective = _draft ?? rules;
-        if (tournament != null && effective == const TournamentRulesModel()) {
-          _draft ??= tournament.defaultRules;
-        }
-        final r = _draft ?? effective;
+        final r = _effectiveRules(rules, tournament);
+        final matchRules = r.toMatchRules();
 
         return ListView(
           padding: AppDimens.screenPadding,
           children: [
-            SwitchListTile(
-              title: const Text('Wagon wheel'),
-              value: r.wagonWheelEnabled,
+            MatchScoringRulesForm(
+              rules: matchRules,
+              enabled: canEdit,
+              showMatchFormatFields: true,
               onChanged: canEdit
-                  ? (v) => setState(() => _draft = _copy(r, wagonWheelEnabled: v))
-                  : null,
-            ),
-            SwitchListTile(
-              title: const Text('Shot selection'),
-              value: r.wagonWheelShotSelection,
-              onChanged: canEdit
-                  ? (v) =>
-                      setState(() => _draft = _copy(r, wagonWheelShotSelection: v))
-                  : null,
-            ),
-            SwitchListTile(
-              title: const Text('Impact player'),
-              value: r.impactPlayerEnabled,
-              onChanged: canEdit
-                  ? (v) => setState(() => _draft = _copy(r, impactPlayerEnabled: v))
-                  : null,
-            ),
-            SwitchListTile(
-              title: const Text('Wide counts as legal ball'),
-              value: r.wideCountsAsLegalDelivery,
-              onChanged: canEdit
-                  ? (v) => setState(
-                        () => _draft = _copy(r, wideCountsAsLegalDelivery: v),
+                  ? (next) => setState(
+                        () => _draft = r.mergeFromMatchRules(next),
                       )
-                  : null,
-            ),
-            SwitchListTile(
-              title: const Text('No ball counts as legal ball'),
-              value: r.noBallCountsAsLegalDelivery,
-              onChanged: canEdit
-                  ? (v) => setState(
-                        () => _draft = _copy(r, noBallCountsAsLegalDelivery: v),
-                      )
-                  : null,
-            ),
-            ListTile(
-              title: const Text('Wide runs'),
-              trailing: Text('${r.wideRuns}'),
-            ),
-            ListTile(
-              title: const Text('No ball runs'),
-              trailing: Text('${r.noBallRuns}'),
-            ),
-            ListTile(
-              title: const Text('Players per team'),
-              trailing: Text('${r.playersPerTeam}'),
-            ),
-            ListTile(
-              title: const Text('Max overs per bowler'),
-              trailing: Text('${r.oversPerBowler}'),
+                  : (_) {},
             ),
             if (canEdit && _draft != null) ...[
               const SizedBox(height: AppDimens.spaceMd),
@@ -495,40 +458,6 @@ class _TournamentRulesTabState extends ConsumerState<TournamentRulesTab> {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
-    );
-  }
-
-  TournamentRulesModel _copy(
-    TournamentRulesModel r, {
-    bool? wagonWheelEnabled,
-    bool? wagonWheelShotSelection,
-    bool? impactPlayerEnabled,
-    bool? wideCountsAsLegalDelivery,
-    bool? noBallCountsAsLegalDelivery,
-  }) {
-    return TournamentRulesModel(
-      wideRuns: r.wideRuns,
-      noBallRuns: r.noBallRuns,
-      wideCountsAsLegalDelivery:
-          wideCountsAsLegalDelivery ?? r.wideCountsAsLegalDelivery,
-      noBallCountsAsLegalDelivery:
-          noBallCountsAsLegalDelivery ?? r.noBallCountsAsLegalDelivery,
-      powerplayOvers: r.powerplayOvers,
-      oversPerBowler: r.oversPerBowler,
-      playersPerTeam: r.playersPerTeam,
-      impactPlayerEnabled: impactPlayerEnabled ?? r.impactPlayerEnabled,
-      wagonWheelEnabled: wagonWheelEnabled ?? r.wagonWheelEnabled,
-      wagonWheelShotSelection:
-          wagonWheelShotSelection ?? r.wagonWheelShotSelection,
-      pointsPerWin: r.pointsPerWin,
-      pointsPerTie: r.pointsPerTie,
-      pointsPerLoss: r.pointsPerLoss,
-      pointsPerNoResult: r.pointsPerNoResult,
-      ballType: r.ballType,
-      pitchType: r.pitchType,
-      totalOvers: r.totalOvers,
-      ballsPerOver: r.ballsPerOver,
-      notes: r.notes,
     );
   }
 

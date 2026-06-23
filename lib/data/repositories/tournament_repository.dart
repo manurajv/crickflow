@@ -679,6 +679,7 @@ class TournamentRepository {
     String? groupId,
     String? venue,
     DateTime? scheduledAt,
+    MatchRulesModel? rules,
     int totalOvers = 20,
     CricketMatchType cricketMatchType = CricketMatchType.limitedOvers,
   }) async {
@@ -689,9 +690,9 @@ class TournamentRepository {
       throw StateError('Both teams must be in the tournament');
     }
 
-    final rules = _rulesFor(tournament).copyWith(
-      totalOvers: totalOvers,
-      cricketMatchType: cricketMatchType,
+    final matchRules = (rules ?? _rulesFor(tournament)).copyWith(
+      totalOvers: rules?.totalOvers ?? totalOvers,
+      cricketMatchType: rules?.cricketMatchType ?? cricketMatchType,
     );
 
     final match = MatchModel(
@@ -710,7 +711,7 @@ class TournamentRepository {
       venue: venue ?? '',
       location: tournament.location,
       scheduledAt: scheduledAt ?? DateTime.now().add(const Duration(days: 1)),
-      rules: rules,
+      rules: matchRules,
       createdBy: createdBy,
     );
 

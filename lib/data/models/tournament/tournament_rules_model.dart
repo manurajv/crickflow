@@ -122,11 +122,38 @@ class TournamentRulesModel extends Equatable {
       impactPlayerEnabled: impactPlayerEnabled,
       wagonWheelEnabled: wagonWheelEnabled,
       wagonWheelShotSelection: wagonWheelShotSelection,
+      wagonWheelDots: wagonWheelEnabled,
+      wagonWheelRuns123: wagonWheelEnabled,
       powerplayOvers: powerplayOvers,
       pointsPerWin: pointsPerWin,
       pointsPerTie: pointsPerTie,
       pointsPerLoss: pointsPerLoss,
       notes: notes.isEmpty ? null : notes,
+    );
+  }
+
+  /// Merges editable match-rule fields from [rules] while keeping tournament-only fields.
+  TournamentRulesModel mergeFromMatchRules(MatchRulesModel rules) {
+    return TournamentRulesModel(
+      wideRuns: rules.wideRuns,
+      noBallRuns: rules.noBallRuns,
+      wideCountsAsLegalDelivery: rules.wideCountsAsLegalDelivery,
+      noBallCountsAsLegalDelivery: rules.noBallCountsAsLegalDelivery,
+      powerplayOvers: rules.powerplayOvers ?? powerplayOvers,
+      oversPerBowler: rules.oversPerBowler,
+      playersPerTeam: rules.playersPerTeam,
+      impactPlayerEnabled: rules.impactPlayerEnabled,
+      wagonWheelEnabled: rules.wagonWheelEnabled,
+      wagonWheelShotSelection: rules.wagonWheelShotSelection,
+      pointsPerWin: rules.pointsPerWin,
+      pointsPerTie: rules.pointsPerTie,
+      pointsPerLoss: rules.pointsPerLoss,
+      pointsPerNoResult: pointsPerNoResult,
+      ballType: rules.ballType ?? ballType,
+      pitchType: rules.pitchType ?? pitchType,
+      totalOvers: rules.totalOvers,
+      ballsPerOver: rules.ballsPerOver,
+      notes: rules.notes ?? notes,
     );
   }
 
