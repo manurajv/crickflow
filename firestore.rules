@@ -38,6 +38,24 @@ service cloud.firestore {
       return isSignedIn() && matchData(matchId).createdBy == request.auth.uid;
     }
 
+    function isUpcomingMatchStatus(status) {
+      return status in ['draft', 'scheduled', 'tossCompleted'];
+    }
+
+    function canDeleteMatch(matchId) {
+      let data = matchData(matchId);
+      return isMatchCreator(matchId)
+        || (
+          isSignedIn()
+          && 'tournamentId' in data
+          && data.tournamentId is string
+          && data.tournamentId.size() > 0
+          && isTournamentOrganizer(data.tournamentId)
+          && 'status' in data
+          && isUpcomingMatchStatus(data.status)
+        );
+    }
+
     function effectiveScorerId(matchId) {
       let data = matchData(matchId);
       return ('currentScorerId' in data && data.currentScorerId is string
@@ -747,7 +765,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && validMatchCreate();
       allow update: if canUpdateMatchForTargetRevision(matchId)
         && validTargetRevisionMatchUpdate();
-      allow delete: if isMatchCreator(matchId);
+      allow delete: if canDeleteMatch(matchId);
 
       match /ball_events/{eventId} {
         allow read: if true;

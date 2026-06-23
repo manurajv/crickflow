@@ -52,8 +52,18 @@
 | Firestore — team leadership can add roster on invitation accept (`leadershipRosterTeamId`) | Done — deploy rules |
 | QR cold start — prefetch initial App Link in `main()`; splash resolves link in parallel | Done |
 | Tournament team notifications — 6 types with Accept/Reject in notifications | Done |
-| Group ↔ team assignment UI | Pending |
-| Manual fixture editor | Pending |
+| **Tournament Matches tab** — Live / Upcoming / Completed; match cards; empty state; schedule sheet | Done |
+| **Schedule matches** — manual schedule sheet + auto fixture generator (league, RR, group, knockout, hybrid) | Done |
+| **Tournament Groups tab** — empty state; manual/auto group creation; group cards; team add/remove | Done |
+| **Tournament Rounds screen** — CRUD, reorder, activate/archive; preset round names; `/tournaments/:id/rounds` | Done |
+| Models — `TournamentGroupModel`, `TournamentRoundModel`, `TournamentMatchModel` (view over `MatchModel`) | Done |
+| Repositories — group/round CRUD, auto distribution, `scheduleTournamentMatch`, points table sync | Done |
+| Providers — `tournamentMatchesFilteredProvider`, group/round lookup, `autoFixtureGeneratorServiceProvider` | Done |
+| Group ↔ team assignment UI — drag-and-drop, move between groups, bulk assign | Pending |
+| Group delete + team picker on add | Done |
+| Delete upcoming scheduled tournament matches (organizer) | Done — deploy Firestore rules |
+| Match actions — edit, reschedule, cancel, assign officials/scorer | Pending |
+| Manual fixture editor (legacy Fixtures tab) | Pending |
 | Tournament notifications | Pending |
 
 ---

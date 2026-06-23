@@ -66,6 +66,22 @@ class TournamentRoundRepository {
     await _col.doc(round.id).update(round.toMap());
   }
 
+  Future<void> deleteRound(String id) async {
+    await _col.doc(id).delete();
+  }
+
+  Future<void> reorderRounds(List<TournamentRoundModel> rounds) async {
+    final batch = _firestore.batch();
+    for (var i = 0; i < rounds.length; i++) {
+      batch.update(_col.doc(rounds[i].id), {
+        'sortOrder': i,
+        'sequence': i,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    }
+    await batch.commit();
+  }
+
   Stream<List<TournamentRoundModel>> watchRounds(String tournamentId) {
     return _col
         .where('tournamentId', isEqualTo: tournamentId)
@@ -232,5 +248,9 @@ class TournamentPointsTableRepository {
         .map((snap) => snap.docs
             .map((d) => TournamentPointsTableModel.fromMap(d.id, d.data()))
             .toList());
+  }
+
+  Future<void> deleteTable(String id) async {
+    await _col.doc(id).delete();
   }
 }

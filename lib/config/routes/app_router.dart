@@ -63,6 +63,7 @@ import '../../features/tournaments/presentation/tournament_dashboard_sections.da
 import '../../features/tournaments/presentation/tournament_create_flow_screen.dart';
 import '../../features/tournaments/presentation/tournament_edit_screen.dart';
 import '../../features/tournaments/presentation/tournament_join_screen.dart';
+import '../../features/tournaments/presentation/tournament_rounds_screen.dart';
 import '../../features/wagon_wheel/presentation/wagon_wheel_view_screen.dart';
 import '../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../core/routing/deep_link_handler.dart';
@@ -70,6 +71,7 @@ import '../../core/utils/deep_link_utils.dart';
 import '../../core/utils/match_permissions.dart';
 import '../../core/auth/guest_routes.dart';
 import '../../shared/providers/providers.dart';
+import '../../shared/providers/tournament_providers.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -465,6 +467,31 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (_, state) => TournamentEditScreen(
                   tournamentId: state.pathParameters['id']!,
                 ),
+              ),
+              GoRoute(
+                path: 'rounds',
+                builder: (_, state) {
+                  final id = state.pathParameters['id']!;
+                  return Consumer(
+                    builder: (context, ref, _) {
+                      final tournament =
+                          ref.watch(tournamentProvider(id)).valueOrNull;
+                      final uid = ref.watch(authStateProvider).value?.uid;
+                      final role = ref.watch(
+                        tournamentMemberRoleProvider((id, uid)),
+                      );
+                      if (tournament == null) {
+                        return const Scaffold(
+                          body: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      return TournamentRoundsScreen(
+                        tournament: tournament,
+                        role: role,
+                      );
+                    },
+                  );
+                },
               ),
               for (final section in TournamentDashboardSection.tabOrder)
                 if (section != TournamentDashboardSection.overview)

@@ -83,13 +83,7 @@ class MatchUpcomingService {
     );
   }
 
-  static String _venueLabel(MatchModel match) {
-    final venue = match.venue.trim();
-    final city = match.location.city.trim();
-    if (venue.isEmpty) return city;
-    if (city.isEmpty) return venue;
-    return '$venue, $city';
-  }
+  static String _venueLabel(MatchModel match) => match.venue.trim();
 
   List<UpcomingMatchBanner> _banners(MatchModel match) {
     if (match.mediaByCode.isEmpty) return const [];

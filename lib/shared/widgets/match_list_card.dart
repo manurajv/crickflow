@@ -10,6 +10,7 @@ import '../../data/models/match_model.dart';
 import '../../data/models/team_model.dart';
 import '../../data/models/tournament_model.dart';
 import '../../shared/providers/providers.dart';
+import '../../shared/providers/tournament_match_providers.dart';
 import 'match_card_ui.dart';
 
 /// Standard match card for all list feeds (Home, My Cricket, Discover, etc.).
@@ -20,12 +21,14 @@ class MatchListCard extends ConsumerWidget {
     this.tournamentLabel,
     this.showQuickLinks = true,
     this.showTournamentHeader = true,
+    this.showRoundBadge = true,
   });
 
   final MatchModel match;
   final String? tournamentLabel;
   final bool showQuickLinks;
   final bool showTournamentHeader;
+  final bool showRoundBadge;
 
   bool get _isUpcoming =>
       match.status == MatchStatus.scheduled ||
@@ -47,6 +50,7 @@ class MatchListCard extends ConsumerWidget {
     final tournamentHeader = showTournamentHeader
         ? _tournamentHeader(tournaments, tournamentLabel)
         : tournamentLabel;
+    final roundLabel = showRoundBadge ? _roundLabel(ref, match) : null;
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -75,6 +79,7 @@ class MatchListCard extends ConsumerWidget {
                 child: MatchCardContent(
                   match: match,
                   tournamentLabel: tournamentHeader,
+                  roundLabel: roundLabel,
                   teamALogoUrl: teamA?.profileImageUrl,
                   teamBLogoUrl: teamB?.profileImageUrl,
                 ),
@@ -121,6 +126,27 @@ class MatchListCard extends ConsumerWidget {
       return match.title;
     }
     return null;
+  }
+
+  String? _roundLabel(WidgetRef ref, MatchModel match) {
+    if (match.roundName != null && match.roundName!.trim().isNotEmpty) {
+      return match.roundName!.trim();
+    }
+    final tournamentId = match.tournamentId;
+    final roundId = match.roundId;
+    if (tournamentId == null ||
+        tournamentId.isEmpty ||
+        roundId == null ||
+        roundId.isEmpty) {
+      return null;
+    }
+    return ref
+        .watch(
+          tournamentRoundByIdProvider(
+            (tournamentId: tournamentId, roundId: roundId),
+          ),
+        )
+        ?.name;
   }
 
   void _openMatchHub(BuildContext context) {

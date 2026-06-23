@@ -12,6 +12,8 @@ import '../../../data/models/tournament_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import 'tournament_teams_screen.dart';
+import 'tournament_matches_screen.dart';
+import 'tournament_groups_screen.dart';
 import 'tabs/tournament_dashboard_tabs.dart';
 import 'tabs/tournament_heroes_tab.dart';
 import 'tabs/tournament_leaderboard_tab.dart';
@@ -213,7 +215,10 @@ class _TournamentDashboardScreenState
                       if (index >= 0) _tabs.animateTo(index);
                     },
                   ),
-                  TournamentMatchesTab(tournamentId: widget.tournamentId),
+                  TournamentMatchesTab(
+                    tournament: tournament,
+                    role: role,
+                  ),
                   TournamentLeaderboardTab(tournamentId: widget.tournamentId),
                   TournamentPointsTab(tournament: tournament),
                   TournamentStatsTab(tournamentId: widget.tournamentId),

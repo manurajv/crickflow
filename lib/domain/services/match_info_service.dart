@@ -585,17 +585,7 @@ class MatchInfoService {
     );
   }
 
-  static String _venueLabel(MatchModel match) {
-    final venue = match.venue.trim();
-    if (venue.isNotEmpty) {
-      final loc = match.location.displayLabel;
-      if (loc.isNotEmpty && !venue.toLowerCase().contains(loc.toLowerCase())) {
-        return '$venue, $loc';
-      }
-      return venue;
-    }
-    return match.location.displayLabel;
-  }
+  static String _venueLabel(MatchModel match) => match.venue.trim();
 
   static String _dateTimeLabel(MatchModel match, {bool useCompleted = false}) {
     final dt = useCompleted

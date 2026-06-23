@@ -26,6 +26,7 @@ class MatchCardContent extends StatelessWidget {
     required this.match,
     this.style = MatchCardStyle.list,
     this.tournamentLabel,
+    this.roundLabel,
     this.showFooterHint = true,
     this.showChaseDetails = true,
     this.showTossLine = false,
@@ -36,6 +37,7 @@ class MatchCardContent extends StatelessWidget {
   final MatchModel match;
   final MatchCardStyle style;
   final String? tournamentLabel;
+  final String? roundLabel;
   final bool showFooterHint;
   final bool showChaseDetails;
   final bool showTossLine;
@@ -91,15 +93,32 @@ class MatchCardContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (tournamentLabel != null) ...[
-          Text(
-            tournamentLabel!,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: mutedColor,
-                  fontWeight: FontWeight.w600,
+        if (tournamentLabel != null ||
+            (_isUpcoming &&
+                roundLabel != null &&
+                roundLabel!.trim().isNotEmpty)) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (tournamentLabel != null)
+                Expanded(
+                  child: Text(
+                    tournamentLabel!,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: mutedColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+              if (_isUpcoming &&
+                  roundLabel != null &&
+                  roundLabel!.trim().isNotEmpty) ...[
+                if (tournamentLabel != null) const SizedBox(width: 8),
+                MatchRoundBadge(label: roundLabel!.trim()),
+              ],
+            ],
           ),
           const SizedBox(height: 4),
         ],
@@ -384,6 +403,33 @@ class _TeamScoreRow extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class MatchRoundBadge extends StatelessWidget {
+  const MatchRoundBadge({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cf.accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cf.accent.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: cf.accent,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

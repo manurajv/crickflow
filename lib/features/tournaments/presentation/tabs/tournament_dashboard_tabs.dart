@@ -6,7 +6,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/venue_maps_utils.dart';
-import '../../../../data/models/tournament/tournament_group_model.dart';
 import '../../../../data/models/tournament/tournament_official_model.dart';
 import '../../../../data/models/tournament/tournament_rules_model.dart';
 import '../../../../data/models/tournament/tournament_sponsor_model.dart';
@@ -14,124 +13,6 @@ import '../../../../data/models/tournament_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
-import '../../../../shared/widgets/match_list_card.dart';
-
-class TournamentGroupsTab extends ConsumerWidget {
-  const TournamentGroupsTab({
-    super.key,
-    required this.tournament,
-    required this.role,
-  });
-
-  final TournamentModel tournament;
-  final TournamentRole role;
-
-  Future<void> _createGroup(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New group'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Group A'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-    if (name == null || name.isEmpty) return;
-
-    try {
-      await ref.read(tournamentRepositoryProvider).createGroup(
-            tournamentId: tournament.id,
-            name: name,
-          );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Group "$name" created')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e.toString().contains('permission-denied')
-                  ? 'Permission denied — sign in as the tournament organizer.'
-                  : '$e',
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final groupsAsync = ref.watch(tournamentGroupsProvider(tournament.id));
-    final canManage =
-        ref.watch(tournamentPermissionServiceProvider).canManageGroups(role);
-
-    return groupsAsync.when(
-      data: (groups) => ListView(
-        padding: AppDimens.screenPadding,
-        children: [
-          if (canManage)
-            CfButton(
-              label: 'Add group',
-              isGold: true,
-              onPressed: () => _createGroup(context, ref),
-            ),
-          if (canManage) const SizedBox(height: AppDimens.spaceMd),
-          if (groups.isEmpty)
-            const Center(child: Text('No groups yet'))
-          else
-            ...groups.map((g) => _GroupTile(group: g, tournament: tournament)),
-        ],
-      ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
-    );
-  }
-}
-
-class _GroupTile extends ConsumerWidget {
-  const _GroupTile({required this.group, required this.tournament});
-
-  final TournamentGroupModel group;
-  final TournamentModel tournament;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      child: ExpansionTile(
-        title: Text(group.name),
-        subtitle: Text('${group.teamIds.length} teams'),
-        children: [
-          if (group.teamIds.isEmpty)
-            const ListTile(title: Text('Assign teams from Teams tab'))
-          else
-            ...group.teamIds.map((id) {
-              final entry = tournament.pointsTable
-                  .where((e) => e.teamId == id)
-                  .firstOrNull;
-              return ListTile(
-                dense: true,
-                title: Text(entry?.teamName ?? id),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-}
 
 class TournamentFixturesTab extends ConsumerStatefulWidget {
   const TournamentFixturesTab({
@@ -237,31 +118,6 @@ class _TournamentFixturesTabState extends ConsumerState<TournamentFixturesTab> {
         ] else
           const Center(child: Text('View-only access')),
       ],
-    );
-  }
-}
-
-class TournamentMatchesTab extends ConsumerWidget {
-  const TournamentMatchesTab({super.key, required this.tournamentId});
-
-  final String tournamentId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final matchesAsync = ref.watch(tournamentMatchesProvider(tournamentId));
-
-    return matchesAsync.when(
-      data: (matches) {
-        if (matches.isEmpty) {
-          return const Center(child: Text('No matches scheduled'));
-        }
-        return ListView.builder(
-          itemCount: matches.length,
-          itemBuilder: (_, i) => MatchListCard(match: matches[i]),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
     );
   }
 }

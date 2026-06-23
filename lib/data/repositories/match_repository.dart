@@ -234,6 +234,10 @@ class MatchRepository {
     return id;
   }
 
+  Future<void> deleteMatch(String matchId) async {
+    await _matches.doc(matchId).delete();
+  }
+
   Future<void> updateMatch(MatchModel match) async {
     await _enqueueMatchUpdate(match);
   }

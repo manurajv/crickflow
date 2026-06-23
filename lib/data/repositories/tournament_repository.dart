@@ -9,6 +9,7 @@ import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
 import '../../data/models/tournament/tournament_group_model.dart';
 import '../../data/models/tournament/tournament_member_model.dart';
+import '../../data/models/tournament/tournament_points_table_model.dart';
 import '../../data/models/tournament/tournament_round_model.dart';
 import '../../data/models/tournament_model.dart';
 import '../../domain/services/fixture_generator_service.dart';
@@ -417,7 +418,9 @@ class TournamentRepository {
       teamIds: teamIds,
     );
     final id = await _groupRepository.createGroup(group);
-    return group.copyWith(id: id);
+    final saved = group.copyWith(id: id);
+    await _syncPointsTableForGroup(saved);
+    return saved;
   }
 
   /// After a knockout match completes, record the winner and fill the next bracket slot.
@@ -544,5 +547,200 @@ class TournamentRepository {
       teamBName: s.teamBName,
     );
     return id;
+  }
+
+  Future<void> updateGroup(TournamentGroupModel group) async {
+    await _groupRepository.updateGroup(group);
+    await _syncPointsTableForGroup(group);
+  }
+
+  Future<void> deleteGroup(String groupId) async {
+    await _groupRepository.deleteGroup(groupId);
+    try {
+      await TournamentPointsTableRepository().deleteTable(groupId);
+    } catch (_) {
+      // Points table may not exist yet.
+    }
+  }
+
+  /// Removes a scheduled/upcoming tournament match from Firestore and the
+  /// tournament's `matchIds` list.
+  Future<void> deleteTournamentMatch({
+    required String tournamentId,
+    required String matchId,
+  }) async {
+    final match = await _matchRepository.getMatch(matchId);
+    if (match == null) return;
+    if (!_isDeletableUpcomingMatch(match.status)) {
+      throw StateError('Only upcoming scheduled matches can be deleted');
+    }
+
+    await _matchRepository.deleteMatch(matchId);
+
+    final tournament = await getTournament(tournamentId);
+    if (tournament != null) {
+      await updateTournament(
+        tournament.copyWith(
+          matchIds: tournament.matchIds.where((id) => id != matchId).toList(),
+        ),
+      );
+    }
+  }
+
+  bool _isDeletableUpcomingMatch(MatchStatus status) =>
+      status == MatchStatus.draft ||
+      status == MatchStatus.scheduled ||
+      status == MatchStatus.tossCompleted;
+
+  Future<List<TournamentGroupModel>> createGroupsManual({
+    required String tournamentId,
+    required int count,
+    List<String>? names,
+  }) async {
+    final created = <TournamentGroupModel>[];
+    for (var i = 0; i < count; i++) {
+      final label = names != null && i < names.length
+          ? names[i]
+          : 'Group ${String.fromCharCode(65 + i)}';
+      created.add(await createGroup(tournamentId: tournamentId, name: label));
+    }
+    return created;
+  }
+
+  Future<List<TournamentGroupModel>> createGroupsAutoDistribution({
+    required String tournamentId,
+    required int groupCount,
+  }) async {
+    final tournament = await getTournament(tournamentId);
+    if (tournament == null) throw StateError('Tournament not found');
+    final teamIds = List<String>.from(tournament.teamIds);
+    if (teamIds.isEmpty) throw StateError('Add teams before creating groups');
+    if (groupCount < 1) throw StateError('Need at least one group');
+
+    final groups = await createGroupsManual(
+      tournamentId: tournamentId,
+      count: groupCount,
+    );
+
+    final updated = <TournamentGroupModel>[];
+    for (var i = 0; i < teamIds.length; i++) {
+      final groupIndex = i % groupCount;
+      final group = groups[groupIndex];
+      final next = group.copyWith(
+        teamIds: [...group.teamIds, teamIds[i]],
+      );
+      await updateGroup(next);
+      updated.add(next);
+      groups[groupIndex] = next;
+    }
+    return updated;
+  }
+
+  Future<TournamentRoundModel> createRound({
+    required String tournamentId,
+    required String name,
+    RoundType roundType = RoundType.custom,
+    String description = '',
+    bool isActive = true,
+  }) async {
+    final existing = await _roundRepository.watchRounds(tournamentId).first;
+    final round = TournamentRoundModel(
+      id: '',
+      tournamentId: tournamentId,
+      name: name,
+      description: description,
+      roundType: roundType,
+      sortOrder: existing.length,
+      isActive: isActive,
+    );
+    final id = await _roundRepository.createRound(round);
+    return round.copyWithId(id);
+  }
+
+  Future<void> updateRound(TournamentRoundModel round) async {
+    await _roundRepository.updateRound(round);
+  }
+
+  Future<void> deleteRound(String roundId) async {
+    await _roundRepository.deleteRound(roundId);
+  }
+
+  Future<void> reorderRounds(List<TournamentRoundModel> rounds) async {
+    await _roundRepository.reorderRounds(rounds);
+  }
+
+  Future<String> scheduleTournamentMatch({
+    required TournamentModel tournament,
+    required String createdBy,
+    required String teamAId,
+    required String teamBId,
+    String? roundId,
+    String? roundName,
+    String? groupId,
+    String? venue,
+    DateTime? scheduledAt,
+    int totalOvers = 20,
+    CricketMatchType cricketMatchType = CricketMatchType.limitedOvers,
+  }) async {
+    final teams = await _resolveTeams(tournament);
+    final teamA = teams.where((t) => t.id == teamAId).firstOrNull;
+    final teamB = teams.where((t) => t.id == teamBId).firstOrNull;
+    if (teamA == null || teamB == null) {
+      throw StateError('Both teams must be in the tournament');
+    }
+
+    final rules = _rulesFor(tournament).copyWith(
+      totalOvers: totalOvers,
+      cricketMatchType: cricketMatchType,
+    );
+
+    final match = MatchModel(
+      id: '',
+      title: '${teamA.name} vs ${teamB.name}',
+      matchType: MatchType.tournament,
+      status: MatchStatus.scheduled,
+      teamAId: teamAId,
+      teamBId: teamBId,
+      teamAName: teamA.name,
+      teamBName: teamB.name,
+      tournamentId: tournament.id,
+      roundId: roundId,
+      roundName: roundName,
+      groupId: groupId,
+      venue: venue ?? '',
+      location: tournament.location,
+      scheduledAt: scheduledAt ?? DateTime.now().add(const Duration(days: 1)),
+      rules: rules,
+      createdBy: createdBy,
+    );
+
+    final id = await _matchRepository.createMatch(match);
+    await updateTournament(tournament.copyWith(
+      matchIds: [...tournament.matchIds, id],
+      status: TournamentStatus.upcoming,
+    ));
+    return id;
+  }
+
+  Future<void> _syncPointsTableForGroup(TournamentGroupModel group) async {
+    final tournament = await getTournament(group.tournamentId);
+    final entries = group.teamIds.map((id) {
+      final name = tournament?.pointsTable
+              .where((e) => e.teamId == id)
+              .firstOrNull
+              ?.teamName ??
+          id;
+      return PointsTableEntry(teamId: id, teamName: name);
+    }).toList();
+    if (entries.isEmpty) return;
+
+    final table = TournamentPointsTableModel(
+      id: group.id,
+      tournamentId: group.tournamentId,
+      groupId: group.id,
+      groupName: group.name,
+      entries: entries,
+    );
+    await TournamentPointsTableRepository().saveTable(table);
   }
 }
