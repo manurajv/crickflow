@@ -33,7 +33,7 @@ class TournamentMatchCard extends ConsumerWidget {
         (tournamentId: tournamentId, groupId: match.groupId),
       ),
     );
-    final roundName = match.roundName?.isNotEmpty == true
+    final resolvedRoundName = match.roundName?.isNotEmpty == true
         ? match.roundName!
         : ref
             .watch(
@@ -42,6 +42,11 @@ class TournamentMatchCard extends ConsumerWidget {
               ),
             )
             ?.name;
+    final stageLabel = tournamentMatchStageLabel(
+      match,
+      roundName: resolvedRoundName,
+      groupName: group?.name,
+    );
 
     final isLive = match.status == MatchStatus.live ||
         match.status == MatchStatus.inningsBreak;
@@ -72,10 +77,6 @@ class TournamentMatchCard extends ConsumerWidget {
                         color: cf.statusLive,
                         filled: true,
                       ),
-                    if (roundName != null && roundName.isNotEmpty)
-                      _MetaChip(label: roundName, color: cf.accent),
-                    if (group != null)
-                      _MetaChip(label: group.name, color: cf.info),
                     if (match.venue.isNotEmpty)
                       _MetaChip(
                         label: match.venue,
@@ -110,6 +111,7 @@ class TournamentMatchCard extends ConsumerWidget {
           match: match,
           showTournamentHeader: false,
           showRoundBadge: false,
+          matchTypeLabel: stageLabel,
           showQuickLinks: true,
         ),
       ],

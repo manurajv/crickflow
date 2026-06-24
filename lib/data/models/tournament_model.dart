@@ -167,13 +167,7 @@ class TournamentModel extends Equatable {
       pointsTable: (map['pointsTable'] as List? ?? [])
           .map((e) => PointsTableEntry.fromMap(e as Map<String, dynamic>))
           .toList(),
-      bracketRounds: (map['bracketRounds'] as List? ?? [])
-          .map(
-            (round) => (round as List)
-                .map((e) => BracketSlotModel.fromMap(e as Map<String, dynamic>))
-                .toList(),
-          )
-          .toList(),
+      bracketRounds: bracketRoundsFromFirestore(map['bracketRounds']),
       location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
       bannerUrl: map['bannerUrl'] as String?,
       logoUrl: map['logoUrl'] as String?,
@@ -216,8 +210,7 @@ class TournamentModel extends Equatable {
         'teamIds': teamIds,
         'matchIds': matchIds,
         'pointsTable': pointsTable.map((e) => e.toMap()).toList(),
-        'bracketRounds':
-            bracketRounds.map((r) => r.map((s) => s.toMap()).toList()).toList(),
+        'bracketRounds': bracketRoundsToFirestore(bracketRounds),
         'location': location.toMap(),
         if (bannerUrl != null) 'bannerUrl': bannerUrl,
         if (logoUrl != null) 'logoUrl': logoUrl,

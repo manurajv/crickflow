@@ -520,7 +520,7 @@ class TournamentRepository {
 
     final m = MatchModel(
       id: '',
-      title: '${tournament.name} — ${s.teamAName} vs ${s.teamBName}',
+      title: '${s.teamAName} vs ${s.teamBName}',
       matchType: MatchType.tournament,
       status: MatchStatus.scheduled,
       teamAId: aId,

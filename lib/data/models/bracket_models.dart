@@ -50,3 +50,58 @@ class BracketSlotModel extends Equatable {
   @override
   List<Object?> get props => [matchId, teamAName, teamBName, winnerTeamId];
 }
+
+/// Firestore cannot store nested arrays. Encode rounds as a list of maps:
+/// `[{roundIndex: 0, slots: [{...}, ...]}, ...]`.
+List<Map<String, dynamic>> bracketRoundsToFirestore(
+  List<List<BracketSlotModel>> rounds,
+) {
+  return rounds
+      .asMap()
+      .entries
+      .map(
+        (entry) => {
+          'roundIndex': entry.key,
+          'slots': entry.value.map((s) => s.toMap()).toList(),
+        },
+      )
+      .toList();
+}
+
+List<List<BracketSlotModel>> bracketRoundsFromFirestore(dynamic raw) {
+  if (raw == null) return const [];
+  if (raw is! List || raw.isEmpty) return const [];
+
+  final first = raw.first;
+  if (first is Map) {
+    final sorted = raw.cast<Map>().map((item) {
+      final map = Map<String, dynamic>.from(item);
+      return (
+        index: map['roundIndex'] as int? ?? 0,
+        slots: (map['slots'] as List? ?? [])
+            .map((e) => BracketSlotModel.fromMap(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+      );
+    }).toList()
+      ..sort((a, b) => a.index.compareTo(b.index));
+
+    return sorted.map((e) => e.slots).toList();
+  }
+
+  // Legacy nested-list shape (local/tests only — not valid in Firestore).
+  if (first is List) {
+    return raw
+        .map(
+          (round) => (round as List)
+              .map(
+                (e) => BracketSlotModel.fromMap(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
+              .toList(),
+        )
+        .toList();
+  }
+
+  return const [];
+}

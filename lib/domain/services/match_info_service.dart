@@ -1,5 +1,6 @@
 import '../../core/constants/enums.dart';
 import '../../core/utils/match_score_display.dart';
+import '../../core/utils/tournament_match_stage_utils.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_revision_model.dart';
@@ -21,9 +22,16 @@ class MatchInfoService {
     MatchAnalyticsSnapshot analytics = const MatchAnalyticsSnapshot(),
     List<BallEventModel> ballEvents = const [],
     String? tournamentName,
+    String? tournamentRoundName,
+    String? tournamentGroupName,
   }) {
     return MatchInfoSnapshot(
-      overview: _overview(match, tournamentName),
+      overview: _overview(
+        match,
+        tournamentName,
+        tournamentRoundName: tournamentRoundName,
+        tournamentGroupName: tournamentGroupName,
+      ),
       configuration: _configuration(match),
       officials: _officials(match),
       notes: _notes(
@@ -42,7 +50,12 @@ class MatchInfoService {
     );
   }
 
-  List<MatchInfoRow> _overview(MatchModel match, String? tournamentName) {
+  List<MatchInfoRow> _overview(
+    MatchModel match,
+    String? tournamentName, {
+    String? tournamentRoundName,
+    String? tournamentGroupName,
+  }) {
     final rules = match.rules;
     final rows = <MatchInfoRow>[];
 
@@ -73,10 +86,21 @@ class MatchInfoService {
       );
     }
     if (match.matchType == MatchType.tournament) {
-      final roundLabel = match.bracketRound != null
-          ? 'Round ${match.bracketRound}'
-          : 'League Match';
-      add('Round', roundLabel);
+      add(
+        'Match type',
+        tournamentMatchTypeLabel(
+          match,
+          groupName: tournamentGroupName,
+        ),
+      );
+      final round = tournamentMatchRoundLabel(
+        match,
+        roundName: tournamentRoundName,
+        groupName: tournamentGroupName,
+      );
+      if (round != null && round.isNotEmpty) {
+        add('Round', round);
+      }
     }
     add('Format', _overviewFormatLabel(rules));
     add('Date & time', _dateTimeLabel(match));

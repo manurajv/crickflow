@@ -42,7 +42,7 @@ class FixtureGeneratorService {
       final p = entry.value;
       return MatchModel(
         id: '',
-        title: '${tournament.name} — ${p.teamAName} vs ${p.teamBName}',
+        title: '${p.teamAName} vs ${p.teamBName}',
         matchType: MatchType.tournament,
         status: MatchStatus.scheduled,
         teamAId: p.teamAId,
@@ -81,7 +81,7 @@ class FixtureGeneratorService {
         all.add(
           MatchModel(
             id: '',
-            title: '${tournament.name} (${group.name}) — ${p.teamAName} vs ${p.teamBName}',
+            title: '${p.teamAName} vs ${p.teamBName}',
             matchType: MatchType.tournament,
             status: MatchStatus.scheduled,
             teamAId: p.teamAId,
@@ -181,9 +181,7 @@ class FixtureGeneratorService {
 
       return MatchModel(
         id: '',
-        title: isBye
-            ? '${tournament.name} — ${p.teamAName} (bye)'
-            : '${tournament.name} — ${p.teamAName} vs ${p.teamBName}',
+        title: isBye ? '${p.teamAName} (bye)' : '${p.teamAName} vs ${p.teamBName}',
         matchType: MatchType.tournament,
         status: isBye ? MatchStatus.completed : MatchStatus.scheduled,
         teamAId: p.teamAId,

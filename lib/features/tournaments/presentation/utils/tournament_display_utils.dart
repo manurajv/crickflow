@@ -1,6 +1,8 @@
 import '../../../../core/constants/enums.dart';
 import '../../../../data/models/tournament_model.dart';
 
+export '../../../../core/utils/tournament_match_stage_utils.dart';
+
 String tournamentFormatLabel(TournamentFormat format) => switch (format) {
       TournamentFormat.league => 'League',
       TournamentFormat.knockout => 'Knockout',

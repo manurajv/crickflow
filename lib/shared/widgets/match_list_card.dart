@@ -6,6 +6,7 @@ import '../../core/constants/enums.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
 import '../../core/utils/match_card_navigation.dart';
+import '../../core/utils/tournament_match_stage_utils.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/team_model.dart';
 import '../../data/models/tournament_model.dart';
@@ -19,6 +20,7 @@ class MatchListCard extends ConsumerWidget {
     super.key,
     required this.match,
     this.tournamentLabel,
+    this.matchTypeLabel,
     this.showQuickLinks = true,
     this.showTournamentHeader = true,
     this.showRoundBadge = true,
@@ -26,6 +28,7 @@ class MatchListCard extends ConsumerWidget {
 
   final MatchModel match;
   final String? tournamentLabel;
+  final String? matchTypeLabel;
   final bool showQuickLinks;
   final bool showTournamentHeader;
   final bool showRoundBadge;
@@ -48,9 +51,15 @@ class MatchListCard extends ConsumerWidget {
     final teamA = _teamById(teams, match.teamAId);
     final teamB = _teamById(teams, match.teamBId);
     final tournamentHeader = showTournamentHeader
-        ? _tournamentHeader(tournaments, tournamentLabel)
-        : tournamentLabel;
-    final roundLabel = showRoundBadge ? _roundLabel(ref, match) : null;
+        ? _resolveTournamentName(tournaments, tournamentLabel)
+        : null;
+    final isTournament = match.matchType == MatchType.tournament;
+    final stageLabel =
+        isTournament ? _tournamentStageLabel(ref, match) : null;
+    final roundLabel = showRoundBadge && !isTournament
+        ? _roundLabel(ref, match)
+        : null;
+    final effectiveMatchTypeLabel = matchTypeLabel ?? stageLabel;
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -79,6 +88,7 @@ class MatchListCard extends ConsumerWidget {
                 child: MatchCardContent(
                   match: match,
                   tournamentLabel: tournamentHeader,
+                  matchTypeLabel: effectiveMatchTypeLabel,
                   roundLabel: roundLabel,
                   teamALogoUrl: teamA?.profileImageUrl,
                   teamBLogoUrl: teamB?.profileImageUrl,
@@ -109,23 +119,52 @@ class MatchListCard extends ConsumerWidget {
     return null;
   }
 
-  String? _tournamentHeader(
+  String? _resolveTournamentName(
     List<TournamentModel> tournaments,
     String? explicitLabel,
   ) {
     if (explicitLabel != null && explicitLabel.isNotEmpty) {
       return explicitLabel;
     }
-    if (match.tournamentId == null) return null;
+    final tournamentId = match.tournamentId;
+    if (tournamentId == null || tournamentId.isEmpty) return null;
     for (final t in tournaments) {
-      if (t.id == match.tournamentId) {
-        return 'League Matches, ${t.name}';
-      }
-    }
-    if (match.title.isNotEmpty && match.title != 'Match') {
-      return match.title;
+      if (t.id == tournamentId) return t.name;
     }
     return null;
+  }
+
+  String _tournamentStageLabel(WidgetRef ref, MatchModel match) {
+    final tournamentId = match.tournamentId;
+    if (tournamentId == null || tournamentId.isEmpty) {
+      return tournamentMatchStageLabel(match);
+    }
+
+    final resolvedRoundName = match.roundName?.trim().isNotEmpty == true
+        ? match.roundName!.trim()
+        : ref
+            .watch(
+              tournamentRoundByIdProvider(
+                (tournamentId: tournamentId, roundId: match.roundId),
+              ),
+            )
+            ?.name;
+
+    final groupName = match.groupId != null && match.groupId!.isNotEmpty
+        ? ref
+            .watch(
+              tournamentGroupByIdProvider(
+                (tournamentId: tournamentId, groupId: match.groupId),
+              ),
+            )
+            ?.name
+        : null;
+
+    return tournamentMatchStageLabel(
+      match,
+      roundName: resolvedRoundName,
+      groupName: groupName,
+    );
   }
 
   String? _roundLabel(WidgetRef ref, MatchModel match) {

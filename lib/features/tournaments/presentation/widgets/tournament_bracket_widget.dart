@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
+
+import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/bracket_models.dart';
 import '../../../../data/models/tournament_model.dart';
 
@@ -14,61 +15,84 @@ class TournamentBracketWidget extends StatelessWidget {
 
   final TournamentModel tournament;
 
+  static const _roundColumnWidth = 180.0;
+
   @override
   Widget build(BuildContext context) {
     if (tournament.bracketRounds.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final cf = context.cf;
+    final roundCount = tournament.bracketRounds.length;
+    final maxSlots = tournament.bracketRounds
+        .map((round) => round.length)
+        .fold<int>(0, (max, count) => count > max ? count : max);
+    final bracketHeight = (56 + maxSlots * 76.0).clamp(180.0, 320.0);
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Text(
-            'Knockout bracket',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
+        Text(
+          'Knockout bracket',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
-        SizedBox(
-          height: 200,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: tournament.bracketRounds.length,
-            itemBuilder: (context, roundIndex) {
-              final slots = tournament.bracketRounds[roundIndex];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _roundLabel(roundIndex, tournament.bracketRounds.length),
-                      style: const TextStyle(
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.w600,
+        const SizedBox(height: AppDimens.spaceSm),
+        Card(
+          elevation: 0,
+          color: cf.sectionBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: cf.border),
+          ),
+          child: SizedBox(
+            height: bracketHeight,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(12),
+              itemCount: roundCount,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, roundIndex) {
+                final slots = tournament.bracketRounds[roundIndex];
+                return SizedBox(
+                  width: _roundColumnWidth,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        _roundLabel(roundIndex, roundCount),
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: cf.accent,
+                                  fontWeight: FontWeight.w700,
+                                ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: slots.length,
-                        itemBuilder: (_, slotIndex) {
-                          final slot = slots[slotIndex];
-                          return _BracketSlotCard(
-                            slot: slot,
-                            onTap: slot.matchId != null
-                                ? () => context.push('/match/${slot.matchId}')
-                                : null,
-                          );
-                        },
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView.separated(
+                          padding: EdgeInsets.zero,
+                          itemCount: slots.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (_, slotIndex) {
+                            final slot = slots[slotIndex];
+                            return _BracketSlotCard(
+                              slot: slot,
+                              onTap: slot.matchId != null
+                                  ? () =>
+                                      context.push('/match/${slot.matchId}')
+                                  : null,
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -92,41 +116,98 @@ class _BracketSlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final hasWinner = slot.winnerTeamName.isNotEmpty;
-    final label = hasWinner
-        ? slot.winnerTeamName
-        : '${slot.teamAName} vs ${slot.teamBName}';
+    final isTbd = slot.teamAName == 'TBD' && slot.teamBName == 'TBD';
+    final isBye = slot.isBye;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+    return Material(
+      color: cf.card,
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          width: 160,
+          width: double.infinity,
           padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: hasWinner ? cf.accent.withValues(alpha: 0.5) : cf.border,
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: hasWinner ? FontWeight.bold : FontWeight.normal,
-                  color: hasWinner ? AppColors.gold : null,
+              if (hasWinner)
+                Text(
+                  slot.winnerTeamName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cf.accent,
+                      ),
+                )
+              else if (isTbd)
+                Text(
+                  'TBD vs TBD',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cf.textMuted,
+                        fontStyle: FontStyle.italic,
+                      ),
+                )
+              else if (isBye)
+                Text(
+                  '${slot.teamAName} (bye)',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else ...[
+                _TeamLine(name: slot.teamAName),
+                const SizedBox(height: 4),
+                Text(
+                  'vs',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: cf.textMuted,
+                      ),
                 ),
-              ),
-              if (slot.matchId != null && onTap != null)
-                const Text(
-                  'Tap to open match',
-                  style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                const SizedBox(height: 4),
+                _TeamLine(name: slot.teamBName),
+              ],
+              if (slot.matchId != null && onTap != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Tap to open',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: cf.textMuted,
+                      ),
                 ),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TeamLine extends StatelessWidget {
+  const _TeamLine({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
     );
   }
 }

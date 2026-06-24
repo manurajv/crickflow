@@ -69,6 +69,36 @@ void main() {
     expect(venue.openDirectionsInMaps, isTrue);
   });
 
+  test('overview shows match type and round for knockout fixtures', () {
+    final knockout = MatchModel(
+      id: 'm-ko',
+      title: 'Team A vs Team B',
+      teamAName: 'Silverbacks',
+      teamBName: 'Lightning Legends',
+      teamAId: 'team-a',
+      teamBId: 'team-b',
+      tournamentId: 't-1',
+      matchType: MatchType.tournament,
+      status: MatchStatus.scheduled,
+      bracketRound: 0,
+      rules: const MatchRulesModel(totalOvers: 20),
+    );
+
+    final info = service.build(
+      match: knockout,
+      tournamentName: 'WFO Champions Trophy',
+    );
+
+    expect(
+      info.overview.any((r) => r.label == 'Match type' && r.value == 'Knockout'),
+      isTrue,
+    );
+    expect(
+      info.overview.any((r) => r.label == 'Round' && r.value == 'Round 1'),
+      isTrue,
+    );
+  });
+
   test('overview and configuration avoid duplicate labels', () {
     final info = service.build(
       match: sampleMatch(publicMatchId: '26061442'),
@@ -79,7 +109,7 @@ void main() {
     final configLabels = info.configuration.map((r) => r.label).toSet();
     final conditionLabels = info.conditions.map((r) => r.label).toSet();
 
-    expect(overviewLabels.contains('Match type'), isFalse);
+    expect(overviewLabels.contains('Match type'), isTrue);
     expect(overviewLabels.contains('Match format'), isFalse);
     expect(overviewLabels.contains('Format'), isTrue);
     expect(configLabels.contains('Match type'), isFalse);

@@ -5,6 +5,7 @@ import '../../domain/services/match_info_models.dart';
 import '../../domain/services/match_info_service.dart';
 import 'match_analytics_provider.dart';
 import 'providers.dart';
+import 'tournament_match_providers.dart';
 
 final matchInfoServiceProvider = Provider((ref) => MatchInfoService());
 
@@ -35,10 +36,32 @@ final matchInfoProvider =
   final events = ref.watch(ballEventsProvider(matchId)).valueOrNull ?? const [];
 
   String? tournamentName;
+  String? tournamentRoundName;
+  String? tournamentGroupName;
   final tournamentId = match.tournamentId;
   if (tournamentId != null && tournamentId.isNotEmpty) {
     tournamentName =
         ref.watch(matchInfoTournamentNameProvider(tournamentId)).valueOrNull;
+    if (match.roundName?.trim().isNotEmpty == true) {
+      tournamentRoundName = match.roundName!.trim();
+    } else if (match.roundId != null && match.roundId!.isNotEmpty) {
+      tournamentRoundName = ref
+          .watch(
+            tournamentRoundByIdProvider(
+              (tournamentId: tournamentId, roundId: match.roundId),
+            ),
+          )
+          ?.name;
+    }
+    if (match.groupId != null && match.groupId!.isNotEmpty) {
+      tournamentGroupName = ref
+          .watch(
+            tournamentGroupByIdProvider(
+              (tournamentId: tournamentId, groupId: match.groupId),
+            ),
+          )
+          ?.name;
+    }
   }
 
   return ref.watch(matchInfoServiceProvider).build(
@@ -48,5 +71,7 @@ final matchInfoProvider =
         analytics: analytics,
         ballEvents: events,
         tournamentName: tournamentName,
+        tournamentRoundName: tournamentRoundName,
+        tournamentGroupName: tournamentGroupName,
       );
 });
