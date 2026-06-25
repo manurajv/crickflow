@@ -1,5 +1,6 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/match_model.dart';
+import 'match_completion_policy.dart';
 
 /// Match status flow helpers (NOT_STARTED → TOSS → LIVE → BREAK → COMPLETED).
 class MatchLifecycle {
@@ -25,7 +26,29 @@ class MatchLifecycle {
       match.status == MatchStatus.inningsBreak;
 
   static bool isCompleted(MatchModel match) =>
-      match.status == MatchStatus.completed;
+      effectiveStatus(match) == MatchStatus.completed;
+
+  /// Matches left at innings break after the final innings should read as completed.
+  static MatchStatus effectiveStatus(MatchModel match) {
+    if (match.status == MatchStatus.completed ||
+        match.status == MatchStatus.abandoned) {
+      return match.status;
+    }
+    if (match.status == MatchStatus.inningsBreak &&
+        MatchCompletionPolicy.isMatchComplete(match)) {
+      return MatchStatus.completed;
+    }
+    return match.status;
+  }
+
+  static bool isEffectivelyLive(MatchModel match) {
+    final status = effectiveStatus(match);
+    return status == MatchStatus.live || status == MatchStatus.inningsBreak;
+  }
+
+  static bool needsFinalization(MatchModel match) =>
+      match.status == MatchStatus.inningsBreak &&
+      MatchCompletionPolicy.isMatchComplete(match);
 
   static bool canScore(MatchModel match) =>
       match.status == MatchStatus.live;

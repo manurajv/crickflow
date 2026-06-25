@@ -30,12 +30,19 @@ class MatchUpcomingService {
     TeamModel? teamA,
     TeamModel? teamB,
     String? tournamentName,
+    String? tournamentRoundName,
+    String? tournamentGroupName,
     List<MatchPlayerSnapshot> squadPlayers = const [],
     List<PlayerModel> milestonePlayers = const [],
   }) {
     if (!MatchLifecycle.isUpcoming(match)) return UpcomingMatchSnapshot.empty;
 
-    final info = _info.build(match: match, tournamentName: tournamentName);
+    final info = _info.build(
+      match: match,
+      tournamentName: tournamentName,
+      tournamentRoundName: tournamentRoundName,
+      tournamentGroupName: tournamentGroupName,
+    );
     final preview = _preview(match, teamA, teamB);
     final headToHead = _headToHead.build(
       upcoming: match,

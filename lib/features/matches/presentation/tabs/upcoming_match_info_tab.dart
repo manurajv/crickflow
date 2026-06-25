@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../domain/scoring/match_lifecycle.dart';
 import '../../../../shared/providers/match_upcoming_provider.dart';
+import '../../../../shared/providers/tournament_match_repair.dart';
 import '../../../../shared/providers/providers.dart';
+import '../widgets/info/match_tournament_info_card.dart';
 import '../widgets/upcoming/upcoming_match_sections.dart';
 
 /// Pre-match hub — preview, head-to-head, info, milestones, and actions.
@@ -16,6 +18,7 @@ class UpcomingMatchInfoTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final match = ref.watch(matchProvider(matchId)).valueOrNull;
+    final displayMatch = ref.watch(matchDisplayProvider(matchId)) ?? match;
     final upcomingAsync = ref.watch(matchUpcomingProvider(matchId));
 
     if (match != null && !MatchLifecycle.isUpcoming(match)) {
@@ -29,6 +32,7 @@ class UpcomingMatchInfoTab extends ConsumerWidget {
           children: [
             UpcomingPreviewCard(preview: snapshot.preview),
             UpcomingInsightsBanner(matchId: matchId),
+            if (displayMatch != null) MatchTournamentInfoCard(match: displayMatch),
             UpcomingHeadToHeadSection(
               matchId: matchId,
               snapshot: snapshot.headToHead,

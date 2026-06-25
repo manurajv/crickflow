@@ -1,5 +1,6 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/match_model.dart';
+import '../../domain/scoring/match_lifecycle.dart';
 import '../../data/models/match_player_snapshot.dart';
 import '../../data/models/player_model.dart';
 import '../../data/models/tournament_model.dart';
@@ -151,7 +152,7 @@ bool filterMatchByScope(
         userTeamIds: userTeamIds,
       );
     case MyCricketListScope.played:
-      return m.status == MatchStatus.completed &&
+      return MatchLifecycle.isCompleted(m) &&
           userParticipatedInMatch(
             m,
             uid: uid,

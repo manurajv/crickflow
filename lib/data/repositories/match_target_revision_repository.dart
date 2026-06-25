@@ -558,6 +558,7 @@ class MatchTargetRevisionRepository {
       resultSummary: resultSummary,
       targetState: targetState,
       overlayVersion: match.overlayVersion + 1,
+      clearActiveMatchBreak: true,
     );
 
     final timelineTitle = isAbandoned
@@ -595,7 +596,9 @@ class MatchTargetRevisionRepository {
       );
     } else {
       final batch = _firestore.batch();
-      batch.update(_matchDoc(matchId), updated.toMap());
+      final data = updated.toMap()
+        ..['activeMatchBreak'] = FieldValue.delete();
+      batch.update(_matchDoc(matchId), data);
       batch.set(_timeline(matchId).doc(timeline.id), timeline.toMap());
       await batch.commit();
     }

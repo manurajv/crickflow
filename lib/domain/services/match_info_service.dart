@@ -64,6 +64,7 @@ class MatchInfoService {
       String value, {
       bool highlight = false,
       bool openDirectionsInMaps = false,
+      String? route,
     }) {
       if (value.trim().isEmpty) return;
       rows.add(
@@ -72,20 +73,29 @@ class MatchInfoService {
           value: value,
           highlight: highlight,
           openDirectionsInMaps: openDirectionsInMaps,
+          route: route,
         ),
       );
     }
 
-    if (match.tournamentId != null && match.tournamentId!.isNotEmpty) {
+    if (match.isTournamentMatch) {
       add(
-        'Tournament',
-        tournamentName?.trim().isNotEmpty == true
-            ? tournamentName!.trim()
-            : 'Tournament match',
-        highlight: true,
+        'Match type',
+        tournamentMatchTypeLabel(
+          match,
+          groupName: tournamentGroupName,
+        ),
       );
-    }
-    if (match.matchType == MatchType.tournament) {
+      final round = tournamentMatchRoundLabel(
+        match,
+        roundName: tournamentRoundName,
+        groupName: tournamentGroupName,
+      );
+      if (round != null && round.isNotEmpty) {
+        add('Round', round);
+      }
+    } else if (_hasTournamentFixtureFields(match)) {
+      add('Match category', 'Tournament match', highlight: true);
       add(
         'Match type',
         tournamentMatchTypeLabel(
@@ -121,6 +131,11 @@ class MatchInfoService {
 
     return rows;
   }
+
+  static bool _hasTournamentFixtureFields(MatchModel match) =>
+      match.bracketRound != null ||
+      (match.groupId != null && match.groupId!.isNotEmpty) ||
+      (match.roundId != null && match.roundId!.isNotEmpty);
 
   List<MatchInfoRow> _configuration(MatchModel match) {
     final rules = match.rules;
@@ -472,7 +487,9 @@ class MatchInfoService {
     if (match.tournamentId != null && match.tournamentId!.isNotEmpty) {
       links.add(
         MatchInfoQuickLink(
-          label: 'Tournament',
+          label: tournamentName?.trim().isNotEmpty == true
+              ? tournamentName!.trim()
+              : 'Tournament',
           route: '/tournaments/${match.tournamentId}',
           iconName: 'trophy',
         ),

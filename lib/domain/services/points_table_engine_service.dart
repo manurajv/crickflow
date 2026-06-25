@@ -74,6 +74,19 @@ class PointsTableEngineService {
       var nrCount = row.noResult;
       var points = row.points;
 
+      final batting = match.innings
+          .where((i) => i.battingTeamId == teamId)
+          .fold<int>(0, (s, i) => s + i.totalRuns);
+      final bowlingAgainst = match.innings
+          .where((i) => i.bowlingTeamId == teamId)
+          .fold<int>(0, (s, i) => s + i.totalRuns);
+      final ballsFaced = match.innings
+          .where((i) => i.battingTeamId == teamId)
+          .fold<int>(0, (s, i) => s + i.legalBalls);
+      final ballsBowled = match.innings
+          .where((i) => i.bowlingTeamId == teamId)
+          .fold<int>(0, (s, i) => s + i.legalBalls);
+
       if (noResult) {
         nrCount += 1;
         points += noResultPts;
@@ -99,6 +112,10 @@ class PointsTableEngineService {
         noResult: nrCount,
         points: points,
         netRunRate: double.parse(nrr.toStringAsFixed(3)),
+        runsFor: row.runsFor + batting,
+        runsAgainst: row.runsAgainst + bowlingAgainst,
+        oversFaced: row.oversFaced + _oversFromBalls(ballsFaced, ballsPerOver),
+        oversBowled: row.oversBowled + _oversFromBalls(ballsBowled, ballsPerOver),
       );
     }
 

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
+
 import '../../core/constants/enums.dart';
 import '../../core/utils/cricket_math.dart';
 import '../../data/models/ball_event_model.dart';
@@ -318,8 +320,9 @@ class MatchAnalyticsService {
     final series = <WormInningsSeries>[];
     final target = _chaseTarget(match);
     var maxOver = 0;
+    final innings = _inningsForAnalytics(match, allEvents);
 
-    for (final inn in match.innings) {
+    for (final inn in innings) {
       final events = BallEventAggregator.eventsForInnings(
         allEvents,
         inn.inningsNumber,
@@ -357,6 +360,28 @@ class MatchAnalyticsService {
       targetLine: target,
       maxOverNumber: maxOver,
     );
+  }
+
+  List<InningsModel> _inningsForAnalytics(
+    MatchModel match,
+    List<BallEventModel> events,
+  ) {
+    if (events.isEmpty) return match.innings;
+    final numbers = {
+      ...match.innings.map((i) => i.inningsNumber),
+      ...events.map((e) => e.inningsNumber),
+    }.toList()
+      ..sort();
+    if (numbers.isEmpty) return match.innings;
+    return [
+      for (final n in numbers)
+        match.innings.where((i) => i.inningsNumber == n).firstOrNull ??
+            InningsModel(
+              inningsNumber: n,
+              battingTeamId: '',
+              bowlingTeamId: '',
+            ),
+    ];
   }
 
   ({List<WormPoint> points, List<WormWicketMarker> wickets, WormInningsSummary summary})

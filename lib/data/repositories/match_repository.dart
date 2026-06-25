@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/match_update_merge.dart';
 import '../../core/constants/enums.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
@@ -22,6 +23,7 @@ import '../../data/models/match_setup_draft_models.dart';
 import '../../domain/services/badge_service.dart';
 import '../../domain/services/commentary_service.dart';
 import '../../domain/services/scoring_engine.dart';
+import '../../domain/scoring/match_lifecycle.dart';
 import '../../domain/scoring/match_completion_policy.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../domain/scoring/scoring_integrity_check.dart';
@@ -115,24 +117,27 @@ class MatchRepository {
     MatchModel match, {
     List<String> fieldDeletes = const [],
   }) async {
+    final existing = await getMatch(match.id);
+    final toSave =
+        existing != null ? MatchUpdateMerge.merge(existing, match) : match;
     final sync = _syncService;
     final local = _localStore;
     if (sync == null || local == null) {
-      final data = match.toMap();
+      final data = toSave.toMap();
       for (final field in fieldDeletes) {
         data[field] = FieldValue.delete();
       }
-      await _matchDoc(match.id).update(data);
-      await _syncPublicScorecard(match);
+      await _matchDoc(toSave.id).update(data);
+      await _syncPublicScorecard(toSave);
       return;
     }
-    await _persistMatchLocally(match);
+    await _persistMatchLocally(toSave);
     await sync.enqueue(
       sync.newAction(
-        matchId: match.id,
+        matchId: toSave.id,
         type: SyncActionType.matchUpdate,
         payload: {
-          'matchData': match.toMap(),
+          'matchData': toSave.toMap(),
           if (fieldDeletes.isNotEmpty) 'fieldDeletes': fieldDeletes,
         },
       ),
@@ -242,6 +247,15 @@ class MatchRepository {
     await _enqueueMatchUpdate(match);
   }
 
+  /// Patches tournament/fixture metadata without touching scoring state.
+  Future<void> patchMatchMetadata(
+    String matchId,
+    Map<String, dynamic> patch,
+  ) async {
+    if (patch.isEmpty) return;
+    await _enqueueMatchPatch(matchId, patch);
+  }
+
   Future<void> _syncPublicScorecard(
     MatchModel match, {
     OverlayStateModel? overlay,
@@ -347,8 +361,8 @@ class MatchRepository {
       final list =
           snap.docs.map((d) => MatchModel.fromMap(d.id, d.data())).toList();
       list.sort((a, b) {
-        final aLive = a.status == MatchStatus.live ? 0 : 1;
-        final bLive = b.status == MatchStatus.live ? 0 : 1;
+        final aLive = MatchLifecycle.isEffectivelyLive(a) ? 0 : 1;
+        final bLive = MatchLifecycle.isEffectivelyLive(b) ? 0 : 1;
         if (aLive != bLive) return aLive.compareTo(bLive);
         return 0;
       });
@@ -717,6 +731,22 @@ class MatchRepository {
     }
   }
 
+  Future<MatchModel?> completeMatchWithWinner({
+    required String matchId,
+    required String winnerTeamId,
+    required String resultSummary,
+  }) async {
+    final match = await getMatch(matchId);
+    if (match == null) return null;
+
+    final patched = match.copyWith(
+      winnerTeamId: winnerTeamId,
+      resultSummary: resultSummary,
+    );
+    await _enqueueMatchUpdate(patched);
+    return completeMatch(matchId);
+  }
+
   Future<MatchModel?> completeMatch(String matchId) async {
     final match = await getMatch(matchId);
     if (match == null) return null;
@@ -746,10 +776,32 @@ class MatchRepository {
       badgeIds: badgeIds,
       winnerTeamId: winnerId,
       resultSummary: summary,
+      clearActiveMatchBreak: true,
     );
 
-    await _enqueueMatchUpdate(completed);
+    await _enqueueMatchUpdate(
+      completed,
+      fieldDeletes: const ['activeMatchBreak'],
+    );
     return completed;
+  }
+
+  /// Finalizes matches stuck at innings break after the last innings is done.
+  Future<MatchModel?> finalizeMatchIfReady(String matchId) async {
+    final match = await getMatch(matchId);
+    if (match == null) return null;
+    if (match.status == MatchStatus.completed ||
+        match.status == MatchStatus.abandoned) {
+      return match;
+    }
+    if (!MatchCompletionPolicy.isMatchComplete(match)) return match;
+
+    final result = MatchCompletionPolicy.compute(match);
+    if (result.winnerTeamId == null || result.offerSuperOver) {
+      return match;
+    }
+
+    return completeMatch(matchId);
   }
 
   /// After a tied match when [superOverEnabled], start super over innings for team A.
@@ -850,14 +902,18 @@ class MatchRepository {
     required BallEventModel event,
     required OverlayStateModel overlay,
   }) async {
-    final match = MatchModel.fromMap(matchId, matchData);
+    final existing = await getMatch(matchId);
+    final mergedData = existing != null
+        ? MatchUpdateMerge.mergeMap(existing, matchData)
+        : matchData;
+    final match = MatchModel.fromMap(matchId, mergedData);
     await _localStore?.appendBallEvent(matchId, event);
     await _persistMatchLocally(match, overlay: overlay);
 
     final sync = _syncService;
     if (sync == null) {
       final batch = _firestore.batch();
-      batch.update(_matchDoc(matchId), matchData);
+      batch.update(_matchDoc(matchId), mergedData);
       batch.set(_ballEvents(matchId).doc(event.id), event.toMap());
       batch.set(
         _matchDoc(matchId).collection('overlay').doc('current'),
@@ -873,7 +929,7 @@ class MatchRepository {
         matchId: matchId,
         type: SyncActionType.ballCommit,
         payload: {
-          'matchData': matchData,
+          'matchData': mergedData,
           'eventId': event.id,
           'eventData': event.toMap(),
           'overlayData': overlay.toMap(),
@@ -1369,6 +1425,8 @@ class MatchRepository {
       'innings': inningsList.map((i) => i.toMap()).toList(),
       'status': MatchStatus.inningsBreak.name,
     });
+
+    await finalizeMatchIfReady(matchId);
   }
 
   /// Start next innings (swap batting/bowling).

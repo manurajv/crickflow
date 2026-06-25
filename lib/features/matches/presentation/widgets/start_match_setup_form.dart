@@ -27,6 +27,7 @@ class StartMatchSetupForm extends StatefulWidget {
     required this.onPickGroundOnMap,
     this.onManageOfficials,
     this.setup = const MatchSetupData(),
+    this.tournamentOfficialsAutoFilled = false,
   });
 
   final MatchRulesModel rules;
@@ -43,6 +44,7 @@ class StartMatchSetupForm extends StatefulWidget {
   final ValueChanged<LocationModel> onLocationResolved;
   final VoidCallback onPickGroundOnMap;
   final VoidCallback? onManageOfficials;
+  final bool tournamentOfficialsAutoFilled;
 
   static const _startMatchBallTypes = [
     CricketBallType.tennis,
@@ -438,10 +440,14 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _officialsSummary(widget.setup),
+                            widget.tournamentOfficialsAutoFilled
+                                ? '${_officialsSummary(widget.setup)} · Auto-assigned from tournament'
+                                : _officialsSummary(widget.setup),
                             style: TextStyle(
                               fontSize: 11,
-                              color: cf.textMuted,
+                              color: widget.tournamentOfficialsAutoFilled
+                                  ? cf.accent
+                                  : cf.textMuted,
                             ),
                           ),
                         ],

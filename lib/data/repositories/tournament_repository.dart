@@ -7,13 +7,17 @@ import '../../core/utils/tournament_code.dart';
 import '../../data/models/bracket_models.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
+import '../../data/models/team_model.dart';
 import '../../data/models/tournament/tournament_group_model.dart';
 import '../../data/models/tournament/tournament_member_model.dart';
 import '../../data/models/tournament/tournament_points_table_model.dart';
 import '../../data/models/tournament/tournament_round_model.dart';
+import '../../data/models/tournament_match_link.dart';
 import '../../data/models/tournament_model.dart';
 import '../../domain/services/fixture_generator_service.dart';
+import '../../domain/services/points_table_engine_service.dart';
 import 'match_repository.dart';
+import 'notification_repository.dart';
 import 'team_repository.dart';
 import 'tournament_sub_repositories.dart';
 
@@ -26,6 +30,8 @@ class TournamentRepository {
     TournamentGroupRepository? groupRepository,
     TournamentRoundRepository? roundRepository,
     TournamentMemberRepository? memberRepository,
+    TournamentOfficialRepository? officialRepository,
+    NotificationRepository? notificationRepository,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _matchRepository = matchRepository ?? MatchRepository(),
         _teamRepository = teamRepository ?? TeamRepository(),
@@ -33,6 +39,10 @@ class TournamentRepository {
         _groupRepository = groupRepository ?? TournamentGroupRepository(),
         _roundRepository = roundRepository ?? TournamentRoundRepository(),
         _memberRepository = memberRepository ?? TournamentMemberRepository(),
+        _officialRepository =
+            officialRepository ?? TournamentOfficialRepository(),
+        _notificationRepository =
+            notificationRepository ?? NotificationRepository(),
         _uuid = const Uuid();
 
   final FirebaseFirestore _firestore;
@@ -42,6 +52,8 @@ class TournamentRepository {
   final TournamentGroupRepository _groupRepository;
   final TournamentRoundRepository _roundRepository;
   final TournamentMemberRepository _memberRepository;
+  final TournamentOfficialRepository _officialRepository;
+  final NotificationRepository _notificationRepository;
   final Uuid _uuid;
 
   CollectionReference<Map<String, dynamic>> get _col =>
@@ -83,6 +95,42 @@ class TournamentRepository {
     final doc = await _col.doc(id).get();
     if (!doc.exists) return null;
     return TournamentModel.fromMap(doc.id, doc.data()!);
+  }
+
+  /// Finds tournament fixture metadata when the match doc lost tournament fields.
+  Future<TournamentMatchLink?> resolveTournamentMatchLink(String matchId) async {
+    if (matchId.isEmpty) return null;
+
+    final snap = await _col
+        .where('matchIds', arrayContains: matchId)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+
+    final tournament = TournamentModel.fromMap(
+      snap.docs.first.id,
+      snap.docs.first.data(),
+    );
+
+    int? bracketRound;
+    int? bracketSlot;
+    for (var r = 0; r < tournament.bracketRounds.length; r++) {
+      final slots = tournament.bracketRounds[r];
+      for (var s = 0; s < slots.length; s++) {
+        if (slots[s].matchId == matchId) {
+          bracketRound = r;
+          bracketSlot = s;
+          break;
+        }
+      }
+      if (bracketRound != null) break;
+    }
+
+    return TournamentMatchLink(
+      tournamentId: tournament.id,
+      bracketRound: bracketRound,
+      bracketSlot: bracketSlot,
+    );
   }
 
   Future<TournamentModel?> findByCode(String code) async {
@@ -743,5 +791,105 @@ class TournamentRepository {
       entries: entries,
     );
     await TournamentPointsTableRepository().saveTable(table);
+  }
+
+  /// Records a walkover / forfeit result and updates standings + bracket.
+  Future<void> declareWalkover({
+    required String matchId,
+    required String winnerTeamId,
+    String reason = 'Walkover',
+  }) async {
+    final match = await _matchRepository.getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+    if (match.tournamentId == null) {
+      throw StateError('Not a tournament match');
+    }
+
+    final winnerName = winnerTeamId == match.teamAId
+        ? match.teamAName
+        : winnerTeamId == match.teamBId
+            ? match.teamBName
+            : 'Winner';
+
+    final completed = await _matchRepository.completeMatchWithWinner(
+      matchId: matchId,
+      winnerTeamId: winnerTeamId,
+      resultSummary: '$winnerName won by walkover ($reason)',
+    );
+    if (completed == null) return;
+
+    await _applyPointsForMatch(completed);
+    await advanceKnockoutFromMatch(completed);
+  }
+
+  Future<void> _applyPointsForMatch(MatchModel match) async {
+    if (match.tournamentId == null) return;
+    final tournament = await getTournament(match.tournamentId!);
+    if (tournament == null) return;
+
+    final engine = PointsTableEngineService();
+    final updated = engine.applyMatchResult(
+      table: tournament.pointsTable,
+      match: match,
+      winPts: tournament.defaultRules.pointsPerWin,
+      tiePts: tournament.defaultRules.pointsPerTie,
+      lossPts: tournament.defaultRules.pointsPerLoss,
+      noResultPts: tournament.defaultRules.pointsPerNoResult,
+    );
+    await updateTournament(tournament.copyWith(pointsTable: updated));
+  }
+
+  /// Marks tournament completed, locks editing, stores podium + awards.
+  Future<void> completeTournament({
+    required String tournamentId,
+    required String championTeamId,
+    required String championTeamName,
+    String? runnerUpTeamId,
+    String? runnerUpTeamName,
+    String? thirdPlaceTeamId,
+    Map<String, String> awards = const {},
+  }) async {
+    final tournament = await getTournament(tournamentId);
+    if (tournament == null) throw StateError('Tournament not found');
+
+    await updateTournament(
+      tournament.copyWith(
+        status: TournamentStatus.completed,
+        isLocked: true,
+        championTeamId: championTeamId,
+        championTeamName: championTeamName,
+        runnerUpTeamId: runnerUpTeamId,
+        runnerUpTeamName: runnerUpTeamName,
+        thirdPlaceTeamId: thirdPlaceTeamId,
+        awards: awards,
+        endDate: DateTime.now(),
+      ),
+    );
+
+    try {
+      final teams = <TeamModel>[];
+      for (final teamId in tournament.teamIds) {
+        final team = await _teamRepository.getTeam(teamId);
+        if (team != null) teams.add(team);
+      }
+      final members = await _memberRepository.getMembers(tournamentId);
+      final officials = await _officialRepository.getOfficials(tournamentId);
+      await _notificationRepository.notifyTournamentCompleted(
+        tournament: tournament.copyWith(
+          status: TournamentStatus.completed,
+          championTeamId: championTeamId,
+          championTeamName: championTeamName,
+          runnerUpTeamId: runnerUpTeamId,
+          runnerUpTeamName: runnerUpTeamName,
+        ),
+        championTeamName: championTeamName,
+        runnerUpTeamName: runnerUpTeamName,
+        teams: teams,
+        members: members,
+        officials: officials,
+      );
+    } catch (_) {
+      // Notifications are best-effort after the tournament is locked.
+    }
   }
 }

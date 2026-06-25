@@ -388,6 +388,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     return StartMatchSetupForm(
       rules: draft.rules,
       setup: draft.setup,
+      tournamentOfficialsAutoFilled: draft.tournamentOfficialsAutoFilled,
       cityController: _cityController,
       venueController: _venueController,
       oversController: _oversController,

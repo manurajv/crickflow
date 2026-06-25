@@ -100,6 +100,44 @@ void main() {
         MatchHubTabConfig.forMatch(completed).indexOf(MatchHubTabId.summary),
       );
     });
+
+    test('finished match stuck at innings break shows Summary not Live', () {
+      final match = MatchModel(
+        id: 'm1',
+        title: 'Test',
+        status: MatchStatus.inningsBreak,
+        teamAName: 'Team A',
+        teamBName: 'Team B',
+        teamAId: 'a',
+        teamBId: 'b',
+        rules: const MatchRulesModel(totalOvers: 20, ballsPerOver: 6),
+        innings: const [
+          InningsModel(
+            inningsNumber: 1,
+            battingTeamId: 'a',
+            bowlingTeamId: 'b',
+            status: InningsStatus.completed,
+            totalRuns: 150,
+            totalWickets: 8,
+            legalBalls: 120,
+          ),
+          InningsModel(
+            inningsNumber: 2,
+            battingTeamId: 'b',
+            bowlingTeamId: 'a',
+            status: InningsStatus.completed,
+            totalRuns: 140,
+            totalWickets: 10,
+            legalBalls: 120,
+          ),
+        ],
+        currentInningsIndex: 1,
+      );
+
+      final config = MatchHubTabConfig.forMatch(match);
+      expect(config.contains(MatchHubTabId.live), isFalse);
+      expect(config.contains(MatchHubTabId.summary), isTrue);
+    });
   });
 
   group('MatchLiveService', () {

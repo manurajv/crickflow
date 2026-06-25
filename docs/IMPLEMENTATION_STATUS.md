@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Tournament teams UX — confirm sheets, QR cold-start, logos  
+**Last updated:** Officials auto-assign, walkover UI, tournament completion notifications  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -19,6 +19,14 @@
 
 | Item | Status |
 |------|--------|
+| **Tournament Leaderboard tab** — live stats from ball events; batting/bowling/fielding/team categories; group & round filters | Done |
+| **Tournament Heroes tab** — Orange/Purple cap, POT, MVP, best batter/bowler/fielder/all-rounder; hero ranking engine | Done |
+| **Tournament Stats tab** — match summary + top performers from heroes engine; pull-to-refresh | Done |
+| **Points Table tab** — full columns (P/W/L/T/NR/Pts/NRR/RF/OF/RA/OB); extended `PointsTableEntry` + engine | Done |
+| **Tournament completion flow** — Settings → Finish tournament; champion/runner-up/awards; `isLocked` on doc | Done |
+| **Walkover system** — `declareWalkover` updates match, points table, knockout bracket | Done |
+| **Qualification engine** — group top-N → target round from `TournamentGroupModel` | Done |
+| Tournament match parity — merge writes, metadata repair, Info tab links | Done |
 | Architecture doc — `docs/TOURNAMENT_MODULE.md` | Done |
 | Extended models — groups, rounds, rules, officials, sponsors, members, points tables | Done |
 | Repositories + Riverpod providers | Done |
@@ -63,8 +71,11 @@
 | Group delete + team picker on add | Done |
 | Delete upcoming scheduled tournament matches (organizer) | Done — deploy Firestore rules |
 | Match actions — edit, reschedule, cancel, assign officials/scorer | Pending |
-| Manual fixture editor (legacy Fixtures tab) | Pending |
-| Tournament notifications | Pending |
+| Tournament notifications (qualify, schedule) | Pending |
+| **Tournament completion notifications** — team leadership, staff, officials on `completeTournament` | Done |
+| **Officials auto-assign on match start** — tournament roster → match setup; editable per match | Done |
+| **Walkover UI** — match card menu → declare walkover sheet; WALKOVER badge on completed cards | Done |
+| Public completed tournament page (champion, records) | Pending |
 
 ---
 

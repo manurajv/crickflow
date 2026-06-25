@@ -6,15 +6,18 @@ class MatchInfoRow extends Equatable {
     required this.value,
     this.highlight = false,
     this.openDirectionsInMaps = false,
+    this.route,
   });
 
   final String label;
   final String value;
   final bool highlight;
   final bool openDirectionsInMaps;
+  /// In-app route (e.g. tournament dashboard) when the row is tappable.
+  final String? route;
 
   @override
-  List<Object?> get props => [label, value, openDirectionsInMaps];
+  List<Object?> get props => [label, value, openDirectionsInMaps, route];
 }
 
 class MatchInfoOfficial extends Equatable {

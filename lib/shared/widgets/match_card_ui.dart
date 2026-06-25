@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/enums.dart';
-import '../../core/theme/cf_colors.dart';
 import '../../core/theme/app_dimens.dart';
+import '../../core/theme/cf_colors.dart';
+import '../../domain/scoring/match_lifecycle.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/match_score_display.dart';
 import '../../core/utils/overs_formatter.dart';
@@ -53,11 +54,9 @@ class MatchCardContent extends StatelessWidget {
       match.status == MatchStatus.draft ||
       match.status == MatchStatus.tossCompleted;
 
-  bool get _isLive =>
-      match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak;
+  bool get _isLive => MatchLifecycle.isEffectivelyLive(match);
 
-  bool get _isCompleted => match.status == MatchStatus.completed;
+  bool get _isCompleted => MatchLifecycle.isCompleted(match);
 
   @override
   Widget build(BuildContext context) {
@@ -524,6 +523,15 @@ class MatchStatusChip extends StatelessWidget {
 }
 
 ({String label, Color color}) matchStatusUi(MatchModel match, CfColors cf) {
+  final status = MatchLifecycle.effectiveStatus(match);
+
+  if (status == MatchStatus.completed) {
+    return (label: 'Result', color: cf.statusCompleted);
+  }
+  if (status == MatchStatus.abandoned) {
+    return (label: 'Abandoned', color: cf.textMuted);
+  }
+
   if (match.isMatchBreakActive) {
     final breakType = match.activeMatchBreak!.breakType.toLowerCase();
     if (breakType.contains('rain')) {
@@ -544,7 +552,7 @@ class MatchStatusChip extends StatelessWidget {
     );
   }
 
-  return switch (match.status) {
+  return switch (status) {
     MatchStatus.live => (label: 'LIVE', color: cf.statusLive),
     MatchStatus.inningsBreak => (label: 'BREAK', color: cf.info),
     MatchStatus.scheduled ||
@@ -553,19 +561,13 @@ class MatchStatusChip extends StatelessWidget {
         label: 'Upcoming',
         color: cf.statusUpcoming,
       ),
-    MatchStatus.completed => (
-        label: 'Result',
-        color: cf.statusCompleted,
-      ),
-    MatchStatus.abandoned => (
-        label: 'Abandoned',
-        color: cf.textMuted,
-      ),
+    MatchStatus.completed => (label: 'Result', color: cf.statusCompleted),
+    MatchStatus.abandoned => (label: 'Abandoned', color: cf.textMuted),
   };
 }
 
 String matchTypeDisplayLabel(MatchModel match) {
-  if (match.matchType == MatchType.tournament) {
+  if (match.isTournamentMatch) {
     if (match.teamAName.isNotEmpty && match.teamBName.isNotEmpty) {
       return '${match.teamAName} vs ${match.teamBName}';
     }
@@ -610,8 +612,7 @@ String matchCardFooterHint(MatchModel match) {
 
 BoxDecoration matchListCardDecoration(MatchModel match, BuildContext context) {
   final cf = context.cf;
-  final isLive = match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak;
+  final isLive = MatchLifecycle.isEffectivelyLive(match);
 
   return BoxDecoration(
     color: cf.card,
@@ -633,8 +634,7 @@ BoxDecoration matchListCardDecoration(MatchModel match, BuildContext context) {
 
 BoxDecoration matchHeroCardDecoration(MatchModel match, BuildContext context) {
   final cf = context.cf;
-  final isLive = match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak;
+  final isLive = MatchLifecycle.isEffectivelyLive(match);
 
   if (isLive) {
     return BoxDecoration(

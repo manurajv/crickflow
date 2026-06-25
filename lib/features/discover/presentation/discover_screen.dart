@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
+import '../../../domain/scoring/match_lifecycle.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/match_model.dart';
@@ -87,9 +88,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             data: (all) {
               final matches = _filterMatches(all);
               final live = matches
-                  .where((m) =>
-                      m.status == MatchStatus.live ||
-                      m.status == MatchStatus.inningsBreak)
+                  .where(MatchLifecycle.isEffectivelyLive)
                   .take(5)
                   .toList();
               final upcoming = matches

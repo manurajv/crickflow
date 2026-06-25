@@ -6,6 +6,7 @@ import '../../domain/services/match_info_service.dart';
 import 'match_analytics_provider.dart';
 import 'providers.dart';
 import 'tournament_match_providers.dart';
+import 'tournament_match_repair.dart';
 
 final matchInfoServiceProvider = Provider((ref) => MatchInfoService());
 
@@ -25,7 +26,7 @@ final matchInfoTournamentNameProvider =
 
 final matchInfoProvider =
     Provider.family<MatchInfoSnapshot, String>((ref, matchId) {
-  final match = ref.watch(matchProvider(matchId)).valueOrNull;
+  final match = ref.watch(matchDisplayProvider(matchId));
   if (match == null) return MatchInfoSnapshot.empty;
 
   final revisions =

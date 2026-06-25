@@ -10,10 +10,13 @@ import '../../../../data/models/tournament/tournament_official_model.dart';
 import '../../../../data/models/tournament/tournament_rules_model.dart';
 import '../../../../data/models/tournament/tournament_sponsor_model.dart';
 import '../../../../data/models/tournament_model.dart';
+import '../../../../domain/services/tournament/tournament_hero_ranking_engine.dart';
+import '../../../../shared/providers/tournament_analytics_providers.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/match_scoring_rules_form.dart';
+import '../widgets/tournament_completion_sheet.dart';
 
 export 'tournament_fixtures_tab.dart';
 
@@ -93,7 +96,9 @@ class _PointsTableSection extends StatelessWidget {
           Text(title, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppDimens.spaceSm),
           Card(
-            child: DataTable(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
               headingTextStyle: TextStyle(
                 color: cf.textSecondary,
                 fontSize: 12,
@@ -105,8 +110,14 @@ class _PointsTableSection extends StatelessWidget {
                 DataColumn(label: Text('P')),
                 DataColumn(label: Text('W')),
                 DataColumn(label: Text('L')),
+                DataColumn(label: Text('T')),
+                DataColumn(label: Text('NR')),
                 DataColumn(label: Text('Pts')),
                 DataColumn(label: Text('NRR')),
+                DataColumn(label: Text('RF')),
+                DataColumn(label: Text('OF')),
+                DataColumn(label: Text('RA')),
+                DataColumn(label: Text('OB')),
               ],
               rows: entries.map((e) {
                 return DataRow(cells: [
@@ -115,10 +126,17 @@ class _PointsTableSection extends StatelessWidget {
                   DataCell(Text('${e.played}')),
                   DataCell(Text('${e.won}')),
                   DataCell(Text('${e.lost}')),
+                  DataCell(Text('${e.tied}')),
+                  DataCell(Text('${e.noResult}')),
                   DataCell(Text('${e.points}')),
                   DataCell(Text(e.netRunRate.toStringAsFixed(3))),
+                  DataCell(Text('${e.runsFor}')),
+                  DataCell(Text(e.oversFaced.toStringAsFixed(1))),
+                  DataCell(Text('${e.runsAgainst}')),
+                  DataCell(Text(e.oversBowled.toStringAsFixed(1))),
                 ]);
               }).toList(),
+            ),
             ),
           ),
         ],
@@ -388,7 +406,9 @@ class TournamentStatsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tournament = ref.watch(tournamentProvider(tournamentId)).valueOrNull;
-    final matches = ref.watch(tournamentMatchesProvider(tournamentId)).valueOrNull ?? [];
+    final matches =
+        ref.watch(tournamentMatchesProvider(tournamentId)).valueOrNull ?? [];
+    final heroesAsync = ref.watch(tournamentHeroesProvider(tournamentId));
     if (tournament == null) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -398,36 +418,65 @@ class TournamentStatsTab extends ConsumerWidget {
           matches: matches,
         );
 
-    return ListView(
-      padding: AppDimens.screenPadding,
-      children: [
-        _SectionCard(
-          title: 'Match summary',
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _StatChip(label: 'Total', value: '${stats.totalMatches}'),
-              _StatChip(label: 'Completed', value: '${stats.completedMatches}'),
-              _StatChip(label: 'Live', value: '${stats.liveMatches}'),
-            ],
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(tournamentBallEventsProvider(tournamentId));
+        ref.invalidate(tournamentHeroesProvider(tournamentId));
+      },
+      child: ListView(
+        padding: AppDimens.screenPadding,
+        children: [
+          _SectionCard(
+            title: 'Match summary',
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _StatChip(label: 'Total', value: '${stats.totalMatches}'),
+                _StatChip(label: 'Completed', value: '${stats.completedMatches}'),
+                _StatChip(label: 'Live', value: '${stats.liveMatches}'),
+                _StatChip(label: 'Teams', value: '${tournament.teamIds.length}'),
+              ],
+            ),
           ),
-        ),
-        _SectionCard(
-          title: 'Run aggregate',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DetailRow(label: 'Total runs', value: '${stats.totalRuns}'),
-              _DetailRow(label: 'Total wickets', value: '${stats.totalWickets}'),
-              _DetailRow(
-                label: 'Highest team score',
-                value: '${stats.highestTeamScore}',
-              ),
-            ],
+          _SectionCard(
+            title: 'Run aggregate',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DetailRow(label: 'Total runs', value: '${stats.totalRuns}'),
+                _DetailRow(label: 'Total wickets', value: '${stats.totalWickets}'),
+                _DetailRow(
+                  label: 'Highest team score',
+                  value: '${stats.highestTeamScore}',
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+          heroesAsync.when(
+            data: (heroes) {
+              if (!heroes.hasData) return const SizedBox.shrink();
+              return _SectionCard(
+                title: 'Top performers',
+                child: Column(
+                  children: [
+                    for (final h in heroes.heroes.take(5))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(h.playerName),
+                        subtitle: Text(h.award.title),
+                        trailing: Text(h.valueLabel),
+                      ),
+                  ],
+                ),
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -450,31 +499,107 @@ class TournamentSettingsTab extends ConsumerWidget {
     return ListView(
       padding: AppDimens.screenPadding,
       children: [
-        ListTile(
-          leading: const Icon(Icons.edit_outlined),
-          title: const Text('Edit tournament'),
-          enabled: canEdit,
-          onTap: canEdit
-              ? () => context.push('/tournaments/${tournament.id}/edit')
-              : null,
-        ),
-        ListTile(
-          leading: const Icon(Icons.share_outlined),
-          title: const Text('Share & invite'),
-          onTap: () {},
-        ),
-        ListTile(
-          leading: const Icon(Icons.admin_panel_settings_outlined),
-          title: const Text('Manage access'),
-          subtitle: Text('Your role: ${role.name}'),
-          enabled: canEdit,
-        ),
-        if (role == TournamentRole.owner)
+        if (tournament.status == TournamentStatus.completed &&
+            tournament.championTeamName != null)
+          Card(
+            color: context.cf.accent.withValues(alpha: 0.08),
+            child: ListTile(
+              leading: Icon(Icons.emoji_events, color: context.cf.accent),
+              title: const Text('Champion'),
+              subtitle: Text(tournament.championTeamName!),
+            ),
+          ),
+        _SettingsSection(title: 'General', children: [
           ListTile(
-            leading: Icon(Icons.delete_outline, color: context.cf.error),
-            title: Text('Delete tournament', style: TextStyle(color: context.cf.error)),
+            leading: const Icon(Icons.edit_outlined),
+            title: const Text('Edit tournament'),
+            enabled: canEdit && !tournament.isLocked,
+            onTap: canEdit && !tournament.isLocked
+                ? () => context.push('/tournaments/${tournament.id}/edit')
+                : null,
+          ),
+          ListTile(
+            leading: const Icon(Icons.share_outlined),
+            title: const Text('Share & invite'),
             onTap: () {},
           ),
+        ]),
+        _SettingsSection(title: 'Competition', children: [
+          ListTile(
+            leading: const Icon(Icons.table_chart_outlined),
+            title: const Text('Points rules'),
+            subtitle: Text(
+              'Win ${tournament.defaultRules.pointsPerWin} · '
+              'Tie ${tournament.defaultRules.pointsPerTie} · '
+              'NR ${tournament.defaultRules.pointsPerNoResult}',
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.groups_outlined),
+            title: const Text('Groups & qualification'),
+            subtitle: const Text('Configure in Groups tab'),
+          ),
+        ]),
+        _SettingsSection(title: 'Access', children: [
+          ListTile(
+            leading: const Icon(Icons.admin_panel_settings_outlined),
+            title: const Text('Manage access'),
+            subtitle: Text('Your role: ${role.name}'),
+            enabled: canEdit,
+          ),
+        ]),
+        if (canEdit && !tournament.isLocked)
+          _SettingsSection(title: 'Completion', children: [
+            ListTile(
+              leading: Icon(Icons.flag_outlined, color: context.cf.accent),
+              title: const Text('Finish tournament'),
+              subtitle: const Text('Select champion, awards, and lock editing'),
+              onTap: () => showTournamentCompletionSheet(
+                context,
+                ref,
+                tournament: tournament,
+              ),
+            ),
+          ]),
+        if (role == TournamentRole.owner && !tournament.isLocked)
+          _SettingsSection(title: 'Danger zone', children: [
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: context.cf.error),
+              title: Text(
+                'Delete tournament',
+                style: TextStyle(color: context.cf.error),
+              ),
+              onTap: () {},
+            ),
+          ]),
+      ],
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: AppDimens.spaceMd, bottom: 4),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        Card(
+          child: Column(children: children),
+        ),
       ],
     );
   }

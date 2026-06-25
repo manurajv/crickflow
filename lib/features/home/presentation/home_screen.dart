@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/enums.dart';
+import '../../../domain/scoring/match_lifecycle.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/user_model.dart';
@@ -144,18 +145,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 }
 
                 final live = filtered
-                    .where(
-                      (m) =>
-                          m.status == MatchStatus.live ||
-                          m.status == MatchStatus.inningsBreak,
-                    )
+                    .where(MatchLifecycle.isEffectivelyLive)
                     .toList();
                 final rest = filtered
-                    .where(
-                      (m) =>
-                          m.status != MatchStatus.live &&
-                          m.status != MatchStatus.inningsBreak,
-                    )
+                    .where((m) => !MatchLifecycle.isEffectivelyLive(m))
                     .take(10)
                     .toList();
 

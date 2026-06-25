@@ -8,7 +8,10 @@ import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/venue_maps_utils.dart';
 import '../../../../domain/services/match_info_models.dart';
 import '../../../../shared/providers/match_info_provider.dart';
+import '../../../../shared/providers/providers.dart';
+import '../../../../shared/providers/tournament_match_repair.dart';
 import '../../../../shared/widgets/lineup_player_avatar.dart';
+import '../widgets/info/match_tournament_info_card.dart';
 import '../widgets/summary/match_summary_sections.dart';
 
 class MatchInfoTab extends ConsumerWidget {
@@ -18,11 +21,14 @@ class MatchInfoTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final match = ref.watch(matchProvider(matchId)).valueOrNull;
+    final displayMatch = ref.watch(matchDisplayProvider(matchId)) ?? match;
     final info = ref.watch(matchInfoProvider(matchId));
 
     return ListView(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
       children: [
+        if (displayMatch != null) MatchTournamentInfoCard(match: displayMatch),
         if (info.abandoned != null)
           InfoAbandonedBanner(section: info.abandoned!),
         if (info.hasOverview)
@@ -169,19 +175,33 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTappable = row.openDirectionsInMaps ||
+        (row.route != null && row.route!.isNotEmpty);
     final valueStyle = TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,
       color: row.highlight ? cf.accent : cf.textPrimary,
-      decoration: row.openDirectionsInMaps ? TextDecoration.underline : null,
+      decoration: isTappable ? TextDecoration.underline : null,
     );
 
-    final valueWidget = row.openDirectionsInMaps
-        ? InkWell(
-            onTap: () => _openMaps(context),
-            child: Text(row.value, style: valueStyle),
-          )
-        : Text(row.value, style: valueStyle);
+    Widget valueWidget = Text(row.value, style: valueStyle);
+    if (isTappable) {
+      valueWidget = InkWell(
+        onTap: () {
+          if (row.openDirectionsInMaps) {
+            _openMaps(context);
+          } else if (row.route != null && row.route!.isNotEmpty) {
+            context.push(row.route!);
+          }
+        },
+        child: Row(
+          children: [
+            Expanded(child: Text(row.value, style: valueStyle)),
+            Icon(Icons.chevron_right, size: 16, color: cf.accent),
+          ],
+        ),
+      );
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

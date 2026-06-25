@@ -4,6 +4,10 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../models/notification_model.dart';
 import '../models/team_model.dart';
+import '../models/tournament/tournament_member_model.dart';
+import '../models/tournament/tournament_official_model.dart';
+import '../models/tournament_model.dart';
+import '../../core/constants/enums.dart';
 
 class NotificationRepository {
   NotificationRepository({FirebaseFirestore? firestore})
@@ -98,6 +102,82 @@ class NotificationRepository {
         type: type,
         tournamentId: tournamentId,
         requestId: requestId,
+      );
+    }
+  }
+
+  /// Notifies teams, staff, and officials when a tournament finishes.
+  Future<void> notifyTournamentCompleted({
+    required TournamentModel tournament,
+    required String championTeamName,
+    String? runnerUpTeamName,
+    required Iterable<TeamModel> teams,
+    Iterable<TournamentMemberModel> members = const [],
+    Iterable<TournamentOfficialModel> officials = const [],
+  }) async {
+    final title = '${tournament.name} completed';
+    final bodyParts = <String>['Champion: $championTeamName'];
+    if (runnerUpTeamName != null && runnerUpTeamName.isNotEmpty) {
+      bodyParts.add('Runner-up: $runnerUpTeamName');
+    }
+    final body = bodyParts.join('. ');
+    const type = 'tournament_completed';
+    final notified = <String>{};
+
+    for (final team in teams) {
+      final leadership = await _leadershipAuthUserIds(team);
+      for (final uid in leadership) {
+        if (notified.add(uid)) {
+          await createNotification(
+            userId: uid,
+            title: title,
+            body: body,
+            type: type,
+            tournamentId: tournament.id,
+            teamId: team.id,
+          );
+        }
+      }
+    }
+
+    for (final member in members) {
+      if (member.role != TournamentRole.owner &&
+          member.role != TournamentRole.admin) {
+        continue;
+      }
+      if (member.userId.isEmpty) continue;
+      if (notified.add(member.userId)) {
+        await createNotification(
+          userId: member.userId,
+          title: title,
+          body: body,
+          type: type,
+          tournamentId: tournament.id,
+        );
+      }
+    }
+
+    for (final official in officials) {
+      if (official.userId.isEmpty) continue;
+      if (notified.add(official.userId)) {
+        await createNotification(
+          userId: official.userId,
+          title: title,
+          body: body,
+          type: type,
+          tournamentId: tournament.id,
+        );
+      }
+    }
+
+    final organizerId = tournament.effectiveOrganizerId;
+    if (organizerId.isNotEmpty && notified.add(organizerId)) {
+      await createNotification(
+        userId: organizerId,
+        title: title,
+        body: body,
+        type: type,
+        tournamentId: tournament.id,
       );
     }
   }

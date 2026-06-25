@@ -41,6 +41,9 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
   }
 
   Future<void> _ensureDefaultScorer1() async {
+    final draft = ref.read(startMatchDraftProvider);
+    if (draft.tournamentOfficialsAutoFilled) return;
+
     final uid = ref.read(authStateProvider).value?.uid;
     if (uid == null) return;
 
@@ -90,6 +93,7 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
     final cf = context.cf;
     final draft = ref.watch(startMatchDraftProvider);
     final setup = draft.setup;
+    final lockScorer1 = !draft.tournamentOfficialsAutoFilled;
 
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
@@ -110,6 +114,34 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
             child: ListView(
               padding: AppDimens.listPadding,
               children: [
+          if (draft.tournamentOfficialsAutoFilled)
+            Container(
+              margin: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+              padding: const EdgeInsets.all(AppDimens.spaceSm),
+              decoration: BoxDecoration(
+                color: cf.accent.withValues(alpha: 0.12),
+                borderRadius: AppDimens.cardRadius,
+                border: Border.all(color: cf.accent.withValues(alpha: 0.35)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.auto_awesome, size: 18, color: cf.accent),
+                  const SizedBox(width: AppDimens.spaceSm),
+                  Expanded(
+                    child: Text(
+                      'Officials auto-assigned from this tournament. '
+                      'Tap any slot to change for this match only.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cf.textPrimary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _OfficialSection(
             title: 'Select umpires',
             slots: _umpireSlots,
@@ -131,9 +163,9 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
             slots: _scorerSlots,
             entries: setup.scorers,
             icon: Icons.fact_check_outlined,
-            lockedSlots: const {0},
+            lockedSlots: lockScorer1 ? const {0} : const {},
             onSlotTap: (i) {
-              if (i == 0) {
+              if (lockScorer1 && i == 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
@@ -145,15 +177,15 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
               }
               _openAdd(
                 context,
-                title: 'Add Scorer 2',
-                slotLabel: 'Scorer 2',
+                title: i == 0 ? 'Add Scorer 1' : 'Add Scorer 2',
+                slotLabel: i == 0 ? 'Scorer 1' : 'Scorer 2',
                 type: _OfficialType.scorer,
                 index: i,
                 entries: setup.scorers,
               );
             },
             onRemove: (i) {
-              if (i == 0) return;
+              if (lockScorer1 && i == 0) return;
               _removeAt(ref, _OfficialType.scorer, i, setup);
             },
           ),

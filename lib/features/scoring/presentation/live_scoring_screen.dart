@@ -1287,11 +1287,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
   /// Completes the match when [MatchCompletionPolicy] already knows the winner.
   Future<bool> _tryAutoCompleteMatch(MatchModel match) async {
-    final computed = MatchCompletionPolicy.compute(match);
-    if (computed.winnerTeamId == null || computed.offerSuperOver) {
+    final completed = await ref
+        .read(matchRepositoryProvider)
+        .finalizeMatchIfReady(widget.matchId);
+    if (completed == null || completed.status != MatchStatus.completed) {
       return false;
     }
-    await _completeMatchAndExit();
+    await ref
+        .read(tournamentRepositoryProvider)
+        .advanceKnockoutFromMatch(completed);
+    if (mounted) context.go('/match/${widget.matchId}');
     return true;
   }
 

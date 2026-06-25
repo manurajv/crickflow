@@ -10,6 +10,7 @@ import '../../core/utils/tournament_match_stage_utils.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/team_model.dart';
 import '../../data/models/tournament_model.dart';
+import '../../domain/scoring/match_lifecycle.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/providers/tournament_match_providers.dart';
 import 'match_card_ui.dart';
@@ -38,11 +39,9 @@ class MatchListCard extends ConsumerWidget {
       match.status == MatchStatus.draft ||
       match.status == MatchStatus.tossCompleted;
 
-  bool get _isLive =>
-      match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak;
+  bool get _isLive => MatchLifecycle.isEffectivelyLive(match);
 
-  bool get _isCompleted => match.status == MatchStatus.completed;
+  bool get _isCompleted => MatchLifecycle.isCompleted(match);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,7 +52,7 @@ class MatchListCard extends ConsumerWidget {
     final tournamentHeader = showTournamentHeader
         ? _resolveTournamentName(tournaments, tournamentLabel)
         : null;
-    final isTournament = match.matchType == MatchType.tournament;
+    final isTournament = match.isTournamentMatch;
     final stageLabel =
         isTournament ? _tournamentStageLabel(ref, match) : null;
     final roundLabel = showRoundBadge && !isTournament

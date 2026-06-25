@@ -132,6 +132,14 @@ class TournamentMemberRepository {
             .map((d) => TournamentMemberModel.fromMap(d.id, d.data()))
             .toList());
   }
+
+  Future<List<TournamentMemberModel>> getMembers(String tournamentId) async {
+    final snap =
+        await _col.where('tournamentId', isEqualTo: tournamentId).get();
+    return snap.docs
+        .map((d) => TournamentMemberModel.fromMap(d.id, d.data()))
+        .toList();
+  }
 }
 
 class TournamentOfficialRepository {
@@ -162,6 +170,14 @@ class TournamentOfficialRepository {
         .map((snap) => snap.docs
             .map((d) => TournamentOfficialModel.fromMap(d.id, d.data()))
             .toList());
+  }
+
+  Future<List<TournamentOfficialModel>> getOfficials(String tournamentId) async {
+    final snap =
+        await _col.where('tournamentId', isEqualTo: tournamentId).get();
+    return snap.docs
+        .map((d) => TournamentOfficialModel.fromMap(d.id, d.data()))
+        .toList();
   }
 }
 

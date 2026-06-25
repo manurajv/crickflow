@@ -18,6 +18,8 @@ import '../../data/repositories/team_join_request_repository.dart';
 import '../../data/repositories/team_roster_report_repository.dart';
 import '../../data/repositories/team_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
+import 'stuck_match_repair.dart';
+import 'tournament_match_repair.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/profile_edit_repository.dart';
 import '../../data/services/profile_update_queue_service.dart';
@@ -122,11 +124,21 @@ final currentUserProfileProvider = FutureProvider<UserModel?>((ref) async {
 
 // Matches — global feed (live first) so players/viewers see all public matches
 final matchesProvider = StreamProvider<List<MatchModel>>((ref) {
-  return ref.watch(matchRepositoryProvider).watchMatchFeed();
+  return ref.watch(matchRepositoryProvider).watchMatchFeed().map((matches) {
+    scheduleStuckMatchRepairs(ref, matches);
+    scheduleTournamentMatchRepairs(ref, matches);
+    return matches;
+  });
 });
 
 final matchProvider = StreamProvider.family<MatchModel?, String>((ref, id) {
-  return ref.watch(matchRepositoryProvider).watchMatch(id);
+  return ref.watch(matchRepositoryProvider).watchMatch(id).map((match) {
+    if (match != null) {
+      scheduleStuckMatchRepairs(ref, [match]);
+      scheduleTournamentMatchRepairs(ref, [match], allowLookup: true);
+    }
+    return match;
+  });
 });
 
 final ballEventsProvider =

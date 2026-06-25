@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/enums.dart';
 import '../../data/models/match_model.dart';
+import '../../domain/scoring/match_lifecycle.dart';
 import '../../data/models/tournament/tournament_group_model.dart';
 import '../../data/models/tournament/tournament_round_model.dart';
 import '../../domain/services/auto_fixture_generator_service.dart';
@@ -19,15 +20,17 @@ final tournamentMatchesFilteredProvider = Provider.family<
       ref.watch(tournamentMatchesProvider(params.tournamentId)).valueOrNull ??
           [];
 
-  bool isLive(MatchModel m) =>
-      m.status == MatchStatus.live || m.status == MatchStatus.inningsBreak;
+  bool isLive(MatchModel m) => MatchLifecycle.isEffectivelyLive(m);
 
-  bool isUpcoming(MatchModel m) =>
-      m.status == MatchStatus.scheduled ||
-      m.status == MatchStatus.draft ||
-      m.status == MatchStatus.tossCompleted;
+  bool isUpcoming(MatchModel m) {
+    final status = MatchLifecycle.effectiveStatus(m);
+    return status == MatchStatus.scheduled ||
+        status == MatchStatus.draft ||
+        status == MatchStatus.tossCompleted;
+  }
 
-  bool isCompleted(MatchModel m) => m.status == MatchStatus.completed;
+  bool isCompleted(MatchModel m) =>
+      MatchLifecycle.effectiveStatus(m) == MatchStatus.completed;
 
   final filtered = switch (params.filter) {
     TournamentMatchFilter.live => matches.where(isLive).toList(),

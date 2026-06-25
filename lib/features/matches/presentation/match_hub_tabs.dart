@@ -24,13 +24,11 @@ class MatchHubTabConfig {
   final List<MatchHubTabId> tabIds;
 
   static bool showsLiveTab(MatchModel match) =>
-      !isUpcomingMatch(match) &&
-      (match.status == MatchStatus.live ||
-          match.status == MatchStatus.inningsBreak);
+      !isUpcomingMatch(match) && MatchLifecycle.isEffectivelyLive(match);
 
   static bool showsSummaryTab(MatchModel match) =>
       !isUpcomingMatch(match) &&
-      (match.status == MatchStatus.completed ||
+      (MatchLifecycle.isCompleted(match) ||
           match.status == MatchStatus.abandoned);
 
   static bool isUpcomingMatch(MatchModel match) =>

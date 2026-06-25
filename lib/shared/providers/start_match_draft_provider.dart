@@ -35,6 +35,7 @@ class StartMatchDraft {
     this.media = const [],
     this.setup = const MatchSetupData(),
     this.isExistingMatch = false,
+    this.tournamentOfficialsAutoFilled = false,
   }) : rules = rules ?? MatchRulesModel.standardT20();
 
   final String matchId;
@@ -49,6 +50,7 @@ class StartMatchDraft {
   final List<MatchDraftMedia> media;
   final MatchSetupData setup;
   final bool isExistingMatch;
+  final bool tournamentOfficialsAutoFilled;
 
   String get resolvedTeamAName =>
       teamA?.name ?? (teamAName.isNotEmpty ? teamAName : '');
@@ -78,6 +80,7 @@ class StartMatchDraft {
     List<MatchDraftMedia>? media,
     MatchSetupData? setup,
     bool? isExistingMatch,
+    bool? tournamentOfficialsAutoFilled,
   }) {
     return StartMatchDraft(
       matchId: matchId,
@@ -92,6 +95,8 @@ class StartMatchDraft {
       media: media ?? this.media,
       setup: setup ?? this.setup,
       isExistingMatch: isExistingMatch ?? this.isExistingMatch,
+      tournamentOfficialsAutoFilled:
+          tournamentOfficialsAutoFilled ?? this.tournamentOfficialsAutoFilled,
     );
   }
 }
@@ -208,7 +213,20 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
   }
 
   void updateOfficials(MatchSetupData setup) {
-    state = state.copyWith(setup: setup);
+    state = state.copyWith(
+      setup: setup,
+      tournamentOfficialsAutoFilled: false,
+    );
+  }
+
+  void applyTournamentOfficialsAutoFill(
+    MatchSetupData setup, {
+    required bool autoFilled,
+  }) {
+    state = state.copyWith(
+      setup: setup,
+      tournamentOfficialsAutoFilled: autoFilled,
+    );
   }
 
   Future<void> ensureDefaultScorer1({

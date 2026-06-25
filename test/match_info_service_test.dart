@@ -69,6 +69,41 @@ void main() {
     expect(venue.openDirectionsInMaps, isTrue);
   });
 
+  test('overview shows match type and round for live tournament matches', () {
+    final live = sampleMatch(publicMatchId: '26061442').copyWith(
+      status: MatchStatus.live,
+    );
+    final info = service.build(
+      match: live,
+      tournamentName: 'WFO Champions Trophy',
+    );
+
+    expect(
+      info.overview.any((r) => r.label == 'Match type'),
+      isTrue,
+    );
+    expect(
+      info.overview.any((r) => r.label == 'Tournament'),
+      isFalse,
+    );
+  });
+
+  test('overview shows match type and round for completed tournament matches', () {
+    final info = service.build(
+      match: sampleMatch(publicMatchId: '26061442'),
+      tournamentName: 'WFO Champions Trophy',
+    );
+
+    expect(
+      info.overview.any((r) => r.label == 'Match type'),
+      isTrue,
+    );
+    expect(
+      info.overview.any((r) => r.label == 'Tournament'),
+      isFalse,
+    );
+  });
+
   test('overview shows match type and round for knockout fixtures', () {
     final knockout = MatchModel(
       id: 'm-ko',

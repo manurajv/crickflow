@@ -257,6 +257,11 @@ class MatchModel extends Equatable {
   /// Short numeric id assigned when scoring starts (shown in Info tab).
   final String? publicMatchId;
 
+  /// Tournament fixture or any match linked to a tournament document.
+  bool get isTournamentMatch =>
+      matchType == MatchType.tournament ||
+      (tournamentId != null && tournamentId!.isNotEmpty);
+
   bool get isMatchBreakActive =>
       activeMatchBreak != null && activeMatchBreak!.isActive;
 

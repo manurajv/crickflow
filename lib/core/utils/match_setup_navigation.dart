@@ -6,8 +6,10 @@ import '../../core/constants/enums.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../domain/scoring/match_lifecycle.dart';
+import '../../domain/services/tournament/tournament_official_assign_service.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/providers/start_match_draft_provider.dart';
+import '../../shared/providers/tournament_providers.dart';
 
 /// Step indices for the create-match wizard.
 abstract final class StartMatchFlowStep {
@@ -45,6 +47,30 @@ Future<void> hydrateStartMatchDraftFromMatch(
         teamA: teamA,
         teamB: teamB,
       );
+
+  final tournamentId = match.tournamentId;
+  if (tournamentId != null && tournamentId.isNotEmpty) {
+    final assignService = TournamentOfficialAssignService();
+    final draft = ref.read(startMatchDraftProvider);
+    if (assignService.shouldAutoFill(draft.setup)) {
+      final officials = await ref
+          .read(tournamentOfficialRepositoryProvider)
+          .getOfficials(tournamentId);
+      if (officials.isNotEmpty) {
+        final updated =
+            assignService.applyTournamentOfficials(draft.setup, officials);
+        ref.read(startMatchDraftProvider.notifier).applyTournamentOfficialsAutoFill(
+              updated,
+              autoFilled: true,
+            );
+        try {
+          await persistMatchSetupDraft(ref);
+        } catch (_) {
+          // Non-blocking — user can still edit on officials screen.
+        }
+      }
+    }
+  }
 }
 
 /// Writes wizard progress back to the scheduled match document.

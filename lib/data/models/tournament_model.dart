@@ -17,6 +17,12 @@ class PointsTableEntry extends Equatable {
     this.points = 0,
     this.netRunRate = 0,
     this.position = 0,
+    this.runsFor = 0,
+    this.oversFaced = 0,
+    this.runsAgainst = 0,
+    this.oversBowled = 0,
+    this.bonusPoints = 0,
+    this.penaltyPoints = 0,
   });
 
   final String teamId;
@@ -29,6 +35,12 @@ class PointsTableEntry extends Equatable {
   final int points;
   final double netRunRate;
   final int position;
+  final int runsFor;
+  final double oversFaced;
+  final int runsAgainst;
+  final double oversBowled;
+  final int bonusPoints;
+  final int penaltyPoints;
 
   factory PointsTableEntry.fromMap(Map<String, dynamic> map) {
     return PointsTableEntry(
@@ -42,6 +54,12 @@ class PointsTableEntry extends Equatable {
       points: map['points'] as int? ?? 0,
       netRunRate: (map['netRunRate'] as num?)?.toDouble() ?? 0,
       position: map['position'] as int? ?? 0,
+      runsFor: map['runsFor'] as int? ?? 0,
+      oversFaced: (map['oversFaced'] as num?)?.toDouble() ?? 0,
+      runsAgainst: map['runsAgainst'] as int? ?? 0,
+      oversBowled: (map['oversBowled'] as num?)?.toDouble() ?? 0,
+      bonusPoints: map['bonusPoints'] as int? ?? 0,
+      penaltyPoints: map['penaltyPoints'] as int? ?? 0,
     );
   }
 
@@ -56,6 +74,12 @@ class PointsTableEntry extends Equatable {
         'points': points,
         'netRunRate': netRunRate,
         'position': position,
+        'runsFor': runsFor,
+        'oversFaced': oversFaced,
+        'runsAgainst': runsAgainst,
+        'oversBowled': oversBowled,
+        'bonusPoints': bonusPoints,
+        'penaltyPoints': penaltyPoints,
       };
 
   PointsTableEntry copyWith({
@@ -68,6 +92,12 @@ class PointsTableEntry extends Equatable {
     int? points,
     double? netRunRate,
     int? position,
+    int? runsFor,
+    double? oversFaced,
+    int? runsAgainst,
+    double? oversBowled,
+    int? bonusPoints,
+    int? penaltyPoints,
   }) {
     return PointsTableEntry(
       teamId: teamId,
@@ -80,6 +110,12 @@ class PointsTableEntry extends Equatable {
       points: points ?? this.points,
       netRunRate: netRunRate ?? this.netRunRate,
       position: position ?? this.position,
+      runsFor: runsFor ?? this.runsFor,
+      oversFaced: oversFaced ?? this.oversFaced,
+      runsAgainst: runsAgainst ?? this.runsAgainst,
+      oversBowled: oversBowled ?? this.oversBowled,
+      bonusPoints: bonusPoints ?? this.bonusPoints,
+      penaltyPoints: penaltyPoints ?? this.penaltyPoints,
     );
   }
 
@@ -115,6 +151,13 @@ class TournamentModel extends Equatable {
     this.setupMeta = const TournamentSetupMeta(),
     this.createdAt,
     this.updatedAt,
+    this.championTeamId,
+    this.championTeamName,
+    this.runnerUpTeamId,
+    this.runnerUpTeamName,
+    this.thirdPlaceTeamId,
+    this.isLocked = false,
+    this.awards = const {},
   });
 
   final String id;
@@ -145,6 +188,13 @@ class TournamentModel extends Equatable {
   final TournamentSetupMeta setupMeta;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? championTeamId;
+  final String? championTeamName;
+  final String? runnerUpTeamId;
+  final String? runnerUpTeamName;
+  final String? thirdPlaceTeamId;
+  final bool isLocked;
+  final Map<String, String> awards;
 
   String get effectiveOrganizerId => organizerId ?? createdBy ?? '';
 
@@ -200,6 +250,13 @@ class TournamentModel extends Equatable {
       ),
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
       updatedAt: DateTime.tryParse(map['updatedAt']?.toString() ?? ''),
+      championTeamId: map['championTeamId'] as String?,
+      championTeamName: map['championTeamName'] as String?,
+      runnerUpTeamId: map['runnerUpTeamId'] as String?,
+      runnerUpTeamName: map['runnerUpTeamName'] as String?,
+      thirdPlaceTeamId: map['thirdPlaceTeamId'] as String?,
+      isLocked: map['isLocked'] as bool? ?? false,
+      awards: Map<String, String>.from(map['awards'] as Map? ?? {}),
     );
   }
 
@@ -229,6 +286,13 @@ class TournamentModel extends Equatable {
         'setupMeta': setupMeta.toMap(),
         'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
+        if (championTeamId != null) 'championTeamId': championTeamId,
+        if (championTeamName != null) 'championTeamName': championTeamName,
+        if (runnerUpTeamId != null) 'runnerUpTeamId': runnerUpTeamId,
+        if (runnerUpTeamName != null) 'runnerUpTeamName': runnerUpTeamName,
+        if (thirdPlaceTeamId != null) 'thirdPlaceTeamId': thirdPlaceTeamId,
+        'isLocked': isLocked,
+        if (awards.isNotEmpty) 'awards': awards,
       };
 
   TournamentModel copyWith({
@@ -253,6 +317,13 @@ class TournamentModel extends Equatable {
     PitchType? pitchType,
     TournamentRulesModel? defaultRules,
     TournamentSetupMeta? setupMeta,
+    String? championTeamId,
+    String? championTeamName,
+    String? runnerUpTeamId,
+    String? runnerUpTeamName,
+    String? thirdPlaceTeamId,
+    bool? isLocked,
+    Map<String, String>? awards,
   }) {
     return TournamentModel(
       id: id,
@@ -281,6 +352,13 @@ class TournamentModel extends Equatable {
       setupMeta: setupMeta ?? this.setupMeta,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
+      championTeamId: championTeamId ?? this.championTeamId,
+      championTeamName: championTeamName ?? this.championTeamName,
+      runnerUpTeamId: runnerUpTeamId ?? this.runnerUpTeamId,
+      runnerUpTeamName: runnerUpTeamName ?? this.runnerUpTeamName,
+      thirdPlaceTeamId: thirdPlaceTeamId ?? this.thirdPlaceTeamId,
+      isLocked: isLocked ?? this.isLocked,
+      awards: awards ?? this.awards,
     );
   }
 

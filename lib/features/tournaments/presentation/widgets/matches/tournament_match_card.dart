@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../../core/constants/enums.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../core/utils/date_utils.dart';
 import '../../../../../data/models/match_model.dart';
+import '../../../../../domain/scoring/match_lifecycle.dart';
 import '../../../../../shared/providers/providers.dart';
 import '../../../../../shared/providers/tournament_match_providers.dart';
 import '../../../../../shared/widgets/match_list_card.dart';
 import '../../utils/tournament_display_utils.dart';
 import '../teams/tournament_team_confirm_sheet.dart';
+import 'walkover_match_sheet.dart';
 
 /// Tournament match row with round, group, venue and schedule metadata.
 class TournamentMatchCard extends ConsumerWidget {
@@ -48,10 +49,12 @@ class TournamentMatchCard extends ConsumerWidget {
       groupName: group?.name,
     );
 
-    final isLive = match.status == MatchStatus.live ||
-        match.status == MatchStatus.inningsBreak;
+    final isLive = MatchLifecycle.isEffectivelyLive(match);
     final canDelete =
         canManage && isDeletableUpcomingMatch(match.status);
+    final canWalkover =
+        canManage && MatchLifecycle.isUpcoming(match);
+    final isWalkover = match.resultSummary.toLowerCase().contains('walkover');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,6 +80,12 @@ class TournamentMatchCard extends ConsumerWidget {
                         color: cf.statusLive,
                         filled: true,
                       ),
+                    if (isWalkover)
+                      _MetaChip(
+                        label: 'WALKOVER',
+                        color: cf.statusUpcoming,
+                        filled: true,
+                      ),
                     if (match.venue.isNotEmpty)
                       _MetaChip(
                         label: match.venue,
@@ -98,6 +107,26 @@ class TournamentMatchCard extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (canWalkover)
+                PopupMenuButton<String>(
+                  tooltip: 'Match actions',
+                  onSelected: (value) {
+                    if (value == 'walkover') {
+                      showWalkoverMatchSheet(
+                        context,
+                        ref,
+                        match: match,
+                        tournamentId: tournamentId,
+                      );
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'walkover',
+                      child: Text('Declare walkover'),
+                    ),
+                  ],
+                ),
               if (canDelete)
                 IconButton(
                   tooltip: 'Delete match',

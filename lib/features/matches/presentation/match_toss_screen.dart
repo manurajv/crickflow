@@ -14,6 +14,21 @@ import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 import '../../../core/theme/cf_colors.dart';
 
+List<InningsModel> _inningsAfterToss(
+  MatchModel? existing,
+  InningsModel firstInnings,
+) {
+  if (existing == null || existing.innings.isEmpty) return [firstInnings];
+  final hasScoring = existing.innings.any(
+    (i) =>
+        i.legalBalls > 0 ||
+        i.status == InningsStatus.inProgress ||
+        i.status == InningsStatus.completed,
+  );
+  if (hasScoring) return existing.innings;
+  return [firstInnings];
+}
+
 /// Toss: coin flip, then winner, bat/bowl, then create match and start scoring.
 class MatchTossScreen extends ConsumerStatefulWidget {
   const MatchTossScreen({super.key});
@@ -133,25 +148,17 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     final city = draft.location.city.trim();
     final ground = draft.venue.trim();
 
-    final match = MatchModel(
+    final tossSetupMatch = MatchModel(
       id: draft.matchId,
       title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-      matchType: MatchType.single,
-      status: MatchStatus.tossCompleted,
       teamAId: draft.teamA?.id,
       teamBId: draft.teamB?.id,
       teamAName: draft.resolvedTeamAName,
       teamBName: draft.resolvedTeamBName,
-      rules: draft.rules,
-      location: draft.location.copyWith(city: city),
-      venue: ground,
-      scheduledAt: draft.scheduledAt ?? DateTime.now(),
-      createdBy: uid,
-      scorerIds: scorerIds,
       setup: setup,
     );
 
-    final teams = TossTeamPolicy.firstInningsTeams(match);
+    final teams = TossTeamPolicy.firstInningsTeams(tossSetupMatch);
     final battingTeamId = teams.battingTeamId;
     final bowlingTeamId = teams.bowlingTeamId;
 
@@ -165,8 +172,35 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     try {
       final repo = ref.read(matchRepositoryProvider);
       final existing = await repo.getMatch(draft.matchId);
-      final matchToSave = match.copyWith(
-        innings: [firstInnings],
+      final baseMatch = existing ??
+          MatchModel(
+            id: draft.matchId,
+            title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
+            matchType: MatchType.single,
+            teamAId: draft.teamA?.id,
+            teamBId: draft.teamB?.id,
+            teamAName: draft.resolvedTeamAName,
+            teamBName: draft.resolvedTeamBName,
+            rules: draft.rules,
+            location: draft.location.copyWith(city: city),
+            venue: ground,
+            scheduledAt: draft.scheduledAt ?? DateTime.now(),
+            createdBy: uid,
+            scorerIds: scorerIds,
+            setup: setup,
+          );
+      final matchToSave = baseMatch.copyWith(
+        title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
+        status: MatchStatus.tossCompleted,
+        teamAId: draft.teamA?.id,
+        teamBId: draft.teamB?.id,
+        teamAName: draft.resolvedTeamAName,
+        teamBName: draft.resolvedTeamBName,
+        rules: draft.rules,
+        location: draft.location.copyWith(city: city),
+        venue: ground,
+        setup: setup,
+        innings: _inningsAfterToss(existing, firstInnings),
         currentInningsIndex: 0,
       );
       if (existing != null) {

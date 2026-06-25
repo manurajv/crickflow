@@ -1,3 +1,4 @@
+import '../../domain/scoring/match_lifecycle.dart';
 import '../constants/enums.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
@@ -89,7 +90,7 @@ class MatchScoreDisplay {
   }
 
   static bool isTeamWinner(MatchModel match, String? teamId) {
-    if (match.status != MatchStatus.completed || teamId == null) return false;
+    if (!MatchLifecycle.isCompleted(match) || teamId == null) return false;
     final winnerId =
         match.winnerTeamId ?? MatchCompletionPolicy.compute(match).winnerTeamId;
     return winnerId == teamId;
@@ -97,8 +98,10 @@ class MatchScoreDisplay {
 
   /// e.g. "Team A won by 12 runs" — for completed match cards.
   static String? completedResultLine(MatchModel match) {
-    if (match.status != MatchStatus.completed) return null;
-    final base = MatchCompletionPolicy.compute(match).summary;
+    if (!MatchLifecycle.isCompleted(match)) return null;
+    final base = match.resultSummary.isNotEmpty
+        ? match.resultSummary
+        : MatchCompletionPolicy.compute(match).summary;
     return MatchRevisionDisplay.completedResultWithDlsNote(match, base);
   }
 

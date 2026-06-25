@@ -8,6 +8,7 @@ import '../../domain/services/match_upcoming_service.dart';
 import 'match_info_provider.dart';
 import 'match_squads_provider.dart';
 import 'providers.dart';
+import 'tournament_match_providers.dart';
 
 final matchUpcomingServiceProvider = Provider((ref) => MatchUpcomingService());
 
@@ -47,10 +48,32 @@ final matchUpcomingProvider =
   }
 
   String? tournamentName;
+  String? tournamentRoundName;
+  String? tournamentGroupName;
   final tournamentId = match.tournamentId;
   if (tournamentId != null && tournamentId.isNotEmpty) {
     tournamentName =
         ref.read(matchInfoTournamentNameProvider(tournamentId)).valueOrNull;
+    if (match.roundName?.trim().isNotEmpty == true) {
+      tournamentRoundName = match.roundName!.trim();
+    } else if (match.roundId != null && match.roundId!.isNotEmpty) {
+      tournamentRoundName = ref
+          .read(
+            tournamentRoundByIdProvider(
+              (tournamentId: tournamentId, roundId: match.roundId),
+            ),
+          )
+          ?.name;
+    }
+    if (match.groupId != null && match.groupId!.isNotEmpty) {
+      tournamentGroupName = ref
+          .read(
+            tournamentGroupByIdProvider(
+              (tournamentId: tournamentId, groupId: match.groupId),
+            ),
+          )
+          ?.name;
+    }
   }
 
   final squads = await ref.watch(matchDualSquadsProvider(matchId).future);
@@ -72,6 +95,8 @@ final matchUpcomingProvider =
         teamA: teamA,
         teamB: teamB,
         tournamentName: tournamentName,
+        tournamentRoundName: tournamentRoundName,
+        tournamentGroupName: tournamentGroupName,
         squadPlayers: squadPlayers,
         milestonePlayers: milestonePlayers,
       );

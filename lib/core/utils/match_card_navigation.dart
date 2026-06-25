@@ -16,8 +16,7 @@ Future<void> openMatchFromListCard(
   required MatchModel match,
   required String? userId,
 }) async {
-  final isLive = match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak;
+  final isLive = MatchLifecycle.isEffectivelyLive(match);
   final isUpcoming = MatchLifecycle.isUpcoming(match);
   final role =
       ref.read(currentUserProfileProvider).valueOrNull?.role ?? UserRole.organizer;

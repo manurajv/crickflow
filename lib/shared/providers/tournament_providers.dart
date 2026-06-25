@@ -15,6 +15,8 @@ import '../../domain/services/points_table_engine_service.dart';
 import '../../domain/services/tournament_permission_service.dart';
 import '../../domain/services/tournament_statistics_service.dart';
 import '../../data/repositories/tournament_sub_repositories.dart';
+import 'stuck_match_repair.dart';
+import 'tournament_match_repair.dart';
 import 'providers.dart';
 
 final tournamentStatisticsServiceProvider =
@@ -122,7 +124,14 @@ final tournamentProvider =
 
 final tournamentMatchesProvider =
     StreamProvider.family<List<MatchModel>, String>((ref, tournamentId) {
-  return ref.watch(tournamentRepositoryProvider).watchTournamentMatches(tournamentId);
+  return ref
+      .watch(tournamentRepositoryProvider)
+      .watchTournamentMatches(tournamentId)
+      .map((matches) {
+    scheduleStuckMatchRepairs(ref, matches);
+    scheduleTournamentMatchRepairs(ref, matches);
+    return matches;
+  });
 });
 
 final tournamentGroupsProvider =
