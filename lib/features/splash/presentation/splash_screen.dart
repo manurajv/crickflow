@@ -90,7 +90,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       profile = null;
     }
     if (!mounted) return;
-    if (profile != null && !profile.onboardingCompleted) {
+    if (profile != null && profile.needsPlayerOnboarding) {
       context.go('/player-onboarding');
       return;
     }

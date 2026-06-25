@@ -15,4 +15,6 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- uCrop crop screen theme (image_cropper 10+ uses uCrop 2.2.11 with edge-to-edge support) -->
+    <style name="Ucrop.CropTheme" parent="Theme.AppCompat.Light.NoActionBar"/>
 </resources>

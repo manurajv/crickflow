@@ -59,6 +59,7 @@ class AuthRepository {
     required void Function(String verificationId, int? resendToken) codeSent,
     required void Function(FirebaseAuthException e) onError,
   }) async {
+    await _auth.setLanguageCode('en');
     await _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       verificationCompleted: (credential) async {
@@ -84,8 +85,9 @@ class AuthRepository {
 
   Future<UserModel> _ensureProfile(User user) async {
     var profile = await _userRepository.getUser(user.uid);
+    final display = user.displayName?.trim() ?? '';
+
     if (profile == null) {
-      final display = user.displayName?.trim() ?? '';
       profile = UserModel(
         id: user.uid,
         email: user.email ?? '',
@@ -97,6 +99,21 @@ class AuthRepository {
         role: UserRole.organizer,
         onboardingCompleted: false,
       );
+    } else if (profile.needsPlayerOnboarding) {
+      profile = profile.copyWith(
+        email: profile.email.isNotEmpty ? profile.email : (user.email ?? ''),
+        name: profile.name.isNotEmpty ? profile.name : display,
+        displayName: profile.displayName.isNotEmpty
+            ? profile.displayName
+            : (display.isNotEmpty ? display : 'CrickFlow User'),
+        phoneNumber: profile.phoneNumber ?? user.phoneNumber,
+        mobile: profile.mobile ?? user.phoneNumber,
+        photoUrl: profile.photoUrl ?? user.photoURL,
+        onboardingCompleted: false,
+      );
+    }
+
+    if (profile.needsPlayerOnboarding) {
       try {
         await _userRepository.upsertUser(profile);
       } catch (_) {

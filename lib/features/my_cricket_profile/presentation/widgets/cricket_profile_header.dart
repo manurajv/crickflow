@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../../core/constants/enums.dart';
+
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/cf_player_id_format.dart';
@@ -15,6 +15,7 @@ import '../../../../data/models/player_social_stats_model.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../shared/providers/player_social_provider.dart';
+import '../../../../shared/widgets/player_cluster_text.dart';
 import '../../../profile/presentation/widgets/player_follow_button.dart';
 
 /// Profile hero content — sits below the pinned app bar inside [FlexibleSpaceBar].
@@ -147,7 +148,11 @@ class CricketProfileHeader extends ConsumerWidget {
                       if (clusters.batting != null ||
                           clusters.bowling != null) ...[
                         const SizedBox(height: 6),
-                        _ClusterText(clusters: clusters),
+                        PlayerClusterText(
+                          clusters: clusters,
+                          separatorColor: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
                       ],
                     ],
                   ),
@@ -205,88 +210,6 @@ class CricketProfileHeader extends ConsumerWidget {
       'Check out $name on CrickFlow ($id)\n$appLink\n$webLink',
     );
   }
-}
-
-class _ClusterText extends StatelessWidget {
-  const _ClusterText({required this.clusters});
-
-  final PlayerClusters clusters;
-
-  @override
-  Widget build(BuildContext context) {
-    final spans = <InlineSpan>[];
-    final batting = clusters.batting;
-    final bowling = clusters.bowling;
-
-    if (batting != null) {
-      spans.add(
-        TextSpan(
-          text: _battingLabel(batting),
-          style: TextStyle(
-            color: _battingColor(batting),
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-        ),
-      );
-    }
-    if (batting != null && bowling != null) {
-      spans.add(
-        TextSpan(
-          text: ' • ',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 13,
-          ),
-        ),
-      );
-    }
-    if (bowling != null) {
-      spans.add(
-        TextSpan(
-          text: _bowlingLabel(bowling),
-          style: TextStyle(
-            color: _bowlingColor(bowling),
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-        ),
-      );
-    }
-
-    if (spans.isEmpty) return const SizedBox.shrink();
-    return Text.rich(TextSpan(children: spans));
-  }
-
-  static String _battingLabel(BattingClusterType type) => switch (type) {
-        BattingClusterType.steadyBatter => 'Steady Batter',
-        BattingClusterType.classicist => 'Classicist',
-        BattingClusterType.accumulator => 'Accumulator',
-        BattingClusterType.hardHitter => 'Hard Hitter',
-        BattingClusterType.destroyer => 'Destroyer',
-      };
-
-  static String _bowlingLabel(BowlingClusterType type) => switch (type) {
-        BowlingClusterType.aspirant => 'Aspirant',
-        BowlingClusterType.wildcard => 'Wildcard',
-        BowlingClusterType.economist => 'Economist',
-        BowlingClusterType.spearhead => 'Spearhead',
-      };
-
-  static Color _battingColor(BattingClusterType type) => switch (type) {
-        BattingClusterType.steadyBatter => const Color(0xFF90CAF9),
-        BattingClusterType.classicist => const Color(0xFFFFCC80),
-        BattingClusterType.accumulator => const Color(0xFFA5D6A7),
-        BattingClusterType.hardHitter => const Color(0xFFFFAB91),
-        BattingClusterType.destroyer => const Color(0xFFFF5252),
-      };
-
-  static Color _bowlingColor(BowlingClusterType type) => switch (type) {
-        BowlingClusterType.aspirant => const Color(0xFFB0BEC5),
-        BowlingClusterType.wildcard => const Color(0xFFCE93D8),
-        BowlingClusterType.economist => const Color(0xFF80DEEA),
-        BowlingClusterType.spearhead => const Color(0xFFFFD54F),
-      };
 }
 
 class _StatsRow extends StatelessWidget {

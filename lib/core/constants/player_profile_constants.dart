@@ -291,4 +291,27 @@ class CricketCountry {
     }
     return null;
   }
+
+  static CricketCountry? byDialCode(String? dialCode) {
+    if (dialCode == null || dialCode.isEmpty) return null;
+    for (final c in all) {
+      if (c.dialCode == dialCode) return c;
+    }
+    return null;
+  }
+
+  /// One entry per unique dial code (first matching country), sorted numerically.
+  static List<CricketCountry> get countriesByDialCode {
+    final seen = <String>{};
+    final list = <CricketCountry>[];
+    for (final c in all) {
+      if (seen.add(c.dialCode)) list.add(c);
+    }
+    list.sort((a, b) {
+      final na = int.tryParse(a.dialCode.replaceAll('+', '')) ?? 0;
+      final nb = int.tryParse(b.dialCode.replaceAll('+', '')) ?? 0;
+      return na.compareTo(nb);
+    });
+    return list;
+  }
 }

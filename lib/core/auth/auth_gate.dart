@@ -48,13 +48,13 @@ class PendingAuthAction {
 /// Whether the signed-in user may create or modify cricket data.
 bool canPerformWriteActions(UserModel? profile) {
   if (profile == null) return false;
-  return profile.onboardingCompleted;
+  return !profile.needsPlayerOnboarding;
 }
 
 Future<bool> _ensureOnboardingComplete(WidgetRef ref, BuildContext context) async {
   final profile = await ref.read(currentUserProfileProvider.future);
   if (profile == null) return false;
-  if (profile.onboardingCompleted) return true;
+  if (!profile.needsPlayerOnboarding) return true;
   if (context.mounted) {
     context.go('/player-onboarding');
   }
@@ -94,7 +94,7 @@ Future<T?> requireAuth<T>({
   if (uid != null) {
     final profile = ref.read(currentUserProfileProvider).valueOrNull ??
         await ref.read(currentUserProfileProvider.future);
-    if (profile != null && !profile.onboardingCompleted) {
+    if (profile != null && profile.needsPlayerOnboarding) {
       PendingAuthAction.register(callback: () async {
         await action();
       }, path: returnPath);

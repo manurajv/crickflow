@@ -17,6 +17,7 @@ import '../../../shared/providers/tournament_team_request_provider.dart';
 import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../teams/presentation/widgets/team_list_tile.dart';
+import 'utils/tournament_join_utils.dart';
 
 class TournamentJoinScreen extends ConsumerStatefulWidget {
   const TournamentJoinScreen({
@@ -109,22 +110,17 @@ class _TournamentJoinScreenState extends ConsumerState<TournamentJoinScreen> {
                   player: player,
                 );
                 final requests = requestsAsync.valueOrNull ?? [];
-                final requestByTeamId = {
-                  for (final r in requests) r.teamId: r,
-                };
+                final requestByTeamId = TournamentJoinUtils.requestMap(requests);
 
                 if (leadershipTeams.isEmpty) {
                   return _NoLeadershipBody(tournament: tournament);
                 }
 
-                final eligibleTeams = leadershipTeams.where((team) {
-                  if (tournament.teamIds.contains(team.id)) return false;
-                  final request = requestByTeamId[team.id];
-                  if (request?.status == TournamentTeamRequestStatus.approved) {
-                    return false;
-                  }
-                  return true;
-                }).toList();
+                final eligibleTeams = TournamentJoinUtils.selectableJoinTeams(
+                  tournament: tournament,
+                  leadershipTeams: leadershipTeams,
+                  requestByTeamId: requestByTeamId,
+                );
 
                 final selectedTeam = _resolveSelectedTeam(
                   eligibleTeams,

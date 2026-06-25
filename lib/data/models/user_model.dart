@@ -62,7 +62,7 @@ class UserModel extends Equatable {
     this.strongHand,
     this.favoriteTeam = '',
     this.bio = '',
-    this.onboardingCompleted = true,
+    this.onboardingCompleted = false,
     this.playerId,
     this.socialStats = const PlayerSocialStatsModel(),
     this.createdAt,
@@ -115,6 +115,17 @@ class UserModel extends Equatable {
   String get effectivePlayerIdDisplay =>
       playerId != null && playerId!.isNotEmpty ? playerId! : '';
 
+  /// Whether the signed-in user still needs the profile setup flow.
+  bool get needsPlayerOnboarding => !onboardingCompleted;
+
+  static bool _inferOnboardingCompleted(Map<String, dynamic> map) {
+    final explicit = map['onboardingCompleted'];
+    if (explicit is bool) return explicit;
+    final playerId =
+        map['playerId'] as String? ?? map['cfPlayerId'] as String?;
+    return playerId != null && playerId.isNotEmpty;
+  }
+
   factory UserModel.fromMap(String id, Map<String, dynamic> map) {
     return UserModel(
       id: id,
@@ -161,7 +172,7 @@ class UserModel extends Equatable {
       ),
       favoriteTeam: map['favoriteTeam'] as String? ?? '',
       bio: map['bio'] as String? ?? '',
-      onboardingCompleted: map['onboardingCompleted'] as bool? ?? true,
+      onboardingCompleted: _inferOnboardingCompleted(map),
       playerId: map['playerId'] as String? ?? map['cfPlayerId'] as String?,
       socialStats: PlayerSocialStatsModel.fromMap(
         map['socialStats'] as Map<String, dynamic>?,

@@ -511,7 +511,7 @@ class _OfficialsInfoSection extends StatelessWidget {
           if (onManageOfficials != null) ...[
             const SizedBox(height: AppDimens.spaceSm),
             CfButton(
-              label: 'Manage officials',
+              label: 'View officials',
               isOutlined: true,
               compact: true,
               onPressed: onManageOfficials,

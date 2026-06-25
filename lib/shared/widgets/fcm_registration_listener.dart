@@ -35,6 +35,20 @@ class _FcmRegistrationListenerState
     PushNotificationHandler.instance.handleInitialMessage();
   }
 
+  Future<void> _registerIfReady(String uid) async {
+    final profile = ref.read(currentUserProfileProvider).valueOrNull ??
+        await ref.read(currentUserProfileProvider.future);
+    if (profile == null || profile.needsPlayerOnboarding) return;
+
+    await _ensurePushReady();
+    _attachRouterAndInitialMessage();
+    await ref.read(notificationServiceProvider).registerDevice(uid);
+    if (_listeningForUid != uid) {
+      _listeningForUid = uid;
+      ref.read(notificationServiceProvider).listenForTokenRefresh(uid);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(authStateProvider, (previous, next) async {
@@ -43,21 +57,19 @@ class _FcmRegistrationListenerState
         _listeningForUid = null;
         return;
       }
-      await _ensurePushReady();
-      _attachRouterAndInitialMessage();
-      await ref.read(notificationServiceProvider).registerDevice(uid);
-      if (_listeningForUid != uid) {
-        _listeningForUid = uid;
-        ref.read(notificationServiceProvider).listenForTokenRefresh(uid);
-      }
+      await _registerIfReady(uid);
+    });
+
+    ref.listen(currentUserProfileProvider, (previous, next) async {
+      final uid = ref.read(authStateProvider).value?.uid;
+      if (uid == null) return;
+      await _registerIfReady(uid);
     });
 
     final uid = ref.watch(authStateProvider).value?.uid;
     if (uid != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await _ensurePushReady();
-        _attachRouterAndInitialMessage();
-        await ref.read(notificationServiceProvider).registerDevice(uid);
+        await _registerIfReady(uid);
       });
     }
 

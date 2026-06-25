@@ -29,7 +29,12 @@ class NotificationService {
       final token = await _messaging.getToken();
       if (token == null) return;
 
-      await _firestore.collection(AppConstants.usersCollection).doc(userId).set(
+      final docRef =
+          _firestore.collection(AppConstants.usersCollection).doc(userId);
+      final existing = await docRef.get();
+      if (!existing.exists) return;
+
+      await docRef.set(
         {
           'fcmToken': token,
           'fcmUpdatedAt': DateTime.now().toIso8601String(),
@@ -45,7 +50,12 @@ class NotificationService {
     _messaging.onTokenRefresh.listen((token) async {
       if (userId.isEmpty || token.isEmpty) return;
       try {
-        await _firestore.collection(AppConstants.usersCollection).doc(userId).set(
+        final docRef =
+            _firestore.collection(AppConstants.usersCollection).doc(userId);
+        final existing = await docRef.get();
+        if (!existing.exists) return;
+
+        await docRef.set(
           {
             'fcmToken': token,
             'fcmUpdatedAt': DateTime.now().toIso8601String(),

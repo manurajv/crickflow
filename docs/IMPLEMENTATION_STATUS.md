@@ -678,6 +678,8 @@ See [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md).
 | Auth (Google, Phone, roles) | Done |
 
 | Onboarding + splash routing | Done |
+| New-account login → player onboarding redirect (router waits for profile) | Done |
+| FCM partial user doc race — onboarding skipped for new accounts | Fixed |
 
 | Matches, scoring, undo, innings | Done |
 | Match lifecycle (toss → chase → result, super over) | Done |

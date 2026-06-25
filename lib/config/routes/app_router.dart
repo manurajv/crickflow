@@ -68,6 +68,7 @@ import '../../features/wagon_wheel/presentation/wagon_wheel_view_screen.dart';
 import '../../domain/wagon_wheel/wagon_wheel_filter.dart';
 import '../../core/routing/deep_link_handler.dart';
 import '../../core/utils/deep_link_utils.dart';
+import '../../core/constants/enums.dart';
 import '../../core/utils/match_permissions.dart';
 import '../../core/auth/guest_routes.dart';
 import '../../shared/providers/providers.dart';
@@ -91,9 +92,9 @@ class _RouterExceptionGuard {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final refreshListenable = GoRouterRefreshStream(
-    ref.watch(authRepositoryProvider).authStateChanges,
-  );
+  final refreshListenable = _RouterRefreshNotifier();
+  ref.listen(authStateProvider, (_, _) => refreshListenable.refresh());
+  ref.listen(currentUserProfileProvider, (_, _) => refreshListenable.refresh());
   ref.onDispose(refreshListenable.dispose);
 
   return GoRouter(
@@ -149,28 +150,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/home';
       }
 
-      if (isLoggedIn && isAuthRoute) {
-        final profile = ref.read(currentUserProfileProvider).valueOrNull;
-        if (profile != null && !profile.onboardingCompleted) {
-          return '/player-onboarding';
-        }
-        return '/home';
-      }
+      if (isLoggedIn) {
+        final profileAsync = ref.read(currentUserProfileProvider);
+        if (profileAsync.isLoading || profileAsync.hasError) return null;
 
-      if (isLoggedIn && path != '/player-onboarding') {
-        final profile = ref.read(currentUserProfileProvider).valueOrNull;
-        if (profile != null &&
-            !profile.onboardingCompleted &&
-            GuestRoutes.isProtectedRoute(path)) {
-          return '/player-onboarding';
+        final profile = profileAsync.valueOrNull;
+        if (profile != null && profile.needsPlayerOnboarding) {
+          if (path != '/player-onboarding') return '/player-onboarding';
+          return null;
         }
-      }
 
-      if (isLoggedIn && path == '/match/create') {
-        final profile = ref.read(currentUserProfileProvider).valueOrNull;
-        if (profile != null &&
-            (!profile.onboardingCompleted || !canCreateMatches(profile.role))) {
-          return profile.onboardingCompleted ? '/home' : '/player-onboarding';
+        if (isAuthRoute) {
+          return homeRouteForRole(profile?.role ?? UserRole.organizer);
+        }
+
+        if (path == '/match/create' &&
+            profile != null &&
+            !canCreateMatches(profile.role)) {
+          return '/home';
         }
       }
 
@@ -674,17 +671,6 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-class GoRouterRefreshStream extends ChangeNotifier {
-  GoRouterRefreshStream(Stream<dynamic> stream) {
-    notifyListeners();
-    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
-  }
-
-  late final dynamic _subscription;
-
-  @override
-  void dispose() {
-    _subscription.cancel();
-    super.dispose();
-  }
+class _RouterRefreshNotifier extends ChangeNotifier {
+  void refresh() => notifyListeners();
 }

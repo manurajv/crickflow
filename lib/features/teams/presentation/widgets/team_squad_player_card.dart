@@ -6,9 +6,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../data/models/team_model.dart';
+import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/providers/team_players_provider.dart';
+import '../../../../shared/widgets/player_cluster_text.dart';
 import '../utils/team_squad_utils.dart';
 
 class TeamSquadPlayerCard extends ConsumerWidget {
@@ -33,7 +36,8 @@ class TeamSquadPlayerCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final fullNameAsync = ref.watch(playerSquadFullNameProvider(player));
     final fullName = fullNameAsync.valueOrNull ?? TeamSquadUtils.squadFullName(player);
-    final roleLine = TeamSquadUtils.roleLine(player);
+    final clustersAsync = ref.watch(playerCricketProfileByIdProvider(player.id));
+    final clusters = clustersAsync.valueOrNull?.clusters ?? const PlayerClusters();
     final isOwner = TeamSquadUtils.isPlayerOwner(player, team);
     final isCaptain = TeamSquadUtils.isCaptain(player, team);
     final isVc = TeamSquadUtils.isViceCaptain(player, team);
@@ -81,18 +85,25 @@ class TeamSquadPlayerCard extends ConsumerWidget {
                         const SizedBox(height: 2),
                         _CopyablePlayerId(playerId: playerId),
                       ],
-                      if (roleLine.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          roleLine,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cf.info,
-                            fontSize: 13,
+                      clustersAsync.when(
+                        data: (_) => Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: PlayerClusterText(
+                            clusters: clusters,
+                            showNewPlayerForMissing: true,
+                            fontSize: 11,
                           ),
                         ),
-                      ],
+                        loading: () => const SizedBox.shrink(),
+                        error: (e, st) => Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: PlayerClusterText(
+                            clusters: const PlayerClusters(),
+                            showNewPlayerForMissing: true,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

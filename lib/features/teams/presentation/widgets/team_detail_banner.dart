@@ -82,7 +82,7 @@ class TeamDetailBanner extends StatelessWidget {
                             Icon(
                               Icons.place_outlined,
                               size: 11,
-                              color: cf.textSecondary,
+                              color: Colors.white,
                             ),
                             const SizedBox(width: 3),
                             Expanded(
@@ -90,9 +90,9 @@ class TeamDetailBanner extends StatelessWidget {
                                 team.location.displayLabel,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 11,
-                                  color: cf.textSecondary,
+                                  color: Colors.white,
                                   height: 1.3,
                                 ),
                               ),
@@ -102,9 +102,9 @@ class TeamDetailBanner extends StatelessWidget {
                       if (_memberCount > 0)
                         Text(
                           '$_memberCount ${_memberCount == 1 ? 'player' : 'players'}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
-                            color: cf.textSecondary,
+                            color: Colors.white,
                             height: 1.3,
                           ),
                         ),
