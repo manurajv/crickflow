@@ -6,7 +6,47 @@ import '../../core/theme/cf_colors.dart';
 import '../../core/utils/match_setup_navigation.dart';
 import '../providers/start_match_draft_provider.dart';
 
-export '../../core/utils/match_setup_navigation.dart' show StartMatchFlowStep;
+export '../../core/utils/match_setup_navigation.dart'
+    show StartMatchFlowStep, confirmExitToTournamentDashboard;
+
+/// App bar for start-match wizard screens; adds tournament exit when applicable.
+class StartMatchWizardAppBar extends ConsumerWidget implements PreferredSizeWidget {
+  const StartMatchWizardAppBar({
+    super.key,
+    required this.title,
+    this.tournamentId,
+    this.actions,
+  });
+
+  final Widget title;
+  final String? tournamentId;
+  final List<Widget>? actions;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tid = tournamentId ?? ref.watch(startMatchDraftProvider).tournamentId;
+    final hasTournament = tid != null && tid.isNotEmpty;
+
+    return AppBar(
+      leading: hasTournament
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Back to tournament',
+              onPressed: () => confirmExitToTournamentDashboard(
+                context,
+                ref,
+                tournamentId: tid,
+              ),
+            )
+          : null,
+      title: title,
+      actions: actions,
+    );
+  }
+}
 
 /// Step chip row pinned below the app bar in start-match screens.
 class StartMatchFlowProgress extends ConsumerWidget {

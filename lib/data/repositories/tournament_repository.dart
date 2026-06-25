@@ -16,8 +16,10 @@ import '../../data/models/tournament_match_link.dart';
 import '../../data/models/tournament_model.dart';
 import '../../domain/services/fixture_generator_service.dart';
 import '../../domain/services/points_table_engine_service.dart';
+import '../../domain/services/tournament/tournament_qualification_engine.dart';
 import 'match_repository.dart';
 import 'notification_repository.dart';
+import 'community_repository.dart';
 import 'team_repository.dart';
 import 'tournament_sub_repositories.dart';
 
@@ -32,6 +34,7 @@ class TournamentRepository {
     TournamentMemberRepository? memberRepository,
     TournamentOfficialRepository? officialRepository,
     NotificationRepository? notificationRepository,
+    CommunityRepository? communityRepository,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _matchRepository = matchRepository ?? MatchRepository(),
         _teamRepository = teamRepository ?? TeamRepository(),
@@ -43,6 +46,8 @@ class TournamentRepository {
             officialRepository ?? TournamentOfficialRepository(),
         _notificationRepository =
             notificationRepository ?? NotificationRepository(),
+        _communityRepository =
+            communityRepository ?? CommunityRepository(),
         _uuid = const Uuid();
 
   final FirebaseFirestore _firestore;
@@ -54,6 +59,7 @@ class TournamentRepository {
   final TournamentMemberRepository _memberRepository;
   final TournamentOfficialRepository _officialRepository;
   final NotificationRepository _notificationRepository;
+  final CommunityRepository _communityRepository;
   final Uuid _uuid;
 
   CollectionReference<Map<String, dynamic>> get _col =>
@@ -243,8 +249,15 @@ class TournamentRepository {
   Future<List<({String id, String name})>> _resolveTeams(
     TournamentModel tournament,
   ) async {
+    return _resolveTeamsByIds(tournament, tournament.teamIds);
+  }
+
+  Future<List<({String id, String name})>> _resolveTeamsByIds(
+    TournamentModel tournament,
+    List<String> teamIds,
+  ) async {
     final teams = <({String id, String name})>[];
-    for (final teamId in tournament.teamIds) {
+    for (final teamId in teamIds) {
       final team = await _teamRepository.getTeam(teamId);
       final entry =
           tournament.pointsTable.where((e) => e.teamId == teamId).firstOrNull;
@@ -360,14 +373,18 @@ class TournamentRepository {
     MatchRulesModel? rules,
     String? roundId,
     String? roundName,
+    List<String>? seedTeamIds,
   }) async {
     final tournament = await getTournament(tournamentId);
     if (tournament == null) throw StateError('Tournament not found');
-    if (tournament.teamIds.length < 2) {
+
+    final effectiveIds =
+        seedTeamIds?.where((id) => id.isNotEmpty).toList() ?? tournament.teamIds;
+    if (effectiveIds.length < 2) {
       throw StateError('Add at least 2 teams first');
     }
 
-    final teams = await _resolveTeams(tournament);
+    final teams = await _resolveTeamsByIds(tournament, effectiveIds);
     final matchRules = rules ?? _rulesFor(tournament);
 
     final rawMatches = _fixtureGenerator.buildKnockoutRoundOneMatches(
@@ -432,6 +449,61 @@ class TournamentRepository {
     ));
 
     return matchIds;
+  }
+
+  /// Knockout bracket seeded from group standings (top-N per group).
+  Future<List<String>> generateKnockoutFromQualifiers({
+    required String tournamentId,
+    required String createdBy,
+    String? roundId,
+    String? roundName,
+  }) async {
+    final tournament = await getTournament(tournamentId);
+    if (tournament == null) throw StateError('Tournament not found');
+
+    final groups = await _groupRepository
+        .watchGroups(tournamentId)
+        .first
+        .timeout(const Duration(seconds: 10));
+    if (groups.isEmpty) {
+      throw StateError('Create groups with qualification rules first');
+    }
+
+    final groupTables = await TournamentPointsTableRepository()
+        .watchTables(tournamentId)
+        .first
+        .timeout(const Duration(seconds: 10));
+
+    final matches = await watchTournamentMatches(tournamentId)
+        .first
+        .timeout(const Duration(seconds: 10));
+
+    final engine = TournamentQualificationEngine();
+    final qualified = engine.qualifiedTeams(
+      tournament: tournament,
+      groups: groups,
+      groupTables: groupTables,
+      matches: matches,
+    );
+
+    if (qualified.length < 2) {
+      throw StateError(
+        'Need at least 2 qualified teams. Complete group matches or adjust qualification counts.',
+      );
+    }
+
+    final seedIds = <String>[];
+    for (final q in qualified) {
+      if (!seedIds.contains(q.teamId)) seedIds.add(q.teamId);
+    }
+
+    return generateKnockoutBracket(
+      tournamentId: tournamentId,
+      createdBy: createdBy,
+      roundId: roundId,
+      roundName: roundName ?? 'Knockout',
+      seedTeamIds: seedIds,
+    );
   }
 
   Future<TournamentRoundModel> ensureDefaultRound({
@@ -612,7 +684,7 @@ class TournamentRepository {
   }
 
   /// Removes a scheduled/upcoming tournament match from Firestore and the
-  /// tournament's `matchIds` list.
+  /// tournament's `matchIds` list. Clears bracket slots that referenced the match.
   Future<void> deleteTournamentMatch({
     required String tournamentId,
     required String matchId,
@@ -627,12 +699,59 @@ class TournamentRepository {
 
     final tournament = await getTournament(tournamentId);
     if (tournament != null) {
+      final prunedBracket =
+          _pruneBracketAfterMatchDelete(tournament.bracketRounds, matchId);
       await updateTournament(
         tournament.copyWith(
           matchIds: tournament.matchIds.where((id) => id != matchId).toList(),
+          bracketRounds: prunedBracket,
         ),
       );
     }
+  }
+
+  /// Drops deleted match references from knockout bracket data.
+  List<List<BracketSlotModel>> _pruneBracketAfterMatchDelete(
+    List<List<BracketSlotModel>> rounds,
+    String deletedMatchId,
+  ) {
+    if (rounds.isEmpty) return const [];
+
+    var anyMatchLinked = false;
+    final updated = rounds.asMap().entries.map((entry) {
+      final roundIndex = entry.key;
+      final round = entry.value;
+      return round.map((slot) {
+        if (slot.matchId != deletedMatchId) {
+          if (slot.matchId != null && slot.matchId!.isNotEmpty) {
+            anyMatchLinked = true;
+          }
+          return slot;
+        }
+
+        if (roundIndex == 0) {
+          return BracketSlotModel(
+            teamAId: slot.teamAId,
+            teamBId: slot.teamBId,
+            teamAName: slot.teamAName,
+            teamBName: slot.teamBName,
+          );
+        }
+
+        final isTbd =
+            slot.teamAName == 'TBD' && slot.teamBName == 'TBD';
+        if (isTbd) return const BracketSlotModel(teamAName: 'TBD', teamBName: 'TBD');
+
+        return BracketSlotModel(
+          teamAId: slot.teamAId,
+          teamBId: slot.teamBId,
+          teamAName: slot.teamAName,
+          teamBName: slot.teamBName,
+        );
+      }).toList();
+    }).toList();
+
+    return anyMatchLinked ? updated : const [];
   }
 
   bool _isDeletableUpcomingMatch(MatchStatus status) =>
@@ -890,6 +1009,92 @@ class TournamentRepository {
       );
     } catch (_) {
       // Notifications are best-effort after the tournament is locked.
+    }
+  }
+
+  /// Permanently removes a tournament and all linked data.
+  Future<void> deleteTournament({
+    required String tournamentId,
+    required String requestingUserId,
+  }) async {
+    final tournament = await getTournament(tournamentId);
+    if (tournament == null) throw StateError('Tournament not found');
+    if (tournament.effectiveOrganizerId != requestingUserId) {
+      throw StateError('Only the tournament owner can delete it');
+    }
+
+    final matchIds = {...tournament.matchIds};
+    final linkedMatches = await _firestore
+        .collection(AppConstants.matchesCollection)
+        .where('tournamentId', isEqualTo: tournamentId)
+        .get();
+    for (final doc in linkedMatches.docs) {
+      matchIds.add(doc.id);
+    }
+    for (final matchId in matchIds) {
+      try {
+        await _matchRepository.deleteMatch(matchId);
+      } catch (_) {
+        // Continue removing other tournament data.
+      }
+    }
+
+    await _deleteDocsWhere(
+      AppConstants.tournamentGroupsCollection,
+      tournamentId,
+    );
+    await _deleteDocsWhere(
+      AppConstants.tournamentRoundsCollection,
+      tournamentId,
+    );
+    await _deleteDocsWhere(
+      AppConstants.tournamentPointsTablesCollection,
+      tournamentId,
+    );
+    await _deleteDocsWhere(
+      AppConstants.tournamentOfficialsCollection,
+      tournamentId,
+    );
+    await _deleteDocsWhere(
+      AppConstants.tournamentSponsorsCollection,
+      tournamentId,
+    );
+    await _deleteDocsWhere(
+      AppConstants.tournamentMembersCollection,
+      tournamentId,
+    );
+    await _deleteDocsWhere(
+      AppConstants.tournamentTeamRequestsCollection,
+      tournamentId,
+    );
+
+    await _firestore
+        .collection(AppConstants.tournamentRulesCollection)
+        .doc(tournamentId)
+        .delete()
+        .catchError((_) {});
+    await _firestore
+        .collection('tournament_analytics')
+        .doc(tournamentId)
+        .delete()
+        .catchError((_) {});
+
+    await _communityRepository.deletePostsForTournament(
+      tournamentId,
+      authorId: requestingUserId,
+      tournamentName: tournament.name,
+    );
+
+    await _col.doc(tournamentId).delete();
+  }
+
+  Future<void> _deleteDocsWhere(String collection, String tournamentId) async {
+    final snap = await _firestore
+        .collection(collection)
+        .where('tournamentId', isEqualTo: tournamentId)
+        .get();
+    for (final doc in snap.docs) {
+      await doc.reference.delete();
     }
   }
 }

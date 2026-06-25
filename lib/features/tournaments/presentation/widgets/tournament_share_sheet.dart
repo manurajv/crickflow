@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/deep_link_utils.dart';
 import '../../../../data/models/tournament_model.dart';
 import '../../../../shared/widgets/cf_button.dart';
+
+void showTournamentShareSheet(
+  BuildContext context, {
+  required TournamentModel tournament,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    useRootNavigator: true,
+    useSafeArea: true,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => TournamentShareSheet(tournament: tournament),
+  );
+}
 
 class TournamentShareSheet extends StatelessWidget {
   const TournamentShareSheet({super.key, required this.tournament});
@@ -17,7 +32,12 @@ class TournamentShareSheet extends StatelessWidget {
     final code = tournament.tournamentCode?.trim();
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spaceMd,
+        0,
+        AppDimens.spaceMd,
+        AppDimens.spaceMd,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

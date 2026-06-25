@@ -12,6 +12,7 @@ class CommunityPostModel extends Equatable {
     this.category = CommunityPostCategory.general,
     this.authorRole = '',
     this.location = const LocationModel(),
+    this.tournamentId,
     this.createdAt,
     this.updatedAt,
   });
@@ -24,6 +25,7 @@ class CommunityPostModel extends Equatable {
   final String title;
   final String body;
   final LocationModel location;
+  final String? tournamentId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -37,6 +39,7 @@ class CommunityPostModel extends Equatable {
       title: map['title'] as String? ?? '',
       body: map['body'] as String? ?? '',
       location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
+      tournamentId: map['tournamentId'] as String?,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
       updatedAt: DateTime.tryParse(map['updatedAt']?.toString() ?? ''),
     );
@@ -50,6 +53,8 @@ class CommunityPostModel extends Equatable {
         'title': title,
         'body': body,
         'location': location.toMap(),
+        if (tournamentId != null && tournamentId!.isNotEmpty)
+          'tournamentId': tournamentId,
         'createdAt': createdAt?.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
       };

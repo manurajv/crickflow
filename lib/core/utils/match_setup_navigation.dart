@@ -55,7 +55,7 @@ Future<void> hydrateStartMatchDraftFromMatch(
     if (assignService.shouldAutoFill(draft.setup)) {
       final officials = await ref
           .read(tournamentOfficialRepositoryProvider)
-          .getOfficials(tournamentId);
+          .getActiveOfficials(tournamentId);
       if (officials.isNotEmpty) {
         final updated =
             assignService.applyTournamentOfficials(draft.setup, officials);
@@ -173,12 +173,19 @@ void navigateToStartMatchStep(
 }
 
 /// First incomplete wizard route for a scheduled match.
-String resolveMatchSetupRoute(MatchModel match) {
+String resolveMatchSetupRoute(
+  MatchModel match, {
+  bool forceSetupStep = false,
+}) {
   final setup = match.setup ?? const MatchSetupData();
   final playersPerTeam = match.rules.playersPerTeam;
 
   if (match.status == MatchStatus.tossCompleted) {
     return '/match/${match.id}/start-innings';
+  }
+
+  if (forceSetupStep && MatchLifecycle.isUpcoming(match)) {
+    return '/match/create?matchId=${match.id}&step=setup';
   }
 
   if (setup.tossReady) {
@@ -213,6 +220,7 @@ Future<void> openMatchSetupFlow(
   BuildContext context, {
   required WidgetRef ref,
   required MatchModel match,
+  bool forceSetupStep = false,
 }) async {
   if (match.status == MatchStatus.tossCompleted) {
     if (context.mounted) {
@@ -248,5 +256,46 @@ Future<void> openMatchSetupFlow(
   }
 
   if (!context.mounted) return;
-  context.push(resolveMatchSetupRoute(match));
+  context.push(resolveMatchSetupRoute(match, forceSetupStep: forceSetupStep));
+}
+
+/// Returns to the tournament dashboard from the start-match wizard.
+Future<void> confirmExitToTournamentDashboard(
+  BuildContext context,
+  WidgetRef ref, {
+  String? tournamentId,
+}) async {
+  final tid = (tournamentId ?? ref.read(startMatchDraftProvider).tournamentId)
+      ?.trim();
+  if (tid == null || tid.isEmpty) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/matches');
+    }
+    return;
+  }
+
+  final leave = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Leave match setup?'),
+      content: const Text(
+        'Your progress is saved on this match. You can continue setup later from the tournament.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Stay'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Back to tournament'),
+        ),
+      ],
+    ),
+  );
+  if (leave == true && context.mounted) {
+    context.go('/tournaments/$tid');
+  }
 }

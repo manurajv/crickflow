@@ -6,12 +6,12 @@ import '../../../../../data/models/team_model.dart';
 import '../../../../../data/models/tournament/tournament_team_request_model.dart';
 import '../../../../teams/presentation/widgets/team_list_tile.dart';
 
-class TournamentTeamCard extends StatelessWidget {  const TournamentTeamCard({
+class TournamentTeamCard extends StatelessWidget {
+  const TournamentTeamCard({
     super.key,
     required this.team,
     required this.displayStatus,
     this.captainLabel,
-    this.playerCount,
     this.trailing,
     this.onTap,
   });
@@ -19,7 +19,6 @@ class TournamentTeamCard extends StatelessWidget {  const TournamentTeamCard({
   final TeamModel team;
   final TournamentTeamDisplayStatus displayStatus;
   final String? captainLabel;
-  final int? playerCount;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -61,12 +60,11 @@ class TournamentTeamCard extends StatelessWidget {  const TournamentTeamCard({
                               color: cf.textSecondary,
                             ),
                       ),
-                    ],
-                    if (playerCount != null) ...[
+                    ] else if (team.captainId == null || team.captainId!.isEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
-                        '$playerCount players',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        'Captain · Not assigned',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: cf.textMuted,
                             ),
                       ),

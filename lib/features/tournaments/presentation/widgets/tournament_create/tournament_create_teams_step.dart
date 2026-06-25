@@ -203,6 +203,19 @@ class _TournamentCreateTeamsStepState
               onTap: () =>
                   _patch((d) => d.copyWith(format: TournamentFormat.knockout)),
             ),
+            TournamentChoiceChip(
+              label: 'LEAGUE + KO',
+              selected: widget.draft.format == TournamentFormat.leagueKnockout,
+              onTap: () => _patch(
+                (d) => d.copyWith(format: TournamentFormat.leagueKnockout),
+              ),
+            ),
+            TournamentChoiceChip(
+              label: 'CUSTOM',
+              selected: widget.draft.format == TournamentFormat.custom,
+              onTap: () =>
+                  _patch((d) => d.copyWith(format: TournamentFormat.custom)),
+            ),
           ],
         ),
         const SizedBox(height: AppDimens.spaceMd),

@@ -15,6 +15,8 @@ import 'tournament_teams_screen.dart';
 import 'tournament_matches_screen.dart';
 import 'tournament_groups_screen.dart';
 import 'tabs/tournament_dashboard_tabs.dart';
+import 'tabs/tournament_officials_tab.dart';
+import 'tabs/tournament_stats_tab.dart';
 import 'tabs/tournament_heroes_tab.dart';
 import 'tabs/tournament_leaderboard_tab.dart';
 import 'tournament_dashboard_sections.dart';
@@ -175,10 +177,9 @@ class _TournamentDashboardScreenState
                     IconButton(
                       tooltip: 'Share',
                       icon: Icon(Icons.share_outlined, color: overlayFg),
-                      onPressed: () => showModalBottomSheet(
-                        context: context,
-                        builder: (_) =>
-                            TournamentShareSheet(tournament: tournament),
+                      onPressed: () => showTournamentShareSheet(
+                        context,
+                        tournament: tournament,
                       ),
                     ),
                     if (role == TournamentRole.owner ||

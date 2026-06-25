@@ -96,10 +96,18 @@ class TournamentHeroRankingEngine {
   TournamentHeroesSnapshot build({
     required List<MatchModel> matches,
     required Map<String, List<BallEventModel>> eventsByMatch,
+    String? groupId,
+    String? roundId,
+    bool leagueStageOnly = false,
+    bool knockoutStageOnly = false,
   }) {
     final agg = _statsEngine.aggregate(
       matches: matches,
       eventsByMatch: eventsByMatch,
+      groupId: groupId,
+      roundId: roundId,
+      leagueStageOnly: leagueStageOnly,
+      knockoutStageOnly: knockoutStageOnly,
     );
     final players = agg.players.values.toList();
     if (players.isEmpty) {

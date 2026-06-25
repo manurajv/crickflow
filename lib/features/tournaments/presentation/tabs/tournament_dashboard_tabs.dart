@@ -6,7 +6,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/venue_maps_utils.dart';
-import '../../../../data/models/tournament/tournament_official_model.dart';
 import '../../../../data/models/tournament/tournament_rules_model.dart';
 import '../../../../data/models/tournament/tournament_sponsor_model.dart';
 import '../../../../data/models/tournament_model.dart';
@@ -16,7 +15,11 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/match_scoring_rules_form.dart';
+import '../widgets/points/tournament_points_table_view.dart';
+import '../utils/tournament_display_utils.dart';
 import '../widgets/tournament_completion_sheet.dart';
+import '../widgets/tournament_delete_sheet.dart';
+import '../widgets/tournament_share_sheet.dart';
 
 export 'tournament_fixtures_tab.dart';
 
@@ -35,13 +38,16 @@ class TournamentPointsTab extends ConsumerWidget {
       data: (groupTables) {
         if (groupTables.isNotEmpty) {
           return ListView(
+            padding: AppDimens.screenPadding,
             children: groupTables
-                .map((table) => _PointsTableSection(
-                      title: table.groupName.isEmpty
-                          ? 'Points table'
-                          : table.groupName,
-                      entries: table.entries,
-                    ))
+                .map(
+                  (table) => TournamentPointsTableView(
+                    title: table.groupName.isEmpty
+                        ? 'Points table'
+                        : table.groupName,
+                    entries: table.entries,
+                  ),
+                )
                 .toList(),
           );
         }
@@ -59,166 +65,26 @@ class TournamentPointsTab extends ConsumerWidget {
           );
         }
 
-        return _PointsTableSection(
-          title: 'Overall standings',
-          entries: entries,
+        return ListView(
+          padding: AppDimens.screenPadding,
+          children: [
+            TournamentPointsTableView(
+              title: 'Overall standings',
+              entries: entries,
+              trailing: Text(
+                '${entries.length} teams',
+                style: TextStyle(
+                  color: context.cf.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
     );
-  }
-}
-
-class _PointsTableSection extends StatelessWidget {
-  const _PointsTableSection({required this.title, required this.entries});
-
-  final String title;
-  final List<PointsTableEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    final cf = context.cf;
-    if (entries.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: AppDimens.screenPadding,
-          child: const Text('Points table will populate after matches'),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: AppDimens.screenPadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppDimens.spaceSm),
-          Card(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-              headingTextStyle: TextStyle(
-                color: cf.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-              columns: const [
-                DataColumn(label: Text('#')),
-                DataColumn(label: Text('Team')),
-                DataColumn(label: Text('P')),
-                DataColumn(label: Text('W')),
-                DataColumn(label: Text('L')),
-                DataColumn(label: Text('T')),
-                DataColumn(label: Text('NR')),
-                DataColumn(label: Text('Pts')),
-                DataColumn(label: Text('NRR')),
-                DataColumn(label: Text('RF')),
-                DataColumn(label: Text('OF')),
-                DataColumn(label: Text('RA')),
-                DataColumn(label: Text('OB')),
-              ],
-              rows: entries.map((e) {
-                return DataRow(cells: [
-                  DataCell(Text('${e.position == 0 ? '—' : e.position}')),
-                  DataCell(Text(e.teamName)),
-                  DataCell(Text('${e.played}')),
-                  DataCell(Text('${e.won}')),
-                  DataCell(Text('${e.lost}')),
-                  DataCell(Text('${e.tied}')),
-                  DataCell(Text('${e.noResult}')),
-                  DataCell(Text('${e.points}')),
-                  DataCell(Text(e.netRunRate.toStringAsFixed(3))),
-                  DataCell(Text('${e.runsFor}')),
-                  DataCell(Text(e.oversFaced.toStringAsFixed(1))),
-                  DataCell(Text('${e.runsAgainst}')),
-                  DataCell(Text(e.oversBowled.toStringAsFixed(1))),
-                ]);
-              }).toList(),
-            ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class TournamentOfficialsTab extends ConsumerWidget {
-  const TournamentOfficialsTab({
-    super.key,
-    required this.tournamentId,
-    required this.role,
-  });
-
-  final String tournamentId;
-  final TournamentRole role;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final officialsAsync = ref.watch(tournamentOfficialsProvider(tournamentId));
-    final canManage =
-        ref.watch(tournamentPermissionServiceProvider).canManageOfficials(role);
-
-    return officialsAsync.when(
-      data: (list) => ListView(
-        padding: AppDimens.screenPadding,
-        children: [
-          if (canManage)
-            CfButton(
-              label: 'Add official',
-              isGold: true,
-              onPressed: () => _addOfficial(context, ref),
-            ),
-          if (list.isEmpty)
-            const Center(child: Text('No officials assigned'))
-          else
-            ...list.map(
-              (o) => ListTile(
-                leading: Icon(_roleIcon(o.role)),
-                title: Text(o.displayName.isEmpty ? o.userId : o.displayName),
-                subtitle: Text('${o.role.name}${o.phone.isNotEmpty ? ' · ${o.phone}' : ''}'),
-                trailing: canManage
-                    ? IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => ref
-                            .read(tournamentOfficialRepositoryProvider)
-                            .removeOfficial(o.id),
-                      )
-                    : null,
-              ),
-            ),
-        ],
-      ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
-    );
-  }
-
-  IconData _roleIcon(TournamentOfficialRole role) => switch (role) {
-        TournamentOfficialRole.scorer => Icons.scoreboard,
-        TournamentOfficialRole.umpire => Icons.sports,
-        TournamentOfficialRole.commentator => Icons.mic,
-        TournamentOfficialRole.streamer => Icons.videocam,
-        TournamentOfficialRole.photographer => Icons.camera_alt,
-        TournamentOfficialRole.videographer => Icons.movie,
-      };
-
-  Future<void> _addOfficial(BuildContext context, WidgetRef ref) async {
-    final uid = ref.read(authStateProvider).value?.uid;
-    if (uid == null) return;
-    final profile = ref.read(currentUserProfileProvider).valueOrNull;
-
-    await ref.read(tournamentOfficialRepositoryProvider).addOfficial(
-          TournamentOfficialModel(
-            id: '',
-            tournamentId: tournamentId,
-            userId: uid,
-            role: TournamentOfficialRole.scorer,
-            displayName: profile?.displayName ?? '',
-          ),
-        );
   }
 }
 
@@ -398,89 +264,6 @@ class _TournamentRulesTabState extends ConsumerState<TournamentRulesTab> {
   }
 }
 
-class TournamentStatsTab extends ConsumerWidget {
-  const TournamentStatsTab({super.key, required this.tournamentId});
-
-  final String tournamentId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tournament = ref.watch(tournamentProvider(tournamentId)).valueOrNull;
-    final matches =
-        ref.watch(tournamentMatchesProvider(tournamentId)).valueOrNull ?? [];
-    final heroesAsync = ref.watch(tournamentHeroesProvider(tournamentId));
-    if (tournament == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final stats = ref.watch(tournamentStatisticsServiceProvider).compute(
-          tournament: tournament,
-          matches: matches,
-        );
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(tournamentBallEventsProvider(tournamentId));
-        ref.invalidate(tournamentHeroesProvider(tournamentId));
-      },
-      child: ListView(
-        padding: AppDimens.screenPadding,
-        children: [
-          _SectionCard(
-            title: 'Match summary',
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _StatChip(label: 'Total', value: '${stats.totalMatches}'),
-                _StatChip(label: 'Completed', value: '${stats.completedMatches}'),
-                _StatChip(label: 'Live', value: '${stats.liveMatches}'),
-                _StatChip(label: 'Teams', value: '${tournament.teamIds.length}'),
-              ],
-            ),
-          ),
-          _SectionCard(
-            title: 'Run aggregate',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DetailRow(label: 'Total runs', value: '${stats.totalRuns}'),
-                _DetailRow(label: 'Total wickets', value: '${stats.totalWickets}'),
-                _DetailRow(
-                  label: 'Highest team score',
-                  value: '${stats.highestTeamScore}',
-                ),
-              ],
-            ),
-          ),
-          heroesAsync.when(
-            data: (heroes) {
-              if (!heroes.hasData) return const SizedBox.shrink();
-              return _SectionCard(
-                title: 'Top performers',
-                child: Column(
-                  children: [
-                    for (final h in heroes.heroes.take(5))
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(h.playerName),
-                        subtitle: Text(h.award.title),
-                        trailing: Text(h.valueLabel),
-                      ),
-                  ],
-                ),
-              );
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class TournamentSettingsTab extends ConsumerWidget {
   const TournamentSettingsTab({
     super.key,
@@ -493,86 +276,382 @@ class TournamentSettingsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
     final canEdit =
         ref.watch(tournamentPermissionServiceProvider).canEditSettings(role);
+    final isOwner = role == TournamentRole.owner;
+    final isCompleted = tournament.status == TournamentStatus.completed;
 
     return ListView(
       padding: AppDimens.screenPadding,
       children: [
-        if (tournament.status == TournamentStatus.completed &&
-            tournament.championTeamName != null)
-          Card(
-            color: context.cf.accent.withValues(alpha: 0.08),
-            child: ListTile(
-              leading: Icon(Icons.emoji_events, color: context.cf.accent),
-              title: const Text('Champion'),
-              subtitle: Text(tournament.championTeamName!),
+        _SettingsSummaryCard(tournament: tournament),
+        if (isCompleted && tournament.championTeamName != null) ...[
+          const SizedBox(height: AppDimens.spaceMd),
+          _ChampionBanner(
+            championName: tournament.championTeamName!,
+            runnerUp: tournament.runnerUpTeamName,
+          ),
+        ],
+        const SizedBox(height: AppDimens.spaceLg),
+        _SettingsSection(
+          title: 'General',
+          children: [
+            _SettingsTile(
+              icon: Icons.edit_outlined,
+              iconColor: cf.accent,
+              title: 'Edit tournament',
+              subtitle: tournament.isLocked
+                  ? 'Logo, cover & description'
+                  : 'Name, description, logo & cover',
+              enabled: canEdit,
+              onTap: canEdit
+                  ? () => context.push('/tournaments/${tournament.id}/edit')
+                  : null,
             ),
-          ),
-        _SettingsSection(title: 'General', children: [
-          ListTile(
-            leading: const Icon(Icons.edit_outlined),
-            title: const Text('Edit tournament'),
-            enabled: canEdit && !tournament.isLocked,
-            onTap: canEdit && !tournament.isLocked
-                ? () => context.push('/tournaments/${tournament.id}/edit')
-                : null,
-          ),
-          ListTile(
-            leading: const Icon(Icons.share_outlined),
-            title: const Text('Share & invite'),
-            onTap: () {},
-          ),
-        ]),
-        _SettingsSection(title: 'Competition', children: [
-          ListTile(
-            leading: const Icon(Icons.table_chart_outlined),
-            title: const Text('Points rules'),
-            subtitle: Text(
-              'Win ${tournament.defaultRules.pointsPerWin} · '
-              'Tie ${tournament.defaultRules.pointsPerTie} · '
-              'NR ${tournament.defaultRules.pointsPerNoResult}',
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.groups_outlined),
-            title: const Text('Groups & qualification'),
-            subtitle: const Text('Configure in Groups tab'),
-          ),
-        ]),
-        _SettingsSection(title: 'Access', children: [
-          ListTile(
-            leading: const Icon(Icons.admin_panel_settings_outlined),
-            title: const Text('Manage access'),
-            subtitle: Text('Your role: ${role.name}'),
-            enabled: canEdit,
-          ),
-        ]),
-        if (canEdit && !tournament.isLocked)
-          _SettingsSection(title: 'Completion', children: [
-            ListTile(
-              leading: Icon(Icons.flag_outlined, color: context.cf.accent),
-              title: const Text('Finish tournament'),
-              subtitle: const Text('Select champion, awards, and lock editing'),
-              onTap: () => showTournamentCompletionSheet(
+            _SettingsTile(
+              icon: Icons.share_outlined,
+              iconColor: cf.accent,
+              title: 'Share & invite',
+              subtitle: tournament.tournamentCode != null
+                  ? 'Code ${tournament.tournamentCode}'
+                  : 'Invite link and tournament code',
+              onTap: () => showTournamentShareSheet(
                 context,
-                ref,
                 tournament: tournament,
               ),
             ),
-          ]),
-        if (role == TournamentRole.owner && !tournament.isLocked)
-          _SettingsSection(title: 'Danger zone', children: [
-            ListTile(
-              leading: Icon(Icons.delete_outline, color: context.cf.error),
-              title: Text(
-                'Delete tournament',
-                style: TextStyle(color: context.cf.error),
-              ),
-              onTap: () {},
+          ],
+        ),
+        _SettingsSection(
+          title: 'Competition',
+          children: [
+            _SettingsTile(
+              icon: Icons.table_chart_outlined,
+              iconColor: cf.accent,
+              title: 'Points rules',
+              subtitle:
+                  'Win ${tournament.defaultRules.pointsPerWin} · '
+                  'Tie ${tournament.defaultRules.pointsPerTie} · '
+                  'NR ${tournament.defaultRules.pointsPerNoResult}',
+              showChevron: false,
             ),
-          ]),
+            _SettingsTile(
+              icon: Icons.groups_outlined,
+              iconColor: cf.accent,
+              title: 'Groups & qualification',
+              subtitle: 'Configure in the Groups tab',
+              showChevron: false,
+            ),
+          ],
+        ),
+        _SettingsSection(
+          title: 'Access',
+          children: [
+            _SettingsTile(
+              icon: Icons.admin_panel_settings_outlined,
+              iconColor: cf.accent,
+              title: 'Your access',
+              subtitle: tournamentRoleLabel(role),
+              showChevron: false,
+            ),
+          ],
+        ),
+        if (canEdit && !tournament.isLocked)
+          _SettingsSection(
+            title: 'Completion',
+            children: [
+              _SettingsTile(
+                icon: Icons.flag_outlined,
+                iconColor: cf.accent,
+                title: 'Finish tournament',
+                subtitle: 'Select champion, awards, and lock editing',
+                onTap: () => showTournamentCompletionSheet(
+                  context,
+                  ref,
+                  tournament: tournament,
+                ),
+              ),
+            ],
+          ),
+        if (isOwner && !tournament.isLocked)
+          _SettingsSection(
+            title: 'Danger zone',
+            children: [
+              _SettingsTile(
+                icon: Icons.delete_outline,
+                iconColor: cf.error,
+                title: 'Delete tournament',
+                subtitle: 'Removes all data and community posts',
+                titleColor: cf.error,
+                onTap: () => showTournamentDeleteSheet(
+                  context: context,
+                  ref: ref,
+                  tournament: tournament,
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: AppDimens.spaceXl),
       ],
+    );
+  }
+}
+
+class _SettingsSummaryCard extends StatelessWidget {
+  const _SettingsSummaryCard({required this.tournament});
+
+  final TournamentModel tournament;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    final status = tournamentStatusLabel(tournament.status);
+
+    return Container(
+      padding: AppDimens.cardPadding,
+      decoration: BoxDecoration(
+        color: cf.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cf.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cf.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: cf.accent,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              if (tournament.isLocked) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.lock_outline, size: 16, color: cf.textMuted),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          Text(
+            tournament.name,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          if (tournament.location.displayLabel.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              tournament.location.displayLabel,
+              style: TextStyle(color: cf.textSecondary, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: AppDimens.spaceMd),
+          Row(
+            children: [
+              _SummaryStat(
+                label: 'Teams',
+                value: '${tournament.teamIds.length}',
+              ),
+              const SizedBox(width: AppDimens.spaceMd),
+              _SummaryStat(
+                label: 'Matches',
+                value: '${tournament.matchIds.length}',
+              ),
+              const SizedBox(width: AppDimens.spaceMd),
+              _SummaryStat(
+                label: 'Format',
+                value: tournamentFormatLabel(tournament.format),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryStat extends StatelessWidget {
+  const _SummaryStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: cf.sectionBackground,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            ),
+            Text(
+              label,
+              style: TextStyle(color: cf.textMuted, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChampionBanner extends StatelessWidget {
+  const _ChampionBanner({
+    required this.championName,
+    this.runnerUp,
+  });
+
+  final String championName;
+  final String? runnerUp;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Container(
+      padding: AppDimens.cardPadding,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            cf.accent.withValues(alpha: 0.18),
+            cf.accent.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cf.accent.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.emoji_events, color: cf.accent, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Champion',
+                  style: TextStyle(
+                    color: cf.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  championName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+                if (runnerUp != null && runnerUp!.isNotEmpty)
+                  Text(
+                    'Runner-up: $runnerUp',
+                    style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+    this.enabled = true,
+    this.showChevron = true,
+    this.titleColor,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final bool enabled;
+  final bool showChevron;
+  final Color? titleColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spaceMd,
+            vertical: AppDimens.spaceSm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: enabled
+                            ? (titleColor ?? cf.textPrimary)
+                            : cf.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: cf.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (showChevron && enabled && onTap != null)
+                Icon(Icons.chevron_right, color: cf.textMuted, size: 20),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -598,7 +677,15 @@ class _SettingsSection extends StatelessWidget {
           ),
         ),
         Card(
-          child: Column(children: children),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) Divider(height: 1, color: context.cf.border),
+                children[i],
+              ],
+            ],
+          ),
         ),
       ],
     );

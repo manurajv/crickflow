@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/enums.dart';
 import '../../data/models/tournament/tournament_group_model.dart';
 import '../../data/models/tournament/tournament_member_model.dart';
 import '../../data/models/tournament/tournament_official_model.dart';
@@ -163,6 +164,19 @@ class TournamentOfficialRepository {
     await _col.doc(id).delete();
   }
 
+  Future<void> updateStatus(String id, TournamentOfficialStatus status) async {
+    await _col.doc(id).update({
+      'status': status.name,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<TournamentOfficialModel?> getOfficial(String id) async {
+    final doc = await _col.doc(id).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return TournamentOfficialModel.fromMap(id, doc.data()!);
+  }
+
   Stream<List<TournamentOfficialModel>> watchOfficials(String tournamentId) {
     return _col
         .where('tournamentId', isEqualTo: tournamentId)
@@ -178,6 +192,13 @@ class TournamentOfficialRepository {
     return snap.docs
         .map((d) => TournamentOfficialModel.fromMap(d.id, d.data()))
         .toList();
+  }
+
+  Future<List<TournamentOfficialModel>> getActiveOfficials(
+    String tournamentId,
+  ) async {
+    final all = await getOfficials(tournamentId);
+    return all.where((o) => o.isActive).toList();
   }
 }
 

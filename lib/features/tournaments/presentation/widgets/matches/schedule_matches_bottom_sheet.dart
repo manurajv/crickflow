@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/tournament_model.dart';
+import '../../utils/tournament_display_utils.dart';
 import 'auto_fixture_sheet.dart';
 import 'manual_match_schedule_sheet.dart';
 
@@ -61,7 +62,8 @@ class _ScheduleMatchesSheet extends StatelessWidget {
           ),
           const SizedBox(height: AppDimens.spaceSm),
           Text(
-            'Create fixtures manually or generate them from your tournament format.',
+            'Format: ${tournamentFormatLabel(tournament.format)}. '
+            'Auto-generate uses this format by default.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: cf.textSecondary,
                 ),

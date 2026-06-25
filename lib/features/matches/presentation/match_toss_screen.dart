@@ -240,7 +240,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
 
     if (!setup.squadsReady) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Toss')),
+        appBar: StartMatchWizardAppBar(title: const Text('Toss')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -259,7 +259,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
 
     if (!setup.rolesReady) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Toss')),
+        appBar: StartMatchWizardAppBar(title: const Text('Toss')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -278,7 +278,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
 
     return Scaffold(
       backgroundColor: cf.background,
-      appBar: AppBar(
+      appBar: StartMatchWizardAppBar(
         title: const Text('Toss'),
         actions: [
           IconButton(

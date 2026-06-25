@@ -12,6 +12,8 @@ import '../../data/models/tournament/tournament_sponsor_model.dart';
 import '../../data/models/tournament_model.dart';
 import '../../domain/services/tournament_activity_service.dart';
 import '../../domain/services/points_table_engine_service.dart';
+import '../../domain/services/tournament/tournament_official_invite_service.dart';
+import '../../domain/services/tournament/tournament_qualification_engine.dart';
 import '../../domain/services/tournament_permission_service.dart';
 import '../../domain/services/tournament_statistics_service.dart';
 import '../../data/repositories/tournament_sub_repositories.dart';
@@ -64,7 +66,7 @@ final tournamentOverviewStatsProvider =
   for (final role in TournamentOfficialRole.values) {
     officialsByRole[role] = 0;
   }
-  for (final official in officials) {
+  for (final official in officials.where((o) => o.isActive)) {
     officialsByRole[official.role] = (officialsByRole[official.role] ?? 0) + 1;
   }
 
@@ -73,7 +75,7 @@ final tournamentOverviewStatsProvider =
     matchCount:
         matches.isNotEmpty ? matches.length : tournament?.matchIds.length ?? 0,
     groupCount: groups.length,
-    officialCount: officials.length,
+    officialCount: officials.where((o) => o.isActive).length,
     sponsorCount: sponsors.length,
     officialsByRole: officialsByRole,
   );
@@ -105,6 +107,12 @@ final tournamentMemberRepositoryProvider =
     Provider((ref) => TournamentMemberRepository());
 final tournamentOfficialRepositoryProvider =
     Provider((ref) => TournamentOfficialRepository());
+
+final tournamentOfficialInviteServiceProvider =
+    Provider((ref) => TournamentOfficialInviteService(
+          officialRepository: ref.watch(tournamentOfficialRepositoryProvider),
+          notificationRepository: ref.watch(notificationRepositoryProvider),
+        ));
 final tournamentSponsorRepositoryProvider =
     Provider((ref) => TournamentSponsorRepository());
 final tournamentRulesRepositoryProvider =
@@ -167,6 +175,31 @@ final tournamentRulesProvider =
 final tournamentPointsTablesProvider =
     StreamProvider.family<List<TournamentPointsTableModel>, String>((ref, id) {
   return ref.watch(tournamentPointsTableRepositoryProvider).watchTables(id);
+});
+
+final tournamentQualificationEngineProvider =
+    Provider((ref) => TournamentQualificationEngine());
+
+final tournamentQualifiedTeamsProvider =
+    Provider.family<List<QualifiedTeam>, String>((ref, tournamentId) {
+  final tournament = ref.watch(tournamentProvider(tournamentId)).valueOrNull;
+  if (tournament == null) return [];
+
+  final groups =
+      ref.watch(tournamentGroupsProvider(tournamentId)).valueOrNull ?? [];
+  if (groups.every((g) => g.qualificationCount <= 0)) return [];
+
+  final groupTables =
+      ref.watch(tournamentPointsTablesProvider(tournamentId)).valueOrNull ?? [];
+  final matches =
+      ref.watch(tournamentMatchesProvider(tournamentId)).valueOrNull ?? [];
+
+  return ref.watch(tournamentQualificationEngineProvider).qualifiedTeams(
+        tournament: tournament,
+        groups: groups,
+        groupTables: groupTables,
+        matches: matches,
+      );
 });
 
 final tournamentMemberRoleProvider =

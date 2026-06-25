@@ -19,6 +19,10 @@ String tournamentOfficialRoleLabel(TournamentOfficialRole role) => switch (role)
       TournamentOfficialRole.videographer => 'Videographers',
     };
 
+/// Non-empty ground names configured on the tournament.
+List<String> tournamentGroundNames(TournamentModel tournament) =>
+    tournament.grounds.map((g) => g.trim()).where((g) => g.isNotEmpty).toList();
+
 String tournamentOfficialRoleSingular(TournamentOfficialRole role) =>
     switch (role) {
       TournamentOfficialRole.scorer => 'Scorer',
@@ -27,6 +31,21 @@ String tournamentOfficialRoleSingular(TournamentOfficialRole role) =>
       TournamentOfficialRole.streamer => 'Streamer',
       TournamentOfficialRole.photographer => 'Photographer',
       TournamentOfficialRole.videographer => 'Videographer',
+    };
+
+String tournamentStatusLabel(TournamentStatus status) => switch (status) {
+      TournamentStatus.draft => 'Draft',
+      TournamentStatus.upcoming => 'Upcoming',
+      TournamentStatus.live => 'Live',
+      TournamentStatus.completed => 'Completed',
+      TournamentStatus.cancelled => 'Cancelled',
+    };
+
+String tournamentRoleLabel(TournamentRole role) => switch (role) {
+      TournamentRole.owner => 'Owner',
+      TournamentRole.admin => 'Admin',
+      TournamentRole.scorer => 'Scorer',
+      TournamentRole.viewer => 'Viewer',
     };
 
 String cricketBallTypeLabel(CricketBallType type) => switch (type) {

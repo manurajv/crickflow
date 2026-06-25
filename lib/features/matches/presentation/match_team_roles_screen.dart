@@ -112,14 +112,14 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
 
     if (squad.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(teamName)),
+        appBar: StartMatchWizardAppBar(title: Text(teamName)),
         body: const Center(child: Text('Select squad first')),
       );
     }
 
     return Scaffold(
       backgroundColor: cf.background,
-      appBar: AppBar(
+      appBar: StartMatchWizardAppBar(
         title: const Text('Captain & wicket keeper'),
         actions: [
           Padding(

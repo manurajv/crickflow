@@ -103,7 +103,7 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
       },
       child: Scaffold(
       backgroundColor: cf.background,
-      appBar: AppBar(title: const Text('Match officials')),
+      appBar: StartMatchWizardAppBar(title: const Text('Match officials')),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

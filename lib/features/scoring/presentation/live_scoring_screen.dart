@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../data/models/tournament/tournament_official_model.dart';
 import '../../../core/utils/match_permissions.dart';
+import '../../../core/utils/tournament_match_permissions.dart';
+import '../../../shared/providers/tournament_providers.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/over_note_model.dart';
@@ -15,6 +18,7 @@ import '../../../domain/scoring/match_completion_policy.dart';
 import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/providers/tournament_analytics_providers.dart';
 import '../../../shared/widgets/player_lineup_picker.dart';
 import '../../../data/models/dismissal_fielder.dart';
 import 'package:uuid/uuid.dart';
@@ -84,12 +88,30 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     ref.read(notificationServiceProvider).subscribeToMatch(widget.matchId);
   }
 
-  bool _guardActiveScorer(MatchModel match) {
+  bool _canScoreThisMatch(MatchModel match) {
     final uid = ref.read(authStateProvider).value?.uid;
     final role =
         ref.read(currentUserProfileProvider).valueOrNull?.role ??
             UserRole.organizer;
-    if (canScoreMatch(match: match, userId: uid, role: role)) {
+    final tid = match.tournamentId;
+    final tournament = tid != null && tid.isNotEmpty
+        ? ref.read(tournamentProvider(tid)).valueOrNull
+        : null;
+    final officials = tid != null && tid.isNotEmpty
+        ? ref.read(tournamentOfficialsProvider(tid)).valueOrNull ??
+            const <TournamentOfficialModel>[]
+        : const <TournamentOfficialModel>[];
+    return canScoreTournamentMatch(
+      match: match,
+      userId: uid,
+      role: role,
+      tournament: tournament,
+      officials: officials,
+    );
+  }
+
+  bool _guardActiveScorer(MatchModel match) {
+    if (_canScoreThisMatch(match)) {
       return true;
     }
     if (mounted) {
@@ -1296,6 +1318,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     await ref
         .read(tournamentRepositoryProvider)
         .advanceKnockoutFromMatch(completed);
+    await syncTournamentAnalyticsAfterMatch(ref, completed);
     if (mounted) context.go('/match/${widget.matchId}');
     return true;
   }
@@ -1307,6 +1330,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       await ref
           .read(tournamentRepositoryProvider)
           .advanceKnockoutFromMatch(completed);
+      await syncTournamentAnalyticsAfterMatch(ref, completed);
     }
     if (mounted) context.go('/match/${widget.matchId}');
   }
@@ -1666,10 +1690,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
   void _openQuickOptions(MatchModel match) {
     final canEditToss = ScoringDisplayUtils.canEditTossDecision(match);
-    final uid = ref.read(authStateProvider).value?.uid;
-    final role = ref.read(currentUserProfileProvider).valueOrNull?.role ??
-        UserRole.organizer;
-    final canScore = canScoreMatch(match: match, userId: uid, role: role);
+    final canScore = _canScoreThisMatch(match);
     ScoringUiKit.showSheet(
       context,
       isScrollControlled: true,
@@ -1847,11 +1868,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             return const Center(child: Text('No active innings'));
           }
 
-          final canScore = canScoreMatch(
-            match: match,
-            userId: uid,
-            role: role,
-          );
+          final canScore = _canScoreThisMatch(match);
           final onBreak = match.isMatchBreakActive;
           final canRecord = canScore && !onBreak;
           final needsLineup =

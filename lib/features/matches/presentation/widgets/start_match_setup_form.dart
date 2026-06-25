@@ -28,6 +28,8 @@ class StartMatchSetupForm extends StatefulWidget {
     this.onManageOfficials,
     this.setup = const MatchSetupData(),
     this.tournamentOfficialsAutoFilled = false,
+    this.tournamentGrounds = const [],
+    this.tournamentCity,
   });
 
   final MatchRulesModel rules;
@@ -45,6 +47,8 @@ class StartMatchSetupForm extends StatefulWidget {
   final VoidCallback onPickGroundOnMap;
   final VoidCallback? onManageOfficials;
   final bool tournamentOfficialsAutoFilled;
+  final List<String> tournamentGrounds;
+  final String? tournamentCity;
 
   static const _startMatchBallTypes = [
     CricketBallType.tennis,
@@ -83,8 +87,65 @@ class StartMatchSetupForm extends StatefulWidget {
 
 class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
   bool _advancedExpanded = false;
+  String? _selectedTournamentGround;
 
   MatchRulesModel get rules => widget.rules;
+
+  bool get _useTournamentGrounds => widget.tournamentGrounds.isNotEmpty;
+
+  List<String> get _tournamentGroundOptions {
+    final grounds = widget.tournamentGrounds;
+    final current = widget.venueController.text.trim();
+    if (current.isNotEmpty && !grounds.contains(current)) {
+      return [...grounds, current];
+    }
+    return grounds;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initTournamentGroundSelection();
+    final city = widget.tournamentCity?.trim();
+    if (_useTournamentGrounds &&
+        city != null &&
+        city.isNotEmpty &&
+        widget.cityController.text.trim().isEmpty) {
+      widget.cityController.text = city;
+      widget.onCityChanged(city);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant StartMatchSetupForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tournamentGrounds != widget.tournamentGrounds ||
+        oldWidget.venueController.text != widget.venueController.text) {
+      _initTournamentGroundSelection();
+    }
+  }
+
+  void _initTournamentGroundSelection() {
+    if (!_useTournamentGrounds) return;
+    final options = _tournamentGroundOptions;
+    final current = widget.venueController.text.trim();
+    if (current.isNotEmpty && options.contains(current)) {
+      _selectedTournamentGround = current;
+      return;
+    }
+    if (options.length == 1) {
+      _selectedTournamentGround = options.first;
+      widget.venueController.text = options.first;
+      widget.onVenueChanged(options.first);
+    }
+  }
+
+  void _onTournamentGroundSelected(String? ground) {
+    if (ground == null || ground.isEmpty) return;
+    setState(() => _selectedTournamentGround = ground);
+    widget.venueController.text = ground;
+    widget.onVenueChanged(ground);
+  }
 
   CricketBallType get _selectedBallType {
     final resolved = rules.resolvedBallType;
@@ -176,25 +237,42 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
           title: 'Venue & schedule',
           icon: Icons.place_outlined,
           children: [
-            CfUnderlinedField(
-              controller: widget.cityController,
-              label: 'City / town',
-              required: true,
-              onChanged: widget.onCityChanged,
-            ),
+            if (_useTournamentGrounds &&
+                widget.tournamentCity?.trim().isNotEmpty == true)
+              CfUnderlinedField(
+                controller: widget.cityController,
+                label: 'City / town',
+                required: true,
+                readOnly: true,
+              )
+            else
+              CfUnderlinedField(
+                controller: widget.cityController,
+                label: 'City / town',
+                required: true,
+                onChanged: widget.onCityChanged,
+              ),
             const SizedBox(height: AppDimens.fieldSpacing),
-            GroundSearchField(
-              controller: widget.venueController,
-              onVenueChanged: widget.onVenueChanged,
-              onLocationResolved: (loc) {
-                widget.onLocationResolved(loc);
-                if (loc.city.isNotEmpty &&
-                    widget.cityController.text.trim().isEmpty) {
-                  widget.cityController.text = loc.city;
-                }
-              },
-              onPickOnMap: widget.onPickGroundOnMap,
-            ),
+            if (_useTournamentGrounds)
+              _TournamentGroundPicker(
+                grounds: _tournamentGroundOptions,
+                selected: _selectedTournamentGround,
+                venueController: widget.venueController,
+                onSelected: _onTournamentGroundSelected,
+              )
+            else
+              GroundSearchField(
+                controller: widget.venueController,
+                onVenueChanged: widget.onVenueChanged,
+                onLocationResolved: (loc) {
+                  widget.onLocationResolved(loc);
+                  if (loc.city.isNotEmpty &&
+                      widget.cityController.text.trim().isEmpty) {
+                    widget.cityController.text = loc.city;
+                  }
+                },
+                onPickOnMap: widget.onPickGroundOnMap,
+              ),
             const SizedBox(height: AppDimens.fieldSpacing),
             CfPickerField(
               label: 'Date & time',
@@ -931,6 +1009,75 @@ class _MatchTypePicker extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+class _TournamentGroundPicker extends StatelessWidget {
+  const _TournamentGroundPicker({
+    required this.grounds,
+    required this.selected,
+    required this.venueController,
+    required this.onSelected,
+  });
+
+  final List<String> grounds;
+  final String? selected;
+  final TextEditingController venueController;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    if (grounds.length == 1) {
+      return CfUnderlinedField(
+        controller: venueController,
+        label: 'Ground',
+        required: true,
+        readOnly: true,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Ground *',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: cf.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: selected != null && grounds.contains(selected) ? selected : null,
+          decoration: InputDecoration(
+            hintText: 'Select tournament ground',
+            border: UnderlineInputBorder(borderSide: BorderSide(color: cf.border)),
+            enabledBorder:
+                UnderlineInputBorder(borderSide: BorderSide(color: cf.border)),
+            focusedBorder:
+                UnderlineInputBorder(borderSide: BorderSide(color: cf.accent)),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: null,
+              child: Text('Select a ground'),
+            ),
+            ...grounds.map(
+              (g) => DropdownMenuItem(value: g, child: Text(g)),
+            ),
+          ],
+          onChanged: onSelected,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Grounds from this tournament',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: cf.textMuted,
+              ),
+        ),
+      ],
     );
   }
 }

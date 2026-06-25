@@ -8,6 +8,7 @@ import '../../../../../data/models/match_model.dart';
 import '../../../../../domain/scoring/match_lifecycle.dart';
 import '../../../../../shared/providers/providers.dart';
 import '../../../../../shared/providers/tournament_match_providers.dart';
+import '../../../../../shared/providers/tournament_providers.dart';
 import '../../../../../shared/widgets/match_list_card.dart';
 import '../../utils/tournament_display_utils.dart';
 import '../teams/tournament_team_confirm_sheet.dart';
@@ -163,6 +164,8 @@ class TournamentMatchCard extends ConsumerWidget {
             tournamentId: tournamentId,
             matchId: match.id,
           );
+      ref.invalidate(tournamentProvider(tournamentId));
+      ref.invalidate(tournamentMatchesProvider(tournamentId));
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Match deleted')),

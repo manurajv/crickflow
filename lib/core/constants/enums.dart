@@ -102,6 +102,13 @@ enum TournamentOfficialRole {
   videographer,
 }
 
+/// Lifecycle for tournament official roster entries.
+enum TournamentOfficialStatus {
+  active,
+  pending,
+  declined,
+}
+
 enum SponsorType {
   title,
   poweredBy,

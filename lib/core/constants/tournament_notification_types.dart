@@ -8,4 +8,9 @@ class TournamentNotificationTypes {
   static const joinRequest = 'tournament_join_request';
   static const joinApproved = 'tournament_join_approved';
   static const joinRejected = 'tournament_join_rejected';
+  static const officialInvitation = 'tournament_official_invitation';
+  static const officialInvitationAccepted =
+      'tournament_official_invitation_accepted';
+  static const officialInvitationRejected =
+      'tournament_official_invitation_rejected';
 }

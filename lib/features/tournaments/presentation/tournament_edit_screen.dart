@@ -1,11 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/tournament_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/widgets/cf_button.dart';
+import '../../../shared/widgets/cf_underlined_field.dart';
+import 'widgets/tournament_create/tournament_media_picker.dart';
 
 class TournamentEditScreen extends ConsumerStatefulWidget {
   const TournamentEditScreen({super.key, required this.tournamentId});
@@ -22,6 +28,10 @@ class _TournamentEditScreenState extends ConsumerState<TournamentEditScreen> {
   final _descriptionController = TextEditingController();
   var _loaded = false;
   var _saving = false;
+  File? _bannerFile;
+  File? _logoFile;
+  String? _bannerUrl;
+  String? _logoUrl;
 
   @override
   void dispose() {
@@ -33,12 +43,34 @@ class _TournamentEditScreenState extends ConsumerState<TournamentEditScreen> {
   Future<void> _save(TournamentModel tournament) async {
     setState(() => _saving = true);
     try {
+      var bannerUrl = _bannerUrl;
+      var logoUrl = _logoUrl;
+      final storage = ref.read(storageServiceProvider);
+
+      if (_bannerFile != null) {
+        bannerUrl = await storage.uploadTournamentBanner(
+          tournament.id,
+          _bannerFile!,
+        );
+      }
+      if (_logoFile != null) {
+        logoUrl = await storage.uploadTournamentLogo(
+          tournament.id,
+          _logoFile!,
+        );
+      }
+
       await ref.read(tournamentRepositoryProvider).updateTournament(
             tournament.copyWith(
-              name: _nameController.text.trim(),
+              name: tournament.isLocked
+                  ? tournament.name
+                  : _nameController.text.trim(),
               description: _descriptionController.text.trim(),
+              bannerUrl: bannerUrl,
+              logoUrl: logoUrl,
             ),
           );
+      ref.invalidate(tournamentProvider(widget.tournamentId));
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
@@ -53,6 +85,7 @@ class _TournamentEditScreenState extends ConsumerState<TournamentEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final tournamentAsync = ref.watch(tournamentProvider(widget.tournamentId));
 
     return Scaffold(
@@ -65,21 +98,73 @@ class _TournamentEditScreenState extends ConsumerState<TournamentEditScreen> {
           if (!_loaded) {
             _nameController.text = tournament.name;
             _descriptionController.text = tournament.description;
+            _bannerUrl = tournament.bannerUrl;
+            _logoUrl = tournament.logoUrl;
             _loaded = true;
           }
+
           return ListView(
             padding: AppDimens.screenPadding,
             children: [
-              TextField(
+              Text(
+                'Branding',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: AppDimens.spaceSm),
+              TournamentMediaPicker(
+                bannerFile: _bannerFile,
+                logoFile: _logoFile,
+                existingBannerUrl: _bannerUrl,
+                existingLogoUrl: _logoUrl,
+                onBannerPicked: (file) => setState(() => _bannerFile = file),
+                onLogoPicked: (file) => setState(() => _logoFile = file),
+              ),
+              const SizedBox(height: 52),
+              Text(
+                'Details',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: AppDimens.spaceSm),
+              CfUnderlinedField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                label: 'Tournament name',
+                required: true,
+                readOnly: tournament.isLocked,
               ),
-              const SizedBox(height: AppDimens.spaceMd),
-              TextField(
+              const SizedBox(height: AppDimens.fieldSpacing),
+              CfUnderlinedField(
                 controller: _descriptionController,
+                label: 'Description',
                 maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Description'),
               ),
+              if (tournament.isLocked) ...[
+                const SizedBox(height: AppDimens.spaceMd),
+                Container(
+                  padding: const EdgeInsets.all(AppDimens.spaceSm),
+                  decoration: BoxDecoration(
+                    color: cf.accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: cf.accent.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock_outline, size: 18, color: cf.accent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This tournament is locked after completion. '
+                          'Only branding and description can be updated.',
+                          style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: AppDimens.spaceLg),
               CfButton(
                 label: 'Save changes',

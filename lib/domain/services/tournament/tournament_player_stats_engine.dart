@@ -84,12 +84,20 @@ class TournamentPlayerStatsEngine {
     required Map<String, List<BallEventModel>> eventsByMatch,
     String? groupId,
     String? roundId,
+    bool leagueStageOnly = false,
+    bool knockoutStageOnly = false,
   }) {
     final players = <String, TournamentPlayerAccum>{};
     final teams = <String, TournamentTeamAccum>{};
 
     for (final match in matches) {
-      if (!_includeMatch(match, groupId: groupId, roundId: roundId)) continue;
+      if (!_includeMatch(
+        match,
+        groupId: groupId,
+        roundId: roundId,
+        leagueStageOnly: leagueStageOnly,
+        knockoutStageOnly: knockoutStageOnly,
+      )) continue;
       if (!_isScored(match)) continue;
 
       _accumulateTeamResults(match, teams);
@@ -168,7 +176,11 @@ class TournamentPlayerStatsEngine {
     MatchModel match, {
     String? groupId,
     String? roundId,
+    bool leagueStageOnly = false,
+    bool knockoutStageOnly = false,
   }) {
+    if (knockoutStageOnly && match.bracketRound == null) return false;
+    if (leagueStageOnly && match.bracketRound != null) return false;
     if (groupId != null && groupId.isNotEmpty) {
       return match.groupId == groupId;
     }

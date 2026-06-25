@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../shared/providers/tournament_match_scoring_providers.dart';
 import '../../../../core/utils/match_card_navigation.dart';
-import '../../../../core/utils/match_permissions.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../domain/services/match_summary_models.dart';
 import '../../../../shared/providers/match_summary_provider.dart';
@@ -90,13 +90,10 @@ class _SummaryBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final uid = ref.watch(authStateProvider).value?.uid;
     final repo = ref.watch(matchRepositoryProvider);
-    final canManage = canManageMatch(
-      match: match,
-      userId: uid,
-      role: profile?.role ?? UserRole.organizer,
+    final access = ref.watch(
+      tournamentMatchScoringAccessProvider((matchId: matchId, userId: uid)),
     );
     final isLive = match.status == MatchStatus.live;
     final isBreak = match.status == MatchStatus.inningsBreak;
@@ -145,12 +142,13 @@ class _SummaryBody extends ConsumerWidget {
             secondaryLabel: match.stream.cameraBLabel,
           ),
         SummaryManageActions(
-          canManage: canManage,
+          canStartSetup: access.canStartSetup,
+          canManageLive: access.canScoreLive,
           isCompleted: isCompleted,
           isLive: isLive,
           isBreak: isBreak,
           canNext: canNext,
-          onStart: () => _startMatch(context, ref, match),
+          onStart: () => _startMatch(context, ref, match, access.forceSetupStep),
           onNextInnings: () => _startNextInnings(context, ref),
         ),
       ],
@@ -161,11 +159,13 @@ class _SummaryBody extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     MatchModel match,
+    bool forceSetupStep,
   ) async {
     await openMatchScoring(
       context,
       ref: ref,
       match: match,
+      forceSetupStep: forceSetupStep,
     );
   }
 

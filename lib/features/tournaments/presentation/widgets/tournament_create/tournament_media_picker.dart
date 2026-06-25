@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
@@ -13,12 +12,16 @@ class TournamentMediaPicker extends StatelessWidget {
     required this.logoFile,
     required this.onBannerPicked,
     required this.onLogoPicked,
+    this.existingBannerUrl,
+    this.existingLogoUrl,
   });
 
   final File? bannerFile;
   final File? logoFile;
   final ValueChanged<File?> onBannerPicked;
   final ValueChanged<File?> onLogoPicked;
+  final String? existingBannerUrl;
+  final String? existingLogoUrl;
 
   Future<void> _pickImage(BuildContext context, {required bool isLogo}) async {
     await showTeamImageSourceSheet(
@@ -42,6 +45,18 @@ class TournamentMediaPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final bannerImage = bannerFile != null
+        ? DecorationImage(image: FileImage(bannerFile!), fit: BoxFit.cover)
+        : (existingBannerUrl != null && existingBannerUrl!.isNotEmpty)
+            ? DecorationImage(
+                image: CachedNetworkImageProvider(existingBannerUrl!),
+                fit: BoxFit.cover,
+              )
+            : null;
+    final hasBanner = bannerImage != null;
+    final hasLogo = logoFile != null ||
+        (existingLogoUrl != null && existingLogoUrl!.isNotEmpty);
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -54,23 +69,18 @@ class TournamentMediaPicker extends StatelessWidget {
               color: cf.sectionBackground,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: cf.border),
-              image: bannerFile != null
-                  ? DecorationImage(
-                      image: FileImage(bannerFile!),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
+              image: bannerImage,
             ),
-            child: bannerFile == null
-                ? Column(
+            child: hasBanner
+                ? null
+                : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.image_outlined, color: cf.textMuted, size: 36),
                       const SizedBox(height: 6),
                       Text('Add banner', style: TextStyle(color: cf.textMuted)),
                     ],
-                  )
-                : null,
+                  ),
           ),
         ),
         Positioned(
@@ -86,9 +96,13 @@ class TournamentMediaPicker extends StatelessWidget {
                     CircleAvatar(
                       radius: 40,
                       backgroundColor: cf.surfaceElevated,
-                      backgroundImage:
-                          logoFile != null ? FileImage(logoFile!) : null,
-                      child: logoFile == null
+                      backgroundImage: logoFile != null
+                          ? FileImage(logoFile!)
+                          : (existingLogoUrl != null &&
+                                  existingLogoUrl!.isNotEmpty)
+                              ? CachedNetworkImageProvider(existingLogoUrl!)
+                              : null,
+                      child: !hasLogo
                           ? Icon(Icons.emoji_events, color: cf.accent, size: 32)
                           : null,
                     ),

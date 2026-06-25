@@ -117,7 +117,8 @@ extension NotificationPresentation on NotificationModel {
 
   bool get isTournamentActionable =>
       type == TournamentNotificationTypes.invitation ||
-      type == TournamentNotificationTypes.joinRequest;
+      type == TournamentNotificationTypes.joinRequest ||
+      type == TournamentNotificationTypes.officialInvitation;
 
   bool get canReportUnauthorizedAdd => type == 'team_member_added';
 
@@ -127,10 +128,14 @@ extension NotificationPresentation on NotificationModel {
         'team_member_added' => 'View team',
         TournamentNotificationTypes.invitation => 'Respond to invite',
         TournamentNotificationTypes.joinRequest => 'Review request',
+        TournamentNotificationTypes.officialInvitation => 'Respond to invite',
         TournamentNotificationTypes.joinApproved ||
         TournamentNotificationTypes.joinRejected ||
         TournamentNotificationTypes.invitationAccepted ||
         TournamentNotificationTypes.invitationRejected =>
+          'View tournament',
+        TournamentNotificationTypes.officialInvitationAccepted ||
+        TournamentNotificationTypes.officialInvitationRejected =>
           'View tournament',
         _ => null,
       };

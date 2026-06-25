@@ -13,6 +13,8 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import '../../../core/utils/match_setup_navigation.dart';
 import 'models/ground_pick_result.dart';
+import '../../../shared/providers/tournament_providers.dart';
+import '../../tournaments/presentation/utils/tournament_display_utils.dart';
 import 'widgets/start_match_setup_form.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
@@ -272,10 +274,24 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(startMatchDraftProvider);
+    final tournamentId = draft.tournamentId;
+    final tournament = tournamentId != null && tournamentId.isNotEmpty
+        ? ref.watch(tournamentProvider(tournamentId)).valueOrNull
+        : null;
+    final tournamentGrounds =
+        tournament != null ? tournamentGroundNames(tournament) : const <String>[];
+    final tournamentCity = tournament?.location.city;
+    final isTournamentMatch = tournamentId != null && tournamentId.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_step == 0 ? 'Select playing teams' : 'Start a match'),
+      appBar: StartMatchWizardAppBar(
+        title: Text(
+          _step == 0
+              ? 'Select playing teams'
+              : isTournamentMatch
+                  ? 'Match setup'
+                  : 'Start a match',
+        ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -286,7 +302,13 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                 : StartMatchFlowStep.setup,
           ),
           Expanded(
-            child: _step == 0 ? _teamsStep(draft) : _setupStep(draft),
+            child: _step == 0
+                ? _teamsStep(draft)
+                : _setupStep(
+                    draft,
+                    tournamentGrounds: tournamentGrounds,
+                    tournamentCity: tournamentCity,
+                  ),
           ),
         ],
       ),
@@ -376,9 +398,20 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     );
   }
 
-  Widget _setupStep(StartMatchDraft draft) {
+  Widget _setupStep(
+    StartMatchDraft draft, {
+    required List<String> tournamentGrounds,
+    String? tournamentCity,
+  }) {
     if (_cityController.text.isEmpty && draft.location.city.isNotEmpty) {
       _cityController.text = draft.location.city;
+    } else if (_cityController.text.isEmpty &&
+        tournamentCity != null &&
+        tournamentCity.trim().isNotEmpty) {
+      _cityController.text = tournamentCity.trim();
+      ref.read(startMatchDraftProvider.notifier).updateLocation(
+            draft.location.copyWith(city: tournamentCity.trim()),
+          );
     }
     if (_venueController.text.isEmpty && draft.venue.isNotEmpty) {
       _venueController.text = draft.venue;
@@ -409,6 +442,8 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
         await context.push('/match/create/officials');
         if (mounted) setState(() {});
       },
+      tournamentGrounds: tournamentGrounds,
+      tournamentCity: tournamentCity,
     );
   }
 

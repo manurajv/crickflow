@@ -36,9 +36,11 @@ class StartMatchDraft {
     this.setup = const MatchSetupData(),
     this.isExistingMatch = false,
     this.tournamentOfficialsAutoFilled = false,
+    this.tournamentId,
   }) : rules = rules ?? MatchRulesModel.standardT20();
 
   final String matchId;
+  final String? tournamentId;
   final TeamModel? teamA;
   final TeamModel? teamB;
   final String teamAName;
@@ -81,6 +83,8 @@ class StartMatchDraft {
     MatchSetupData? setup,
     bool? isExistingMatch,
     bool? tournamentOfficialsAutoFilled,
+    String? tournamentId,
+    bool clearTournamentId = false,
   }) {
     return StartMatchDraft(
       matchId: matchId,
@@ -97,6 +101,8 @@ class StartMatchDraft {
       isExistingMatch: isExistingMatch ?? this.isExistingMatch,
       tournamentOfficialsAutoFilled:
           tournamentOfficialsAutoFilled ?? this.tournamentOfficialsAutoFilled,
+      tournamentId:
+          clearTournamentId ? null : (tournamentId ?? this.tournamentId),
     );
   }
 }
@@ -137,6 +143,7 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
       scheduledAt: match.scheduledAt ?? DateTime.now(),
       setup: match.setup ?? const MatchSetupData(),
       isExistingMatch: true,
+      tournamentId: match.tournamentId,
     );
   }
 

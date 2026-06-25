@@ -30,6 +30,16 @@ service cloud.firestore {
         );
     }
 
+    /// Invited official accepting or declining (status-only update).
+    function canOfficialInviteeRespond() {
+      return isSignedIn()
+        && resource.data.get('userId', '') == request.auth.uid
+        && resource.data.get('status', 'pending') == 'pending'
+        && request.resource.data.status in ['active', 'declined']
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']);
+    }
+
     function matchData(matchId) {
       return get(/databases/$(database)/documents/matches/$(matchId)).data;
     }
@@ -876,9 +886,15 @@ service cloud.firestore {
 
     match /tournament_officials/{officialId} {
       allow read: if true;
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
         && request.resource.data.tournamentId is string
         && isTournamentOrganizer(request.resource.data.tournamentId);
+      allow update: if isSignedIn()
+        && resource.data.tournamentId is string
+        && (
+          isTournamentOrganizer(resource.data.tournamentId)
+          || canOfficialInviteeRespond()
+        );
       allow delete: if isSignedIn()
         && resource.data.tournamentId is string
         && isTournamentOrganizer(resource.data.tournamentId);
@@ -892,6 +908,13 @@ service cloud.firestore {
       allow delete: if isSignedIn()
         && resource.data.tournamentId is string
         && isTournamentOrganizer(resource.data.tournamentId);
+    }
+
+    match /tournament_analytics/{tournamentId} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+        && exists(/databases/$(database)/documents/tournaments/$(tournamentId));
+      allow delete: if isTournamentOrganizer(tournamentId);
     }
 
     match /tournament_rules/{tournamentId} {

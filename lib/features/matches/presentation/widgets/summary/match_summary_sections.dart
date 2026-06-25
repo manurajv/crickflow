@@ -1070,7 +1070,8 @@ class SummaryQuickActions extends StatelessWidget {
 class SummaryManageActions extends StatelessWidget {
   const SummaryManageActions({
     super.key,
-    required this.canManage,
+    required this.canStartSetup,
+    required this.canManageLive,
     required this.isCompleted,
     required this.isLive,
     required this.isBreak,
@@ -1079,7 +1080,8 @@ class SummaryManageActions extends StatelessWidget {
     required this.onNextInnings,
   });
 
-  final bool canManage;
+  final bool canStartSetup;
+  final bool canManageLive;
   final bool isCompleted;
   final bool isLive;
   final bool isBreak;
@@ -1089,7 +1091,7 @@ class SummaryManageActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!canManage) return const SizedBox.shrink();
+    if (!canStartSetup && !canManageLive) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -1102,13 +1104,13 @@ class SummaryManageActions extends StatelessWidget {
         spacing: AppDimens.spaceSm,
         runSpacing: AppDimens.spaceSm,
         children: [
-          if (!isCompleted && !isLive && !isBreak)
+          if (canStartSetup && !isCompleted && !isLive && !isBreak)
             CfButton(
               label: 'Start Scoring',
               icon: Icons.play_arrow,
               onPressed: onStart,
             ),
-          if (isBreak && canNext && !isCompleted)
+          if (canManageLive && isBreak && canNext && !isCompleted)
             CfButton(
               label: 'Start 2nd Innings',
               icon: Icons.skip_next,

@@ -9,6 +9,7 @@ import '../../../core/utils/team_leadership_utils.dart';
 import '../../../data/models/team_model.dart';
 import '../../../data/models/tournament/tournament_team_request_model.dart';
 import '../../../data/models/tournament_model.dart';
+import '../../../shared/providers/badge_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/providers/tournament_team_request_provider.dart';
@@ -303,10 +304,15 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
       );
     }
 
+    final captainId = resolvedTeam.captainId;
+    final captainName = captainId != null && captainId.isNotEmpty
+        ? ref.watch(playerDetailProvider(captainId)).valueOrNull?.name
+        : null;
+
     return TournamentTeamCard(
       team: resolvedTeam,
       displayStatus: request.displayStatus,
-      playerCount: team?.memberCount,
+      captainLabel: captainName,
       trailing: trailing,
     );
   }

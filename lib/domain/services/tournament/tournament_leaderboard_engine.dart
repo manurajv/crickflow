@@ -18,6 +18,8 @@ class TournamentLeaderboardEngine {
     String scopeLabel = 'Tournament',
     String? groupId,
     String? roundId,
+    bool leagueStageOnly = false,
+    bool knockoutStageOnly = false,
     int limit = 10,
   }) {
     final agg = _statsEngine.aggregate(
@@ -25,6 +27,8 @@ class TournamentLeaderboardEngine {
       eventsByMatch: eventsByMatch,
       groupId: groupId,
       roundId: roundId,
+      leagueStageOnly: leagueStageOnly,
+      knockoutStageOnly: knockoutStageOnly,
     );
 
     final byCategory = <TournamentLeaderboardCategory,

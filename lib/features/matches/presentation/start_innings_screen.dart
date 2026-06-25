@@ -13,6 +13,7 @@ import '../../scoring/presentation/utils/scoring_display_utils.dart';
 import 'match_scoring_rules_screen.dart';
 import 'widgets/innings_player_slot_card.dart';
 import 'widgets/select_lineup_player_sheet.dart';
+import '../../../shared/widgets/start_match_ui.dart';
 import '../../../core/theme/cf_colors.dart';
 
 /// After toss: pick opening striker, non-striker, and bowler before live scoring.
@@ -182,8 +183,9 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
 
     return Scaffold(
       backgroundColor: cf.background,
-      appBar: AppBar(
+      appBar: StartMatchWizardAppBar(
         title: const Text('Start innings'),
+        tournamentId: matchAsync.valueOrNull?.tournamentId,
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),

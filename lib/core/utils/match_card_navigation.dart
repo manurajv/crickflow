@@ -6,7 +6,8 @@ import '../constants/enums.dart';
 import '../../data/models/match_model.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../../shared/providers/providers.dart';
-import 'match_permissions.dart';
+import '../../shared/providers/tournament_providers.dart';
+import '../../shared/providers/tournament_match_scoring_providers.dart';
 import 'match_setup_navigation.dart';
 
 /// Opens the match hub, or prompts assigned scorers on live/upcoming matches.
@@ -20,13 +21,20 @@ Future<void> openMatchFromListCard(
   final isUpcoming = MatchLifecycle.isUpcoming(match);
   final role =
       ref.read(currentUserProfileProvider).valueOrNull?.role ?? UserRole.organizer;
-  final canManage = canManageMatch(
+  final access = resolveTournamentMatchScoringAccess(
     match: match,
     userId: userId,
     role: role,
+    tournament: match.tournamentId != null && match.tournamentId!.isNotEmpty
+        ? ref.read(tournamentProvider(match.tournamentId!)).valueOrNull
+        : null,
+    officials: match.tournamentId != null && match.tournamentId!.isNotEmpty
+        ? ref.read(tournamentOfficialsProvider(match.tournamentId!)).valueOrNull ??
+            []
+        : const [],
   );
 
-  if ((isLive || isUpcoming) && canManage) {
+  if ((isLive || isUpcoming) && access.canStartSetup) {
     final choice = await _showScorerMatchChoiceSheet(
       context,
       isUpcoming: isUpcoming,
@@ -39,6 +47,7 @@ Future<void> openMatchFromListCard(
         ref: ref,
         match: match,
         userId: userId,
+        forceSetupStep: access.forceSetupStep,
       );
       return;
     }
@@ -88,9 +97,15 @@ Future<void> openMatchScoring(
   required WidgetRef ref,
   required MatchModel match,
   String? userId,
+  bool forceSetupStep = false,
 }) async {
   if (MatchLifecycle.isUpcoming(match)) {
-    await openMatchSetupFlow(context, ref: ref, match: match);
+    await openMatchSetupFlow(
+      context,
+      ref: ref,
+      match: match,
+      forceSetupStep: forceSetupStep,
+    );
     return;
   }
 

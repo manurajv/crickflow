@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Officials auto-assign, walkover UI, tournament completion notifications  
+**Last updated:** Tournament format drives fixture generation; qualification → knockout seeding  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -21,7 +21,7 @@
 |------|--------|
 | **Tournament Leaderboard tab** — live stats from ball events; batting/bowling/fielding/team categories; group & round filters | Done |
 | **Tournament Heroes tab** — Orange/Purple cap, POT, MVP, best batter/bowler/fielder/all-rounder; hero ranking engine | Done |
-| **Tournament Stats tab** — match summary + top performers from heroes engine; pull-to-refresh | Done |
+| **Tournament Stats tab** — analytics dashboard (15 sections); reuses ball-event engines; Firestore cache; auto-sync on match complete | Done |
 | **Points Table tab** — full columns (P/W/L/T/NR/Pts/NRR/RF/OF/RA/OB); extended `PointsTableEntry` + engine | Done |
 | **Tournament completion flow** — Settings → Finish tournament; champion/runner-up/awards; `isLocked` on doc | Done |
 | **Walkover system** — `declareWalkover` updates match, points table, knockout bracket | Done |
@@ -62,6 +62,8 @@
 | Tournament team notifications — 6 types with Accept/Reject in notifications | Done |
 | **Tournament Matches tab** — Live / Upcoming / Completed; match cards; empty state; schedule sheet | Done |
 | **Schedule matches** — manual schedule sheet + auto fixture generator (league, RR, group, knockout, hybrid) | Done |
+| **Tournament format integration** — create wizard (4 formats); auto-fixture defaults from saved format; schedule sheet + knockout-from-qualifiers | Done |
+| **Fixtures tab** — read-only schedule (round robin / groups / knockout list + bracket); single Schedule CTA for organizers; bracket pruned when matches deleted | Done |
 | **Tournament Groups tab** — empty state; manual/auto group creation; group cards; team add/remove | Done |
 | **Tournament Rounds screen** — CRUD, reorder, activate/archive; preset round names; `/tournaments/:id/rounds` | Done |
 | Models — `TournamentGroupModel`, `TournamentRoundModel`, `TournamentMatchModel` (view over `MatchModel`) | Done |
@@ -74,6 +76,7 @@
 | Tournament notifications (qualify, schedule) | Pending |
 | **Tournament completion notifications** — team leadership, staff, officials on `completeTournament` | Done |
 | **Officials auto-assign on match start** — tournament roster → match setup; editable per match | Done |
+| **Officials tab** — all roles, player search, invite notifications, organizer self-add direct, grouped roster UI | Done |
 | **Walkover UI** — match card menu → declare walkover sheet; WALKOVER badge on completed cards | Done |
 | Public completed tournament page (champion, records) | Pending |
 

@@ -151,6 +151,7 @@ class _NotificationCard extends ConsumerWidget {
       if (tournamentId != null && tournamentId.isNotEmpty) {
         ref.invalidate(tournamentTeamRequestsProvider(tournamentId));
         ref.invalidate(tournamentProvider(tournamentId));
+        ref.invalidate(tournamentOfficialsProvider(tournamentId));
       }
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -44,6 +44,7 @@ class CommunityRepository {
     required String body,
     required CommunityPostCategory category,
     required LocationModel location,
+    String? tournamentId,
   }) async {
     final now = DateTime.now().toUtc().toIso8601String();
     final doc = await _col.add({
@@ -54,10 +55,42 @@ class CommunityRepository {
       'title': title.trim(),
       'body': body.trim(),
       'location': location.toMap(),
+      if (tournamentId != null && tournamentId.isNotEmpty)
+        'tournamentId': tournamentId,
       'createdAt': now,
       'updatedAt': now,
     });
     return doc.id;
+  }
+
+  Future<void> deletePostsForTournament(
+    String tournamentId, {
+    String? authorId,
+    String? tournamentName,
+  }) async {
+    final linked = await _col
+        .where('tournamentId', isEqualTo: tournamentId)
+        .get();
+    for (final doc in linked.docs) {
+      await doc.reference.delete();
+    }
+
+    if (authorId == null || authorId.isEmpty) return;
+
+    final legacy = await _col
+        .where('authorId', isEqualTo: authorId)
+        .where('category', isEqualTo: CommunityPostCategory.tournamentNeed.name)
+        .get();
+    final nameKey = tournamentName?.trim().toLowerCase();
+    for (final doc in legacy.docs) {
+      if (doc.data()['tournamentId'] != null) continue;
+      if (nameKey == null || nameKey.isEmpty) continue;
+      final title = (doc.data()['title'] as String? ?? '').toLowerCase();
+      final body = (doc.data()['body'] as String? ?? '').toLowerCase();
+      if (title.contains(nameKey) || body.contains('tournament: $nameKey')) {
+        await doc.reference.delete();
+      }
+    }
   }
 
   Future<void> deletePost(String postId) async {

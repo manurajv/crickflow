@@ -67,6 +67,7 @@ class TournamentCreateService {
         body: _officialsPostBody(draft.name, meta),
         category: CommunityPostCategory.tournamentNeed,
         location: location,
+        tournamentId: id,
       );
     }
 
@@ -79,6 +80,7 @@ class TournamentCreateService {
         body: _teamsPostBody(draft.name, draft, meta),
         category: CommunityPostCategory.tournamentNeed,
         location: location,
+        tournamentId: id,
       );
     }
 

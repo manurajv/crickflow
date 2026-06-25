@@ -207,14 +207,14 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
 
     if (teamId == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Select squad')),
+        appBar: StartMatchWizardAppBar(title: const Text('Select squad')),
         body: const Center(child: Text('Select a team first')),
       );
     }
 
     return Scaffold(
       backgroundColor: cf.background,
-      appBar: AppBar(
+      appBar: StartMatchWizardAppBar(
         title: Text(_teamName(draft)),
       ),
       body: StreamBuilder<List<PlayerModel>>(

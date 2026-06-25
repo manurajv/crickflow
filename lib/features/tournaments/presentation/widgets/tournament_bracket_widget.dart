@@ -11,9 +11,11 @@ class TournamentBracketWidget extends StatelessWidget {
   const TournamentBracketWidget({
     super.key,
     required this.tournament,
+    this.existingMatchIds = const {},
   });
 
   final TournamentModel tournament;
+  final Set<String> existingMatchIds;
 
   static const _roundColumnWidth = 180.0;
 
@@ -78,11 +80,16 @@ class TournamentBracketWidget extends StatelessWidget {
                               const SizedBox(height: 8),
                           itemBuilder: (_, slotIndex) {
                             final slot = slots[slotIndex];
+                            final matchId = slot.matchId;
+                            final matchExists = matchId != null &&
+                                matchId.isNotEmpty &&
+                                (existingMatchIds.isEmpty ||
+                                    existingMatchIds.contains(matchId));
                             return _BracketSlotCard(
                               slot: slot,
-                              onTap: slot.matchId != null
+                              onTap: matchExists
                                   ? () =>
-                                      context.push('/match/${slot.matchId}')
+                                      context.push('/match/$matchId')
                                   : null,
                             );
                           },

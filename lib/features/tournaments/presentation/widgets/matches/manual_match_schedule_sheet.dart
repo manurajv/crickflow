@@ -14,6 +14,7 @@ import '../../../../../shared/providers/tournament_providers.dart';
 import '../../../../../shared/widgets/cf_button.dart';
 import '../../../../../shared/widgets/cf_underlined_field.dart';
 import '../../../../../shared/widgets/match_scoring_rules_form.dart';
+import '../../utils/tournament_display_utils.dart';
 import '../tournament_create/tournament_create_ui.dart';
 
 Future<void> showManualMatchScheduleSheet({
@@ -28,9 +29,6 @@ Future<void> showManualMatchScheduleSheet({
     builder: (_) => _ManualMatchScheduleSheet(tournament: tournament),
   );
 }
-
-List<String> tournamentGroundNames(TournamentModel tournament) =>
-    tournament.grounds.map((g) => g.trim()).where((g) => g.isNotEmpty).toList();
 
 class _ManualMatchScheduleSheet extends ConsumerStatefulWidget {
   const _ManualMatchScheduleSheet({required this.tournament});

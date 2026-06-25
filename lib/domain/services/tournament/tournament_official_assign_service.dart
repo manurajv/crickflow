@@ -27,10 +27,11 @@ class TournamentOfficialAssignService {
     MatchSetupData setup,
     List<TournamentOfficialModel> officials,
   ) {
-    if (officials.isEmpty) return setup;
+    final active = officials.where((o) => o.isActive).toList();
+    if (active.isEmpty) return setup;
 
     final byRole = <TournamentOfficialRole, List<TournamentOfficialModel>>{};
-    for (final official in officials) {
+    for (final official in active) {
       byRole.putIfAbsent(official.role, () => []).add(official);
     }
 
