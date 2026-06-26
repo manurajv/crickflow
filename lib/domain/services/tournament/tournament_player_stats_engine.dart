@@ -3,6 +3,7 @@ import '../../../core/utils/cricket_math.dart';
 import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../scoring/ball_event_aggregator.dart';
+import '../../scoring/match_lifecycle.dart';
 
 /// Per-player tournament aggregates built from match innings + ball events.
 class TournamentPlayerAccum {
@@ -43,7 +44,7 @@ class TournamentPlayerAccum {
   int matchesPlayed = 0;
 
   double get strikeRate =>
-      balls > 0 ? CricketMath.runRate(runs, balls, 1) * 100 / 6 : 0;
+      balls > 0 ? CricketMath.strikeRate(runs, balls) : 0;
 
   double get economy => legalBallsBowled > 0
       ? CricketMath.runRate(runsConceded, legalBallsBowled, 6)
@@ -191,22 +192,26 @@ class TournamentPlayerStatsEngine {
   }
 
   bool _isScored(MatchModel match) {
-    final status = match.status;
-    return status == MatchStatus.live ||
-        status == MatchStatus.inningsBreak ||
-        status == MatchStatus.completed ||
-        status == MatchStatus.abandoned;
+    if (MatchLifecycle.isEffectivelyLive(match)) return true;
+    final status = MatchLifecycle.effectiveStatus(match);
+    return status == MatchStatus.completed || status == MatchStatus.abandoned;
   }
 
   void _accumulateTeamResults(
     MatchModel match,
     Map<String, TournamentTeamAccum> teams,
   ) {
-    if (match.status != MatchStatus.completed) return;
     for (final inn in match.innings) {
-      final t = _ensureTeam(teams, inn.battingTeamId, _teamName(match, inn.battingTeamId));
+      if (inn.battingTeamId.isEmpty) continue;
+      final t = _ensureTeam(
+        teams,
+        inn.battingTeamId,
+        _teamName(match, inn.battingTeamId),
+      );
       if (inn.totalRuns > t.highestScore) t.highestScore = inn.totalRuns;
     }
+
+    if (!MatchLifecycle.isCompleted(match)) return;
 
     final winner = match.winnerTeamId;
     if (winner == null || winner.isEmpty) return;
@@ -226,11 +231,11 @@ class TournamentPlayerStatsEngine {
     if (margin > wt.biggestWinMargin) wt.biggestWinMargin = margin;
     if (margin < wt.closestWinMargin) wt.closestWinMargin = margin;
 
-    final defending = match.innings
-        .where((i) => i.bowlingTeamId == winner && i.inningsNumber >= 2)
-        .toList();
-    if (defending.isNotEmpty) {
-      final defended = defending.first.totalRuns - 1;
+    final regular = match.innings.where((i) => !i.isSuperOver).toList();
+    if (regular.isNotEmpty &&
+        regular.first.battingTeamId == winner &&
+        regular.length >= 2) {
+      final defended = regular.first.totalRuns;
       if (defended > 0 && defended < wt.lowestDefended) {
         wt.lowestDefended = defended;
       }
@@ -253,6 +258,17 @@ class TournamentPlayerStatsEngine {
           players,
           id,
           e.fielderName ?? e.primaryFielderName ?? '',
+          bowlingTeamId,
+          bowlingTeamName,
+        );
+        p.catches++;
+      } else if (wt == WicketType.caughtAndBowled) {
+        final id = e.bowlerId ?? '';
+        if (id.isEmpty) continue;
+        final p = _ensurePlayer(
+          players,
+          id,
+          e.bowlerName ?? '',
           bowlingTeamId,
           bowlingTeamName,
         );

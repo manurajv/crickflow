@@ -451,7 +451,11 @@
 | Item | Status |
 |------|--------|
 | Match squad add-player sheet — card options, inline permanent search, polished guest form | Done |
-| Add registered player screen — name / partial Player ID search (walk-in removed) | Done |
+| Registered player add — invitation required (player accepts in Notifications) | Done |
+| Registered player search — walk-ins excluded (must have linked userId) | Done |
+| Team add players hub — registered player + walk-in player routes (directory removed from hub) | Done |
+| Walk-in player screen — same fields as match guest (name, role, batting/bowling styles) | Done |
+| Player directory — search-only (no tabs); light-theme `cf` tokens on add-player flows | Done |
 | `searchAvailablePlayers` — full name + partial CF ID fallback | Done |
 
 ---

@@ -193,30 +193,36 @@ class TournamentLeaderboardEngine {
         teams,
         (t) => t.highestScore,
         (t) => '${t.highestScore}',
+        include: (_, value) => value > 0,
       ),
     );
     addCategory(
       TournamentLeaderboardCategory.lowestDefendedTotal,
       _rankTeams(
-        teams.where((t) => t.lowestDefended < 999999).toList(),
-        (t) => -t.lowestDefended,
+        teams,
+        (t) => t.lowestDefended,
         (t) => '${t.lowestDefended}',
+        include: (t, _) => t.lowestDefended < 999999,
+        ascending: true,
       ),
     );
     addCategory(
       TournamentLeaderboardCategory.biggestWin,
       _rankTeams(
-        teams.where((t) => t.biggestWinMargin > 0).toList(),
+        teams,
         (t) => t.biggestWinMargin,
         (t) => 'by ${t.biggestWinMargin}',
+        include: (t, value) => value > 0,
       ),
     );
     addCategory(
       TournamentLeaderboardCategory.closestWin,
       _rankTeams(
-        teams.where((t) => t.closestWinMargin < 999999 && t.wins > 0).toList(),
-        (t) => -t.closestWinMargin,
+        teams,
+        (t) => t.closestWinMargin,
         (t) => 'by ${t.closestWinMargin}',
+        include: (t, value) => value > 0 && t.wins > 0,
+        ascending: true,
       ),
     );
 
@@ -262,22 +268,33 @@ class TournamentLeaderboardEngine {
   List<TournamentLeaderboardEntry> _rankTeams(
     List<TournamentTeamAccum> teams,
     num Function(TournamentTeamAccum) metric,
-    String Function(TournamentTeamAccum) valueLabel,
-  ) {
-    final sorted = [...teams]..sort((a, b) => metric(b).compareTo(metric(a)));
-    return [
-      for (var i = 0; i < sorted.length; i++)
-        if (metric(sorted[i]) != 0)
-          TournamentLeaderboardEntry(
-            rank: i + 1,
-            label: sorted[i].teamName.isNotEmpty
-                ? sorted[i].teamName
-                : 'Team',
-            teamId: sorted[i].teamId,
-            teamName: sorted[i].teamName,
-            value: metric(sorted[i]),
-            valueLabel: valueLabel(sorted[i]),
-          ),
-    ];
+    String Function(TournamentTeamAccum) valueLabel, {
+    bool Function(TournamentTeamAccum team, num value)? include,
+    bool ascending = false,
+  }) {
+    final sorted = [...teams]
+      ..sort(
+        (a, b) => ascending
+            ? metric(a).compareTo(metric(b))
+            : metric(b).compareTo(metric(a)),
+      );
+    final rows = <TournamentLeaderboardEntry>[];
+    var rank = 0;
+    for (final team in sorted) {
+      final value = metric(team);
+      if (include != null ? !include(team, value) : value == 0) continue;
+      rank++;
+      rows.add(
+        TournamentLeaderboardEntry(
+          rank: rank,
+          label: team.teamName.isNotEmpty ? team.teamName : 'Team',
+          teamId: team.teamId,
+          teamName: team.teamName,
+          value: value,
+          valueLabel: valueLabel(team),
+        ),
+      );
+    }
+    return rows;
   }
 }

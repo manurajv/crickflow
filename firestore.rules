@@ -677,9 +677,31 @@ service cloud.firestore {
       return isSignedIn()
         && requestId == request.auth.uid
         && request.resource.data.userId == request.auth.uid
+        && request.resource.data.get('requestType', 'join_request') == 'join_request'
         && request.resource.data.status == 'pending'
         && request.resource.data.playerId is string
         && request.resource.data.playerName is string;
+    }
+
+    function isTeamLeadershipInvitationWrite(teamId, requestId) {
+      return isSignedIn()
+        && canManageTeamRequests(teamId)
+        && request.resource.data.get('requestType', '') == 'invitation'
+        && request.resource.data.status == 'pending'
+        && request.resource.data.userId == requestId
+        && request.resource.data.invitedByUserId == request.auth.uid
+        && request.resource.data.playerId is string
+        && request.resource.data.playerName is string;
+    }
+
+    function isInviteeRespondingToInvitation() {
+      return isSignedIn()
+        && requestId == request.auth.uid
+        && resource.data.get('requestType', '') == 'invitation'
+        && resource.data.status == 'pending'
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.status in ['accepted', 'rejected']
+        && request.resource.data.resolvedBy == request.auth.uid;
     }
 
     function isTeamOwnerFullUpdate() {
@@ -732,13 +754,16 @@ service cloud.firestore {
         allow read: if isSignedIn() && (
           canManageTeamRequests(teamId) || requestId == request.auth.uid
         );
-        allow create: if isUserJoinRequestWrite(requestId);
+        allow create: if isUserJoinRequestWrite(requestId)
+          || isTeamLeadershipInvitationWrite(teamId, requestId);
         allow update: if isUserJoinRequestWrite(requestId)
           || (
             canManageTeamRequests(teamId)
             && resource.data.status == 'pending'
+            && resource.data.get('requestType', 'join_request') == 'join_request'
             && request.resource.data.status in ['accepted', 'rejected']
           )
+          || isInviteeRespondingToInvitation()
           || (
             requestId == request.auth.uid
             && resource.data.status == 'pending'

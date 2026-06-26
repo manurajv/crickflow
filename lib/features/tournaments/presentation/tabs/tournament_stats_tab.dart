@@ -28,6 +28,19 @@ class _TournamentStatsTabState extends ConsumerState<TournamentStatsTab> {
   String? _groupId;
   String? _roundId;
   String _search = '';
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   TournamentAnalyticsParams get _params => TournamentAnalyticsParams(
         tournamentId: widget.tournamentId,
@@ -102,6 +115,52 @@ class _TournamentStatsTabState extends ConsumerState<TournamentStatsTab> {
                 return title.contains(_search.toLowerCase());
               }).toList();
 
+        if (filteredSections.isEmpty) {
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: AppDimens.screenPadding,
+            children: [
+              _StatsFilterBar(
+                cf: cf,
+                scope: _scope,
+                groupId: _groupId,
+                roundId: _roundId,
+                groups: groupsAsync.valueOrNull ?? [],
+                rounds: roundsAsync.valueOrNull ?? [],
+                searchController: _searchController,
+                onScopeChanged: (s) => setState(() {
+                  _scope = s;
+                  _groupId = null;
+                  _roundId = null;
+                }),
+                onGroupChanged: (v) => setState(() {
+                  _groupId = v;
+                  _roundId = null;
+                  _scope = TournamentAnalyticsScope.group;
+                }),
+                onRoundChanged: (v) => setState(() {
+                  _roundId = v;
+                  _groupId = null;
+                  _scope = TournamentAnalyticsScope.round;
+                }),
+                onClearScope: () => setState(() {
+                  _scope = TournamentAnalyticsScope.tournament;
+                  _groupId = null;
+                  _roundId = null;
+                }),
+                onSearchChanged: (v) => setState(() => _search = v),
+              ),
+              const SizedBox(height: AppDimens.spaceXl),
+              Center(
+                child: Text(
+                  'No sections match your search.',
+                  style: TextStyle(color: cf.textMuted),
+                ),
+              ),
+            ],
+          );
+        }
+
         return CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -116,7 +175,7 @@ class _TournamentStatsTabState extends ConsumerState<TournamentStatsTab> {
                     roundId: _roundId,
                     groups: groupsAsync.valueOrNull ?? [],
                     rounds: roundsAsync.valueOrNull ?? [],
-                    search: _search,
+                    searchController: _searchController,
                     onScopeChanged: (s) => setState(() {
                       _scope = s;
                       _groupId = null;
@@ -164,7 +223,10 @@ class _TournamentStatsTabState extends ConsumerState<TournamentStatsTab> {
   ) {
     const order = TournamentStatsSectionId.values;
     return order
-        .where((id) => snapshot.sections.containsKey(id))
+        .where((id) {
+          final section = snapshot.sections[id];
+          return section != null && section.hasContent;
+        })
         .toList();
   }
 
@@ -211,7 +273,7 @@ class _StatsFilterBar extends StatelessWidget {
     required this.roundId,
     required this.groups,
     required this.rounds,
-    required this.search,
+    required this.searchController,
     required this.onScopeChanged,
     required this.onGroupChanged,
     required this.onRoundChanged,
@@ -225,7 +287,7 @@ class _StatsFilterBar extends StatelessWidget {
   final String? roundId;
   final List<TournamentGroupModel> groups;
   final List<TournamentRoundModel> rounds;
-  final String search;
+  final TextEditingController searchController;
   final ValueChanged<TournamentAnalyticsScope> onScopeChanged;
   final ValueChanged<String?> onGroupChanged;
   final ValueChanged<String?> onRoundChanged;
@@ -238,6 +300,7 @@ class _StatsFilterBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
+          controller: searchController,
           decoration: InputDecoration(
             hintText: 'Search sections…',
             prefixIcon: const Icon(Icons.search, size: 20),
@@ -245,6 +308,10 @@ class _StatsFilterBar extends StatelessWidget {
             filled: true,
             fillColor: cf.sectionBackground,
             border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: cf.border),
+            ),
+            enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: cf.border),
             ),
@@ -303,6 +370,12 @@ class _StatsFilterBar extends StatelessWidget {
       child: FilterChip(
         label: Text(label, style: const TextStyle(fontSize: 12)),
         selected: selected,
+        showCheckmark: false,
+        selectedColor: cf.accent.withValues(alpha: 0.15),
+        checkmarkColor: cf.accent,
+        side: BorderSide(
+          color: selected ? cf.accent.withValues(alpha: 0.4) : cf.border,
+        ),
         onSelected: (_) => onTap(),
       ),
     );

@@ -4,6 +4,7 @@ import '../../../core/utils/cricket_math.dart';
 import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/match_player_snapshot.dart';
+import '../../scoring/match_lifecycle.dart';
 import '../match_analytics_service.dart';
 import 'tournament_analytics_models.dart';
 import 'tournament_hero_ranking_engine.dart';
@@ -104,6 +105,7 @@ class TournamentAnalyticsEngine {
       agg: agg,
       charts: charts,
       heroes: heroes,
+      scoredMatchCount: scored.length,
     );
 
     return TournamentAnalyticsSnapshot(
@@ -123,11 +125,9 @@ class TournamentAnalyticsEngine {
   }
 
   bool _isScored(MatchModel match) {
-    final status = match.status;
-    return status == MatchStatus.live ||
-        status == MatchStatus.inningsBreak ||
-        status == MatchStatus.completed ||
-        status == MatchStatus.abandoned;
+    if (MatchLifecycle.isEffectivelyLive(match)) return true;
+    final status = MatchLifecycle.effectiveStatus(match);
+    return status == MatchStatus.completed || status == MatchStatus.abandoned;
   }
 
   _MatchInsights _buildMatchInsights(
@@ -145,6 +145,7 @@ class TournamentAnalyticsEngine {
     var totalByes = 0;
     var totalLegByes = 0;
     var highestTeamScore = 0;
+    var highestTeamScoreLabel = '—';
     var lowestTeamScore = 999999;
     var highestChase = 0;
     var highestChaseLabel = '—';
@@ -166,6 +167,8 @@ class TournamentAnalyticsEngine {
     var bestBowlingLabel = '—';
     var longestPartnership = 0;
     var longestPartnershipLabel = '—';
+    var longestPartnershipSubtitle = '—';
+    final partnershipEntries = <TournamentPartnershipEntry>[];
     var mostExtrasMatch = 0;
     var mostExtrasMatchLabel = '—';
     var mostSixesMatch = 0;
@@ -181,9 +184,9 @@ class TournamentAnalyticsEngine {
     var tossWonMatch = 0;
     var tossTotal = 0;
     var batFirstWins = 0;
+    var batFirstMatches = 0;
     var chaseWins = 0;
-    var batFirstTotal = 0;
-    var chaseTotal = 0;
+    var chaseMatches = 0;
     final venueStats = <String, _VenueAccum>{};
     final bowlingTypeStats = <String, _BowlingTypeAccum>{};
     final dismissalCounts = <String, int>{};
@@ -200,7 +203,7 @@ class TournamentAnalyticsEngine {
         noResults++;
       }
       if (match.innings.any((i) => i.isSuperOver)) superOvers++;
-      if (match.status == MatchStatus.completed &&
+      if (MatchLifecycle.isCompleted(match) &&
           (match.winnerTeamId == null || match.winnerTeamId!.isEmpty) &&
           !summary.contains('no result')) {
         ties++;
@@ -210,7 +213,11 @@ class TournamentAnalyticsEngine {
         totalRuns += inn.totalRuns;
         totalWickets += inn.totalWickets;
         totalBalls += inn.legalBalls;
-        if (inn.totalRuns > highestTeamScore) highestTeamScore = inn.totalRuns;
+        if (inn.totalRuns > highestTeamScore) {
+          highestTeamScore = inn.totalRuns;
+          highestTeamScoreLabel =
+              '${_teamName(match, inn.battingTeamId)} · ${inn.totalRuns}/${inn.totalWickets}';
+        }
         if (inn.totalRuns < lowestTeamScore) lowestTeamScore = inn.totalRuns;
 
         for (final b in inn.batsmen) {
@@ -254,10 +261,33 @@ class TournamentAnalyticsEngine {
         }
 
         for (final p in analytics.partnerships) {
+          final inn = match.innings
+              .where((i) => i.inningsNumber == p.inningsNumber)
+              .firstOrNull;
+          final matchLabel = '${match.teamAName} vs ${match.teamBName}';
+          final teamLabel =
+              inn != null ? _teamName(match, inn.battingTeamId) : '';
+          partnershipEntries.add(
+            TournamentPartnershipEntry(
+              matchLabel: matchLabel,
+              teamLabel: teamLabel,
+              inningsNumber: p.inningsNumber,
+              wicketNumber: p.wicketNumber,
+              runs: p.runs,
+              balls: p.balls,
+              batterAName: p.batterAName,
+              batterBName: p.batterBName,
+              batterARuns: p.batterARuns,
+              batterABalls: p.batterABalls,
+              batterBRuns: p.batterBRuns,
+              batterBBalls: p.batterBBalls,
+            ),
+          );
           if (p.runs > longestPartnership) {
             longestPartnership = p.runs;
-            longestPartnershipLabel =
-                '${p.batterAName} & ${p.batterBName} · ${p.runs}';
+            longestPartnershipLabel = '${p.batterAName} & ${p.batterBName}';
+            longestPartnershipSubtitle =
+                '$matchLabel · $teamLabel · ${p.batterARuns}(${p.batterABalls}) & ${p.batterBRuns}(${p.batterBBalls})';
           }
         }
 
@@ -285,7 +315,7 @@ class TournamentAnalyticsEngine {
         }
       }
 
-      if (match.status == MatchStatus.completed) {
+      if (MatchLifecycle.isCompleted(match)) {
         final regular = match.innings.where((i) => !i.isSuperOver).toList();
         if (regular.isNotEmpty) {
           firstInningsTotals.add(regular.first.totalRuns);
@@ -364,15 +394,16 @@ class TournamentAnalyticsEngine {
       }
 
       final tossInfo = _tossInfo(match);
-      if (tossInfo != null && match.status == MatchStatus.completed) {
+      if (tossInfo != null && MatchLifecycle.isCompleted(match)) {
         tossTotal++;
         if (match.winnerTeamId == tossInfo.tossWinnerTeamId) tossWonMatch++;
-        batFirstTotal++;
+
+        batFirstMatches++;
         if (match.winnerTeamId == tossInfo.batFirstTeamId) batFirstWins++;
-        else if (match.winnerTeamId != null &&
-            match.winnerTeamId != tossInfo.batFirstTeamId) {
-          chaseTotal++;
-          chaseWins++;
+
+        if (match.winnerTeamId != null && match.winnerTeamId!.isNotEmpty) {
+          chaseMatches++;
+          if (match.winnerTeamId != tossInfo.batFirstTeamId) chaseWins++;
         }
       }
 
@@ -400,6 +431,7 @@ class TournamentAnalyticsEngine {
 
     if (lowestTeamScore == 999999) lowestTeamScore = 0;
     if (closestWin == 999999) closestWin = 0;
+    partnershipEntries.sort((a, b) => b.runs.compareTo(a.runs));
 
     return _MatchInsights(
       totalRuns: totalRuns,
@@ -413,6 +445,7 @@ class TournamentAnalyticsEngine {
       totalByes: totalByes,
       totalLegByes: totalLegByes,
       highestTeamScore: highestTeamScore,
+      highestTeamScoreLabel: highestTeamScoreLabel,
       lowestTeamScore: lowestTeamScore,
       highestChase: highestChase,
       highestChaseLabel: highestChaseLabel,
@@ -432,6 +465,8 @@ class TournamentAnalyticsEngine {
       bestBowlingLabel: bestBowlingLabel,
       longestPartnership: longestPartnership,
       longestPartnershipLabel: longestPartnershipLabel,
+      longestPartnershipSubtitle: longestPartnershipSubtitle,
+      partnershipEntries: partnershipEntries,
       mostExtrasMatch: mostExtrasMatch,
       mostExtrasMatchLabel: mostExtrasMatchLabel,
       mostSixesMatch: mostSixesMatch,
@@ -448,8 +483,14 @@ class TournamentAnalyticsEngine {
       tossLostMatchPct: tossTotal > 0
           ? ((tossTotal - tossWonMatch) / tossTotal) * 100
           : 0,
-      batFirstWinPct: batFirstTotal > 0 ? (batFirstWins / batFirstTotal) * 100 : 0,
-      chaseWinPct: chaseTotal > 0 ? (chaseWins / chaseTotal) * 100 : 0,
+      batFirstWinPct: batFirstMatches > 0 ? (batFirstWins / batFirstMatches) * 100 : 0,
+      chaseWinPct: chaseMatches > 0 ? (chaseWins / chaseMatches) * 100 : 0,
+      tossMatches: tossTotal,
+      tossWinnerWins: tossWonMatch,
+      batFirstMatches: batFirstMatches,
+      batFirstWins: batFirstWins,
+      chaseMatches: chaseMatches,
+      chaseWinsCount: chaseWins,
       venueStats: venueStats.values.toList(),
       bowlingTypeStats: bowlingTypeStats.values.toList(),
       dismissalCounts: dismissalCounts,
@@ -468,18 +509,14 @@ class TournamentAnalyticsEngine {
     var cancelled = 0;
 
     for (final m in matches) {
-      switch (m.status) {
-        case MatchStatus.completed:
-          completed++;
-        case MatchStatus.live:
-        case MatchStatus.inningsBreak:
-          live++;
-        case MatchStatus.abandoned:
-          cancelled++;
-        case MatchStatus.scheduled:
-        case MatchStatus.draft:
-        case MatchStatus.tossCompleted:
-          upcoming++;
+      if (MatchLifecycle.isEffectivelyLive(m)) {
+        live++;
+      } else if (MatchLifecycle.isCompleted(m)) {
+        completed++;
+      } else if (MatchLifecycle.effectiveStatus(m) == MatchStatus.abandoned) {
+        cancelled++;
+      } else if (MatchLifecycle.isUpcoming(m)) {
+        upcoming++;
       }
     }
 
@@ -656,12 +693,15 @@ class TournamentAnalyticsEngine {
     required ({Map<String, TournamentPlayerAccum> players, Map<String, TournamentTeamAccum> teams}) agg,
     required List<StatsChartSeries> charts,
     required TournamentHeroesSnapshot heroes,
+    required int scoredMatchCount,
   }) {
     TournamentSectionSnapshot section(
       TournamentStatsSectionId id,
       List<StatsMetric> metrics,
       TournamentLeaderboardCategory? cat, {
       StatsChartSeries? chart,
+      List<TournamentPartnershipEntry> partnershipPreview = const [],
+      TournamentTossInsights? tossInsights,
     }) {
       return TournamentSectionSnapshot(
         id: id,
@@ -669,59 +709,135 @@ class TournamentAnalyticsEngine {
         primaryCategory: cat,
         leaderboardPreview:
             cat != null ? leaderboard.entriesFor(cat).take(5).toList() : const [],
+        partnershipPreview: partnershipPreview,
+        tossInsights: tossInsights,
         chartPreview: chart,
       );
     }
+
+    var totalCatches = 0;
+    var totalRunOuts = 0;
+    var totalStumpings = 0;
+    for (final p in agg.players.values) {
+      totalCatches += p.catches;
+      totalRunOuts += p.runOuts;
+      totalStumpings += p.stumpings;
+    }
+
+    final fieldingMetrics = [
+      StatsMetric(label: 'Total catches', value: '$totalCatches'),
+      StatsMetric(label: 'Run outs', value: '$totalRunOuts'),
+      StatsMetric(label: 'Stumpings', value: '$totalStumpings'),
+    ];
+
+    final teamMetrics = [
+      StatsMetric(
+        label: 'Highest team score',
+        value: matchInsights.highestTeamScore > 0
+            ? '${matchInsights.highestTeamScore}'
+            : '—',
+        subtitle: matchInsights.highestTeamScoreLabel != '—'
+            ? matchInsights.highestTeamScoreLabel
+            : null,
+      ),
+      StatsMetric(
+        label: 'Lowest team score',
+        value: matchInsights.lowestTeamScore > 0
+            ? '${matchInsights.lowestTeamScore}'
+            : '—',
+      ),
+      StatsMetric(
+        label: 'Biggest win',
+        value: matchInsights.biggestWinRuns > 0
+            ? matchInsights.biggestWinRunsLabel
+            : '—',
+      ),
+      StatsMetric(
+        label: 'Closest win',
+        value: matchInsights.closestWin > 0
+            ? matchInsights.closestWinLabel
+            : '—',
+      ),
+    ];
 
     final boundaryMetrics = [
       StatsMetric(label: 'Tournament sixes', value: '${matchInsights.totalSixes}'),
       StatsMetric(label: 'Tournament fours', value: '${matchInsights.totalFours}'),
       StatsMetric(
         label: 'Sixes per match',
-        value: matchInsights.totalSixes > 0 && agg.players.isNotEmpty
-            ? (matchInsights.totalSixes /
-                    (agg.players.values.first.matchesPlayed.clamp(1, 999)))
-                .toStringAsFixed(1)
-            : '0',
+        value: scoredMatchCount > 0
+            ? (matchInsights.totalSixes / scoredMatchCount).toStringAsFixed(1)
+            : '—',
       ),
       StatsMetric(
         label: 'Biggest over',
-        value: matchInsights.biggestOverLabel,
+        value: matchInsights.biggestOverRuns > 0
+            ? matchInsights.biggestOverLabel
+            : '—',
       ),
     ];
+
+    final partnerships = matchInsights.partnershipEntries;
+    final avgPartnership = partnerships.isEmpty
+        ? 0.0
+        : partnerships.fold<int>(0, (s, p) => s + p.runs) / partnerships.length;
+    final fiftyPlus = partnerships.where((p) => p.runs >= 50).length;
+    final hundredPlus = partnerships.where((p) => p.runs >= 100).length;
 
     final partnershipMetrics = [
+      if (matchInsights.longestPartnership > 0)
+        StatsMetric(
+          label: 'Highest partnership',
+          value: '${matchInsights.longestPartnership}',
+        ),
       StatsMetric(
-        label: 'Highest partnership',
-        value: matchInsights.longestPartnershipLabel,
+        label: 'Average partnership',
+        value: partnerships.isEmpty ? '—' : avgPartnership.toStringAsFixed(1),
       ),
+      StatsMetric(label: '50+ stands', value: '$fiftyPlus'),
+      StatsMetric(label: '100+ stands', value: '$hundredPlus'),
     ];
 
+    final tossInsights = TournamentTossInsights(
+      matchesWithToss: matchInsights.tossMatches,
+      tossWinnerWins: matchInsights.tossWinnerWins,
+      batFirstWins: matchInsights.batFirstWins,
+      batFirstMatches: matchInsights.batFirstMatches,
+      chaseWins: matchInsights.chaseWinsCount,
+      chaseMatches: matchInsights.chaseMatches,
+    );
+
+    final tossMetrics = tossInsights.matchesWithToss > 0
+        ? [
+            StatsMetric(
+              label: 'Matches with toss',
+              value: '${tossInsights.matchesWithToss}',
+            ),
+            StatsMetric(
+              label: 'Won toss · won match',
+              value: '${tossInsights.tossWinnerWinPct.toStringAsFixed(0)}%',
+            ),
+            StatsMetric(
+              label: 'Bat first · won',
+              value: '${tossInsights.batFirstWinPct.toStringAsFixed(0)}%',
+            ),
+            StatsMetric(
+              label: 'Chase · won',
+              value: '${tossInsights.chaseWinPct.toStringAsFixed(0)}%',
+            ),
+          ]
+        : const <StatsMetric>[];
     final extrasMetrics = [
-      StatsMetric(label: 'Most extras', value: '${matchInsights.totalExtras}'),
+      StatsMetric(label: 'Total extras', value: '${matchInsights.totalExtras}'),
       StatsMetric(label: 'Wides', value: '${matchInsights.totalWides}'),
       StatsMetric(label: 'No balls', value: '${matchInsights.totalNoBalls}'),
       StatsMetric(label: 'Byes', value: '${matchInsights.totalByes}'),
       StatsMetric(label: 'Leg byes', value: '${matchInsights.totalLegByes}'),
     ];
-
-    final tossMetrics = [
-      StatsMetric(
-        label: 'Won toss · won match',
-        value: '${matchInsights.tossWonMatchPct.toStringAsFixed(0)}%',
-      ),
-      StatsMetric(
-        label: 'Bat first · won',
-        value: '${matchInsights.batFirstWinPct.toStringAsFixed(0)}%',
-      ),
-      StatsMetric(
-        label: 'Chase · won',
-        value: '${matchInsights.chaseWinPct.toStringAsFixed(0)}%',
-      ),
-    ];
-
+    final sortedVenues = matchInsights.venueStats.toList()
+      ..sort((a, b) => b.matches.compareTo(a.matches));
     final venueMetrics = [
-      for (final v in matchInsights.venueStats.take(5))
+      for (final v in sortedVenues.take(5))
         StatsMetric(
           label: v.name,
           value: '${v.matches} matches · avg ${_avgInt(v.totalRuns, v.matches)}',
@@ -731,19 +847,27 @@ class TournamentAnalyticsEngine {
     final progressMetrics = [
       StatsMetric(
         label: 'Highest powerplay',
-        value: '${matchInsights.highestPowerplay}',
+        value: matchInsights.highestPowerplay > 0
+            ? '${matchInsights.highestPowerplay}'
+            : '—',
       ),
       StatsMetric(
         label: 'Highest middle overs',
-        value: '${matchInsights.highestMiddle}',
+        value: matchInsights.highestMiddle > 0
+            ? '${matchInsights.highestMiddle}'
+            : '—',
       ),
       StatsMetric(
         label: 'Highest death overs',
-        value: '${matchInsights.highestDeath}',
+        value: matchInsights.highestDeath > 0
+            ? '${matchInsights.highestDeath}'
+            : '—',
       ),
       StatsMetric(
         label: 'Best chase',
-        value: matchInsights.highestChaseLabel,
+        value: matchInsights.highestChase > 0
+            ? matchInsights.highestChaseLabel
+            : '—',
       ),
     ];
 
@@ -754,6 +878,8 @@ class TournamentAnalyticsEngine {
           value: '${b.wickets} wkts · econ ${b.economy.toStringAsFixed(2)}',
         ),
     ];
+
+    final nonEmptyCharts = charts.where((c) => c.points.isNotEmpty).toList();
 
     return {
       TournamentStatsSectionId.summary:
@@ -775,12 +901,12 @@ class TournamentAnalyticsEngine {
       ),
       TournamentStatsSectionId.fielding: section(
         TournamentStatsSectionId.fielding,
-        const [],
+        fieldingMetrics,
         TournamentLeaderboardCategory.mostCatches,
       ),
       TournamentStatsSectionId.team: section(
         TournamentStatsSectionId.team,
-        const [],
+        teamMetrics,
         TournamentLeaderboardCategory.highestTeamScore,
       ),
       TournamentStatsSectionId.boundaries: section(
@@ -792,6 +918,7 @@ class TournamentAnalyticsEngine {
         TournamentStatsSectionId.partnerships,
         partnershipMetrics,
         null,
+        partnershipPreview: partnerships.take(25).toList(),
       ),
       TournamentStatsSectionId.extras: section(
         TournamentStatsSectionId.extras,
@@ -802,12 +929,14 @@ class TournamentAnalyticsEngine {
         TournamentStatsSectionId.bowlingTypes,
         bowlingTypeMetrics,
         null,
-        chart: charts.where((c) => c.title.contains('Bowling type')).firstOrNull,
+        chart: nonEmptyCharts.where((c) => c.title.contains('Bowling type')).firstOrNull,
       ),
       TournamentStatsSectionId.toss: section(
         TournamentStatsSectionId.toss,
         tossMetrics,
         null,
+        tossInsights:
+            tossInsights.matchesWithToss > 0 ? tossInsights : null,
       ),
       TournamentStatsSectionId.venue: section(
         TournamentStatsSectionId.venue,
@@ -831,7 +960,7 @@ class TournamentAnalyticsEngine {
         TournamentStatsSectionId.charts,
         const [],
         null,
-        chart: charts.isNotEmpty ? charts.first : null,
+        chart: nonEmptyCharts.isNotEmpty ? nonEmptyCharts.first : null,
       ),
     };
   }
@@ -866,41 +995,48 @@ class TournamentAnalyticsEngine {
           points: runsPerMatch,
           kind: StatsChartKind.bar,
         ),
-      StatsChartSeries(
-        title: 'Top batters comparison',
-        points: [
-          for (final p in topBatters.take(5))
-            StatsChartPoint(label: _shortName(p.playerName), value: p.runs.toDouble()),
-        ],
-        kind: StatsChartKind.bar,
-      ),
-      StatsChartSeries(
-        title: 'Top bowlers comparison',
-        points: [
-          for (final p in topBowlers.take(5))
-            StatsChartPoint(
-              label: _shortName(p.playerName),
-              value: p.wickets.toDouble(),
-            ),
-        ],
-        kind: StatsChartKind.bar,
-      ),
-      StatsChartSeries(
-        title: 'Dismissal types',
-        points: [
-          for (final e in insights.dismissalCounts.entries)
-            StatsChartPoint(label: e.key, value: e.value.toDouble()),
-        ],
-        kind: StatsChartKind.pie,
-      ),
-      StatsChartSeries(
-        title: 'Bowling type wickets',
-        points: [
-          for (final b in insights.bowlingTypeStats)
-            StatsChartPoint(label: b.label, value: b.wickets.toDouble()),
-        ],
-        kind: StatsChartKind.pie,
-      ),
+      if (topBatters.any((p) => p.runs > 0))
+        StatsChartSeries(
+          title: 'Top batters comparison',
+          points: [
+            for (final p in topBatters.take(5))
+              if (p.runs > 0)
+                StatsChartPoint(label: _shortName(p.playerName), value: p.runs.toDouble()),
+          ],
+          kind: StatsChartKind.bar,
+        ),
+      if (topBowlers.any((p) => p.wickets > 0))
+        StatsChartSeries(
+          title: 'Top bowlers comparison',
+          points: [
+            for (final p in topBowlers.take(5))
+              if (p.wickets > 0)
+                StatsChartPoint(
+                  label: _shortName(p.playerName),
+                  value: p.wickets.toDouble(),
+                ),
+          ],
+          kind: StatsChartKind.bar,
+        ),
+      if (insights.dismissalCounts.isNotEmpty)
+        StatsChartSeries(
+          title: 'Dismissal types',
+          points: [
+            for (final e in insights.dismissalCounts.entries)
+              StatsChartPoint(label: e.key, value: e.value.toDouble()),
+          ],
+          kind: StatsChartKind.pie,
+        ),
+      if (insights.bowlingTypeStats.any((b) => b.wickets > 0))
+        StatsChartSeries(
+          title: 'Bowling type wickets',
+          points: [
+            for (final b in insights.bowlingTypeStats)
+              if (b.wickets > 0)
+                StatsChartPoint(label: b.label, value: b.wickets.toDouble()),
+          ],
+          kind: StatsChartKind.pie,
+        ),
     ];
   }
 
@@ -1058,12 +1194,16 @@ class TournamentAnalyticsEngine {
   int _avgInt(int total, int count) => count == 0 ? 0 : total ~/ count;
 
   String _shortName(String name) {
-    final parts = name.trim().split(' ');
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.length > 8
-        ? '${parts.first.substring(0, 8)}…'
-        : parts.first;
-    return parts.last;
+    if (parts.length == 1) {
+      final only = parts.first;
+      return only.length > 10 ? '${only.substring(0, 10)}…' : only;
+    }
+    final firstName = parts.first;
+    final lastInitial = parts.last[0].toUpperCase();
+    return '$firstName $lastInitial';
   }
 
   String _bowlingStyleLabel(String raw) {
@@ -1105,6 +1245,7 @@ class _MatchInsights {
     this.totalByes = 0,
     this.totalLegByes = 0,
     this.highestTeamScore = 0,
+    this.highestTeamScoreLabel = '—',
     this.lowestTeamScore = 0,
     this.highestChase = 0,
     this.highestChaseLabel = '—',
@@ -1124,6 +1265,8 @@ class _MatchInsights {
     this.bestBowlingLabel = '—',
     this.longestPartnership = 0,
     this.longestPartnershipLabel = '—',
+    this.longestPartnershipSubtitle = '—',
+    this.partnershipEntries = const [],
     this.mostExtrasMatch = 0,
     this.mostExtrasMatchLabel = '—',
     this.mostSixesMatch = 0,
@@ -1140,6 +1283,12 @@ class _MatchInsights {
     this.tossLostMatchPct = 0,
     this.batFirstWinPct = 0,
     this.chaseWinPct = 0,
+    this.tossMatches = 0,
+    this.tossWinnerWins = 0,
+    this.batFirstMatches = 0,
+    this.batFirstWins = 0,
+    this.chaseMatches = 0,
+    this.chaseWinsCount = 0,
     this.venueStats = const [],
     this.bowlingTypeStats = const [],
     this.dismissalCounts = const {},
@@ -1156,6 +1305,7 @@ class _MatchInsights {
   final int totalByes;
   final int totalLegByes;
   final int highestTeamScore;
+  final String highestTeamScoreLabel;
   final int lowestTeamScore;
   final int highestChase;
   final String highestChaseLabel;
@@ -1175,6 +1325,8 @@ class _MatchInsights {
   final String bestBowlingLabel;
   final int longestPartnership;
   final String longestPartnershipLabel;
+  final String longestPartnershipSubtitle;
+  final List<TournamentPartnershipEntry> partnershipEntries;
   final int mostExtrasMatch;
   final String mostExtrasMatchLabel;
   final int mostSixesMatch;
@@ -1191,6 +1343,12 @@ class _MatchInsights {
   final double tossLostMatchPct;
   final double batFirstWinPct;
   final double chaseWinPct;
+  final int tossMatches;
+  final int tossWinnerWins;
+  final int batFirstMatches;
+  final int batFirstWins;
+  final int chaseMatches;
+  final int chaseWinsCount;
   final List<_VenueAccum> venueStats;
   final List<_BowlingTypeAccum> bowlingTypeStats;
   final Map<String, int> dismissalCounts;

@@ -13,6 +13,7 @@ import '../../domain/display/match_revision_display.dart';
 import '../../domain/scoring/ball_event_aggregator.dart';
 import 'match_analytics_models.dart';
 import 'match_phase_service.dart';
+import 'dismissal_formatter.dart';
 
 /// Read-only analytics derived from match + ball events (no scoring changes).
 class MatchAnalyticsService {
@@ -405,6 +406,19 @@ class MatchAnalyticsService {
     var powerplayRuns = 0;
     final overRuns = <int, int>{};
     final rules = match.rules;
+    final playerNames = _playerNamesFromInnings(inn);
+    final batterRuns = <String, int>{};
+    final batterBalls = <String, int>{};
+
+    String displayName({String? eventName, String? playerId}) {
+      if (eventName != null && eventName.trim().isNotEmpty) {
+        return eventName.trim();
+      }
+      if (playerId != null && playerId.isNotEmpty) {
+        return playerNames[playerId] ?? playerId;
+      }
+      return 'Batter';
+    }
 
     for (final e in events) {
       runs += e.runs;
@@ -413,15 +427,56 @@ class MatchAnalyticsService {
       if (e.batsmanRuns == 4 || e.batsmanRuns == 6 || e.isBoundary) {
         boundaries++;
       }
+
+      final strikerId = e.strikerId;
+      if (strikerId != null &&
+          strikerId.isNotEmpty &&
+          e.eventType == BallEventType.runs) {
+        batterRuns[strikerId] = (batterRuns[strikerId] ?? 0) + e.batsmanRuns;
+        if (e.countsAsBallFaced) {
+          batterBalls[strikerId] = (batterBalls[strikerId] ?? 0) + 1;
+        }
+      }
+
       if (_isWicket(e)) {
         wkts++;
         wicketsInOver++;
         partnershipRuns = 0;
+
+        final dismissedId = e.dismissedPlayerId ?? strikerId ?? '';
+        if (dismissedId.isNotEmpty) {
+          batterRuns[dismissedId] =
+              (batterRuns[dismissedId] ?? 0) + e.batsmanRuns;
+          if (e.countsAsBallFaced) {
+            batterBalls[dismissedId] = (batterBalls[dismissedId] ?? 0) + 1;
+          }
+        }
+
+        final dismissedName = displayName(
+          eventName: e.dismissedPlayerName,
+          playerId: dismissedId.isEmpty ? strikerId : dismissedId,
+        );
+        final bowlerName = displayName(
+          eventName: e.bowlerName,
+          playerId: e.bowlerId,
+        );
+        final dismissalLabel = DismissalFormatter.fromWicketEvent(
+          e,
+          playerNames: playerNames,
+        );
+
         wickets.add(
           WormWicketMarker(
             over: _fractionalOver(legal, ballsPerOver),
             runs: runs,
             wicketNumber: wkts,
+            legalBalls: legal,
+            currentRunRate: CricketMath.runRate(runs, legal, ballsPerOver),
+            dismissedPlayerName: dismissedName,
+            batterRuns: dismissedId.isEmpty ? 0 : (batterRuns[dismissedId] ?? 0),
+            batterBalls: dismissedId.isEmpty ? 0 : (batterBalls[dismissedId] ?? 0),
+            bowlerName: bowlerName,
+            dismissalLabel: dismissalLabel,
           ),
         );
       }
@@ -591,6 +646,7 @@ class MatchAnalyticsService {
         boundaries: boundaries,
         partnershipRuns: partnershipRuns,
         wicketsInOver: wicketsInOver,
+        legalBalls: legal,
       );
     }
 

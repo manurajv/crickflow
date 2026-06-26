@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import 'widgets/team_add_method_tile.dart';
@@ -50,6 +50,8 @@ class _AddPlayersBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+
     return ListView(
       padding: AppDimens.listPadding.copyWith(bottom: AppDimens.spaceXl),
       children: [
@@ -64,7 +66,7 @@ class _AddPlayersBody extends StatelessWidget {
           'Share an invite link or QR code, look up a player by ID, or add walk-ins without a CrickFlow account.',
           style: Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          ).textTheme.bodyMedium?.copyWith(color: cf.textSecondary),
         ),
         const SizedBox(height: AppDimens.spaceLg),
         TeamInviteShareCard(team: team),
@@ -80,16 +82,18 @@ class _AddPlayersBody extends StatelessWidget {
           icon: Icons.badge_outlined,
           title: 'Add registered player',
           subtitle:
-              'Search by name or Player ID (full or partial) and add to squad.',
+              'Search by name or Player ID and send an invitation to join.',
           onTap: () => context.push('/teams/$teamId/add-players/quick'),
         ),
         const SizedBox(height: AppDimens.spaceSm),
         TeamAddMethodTile(
-          icon: Icons.person_search_outlined,
-          title: 'Player directory',
+          icon: Icons.person_add_alt_1_outlined,
+          title: 'Walk-in player',
           subtitle:
-              'Search by name or ID, or create a walk-in without an account.',
-          onTap: () => context.push('/teams/$teamId/add-players/directory'),
+              'Add a guest without a CrickFlow account — name, role, and styles.',
+          iconColor: Colors.orange.shade800,
+          iconBackground: Colors.orange.withValues(alpha: 0.15),
+          onTap: () => context.push('/teams/$teamId/add-players/walkin'),
         ),
       ],
     );

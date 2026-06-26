@@ -260,11 +260,28 @@ class WormWicketMarker {
     required this.over,
     required this.runs,
     required this.wicketNumber,
+    required this.legalBalls,
+    this.currentRunRate = 0,
+    this.dismissedPlayerName = '',
+    this.batterRuns = 0,
+    this.batterBalls = 0,
+    this.bowlerName = '',
+    this.dismissalLabel = '',
   });
 
+  /// Decimal overs for chart positioning (not cricket notation).
   final double over;
   final int runs;
   final int wicketNumber;
+  final int legalBalls;
+  final double currentRunRate;
+  final String dismissedPlayerName;
+  final int batterRuns;
+  final int batterBalls;
+  final String bowlerName;
+  final String dismissalLabel;
+
+  String get batterScoreLabel => '$batterRuns($batterBalls)';
 }
 
 class WormInningsSummary {
@@ -399,6 +416,7 @@ class RunRatePoint {
     this.boundaries = 0,
     this.partnershipRuns = 0,
     this.wicketsInOver = 0,
+    this.legalBalls = 0,
   });
 
   final double over;
@@ -410,6 +428,7 @@ class RunRatePoint {
   final int boundaries;
   final int partnershipRuns;
   final int wicketsInOver;
+  final int legalBalls;
 }
 
 class RunRateTrendInsights {

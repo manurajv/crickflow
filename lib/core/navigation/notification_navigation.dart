@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../core/constants/tournament_notification_types.dart';
+import '../../core/constants/team_notification_types.dart';
 import '../../data/models/notification_model.dart';
 
 /// Maps notification payloads to in-app routes.
@@ -25,11 +26,13 @@ class NotificationNavigation {
     }
     if (teamId != null &&
         teamId.isNotEmpty &&
-        (type == 'team_join_request' ||
-            type == 'team_join_accepted' ||
-            type == 'team_join_rejected' ||
-            type == 'team_member_removed' ||
-            type == 'team_member_added' ||
+        (type == TeamNotificationTypes.joinRequest ||
+            type == TeamNotificationTypes.joinAccepted ||
+            type == TeamNotificationTypes.joinRejected ||
+            type == TeamNotificationTypes.memberRemoved ||
+            type == TeamNotificationTypes.memberAdded ||
+            type == TeamNotificationTypes.invitationAccepted ||
+            type == TeamNotificationTypes.invitationRejected ||
             type == null)) {
       return '/teams/$teamId';
     }
@@ -52,7 +55,8 @@ class NotificationNavigation {
     }
     // Tournament invitations are handled with Accept/Reject on the notifications
     // screen — do not route team leadership to the organiser dashboard.
-    if (notification.type == TournamentNotificationTypes.invitation) {
+    if (notification.type == TournamentNotificationTypes.invitation ||
+        notification.type == TeamNotificationTypes.invitation) {
       return null;
     }
     return routeFor(
@@ -96,36 +100,46 @@ class NotificationNavigation {
 
 extension NotificationPresentation on NotificationModel {
   String get typeLabel => switch (type) {
-        'team_join_request' => 'Join request',
-        'team_join_accepted' => 'Accepted',
-        'team_join_rejected' => 'Declined',
+        TeamNotificationTypes.joinRequest => 'Join request',
+        TeamNotificationTypes.joinAccepted => 'Accepted',
+        TeamNotificationTypes.joinRejected => 'Declined',
+        TeamNotificationTypes.invitation => 'Team invite',
+        TeamNotificationTypes.invitationAccepted => 'Invite accepted',
+        TeamNotificationTypes.invitationRejected => 'Invite declined',
         TournamentNotificationTypes.invitation => 'Tournament invite',
         TournamentNotificationTypes.invitationAccepted => 'Invite accepted',
         TournamentNotificationTypes.invitationRejected => 'Invite declined',
         TournamentNotificationTypes.joinRequest => 'Tournament request',
         TournamentNotificationTypes.joinApproved => 'Join approved',
         TournamentNotificationTypes.joinRejected => 'Join declined',
-        'team_member_removed' => 'Team update',
-        'team_member_added' => 'Added to team',
+        TeamNotificationTypes.memberRemoved => 'Team update',
+        TeamNotificationTypes.memberAdded => 'Added to team',
         'player_follow' => 'New follower',
         'follower_milestone' => 'Milestone',
         'admin_roster_report' => 'Admin alert',
         _ => 'Update',
       };
 
-  bool get isJoinRequest => type == 'team_join_request';
+  bool get isJoinRequest => type == TeamNotificationTypes.joinRequest;
+
+  bool get isTeamActionable => type == TeamNotificationTypes.invitation;
 
   bool get isTournamentActionable =>
       type == TournamentNotificationTypes.invitation ||
       type == TournamentNotificationTypes.joinRequest ||
       type == TournamentNotificationTypes.officialInvitation;
 
-  bool get canReportUnauthorizedAdd => type == 'team_member_added';
+  bool get isActionable => isTournamentActionable || isTeamActionable;
+
+  bool get canReportUnauthorizedAdd => type == TeamNotificationTypes.memberAdded;
 
   String? get actionLabel => switch (type) {
-        'team_join_request' => 'Review request',
-        'team_join_accepted' || 'team_join_rejected' => 'View team',
-        'team_member_added' => 'View team',
+        TeamNotificationTypes.joinRequest => 'Review request',
+        TeamNotificationTypes.joinAccepted ||
+        TeamNotificationTypes.joinRejected =>
+          'View team',
+        TeamNotificationTypes.invitation => 'Respond to invite',
+        TeamNotificationTypes.memberAdded => 'View team',
         TournamentNotificationTypes.invitation => 'Respond to invite',
         TournamentNotificationTypes.joinRequest => 'Review request',
         TournamentNotificationTypes.officialInvitation => 'Respond to invite',

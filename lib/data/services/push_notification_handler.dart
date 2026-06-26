@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/constants/tournament_notification_types.dart';
+import '../../core/constants/team_notification_types.dart';
 import '../../core/navigation/notification_navigation.dart';
 
 /// Displays FCM pushes in the tray and routes taps to the correct screen.
@@ -95,7 +96,8 @@ class PushNotificationHandler {
 
   void navigateFromData(Map<String, String> data) {
     final type = data['type'] ?? '';
-    if (type == TournamentNotificationTypes.invitation) {
+    if (type == TournamentNotificationTypes.invitation ||
+        type == TeamNotificationTypes.invitation) {
       _router?.push('/notifications');
       return;
     }

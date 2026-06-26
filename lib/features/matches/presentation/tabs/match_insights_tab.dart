@@ -119,6 +119,7 @@ class MatchInsightsTab extends ConsumerWidget {
             child: InsightsRunRateSection(
               data: analytics.runRate,
               cf: cf,
+              ballsPerOver: analytics.ballsPerOver,
             ),
           ),
           if (test != null && test.sessions.isNotEmpty)
@@ -163,6 +164,7 @@ class MatchInsightsTab extends ConsumerWidget {
             child: InsightsWormSection(
               data: analytics.worm,
               cf: cf,
+              ballsPerOver: analytics.ballsPerOver,
               isTestMatch: true,
             ),
           ),
@@ -183,6 +185,7 @@ class MatchInsightsTab extends ConsumerWidget {
             child: InsightsWormSection(
               data: analytics.worm,
               cf: cf,
+              ballsPerOver: analytics.ballsPerOver,
               phaseRanges: analytics.phaseRanges,
             ),
           ),
@@ -192,6 +195,7 @@ class MatchInsightsTab extends ConsumerWidget {
             child: InsightsRunRateSection(
               data: analytics.runRate,
               cf: cf,
+              ballsPerOver: analytics.ballsPerOver,
               phaseRanges: analytics.phaseRanges,
             ),
           ),

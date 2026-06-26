@@ -53,13 +53,26 @@ class TeamDetailScreen extends ConsumerWidget {
         actions: [
           teamAsync.maybeWhen(
             data: (team) {
-              if (team == null || !TeamSquadUtils.isTeamOwner(uid, team)) {
-                return const SizedBox.shrink();
-              }
-              return IconButton(
-                tooltip: 'Edit team',
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () => context.push('/teams/$teamId/edit'),
+              if (team == null) return const SizedBox.shrink();
+              final canAddPlayers =
+                  TeamSquadUtils.canManageJoinRequests(uid, team);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (canAddPlayers)
+                    IconButton(
+                      tooltip: 'Add players',
+                      icon: const Icon(Icons.person_add_outlined),
+                      onPressed: () =>
+                          context.push('/teams/$teamId/add-players'),
+                    ),
+                  if (TeamSquadUtils.isTeamOwner(uid, team))
+                    IconButton(
+                      tooltip: 'Edit team',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () => context.push('/teams/$teamId/edit'),
+                    ),
+                ],
               );
             },
             orElse: () => const SizedBox.shrink(),
@@ -82,6 +95,9 @@ class TeamDetailScreen extends ConsumerWidget {
                   (players.any((p) => p.userId == uid || p.id == uid) ||
                       TeamSquadUtils.isTeamOwner(uid, team));
 
+              final canAddPlayers =
+                  TeamSquadUtils.canManageJoinRequests(uid, team);
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -101,7 +117,7 @@ class TeamDetailScreen extends ConsumerWidget {
                               physics: const AlwaysScrollableScrollPhysics(),
                               children: [
                                 TeamSquadEmptyState(
-                                  showAddButton: isOwner,
+                                  showAddButton: canAddPlayers,
                                   onAddPlayers: () => context.push(
                                     '/teams/$teamId/add-players',
                                   ),
@@ -114,9 +130,37 @@ class TeamDetailScreen extends ConsumerWidget {
                                 top: AppDimens.spaceSm,
                                 bottom: AppDimens.spaceXl,
                               ),
-                              itemCount: players.length,
+                              itemCount:
+                                  players.length + (canAddPlayers ? 1 : 0),
                               itemBuilder: (context, index) {
-                                final squadPlayer = players[index];
+                                if (canAddPlayers && index == 0) {
+                                  return Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      AppDimens.spaceMd,
+                                      0,
+                                      AppDimens.spaceMd,
+                                      AppDimens.spaceSm,
+                                    ),
+                                    child: FilledButton.icon(
+                                      onPressed: () => context.push(
+                                        '/teams/$teamId/add-players',
+                                      ),
+                                      icon: const Icon(Icons.person_add_outlined),
+                                      label: const Text('Add player'),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppColors.gold,
+                                        foregroundColor: Colors.black,
+                                        minimumSize: const Size(
+                                          double.infinity,
+                                          44,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                final playerIndex =
+                                    canAddPlayers ? index - 1 : index;
+                                final squadPlayer = players[playerIndex];
                                 return TeamSquadPlayerCard(
                                   player: squadPlayer,
                                   team: team,

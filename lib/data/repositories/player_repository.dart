@@ -71,6 +71,7 @@ class PlayerRepository {
     if (q.isNotEmpty && CfPlayerIdFormat.looksLikeCfPlayerId(q)) {
       final player = await getPlayerByPublicId(q);
       if (player != null) {
+        if (player.userId == null || player.userId!.isEmpty) return [];
         if (alreadyOnSquadIds.contains(player.id)) return [];
         if (player.isOnTeam(excludeTeamId)) return [];
         return [player];
@@ -84,6 +85,8 @@ class PlayerRepository {
     final list = snap.docs
         .map((d) => PlayerModel.fromMap(d.id, d.data()))
         .where((p) {
+          final uid = p.userId;
+          if (uid == null || uid.isEmpty) return false;
           if (alreadyOnSquadIds.contains(p.id)) return false;
           if (p.isOnTeam(excludeTeamId)) return false;
           if (q.isEmpty) return true;
@@ -158,30 +161,35 @@ class PlayerRepository {
 
       final teamData = teamSnap.data()!;
       final currentIds = List<String>.from(teamData['playerIds'] as List? ?? []);
-      if (!currentIds.contains(playerId)) {
-        currentIds.add(playerId);
-      }
 
       final existing = await tx.get(playerRef);
       final existingData = existing.data();
       final alreadyOnTeam =
           existing.exists && _playerIsOnTeam(existingData, teamId);
 
-      if (!alreadyOnTeam) {
+      if (!currentIds.contains(playerId)) {
+        currentIds.add(playerId);
         wasNewAssignment = true;
-        final payload = <String, dynamic>{
-          'teamIds': FieldValue.arrayUnion([teamId]),
-          'teamId': teamId,
-          'rosterChangeTeamId': teamId,
-          'updatedAt': DateTime.now().toIso8601String(),
-          'teamJoinedAt': DateTime.now().toIso8601String(),
-        };
+      } else if (!alreadyOnTeam) {
+        wasNewAssignment = true;
+      }
 
-        if (existing.exists) {
-          tx.update(playerRef, payload);
-        } else {
-          tx.set(playerRef, payload, SetOptions(merge: true));
-        }
+      // Always sync `teamIds` — legacy `teamId`-only docs are invisible to
+      // watchPlayersForTeam's arrayContains query when other members exist.
+      final playerPayload = <String, dynamic>{
+        'teamIds': FieldValue.arrayUnion([teamId]),
+        'teamId': teamId,
+        'rosterChangeTeamId': teamId,
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+      if (!alreadyOnTeam) {
+        playerPayload['teamJoinedAt'] = DateTime.now().toIso8601String();
+      }
+
+      if (existing.exists) {
+        tx.update(playerRef, playerPayload);
+      } else {
+        tx.set(playerRef, playerPayload, SetOptions(merge: true));
       }
 
       tx.update(teamRef, {
@@ -462,12 +470,14 @@ class PlayerRepository {
           .map((d) => PlayerModel.fromMap(d.id, d.data()))
           .toList();
 
-      if (fromQuery.isNotEmpty) {
-        fromQuery.sort((a, b) => a.name.compareTo(b.name));
-        return fromQuery;
-      }
-
-      return _playersFromTeamRoster(teamId);
+      final fromRoster = await _playersFromTeamRoster(teamId);
+      final byId = <String, PlayerModel>{
+        for (final p in fromQuery) p.id: p,
+        for (final p in fromRoster) p.id: p,
+      };
+      final merged = byId.values.toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+      return merged;
     });
   }
 

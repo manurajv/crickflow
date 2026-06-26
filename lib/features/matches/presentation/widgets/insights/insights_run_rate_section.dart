@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
+import '../../../../../core/utils/overs_formatter.dart';
 import '../../../../../domain/services/match_analytics_models.dart';
 import 'insights_chart_widgets.dart';
 
@@ -15,11 +16,13 @@ class InsightsRunRateSection extends StatefulWidget {
     super.key,
     required this.data,
     required this.cf,
+    required this.ballsPerOver,
     this.phaseRanges,
   });
 
   final RunRateGraphData data;
   final CfColors cf;
+  final int ballsPerOver;
   final MatchPhaseRanges? phaseRanges;
 
   @override
@@ -141,87 +144,103 @@ class _InsightsRunRateSectionState extends State<InsightsRunRateSection> {
     RunRatePoint point,
   ) {
     if (point.over <= 0) return;
-    final cf = widget.cf;
-    final overLabel = point.over == point.over.roundToDouble()
-        ? '${point.over.round()}'
-        : point.over.toStringAsFixed(1);
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: cf.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => Padding(
-        padding: AppDimens.cardPadding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${series.label} · Over $overLabel',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-                color: cf.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppDimens.spaceMd),
-            _tooltipRow('Runs', '${point.totalRuns}', cf),
-            _tooltipRow('Wickets', '${point.wickets}', cf),
-            _tooltipRow(
-              'Current RR',
-              point.currentRunRate.toStringAsFixed(2),
-              cf,
-            ),
-            _tooltipRow('Partnership', '${point.partnershipRuns}', cf),
-            _tooltipRow('Boundaries', '${point.boundaries}', cf),
-            if (series.isChase && point.requiredRunRate != null) ...[
-              const SizedBox(height: AppDimens.spaceSm),
-              _tooltipRow(
-                'Required RR',
-                point.requiredRunRate!.toStringAsFixed(2),
-                cf,
-              ),
-              _tooltipRow(
-                'Difference',
-                (point.requiredRunRate! - point.currentRunRate)
-                    .toStringAsFixed(1),
-                cf,
-              ),
-              _tooltipRow(
-                point.requiredRunRate! > point.currentRunRate
-                    ? 'Behind by'
-                    : 'Ahead by',
-                (point.requiredRunRate! - point.currentRunRate)
-                    .abs()
-                    .toStringAsFixed(1),
-                cf,
-              ),
-            ],
-            SizedBox(height: MediaQuery.paddingOf(ctx).bottom),
-          ],
-        ),
+    showInsightsChartBottomSheet(
+      context,
+      cf: widget.cf,
+      child: _RunRatePointDetailSheet(
+        series: series,
+        point: point,
+        ballsPerOver: widget.ballsPerOver,
+        cf: widget.cf,
       ),
     );
   }
+}
 
-  Widget _tooltipRow(String label, String value, CfColors cf) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+class _RunRatePointDetailSheet extends StatelessWidget {
+  const _RunRatePointDetailSheet({
+    required this.series,
+    required this.point,
+    required this.ballsPerOver,
+    required this.cf,
+  });
+
+  final RunRateInningsSeries series;
+  final RunRatePoint point;
+  final int ballsPerOver;
+  final CfColors cf;
+
+  String get _overLabel {
+    if (point.legalBalls > 0) {
+      return OversFormatter.formatOvers(point.legalBalls, ballsPerOver);
+    }
+    if (point.over == point.over.roundToDouble()) {
+      return '${point.over.round()}';
+    }
+    return point.over.toStringAsFixed(1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scoreLabel = '${point.totalRuns}/${point.wickets}';
+    final rrr = point.requiredRunRate;
+    final diff = rrr != null ? rrr - point.currentRunRate : null;
+    final ahead = diff != null && diff < 0;
+
+    return InsightsChartSheetShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: TextStyle(color: cf.textSecondary)),
+          InsightsChartSheetHeader(
+            cf: cf,
+            badgeLabel: 'OVER $_overLabel',
+            title: series.label,
+            subtitle: 'Score $scoreLabel',
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: cf.textPrimary,
+          const SizedBox(height: AppDimens.spaceMd),
+          InsightsChartSheetHero(
+            cf: cf,
+            label: 'Current run rate',
+            value: point.currentRunRate.toStringAsFixed(2),
+            subtitle: point.isPressure ? 'Chase pressure building' : null,
+            valueColor: point.isPressure ? cf.error : cf.accent,
+          ),
+          const SizedBox(height: 10),
+          InsightsChartSheetStatGrid(
+            cf: cf,
+            items: [
+              (label: 'Runs', value: '${point.totalRuns}', highlight: false),
+              (label: 'Wickets', value: '${point.wickets}', highlight: false),
+              (
+                label: 'Boundaries',
+                value: '${point.boundaries}',
+                highlight: false,
+              ),
+              (
+                label: 'Partnership',
+                value: '${point.partnershipRuns}',
+                highlight: false,
+              ),
+            ],
+          ),
+          if (series.isChase && rrr != null && diff != null) ...[
+            const SizedBox(height: 10),
+            InsightsChartSheetDetailTile(
+              cf: cf,
+              icon: Icons.flag_outlined,
+              label: 'Required run rate',
+              value: rrr.toStringAsFixed(2),
             ),
-          ),
+            const SizedBox(height: 8),
+            InsightsChartSheetDetailTile(
+              cf: cf,
+              icon: ahead ? Icons.trending_up : Icons.trending_down,
+              label: ahead ? 'Ahead of required rate' : 'Behind required rate',
+              value: '${diff.abs().toStringAsFixed(2)} runs/over',
+              valueColor: ahead ? cf.success : cf.error,
+            ),
+          ],
         ],
       ),
     );

@@ -11,12 +11,20 @@ class PlayerClusterText extends StatelessWidget {
     this.fontSize = 11,
     this.separatorColor,
     this.showNewPlayerForMissing = false,
+    this.maxLines,
+    this.overflow,
+    this.softWrap = true,
+    this.textAlign,
   });
 
   final PlayerClusters clusters;
   final double fontSize;
   final Color? separatorColor;
   final bool showNewPlayerForMissing;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final bool softWrap;
+  final TextAlign? textAlign;
 
   static const newPlayerLabel = 'New Player';
   static const newPlayerColor = Color(0xFF4DB6AC);
@@ -65,7 +73,7 @@ class PlayerClusterText extends StatelessWidget {
     }
 
     if (spans.isEmpty) return const SizedBox.shrink();
-    return Text.rich(TextSpan(children: spans));
+    return _richText(TextSpan(children: spans));
   }
 
   TextSpan _clusterSpan(String text, Color color) {
@@ -87,12 +95,22 @@ class PlayerClusterText extends StatelessWidget {
   }
 
   Widget _label(String text, Color color) {
-    return Text.rich(_clusterSpan(text, color));
+    return _richText(_clusterSpan(text, color));
   }
 
   Widget _pair(TextSpan first, TextSpan second, Color dividerColor) {
-    return Text.rich(
+    return _richText(
       TextSpan(children: [first, _dividerSpan(dividerColor), second]),
+    );
+  }
+
+  Widget _richText(InlineSpan span) {
+    return Text.rich(
+      span,
+      maxLines: maxLines,
+      overflow: overflow,
+      softWrap: softWrap,
+      textAlign: textAlign,
     );
   }
 

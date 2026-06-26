@@ -175,6 +175,8 @@ class TournamentSectionSnapshot extends Equatable {
     required this.id,
     this.metrics = const [],
     this.leaderboardPreview = const [],
+    this.partnershipPreview = const [],
+    this.tossInsights,
     this.primaryCategory,
     this.chartPreview,
   });
@@ -182,11 +184,104 @@ class TournamentSectionSnapshot extends Equatable {
   final TournamentStatsSectionId id;
   final List<StatsMetric> metrics;
   final List<TournamentLeaderboardEntry> leaderboardPreview;
+  final List<TournamentPartnershipEntry> partnershipPreview;
+  final TournamentTossInsights? tossInsights;
   final TournamentLeaderboardCategory? primaryCategory;
   final StatsChartSeries? chartPreview;
 
   @override
-  List<Object?> get props => [id, metrics.length, leaderboardPreview.length];
+  List<Object?> get props => [
+        id,
+        metrics.length,
+        leaderboardPreview.length,
+        partnershipPreview.length,
+        tossInsights,
+      ];
+}
+
+extension TournamentSectionSnapshotX on TournamentSectionSnapshot {
+  bool get hasContent {
+    if (metrics.isNotEmpty) return true;
+    if (leaderboardPreview.isNotEmpty) return true;
+    if (chartPreview != null && chartPreview!.points.isNotEmpty) return true;
+    if (partnershipPreview.isNotEmpty) return true;
+    if (tossInsights != null && tossInsights!.matchesWithToss > 0) return true;
+    return false;
+  }
+}
+
+class TournamentTossInsights extends Equatable {
+  const TournamentTossInsights({
+    this.matchesWithToss = 0,
+    this.tossWinnerWins = 0,
+    this.batFirstWins = 0,
+    this.batFirstMatches = 0,
+    this.chaseWins = 0,
+    this.chaseMatches = 0,
+  });
+
+  final int matchesWithToss;
+  final int tossWinnerWins;
+  final int batFirstWins;
+  final int batFirstMatches;
+  final int chaseWins;
+  final int chaseMatches;
+
+  double get tossWinnerWinPct =>
+      matchesWithToss > 0 ? (tossWinnerWins / matchesWithToss) * 100 : 0;
+
+  double get batFirstWinPct =>
+      batFirstMatches > 0 ? (batFirstWins / batFirstMatches) * 100 : 0;
+
+  double get chaseWinPct =>
+      chaseMatches > 0 ? (chaseWins / chaseMatches) * 100 : 0;
+
+  int get tossWinnerLosses => matchesWithToss - tossWinnerWins;
+
+  @override
+  List<Object?> get props => [matchesWithToss, tossWinnerWins, chaseWins];
+}
+
+class TournamentPartnershipEntry extends Equatable {
+  const TournamentPartnershipEntry({
+    required this.matchLabel,
+    required this.teamLabel,
+    required this.inningsNumber,
+    required this.wicketNumber,
+    required this.runs,
+    required this.balls,
+    required this.batterAName,
+    required this.batterBName,
+    required this.batterARuns,
+    required this.batterABalls,
+    required this.batterBRuns,
+    required this.batterBBalls,
+  });
+
+  final String matchLabel;
+  final String teamLabel;
+  final int inningsNumber;
+  final int wicketNumber;
+  final int runs;
+  final int balls;
+  final String batterAName;
+  final String batterBName;
+  final int batterARuns;
+  final int batterABalls;
+  final int batterBRuns;
+  final int batterBBalls;
+
+  double get batterAShare => runs == 0 ? 0.5 : batterARuns / runs;
+  double get batterBShare => runs == 0 ? 0.5 : batterBRuns / runs;
+
+  String get inningsLabel =>
+      'Innings $inningsNumber · Wkt ${wicketNumber + 1} stand';
+
+  String get batterALine => '$batterAName ${batterARuns}($batterABalls)';
+  String get batterBLine => '$batterBName ${batterBRuns}($batterBBalls)';
+
+  @override
+  List<Object?> get props => [matchLabel, runs, batterAName, batterBName];
 }
 
 class TournamentPlayerMatchLog extends Equatable {

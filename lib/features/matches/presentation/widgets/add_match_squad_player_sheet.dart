@@ -10,7 +10,6 @@ import '../../../../core/utils/cf_player_id_format.dart';
 import '../../../../data/models/match_player_snapshot.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/providers/team_players_provider.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
 import '../../../../core/theme/cf_colors.dart';
@@ -135,21 +134,32 @@ class _AddMatchSquadPlayerSheetState
     _search('');
   }
 
-  Future<void> _addPermanent(PlayerModel player) async {
+  Future<void> _invitePermanent(PlayerModel player) async {
     setState(() => _addingPlayerId = player.id);
     try {
       final uid = ref.read(authStateProvider).value?.uid;
-      await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-            playerId: player.id,
-            teamId: widget.teamId,
-            addedByUserId: uid,
+      if (uid == null) return;
+
+      final team = await ref.read(teamRepositoryProvider).getTeam(widget.teamId);
+      if (team == null) {
+        _showError('Team not found');
+        return;
+      }
+
+      final profile = ref.read(currentUserProfileProvider).valueOrNull;
+      await ref.read(teamJoinRequestRepositoryProvider).createInvitation(
+            team: team,
+            player: player,
+            invitedByUserId: uid,
+            inviterName: profile?.displayName ?? profile?.name,
           );
-      ref.invalidate(teamPlayersProvider(widget.teamId));
       if (!mounted) return;
-      Navigator.of(context).pop(MatchPlayerSnapshot.fromPlayer(player));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invitation sent to ${player.name}')),
+      );
     } catch (e) {
       if (mounted) {
-        _showError('Could not add player: $e');
+        _showError('Could not send invitation: $e');
       }
     } finally {
       if (mounted) setState(() => _addingPlayerId = null);
@@ -239,8 +249,9 @@ class _AddMatchSquadPlayerSheetState
             icon: Icons.group_add_outlined,
             iconColor: cf.link,
             iconBackground: cf.accent.withValues(alpha: 0.2),
-            title: 'Add to team permanently',
-            subtitle: 'Search by name or Player ID and add to the team roster.',
+            title: 'Invite to team',
+            subtitle:
+                'Search by name or Player ID and send an invitation to join the roster.',
             onTap: _openPermanentMode,
           ),
           const SizedBox(height: AppDimens.spaceSm),
@@ -278,7 +289,7 @@ class _AddMatchSquadPlayerSheetState
               ),
               Expanded(
                 child: Text(
-                  'Add to team',
+                  'Invite to team',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -290,7 +301,7 @@ class _AddMatchSquadPlayerSheetState
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
           child: Text(
-            'Search by name or Player ID (full or partial).',
+            'Search by name or Player ID. The player must accept before joining the team.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: cf.textSecondary,
                 ),
@@ -354,7 +365,7 @@ class _AddMatchSquadPlayerSheetState
                     return _PermanentPlayerTile(
                       player: player,
                       isAdding: _addingPlayerId == player.id,
-                      onAdd: () => _addPermanent(player),
+                      onAdd: () => _invitePermanent(player),
                     );
                   },
                 ),
@@ -596,61 +607,94 @@ class _PermanentPlayerTile extends StatelessWidget {
         ? CfPlayerIdFormat.displayLabel(player.playerId)
         : null;
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
+    return Padding(
+      padding: const EdgeInsets.symmetric(
         horizontal: AppDimens.spaceMd,
-        vertical: AppDimens.spaceXs,
+        vertical: AppDimens.spaceSm,
       ),
-      leading: CircleAvatar(
-        radius: 26,
-        backgroundColor: cf.sectionBackground,
-        backgroundImage: player.photoUrl != null
-            ? CachedNetworkImageProvider(player.photoUrl!)
-            : null,
-        child: player.photoUrl == null
-            ? Text(
-                player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              )
-            : null,
-      ),
-      title: Text(
-        player.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (idLabel != null)
-            Text(
-              idLabel,
-              style: TextStyle(
-                color: cf.accent,
-                fontSize: 12,
-                letterSpacing: 0.3,
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: cf.sectionBackground,
+            backgroundImage: player.photoUrl != null
+                ? CachedNetworkImageProvider(player.photoUrl!)
+                : null,
+            child: player.photoUrl == null
+                ? Text(
+                    player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: cf.textPrimary,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  player.name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: cf.textPrimary,
+                  ),
+                ),
+                if (idLabel != null)
+                  Text(
+                    idLabel,
+                    style: TextStyle(
+                      color: cf.accent,
+                      fontSize: 12,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                Text(
+                  player.role,
+                  style: TextStyle(color: cf.textSecondary, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (isAdding)
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: cf.accent,
+                ),
+              ),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: onAdd,
+              icon: Icon(Icons.add, size: 16, color: cf.onAccent),
+              label: Text(
+                'Invite',
+                style: TextStyle(
+                  color: cf.onAccent,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: cf.accent,
+                foregroundColor: cf.onAccent,
+                side: BorderSide(color: cf.accent),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
-          Text(
-            player.role,
-            style: TextStyle(color: cf.textSecondary),
-          ),
         ],
       ),
-      trailing: isAdding
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : FilledButton.tonalIcon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add'),
-              style: FilledButton.styleFrom(
-                foregroundColor: cf.accent,
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
     );
   }
 }

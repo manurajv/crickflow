@@ -5,8 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/match_player_snapshot.dart';
+import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../shared/providers/match_squads_provider.dart';
+import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/widgets/match_team_avatar.dart';
+import '../../../../shared/widgets/player_cluster_text.dart';
 
 class MatchSquadsTab extends ConsumerWidget {
   const MatchSquadsTab({super.key, required this.matchId});
@@ -255,7 +258,7 @@ class _DualSquadRows extends StatelessWidget {
   }
 }
 
-class _PlayerRow extends StatelessWidget {
+class _PlayerRow extends ConsumerWidget {
   const _PlayerRow({
     required this.player,
     required this.side,
@@ -269,10 +272,11 @@ class _PlayerRow extends StatelessWidget {
   final CfColors cf;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isCaptain = side.captainId == player.id;
     final isViceCaptain = side.viceCaptainId == player.id;
     final isWicketKeeper = side.wicketKeeperId == player.id;
+    final clustersAsync = ref.watch(playerCricketProfileByIdProvider(player.id));
 
     final avatar = _SquadPlayerAvatar(
       player: player,
@@ -306,14 +310,30 @@ class _PlayerRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: alignEnd ? TextAlign.end : TextAlign.start,
             ),
-          if (_styleLine(player).isNotEmpty)
-            Text(
-              _styleLine(player),
-              style: TextStyle(fontSize: 10, color: cf.textMuted),
-              maxLines: 2,
+          clustersAsync.when(
+            data: (_) => PlayerClusterText(
+              clusters:
+                  clustersAsync.valueOrNull?.clusters ?? const PlayerClusters(),
+              showNewPlayerForMissing: true,
+              fontSize: 8,
+              separatorColor: cf.textMuted,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              softWrap: false,
               textAlign: alignEnd ? TextAlign.end : TextAlign.start,
             ),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => PlayerClusterText(
+              clusters: const PlayerClusters(),
+              showNewPlayerForMissing: true,
+              fontSize: 8,
+              separatorColor: cf.textMuted,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+            ),
+          ),
         ],
       ),
     );
@@ -327,13 +347,6 @@ class _PlayerRow extends StatelessWidget {
             : [avatar, const SizedBox(width: 8), text],
       ),
     );
-  }
-
-  static String _styleLine(MatchPlayerSnapshot player) {
-    return [
-      if (player.battingStyle.isNotEmpty) player.battingStyle,
-      if (player.bowlingStyle.isNotEmpty) player.bowlingStyle,
-    ].join(' • ');
   }
 }
 

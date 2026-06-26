@@ -5,14 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/cf_player_id_format.dart';
 import '../../../data/models/player_model.dart';
+import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/providers/team_players_provider.dart';
 
-/// Add a registered player by name or public Player ID.
+/// Search registered players and send a team invitation (accept required).
 class TeamAddPlayerQuickScreen extends ConsumerStatefulWidget {
   const TeamAddPlayerQuickScreen({super.key, required this.teamId});
 
@@ -30,14 +30,15 @@ class _TeamAddPlayerQuickScreenState
   Timer? _debounce;
   List<PlayerModel> _results = [];
   Set<String> _squadIds = {};
+  Set<String> _invitedPlayerIds = {};
+  TeamModel? _team;
   var _searching = false;
-  String? _addingPlayerId;
+  String? _invitingPlayerId;
 
   @override
   void initState() {
     super.initState();
-    _loadSquadIds();
-    _search('');
+    _bootstrap();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -48,6 +49,11 @@ class _TeamAddPlayerQuickScreenState
     super.dispose();
   }
 
+  Future<void> _bootstrap() async {
+    await Future.wait([_loadSquadIds(), _loadTeam(), _loadPendingInvites()]);
+    if (mounted) _search(_searchController.text);
+  }
+
   void _onSearchChanged() {
     setState(() {});
     _debounce?.cancel();
@@ -56,11 +62,23 @@ class _TeamAddPlayerQuickScreenState
     });
   }
 
+  Future<void> _loadTeam() async {
+    final team = await ref.read(teamRepositoryProvider).getTeam(widget.teamId);
+    if (mounted) setState(() => _team = team);
+  }
+
   Future<void> _loadSquadIds() async {
     final squad = await ref
         .read(playerRepositoryProvider)
         .getPlayersByTeam(widget.teamId);
     if (mounted) setState(() => _squadIds = squad.map((p) => p.id).toSet());
+  }
+
+  Future<void> _loadPendingInvites() async {
+    final ids = await ref
+        .read(teamJoinRequestRepositoryProvider)
+        .getPendingInvitationPlayerIds(widget.teamId);
+    if (mounted) setState(() => _invitedPlayerIds = ids);
   }
 
   Future<void> _search(String query) async {
@@ -79,34 +97,47 @@ class _TeamAddPlayerQuickScreenState
     }
   }
 
-  Future<void> _addExisting(PlayerModel player) async {
-    setState(() => _addingPlayerId = player.id);
-    try {
-      final uid = ref.read(authStateProvider).value?.uid;
-      await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-            playerId: player.id,
-            teamId: widget.teamId,
-            addedByUserId: uid,
-          );
-      ref.invalidate(teamPlayersProvider(widget.teamId));
-      if (!mounted) return;
-      context.pop();
+  Future<void> _invitePlayer(PlayerModel player) async {
+    final team = _team;
+    if (team == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${player.name} added to squad')),
+        const SnackBar(content: Text('Team not loaded yet')),
+      );
+      return;
+    }
+
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return;
+
+    setState(() => _invitingPlayerId = player.id);
+    try {
+      final profile = ref.read(currentUserProfileProvider).valueOrNull;
+      await ref.read(teamJoinRequestRepositoryProvider).createInvitation(
+            team: team,
+            player: player,
+            invitedByUserId: uid,
+            inviterName: profile?.displayName ?? profile?.name,
+          );
+      if (!mounted) return;
+      setState(() => _invitedPlayerIds = {..._invitedPlayerIds, player.id});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invitation sent to ${player.name}')),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add player: $e')),
+          SnackBar(content: Text('$e')),
         );
       }
     } finally {
-      if (mounted) setState(() => _addingPlayerId = null);
+      if (mounted) setState(() => _invitingPlayerId = null);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Add registered player')),
       body: Column(
@@ -123,16 +154,16 @@ class _TeamAddPlayerQuickScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Find a registered player',
+                  'Invite a registered player',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Search by name or Player ID (full or partial, e.g. CF000042).',
+                  'Search by name or Player ID. The player must accept the invitation to join your squad.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: cf.textSecondary,
                       ),
                 ),
                 const SizedBox(height: AppDimens.spaceMd),
@@ -170,14 +201,14 @@ class _TeamAddPlayerQuickScreenState
                   ? 'No matches — try another name or ID.'
                   : '${_results.length} player${_results.length == 1 ? '' : 's'} available',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: cf.textSecondary,
                   ),
             ),
           ),
           const SizedBox(height: AppDimens.spaceSm),
           Expanded(
             child: _results.isEmpty && !_searching
-                ? _emptySearchState()
+                ? _emptySearchState(cf)
                 : ListView.separated(
                     padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
                     itemCount: _results.length,
@@ -185,10 +216,12 @@ class _TeamAddPlayerQuickScreenState
                         const Divider(height: 1, indent: 72),
                     itemBuilder: (_, i) {
                       final player = _results[i];
+                      final invited = _invitedPlayerIds.contains(player.id);
                       return _PlayerSearchTile(
                         player: player,
-                        isAdding: _addingPlayerId == player.id,
-                        onAdd: () => _addExisting(player),
+                        invited: invited,
+                        isInviting: _invitingPlayerId == player.id,
+                        onInvite: invited ? null : () => _invitePlayer(player),
                       );
                     },
                   ),
@@ -198,7 +231,7 @@ class _TeamAddPlayerQuickScreenState
     );
   }
 
-  Widget _emptySearchState() {
+  Widget _emptySearchState(CfColors cf) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spaceXl),
@@ -208,7 +241,7 @@ class _TeamAddPlayerQuickScreenState
             Icon(
               Icons.person_search_outlined,
               size: 56,
-              color: AppColors.textSecondary.withValues(alpha: 0.5),
+              color: cf.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: AppDimens.spaceMd),
             Text(
@@ -220,11 +253,18 @@ class _TeamAddPlayerQuickScreenState
             ),
             const SizedBox(height: AppDimens.spaceSm),
             Text(
-              'Registered players must have completed onboarding. For guests without CrickFlow, use Player directory → Walk-in.',
+              'Only registered CrickFlow players appear here. For guests without an account, use Walk-in player.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: cf.textSecondary,
                   ),
+            ),
+            const SizedBox(height: AppDimens.spaceLg),
+            OutlinedButton.icon(
+              onPressed: () =>
+                  context.push('/teams/${widget.teamId}/add-players/walkin'),
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              label: const Text('Add walk-in player'),
             ),
           ],
         ),
@@ -236,16 +276,19 @@ class _TeamAddPlayerQuickScreenState
 class _PlayerSearchTile extends StatelessWidget {
   const _PlayerSearchTile({
     required this.player,
-    required this.onAdd,
-    this.isAdding = false,
+    required this.onInvite,
+    this.invited = false,
+    this.isInviting = false,
   });
 
   final PlayerModel player;
-  final VoidCallback onAdd;
-  final bool isAdding;
+  final VoidCallback? onInvite;
+  final bool invited;
+  final bool isInviting;
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final idLabel = player.playerId != null && player.playerId!.isNotEmpty
         ? CfPlayerIdFormat.displayLabel(player.playerId)
         : null;
@@ -257,20 +300,26 @@ class _PlayerSearchTile extends StatelessWidget {
       ),
       leading: CircleAvatar(
         radius: 26,
-        backgroundColor: AppColors.surfaceElevated,
+        backgroundColor: cf.sectionBackground,
         backgroundImage: player.photoUrl != null
             ? CachedNetworkImageProvider(player.photoUrl!)
             : null,
         child: player.photoUrl == null
             ? Text(
                 player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: cf.textPrimary,
+                ),
               )
             : null,
       ),
       title: Text(
         player.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: cf.textPrimary,
+        ),
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,33 +327,60 @@ class _PlayerSearchTile extends StatelessWidget {
           if (idLabel != null)
             Text(
               idLabel,
-              style: const TextStyle(
-                color: AppColors.gold,
+              style: TextStyle(
+                color: cf.accent,
                 fontSize: 12,
                 letterSpacing: 0.3,
               ),
             ),
           Text(
             player.role,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: cf.textSecondary),
           ),
         ],
       ),
-      trailing: isAdding
-          ? const SizedBox(
+      trailing: isInviting
+          ? SizedBox(
               width: 24,
               height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : FilledButton.tonalIcon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add'),
-              style: FilledButton.styleFrom(
-                foregroundColor: AppColors.gold,
-                visualDensity: VisualDensity.compact,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: cf.accent,
               ),
-            ),
+            )
+          : invited
+              ? Text(
+                  'Invited',
+                  style: TextStyle(
+                    color: cf.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                )
+              : OutlinedButton.icon(
+                  onPressed: onInvite,
+                  icon: Icon(Icons.mail_outline, size: 16, color: cf.onAccent),
+                  label: Text(
+                    'Invite',
+                    style: TextStyle(
+                      color: cf.onAccent,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: cf.accent,
+                    foregroundColor: cf.onAccent,
+                    side: BorderSide(color: cf.accent),
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
     );
   }
 }

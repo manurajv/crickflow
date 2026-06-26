@@ -12,7 +12,7 @@ exports.onNotificationCreated = onDocumentCreated(
     const data = event.data?.data();
     if (!data) return;
 
-    if (data.type === 'team_join_request') {
+    if (data.type === 'team_join_request' || data.type === 'team_invitation') {
       return;
     }
 

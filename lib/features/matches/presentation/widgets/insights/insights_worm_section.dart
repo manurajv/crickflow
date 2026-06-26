@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
+import '../../../../../core/utils/overs_formatter.dart';
 import '../../../../../domain/services/match_analytics_models.dart';
 import '../../../../../shared/widgets/stat_grid.dart';
 import 'insights_chart_widgets.dart';
@@ -16,12 +17,14 @@ class InsightsWormSection extends StatefulWidget {
     super.key,
     required this.data,
     required this.cf,
+    required this.ballsPerOver,
     this.phaseRanges,
     this.isTestMatch = false,
   });
 
   final WormGraphData data;
   final CfColors cf;
+  final int ballsPerOver;
   final MatchPhaseRanges? phaseRanges;
   final bool isTestMatch;
 
@@ -107,7 +110,7 @@ class _InsightsWormSectionState extends State<InsightsWormSection> {
               colorA: cf.accent,
               colorB: cf.error,
               cf: cf,
-              onPointTap: _showPointTooltip,
+              onWicketTap: _showWicketTooltip,
             ),
           ),
         ),
@@ -136,65 +139,151 @@ class _InsightsWormSectionState extends State<InsightsWormSection> {
     return ((maxRuns / 40).ceil() * 40);
   }
 
-  void _showPointTooltip(WormInningsSeries series, WormPoint point) {
-    if (point.over <= 0) return;
-    final cf = widget.cf;
-    final overLabel = point.over == point.over.roundToDouble()
-        ? '${point.over.round()}'
-        : point.over.toStringAsFixed(1);
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: cf.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => Padding(
-        padding: AppDimens.cardPadding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${series.label} · Over $overLabel',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-                color: cf.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppDimens.spaceMd),
-            _tooltipRow('Score', '${point.runs}/${point.wickets}', cf),
-            _tooltipRow('Runs in Over', '${point.runsInOver}', cf),
-            _tooltipRow(
-              'Current RR',
-              point.currentRunRate.toStringAsFixed(2),
-              cf,
-            ),
-            _tooltipRow('Wickets', '${point.wickets}', cf),
-            _tooltipRow('Partnership', '${point.partnershipRuns}', cf),
-            SizedBox(height: MediaQuery.paddingOf(ctx).bottom),
-          ],
-        ),
+  void _showWicketTooltip(WormInningsSeries series, WormWicketMarker wicket) {
+    showInsightsChartBottomSheet(
+      context,
+      cf: widget.cf,
+      child: _WormWicketDetailSheet(
+        series: series,
+        wicket: wicket,
+        ballsPerOver: widget.ballsPerOver,
+        cf: widget.cf,
       ),
     );
   }
+}
 
-  Widget _tooltipRow(String label, String value, CfColors cf) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+class _WormWicketDetailSheet extends StatelessWidget {
+  const _WormWicketDetailSheet({
+    required this.series,
+    required this.wicket,
+    required this.ballsPerOver,
+    required this.cf,
+  });
+
+  final WormInningsSeries series;
+  final WormWicketMarker wicket;
+  final int ballsPerOver;
+  final CfColors cf;
+
+  @override
+  Widget build(BuildContext context) {
+    final overLabel = OversFormatter.formatOvers(
+      wicket.legalBalls,
+      ballsPerOver,
+    );
+    final scoreLabel = '${wicket.runs}/${wicket.wicketNumber}';
+    final hasBatter = wicket.dismissedPlayerName.isNotEmpty;
+    final hasBowler = wicket.bowlerName.isNotEmpty;
+    final hasDismissal = wicket.dismissalLabel.isNotEmpty;
+
+    return InsightsChartSheetShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: TextStyle(color: cf.textSecondary)),
+          InsightsChartSheetHeader(
+            cf: cf,
+            badgeLabel: 'WKT ${wicket.wicketNumber}',
+            title: series.label,
+            subtitle: 'Over $overLabel · $scoreLabel',
+            badgeColor: cf.error.withValues(alpha: 0.12),
+            badgeTextColor: cf.error,
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: cf.textPrimary,
+          const SizedBox(height: AppDimens.spaceMd),
+          if (hasBatter)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cf.sectionBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cf.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: cf.accent.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.person_outline, color: cf.accent, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Batsman',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cf.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          wicket.dismissedPlayerName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: cf.textPrimary,
+                          ),
+                        ),
+                        if (hasDismissal) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            wicket.dismissalLabel,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cf.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Text(
+                    wicket.batterScoreLabel,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                      color: cf.accent,
+                    ),
+                  ),
+                ],
+              ),
             ),
+          if (hasBowler) ...[
+            const SizedBox(height: 10),
+            InsightsChartSheetDetailTile(
+              cf: cf,
+              icon: Icons.sports_cricket_outlined,
+              label: 'Bowler',
+              value: wicket.bowlerName,
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: InsightsChartSheetStatChip(
+                  cf: cf,
+                  label: 'Team score',
+                  value: scoreLabel,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InsightsChartSheetStatChip(
+                  cf: cf,
+                  label: 'Run rate',
+                  value: wicket.currentRunRate.toStringAsFixed(2),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -402,7 +491,7 @@ class _WormScrollChart extends StatelessWidget {
     required this.colorA,
     required this.colorB,
     required this.cf,
-    required this.onPointTap,
+    required this.onWicketTap,
   });
 
   final List<WormInningsSeries> series;
@@ -412,7 +501,8 @@ class _WormScrollChart extends StatelessWidget {
   final Color colorA;
   final Color colorB;
   final CfColors cf;
-  final void Function(WormInningsSeries series, WormPoint point) onPointTap;
+  final void Function(WormInningsSeries series, WormWicketMarker wicket)
+      onWicketTap;
 
   @override
   Widget build(BuildContext context) {
@@ -430,14 +520,14 @@ class _WormScrollChart extends StatelessWidget {
           builder: (context, constraints) {
             return GestureDetector(
               onTapUp: (details) {
-                final hit = _WormChartPainter.findPointAt(
+                final hit = _WormChartPainter.findWicketAt(
                   position: details.localPosition,
                   size: constraints.biggest,
                   series: series,
                   maxY: maxY,
                   maxOver: maxOver,
                 );
-                if (hit != null) onPointTap(hit.$1, hit.$2);
+                if (hit != null) onWicketTap(hit.$1, hit.$2);
               },
               child: CustomPaint(
                 size: Size(constraints.maxWidth, constraints.maxHeight),
@@ -563,35 +653,32 @@ class _WormChartPainter extends CustomPainter {
 
       _drawSmoothLine(canvas, offsets, color);
 
-      for (var j = 0; j < pts.length; j++) {
-        final p = pts[j];
-        final center = offsets[j];
-        canvas.drawCircle(center, 3.5, Paint()..color = color);
+      for (final wicket in series[i].wickets) {
+        final center = Offset(
+          _leftPad + (wicket.over / maxOver) * chartW,
+          _topPad +
+              chartH -
+              (wicket.runs.clamp(0, maxY) / maxY) * chartH,
+        );
+        canvas.drawCircle(center, 4, Paint()..color = cf.textPrimary);
         canvas.drawCircle(
           center,
-          3.5,
+          4,
           Paint()
             ..color = cf.card
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
+            ..strokeWidth = 1.2,
         );
-        if (p.wicketsInOver > 0) {
-          final marker = p.wicketsInOver == 1
-              ? 'W'
-              : p.wicketsInOver == 2
-                  ? '2W'
-                  : '${p.wicketsInOver}W';
-          _drawLabel(
-            canvas,
-            marker,
-            center.dx,
-            center.dy - 14,
-            cf.textPrimary,
-            center: true,
-            fontSize: 8,
-            bold: true,
-          );
-        }
+        _drawLabel(
+          canvas,
+          'W',
+          center.dx,
+          center.dy - 14,
+          cf.textPrimary,
+          center: true,
+          fontSize: 8,
+          bold: true,
+        );
       }
     }
   }
@@ -678,7 +765,7 @@ class _WormChartPainter extends CustomPainter {
     }
   }
 
-  static (WormInningsSeries, WormPoint)? findPointAt({
+  static (WormInningsSeries, WormWicketMarker)? findWicketAt({
     required Offset position,
     required Size size,
     required List<WormInningsSeries> series,
@@ -689,18 +776,19 @@ class _WormChartPainter extends CustomPainter {
     final chartH = size.height - _topPad - _bottomPad;
     if (chartW <= 0 || chartH <= 0) return null;
 
-    (WormInningsSeries, WormPoint)? closest;
+    (WormInningsSeries, WormWicketMarker)? closest;
     var bestDist = 999.0;
 
     for (final s in series) {
-      for (final p in s.points) {
-        if (p.over <= 0) continue;
-        final x = _leftPad + (p.over / maxOver) * chartW;
-        final y = _topPad + chartH - (p.runs.clamp(0, maxY) / maxY) * chartH;
+      for (final wicket in s.wickets) {
+        final x = _leftPad + (wicket.over / maxOver) * chartW;
+        final y = _topPad +
+            chartH -
+            (wicket.runs.clamp(0, maxY) / maxY) * chartH;
         final d = (position - Offset(x, y)).distance;
-        if (d < 20 && d < bestDist) {
+        if (d < 22 && d < bestDist) {
           bestDist = d;
-          closest = (s, p);
+          closest = (s, wicket);
         }
       }
     }
@@ -782,7 +870,7 @@ class _ChartFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     const lines = [
       'This graph shows cumulative score progression throughout the innings.',
-      'Tap any point for detailed over analysis.',
+      'Tap a wicket marker for over and score details.',
       'Wicket markers indicate wickets lost.',
       'Compare scoring momentum across innings.',
     ];

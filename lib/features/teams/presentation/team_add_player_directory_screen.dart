@@ -3,27 +3,20 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/cf_player_id_format.dart';
 import '../../../data/models/player_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
-import '../../../shared/widgets/cf_button.dart';
-import '../../../shared/widgets/cf_underlined_field.dart';
 
-/// Search directory by name or Player ID; create walk-ins without an account.
+/// Search the player directory by name or Player ID.
 class TeamAddPlayerDirectoryScreen extends ConsumerStatefulWidget {
-  const TeamAddPlayerDirectoryScreen({
-    super.key,
-    required this.teamId,
-    this.initialTab = 0,
-  });
+  const TeamAddPlayerDirectoryScreen({super.key, required this.teamId});
 
   final String teamId;
-  final int initialTab;
 
   @override
   ConsumerState<TeamAddPlayerDirectoryScreen> createState() =>
@@ -31,28 +24,18 @@ class TeamAddPlayerDirectoryScreen extends ConsumerStatefulWidget {
 }
 
 class _TeamAddPlayerDirectoryScreenState
-    extends ConsumerState<TeamAddPlayerDirectoryScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabs;
+    extends ConsumerState<TeamAddPlayerDirectoryScreen> {
   final _searchController = TextEditingController();
-  final _nameController = TextEditingController();
-  final _jerseyController = TextEditingController();
 
   Timer? _debounce;
   List<PlayerModel> _results = [];
   Set<String> _squadIds = {};
   bool _searching = false;
-  var _newPlayerRole = 'Player';
-  var _creating = false;
+  String? _addingPlayerId;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 1),
-    );
     _loadSquadIds();
     _search('');
     _searchController.addListener(_onSearchChanged);
@@ -61,10 +44,7 @@ class _TeamAddPlayerDirectoryScreenState
   @override
   void dispose() {
     _debounce?.cancel();
-    _tabs.dispose();
     _searchController.dispose();
-    _nameController.dispose();
-    _jerseyController.dispose();
     super.dispose();
   }
 
@@ -102,6 +82,7 @@ class _TeamAddPlayerDirectoryScreenState
   }
 
   Future<void> _addExisting(PlayerModel player) async {
+    setState(() => _addingPlayerId = player.id);
     try {
       final uid = ref.read(authStateProvider).value?.uid;
       await ref.read(playerRepositoryProvider).assignPlayerToTeam(
@@ -111,154 +92,119 @@ class _TeamAddPlayerDirectoryScreenState
           );
       if (!mounted) return;
       ref.invalidate(teamPlayersProvider(widget.teamId));
-      Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${player.name} added to squad')));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not add player: $e')));
-      }
-    }
-  }
-
-  Future<void> _createNew() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Player name is required')));
-      return;
-    }
-
-    setState(() => _creating = true);
-    try {
-      final uid = ref.read(authStateProvider).value?.uid;
-      final playerId = const Uuid().v4();
-      final player = PlayerModel(
-        id: playerId,
-        name: name,
-        teamId: widget.teamId,
-        jerseyNumber: int.tryParse(_jerseyController.text.trim()),
-        role: _newPlayerRole,
-        createdBy: uid,
+      context.pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${player.name} added to squad')),
       );
-
-      await ref.read(playerRepositoryProvider).createPlayer(player);
-      await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-            playerId: playerId,
-            teamId: widget.teamId,
-            addedByUserId: uid,
-          );
-
-      if (!mounted) return;
-      ref.invalidate(teamPlayersProvider(widget.teamId));
-      Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$name added to squad')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not create player: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not add player: $e')),
+        );
       }
     } finally {
-      if (mounted) setState(() => _creating = false);
+      if (mounted) setState(() => _addingPlayerId = null);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Player directory'),
-        bottom: TabBar(
-          controller: _tabs,
-          indicatorColor: AppColors.gold,
-          labelColor: AppColors.gold,
-          unselectedLabelColor: AppColors.textSecondary,
-          tabs: const [
-            Tab(text: 'Search players'),
-            Tab(text: 'Walk-in (no account)'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [_existingTab(), _newPlayerTab()],
-      ),
-    );
-  }
+    final cf = context.cf;
 
-  Widget _existingTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppDimens.spaceMd,
-            AppDimens.spaceMd,
-            AppDimens.spaceMd,
-            AppDimens.spaceSm,
-          ),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search by name or Player ID (CF000042)',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searching
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => _searchController.clear(),
-                    )
-                  : null,
-              border: const OutlineInputBorder(),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Player directory')),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+              AppDimens.spaceSm,
             ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
-          child: Text(
-            _results.isEmpty && !_searching
-                ? 'No matches — try another name or add a walk-in player.'
-                : '${_results.length} player${_results.length == 1 ? '' : 's'} available',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
-          ),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        Expanded(
-          child: _results.isEmpty && !_searching
-              ? _emptySearchState()
-              : ListView.separated(
-                  padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
-                  itemCount: _results.length,
-                  separatorBuilder: (_, __) =>
-                      const Divider(height: 1, indent: 72),
-                  itemBuilder: (_, i) => _PlayerDirectoryTile(
-                    player: _results[i],
-                    onAdd: () => _addExisting(_results[i]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Search the directory',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Find players by name or Player ID (full or partial, e.g. CF000042).',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cf.textSecondary,
+                      ),
+                ),
+                const SizedBox(height: AppDimens.spaceMd),
+                TextField(
+                  controller: _searchController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    hintText: 'Search by name or Player ID',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searching
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: _searchController.clear,
+                              )
+                            : null,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
-        ),
-      ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
+            child: Text(
+              _results.isEmpty && !_searching
+                  ? 'No matches — try another name or ID.'
+                  : '${_results.length} player${_results.length == 1 ? '' : 's'} available',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cf.textSecondary,
+                  ),
+            ),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          Expanded(
+            child: _results.isEmpty && !_searching
+                ? _emptySearchState()
+                : ListView.separated(
+                    padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
+                    itemCount: _results.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, indent: 72),
+                    itemBuilder: (_, i) {
+                      final player = _results[i];
+                      return _PlayerDirectoryTile(
+                        player: player,
+                        isAdding: _addingPlayerId == player.id,
+                        onAdd: () => _addExisting(player),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _emptySearchState() {
+    final cf = context.cf;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spaceXl),
@@ -268,7 +214,7 @@ class _TeamAddPlayerDirectoryScreenState
             Icon(
               Icons.person_search_outlined,
               size: 56,
-              color: AppColors.textSecondary.withValues(alpha: 0.5),
+              color: cf.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: AppDimens.spaceMd),
             Text(
@@ -280,15 +226,16 @@ class _TeamAddPlayerDirectoryScreenState
             ),
             const SizedBox(height: AppDimens.spaceSm),
             Text(
-              'Registered players appear here. For guests without CrickFlow, use the Walk-in tab.',
+              'For guests without a CrickFlow account, use Walk-in player from Add players.',
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: cf.textSecondary,
+                  ),
             ),
             const SizedBox(height: AppDimens.spaceLg),
             OutlinedButton.icon(
-              onPressed: () => _tabs.animateTo(1),
+              onPressed: () =>
+                  context.push('/teams/${widget.teamId}/add-players/walkin'),
               icon: const Icon(Icons.person_add_alt_1_outlined),
               label: const Text('Add walk-in player'),
             ),
@@ -297,104 +244,22 @@ class _TeamAddPlayerDirectoryScreenState
       ),
     );
   }
-
-  Widget _newPlayerTab() {
-    return Column(
-      children: [
-        Expanded(
-          child: ListView(
-            padding: AppDimens.listPadding,
-            children: [
-              Text(
-                'Walk-in player',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Add someone who does not have a CrickFlow account — no login or Player ID needed.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: AppDimens.spaceLg),
-              Card(
-                elevation: 0,
-                color: AppColors.surfaceElevated,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: AppColors.border.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppDimens.spaceMd),
-                  child: CfFormFieldGroup(
-                    children: [
-                      CfUnderlinedField(
-                        controller: _nameController,
-                        label: 'Player name',
-                        required: true,
-                      ),
-                      CfUnderlinedField(
-                        controller: _jerseyController,
-                        label: 'Jersey number',
-                        keyboardType: TextInputType.number,
-                      ),
-                      DropdownButtonFormField<String>(
-                        initialValue: _newPlayerRole,
-                        decoration: const InputDecoration(labelText: 'Role'),
-                        items:
-                            const [
-                                  'Player',
-                                  'Captain',
-                                  'Wicket Keeper',
-                                  'All-rounder',
-                                ]
-                                .map(
-                                  (r) => DropdownMenuItem(
-                                    value: r,
-                                    child: Text(r),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() => _newPlayerRole = v);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.all(AppDimens.spaceMd),
-            child: CfButton(
-              label: 'Create & add to squad',
-              isLoading: _creating,
-              isGold: true,
-              onPressed: _creating ? null : _createNew,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _PlayerDirectoryTile extends StatelessWidget {
-  const _PlayerDirectoryTile({required this.player, required this.onAdd});
+  const _PlayerDirectoryTile({
+    required this.player,
+    required this.onAdd,
+    this.isAdding = false,
+  });
 
   final PlayerModel player;
   final VoidCallback onAdd;
+  final bool isAdding;
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     final idLabel = player.playerId != null && player.playerId!.isNotEmpty
         ? CfPlayerIdFormat.displayLabel(player.playerId)
         : null;
@@ -406,20 +271,26 @@ class _PlayerDirectoryTile extends StatelessWidget {
       ),
       leading: CircleAvatar(
         radius: 26,
-        backgroundColor: AppColors.surfaceElevated,
+        backgroundColor: cf.sectionBackground,
         backgroundImage: player.photoUrl != null
             ? CachedNetworkImageProvider(player.photoUrl!)
             : null,
         child: player.photoUrl == null
             ? Text(
                 player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: cf.textPrimary,
+                ),
               )
             : null,
       ),
       title: Text(
         player.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: cf.textPrimary,
+        ),
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,27 +298,48 @@ class _PlayerDirectoryTile extends StatelessWidget {
           if (idLabel != null)
             Text(
               idLabel,
-              style: const TextStyle(
-                color: AppColors.gold,
+              style: TextStyle(
+                color: cf.accent,
                 fontSize: 12,
                 letterSpacing: 0.3,
               ),
             ),
           Text(
             player.role,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: cf.textSecondary),
           ),
         ],
       ),
-      trailing: FilledButton.tonalIcon(
-        onPressed: onAdd,
-        icon: const Icon(Icons.add, size: 18),
-        label: const Text('Add'),
-        style: FilledButton.styleFrom(
-          foregroundColor: AppColors.gold,
-          visualDensity: VisualDensity.compact,
-        ),
-      ),
+      trailing: isAdding
+          ? SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: cf.accent,
+              ),
+            )
+          : OutlinedButton.icon(
+              onPressed: onAdd,
+              icon: Icon(Icons.add, size: 16, color: cf.onAccent),
+              label: Text(
+                'Add',
+                style: TextStyle(
+                  color: cf.onAccent,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: cf.accent,
+                foregroundColor: cf.onAccent,
+                side: BorderSide(color: cf.accent),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
     );
   }
 }

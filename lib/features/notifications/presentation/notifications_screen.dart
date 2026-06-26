@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/team_notification_types.dart';
 import '../../../core/constants/tournament_notification_types.dart';
 import '../../../core/navigation/notification_navigation.dart';
 import '../../../core/theme/app_dimens.dart';
@@ -12,6 +13,7 @@ import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/providers/tournament_team_request_provider.dart';
+import '../../teams/domain/team_notification_actions.dart';
 import '../../tournaments/domain/tournament_notification_actions.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
@@ -119,7 +121,8 @@ class _NotificationCard extends ConsumerWidget {
     await ref.read(notificationRepositoryProvider).markRead(notification.id);
     if (!context.mounted) return;
 
-    if (notification.type == TournamentNotificationTypes.invitation) {
+    if (notification.type == TournamentNotificationTypes.invitation ||
+        notification.type == TeamNotificationTypes.invitation) {
       return;
     }
 
@@ -135,6 +138,28 @@ class _NotificationCard extends ConsumerWidget {
     required bool accept,
   }) async {
     try {
+      if (notification.type == TeamNotificationTypes.invitation) {
+        if (accept) {
+          await TeamNotificationActions.accept(
+            ref,
+            notification: notification,
+          );
+        } else {
+          await TeamNotificationActions.reject(
+            ref,
+            notification: notification,
+          );
+        }
+        await ref.read(notificationRepositoryProvider).markRead(notification.id);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(accept ? 'Invitation accepted' : 'Invitation declined'),
+          ),
+        );
+        return;
+      }
+
       if (accept) {
         await TournamentNotificationActions.accept(
           ref,
@@ -269,7 +294,7 @@ class _NotificationCard extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: n.type == TournamentNotificationTypes.invitation
+        onTap: n.isActionable
             ? null
             : () => _onTap(context, ref),
         borderRadius: BorderRadius.circular(12),
@@ -378,7 +403,7 @@ class _NotificationCard extends ConsumerWidget {
                                 ),
                               ),
                             ],
-                            if (n.isTournamentActionable) ...[
+                            if (n.isActionable) ...[
                               const SizedBox(height: 10),
                               Row(
                                 children: [
@@ -466,17 +491,32 @@ class _NotificationCard extends ConsumerWidget {
   _NotificationPalette _paletteForType(String? type, BuildContext context) {
     final cf = context.cf;
     return switch (type) {
-      'team_join_request' => _NotificationPalette(
+      TeamNotificationTypes.joinRequest => _NotificationPalette(
           icon: Icons.group_add_outlined,
+          accent: cf.link,
+          background: cf.accent.withValues(alpha: 0.12),
+        ),
+      TeamNotificationTypes.invitation => _NotificationPalette(
+          icon: Icons.mail_outline,
           accent: cf.accent,
           background: cf.accent.withValues(alpha: 0.12),
         ),
-      'team_join_accepted' => _NotificationPalette(
+      TeamNotificationTypes.joinAccepted => _NotificationPalette(
           icon: Icons.check_circle_outline,
           accent: cf.success,
           background: cf.success.withValues(alpha: 0.12),
         ),
-      'team_join_rejected' => _NotificationPalette(
+      TeamNotificationTypes.joinRejected => _NotificationPalette(
+          icon: Icons.cancel_outlined,
+          accent: cf.error,
+          background: cf.error.withValues(alpha: 0.12),
+        ),
+      TeamNotificationTypes.invitationAccepted => _NotificationPalette(
+          icon: Icons.check_circle_outline,
+          accent: cf.success,
+          background: cf.success.withValues(alpha: 0.12),
+        ),
+      TeamNotificationTypes.invitationRejected => _NotificationPalette(
           icon: Icons.cancel_outlined,
           accent: cf.error,
           background: cf.error.withValues(alpha: 0.12),
@@ -502,12 +542,12 @@ class _NotificationCard extends ConsumerWidget {
           accent: cf.error,
           background: cf.error.withValues(alpha: 0.12),
         ),
-      'team_member_removed' => _NotificationPalette(
+      TeamNotificationTypes.memberRemoved => _NotificationPalette(
           icon: Icons.person_remove_outlined,
           accent: cf.info,
           background: CfColors.primaryBlue.withValues(alpha: 0.15),
         ),
-      'team_member_added' => _NotificationPalette(
+      TeamNotificationTypes.memberAdded => _NotificationPalette(
           icon: Icons.group_add_outlined,
           accent: cf.accent,
           background: cf.accent.withValues(alpha: 0.12),

@@ -512,3 +512,301 @@ class InsightsHorizontalBars extends StatelessWidget {
     );
   }
 }
+
+/// Shared bottom sheet shell for insights chart drill-downs.
+void showInsightsChartBottomSheet(
+  BuildContext context, {
+  required CfColors cf,
+  required Widget child,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    backgroundColor: cf.card,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) => child,
+  );
+}
+
+class InsightsChartSheetShell extends StatelessWidget {
+  const InsightsChartSheetShell({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        AppDimens.spaceMd,
+        0,
+        AppDimens.spaceMd,
+        AppDimens.spaceMd + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: child,
+    );
+  }
+}
+
+class InsightsChartSheetHeader extends StatelessWidget {
+  const InsightsChartSheetHeader({
+    super.key,
+    required this.cf,
+    required this.badgeLabel,
+    required this.title,
+    required this.subtitle,
+    this.badgeColor,
+    this.badgeTextColor,
+  });
+
+  final CfColors cf;
+  final String badgeLabel;
+  final String title;
+  final String subtitle;
+  final Color? badgeColor;
+  final Color? badgeTextColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = badgeColor ?? cf.accent.withValues(alpha: 0.12);
+    final stroke = (badgeTextColor ?? cf.accent).withValues(alpha: 0.35);
+    final text = badgeTextColor ?? cf.accent;
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: stroke),
+          ),
+          child: Text(
+            badgeLabel,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: text,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: cf.textPrimary,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 12, color: cf.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class InsightsChartSheetHero extends StatelessWidget {
+  const InsightsChartSheetHero({
+    super.key,
+    required this.cf,
+    required this.label,
+    required this.value,
+    this.subtitle,
+    this.valueColor,
+  });
+
+  final CfColors cf;
+  final String label;
+  final String value;
+  final String? subtitle;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cf.sectionBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cf.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: cf.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 28,
+              color: valueColor ?? cf.accent,
+            ),
+          ),
+          if (subtitle != null && subtitle!.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: TextStyle(fontSize: 12, color: cf.textSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class InsightsChartSheetStatChip extends StatelessWidget {
+  const InsightsChartSheetStatChip({
+    super.key,
+    required this.cf,
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
+  final CfColors cf;
+  final String label;
+  final String value;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: highlight
+            ? cf.accent.withValues(alpha: 0.08)
+            : cf.sectionBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: highlight
+            ? Border.all(color: cf.accent.withValues(alpha: 0.25))
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, color: cf.textSecondary)),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              color: cf.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class InsightsChartSheetDetailTile extends StatelessWidget {
+  const InsightsChartSheetDetailTile({
+    super.key,
+    required this.cf,
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final CfColors cf;
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: cf.border),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: cf.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 11, color: cf.textSecondary),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: valueColor ?? cf.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class InsightsChartSheetStatGrid extends StatelessWidget {
+  const InsightsChartSheetStatGrid({
+    super.key,
+    required this.cf,
+    required this.items,
+  });
+
+  final CfColors cf;
+  final List<({String label, String value, bool highlight})> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellW = (constraints.maxWidth - 8) / 2;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: items.map((item) {
+            return SizedBox(
+              width: cellW,
+              child: InsightsChartSheetStatChip(
+                cf: cf,
+                label: item.label,
+                value: item.value,
+                highlight: item.highlight,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}

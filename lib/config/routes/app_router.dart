@@ -54,6 +54,7 @@ import '../../features/streaming/presentation/webrtc_viewer_screen.dart';
 import '../../features/teams/presentation/team_add_player_directory_screen.dart';
 import '../../features/teams/presentation/team_add_player_quick_screen.dart';
 import '../../features/teams/presentation/team_add_players_screen.dart';
+import '../../features/teams/presentation/team_add_walk_in_player_screen.dart';
 import '../../features/teams/presentation/team_detail_screen.dart';
 import '../../features/teams/presentation/team_edit_screen.dart';
 import '../../features/teams/presentation/create_team_screen.dart';
@@ -542,6 +543,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'directory',
                 builder: (_, state) => TeamAddPlayerDirectoryScreen(
+                  teamId: state.pathParameters['id']!,
+                ),
+              ),
+              GoRoute(
+                path: 'walkin',
+                builder: (_, state) => TeamAddWalkInPlayerScreen(
                   teamId: state.pathParameters['id']!,
                 ),
               ),

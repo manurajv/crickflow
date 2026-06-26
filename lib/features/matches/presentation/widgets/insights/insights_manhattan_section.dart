@@ -169,56 +169,111 @@ class _InsightsManhattanSectionState extends State<InsightsManhattanSection> {
     ManhattanOverDetail detail,
     String teamLabel,
   ) {
-    final cf = widget.cf;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: cf.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => Padding(
-        padding: AppDimens.cardPadding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$teamLabel · Over $over',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-                color: cf.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppDimens.spaceMd),
-            _tooltipRow('Runs', '${detail.runs}', cf),
-            _tooltipRow('Wickets', '${detail.wickets}', cf),
-            _tooltipRow('Run Rate', detail.runRate.toStringAsFixed(2), cf),
-            _tooltipRow('Boundary Runs', '${detail.boundaryRuns}', cf),
-            _tooltipRow('Singles', '${detail.singles}', cf),
-            SizedBox(height: MediaQuery.paddingOf(ctx).bottom),
-          ],
-        ),
+    showInsightsChartBottomSheet(
+      context,
+      cf: widget.cf,
+      child: _ManhattanOverDetailSheet(
+        over: over,
+        detail: detail,
+        teamLabel: teamLabel,
+        ballsPerOver: widget.ballsPerOver,
+        phaseRanges: widget.phaseRanges,
+        cf: widget.cf,
       ),
     );
   }
+}
 
-  Widget _tooltipRow(String label, String value, CfColors cf) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+class _ManhattanOverDetailSheet extends StatelessWidget {
+  const _ManhattanOverDetailSheet({
+    required this.over,
+    required this.detail,
+    required this.teamLabel,
+    required this.ballsPerOver,
+    required this.phaseRanges,
+    required this.cf,
+  });
+
+  final int over;
+  final ManhattanOverDetail detail;
+  final String teamLabel;
+  final int ballsPerOver;
+  final MatchPhaseRanges? phaseRanges;
+  final CfColors cf;
+
+  String get _phaseLabel {
+    switch (detail.phase) {
+      case OverPhaseKind.powerplay:
+        return phaseRanges?.powerplayLabel ?? 'Powerplay';
+      case OverPhaseKind.middle:
+        return phaseRanges?.middleLabel ?? 'Middle overs';
+      case OverPhaseKind.death:
+        return phaseRanges?.deathLabel ?? 'Death overs';
+      case OverPhaseKind.normal:
+        return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final phase = _phaseLabel;
+    final runsWord = detail.runs == 1 ? 'run' : 'runs';
+    final subtitle = phase.isEmpty
+        ? 'Over-by-over breakdown'
+        : '$phase · ${detail.legalBalls}/$ballsPerOver balls';
+
+    return InsightsChartSheetShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: TextStyle(color: cf.textSecondary)),
+          InsightsChartSheetHeader(
+            cf: cf,
+            badgeLabel: 'OVER $over',
+            title: teamLabel,
+            subtitle: subtitle,
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: cf.textPrimary,
+          const SizedBox(height: AppDimens.spaceMd),
+          InsightsChartSheetHero(
+            cf: cf,
+            label: 'Runs scored',
+            value: '${detail.runs}',
+            subtitle: '$runsWord in this over',
+          ),
+          const SizedBox(height: 10),
+          InsightsChartSheetStatGrid(
+            cf: cf,
+            items: [
+              (
+                label: 'Run rate',
+                value: detail.runRate.toStringAsFixed(2),
+                highlight: true,
+              ),
+              (
+                label: 'Wickets',
+                value: '${detail.wickets}',
+                highlight: detail.wickets > 0,
+              ),
+              (
+                label: 'Boundary runs',
+                value: '${detail.boundaryRuns}',
+                highlight: false,
+              ),
+              (label: 'Singles', value: '${detail.singles}', highlight: false),
+            ],
+          ),
+          if (detail.wickets > 0) ...[
+            const SizedBox(height: 10),
+            InsightsChartSheetDetailTile(
+              cf: cf,
+              icon: Icons.sports_cricket_outlined,
+              label: 'Wickets lost',
+              value: detail.wickets == 1
+                  ? '1 wicket in this over'
+                  : '${detail.wickets} wickets in this over',
+              valueColor: cf.error,
             ),
-          ),
+          ],
         ],
       ),
     );
