@@ -49,7 +49,7 @@ import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/notification_settings_screen.dart';
 import '../../features/shell/presentation/main_shell_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
-import '../../features/streaming/presentation/live_stream_screen.dart';
+import '../../features/streaming/presentation/streaming_dashboard_screen.dart';
 import '../../features/streaming/presentation/webrtc_viewer_screen.dart';
 import '../../features/teams/presentation/team_add_player_directory_screen.dart';
 import '../../features/teams/presentation/team_add_player_quick_screen.dart';
@@ -417,7 +417,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/match/:id/stream',
         builder: (_, state) =>
-            LiveStreamScreen(matchId: state.pathParameters['id']!),
+            StreamingDashboardScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/match/:id/webrtc',

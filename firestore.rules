@@ -228,6 +228,18 @@ service cloud.firestore {
         || (isAssignedMatchScorer(matchId) && isTargetRevisionRelatedUpdate());
     }
 
+    function isStreamMetadataUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return diff.affectedKeys().hasOnly(['stream'])
+        || diff.affectedKeys().hasOnly(['stream', 'updatedAt']);
+    }
+
+    function canUpdateStreamMetadata(matchId) {
+      return isMatchCreator(matchId)
+        || isMatchScorer(matchId)
+        || isAssignedMatchScorer(matchId);
+    }
+
     function isValidScorerTakeover() {
       let old = resource.data;
       let neu = request.resource.data;
@@ -798,8 +810,9 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if true;
       allow create: if isSignedIn() && validMatchCreate();
-      allow update: if canUpdateMatchForTargetRevision(matchId)
-        && validTargetRevisionMatchUpdate();
+      allow update: if (canUpdateMatchForTargetRevision(matchId)
+        && validTargetRevisionMatchUpdate())
+        || (canUpdateStreamMetadata(matchId) && isStreamMetadataUpdate());
       allow delete: if canDeleteMatch(matchId);
 
       match /ball_events/{eventId} {
@@ -812,6 +825,12 @@ service cloud.firestore {
       match /overlay/{docId} {
         allow read: if true;
         allow write: if isMatchScorer(matchId);
+      }
+
+      match /replayMarkers/{markerId} {
+        allow read: if isSignedIn();
+        allow create: if isMatchScorer(matchId) || isMatchCreator(matchId);
+        allow update, delete: if false;
       }
 
       match /highlights/{highlightId} {
@@ -1103,6 +1122,11 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if false;
+    }
+
+    match /streaming_credentials/{userId} {
+      // OAuth refresh tokens — written only by Cloud Functions (Admin SDK).
+      allow read, write: if false;
     }
 
     match /notifications/{notificationId} {

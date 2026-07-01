@@ -87,7 +87,7 @@ final notificationPreferencesRepositoryProvider =
     Provider((ref) => NotificationPreferencesRepository());
 final teamRosterReportRepositoryProvider =
     Provider((ref) => TeamRosterReportRepository());
-final streamServiceProvider = Provider<StreamService>((ref) {
+final streamServiceProvider = ChangeNotifierProvider<StreamService>((ref) {
   final service = StreamService();
   ref.onDispose(service.dispose);
   return service;

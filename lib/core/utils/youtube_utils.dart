@@ -47,4 +47,19 @@ class YoutubeUtils {
     if (eventTime.isBefore(streamStartedAt)) return null;
     return eventTime.difference(streamStartedAt);
   }
+
+  static Duration? offsetFromMilliseconds(int? ms) {
+    if (ms == null || ms < 0) return null;
+    return Duration(milliseconds: ms);
+  }
+
+  /// YouTube watch URL with `t=` seconds for replay seek.
+  static String? watchUrlAtOffset(String? watchUrl, Duration? offset) {
+    if (watchUrl == null || watchUrl.trim().isEmpty) return null;
+    final id = videoIdFromUrl(watchUrl);
+    if (id == null) return watchUrl;
+    final base = 'https://www.youtube.com/watch?v=$id';
+    if (offset == null || offset.inSeconds <= 0) return base;
+    return '$base&t=${offset.inSeconds}s';
+  }
 }

@@ -22,6 +22,12 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 | `adminReprocessMatchStats` | Callable | Apply stats from events when `statsProcessed` is false (or `force:true`) |
 | `syncPublicScorecard` | `matches/{id}` written | Public `public/scorecard` (no stream keys) |
 | `syncPublicOverlay` | `matches/{id}/overlay/{docId}` written | Merges live overlay into public scorecard |
+| `onStreamStatusChanged` | `matches/{id}` updated | Stream live/ended fan-out |
+| `linkYouTubeAccount` | Callable | OAuth server auth code → refresh token |
+| `createYouTubeLiveStream` | Callable | YouTube broadcast + RTMP credentials |
+| `listYouTubeChannels` | Callable | Linked YouTube channel |
+| `getYouTubeLiveChat` | Callable | Read-only live chat messages |
+| `exportYouTubeChapters` | Callable | Replay markers → YouTube description chapters |
 
 ## Module layout
 
@@ -40,10 +46,10 @@ functions/src/
     ballEventStats.js      # event replay, collectPlayerAggFromEvents, integrity verify
     stats.js               # apply increments + legacy collectPlayerAgg(innings)
     badges.js              # 50, 100, 3w, 5w
-  admin/
-    scoringAdmin.js        # callable QA + reprocess
-    tournament.js          # points table
-    messaging.js           # FCM + in-app notifications
+  streaming/
+    streamFunctions.js
+    youtubeOAuth.js
+    youtubeLive.js
 ```
 
 ## Idempotency

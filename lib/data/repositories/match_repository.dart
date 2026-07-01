@@ -274,6 +274,17 @@ class MatchRepository {
     });
   }
 
+  /// Stream-only patch — avoids overwriting in-progress scoring state.
+  Future<void> updateStreamMetadata(
+    String matchId,
+    StreamMetadataModel stream,
+  ) async {
+    await _matches.doc(matchId).update({
+      'stream': stream.toMap(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
   Future<MatchModel?> getMatch(String id) async {
     final local = _localStore;
     if (local != null) {

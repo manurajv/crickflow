@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",
-    "firebase-functions": "^6.3.2"
+    "firebase-functions": "^6.3.2",
+    "googleapis": "^144.0.0"
   }
 }

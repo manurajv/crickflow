@@ -30,6 +30,17 @@ const {
   onPlayerFollowWritten,
   onProfileViewWritten,
 } = require('./social/onPlayerFollowWritten');
+const {
+  onStreamStatusChanged,
+  linkYouTubeAccount,
+  storeStreamingOAuthToken,
+  createYouTubeLiveStream,
+  listYouTubeChannels,
+  getYouTubeLiveChat,
+  exportYouTubeChapters,
+  createFacebookLiveStream,
+  createTwitchLiveStream,
+} = require('./streaming/streamFunctions');
 
 exports.onMatchCompleted = onMatchCompleted;
 exports.onMatchLive = onMatchLive;
@@ -47,3 +58,12 @@ exports.onTeamJoinRequestCreated = onTeamJoinRequestCreated;
 exports.onTeamRosterReportCreated = onTeamRosterReportCreated;
 exports.onPlayerFollowWritten = onPlayerFollowWritten;
 exports.onProfileViewWritten = onProfileViewWritten;
+exports.onStreamStatusChanged = onStreamStatusChanged;
+exports.linkYouTubeAccount = linkYouTubeAccount;
+exports.storeStreamingOAuthToken = storeStreamingOAuthToken;
+exports.createYouTubeLiveStream = createYouTubeLiveStream;
+exports.listYouTubeChannels = listYouTubeChannels;
+exports.getYouTubeLiveChat = getYouTubeLiveChat;
+exports.exportYouTubeChapters = exportYouTubeChapters;
+exports.createFacebookLiveStream = createFacebookLiveStream;
+exports.createTwitchLiveStream = createTwitchLiveStream;

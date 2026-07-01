@@ -10,6 +10,7 @@ import '../../../core/routing/deep_link_handler.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/user_model.dart';
+import '../../../features/streaming/data/active_stream_session.dart';
 import '../../../shared/providers/providers.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -78,6 +79,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (user == null) {
       context.go(launchRoute ?? '/home');
       return;
+    }
+
+    if (launchRoute == null) {
+      final liveRoute = await ActiveStreamSession.resolveResumeRoute(
+        ref.read(matchRepositoryProvider),
+      );
+      if (liveRoute != null) {
+        if (mounted) context.go(liveRoute);
+        return;
+      }
     }
 
     UserModel? profile;

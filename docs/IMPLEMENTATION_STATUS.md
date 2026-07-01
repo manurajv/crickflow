@@ -13,6 +13,39 @@
 
 ---
 
+## Latest (Professional streaming studio)
+
+| Item | Status |
+|------|--------|
+| **Streaming Dashboard** — `/match/:id/stream` pre-live setup (camera, match info, platform, quality, audio, overlays, health) | Done |
+| **StreamingStudioScreen flow** — dashboard → lock orientation → Go Live → fullscreen studio | Done |
+| Enhanced **StreamService** — lens catalog, orientation lock, bitrate/resolution, record+stream, health stats, reconnect | Done |
+| **Broadcast scoreboard overlay** — full/compact/minimal layouts on camera preview | Done |
+| **Event overlays** — wicket, four, six, new batter/bowler from ball events | Done |
+| Platform UI — YouTube + custom RTMP (Facebook/Twitch hidden until OAuth ships) | Done |
+| **StreamPermissionService** — organizer, assigned streamer, scorer, creator | Done |
+| **Replay markers** — `matches/{id}/replayMarkers` + in-studio flag button | Done |
+| Cloud Functions — `onStreamStatusChanged`, `createYouTubeLiveStream` stub | Done — deploy + YouTube OAuth |
+| RTMP overlay burn-in (native compositing for YouTube viewers) | Done — Flutter PNG → pedro `ImageObjectFilterRender` on `OpenGlView` |
+| Facebook/Twitch OAuth + auto RTMP | Deferred — manual RTMP keys work |
+| Digital zoom after max optical | Deferred |
+| Live chat / sponsor video rotation | Live chat done; sponsor logos deferred |
+| **Safe lens/zoom switch** — hide platform view before dispose; Android surface teardown delay; serialized camera ops | Done |
+| **Auto replay markers** — wickets/boundaries/milestones → `replayMarkers` while live | Done |
+| **Sponsor rotation** — tournament sponsors cycle on overlay banner (15s) | Done |
+| **Score ticker** — scrolling ticker when `showTicker` enabled | Done |
+| **Platform OAuth scaffold** — `storeStreamingOAuthToken`, FB/Twitch CF stubs | Done |
+| **Highlights merge** — replay markers + ball events; YouTube `t=` deep links | Done |
+| **YouTube account link** — Google Sign-In → `linkYouTubeAccount` CF | Done |
+| **YouTube auto RTMP** — full Data API v3 broadcast + stream + bind | Done |
+| **YouTube live chat** — read-only panel in live studio | Done |
+| **YouTube chapters export** — replay markers → description format | Done |
+| **Setup guide** — `docs/STREAMING_SETUP.md` | Done |
+| **YouTube OAuth fix** — `kYouTubeWebClientId` aligned to Firebase Web client (`202403125129-vnidfi...`); ApiException 10 docs + error UX | Done — update `YOUTUBE_CLIENT_SECRET` for same Web client + redeploy functions |
+| **Broadcast module architecture** — modular destinations, OBS mode, session controller, pro camera settings, analytics | Done — see `docs/BROADCAST_MODULE.md` |
+| UI/camera polish | Deferred |
+| **Studio UX** — Ready → broadcast setup → Go Live; center camera button; stats strip w/ mic meter + reopen; YouTube/Facebook/Custom RTMP destinations with preset servers; setup checklist; saved RTMP servers; resume live studio on app reopen; camera recovery after screen off | Done |
+
 ---
 
 ## Latest (Tournament module)
@@ -762,7 +795,7 @@ See [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md).
 
 | Team join | `team_join_banner.dart` |
 
-| RTMP | `stream_service.dart`, `live_stream_screen.dart` |
+| RTMP | `stream_service.dart`, `streaming_dashboard_screen.dart`, `docs/STREAMING_ARCHITECTURE.md` |
 
 | Hosting | `firebase.json`, `public/index.html`, `public/open-app.html`, `public/privacy.html`, `public/.well-known/` |
 | App Links | `deep_link_utils.dart`, Android manifest, `assetlinks.json`, `apple-app-site-association` |
