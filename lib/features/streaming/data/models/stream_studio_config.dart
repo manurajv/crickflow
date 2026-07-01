@@ -15,6 +15,7 @@ class StreamStudioConfig extends Equatable {
     this.tags = const [],
     this.scheduledAt,
     this.goLiveImmediately = false,
+    this.broadcastSetupMode = StreamBroadcastSetupMode.automatic,
     this.platform = StreamPlatform.youtube,
     this.rtmpUrl = 'rtmp://a.rtmp.youtube.com/live2',
     this.streamKey = '',
@@ -66,6 +67,7 @@ class StreamStudioConfig extends Equatable {
   final List<String> tags;
   final DateTime? scheduledAt;
   final bool goLiveImmediately;
+  final StreamBroadcastSetupMode broadcastSetupMode;
   final StreamPlatform platform;
   final String rtmpUrl;
   final String streamKey;
@@ -128,6 +130,7 @@ class StreamStudioConfig extends Equatable {
     List<String>? tags,
     DateTime? scheduledAt,
     bool? goLiveImmediately,
+    StreamBroadcastSetupMode? broadcastSetupMode,
     StreamPlatform? platform,
     String? rtmpUrl,
     String? streamKey,
@@ -179,6 +182,7 @@ class StreamStudioConfig extends Equatable {
       tags: tags ?? this.tags,
       scheduledAt: scheduledAt ?? this.scheduledAt,
       goLiveImmediately: goLiveImmediately ?? this.goLiveImmediately,
+      broadcastSetupMode: broadcastSetupMode ?? this.broadcastSetupMode,
       platform: platform ?? this.platform,
       rtmpUrl: rtmpUrl ?? this.rtmpUrl,
       streamKey: streamKey ?? this.streamKey,
@@ -234,6 +238,7 @@ class StreamStudioConfig extends Equatable {
         'tags': tags,
         if (scheduledAt != null) 'scheduledAt': scheduledAt!.toIso8601String(),
         'goLiveImmediately': goLiveImmediately,
+        'broadcastSetupMode': broadcastSetupMode.name,
         'platform': platform.name,
         'rtmpUrl': rtmpUrl,
         'resolution': resolution.name,
@@ -247,6 +252,10 @@ class StreamStudioConfig extends Equatable {
         'overlayLayout': overlayLayout.name,
         'streamingMode': streamingMode.name,
       };
+
+  bool get usesManualBroadcastSetup =>
+      broadcastSetupMode == StreamBroadcastSetupMode.manual ||
+      platform != StreamPlatform.youtube;
 
   /// True when RTMP credentials are saved and the user can start broadcasting.
   bool get isBroadcastConfigured {

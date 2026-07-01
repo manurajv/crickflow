@@ -119,13 +119,17 @@ class _StreamBroadcastSetupSheet extends ConsumerWidget {
                     StreamSetupChecklist(matchId: matchId),
                     const SizedBox(height: 16),
                     StreamBroadcastDestinationSection(matchId: matchId),
-                    const SizedBox(height: 16),
-                    _BroadcastMetadataSection(
-                      matchId: matchId,
-                      match: match,
-                    ),
+                    if (config.platform == StreamPlatform.youtube &&
+                        config.broadcastSetupMode ==
+                            StreamBroadcastSetupMode.automatic) ...[
+                      const SizedBox(height: 16),
+                      _BroadcastMetadataSection(
+                        matchId: matchId,
+                        match: match,
+                      ),
+                    ],
                     const SizedBox(height: 20),
-                    _HowToGoLiveCard(cf: cf),
+                    _HowToGoLiveCard(matchId: matchId),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -167,13 +171,42 @@ class _StreamBroadcastSetupSheet extends ConsumerWidget {
   }
 }
 
-class _HowToGoLiveCard extends StatelessWidget {
-  const _HowToGoLiveCard({required this.cf});
+class _HowToGoLiveCard extends ConsumerWidget {
+  const _HowToGoLiveCard({required this.matchId});
 
-  final CfColors cf;
+  final String matchId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
+    final config = ref.watch(streamStudioConfigProvider(matchId));
+
+    final steps = switch (config.platform) {
+      StreamPlatform.youtube when config.broadcastSetupMode ==
+          StreamBroadcastSetupMode.manual => [
+          'Pick YouTube and Manual setup above.',
+          'Paste your stream key from YouTube Studio (Go Live → Stream).',
+          'Tap Go Live on the camera — video goes to YouTube ingest.',
+          'Open YouTube Studio and click Go live when ready (unless auto-start is on there).',
+        ],
+      StreamPlatform.youtube => [
+          'Link your Google account and pick a channel.',
+          'Set title and visibility, then create the YouTube event.',
+          config.goLiveImmediately
+              ? 'Tap Go Live — YouTube goes public when video connects.'
+              : 'Tap Go Live — preview in YouTube Studio, then click Go live there.',
+        ],
+      StreamPlatform.facebook => [
+          'Copy the RTMPS server URL and stream key from Facebook Live Producer.',
+          'Paste them above, then tap Go Live on the camera.',
+        ],
+      StreamPlatform.customRtmp => [
+          'Enter your RTMP server URL and stream key.',
+          'Tap Go Live on the camera when credentials are saved.',
+        ],
+      StreamPlatform.twitch => ['Twitch is not available in this release.'],
+    };
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -194,18 +227,8 @@ class _HowToGoLiveCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          _StepLine(cf: cf, n: '1', text: 'Pick YouTube, Facebook, or Custom RTMP above.'),
-          _StepLine(cf: cf, n: '2', text: 'Enter credentials or create a YouTube broadcast.'),
-          _StepLine(
-            cf: cf,
-            n: '3',
-            text: 'Tap Ready on the camera to open this setup if needed.',
-          ),
-          _StepLine(
-            cf: cf,
-            n: '4',
-            text: 'When configured, tap Go Live on the camera. Check YouTube Studio, then click Go live there unless auto-start is on.',
-          ),
+          for (var i = 0; i < steps.length; i++)
+            _StepLine(cf: cf, n: '${i + 1}', text: steps[i]),
         ],
       ),
     );
@@ -336,49 +359,10 @@ class _BroadcastMetadataSection extends ConsumerWidget {
             value: config.category,
             onTap: () => _pickCategory(context, ref, matchId, config),
           ),
-          _PickerTile(
-            cf: cf,
-            icon: Icons.hd,
-            label: 'Resolution',
-            value: config.resolution.mapping.label,
-            onTap: () => _pickResolution(context, ref, matchId, config),
-          ),
-          _PickerTile(
-            cf: cf,
-            icon: Icons.speed,
-            label: 'Latency',
-            value: _latencyLabel(config.latency),
-            onTap: () => _pickLatency(context, ref, matchId, config),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              'Auto-start on YouTube',
-              style: TextStyle(color: cf.textPrimary, fontWeight: FontWeight.w600),
-            ),
-            subtitle: Text(
-              config.goLiveImmediately
-                  ? 'YouTube goes public as soon as the encoder connects'
-                  : 'Preview in YouTube Studio first — you click Go live there',
-              style: TextStyle(color: cf.textSecondary, fontSize: 11),
-            ),
-            value: config.goLiveImmediately,
-            activeTrackColor: cf.accent,
-            onChanged: (v) => notifier.update(
-              (c) => c.copyWith(goLiveImmediately: v),
-            ),
-          ),
         ],
       ],
     );
   }
-
-  static String _latencyLabel(StreamLatencyPreset latency) => switch (latency) {
-        StreamLatencyPreset.ultraLow => 'Ultra low',
-        StreamLatencyPreset.low => 'Low',
-        StreamLatencyPreset.normal => 'Normal',
-        StreamLatencyPreset.highQuality => 'High quality',
-      };
 
   static Future<void> _pickVisibility(
     BuildContext context,
@@ -445,76 +429,6 @@ class _BroadcastMetadataSection extends ConsumerWidget {
     if (picked != null) {
       ref.read(streamStudioConfigProvider(matchId).notifier).update(
             (c) => c.copyWith(category: picked),
-          );
-    }
-  }
-
-  static Future<void> _pickLatency(
-    BuildContext context,
-    WidgetRef ref,
-    String matchId,
-    StreamStudioConfig config,
-  ) async {
-    final cf = context.cf;
-    final picked = await showModalBottomSheet<StreamLatencyPreset>(
-      context: context,
-      backgroundColor: cf.surface,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: StreamLatencyPreset.values
-              .map(
-                (v) => ListTile(
-                  title: Text(_latencyLabel(v),
-                      style: TextStyle(color: cf.textPrimary)),
-                  trailing: config.latency == v
-                      ? Icon(Icons.check, color: cf.accent)
-                      : null,
-                  onTap: () => Navigator.pop(ctx, v),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-    if (picked != null) {
-      ref.read(streamStudioConfigProvider(matchId).notifier).update(
-            (c) => c.copyWith(latency: picked),
-          );
-    }
-  }
-
-  static Future<void> _pickResolution(
-    BuildContext context,
-    WidgetRef ref,
-    String matchId,
-    StreamStudioConfig config,
-  ) async {
-    final cf = context.cf;
-    final picked = await showModalBottomSheet<StreamResolutionPreset>(
-      context: context,
-      backgroundColor: cf.surface,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: StreamResolutionPreset.values
-              .map(
-                (v) => ListTile(
-                  title: Text(v.mapping.label,
-                      style: TextStyle(color: cf.textPrimary)),
-                  trailing: config.resolution == v
-                      ? Icon(Icons.check, color: cf.accent)
-                      : null,
-                  onTap: () => Navigator.pop(ctx, v),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-    if (picked != null) {
-      ref.read(streamStudioConfigProvider(matchId).notifier).update(
-            (c) => c.copyWith(resolution: picked),
           );
     }
   }
@@ -639,8 +553,15 @@ class StreamBroadcastDestinationSection extends ConsumerWidget {
           }).toList(),
         ),
         const SizedBox(height: 16),
+        if (config.platform == StreamPlatform.youtube) ...[
+          _BroadcastSetupModeSelector(matchId: matchId),
+          const SizedBox(height: 16),
+        ],
         switch (config.platform) {
-          StreamPlatform.youtube => _YouTubeSetup(matchId: matchId),
+          StreamPlatform.youtube =>
+            config.broadcastSetupMode == StreamBroadcastSetupMode.manual
+                ? _YouTubeManualSetup(matchId: matchId)
+                : _YouTubeAutomaticSetup(matchId: matchId),
           StreamPlatform.facebook => _ManualRtmpSetup(
               matchId: matchId,
               platform: StreamPlatform.facebook,
@@ -668,8 +589,72 @@ class StreamBroadcastDestinationSection extends ConsumerWidget {
       };
 }
 
-class _YouTubeSetup extends ConsumerWidget {
-  const _YouTubeSetup({required this.matchId});
+class _BroadcastSetupModeSelector extends ConsumerWidget {
+  const _BroadcastSetupModeSelector({required this.matchId});
+
+  final String matchId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
+    final config = ref.watch(streamStudioConfigProvider(matchId));
+    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'SETUP MODE',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+            color: cf.accent,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<StreamBroadcastSetupMode>(
+          segments: StreamBroadcastSetupMode.values
+              .map(
+                (mode) => ButtonSegment(
+                  value: mode,
+                  label: Text(mode.label),
+                  icon: Icon(
+                    mode == StreamBroadcastSetupMode.automatic
+                        ? Icons.auto_awesome
+                        : Icons.vpn_key_outlined,
+                    size: 16,
+                  ),
+                ),
+              )
+              .toList(),
+          selected: {config.broadcastSetupMode},
+          onSelectionChanged: (selected) {
+            if (selected.isEmpty) return;
+            notifier.update(
+              (c) => c.copyWith(broadcastSetupMode: selected.first),
+            );
+          },
+          style: ButtonStyle(
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? cf.accent
+                  : cf.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          config.broadcastSetupMode.subtitle,
+          style: TextStyle(color: cf.textSecondary, fontSize: 11),
+        ),
+      ],
+    );
+  }
+}
+
+class _YouTubeAutomaticSetup extends ConsumerWidget {
+  const _YouTubeAutomaticSetup({required this.matchId});
 
   final String matchId;
 
@@ -683,21 +668,8 @@ class _YouTubeSetup extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Automatic (recommended)',
-          style: TextStyle(
-            color: cf.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
-        const SizedBox(height: 4),
-          Text(
-            'Connect Google, pick a channel, and create a YouTube live event. '
-            'With auto-start off, review the preview in YouTube Studio before going public.',
-            style: TextStyle(color: cf.textSecondary, fontSize: 12),
-          ),
-        const SizedBox(height: 12),
+        _YouTubeAutoStartToggle(matchId: matchId),
+        const SizedBox(height: 16),
         StreamYouTubeLinkSection(matchId: matchId),
         const SizedBox(height: 8),
         channelsAsync.when(
@@ -741,40 +713,32 @@ class _YouTubeSetup extends ConsumerWidget {
           icon: Icons.live_tv,
           onPressed: () => _createYouTubeBroadcast(context, ref),
         ),
-        const SizedBox(height: 20),
-        Text(
-          'Manual stream key',
-          style: TextStyle(
-            color: cf.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
+        if (config.youtubeBroadcastId.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: cf.accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: cf.accent.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: cf.accent, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    config.goLiveImmediately
+                        ? 'YouTube event ready — goes public when connected'
+                        : 'YouTube event ready — preview in Studio first',
+                    style: TextStyle(color: cf.textSecondary, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Already created a stream in YouTube Studio? Select the server and paste your key.',
-          style: TextStyle(color: cf.textSecondary, fontSize: 12),
-        ),
-        const SizedBox(height: 10),
-        _RtmpPresetSelector(matchId: matchId, platform: StreamPlatform.youtube),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: cf.sectionBackground.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: cf.border),
-          ),
-          child: Text(
-            'In YouTube Studio: Go Live → Stream tab → copy stream key. '
-            'Keep that page open — preview appears when CrickFlow connects. '
-            'Or paste the full RTMP URL (server + key) in the server field.',
-            style: TextStyle(color: cf.textSecondary, fontSize: 11),
-          ),
-        ),
-        const SizedBox(height: 8),
-        _StreamKeyField(matchId: matchId),
+        ],
       ],
     );
   }
@@ -798,17 +762,17 @@ class _YouTubeSetup extends ConsumerWidget {
           youtubeBroadcastId: creds.broadcastId,
         ),
       );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        config.goLiveImmediately
-                            ? 'YouTube broadcast created — will go public when connected'
-                            : 'YouTube broadcast created — preview in Studio, then click Go live',
-                      ),
-                    ),
-                  );
-                }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              config.goLiveImmediately
+                  ? 'YouTube broadcast created — will go public when connected'
+                  : 'YouTube broadcast created — preview in Studio, then click Go live',
+            ),
+          ),
+        );
+      }
     } on StreamPlatformException catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -816,6 +780,87 @@ class _YouTubeSetup extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+class _YouTubeManualSetup extends ConsumerWidget {
+  const _YouTubeManualSetup({required this.matchId});
+
+  final String matchId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Paste credentials from YouTube Studio → Go Live → Stream.',
+          style: TextStyle(color: cf.textSecondary, fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        _RtmpPresetSelector(matchId: matchId, platform: StreamPlatform.youtube),
+        const SizedBox(height: 8),
+        _StreamKeyField(matchId: matchId),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: cf.sectionBackground.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: cf.border),
+          ),
+          child: Text(
+            'No title or thumbnail needed here — configure those in YouTube Studio. '
+            'Tap Go Live in CrickFlow to send video to ingest.',
+            style: TextStyle(color: cf.textSecondary, fontSize: 11),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _YouTubeAutoStartToggle extends ConsumerWidget {
+  const _YouTubeAutoStartToggle({required this.matchId});
+
+  final String matchId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
+    final config = ref.watch(streamStudioConfigProvider(matchId));
+    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cf.sectionBackground.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cf.border),
+      ),
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        title: Text(
+          'Go live on YouTube immediately',
+          style: TextStyle(
+            color: cf.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+        subtitle: Text(
+          config.goLiveImmediately
+              ? 'Applies when YouTube is linked — goes public when video connects'
+              : 'Requires linked YouTube — preview in Studio first, you click Go live',
+          style: TextStyle(color: cf.textSecondary, fontSize: 11),
+        ),
+        value: config.goLiveImmediately,
+        activeTrackColor: cf.accent,
+        onChanged: (v) => notifier.update((c) => c.copyWith(goLiveImmediately: v)),
+      ),
+    );
   }
 }
 

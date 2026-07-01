@@ -6,7 +6,6 @@ import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/match_model.dart';
 import '../../../data/models/stream_studio_config.dart';
 import '../../../domain/streaming_enums.dart';
-import '../../../camera/presentation/professional_camera_panel.dart';
 import '../../../settings/presentation/stream_mode_selector.dart';
 import '../camera/stream_camera_controls.dart';
 import '../dashboard/stream_dashboard_sections.dart';
@@ -161,12 +160,8 @@ class _StreamSetupSheetBody extends ConsumerWidget {
                 const SizedBox(height: 10),
                 StreamModeSelector(matchId: matchId),
                 const SizedBox(height: 10),
-                _SectionHeader(cf: cf, title: 'Orientation & camera'),
+                _SectionHeader(cf: cf, title: 'Orientation'),
                 CameraOrientationSelector(matchId: matchId),
-                const SizedBox(height: 6),
-                ProfessionalCameraPanel(matchId: matchId, enabled: !cameraLoading),
-                const SizedBox(height: 6),
-                CameraControlsPanel(matchId: matchId),
                 const SizedBox(height: 12),
                 _SectionHeader(cf: cf, title: 'Quality & audio'),
                 StreamQualitySection(matchId: matchId),

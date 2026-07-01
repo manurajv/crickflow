@@ -327,7 +327,7 @@ class _StreamingDashboardScreenState
             matchId: widget.matchId,
             config: config,
             match: match,
-            wasNativeStream: wasNative && ref.read(streamServiceProvider).isStreaming,
+            wasNativeStream: wasNative && _isLive,
           );
     } else {
       await ref.read(streamServiceProvider).stopStream();

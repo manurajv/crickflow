@@ -45,6 +45,8 @@
 | **Broadcast module architecture** — modular destinations, OBS mode, session controller, pro camera settings, analytics | Done — see `docs/BROADCAST_MODULE.md` |
 | UI/camera polish | Deferred |
 | **Studio UX** — Ready → broadcast setup → Go Live; center camera button; stats strip w/ mic meter + reopen; YouTube/Facebook/Custom RTMP destinations with preset servers; setup checklist; saved RTMP servers; resume live studio on app reopen; camera recovery after screen off | Done |
+| **RTMP stop + YouTube preview** — fixed `stopEverything()` skipping native stop (audio kept sending after end); preview-first YouTube requires linked account + API event (`enableAutoStart: false`) | Done |
+| **Broadcast setup UX** — Automatic vs Manual toggle (YouTube); manual = RTMP key only; exposure/camera settings on studio overlay; removed duplicate checklist/camera controls from setup sheets | Done |
 
 ---
 

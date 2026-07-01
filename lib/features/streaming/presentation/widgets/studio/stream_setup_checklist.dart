@@ -25,41 +25,78 @@ class StreamSetupStep {
 List<StreamSetupStep> buildStreamSetupSteps(StreamStudioConfig config) {
   final hasKey = config.streamKey.trim().isNotEmpty;
   final hasUrl = config.rtmpUrl.trim().isNotEmpty;
+  final isManualYouTube = config.platform == StreamPlatform.youtube &&
+      config.broadcastSetupMode == StreamBroadcastSetupMode.manual;
+  final isAutoYouTube = config.platform == StreamPlatform.youtube &&
+      config.broadcastSetupMode == StreamBroadcastSetupMode.automatic;
 
   return switch (config.platform) {
-    StreamPlatform.youtube => [
+    StreamPlatform.youtube when isManualYouTube => [
         StreamSetupStep(
-          title: 'Choose YouTube',
-          subtitle: 'Automatic broadcast or manual stream key',
+          title: 'YouTube · Manual',
+          subtitle: 'Paste stream key from YouTube Studio',
           status: StreamSetupStepStatus.done,
         ),
         StreamSetupStep(
-          title: 'Connect Google account',
-          subtitle: 'Required to create a YouTube live event in-app',
-          status: config.youtubeChannelId.isNotEmpty
-              ? StreamSetupStepStatus.done
-              : StreamSetupStepStatus.optional,
-          actionLabel: config.youtubeChannelId.isEmpty ? 'Optional' : null,
-        ),
-        StreamSetupStep(
-          title: 'Create broadcast or enter stream key',
+          title: 'Enter stream key',
           subtitle: hasKey
-              ? (config.youtubeBroadcastId.isNotEmpty
-                  ? 'YouTube event created'
-                  : 'Stream key saved')
-              : 'Create a live event or paste key from YouTube Studio',
+              ? 'Stream key saved'
+              : 'Copy from YouTube Studio → Go Live → Stream',
           status: hasKey
               ? StreamSetupStepStatus.done
               : StreamSetupStepStatus.pending,
         ),
+      ],
+    StreamPlatform.youtube when isAutoYouTube => [
         StreamSetupStep(
-          title: 'Review stream details',
+          title: 'YouTube · Automatic',
+          subtitle: 'Link account and create event in the app',
+          status: StreamSetupStepStatus.done,
+        ),
+        StreamSetupStep(
+          title: 'YouTube delivery',
+          subtitle: config.goLiveImmediately
+              ? 'Go public on YouTube when video connects'
+              : 'Preview in YouTube Studio first — you click Go live',
+          status: StreamSetupStepStatus.done,
+        ),
+        StreamSetupStep(
+          title: 'Connect Google account',
+          subtitle: config.youtubeChannelId.isNotEmpty
+              ? config.youtubeChannelName.isNotEmpty
+                  ? config.youtubeChannelName
+                  : 'Account linked'
+              : 'Sign in with Google to create broadcasts',
+          status: config.youtubeChannelId.isNotEmpty
+              ? StreamSetupStepStatus.done
+              : StreamSetupStepStatus.pending,
+        ),
+        StreamSetupStep(
+          title: 'Create YouTube broadcast',
+          subtitle: hasKey || config.youtubeBroadcastId.isNotEmpty
+              ? (config.youtubeBroadcastId.isNotEmpty
+                  ? 'YouTube event created'
+                  : 'Stream key saved')
+              : 'Tap "Create YouTube live broadcast" or go live to create one',
+          status: hasKey || config.youtubeBroadcastId.isNotEmpty
+              ? StreamSetupStepStatus.done
+              : StreamSetupStepStatus.pending,
+        ),
+        StreamSetupStep(
+          title: 'Stream title',
           subtitle: config.title.trim().isNotEmpty
               ? config.title
-              : 'Add a title before going live',
+              : 'Add a title for the YouTube event',
           status: config.title.trim().isNotEmpty
               ? StreamSetupStepStatus.done
               : StreamSetupStepStatus.optional,
+        ),
+      ],
+    StreamPlatform.youtube => [
+        StreamSetupStep(
+          title: 'Choose YouTube',
+          subtitle: 'Automatic or manual setup',
+          status: StreamSetupStepStatus.done,
         ),
       ],
     StreamPlatform.facebook => [
@@ -85,15 +122,6 @@ List<StreamSetupStep> buildStreamSetupSteps(StreamStudioConfig config) {
           status: hasKey
               ? StreamSetupStepStatus.done
               : StreamSetupStepStatus.pending,
-        ),
-        StreamSetupStep(
-          title: 'Review stream details',
-          subtitle: config.title.trim().isNotEmpty
-              ? config.title
-              : 'Add a title (shown in CrickFlow)',
-          status: config.title.trim().isNotEmpty
-              ? StreamSetupStepStatus.done
-              : StreamSetupStepStatus.optional,
         ),
       ],
     StreamPlatform.customRtmp => [

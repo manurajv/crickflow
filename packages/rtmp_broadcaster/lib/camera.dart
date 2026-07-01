@@ -883,10 +883,13 @@ class CameraController extends ValueNotifier<CameraValue> {
       );
     }
     try {
-      value = value.copyWith(isStreamingVideoRtmp: false);
-      if (value.isRecordingVideo! || value.isStreamingVideoRtmp!) {
+      final wasRecording = value.isRecordingVideo ?? false;
+      final wasStreaming = value.isStreamingVideoRtmp ?? false;
+      if (wasRecording || wasStreaming) {
         value = value.copyWith(
-            isRecordingVideo: false, isStreamingVideoRtmp: false);
+          isRecordingVideo: false,
+          isStreamingVideoRtmp: false,
+        );
         await _channel.invokeMethod<void>(
           'stopRecordingOrStreaming',
           <String, dynamic>{'textureId': _textureId},

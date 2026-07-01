@@ -7,6 +7,7 @@ import '../../../../../shared/providers/providers.dart';
 import '../../../data/models/camera_lens_info.dart';
 import '../../providers/streaming_studio_providers.dart';
 import 'stream_studio_quick_settings_sheet.dart';
+import 'stream_camera_settings_sheet.dart';
 
 /// Themed studio chrome over the camera preview — light/dark via [CfColors].
 class StreamStudioOverlay extends ConsumerStatefulWidget {
@@ -130,6 +131,13 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                   cameraReady: widget.cameraReady,
                   onOpenBroadcastSetup: widget.onOpenBroadcastSetup,
                 ),
+                onCameraSettings: widget.isObsMode || !widget.cameraReady
+                    ? null
+                    : () => showStreamCameraSettingsSheet(
+                          context,
+                          matchId: widget.matchId,
+                          cameraReady: widget.cameraReady,
+                        ),
                 onShowStats: !_healthVisible && (widget.isLive || widget.cameraReady)
                     ? () => setState(() => _healthVisible = true)
                     : null,
@@ -307,6 +315,7 @@ class _TopBar extends StatelessWidget {
     required this.title,
     this.onBack,
     required this.onSettings,
+    this.onCameraSettings,
     this.onShowStats,
     this.onTorch,
     this.onMic,
@@ -319,6 +328,7 @@ class _TopBar extends StatelessWidget {
   final String title;
   final VoidCallback? onBack;
   final VoidCallback onSettings;
+  final VoidCallback? onCameraSettings;
   final VoidCallback? onShowStats;
   final VoidCallback? onTorch;
   final VoidCallback? onMic;
@@ -369,6 +379,13 @@ class _TopBar extends StatelessWidget {
           ),
           if (onFlip != null)
             _IconBtn(cf: cf, icon: Icons.cameraswitch_rounded, onTap: onFlip),
+          if (onCameraSettings != null)
+            _IconBtn(
+              cf: cf,
+              icon: Icons.exposure_outlined,
+              onTap: onCameraSettings,
+              tooltip: 'Camera settings',
+            ),
           _IconBtn(cf: cf, icon: Icons.tune_rounded, onTap: onSettings),
         ],
       ),

@@ -4,6 +4,7 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/repositories/match_repository.dart';
 import '../../../../data/services/stream_service.dart';
 import '../data/models/stream_studio_config.dart';
+import '../domain/destinations/stream_destination_provider.dart';
 import '../domain/destinations/stream_destination_registry.dart';
 import '../domain/destinations/stream_live_credentials.dart';
 import '../domain/stream_credential_normalizer.dart';
@@ -47,28 +48,8 @@ class BroadcastSessionController {
     final normalized = _normalizeConfig(config);
     final provider = _destinations.forPlatform(normalized.platform);
 
-    // Linked YouTube with no stream key — create a broadcast automatically.
-    if (normalized.platform == StreamPlatform.youtube &&
-        normalized.youtubeBroadcastId.isEmpty &&
-        normalized.youtubeChannelId.isNotEmpty &&
-        normalized.streamKey.trim().isEmpty &&
-        provider.supportsOAuth) {
-      try {
-        final creds = await provider.createLiveBroadcast(normalized);
-        if (creds != null) {
-          return BroadcastSessionResult(
-            config: _applyCredentials(normalized, creds),
-            credentials: creds,
-          );
-        }
-      } on StreamPlatformException catch (e) {
-        if (normalized.streamKey.trim().isEmpty) {
-          return BroadcastSessionResult(
-            config: normalized,
-            errorMessage: e.message,
-          );
-        }
-      }
+    if (normalized.platform == StreamPlatform.youtube) {
+      return _resolveYouTubeCredentials(normalized, provider);
     }
 
     if (normalized.streamKey.trim().isNotEmpty) {
@@ -101,6 +82,108 @@ class BroadcastSessionController {
         errorMessage: e.message,
       );
     }
+  }
+
+  Future<BroadcastSessionResult> _resolveYouTubeCredentials(
+    StreamStudioConfig config,
+    StreamDestinationProvider provider,
+  ) async {
+    if (config.broadcastSetupMode == StreamBroadcastSetupMode.manual) {
+      if (config.streamKey.trim().isEmpty) {
+        return BroadcastSessionResult(
+          config: config,
+          errorMessage: 'Enter your YouTube stream key from Studio',
+        );
+      }
+      final manual = await provider.resolveManualCredentials(config);
+      if (manual == null) {
+        return BroadcastSessionResult(
+          config: config,
+          errorMessage: 'Enter a valid YouTube stream key',
+        );
+      }
+      return BroadcastSessionResult(
+        config: _applyCredentials(config, manual),
+        credentials: manual,
+      );
+    }
+
+    // Automatic: preview-first or immediate via linked account + API.
+    if (!config.goLiveImmediately) {
+      if (config.youtubeChannelId.isEmpty) {
+        return BroadcastSessionResult(
+          config: config,
+          errorMessage:
+              'Link your YouTube account to preview in Studio first, '
+              'or turn on "Go live on YouTube immediately".',
+        );
+      }
+
+      if (config.youtubeBroadcastId.isNotEmpty &&
+          config.streamKey.trim().isNotEmpty) {
+        final existing = credentialsFromConfig(config);
+        if (existing != null) {
+          return BroadcastSessionResult(
+            config: config,
+            credentials: existing,
+          );
+        }
+      }
+
+      try {
+        final creds = await provider.createLiveBroadcast(config);
+        if (creds != null) {
+          return BroadcastSessionResult(
+            config: _applyCredentials(config, creds),
+            credentials: creds,
+          );
+        }
+        return BroadcastSessionResult(
+          config: config,
+          errorMessage:
+              'Could not create a YouTube preview event. '
+              'Tap "Create YouTube live broadcast" in setup, then try again.',
+        );
+      } on StreamPlatformException catch (e) {
+        return BroadcastSessionResult(
+          config: config,
+          errorMessage: e.message,
+        );
+      }
+    }
+
+    // Immediate mode: manual stream key goes straight to YouTube ingest.
+    if (config.streamKey.trim().isNotEmpty) {
+      final manual = await provider.resolveManualCredentials(config);
+      if (manual != null) {
+        return BroadcastSessionResult(
+          config: _applyCredentials(config, manual),
+          credentials: manual,
+        );
+      }
+    }
+
+    if (config.youtubeChannelId.isNotEmpty) {
+      try {
+        final creds = await provider.createLiveBroadcast(config);
+        if (creds != null) {
+          return BroadcastSessionResult(
+            config: _applyCredentials(config, creds),
+            credentials: creds,
+          );
+        }
+      } on StreamPlatformException catch (e) {
+        return BroadcastSessionResult(
+          config: config,
+          errorMessage: e.message,
+        );
+      }
+    }
+
+    return BroadcastSessionResult(
+      config: config,
+      errorMessage: 'Enter a YouTube stream key or link your YouTube account',
+    );
   }
 
   /// Starts native camera RTMP or marks external encoder session live.

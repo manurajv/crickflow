@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/match_model.dart';
-import '../../../camera/presentation/professional_camera_panel.dart';
 import '../../../settings/presentation/stream_mode_selector.dart';
 import '../../providers/streaming_studio_providers.dart';
 import '../camera/stream_camera_controls.dart';
+import 'stream_camera_settings_sheet.dart';
 import 'stream_setup_bottom_sheet.dart';
-import 'stream_setup_checklist.dart';
 
 Future<void> showStreamStudioQuickSettingsSheet(
   BuildContext context, {
@@ -113,8 +112,6 @@ class _QuickSettingsSheet extends ConsumerWidget {
               controller: scrollController,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               children: [
-                StreamSetupChecklist(matchId: matchId, compact: true),
-                const SizedBox(height: 12),
                 StreamModeSelector(matchId: matchId),
                 const SizedBox(height: 12),
                 SwitchListTile(
@@ -153,9 +150,18 @@ class _QuickSettingsSheet extends ConsumerWidget {
                 CameraOrientationSelector(matchId: matchId),
                 if (cameraReady) ...[
                   const SizedBox(height: 8),
-                  ProfessionalCameraPanel(matchId: matchId, enabled: true),
-                  const SizedBox(height: 8),
-                  CameraControlsPanel(matchId: matchId),
+                  OutlinedButton.icon(
+                    onPressed: () => showStreamCameraSettingsSheet(
+                      context,
+                      matchId: matchId,
+                      cameraReady: cameraReady,
+                    ),
+                    icon: Icon(Icons.camera_outlined, color: cf.accent),
+                    label: Text(
+                      'Exposure & camera settings',
+                      style: TextStyle(color: cf.accent),
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

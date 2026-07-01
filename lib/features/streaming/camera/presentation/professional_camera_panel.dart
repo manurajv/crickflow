@@ -11,10 +11,12 @@ class ProfessionalCameraPanel extends ConsumerWidget {
     super.key,
     required this.matchId,
     this.enabled = true,
+    this.showTorch = true,
   });
 
   final String matchId;
   final bool enabled;
+  final bool showTorch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -126,18 +128,19 @@ class ProfessionalCameraPanel extends ConsumerWidget {
                     ),
                   ),
         ),
-        SwitchListTile(
-          title: const Text('Torch'),
-          value: config.torchEnabled,
-          onChanged: !enabled || !service.isInitialized
-              ? null
-              : (v) async {
-                  notifier.update((c) => c.copyWith(torchEnabled: v));
-                  try {
-                    await service.setTorch(v);
-                  } catch (_) {}
-                },
-        ),
+        if (showTorch)
+          SwitchListTile(
+            title: const Text('Torch'),
+            value: config.torchEnabled,
+            onChanged: !enabled || !service.isInitialized
+                ? null
+                : (v) async {
+                    notifier.update((c) => c.copyWith(torchEnabled: v));
+                    try {
+                      await service.setTorch(v);
+                    } catch (_) {}
+                  },
+          ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Text(

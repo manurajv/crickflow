@@ -12,6 +12,28 @@ const kImplementedStreamPlatforms = <StreamPlatform>[
 
 enum StreamVisibility { public, unlisted, private }
 
+/// How the user configures their broadcast destination.
+enum StreamBroadcastSetupMode {
+  /// Link account, create events, title/description (YouTube).
+  automatic,
+  /// Paste RTMP URL and stream key only.
+  manual,
+}
+
+extension StreamBroadcastSetupModeX on StreamBroadcastSetupMode {
+  String get label => switch (this) {
+        StreamBroadcastSetupMode.automatic => 'Automatic',
+        StreamBroadcastSetupMode.manual => 'Manual',
+      };
+
+  String get subtitle => switch (this) {
+        StreamBroadcastSetupMode.automatic =>
+          'Link YouTube and create events in the app',
+        StreamBroadcastSetupMode.manual =>
+          'Paste RTMP server and stream key from your platform',
+      };
+}
+
 enum StreamOrientationMode {
   portrait,
   landscapeLeft,

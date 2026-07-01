@@ -527,15 +527,21 @@ class StreamService extends ChangeNotifier {
     return _runCameraOperation(() async {
       _healthTimer?.cancel();
       _connectivitySub?.cancel();
+      final wasActive = _status == StreamStatus.live ||
+          _status == StreamStatus.connecting ||
+          (_controller?.value.isStreamingVideoRtmp ?? false);
       if (_controller != null && isInitialized) {
         try {
           await _controller!.clearStreamOverlay();
         } catch (_) {}
-        try {
-          await _controller!.stopEverything();
-        } catch (_) {}
+        if (wasActive) {
+          try {
+            await _controller!.stopEverything();
+          } catch (_) {}
+        }
       }
       _status = StreamStatus.idle;
+      _lastEndpoint = null;
       notifyListeners();
     });
   }
