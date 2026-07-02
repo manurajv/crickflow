@@ -30,7 +30,7 @@ Setup guide: **[STREAMING_SETUP.md](STREAMING_SETUP.md)** · Architecture: [STRE
 |------|-------|
 | UI/camera polish | Lens switch on Oppo/Samsung, form controllers, tap-to-focus |
 | Digital zoom | After max optical — needs native camera API |
-| RTMP overlay burn-in | Preview-only today; needs OpenGL compositing or OBS |
+| RTMP overlay burn-in | Done — Flutter PNG → `glInterface.setFilter` on Android (works with LightOpenGlView) |
 | Facebook/Twitch auto RTMP | Manual paste works; API stubs return clear errors |
 | Sponsor logo images | Text rotation done; logo URLs on scorebug pending |
 | Chat moderation | Read-only chat done |

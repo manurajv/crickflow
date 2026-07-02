@@ -8,6 +8,6 @@ npm install --omit=dev
 Set-Location ..
 
 Write-Host "Deploying Firebase..." -ForegroundColor Cyan
-firebase deploy --only "firestore:rules,firestore:indexes,storage,functions,hosting"
+firebase deploy --non-interactive --only "firestore:rules,firestore:indexes,storage,functions,hosting"
 
 Write-Host "Done." -ForegroundColor Green

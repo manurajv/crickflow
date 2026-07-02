@@ -26,9 +26,9 @@
 | **StreamPermissionService** — organizer, assigned streamer, scorer, creator | Done |
 | **Replay markers** — `matches/{id}/replayMarkers` + in-studio flag button | Done |
 | Cloud Functions — `onStreamStatusChanged`, `createYouTubeLiveStream` stub | Done — deploy + YouTube OAuth |
-| RTMP overlay burn-in (native compositing for YouTube viewers) | Done — Flutter PNG → pedro `ImageObjectFilterRender` on `OpenGlView` |
+| RTMP overlay burn-in (native compositing for YouTube viewers) | Done — Flutter PNG capture (visible paint tree) → `glInterface.setFilter` full-frame (Android) |
 | Facebook/Twitch OAuth + auto RTMP | Deferred — manual RTMP keys work |
-| Digital zoom after max optical | Deferred |
+| Digital zoom after max optical | Done — 0.5x / 1x / 2x / 3x only (focal-length mapped + digital fill) |
 | Live chat / sponsor video rotation | Live chat done; sponsor logos deferred |
 | **Safe lens/zoom switch** — hide platform view before dispose; Android surface teardown delay; serialized camera ops | Done |
 | **Auto replay markers** — wickets/boundaries/milestones → `replayMarkers` while live | Done |
@@ -46,7 +46,10 @@
 | UI/camera polish | Deferred |
 | **Studio UX** — Ready → broadcast setup → Go Live; center camera button; stats strip w/ mic meter + reopen; YouTube/Facebook/Custom RTMP destinations with preset servers; setup checklist; saved RTMP servers; resume live studio on app reopen; camera recovery after screen off | Done |
 | **RTMP stop + YouTube preview** — fixed `stopEverything()` skipping native stop (audio kept sending after end); preview-first YouTube requires linked account + API event (`enableAutoStart: false`) | Done |
-| **Broadcast setup UX** — Automatic vs Manual toggle (YouTube); manual = RTMP key only; exposure/camera settings on studio overlay; removed duplicate checklist/camera controls from setup sheets | Done |
+| **Broadcast setup UX** — Automatic vs Manual toggle (YouTube); manual = RTMP key only; exposure sheet on studio overlay; removed duplicate checklist/camera controls from setup sheets | Done |
+| **Live mic mute** — overlay/settings mic toggle; native `disableAudio` before/during RTMP start when muted; reconnect re-applies mute | Done |
+| **Camera recovery + zoom + key history** — native preview restart on RTMP stop; YouTube `endYouTubeLiveStream` on end broadcast; standard zoom row | Done |
+| **Camera preview (Oppo/Adreno)** — reverted hybrid platform-view composition (ImageReader format 0x3b loop); keep `SafeLightOpenGlView` + surface size gate | Done |
 
 ---
 

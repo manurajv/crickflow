@@ -103,9 +103,11 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
         ? 0
         : service.selectedLensIndex.clamp(0, lenses.length - 1);
     final canSwitch = widget.cameraReady &&
-        !service.isStreaming &&
         !service.isSwitchingLens &&
-        !widget.isObsMode;
+        !widget.isObsMode &&
+        (widget.isLive
+            ? service.canAdjustZoomWhileLive
+            : !service.isStreaming);
     final backLenses = lenses.where((l) => !l.isFront).toList(growable: false);
 
     return Stack(
@@ -157,11 +159,21 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                         }
                       },
                 torchOn: config.torchEnabled,
-                onMic: () => notifier.update(
-                  (c) => c.copyWith(micEnabled: !c.micEnabled),
-                ),
+                onMic: () async {
+                  final next = !config.micEnabled;
+                  notifier.update((c) => c.copyWith(micEnabled: next));
+                  try {
+                    await ref.read(streamServiceProvider).setMicEnabled(next);
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Mic toggle failed: $e')),
+                      );
+                    }
+                  }
+                },
                 micOn: config.micEnabled,
-                onFlip: canSwitch
+                onFlip: canSwitch && !widget.isLive
                     ? () {
                         final frontIdx = lenses.indexWhere((l) => l.isFront);
                         final backIdx = lenses.indexWhere((l) => !l.isFront);
@@ -194,7 +206,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
               onClose: () => setState(() => _healthVisible = false),
             ),
           ),
-        if (!widget.isObsMode && backLenses.length > 1)
+        if (!widget.isObsMode && backLenses.length > 1 && (canSwitch || !widget.isLive))
           Positioned(
             left: 16,
             right: 16,
@@ -384,7 +396,7 @@ class _TopBar extends StatelessWidget {
               cf: cf,
               icon: Icons.exposure_outlined,
               onTap: onCameraSettings,
-              tooltip: 'Camera settings',
+              tooltip: 'Exposure',
             ),
           _IconBtn(cf: cf, icon: Icons.tune_rounded, onTap: onSettings),
         ],
@@ -493,50 +505,53 @@ class _LensPill extends StatelessWidget {
     return Center(
       child: _StudioPill(
         cf: cf,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final lens in lenses)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Material(
-                  color: allLenses.indexOf(lens) == selectedIndex
-                      ? cf.accent.withValues(alpha: 0.2)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    onTap: canSwitch
-                        ? () => onSelect(allLenses.indexOf(lens))
-                        : null,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final lens in lenses)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Material(
+                    color: allLenses.indexOf(lens) == selectedIndex
+                        ? cf.accent.withValues(alpha: 0.2)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: allLenses.indexOf(lens) == selectedIndex
-                            ? Border.all(color: cf.accent, width: 1.2)
-                            : null,
-                      ),
-                      child: Text(
-                        formatLensZoom(lens.zoomFactor),
-                        style: TextStyle(
-                          color: canSwitch
-                              ? (allLenses.indexOf(lens) == selectedIndex
-                                  ? cf.accent
-                                  : cf.textSecondary)
-                              : cf.textDisabled,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                    child: InkWell(
+                      onTap: canSwitch
+                          ? () => onSelect(allLenses.indexOf(lens))
+                          : null,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: allLenses.indexOf(lens) == selectedIndex
+                              ? Border.all(color: cf.accent, width: 1.2)
+                              : null,
+                        ),
+                        child: Text(
+                          formatLensZoom(lens.zoomFactor),
+                          style: TextStyle(
+                            color: canSwitch
+                                ? (allLenses.indexOf(lens) == selectedIndex
+                                    ? cf.accent
+                                    : cf.textSecondary)
+                                : cf.textDisabled,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -697,12 +712,4 @@ class _TextBtn extends StatelessWidget {
       ),
     );
   }
-}
-
-String formatLensZoom(double factor) {
-  if (factor == 0.5) return '0.5x';
-  if (factor == factor.roundToDouble() && factor >= 1) {
-    return '${factor.toInt()}x';
-  }
-  return '${factor.toStringAsFixed(1)}x';
 }

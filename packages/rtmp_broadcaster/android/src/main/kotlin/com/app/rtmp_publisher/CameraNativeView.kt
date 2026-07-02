@@ -25,8 +25,9 @@ import java.io.*
 
 
 class CameraNativeView(
+    viewContext: Context,
     private var activity: Activity? = null,
-    private var enableAudio: Boolean = false,
+    private val enableAudio: Boolean = false,
     private val preset: Camera.ResolutionPreset,
     private var cameraName: String,
     private var dartMessenger: DartMessenger? = null
@@ -35,18 +36,19 @@ class CameraNativeView(
     SurfaceHolder.Callback,
     ConnectCheckerRtmp {
 
-    private val glView = LightOpenGlView(activity)
+    private val glView = SafeLightOpenGlView(viewContext)
     private val rtmpCamera: RtmpCamera2
     private val overlayBurnIn: StreamOverlayBurnIn
 
     private var isSurfaceCreated = false
     private var fps = 0
+    private var encoderPrepared = false
 
     init {
         glView.isKeepAspectRatio = true
         glView.holder.addCallback(this)
         rtmpCamera = RtmpCamera2(glView, this)
-        overlayBurnIn = StreamOverlayBurnIn(rtmpCamera, glView)
+        overlayBurnIn = StreamOverlayBurnIn(rtmpCamera)
         rtmpCamera.setReTries(10)
         rtmpCamera.setFpsListener { fps = it }
     }
@@ -57,12 +59,14 @@ class CameraNativeView(
         startPreview(cameraName)
     }
 
-    override fun surfaceChanged(p0: SurfaceHolder, p1: Int, p2: Int, p3: Int) {
-        // TODO("Not yet implemented")
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+        if (width > 0 && height > 0 && isSurfaceCreated) {
+            startPreview(cameraName)
+        }
     }
 
     override fun surfaceDestroyed(p0: SurfaceHolder) {
-        // TODO("Not yet implemented")
+        isSurfaceCreated = false
     }
 
     override fun onAuthSuccessRtmp() {
@@ -72,6 +76,9 @@ class CameraNativeView(
     }
 
     override fun onConnectionSuccessRtmp() {
+        activity?.runOnUiThread {
+            dartMessenger?.send(DartMessenger.EventType.RTMP_CONNECTED, null)
+        }
     }
 
     override fun onConnectionFailedRtmp(reason: String) {
@@ -156,8 +163,13 @@ class CameraNativeView(
     }
 
 
-    fun startVideoStreaming(url: String?, bitrate: Int?, result: MethodChannel.Result) {
-        Log.d("CameraNativeView", "startVideoStreaming url: $url")
+    fun startVideoStreaming(
+        url: String?,
+        bitrate: Int?,
+        micEnabled: Boolean = true,
+        result: MethodChannel.Result
+    ) {
+        Log.d("CameraNativeView", "startVideoStreaming url: $url micEnabled=$micEnabled")
         if (url == null) {
             result.error("startVideoStreaming", "Must specify a url.", null)
             return
@@ -165,19 +177,32 @@ class CameraNativeView(
 
         try {
             if (!rtmpCamera.isStreaming) {
-                val streamingSize = CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset)
-                if (rtmpCamera.isRecording || rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
-                        streamingSize.videoFrameWidth,
-                        streamingSize.videoFrameHeight,
-                        bitrate ?: streamingSize.videoBitRate
-                    )
-                ) {
-                    // ready to start streaming
-                    rtmpCamera.startStream(url)
-                } else {
-                    result.error("videoStreamingFailed", "Error preparing stream, This device cant do it", null)
-                    return
+                val streamingSize =
+                    CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset)
+                if (!encoderPrepared) {
+                    val prepared = if (rtmpCamera.isRecording) {
+                        true
+                    } else {
+                        rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
+                            streamingSize.videoFrameWidth,
+                            streamingSize.videoFrameHeight,
+                            bitrate ?: streamingSize.videoBitRate
+                        )
+                    }
+                    if (!prepared) {
+                        result.error(
+                            "videoStreamingFailed",
+                            "Error preparing stream, This device cant do it",
+                            null
+                        )
+                        return
+                    }
+                    encoderPrepared = true
                 }
+                if (!micEnabled) {
+                    rtmpCamera.disableAudio()
+                }
+                rtmpCamera.startStream(url)
             } else {
                 rtmpCamera.stopStream()
             }
@@ -189,7 +214,13 @@ class CameraNativeView(
         }
     }
 
-    fun startVideoRecordingAndStreaming(filePath: String?, url: String?, bitrate: Int?, result: MethodChannel.Result) {
+    fun startVideoRecordingAndStreaming(
+        filePath: String?,
+        url: String?,
+        bitrate: Int?,
+        micEnabled: Boolean = true,
+        result: MethodChannel.Result
+    ) {
         if (filePath == null) {
             result.error("fileExists", "Must specify a filePath.", null)
             return
@@ -204,7 +235,7 @@ class CameraNativeView(
         }
         try {
             startVideoRecording(filePath, result)
-            startVideoStreaming(url, bitrate, result)
+            startVideoStreaming(url, bitrate, micEnabled, result)
         } catch (e: CameraAccessException) {
             result.error("videoRecordingFailed", e.message, null)
         } catch (e: IOException) {
@@ -221,16 +252,31 @@ class CameraNativeView(
     }
 
     fun stopVideoRecordingOrStreaming(result: MethodChannel.Result) {
-        try {
-            rtmpCamera.apply {
-                if (isStreaming) stopStream()
-                if (isRecording) stopRecord()
+        runOnMain(result) {
+            try {
+                overlayBurnIn.release()
+                rtmpCamera.apply {
+                    if (isStreaming) stopStream()
+                    if (isRecording) stopRecord()
+                }
+                if (isSurfaceCreated) {
+                    val previewSize = CameraUtils.computeBestPreviewSize(cameraName, preset)
+                    if (rtmpCamera.isOnPreview) {
+                        rtmpCamera.stopPreview()
+                    }
+                    rtmpCamera.startPreview(
+                        if (isFrontFacing(cameraName)) FRONT else BACK,
+                        previewSize.width,
+                        previewSize.height
+                    )
+                    invokeSwitchCameraByIdIfNeeded(cameraName)
+                }
+                result.success(null)
+            } catch (e: CameraAccessException) {
+                result.error("videoRecordingFailed", e.message, null)
+            } catch (e: IllegalStateException) {
+                result.error("videoRecordingFailed", e.message, null)
             }
-            result.success(null)
-        } catch (e: CameraAccessException) {
-            result.error("videoRecordingFailed", e.message, null)
-        } catch (e: IllegalStateException) {
-            result.error("videoRecordingFailed", e.message, null)
         }
     }
 
@@ -283,6 +329,11 @@ class CameraNativeView(
 
         Log.d("CameraNativeView", "startPreview: $preset camera=$targetCamera")
         if (isSurfaceCreated) {
+            val holder = glView.holder
+            if (holder.surface == null || !holder.surface.isValid) {
+                Log.w("CameraNativeView", "startPreview skipped — surface not valid")
+                return
+            }
             try {
                 if (rtmpCamera.isOnPreview || rtmpCamera.isStreaming) {
                     if (!invokeSwitchCameraByIdIfNeeded(targetCamera)) {
@@ -445,6 +496,47 @@ class CameraNativeView(
         }
     }
 
+    fun setMicMuted(muted: Boolean, result: MethodChannel.Result) {
+        runOnMain(result) {
+            try {
+                if (muted) {
+                    rtmpCamera.disableAudio()
+                } else {
+                    rtmpCamera.enableAudio()
+                }
+                result.success(null)
+            } catch (e: Exception) {
+                Log.e("CameraNativeView", "setMicMuted", e)
+                result.error("micFailed", e.message, null)
+            }
+        }
+    }
+
+    fun restartPreview(result: MethodChannel.Result) {
+        runOnMain(result) {
+            try {
+                if (rtmpCamera.isStreaming) {
+                    rtmpCamera.stopStream()
+                    overlayBurnIn.release()
+                }
+                val previewSize = CameraUtils.computeBestPreviewSize(cameraName, preset)
+                if (rtmpCamera.isOnPreview) {
+                    rtmpCamera.stopPreview()
+                }
+                rtmpCamera.startPreview(
+                    if (isFrontFacing(cameraName)) FRONT else BACK,
+                    previewSize.width,
+                    previewSize.height
+                )
+                invokeSwitchCameraByIdIfNeeded(cameraName)
+                result.success(null)
+            } catch (e: Exception) {
+                Log.e("CameraNativeView", "restartPreview", e)
+                result.error("previewFailed", e.message, null)
+            }
+        }
+    }
+
     private fun runOnMain(result: MethodChannel.Result, block: () -> Unit) {
         val act = activity
         if (act == null) {
@@ -554,6 +646,7 @@ class CameraNativeView(
 
     override fun dispose() {
         isSurfaceCreated = false
+        encoderPrepared = false
         overlayBurnIn.release()
         activity = null
     }

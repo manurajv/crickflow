@@ -2,7 +2,6 @@
 library;
 
 export 'analytics/broadcast_analytics_service.dart';
-export 'camera/presentation/professional_camera_panel.dart';
 export 'data/models/stream_studio_config.dart';
 export 'domain/camera_control_settings.dart';
 export 'domain/destinations/stream_destination_provider.dart';

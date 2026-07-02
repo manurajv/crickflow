@@ -31,7 +31,7 @@ class StreamStudioConfig extends Equatable {
     this.manualBitrateKbps = 2500,
     this.latency = StreamLatencyPreset.normal,
     this.codec = StreamVideoCodec.h264,
-    this.orientation = StreamOrientationMode.landscapeLeft,
+    this.orientation = StreamOrientationMode.portrait,
     this.orientationLocked = false,
     this.micEnabled = true,
     this.noiseSuppression = true,

@@ -60,6 +60,7 @@ class StreamService extends ChangeNotifier {
   Timer? _healthTimer;
   bool _switchingLens = false;
   Future<void>? _cameraOperation;
+  VoidCallback? onRtmpConnected;
 
   StreamStatus get status => _status;
   String? get lastError => _lastError;
@@ -67,6 +68,8 @@ class StreamService extends ChangeNotifier {
   bool get isInitialized => _controller?.value.isInitialized ?? false;
   bool get isStreaming => _controller?.value.isStreamingVideoRtmp ?? false;
   bool get isSwitchingLens => _switchingLens;
+  /// Zoom / back lens changes are supported while RTMP is active.
+  bool get canAdjustZoomWhileLive => isInitialized && _controller != null;
   List<CameraLensInfo> get lenses => _lenses;
   int get selectedLensIndex => _selectedLensIndex;
   StreamOrientationMode get orientation => _orientation;
@@ -81,7 +84,7 @@ class StreamService extends ChangeNotifier {
   Future<void> initCamera({
     int lensIndex = 0,
     StreamResolutionPreset resolution = StreamResolutionPreset.p720,
-    StreamOrientationMode orientation = StreamOrientationMode.landscapeLeft,
+    StreamOrientationMode orientation = StreamOrientationMode.portrait,
     bool lockOrientation = false,
     bool enableAudio = true,
   }) {
@@ -124,20 +127,17 @@ class StreamService extends ChangeNotifier {
     });
   }
 
-  /// Switches optical lens or digital zoom. Prefer native [switchCameraById]
-  /// without tearing down the preview surface when already initialized.
+  /// Switches optical lens or digital zoom without tearing down RTMP when live.
   Future<void> switchLens(int index) {
     return _runCameraOperation(() async {
       if (index < 0 || index >= _lenses.length) return;
       if (_selectedLensIndex == index && isInitialized) return;
-      if (isStreaming) {
-        throw StateError('Stop the stream before changing camera lens.');
-      }
 
       _switchingLens = true;
       try {
         final lens = _lenses[index];
         final current = _lenses[_selectedLensIndex];
+        final live = isStreaming;
 
         // Digital zoom on the same physical camera.
         if (lens.isDigitalZoom &&
@@ -157,6 +157,9 @@ class StreamService extends ChangeNotifier {
         if (isInitialized &&
             _controller != null &&
             lens.isFront != current.isFront) {
+          if (live) {
+            throw StateError('Stop the stream before switching front/back camera.');
+          }
           _selectedLensIndex = index;
           await _controller!.flipCamera();
           await _applyZoomForLens(lens);
@@ -165,7 +168,7 @@ class StreamService extends ChangeNotifier {
           return;
         }
 
-        // Physical camera switch while preview is active.
+        // Physical camera switch while preview or RTMP is active.
         if (isInitialized && _controller != null) {
           _selectedLensIndex = index;
           await _controller!.switchCameraById(lens.description.name!);
@@ -175,7 +178,11 @@ class StreamService extends ChangeNotifier {
           return;
         }
 
-        // Cold start / re-open fallback.
+        if (live) {
+          throw StateError('Camera not ready to change zoom while live.');
+        }
+
+        // Cold start / re-open fallback (pre-live only).
         _selectedLensIndex = index;
         await _releaseCamera(waitForSurfaceTeardown: true);
         await _openSelectedLens();
@@ -205,18 +212,32 @@ class StreamService extends ChangeNotifier {
     }
   }
 
-  /// Apply pro camera settings from the studio config.
-  Future<void> applyCameraControls(CameraControlSettings settings) async {
+  /// Apply exposure compensation (EV steps).
+  Future<void> setExposureCompensation(double ev) async {
     if (_controller == null || !isInitialized) return;
     try {
       await _applyNativeWithRetry(
-        () => _controller!.setExposureCompensation(settings.exposureCompensation),
+        () => _controller!.setExposureCompensation(ev),
       );
-      await _controller!.setFocusLock(settings.focusLocked);
     } on CameraException catch (e) {
       _lastError = e.description ?? e.code;
     }
-    notifyListeners();
+  }
+
+  /// Mute or unmute the microphone on the active RTMP stream.
+  Future<void> setMicEnabled(bool enabled) async {
+    _micEnabled = enabled;
+    if (_controller == null || !isInitialized) return;
+    try {
+      await _controller!.setMicMuted(!enabled);
+    } on CameraException catch (e) {
+      _lastError = e.description ?? e.code;
+    }
+  }
+
+  /// Apply pro camera settings from the studio config.
+  Future<void> applyCameraControls(CameraControlSettings settings) async {
+    await setExposureCompensation(settings.exposureCompensation);
   }
 
   /// Tap-to-focus at normalized coordinates (0–1) on the preview.
@@ -258,31 +279,55 @@ class StreamService extends ChangeNotifier {
   /// Re-open the camera preview after the app returns from background or the
   /// display turns off (Android often tears down the GL surface).
   Future<void> resumePreviewAfterBackground() {
+    return recoverPreview();
+  }
+
+  /// Restores preview after stream end, screen lock, or a dead GL surface.
+  Future<void> recoverPreview() {
     return _runCameraOperation(() async {
       if (!isPlatformSupported) return;
-
       if (isStreaming) {
         notifyListeners();
         return;
       }
 
-      if (_controller != null && isInitialized) {
-        try {
+      try {
+        if (_lenses.isEmpty) {
+          final cameras = await availableCameras();
+          if (cameras.isEmpty) {
+            _lastError = 'No camera found on this device.';
+            notifyListeners();
+            return;
+          }
+          _lenses = CameraLensCatalog.fromCameras(cameras);
+          _selectedLensIndex = _selectedLensIndex.clamp(0, _lenses.length - 1);
+        }
+
+        final lens = _lenses[_selectedLensIndex];
+        var recovered = false;
+
+        if (_controller != null && isInitialized) {
+          try {
+            await _controller!.restartPreview();
+            await _applyZoomForLens(lens);
+            await refreshDeviceZoomSteps();
+            recovered = isInitialized;
+          } catch (_) {
+            recovered = false;
+          }
+        }
+
+        if (!recovered) {
+          await _releaseCamera(waitForSurfaceTeardown: true);
+          await _openSelectedLens();
           await refreshDeviceZoomSteps();
-          if (isInitialized) return;
-        } catch (_) {}
-      }
+          await _applyZoomForLens(_lenses[_selectedLensIndex]);
+        }
 
-      if (_lenses.isEmpty) {
-        final cameras = await availableCameras();
-        if (cameras.isEmpty) return;
-        _lenses = CameraLensCatalog.fromCameras(cameras);
-        _selectedLensIndex = _selectedLensIndex.clamp(0, _lenses.length - 1);
+        _lastError = null;
+      } catch (e) {
+        _lastError = '$e';
       }
-
-      await _releaseCamera(waitForSurfaceTeardown: true);
-      await _openSelectedLens();
-      _lastError = null;
       notifyListeners();
     });
   }
@@ -292,9 +337,17 @@ class StreamService extends ChangeNotifier {
     if (_controller == null || !isInitialized) return;
     try {
       final maxZoom = await _controller!.getMaxZoom();
-      if (maxZoom <= 1) return;
-      _lenses = CameraLensCatalog.withDeviceMaxZoom(_lenses, maxZoom);
-      _selectedLensIndex = _selectedLensIndex.clamp(0, _lenses.length - 1);
+      final cameras = await availableCameras();
+      final prevFactor = _lenses.isNotEmpty
+          ? _lenses[_selectedLensIndex.clamp(0, _lenses.length - 1)].zoomFactor
+          : 1.0;
+      if (cameras.isNotEmpty) {
+        _lenses = CameraLensCatalog.standardZoomLenses(cameras, maxZoom);
+      } else {
+        _lenses = CameraLensCatalog.enrichWithDigitalZoom(_lenses, maxZoom);
+      }
+      _selectedLensIndex =
+          CameraLensCatalog.indexForZoomFactor(_lenses, prevFactor);
       await _applyZoomForLens(_lenses[_selectedLensIndex]);
       _lastError = null;
       notifyListeners();
@@ -438,11 +491,13 @@ class StreamService extends ChangeNotifier {
           recordPath,
           endpoint,
           bitrate: bitrate,
+          micEnabled: _micEnabled,
         );
       } else {
         await _controller!.startVideoStreaming(
           endpoint,
           bitrate: bitrate,
+          micEnabled: _micEnabled,
         );
       }
       _status = StreamStatus.live;
@@ -471,6 +526,7 @@ class StreamService extends ChangeNotifier {
       } else if (type == 'rtmp_connected') {
         _status = StreamStatus.live;
         _healthController.add(const StreamHealthMetrics(isReconnecting: false));
+        onRtmpConnected?.call();
       } else if (type == 'rtmp_stopped') {
         _status = StreamStatus.ended;
       }
@@ -506,39 +562,21 @@ class StreamService extends ChangeNotifier {
 
   void _startConnectivityWatch(String endpoint, int bitrate) {
     _connectivitySub?.cancel();
-    _connectivitySub =
-        Connectivity().onConnectivityChanged.listen((results) async {
-      if (results.every((r) => r == ConnectivityResult.none)) return;
-      if (!isStreaming &&
-          _status == StreamStatus.error &&
-          _lastEndpoint != null) {
-        try {
-          await _startStreamingInternal(
-            endpoint: _lastEndpoint!,
-            bitrate: _lastBitrate,
-            recordPath: _localRecordingPath,
-          );
-        } catch (_) {}
-      }
-    });
+    // Native Pedro RTMP handles reconnect via reTry(); avoid Dart-side
+    // startVideoStreaming that re-prepares the encoder and resets the camera.
   }
 
   Future<void> stopStream() async {
     return _runCameraOperation(() async {
       _healthTimer?.cancel();
       _connectivitySub?.cancel();
-      final wasActive = _status == StreamStatus.live ||
-          _status == StreamStatus.connecting ||
-          (_controller?.value.isStreamingVideoRtmp ?? false);
       if (_controller != null && isInitialized) {
         try {
           await _controller!.clearStreamOverlay();
         } catch (_) {}
-        if (wasActive) {
-          try {
-            await _controller!.stopEverything();
-          } catch (_) {}
-        }
+        try {
+          await _controller!.stopEverything();
+        } catch (_) {}
       }
       _status = StreamStatus.idle;
       _lastEndpoint = null;
@@ -547,33 +585,7 @@ class StreamService extends ChangeNotifier {
   }
 
   /// Reopens the camera preview after RTMP stops (end stream or failed go-live).
-  Future<void> resumePreviewAfterStreamEnd() async {
-    return _runCameraOperation(() async {
-      if (!isPlatformSupported) return;
-      if (isStreaming) return;
-
-      try {
-        if (_lenses.isEmpty) {
-          final cameras = await availableCameras();
-          if (cameras.isEmpty) {
-            _lastError = 'No camera found on this device.';
-            notifyListeners();
-            return;
-          }
-          _lenses = CameraLensCatalog.fromCameras(cameras);
-          _selectedLensIndex = _selectedLensIndex.clamp(0, _lenses.length - 1);
-        }
-
-        await _releaseCamera(waitForSurfaceTeardown: true);
-        await _openSelectedLens();
-        await refreshDeviceZoomSteps();
-        _lastError = null;
-      } catch (e) {
-        _lastError = '$e';
-      }
-      notifyListeners();
-    });
-  }
+  Future<void> resumePreviewAfterStreamEnd() => recoverPreview();
 
   @override
   void dispose() {

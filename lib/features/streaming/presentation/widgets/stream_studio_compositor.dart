@@ -8,7 +8,6 @@ import '../../../../shared/providers/tournament_providers.dart';
 import '../../data/models/stream_overlay_theme.dart';
 import '../../data/services/stream_overlay_burn_in_service.dart';
 import '../../domain/stream_sponsor_rotation.dart';
-import '../../domain/streaming_enums.dart';
 import '../providers/streaming_studio_providers.dart';
 import 'overlay/broadcast_scoreboard_overlay.dart';
 import 'overlay/stream_event_overlay_widget.dart';
@@ -137,6 +136,11 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     ref.listen(activeEventOverlayProvider(widget.matchId), (prev, next) {
       _scheduleBurnIn();
     });
+    ref.listen(overlayProvider(widget.matchId), (prev, next) {
+      if (next.valueOrNull != null) {
+        _scheduleBurnIn();
+      }
+    });
 
     final eventOverlay = ref.watch(activeEventOverlayProvider(widget.matchId));
     final config = ref.watch(streamStudioConfigProvider(widget.matchId));
@@ -181,26 +185,47 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       forBurnInCapture: true,
     );
 
-    return Stack(
-      clipBehavior: Clip.hardEdge,
-      children: [
-        Positioned.fill(child: widget.cameraPreview),
-        ...layers,
-        Offstage(
-          offstage: true,
-          child: SizedBox(
-            width: encoderSize.width,
-            height: encoderSize.height,
-            child: RepaintBoundary(
-              key: burnIn.repaintKey,
-              child: Stack(
-                clipBehavior: Clip.hardEdge,
-                children: burnInLayers,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final previewW = constraints.maxWidth;
+        final previewH = constraints.maxHeight;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(child: widget.cameraPreview),
+            ...layers,
+            // Off-screen encoder-sized capture: preview layout scaled to stream frame.
+            if (previewW > 0 && previewH > 0)
+              Positioned(
+                left: -encoderSize.width - 16,
+                top: 0,
+                child: IgnorePointer(
+                  child: SizedBox(
+                    width: encoderSize.width,
+                    height: encoderSize.height,
+                    child: RepaintBoundary(
+                      key: burnIn.repaintKey,
+                      child: FittedBox(
+                        fit: BoxFit.fill,
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: previewW,
+                          height: previewH,
+                          child: Stack(
+                            clipBehavior: Clip.hardEdge,
+                            fit: StackFit.expand,
+                            children: burnInLayers,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 

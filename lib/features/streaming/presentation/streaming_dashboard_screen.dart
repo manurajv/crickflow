@@ -59,6 +59,16 @@ class _StreamingDashboardScreenState
     final config = ref.read(streamStudioConfigProvider(widget.matchId));
     if (config.streamingMode == StreamingMode.externalEncoder) return;
     if (!StreamService.isPlatformSupported) return;
+    if (_cameraLoading) return;
+
+    final service = ref.read(streamServiceProvider);
+    if (_isLive && service.isStreaming) {
+      // Do not remount the platform view — that kills RTMP mid-broadcast.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+      });
+      return;
+    }
 
     setState(() => _previewSession++);
     unawaited(_recoverCameraAfterResume());
@@ -153,6 +163,9 @@ class _StreamingDashboardScreenState
       setState(() => _isLive = true);
       _startHeartbeat();
       unawaited(ActiveStreamSession.setActive(widget.matchId));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(streamOverlayBurnInServiceProvider).startLiveRefresh();
+      });
     }
   }
 
@@ -237,7 +250,7 @@ class _StreamingDashboardScreenState
     } catch (e) {
       if (mounted) {
         setState(() {
-          _previewSession++;
+          if (!_isLive) _previewSession++;
           _cameraError = '$e';
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -295,6 +308,14 @@ class _StreamingDashboardScreenState
           (c) => config,
         );
 
+    if (config.usesManualBroadcastSetup) {
+      await rememberStreamKeyForConfig(
+        ref.read(streamStudioRepositoryProvider),
+        config,
+      );
+      ref.invalidate(streamKeyHistoryProvider);
+    }
+
     _startHeartbeat();
     await ActiveStreamSession.setActive(widget.matchId);
     if (mounted) {
@@ -310,8 +331,12 @@ class _StreamingDashboardScreenState
       }
     }
     if (config.streamingMode == StreamingMode.nativeCamera) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      final stream = ref.read(streamServiceProvider);
+      stream.onRtmpConnected = () {
         ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+      };
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(streamOverlayBurnInServiceProvider).startLiveRefresh();
       });
     }
   }
@@ -333,26 +358,15 @@ class _StreamingDashboardScreenState
       await ref.read(streamServiceProvider).stopStream();
     }
     await ref.read(streamOverlayBurnInServiceProvider).clear();
+    ref.read(streamServiceProvider).onRtmpConnected = null;
     await ActiveStreamSession.clear();
     if (mounted) {
       final service = ref.read(streamServiceProvider);
       setState(() {
         _isLive = false;
-        _cameraLoading = !service.isInitialized;
+        _cameraLoading = false;
         _cameraError = service.lastError;
       });
-      // endBroadcast already reopened the camera — avoid tearing down the preview again.
-      if (!service.isInitialized &&
-          config.streamingMode == StreamingMode.nativeCamera) {
-        setState(() => _previewSession++);
-        await _recoverCameraAfterResume();
-        if (mounted) {
-          setState(() {
-            _cameraLoading = !ref.read(streamServiceProvider).isInitialized;
-            _cameraError = ref.read(streamServiceProvider).lastError;
-          });
-        }
-      }
     }
   }
 

@@ -187,8 +187,11 @@ class CameraPreview extends StatelessWidget {
     if (controller.value.isInitialized!) {
       Widget childView;
       if (Platform.isAndroid) {
+        // Texture/virtual-display mode — hybrid composition uses ImageReader
+        // snapshots that fail on some Adreno/Oppo devices (gralloc format 0x3b).
         childView = AndroidView(
           viewType: 'hybrid-view-type',
+          layoutDirection: TextDirection.ltr,
           creationParamsCodec: const StandardMessageCodec(),
         );
       } else {
@@ -758,7 +761,7 @@ class CameraController extends ValueNotifier<CameraValue> {
   ///
   /// Throws a [CameraException] if the capture fails.
   Future<void> startVideoRecordingAndStreaming(String filePath, String url,
-      {int bitrate = 1200 * 1024, bool? androidUseOpenGL}) async {
+      {int bitrate = 1200 * 1024, bool? androidUseOpenGL, bool micEnabled = true}) async {
     if (!value.isInitialized! || _isDisposed) {
       throw CameraException(
         'Uninitialized CameraController',
@@ -792,6 +795,7 @@ class CameraController extends ValueNotifier<CameraValue> {
         'url': url,
         'filePath': filePath,
         'bitrate': bitrate,
+        'micEnabled': micEnabled,
       });
       value =
           value.copyWith(isStreamingVideoRtmp: true, isStreamingPaused: false, isRecordingVideo: true, isRecordingPaused: false);
@@ -806,7 +810,7 @@ class CameraController extends ValueNotifier<CameraValue> {
   ///
   /// Throws a [CameraException] if the capture fails.
   Future<void> startVideoStreaming(String url,
-      {int bitrate = 1200 * 1024, bool? androidUseOpenGL}) async {
+      {int bitrate = 1200 * 1024, bool? androidUseOpenGL, bool micEnabled = true}) async {
     if (!value.isInitialized! || _isDisposed) {
       throw CameraException(
         'Uninitialized CameraController',
@@ -838,6 +842,7 @@ class CameraController extends ValueNotifier<CameraValue> {
         'textureId': _textureId,
         'url': url,
         'bitrate': bitrate,
+        'micEnabled': micEnabled,
       });
       value =
           value.copyWith(isStreamingVideoRtmp: true, isStreamingPaused: false);
@@ -886,13 +891,13 @@ class CameraController extends ValueNotifier<CameraValue> {
       final wasRecording = value.isRecordingVideo ?? false;
       final wasStreaming = value.isStreamingVideoRtmp ?? false;
       if (wasRecording || wasStreaming) {
-        value = value.copyWith(
-          isRecordingVideo: false,
-          isStreamingVideoRtmp: false,
-        );
         await _channel.invokeMethod<void>(
           'stopRecordingOrStreaming',
           <String, dynamic>{'textureId': _textureId},
+        );
+        value = value.copyWith(
+          isRecordingVideo: false,
+          isStreamingVideoRtmp: false,
         );
       }
       if (value.isStreamingImages!) {
@@ -1057,6 +1062,29 @@ class CameraController extends ValueNotifier<CameraValue> {
         'tapToFocus',
         <String, dynamic>{'x': x, 'y': y},
       );
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Mute or unmute the microphone while streaming.
+  Future<void> setMicMuted(bool muted) async {
+    if (!value.isInitialized! || _isDisposed) return;
+    try {
+      await _channel.invokeMethod<void>(
+        'setMicMuted',
+        <String, dynamic>{'muted': muted},
+      );
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Restarts the native camera preview without disposing the Flutter texture.
+  Future<void> restartPreview() async {
+    if (!value.isInitialized! || _isDisposed) return;
+    try {
+      await _channel.invokeMethod<void>('restartPreview');
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }

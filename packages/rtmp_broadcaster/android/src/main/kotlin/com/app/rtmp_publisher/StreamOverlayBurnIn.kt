@@ -7,21 +7,19 @@ import androidx.annotation.RequiresApi
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.utils.gl.TranslateTo
 import com.pedro.rtplibrary.rtmp.RtmpCamera2
-import com.pedro.rtplibrary.view.OpenGlView
-import com.pedro.rtplibrary.view.OpenGlViewBase
 
 /**
- * Burns Flutter-rendered PNG overlays into the outgoing RTMP video.
+ * Burns Flutter-rendered PNG overlays into the outgoing RTMP video via GL filter.
  *
- * Full [OpenGlView] supports GL filters; [LightOpenGlView] keeps preview stable
- * but overlay burn-in is skipped until streaming on a filter-capable view.
+ * Uses [RtmpCamera2.glInterface] so this works with both [OpenGlView] and
+ * [LightOpenGlView] preview surfaces.
  */
 @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
 class StreamOverlayBurnIn(
     private val rtmpCamera: RtmpCamera2,
-    private val glView: OpenGlViewBase
 ) {
     private var filter: ImageObjectFilterRender? = null
+    private var lastBitmap: android.graphics.Bitmap? = null
 
     fun updateOverlay(pngBytes: ByteArray, width: Int, height: Int) {
         if (pngBytes.isEmpty() || width <= 0 || height <= 0) {
@@ -29,9 +27,8 @@ class StreamOverlayBurnIn(
             return
         }
 
-        val openGlView = glView as? OpenGlView
-        if (openGlView == null) {
-            Log.d(TAG, "Overlay burn-in skipped — preview uses LightOpenGlView")
+        if (!rtmpCamera.isStreaming) {
+            Log.d(TAG, "updateOverlay skipped — not streaming yet")
             return
         }
 
@@ -44,7 +41,8 @@ class StreamOverlayBurnIn(
         try {
             val filterRender = filter ?: ImageObjectFilterRender().also {
                 filter = it
-                openGlView.setFilter(it)
+                rtmpCamera.glInterface.setFilter(it)
+                Log.d(TAG, "Overlay GL filter attached (stream ${rtmpCamera.streamWidth}x${rtmpCamera.streamHeight})")
             }
 
             val streamW = rtmpCamera.streamWidth.takeIf { it > 0 } ?: width
@@ -52,10 +50,15 @@ class StreamOverlayBurnIn(
 
             filterRender.setImage(bitmap)
             filterRender.setDefaultScale(streamW, streamH)
+            filterRender.setScale(100f, 100f)
             filterRender.setPosition(TranslateTo.CENTER)
             filterRender.setAlpha(1f)
-        } finally {
+
+            lastBitmap?.recycle()
+            lastBitmap = bitmap
+        } catch (e: Exception) {
             bitmap.recycle()
+            Log.e(TAG, "updateOverlay failed", e)
         }
     }
 
@@ -64,7 +67,10 @@ class StreamOverlayBurnIn(
     }
 
     fun release() {
+        filter?.setAlpha(0f)
         filter = null
+        lastBitmap?.recycle()
+        lastBitmap = null
     }
 
     companion object {

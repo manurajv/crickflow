@@ -158,7 +158,7 @@ class _QuickSettingsSheet extends ConsumerWidget {
                     ),
                     icon: Icon(Icons.camera_outlined, color: cf.accent),
                     label: Text(
-                      'Exposure & camera settings',
+                      'Exposure',
                       style: TextStyle(color: cf.accent),
                     ),
                   ),

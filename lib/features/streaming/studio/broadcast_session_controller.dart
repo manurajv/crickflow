@@ -243,6 +243,10 @@ class BroadcastSessionController {
         localRecordingPath: recordPath,
       );
 
+      if (_streamService.isStreaming) {
+        await _streamService.setMicEnabled(resolved.micEnabled);
+      }
+
       if (!_streamService.isStreaming) {
         await _streamService.stopStream();
         await _streamService.resumePreviewAfterStreamEnd();
@@ -282,6 +286,16 @@ class BroadcastSessionController {
     if (wasNativeStream) {
       await _streamService.stopStream();
       await _streamService.resumePreviewAfterStreamEnd();
+    }
+    if (config.platform == StreamPlatform.youtube &&
+        config.youtubeBroadcastId.isNotEmpty) {
+      try {
+        await StreamPlatformService().endYouTubeLive(
+          broadcastId: config.youtubeBroadcastId,
+        );
+      } catch (_) {
+        // RTMP stop may already trigger YouTube auto-stop; best-effort API end.
+      }
     }
     await _persistStreamMeta(
       matchId: matchId,

@@ -100,6 +100,7 @@ class MethodCallHandlerImplNew(
                 getCameraView()?.startVideoStreaming(
                     call.argument("url"),
                     call.argument("bitrate"),
+                    call.argument("micEnabled") ?: true,
                     result
                 )
             }
@@ -110,6 +111,7 @@ class MethodCallHandlerImplNew(
                     call.argument("filePath"),
                     call.argument("url"),
                     call.argument("bitrate"),
+                    call.argument("micEnabled") ?: true,
                     result
                 )
             }
@@ -261,6 +263,25 @@ class MethodCallHandlerImplNew(
                 }
             }
 
+            "setMicMuted" -> {
+                val muted = call.argument<Boolean>("muted") ?: false
+                val view = getCameraView()
+                if (view == null) {
+                    result.success(null)
+                } else {
+                    view.setMicMuted(muted, result)
+                }
+            }
+
+            "restartPreview" -> {
+                val view = getCameraView()
+                if (view == null) {
+                    result.success(null)
+                } else {
+                    view.restartPreview(result)
+                }
+            }
+
             "updateStreamOverlay" -> {
                 val png = call.argument<ByteArray>("png")
                 val width = call.argument<Int>("width") ?: 0
@@ -322,7 +343,7 @@ class MethodCallHandlerImplNew(
             nativeViewFactory?.preset = preset
             nativeViewFactory?.enableAudio = enableAudio
             nativeViewFactory?.dartMessenger = dartMessenger
-            getCameraView()?.startPreview(cameraName)
+            // Preview starts in CameraNativeView.surfaceCreated when the GL surface exists.
             result.success(reply)
         }, 100)
     }

@@ -16,6 +16,7 @@ class StreamOverlayBurnInService {
   final Ref _ref;
   final GlobalKey repaintKey = GlobalKey();
   Timer? _debounce;
+  Timer? _liveRefreshTimer;
   int _generation = 0;
 
   void schedulePush() {
@@ -23,6 +24,29 @@ class StreamOverlayBurnInService {
     _debounce = Timer(const Duration(milliseconds: 120), () {
       unawaited(pushNow());
     });
+  }
+
+  /// Keeps RTMP overlay in sync with scorebug and event graphics while live.
+  void startLiveRefresh() {
+    _liveRefreshTimer?.cancel();
+    _liveRefreshTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+      if (_ref.read(streamServiceProvider).isStreaming) {
+        schedulePush();
+      } else {
+        stopLiveRefresh();
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      schedulePush();
+      // Encoder GL filter may attach only after RTMP connects.
+      Future<void>.delayed(const Duration(milliseconds: 800), schedulePush);
+      Future<void>.delayed(const Duration(milliseconds: 2000), schedulePush);
+    });
+  }
+
+  void stopLiveRefresh() {
+    _liveRefreshTimer?.cancel();
+    _liveRefreshTimer = null;
   }
 
   Future<void> pushNow() async {
@@ -63,6 +87,7 @@ class StreamOverlayBurnInService {
 
   Future<void> clear() async {
     _debounce?.cancel();
+    stopLiveRefresh();
     _generation++;
     final controller = _ref.read(streamServiceProvider).cameraController;
     if (controller == null) return;
@@ -73,6 +98,7 @@ class StreamOverlayBurnInService {
 
   void dispose() {
     _debounce?.cancel();
+    stopLiveRefresh();
   }
 }
 

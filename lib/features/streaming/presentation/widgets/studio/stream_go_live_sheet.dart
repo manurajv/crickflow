@@ -613,35 +613,63 @@ class _BroadcastSetupModeSelector extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 8),
-        SegmentedButton<StreamBroadcastSetupMode>(
-          segments: StreamBroadcastSetupMode.values
-              .map(
-                (mode) => ButtonSegment(
-                  value: mode,
-                  label: Text(mode.label),
-                  icon: Icon(
-                    mode == StreamBroadcastSetupMode.automatic
-                        ? Icons.auto_awesome
-                        : Icons.vpn_key_outlined,
-                    size: 16,
+        Row(
+          children: StreamBroadcastSetupMode.values.map((mode) {
+            final selected = config.broadcastSetupMode == mode;
+            final isLast = mode == StreamBroadcastSetupMode.values.last;
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: isLast ? 0 : 8),
+                child: Material(
+                  color: selected
+                      ? cf.accent.withValues(alpha: 0.12)
+                      : cf.sectionBackground.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: () => notifier.update(
+                      (c) => c.copyWith(broadcastSetupMode: mode),
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: selected ? cf.accent : cf.border,
+                          width: selected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            mode == StreamBroadcastSetupMode.automatic
+                                ? Icons.auto_awesome
+                                : Icons.vpn_key_outlined,
+                            color: selected ? cf.accent : cf.textSecondary,
+                            size: 22,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            mode.label,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: selected ? cf.accent : cf.textPrimary,
+                              fontWeight:
+                                  selected ? FontWeight.w700 : FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              )
-              .toList(),
-          selected: {config.broadcastSetupMode},
-          onSelectionChanged: (selected) {
-            if (selected.isEmpty) return;
-            notifier.update(
-              (c) => c.copyWith(broadcastSetupMode: selected.first),
+              ),
             );
-          },
-          style: ButtonStyle(
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? cf.accent
-                  : cf.textSecondary,
-            ),
-          ),
+          }).toList(),
         ),
         const SizedBox(height: 6),
         Text(
@@ -803,6 +831,7 @@ class _YouTubeManualSetup extends ConsumerWidget {
         _RtmpPresetSelector(matchId: matchId, platform: StreamPlatform.youtube),
         const SizedBox(height: 8),
         _StreamKeyField(matchId: matchId),
+        _StreamKeyHistorySection(matchId: matchId),
         const SizedBox(height: 8),
         Container(
           width: double.infinity,
@@ -891,6 +920,7 @@ class _ManualRtmpSetup extends ConsumerWidget {
         _RtmpUrlField(matchId: matchId),
         const SizedBox(height: 8),
         _StreamKeyField(matchId: matchId),
+        _StreamKeyHistorySection(matchId: matchId),
         if (showSavedServers) ...[
           const SizedBox(height: 12),
           _SavedRtmpServersSection(matchId: matchId),
@@ -1082,6 +1112,70 @@ class _StreamKeyFieldState extends ConsumerState<_StreamKeyField> {
       onChanged: (v) => ref
           .read(streamStudioConfigProvider(widget.matchId).notifier)
           .update((c) => c.copyWith(streamKey: v.trim())),
+    );
+  }
+}
+
+class _StreamKeyHistorySection extends ConsumerWidget {
+  const _StreamKeyHistorySection({required this.matchId});
+
+  final String matchId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
+    final config = ref.watch(streamStudioConfigProvider(matchId));
+    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
+    final historyAsync =
+        ref.watch(streamKeyHistoryForPlatformProvider(config.platform));
+
+    return historyAsync.when(
+      data: (entries) {
+        if (entries.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Recent stream keys',
+                style: TextStyle(
+                  color: cf.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final entry in entries.take(10))
+                    ActionChip(
+                      label: Text(
+                        entry.displayLabel,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      side: BorderSide(color: cf.border),
+                      onPressed: () {
+                        notifier.update(
+                          (c) => c.copyWith(
+                            streamKey: entry.streamKey,
+                            rtmpUrl: entry.rtmpUrl.isNotEmpty
+                                ? entry.rtmpUrl
+                                : c.rtmpUrl,
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

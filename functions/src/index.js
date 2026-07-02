@@ -35,6 +35,7 @@ const {
   linkYouTubeAccount,
   storeStreamingOAuthToken,
   createYouTubeLiveStream,
+  endYouTubeLiveStream,
   listYouTubeChannels,
   getYouTubeLiveChat,
   exportYouTubeChapters,
@@ -62,6 +63,7 @@ exports.onStreamStatusChanged = onStreamStatusChanged;
 exports.linkYouTubeAccount = linkYouTubeAccount;
 exports.storeStreamingOAuthToken = storeStreamingOAuthToken;
 exports.createYouTubeLiveStream = createYouTubeLiveStream;
+exports.endYouTubeLiveStream = endYouTubeLiveStream;
 exports.listYouTubeChannels = listYouTubeChannels;
 exports.getYouTubeLiveChat = getYouTubeLiveChat;
 exports.exportYouTubeChapters = exportYouTubeChapters;

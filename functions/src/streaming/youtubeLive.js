@@ -151,6 +151,22 @@ async function createYouTubeLiveBroadcast(uid, options) {
 }
 
 /**
+ * Ends a YouTube live broadcast (marks it complete in YouTube Studio).
+ */
+async function endYouTubeLiveBroadcast(uid, broadcastId) {
+  if (!broadcastId) {
+    throw new Error('broadcastId required');
+  }
+  const youtube = await getYouTubeClient(uid);
+  await youtube.liveBroadcasts.transition({
+    id: broadcastId,
+    broadcastStatus: 'complete',
+    part: ['id', 'status'],
+  });
+  return { ok: true, broadcastId };
+}
+
+/**
  * Read-only live chat messages for an active broadcast video id.
  */
 async function getYouTubeLiveChat(uid, videoId) {
@@ -188,5 +204,6 @@ module.exports = {
   syncYouTubeChannel,
   listYouTubeChannels,
   createYouTubeLiveBroadcast,
+  endYouTubeLiveBroadcast,
   getYouTubeLiveChat,
 };

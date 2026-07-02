@@ -135,6 +135,18 @@ class StreamPlatformService {
     }
   }
 
+  Future<void> endYouTubeLive({required String broadcastId}) async {
+    if (_auth.currentUser == null) return;
+    try {
+      final callable = _functions.httpsCallable('endYouTubeLiveStream');
+      await callable.call<Map<String, dynamic>>({
+        'broadcastId': broadcastId,
+      });
+    } on FirebaseFunctionsException catch (e) {
+      throw StreamPlatformException(e.message ?? e.code);
+    }
+  }
+
   Future<List<YouTubeChatMessage>> fetchLiveChat({required String videoId}) async {
     if (_auth.currentUser == null) return const [];
     try {

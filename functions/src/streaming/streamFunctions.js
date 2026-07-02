@@ -11,6 +11,7 @@ const {
   syncYouTubeChannel,
   listYouTubeChannels,
   createYouTubeLiveBroadcast,
+  endYouTubeLiveBroadcast,
   getYouTubeLiveChat,
 } = require('./youtubeLive');
 
@@ -149,6 +150,22 @@ exports.createYouTubeLiveStream = onCall({ secrets: youtubeSecrets }, async (req
   } catch (err) {
     const message = err.message || 'YouTube live creation failed';
     throw new HttpsError('failed-precondition', message);
+  }
+});
+
+exports.endYouTubeLiveStream = onCall({ secrets: youtubeSecrets }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required');
+  }
+  const { broadcastId } = request.data || {};
+  if (!broadcastId) {
+    throw new HttpsError('invalid-argument', 'broadcastId required');
+  }
+  try {
+    bindYouTubeSecrets();
+    return await endYouTubeLiveBroadcast(request.auth.uid, broadcastId);
+  } catch (err) {
+    throw new HttpsError('failed-precondition', err.message || 'YouTube end failed');
   }
 });
 

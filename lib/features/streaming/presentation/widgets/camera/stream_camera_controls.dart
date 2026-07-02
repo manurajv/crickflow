@@ -22,7 +22,9 @@ class CameraLensSelector extends ConsumerWidget {
     final service = ref.watch(streamServiceProvider);
     final config = ref.watch(streamStudioConfigProvider(matchId));
     final lenses = service.lenses;
-    final canSwitch = enabled && !service.isStreaming && !service.isSwitchingLens;
+    final canSwitch = enabled &&
+        !service.isSwitchingLens &&
+        (service.isStreaming ? service.canAdjustZoomWhileLive : true);
 
     if (lenses.isEmpty) {
       return const Text('No cameras detected');
@@ -81,12 +83,12 @@ class CameraZoomControl extends ConsumerWidget {
     final service = ref.watch(streamServiceProvider);
     final config = ref.watch(streamStudioConfigProvider(matchId));
     final lenses = service.lenses.where((l) => !l.isFront).toList();
-    final canSwitch = enabled && !service.isStreaming && !service.isSwitchingLens;
+    final canSwitch = enabled &&
+        !service.isSwitchingLens &&
+        (service.isStreaming ? service.canAdjustZoomWhileLive : true);
 
     if (lenses.length <= 1) return const SizedBox.shrink();
 
-    final maxOptical =
-        lenses.map((l) => l.zoomFactor).reduce((a, b) => a > b ? a : b);
     final selectedIndex = lenses.indexWhere(
       (l) => service.lenses.indexOf(l) == config.selectedLensIndex,
     ).clamp(0, lenses.length - 1);

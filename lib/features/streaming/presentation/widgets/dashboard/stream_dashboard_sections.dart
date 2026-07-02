@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/constants/enums.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../data/models/match_model.dart';
+import '../../../../../shared/providers/providers.dart';
 import '../../../domain/streaming_enums.dart';
 import '../../providers/streaming_studio_providers.dart';
 
@@ -118,8 +119,10 @@ class StreamAudioSection extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               title: const Text('Microphone'),
               value: config.micEnabled,
-              onChanged: (v) =>
-                  notifier.update((c) => c.copyWith(micEnabled: v)),
+              onChanged: (v) async {
+                notifier.update((c) => c.copyWith(micEnabled: v));
+                await ref.read(streamServiceProvider).setMicEnabled(v);
+              },
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

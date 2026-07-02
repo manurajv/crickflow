@@ -8,6 +8,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../data/models/replay_marker_model.dart';
 import '../../data/models/saved_rtmp_server.dart';
+import '../../data/models/saved_stream_key.dart';
 import '../../data/models/stream_studio_config.dart';
 import '../../data/repositories/stream_studio_repository.dart';
 import '../../domain/stream_event_detector.dart';
@@ -56,6 +57,33 @@ final savedRtmpServersProvider =
     FutureProvider<List<SavedRtmpServer>>((ref) async {
   return ref.watch(streamStudioRepositoryProvider).loadSavedRtmpServers();
 });
+
+final streamKeyHistoryProvider =
+    FutureProvider<List<SavedStreamKey>>((ref) async {
+  return ref.watch(streamStudioRepositoryProvider).loadStreamKeyHistory();
+});
+
+final streamKeyHistoryForPlatformProvider =
+    FutureProvider.family<List<SavedStreamKey>, StreamPlatform>((ref, platform) {
+  return ref.watch(streamStudioRepositoryProvider).loadStreamKeyHistoryForPlatform(platform);
+});
+
+Future<void> rememberStreamKeyForConfig(
+  StreamStudioRepository repo,
+  StreamStudioConfig config, {
+  String? label,
+}) async {
+  if (config.streamKey.trim().isEmpty) return;
+  await repo.rememberStreamKey(
+    SavedStreamKey(
+      id: _uuid.v4(),
+      streamKey: config.streamKey.trim(),
+      platform: config.platform,
+      rtmpUrl: config.rtmpUrl.trim(),
+      label: label ?? config.platform.label,
+    ),
+  );
+}
 
 final replayMarkersProvider =
     StreamProvider.family<List<ReplayMarkerModel>, String>((ref, matchId) {
