@@ -56,17 +56,33 @@ class _StreamingDashboardScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
     final config = ref.read(streamStudioConfigProvider(widget.matchId));
     if (config.streamingMode == StreamingMode.externalEncoder) return;
     if (!StreamService.isPlatformSupported) return;
-    if (_cameraLoading) return;
 
     final service = ref.read(streamServiceProvider);
-    if (_isLive && service.isStreaming) {
-      // Do not remount the platform view — that kills RTMP mid-broadcast.
+    final live = _isLive && service.isStreaming;
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      // Never tear down camera/encoder while live — foreground service holds process.
+      return;
+    }
+
+    if (state != AppLifecycleState.resumed) return;
+    if (_cameraLoading && !live) return;
+
+    if (live) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+        unawaited(service.reconnectPreview(retries: 8));
+      });
+      return;
+    }
+
+    if (service.isInitialized) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(service.recoverPreview());
       });
       return;
     }
@@ -78,7 +94,21 @@ class _StreamingDashboardScreenState
   Future<void> _recoverCameraAfterResume() async {
     if (!mounted) return;
     final service = ref.read(streamServiceProvider);
-    if (_isLive && service.isStreaming) return;
+    if (_isLive && service.isStreaming) {
+      await service.reconnectPreview(retries: 8);
+      return;
+    }
+
+    if (service.isInitialized) {
+      await service.recoverPreview();
+      if (mounted) {
+        setState(() {
+          _cameraLoading = false;
+          _cameraError = service.lastError;
+        });
+      }
+      return;
+    }
 
     setState(() {
       _cameraLoading = true;
@@ -92,10 +122,6 @@ class _StreamingDashboardScreenState
         _cameraLoading = !service.isInitialized;
         _cameraError = service.lastError;
       });
-      if (service.isInitialized) {
-        await service.refreshDeviceZoomSteps();
-        if (mounted) setState(() {});
-      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -164,10 +190,35 @@ class _StreamingDashboardScreenState
       setState(() => _isLive = true);
       _startHeartbeat();
       unawaited(ActiveStreamSession.setActive(widget.matchId));
+      if (service.isStreaming && !service.liveSessionActive) {
+        final config = ref.read(streamStudioConfigProvider(widget.matchId));
+        final title = config.title.trim().isNotEmpty
+            ? config.title.trim()
+            : 'CrickFlow Live';
+        unawaited(service.beginLiveSession(title: title));
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(streamOverlayBurnInServiceProvider).startLiveRefresh();
       });
     }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    if (config.streamingMode == StreamingMode.externalEncoder) return;
+    if (!StreamService.isPlatformSupported) return;
+
+    final service = ref.read(streamServiceProvider);
+    if (!service.isInitialized && !_isLive) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isLive && service.isStreaming) {
+        ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+      }
+      unawaited(service.reconnectPreview(retries: 8));
+    });
   }
 
   void _processBallEvents(List<BallEventModel> events) {
@@ -282,10 +333,11 @@ class _StreamingDashboardScreenState
       return;
     }
 
+    var config = ref.read(streamStudioConfigProvider(widget.matchId));
+
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     if (match == null) return;
 
-    var config = ref.read(streamStudioConfigProvider(widget.matchId));
     setState(() => _cameraError = null);
 
     final controller = ref.read(broadcastSessionControllerProvider);
@@ -319,6 +371,10 @@ class _StreamingDashboardScreenState
 
     _startHeartbeat();
     await ActiveStreamSession.setActive(widget.matchId);
+    final streamTitle = config.title.trim().isNotEmpty
+        ? config.title.trim()
+        : 'CrickFlow Live';
+    await ref.read(streamServiceProvider).beginLiveSession(title: streamTitle);
     if (mounted) {
       setState(() => _isLive = true);
       if (config.platform == StreamPlatform.youtube) {
@@ -360,7 +416,9 @@ class _StreamingDashboardScreenState
     }
     await ref.read(streamOverlayBurnInServiceProvider).clear();
     ref.read(streamServiceProvider).onRtmpConnected = null;
+    await ref.read(streamServiceProvider).endLiveSession();
     await ActiveStreamSession.clear();
+    await ref.read(streamServiceProvider).resetToPortraitUi();
     if (mounted) {
       final service = ref.read(streamServiceProvider);
       setState(() {
@@ -368,8 +426,9 @@ class _StreamingDashboardScreenState
         _cameraLoading = false;
         _cameraError = service.lastError;
       });
-      // Leave stream studio so the native camera/encoder fully resets; user can
-      // re-enter from the match Live tab for a clean second go-live.
+      // Brief delay so portrait rotation completes before leaving stream studio.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      if (!mounted) return;
       context.go('/match/${widget.matchId}?tab=live');
     }
   }
@@ -379,7 +438,7 @@ class _StreamingDashboardScreenState
     WidgetsBinding.instance.removeObserver(this);
     _stopHeartbeat();
     if (!_isLive) {
-      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     }
     super.dispose();
   }
@@ -473,11 +532,15 @@ class _StreamingDashboardScreenState
                 )
               else
                 StreamStudioCompositor(
-                  key: ValueKey('studio_$_previewSession'),
+                  key: _isLive
+                      ? const ValueKey('studio_live')
+                      : ValueKey('studio_$_previewSession'),
                   matchId: widget.matchId,
                   overlay: overlayAsync.valueOrNull,
                   cameraPreview: StreamCameraPreview(
-                    key: ValueKey('cam_$_previewSession'),
+                    key: _isLive
+                        ? const ValueKey('cam_live')
+                        : ValueKey('cam_$_previewSession'),
                     matchId: widget.matchId,
                     loading: _isLive ? false : _cameraLoading,
                     error: _cameraError,

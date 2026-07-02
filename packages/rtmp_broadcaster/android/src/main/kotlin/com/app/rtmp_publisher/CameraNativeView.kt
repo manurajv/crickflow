@@ -43,8 +43,20 @@ class CameraNativeView(
     private var isSurfaceCreated = false
     private var fps = 0
     private var encoderPrepared = false
+    private var lockedOrientationMode = "portrait"
+    private var reattachPosted = false
+    private var pendingZoomLevel: Float? = null
+    private var previewOperationInFlight = false
+
+    private val reattachRunnable = Runnable {
+        reattachPosted = false
+        if (isSurfaceCreated) {
+            reattachPreviewSurface(preserveStream = rtmpCamera.isStreaming)
+        }
+    }
 
     init {
+        // Natural camera preview — orientation only affects RTMP output when live.
         glView.isKeepAspectRatio = true
         glView.holder.addCallback(this)
         rtmpCamera = RtmpCamera2(glView, this)
@@ -53,20 +65,251 @@ class CameraNativeView(
         rtmpCamera.setFpsListener { fps = it }
     }
 
+    private fun sensorOrientationFor(cameraId: String): Int {
+        return try {
+            val act = activity ?: return 90
+            val manager = act.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val characteristics = manager.getCameraCharacteristics(cameraId)
+            characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
+        } catch (e: Exception) {
+            Log.w("CameraNativeView", "sensorOrientationFor fallback", e)
+            90
+        }
+    }
+
+    /** RTMP encoder rotation — preview stays natural; only applied while streaming. */
+    private fun streamRotationFor(mode: String): Int = when (mode) {
+        "portrait" -> sensorOrientationFor(cameraName)
+        "landscape", "landscapeLeft", "landscapeRight" -> 270
+        else -> sensorOrientationFor(cameraName)
+    }
+
+    private fun applyStreamRotationIfLive() {
+        if (!rtmpCamera.isStreaming) return
+        val act = activity ?: return
+        act.runOnUiThread {
+            try {
+                rtmpCamera.glInterface.setStreamRotation(
+                    streamRotationFor(lockedOrientationMode),
+                )
+            } catch (e: Exception) {
+                Log.e("CameraNativeView", "applyStreamRotationIfLive", e)
+            }
+        }
+    }
+
+    fun setOrientationMode(
+        @Suppress("UNUSED_PARAMETER") autoRotate: Boolean,
+        mode: String,
+        result: MethodChannel.Result,
+    ) {
+        runOnMain(result) {
+            try {
+                lockedOrientationMode = mode
+                applyStreamRotationIfLive()
+                result.success(null)
+            } catch (e: Exception) {
+                Log.e("CameraNativeView", "setOrientationMode", e)
+                result.error("orientationFailed", e.message, null)
+            }
+        }
+    }
+
     override fun surfaceCreated(holder: SurfaceHolder) {
-        Log.d("CameraNativeView", "surfaceCreated")
+        Log.i("CameraNativeView", "Preview attached")
         isSurfaceCreated = true
-        startPreview(cameraName)
+        ensurePreviewRunning(fromSurfaceCallback = true)
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-        if (width > 0 && height > 0 && isSurfaceCreated) {
-            startPreview(cameraName)
-        }
+        if (width <= 0 || height <= 0 || !isSurfaceCreated) return
+        schedulePreviewReattach()
     }
 
     override fun surfaceDestroyed(p0: SurfaceHolder) {
         isSurfaceCreated = false
+        val act = activity
+        if (act != null) {
+            act.runOnUiThread { act.window?.decorView?.removeCallbacks(reattachRunnable) }
+        }
+        reattachPosted = false
+        Log.i("CameraNativeView", "Preview surface destroyed")
+    }
+
+    private fun schedulePreviewReattach() {
+        val act = activity ?: return
+        if (reattachPosted) return
+        reattachPosted = true
+        act.runOnUiThread {
+            act.window?.decorView?.removeCallbacks(reattachRunnable)
+            act.window?.decorView?.postDelayed(reattachRunnable, 120)
+        }
+    }
+
+    private fun waitForValidSurface(maxAttempts: Int = 40, onReady: () -> Unit) {
+        val act = activity
+        if (act == null) {
+            onReady()
+            return
+        }
+        var attempts = 0
+        val poll = object : Runnable {
+            override fun run() {
+                val holder = glView.holder
+                val valid = holder.surface != null && holder.surface.isValid &&
+                    holder.surfaceFrame.width() > 0 && holder.surfaceFrame.height() > 0
+                if (valid || attempts >= maxAttempts) {
+                    onReady()
+                } else {
+                    attempts++
+                    act.window?.decorView?.postDelayed(this, 25)
+                }
+            }
+        }
+        act.runOnUiThread { poll.run() }
+    }
+
+    /** Rebind preview surface — encoder/RTMP stay alive when [preserveStream] is true. */
+    private fun reattachPreviewSurface(preserveStream: Boolean) {
+        if (!isSurfaceCreated || previewOperationInFlight) return
+        if (!isSurfaceValid()) return
+
+        val previewSize = CameraUtils.computeBestPreviewSize(cameraName, preset)
+        val facing = if (isFrontFacing(cameraName)) FRONT else BACK
+
+        previewOperationInFlight = true
+        try {
+            if (preserveStream && rtmpCamera.isStreaming) {
+                // Never stopPreview/stopStream — only restart preview if it dropped.
+                if (!rtmpCamera.isOnPreview) {
+                    rtmpCamera.startPreview(
+                        facing,
+                        previewSize.width,
+                        previewSize.height,
+                    )
+                    invokeSwitchCameraByIdIfNeeded(cameraName)
+                }
+                applyStreamRotationIfLive()
+                runWhenSessionReady { applyPendingControls() }
+                Log.i("CameraNativeView", "Preview reattached — RTMP session preserved")
+                return
+            }
+
+            if (rtmpCamera.isOnPreview) {
+                runWhenSessionReady { applyPendingControls() }
+                Log.i("CameraNativeView", "Preview already active")
+                return
+            }
+
+            rtmpCamera.startPreview(facing, previewSize.width, previewSize.height)
+            invokeSwitchCameraByIdIfNeeded(cameraName)
+            runWhenSessionReady { applyPendingControls() }
+            Log.i("CameraNativeView", "Preview restarted")
+        } catch (e: Exception) {
+            Log.e("CameraNativeView", "reattachPreviewSurface", e)
+        } finally {
+            previewOperationInFlight = false
+        }
+    }
+
+    private fun isSurfaceValid(): Boolean {
+        val holder = glView.holder
+        return holder.surface != null && holder.surface.isValid &&
+            holder.surfaceFrame.width() > 0 && holder.surfaceFrame.height() > 0
+    }
+
+    private fun ensurePreviewRunning(fromSurfaceCallback: Boolean = false) {
+        if (!isSurfaceCreated || !isSurfaceValid()) return
+        if (previewOperationInFlight) return
+
+        if (rtmpCamera.isStreaming) {
+            schedulePreviewReattach()
+            return
+        }
+
+        if (rtmpCamera.isOnPreview) {
+            invokeSwitchCameraByIdIfNeeded(cameraName)
+            runWhenSessionReady { applyPendingControls() }
+            return
+        }
+
+        previewOperationInFlight = true
+        try {
+            val previewSize = CameraUtils.computeBestPreviewSize(cameraName, preset)
+            val facing = if (isFrontFacing(cameraName)) FRONT else BACK
+            rtmpCamera.startPreview(facing, previewSize.width, previewSize.height)
+            invokeSwitchCameraByIdIfNeeded(cameraName)
+            Log.i("CameraNativeView", "Camera started")
+            runWhenSessionReady { applyPendingControls() }
+        } catch (e: CameraAccessException) {
+            activity?.runOnUiThread {
+                dartMessenger?.send(DartMessenger.EventType.ERROR, "CameraAccessException")
+            }
+        } catch (e: Exception) {
+            Log.e("CameraNativeView", "ensurePreviewRunning failed", e)
+            activity?.runOnUiThread {
+                dartMessenger?.send(
+                    DartMessenger.EventType.ERROR,
+                    e.message ?: "Preview failed",
+                )
+            }
+        } finally {
+            previewOperationInFlight = false
+        }
+    }
+
+    private fun runWhenSessionReady(maxAttempts: Int = 80, action: () -> Unit) {
+        val act = activity
+        if (act == null) {
+            action()
+            return
+        }
+        var attempts = 0
+        val poll = object : Runnable {
+            override fun run() {
+                if (PedroCameraBridge.isCaptureSessionReady(rtmpCamera) || attempts >= maxAttempts) {
+                    if (PedroCameraBridge.isCaptureSessionReady(rtmpCamera)) {
+                        action()
+                    }
+                    return
+                }
+                attempts++
+                act.window?.decorView?.postDelayed(this, 50)
+            }
+        }
+        act.runOnUiThread { poll.run() }
+    }
+
+    private fun applyPendingControls() {
+        val zoom = pendingZoomLevel ?: return
+        if (PedroCameraBridge.setZoom(rtmpCamera, zoom)) {
+            pendingZoomLevel = null
+        }
+    }
+
+    private fun requestZoom(level: Float) {
+        pendingZoomLevel = level
+        if (PedroCameraBridge.setZoom(rtmpCamera, level)) {
+            pendingZoomLevel = null
+        }
+    }
+
+    fun shouldRetainForLiveStream(): Boolean =
+        rtmpCamera.isStreaming || rtmpCamera.isRecording
+
+    fun onFlutterPlatformViewReattached(context: Context, act: Activity) {
+        activity = act
+        isSurfaceCreated = isSurfaceValid()
+        Log.i("CameraNativeView", "Platform view reattached — recovering preview")
+        schedulePreviewReattach()
+    }
+
+    fun forceRelease() {
+        try {
+            overlayBurnIn.release()
+        } catch (_: Exception) {
+        }
+        encoderPrepared = false
     }
 
     override fun onAuthSuccessRtmp() {
@@ -76,12 +319,14 @@ class CameraNativeView(
     }
 
     override fun onConnectionSuccessRtmp() {
+        Log.i("CameraNativeView", "RTMP connected")
         activity?.runOnUiThread {
             dartMessenger?.send(DartMessenger.EventType.RTMP_CONNECTED, null)
         }
     }
 
     override fun onConnectionFailedRtmp(reason: String) {
+        Log.e("CameraNativeView", "RTMP disconnected: $reason")
         activity?.runOnUiThread { //Wait 5s and retry connect stream
             if (rtmpCamera.reTry(5000, reason)) {
                 dartMessenger?.send(DartMessenger.EventType.RTMP_RETRY, reason)
@@ -99,17 +344,17 @@ class CameraNativeView(
     }
 
     override fun onDisconnectRtmp() {
+        Log.i("CameraNativeView", "RTMP disconnected")
         activity?.runOnUiThread {
             dartMessenger?.send(DartMessenger.EventType.RTMP_STOPPED, "Disconnected")
         }
     }
 
     fun close() {
-        Log.d("CameraNativeView", "close")
+        Log.i("CameraNativeView", "Camera stopped")
     }
 
     fun takePicture(filePath: String, result: MethodChannel.Result) {
-        Log.d("CameraNativeView", "takePicture filePath: $filePath result: $result")
         val file: File = File(filePath)
         if (file.exists()) {
             result.error("fileExists", "File at path '$filePath' already exists. Cannot overwrite.", null)
@@ -138,8 +383,6 @@ class CameraNativeView(
             result.error("fileExists", "File at path '$filePath' already exists. Cannot overwrite.", null)
             return
         }
-        Log.d("CameraNativeView", "startVideoRecording filePath: $filePath result: $result")
-
 
         val streamingSize = CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset)
         /*if (rtmpCamera.isRecording || rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
@@ -169,7 +412,6 @@ class CameraNativeView(
         micEnabled: Boolean = true,
         result: MethodChannel.Result
     ) {
-        Log.d("CameraNativeView", "startVideoStreaming url: $url micEnabled=$micEnabled")
         if (url == null) {
             result.error("startVideoStreaming", "Must specify a url.", null)
             return
@@ -207,14 +449,12 @@ class CameraNativeView(
                     rtmpCamera.disableAudio()
                 }
                 rtmpCamera.startStream(url)
+                applyStreamRotationIfLive()
             } else {
                 rtmpCamera.stopStream()
                 encoderPrepared = false
             }
-            Log.i(
-                "CameraNativeView",
-                "RTMP stream started — encoder ${rtmpCamera.streamWidth}x${rtmpCamera.streamHeight} url=$url",
-            )
+            Log.i("CameraNativeView", "Encoder started")
             result.success(null)
         } catch (e: CameraAccessException) {
             result.error("videoStreamingFailed", e.message, null)
@@ -329,48 +569,10 @@ class CameraNativeView(
     }
 
     fun startPreview(cameraNameArg: String? = null) {
-        val targetCamera = if (cameraNameArg.isNullOrEmpty()) {
-            cameraName
-        } else {
-            cameraNameArg
+        if (!cameraNameArg.isNullOrEmpty()) {
+            cameraName = cameraNameArg
         }
-        cameraName = targetCamera
-        val previewSize = CameraUtils.computeBestPreviewSize(cameraName, preset)
-
-        Log.d("CameraNativeView", "startPreview: $preset camera=$targetCamera")
-        if (isSurfaceCreated) {
-            val holder = glView.holder
-            if (holder.surface == null || !holder.surface.isValid) {
-                Log.w("CameraNativeView", "startPreview skipped — surface not valid")
-                return
-            }
-            try {
-                if (rtmpCamera.isOnPreview || rtmpCamera.isStreaming) {
-                    if (!invokeSwitchCameraByIdIfNeeded(targetCamera)) {
-                        rtmpCamera.stopPreview()
-                        rtmpCamera.startPreview(
-                            if (isFrontFacing(targetCamera)) FRONT else BACK,
-                            previewSize.width,
-                            previewSize.height
-                        )
-                        invokeSwitchCameraByIdIfNeeded(targetCamera)
-                    }
-                } else {
-                    rtmpCamera.startPreview(
-                        if (isFrontFacing(targetCamera)) FRONT else BACK,
-                        previewSize.width,
-                        previewSize.height
-                    )
-                    invokeSwitchCameraByIdIfNeeded(targetCamera)
-                }
-            } catch (e: CameraAccessException) {
-                activity?.runOnUiThread { dartMessenger?.send(DartMessenger.EventType.ERROR, "CameraAccessException") }
-                return
-            } catch (e: Exception) {
-                Log.e("CameraNativeView", "startPreview failed", e)
-                activity?.runOnUiThread { dartMessenger?.send(DartMessenger.EventType.ERROR, e.message ?: "Preview failed") }
-            }
-        }
+        ensurePreviewRunning()
     }
 
     fun switchCameraById(cameraId: String, result: MethodChannel.Result) {
@@ -388,7 +590,7 @@ class CameraNativeView(
                     return@runOnMain
                 }
                 val switched = invokeSwitchCameraById(cameraId)
-                if (!switched) {
+                if (!switched && !rtmpCamera.isStreaming) {
                     if (rtmpCamera.isOnPreview) {
                         rtmpCamera.stopPreview()
                     }
@@ -399,7 +601,7 @@ class CameraNativeView(
                     )
                     invokeSwitchCameraById(cameraId)
                 }
-                PedroCameraBridge.setZoom(rtmpCamera, 1f)
+                runWhenSessionReady { requestZoom(1f) }
                 result.success(null)
             } catch (e: Exception) {
                 Log.e("CameraNativeView", "switchCameraById", e)
@@ -455,7 +657,7 @@ class CameraNativeView(
                             }
                         }
                     }
-                    PedroCameraBridge.setZoom(rtmpCamera, 1f)
+                    runWhenSessionReady { requestZoom(1f) }
                     result.success(null)
                 } else {
                     result.error("flipCameraFailed", "Could not switch camera", null)
@@ -524,26 +726,14 @@ class CameraNativeView(
 
     fun restartPreview(result: MethodChannel.Result) {
         runOnMain(result) {
-            try {
-                if (rtmpCamera.isStreaming) {
-                    rtmpCamera.stopStream()
-                    overlayBurnIn.release()
-                    encoderPrepared = false
+            waitForValidSurface {
+                try {
+                    reattachPreviewSurface(preserveStream = rtmpCamera.isStreaming)
+                    result.success(null)
+                } catch (e: Exception) {
+                    Log.e("CameraNativeView", "restartPreview", e)
+                    result.error("previewFailed", e.message, null)
                 }
-                val previewSize = CameraUtils.computeBestPreviewSize(cameraName, preset)
-                if (rtmpCamera.isOnPreview) {
-                    rtmpCamera.stopPreview()
-                }
-                rtmpCamera.startPreview(
-                    if (isFrontFacing(cameraName)) FRONT else BACK,
-                    previewSize.width,
-                    previewSize.height
-                )
-                invokeSwitchCameraByIdIfNeeded(cameraName)
-                result.success(null)
-            } catch (e: Exception) {
-                Log.e("CameraNativeView", "restartPreview", e)
-                result.error("previewFailed", e.message, null)
             }
         }
     }
@@ -580,11 +770,14 @@ class CameraNativeView(
     fun setZoom(level: Float, result: MethodChannel.Result) {
         runOnMain(result) {
             try {
-                if (!rtmpCamera.isOnPreview) {
+                pendingZoomLevel = level
+                if (!rtmpCamera.isOnPreview && !rtmpCamera.isStreaming) {
                     result.error("zoomFailed", "Camera preview not ready", null)
                     return@runOnMain
                 }
-                PedroCameraBridge.setZoom(rtmpCamera, level)
+                if (PedroCameraBridge.setZoom(rtmpCamera, level)) {
+                    pendingZoomLevel = null
+                }
                 result.success(null)
             } catch (e: Exception) {
                 Log.e("CameraNativeView", "setZoom", e)
@@ -656,9 +849,20 @@ class CameraNativeView(
     }
 
     override fun dispose() {
+        val act = activity
+        if (act != null) {
+            act.runOnUiThread { act.window?.decorView?.removeCallbacks(reattachRunnable) }
+        }
+        reattachPosted = false
         isSurfaceCreated = false
-        encoderPrepared = false
-        overlayBurnIn.release()
+
+        if (shouldRetainForLiveStream()) {
+            Log.i("CameraNativeView", "Preview detached — stream session retained")
+            return
+        }
+
+        Log.i("CameraNativeView", "Preview detached")
+        forceRelease()
         activity = null
     }
 

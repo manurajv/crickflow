@@ -207,6 +207,12 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
         unawaited(_refreshEncoderSize());
       }
     });
+    ref.listen(
+      streamStudioConfigProvider(widget.matchId).select((c) => c.orientation),
+      (prev, next) {
+        if (prev != next) unawaited(_refreshEncoderSize());
+      },
+    );
 
     final eventOverlay = ref.watch(activeEventOverlayProvider(widget.matchId));
     final overlayTheme = ref
@@ -243,13 +249,17 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       eventOverlay: eventOverlay,
       forBurnInCapture: true,
     );
-    final previewLayers = isStreaming
-        ? const <Widget>[]
-        : _overlayLayers(
-            overlay: overlay,
-            overlayTheme: overlayTheme,
-            sponsorLine: sponsorLine,
-            eventOverlay: eventOverlay,
+    final Widget previewLayers = isStreaming
+        ? const SizedBox.shrink()
+        : Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.hardEdge,
+            children: _overlayLayers(
+              overlay: overlay,
+              overlayTheme: overlayTheme,
+              sponsorLine: sponsorLine,
+              eventOverlay: eventOverlay,
+            ),
           );
 
     return LayoutBuilder(
@@ -261,7 +271,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
           clipBehavior: Clip.none,
           children: [
             Positioned.fill(child: widget.cameraPreview),
-            ...previewLayers,
+            Positioned.fill(child: previewLayers),
             if (isStreaming && previewW > 0 && previewH > 0)
               _buildCaptureTree(
                 burnInLayers: burnInLayers,

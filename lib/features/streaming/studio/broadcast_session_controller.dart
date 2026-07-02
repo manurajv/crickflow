@@ -192,10 +192,7 @@ class BroadcastSessionController {
     required StreamStudioConfig config,
     required MatchModel match,
   }) async {
-    var workingConfig = _normalizeConfig(config);
-    if (!workingConfig.orientationLocked) {
-      workingConfig = workingConfig.copyWith(orientationLocked: true);
-    }
+    final workingConfig = _normalizeConfig(config);
 
     final credsResult = await resolveCredentials(workingConfig);
     if (!credsResult.isSuccess) return credsResult;

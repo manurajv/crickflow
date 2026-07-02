@@ -187,13 +187,13 @@ class CameraPreview extends StatelessWidget {
     if (controller.value.isInitialized!) {
       Widget childView;
       if (Platform.isAndroid) {
-        // Texture/virtual-display mode — hybrid composition uses ImageReader
-        // snapshots that fail on some Adreno/Oppo devices (gralloc format 0x3b).
+        // Preview is always natural — SafeOpenGlView handles GL; no extra rotation here.
         childView = AndroidView(
           viewType: 'hybrid-view-type',
           layoutDirection: TextDirection.ltr,
           creationParamsCodec: const StandardMessageCodec(),
         );
+        return childView;
       } else {
         childView = Texture(textureId: controller._textureId!);
       }
@@ -1085,6 +1085,26 @@ class CameraController extends ValueNotifier<CameraValue> {
     if (!value.isInitialized! || _isDisposed) return;
     try {
       await _channel.invokeMethod<void>('restartPreview');
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Sync native GL preview/stream rotation (auto-follow device or fixed mode).
+  Future<void> setOrientationMode({
+    required bool autoRotate,
+    required String mode,
+  }) async {
+    if (!value.isInitialized! || _isDisposed) return;
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>(
+        'setOrientationMode',
+        <String, dynamic>{
+          'autoRotate': autoRotate,
+          'mode': mode,
+        },
+      );
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }

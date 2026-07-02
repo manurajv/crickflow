@@ -50,6 +50,9 @@
 | **Live mic mute** — overlay/settings mic toggle; native `disableAudio` before/during RTMP start when muted; reconnect re-applies mute | Done |
 | **Camera recovery + zoom + key history** — native preview restart on RTMP stop; YouTube `endYouTubeLiveStream` on end broadcast; standard zoom row | Done |
 | **Camera preview (Oppo/Adreno)** — `SafeOpenGlView` (OpenGlView + surface gate) for RTMP overlay burn-in; `SafeLightOpenGlView` retained in legacy `Camera.kt` only | Done |
+| **Stream Studio production refactor** — Android FGS; stable platform-view keys; preview reattach without stopping RTMP; portrait/landscape toggle only; compact non-overlapping studio chrome (top bar, bottom dock, stats card, broadcast status button); orientation preview recovery on metrics change | Done |
+| **Camera/encoder in dedicated Service** — FGS protects process; full camera ownership migration to `StreamingService` | Deferred |
+| UI/camera polish (CPU/memory HUD, snapshot/scenes row) | Deferred |
 
 ---
 

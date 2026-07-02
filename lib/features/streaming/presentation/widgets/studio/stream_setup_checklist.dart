@@ -30,7 +30,13 @@ List<StreamSetupStep> buildStreamSetupSteps(StreamStudioConfig config) {
   final isAutoYouTube = config.platform == StreamPlatform.youtube &&
       config.broadcastSetupMode == StreamBroadcastSetupMode.automatic;
 
-  return switch (config.platform) {
+  final orientationStep = StreamSetupStep(
+    title: 'Broadcast orientation',
+    subtitle: '${config.orientation.studioLabel} — toggle in studio toolbar',
+    status: StreamSetupStepStatus.done,
+  );
+
+  final platformSteps = switch (config.platform) {
     StreamPlatform.youtube when isManualYouTube => [
         StreamSetupStep(
           title: 'YouTube · Manual',
@@ -153,6 +159,8 @@ List<StreamSetupStep> buildStreamSetupSteps(StreamStudioConfig config) {
         ),
       ],
   };
+
+  return [orientationStep, ...platformSteps];
 }
 
 bool isStreamSetupComplete(StreamStudioConfig config) =>

@@ -4,7 +4,6 @@ import android.graphics.Rect
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
-import android.os.Looper
 import android.util.Log
 import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.rtplibrary.rtmp.RtmpCamera2
@@ -40,7 +39,6 @@ object PedroCameraBridge {
             field.isAccessible = true
             field.get(apiManager) as CaptureRequest.Builder?
         } catch (e: Exception) {
-            Log.w(TAG, "builderInputSurface unavailable", e)
             null
         }
     }
@@ -55,6 +53,14 @@ object PedroCameraBridge {
         }
     }
 
+    /** True when Camera2 capture session and request builder are ready for controls. */
+    fun isCaptureSessionReady(rtmpCamera: RtmpCamera2): Boolean {
+        if (!rtmpCamera.isOnPreview && !rtmpCamera.isStreaming) return false
+        val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
+        return getBuilderInputSurface(apiManager) != null &&
+            getCaptureSession(apiManager) != null
+    }
+
     private fun repeatPreview(apiManager: Camera2ApiManager) {
         val builder = getBuilderInputSurface(apiManager) ?: return
         val session = getCaptureSession(apiManager) ?: return
@@ -66,6 +72,7 @@ object PedroCameraBridge {
     }
 
     fun switchToCameraId(rtmpCamera: RtmpCamera2, cameraId: String): Boolean {
+        if (!isCaptureSessionReady(rtmpCamera) && !rtmpCamera.isOnPreview) return false
         val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
         val id = cameraId.toIntOrNull() ?: return false
         return try {
@@ -98,23 +105,38 @@ object PedroCameraBridge {
         }
     }
 
-    fun setZoom(rtmpCamera: RtmpCamera2, level: Float) {
+    /**
+     * Applies zoom only when the Camera2 session is ready.
+     * @return true if applied immediately, false if deferred or skipped.
+     */
+    fun setZoom(rtmpCamera: RtmpCamera2, level: Float): Boolean {
+        if (!isCaptureSessionReady(rtmpCamera)) {
+            Log.w(TAG, "setZoom deferred — capture session not ready")
+            return false
+        }
         val clamped = level.coerceAtLeast(1f)
         try {
             rtmpCamera.setZoom(clamped)
-            return
+            return true
         } catch (e: Exception) {
             Log.w(TAG, "rtmpCamera.setZoom failed, trying cameraManager", e)
         }
-        val apiManager = getCamera2ApiManager(rtmpCamera) ?: return
-        try {
+        val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
+        val builder = getBuilderInputSurface(apiManager)
+        if (builder == null) {
+            Log.w(TAG, "setZoom skipped — CaptureRequest.Builder null")
+            return false
+        }
+        return try {
             val method = apiManager.javaClass.getMethod(
                 "setZoom",
                 Float::class.javaPrimitiveType
             )
             method.invoke(apiManager, clamped)
+            true
         } catch (e: Exception) {
             Log.e(TAG, "setZoom", e)
+            false
         }
     }
 
@@ -127,6 +149,7 @@ object PedroCameraBridge {
     }
 
     fun setExposureCompensation(rtmpCamera: RtmpCamera2, ev: Float): Boolean {
+        if (!isCaptureSessionReady(rtmpCamera)) return false
         val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
         val builder = getBuilderInputSurface(apiManager) ?: return false
         return try {
@@ -148,6 +171,7 @@ object PedroCameraBridge {
     }
 
     fun setFocusLock(rtmpCamera: RtmpCamera2, locked: Boolean): Boolean {
+        if (!isCaptureSessionReady(rtmpCamera)) return false
         return try {
             if (locked) {
                 rtmpCamera.disableAutoFocus()
@@ -162,6 +186,7 @@ object PedroCameraBridge {
     }
 
     fun tapToFocus(rtmpCamera: RtmpCamera2, x: Float, y: Float): Boolean {
+        if (!isCaptureSessionReady(rtmpCamera)) return false
         val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
         val builder = getBuilderInputSurface(apiManager) ?: return false
         return try {

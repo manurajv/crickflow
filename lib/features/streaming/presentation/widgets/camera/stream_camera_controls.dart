@@ -45,9 +45,7 @@ class CameraLensSelector extends ConsumerWidget {
                   child: ChoiceChip(
                     label: Text(lenses[i].label),
                     selected: config.selectedLensIndex == i,
-                    onSelected: !canSwitch
-                        ? null
-                        : (_) => onLensSelected(i),
+                    onSelected: !canSwitch ? null : (_) => onLensSelected(i),
                   ),
                 ),
             ],
@@ -130,6 +128,7 @@ class CameraZoomControl extends ConsumerWidget {
   }
 }
 
+/// Portrait or landscape broadcast orientation.
 class CameraOrientationSelector extends ConsumerWidget {
   const CameraOrientationSelector({super.key, required this.matchId});
 
@@ -139,55 +138,61 @@ class CameraOrientationSelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(streamStudioConfigProvider(matchId));
     final service = ref.watch(streamServiceProvider);
-    final locked = config.orientationLocked || service.isStreaming;
+    final isLandscape = config.orientation == StreamOrientationMode.landscape;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Orientation', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: StreamOrientationMode.values.map((mode) {
-            return ChoiceChip(
-              label: Text(_label(mode)),
-              selected: config.orientation == mode,
-              onSelected: locked
-                  ? null
-                  : (_) {
-                      ref.read(streamStudioConfigProvider(matchId).notifier).update(
-                            (c) => c.copyWith(orientation: mode),
-                          );
-                      service.lockOrientation(mode);
-                    },
-            );
-          }).toList(),
+        const Text(
+          'Broadcast orientation',
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
-        SwitchListTile(
-          title: const Text('Orientation lock'),
-          subtitle: const Text('Required before going live'),
-          value: config.orientationLocked,
-          onChanged: locked && service.isStreaming
-              ? null
-              : (v) async {
-                  ref
-                      .read(streamStudioConfigProvider(matchId).notifier)
-                      .update((c) => c.copyWith(orientationLocked: v));
-                  if (v) {
-                    await service.lockOrientation(config.orientation);
-                  }
-                },
+        const SizedBox(height: 8),
+        SegmentedButton<StreamOrientationMode>(
+          segments: const [
+            ButtonSegment(
+              value: StreamOrientationMode.portrait,
+              label: Text('Portrait'),
+              icon: Icon(Icons.stay_current_portrait_rounded, size: 18),
+            ),
+            ButtonSegment(
+              value: StreamOrientationMode.landscape,
+              label: Text('Landscape'),
+              icon: Icon(Icons.stay_current_landscape_rounded, size: 18),
+            ),
+          ],
+          selected: {config.orientation},
+          onSelectionChanged: (selection) async {
+            final mode = selection.first;
+            ref
+                .read(streamStudioConfigProvider(matchId).notifier)
+                .update(
+                  (c) => c.copyWith(orientation: mode, orientationLocked: true),
+                );
+            await service.setOrientationMode(mode);
+          },
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () async {
+            await service.toggleOrientation();
+            ref.read(streamStudioConfigProvider(matchId).notifier).update(
+                  (c) => c.copyWith(
+                    orientation: service.orientation,
+                    orientationLocked: true,
+                  ),
+                );
+          },
+          icon: Icon(
+            isLandscape
+                ? Icons.stay_current_landscape_rounded
+                : Icons.stay_current_portrait_rounded,
+          ),
+          label: Text('Toggle to ${config.orientation.toggled.studioLabel}'),
         ),
       ],
     );
   }
-
-  String _label(StreamOrientationMode mode) => switch (mode) {
-        StreamOrientationMode.portrait => 'Portrait',
-        StreamOrientationMode.landscapeLeft => 'Landscape L',
-        StreamOrientationMode.landscapeRight => 'Landscape R',
-        StreamOrientationMode.auto => 'Auto',
-      };
 }
 
 class CameraControlsPanel extends ConsumerWidget {

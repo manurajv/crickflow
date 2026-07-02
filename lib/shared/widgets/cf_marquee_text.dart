@@ -22,11 +22,12 @@ class CfMarqueeText extends StatefulWidget {
 }
 
 class _CfMarqueeTextState extends State<CfMarqueeText>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   AnimationController? _controller;
   ScrollController? _scrollController;
   double _viewportWidth = 0;
   double _textWidth = 0;
+  bool _postFrameScheduled = false;
 
   @override
   void didUpdateWidget(CfMarqueeText oldWidget) {
@@ -132,14 +133,18 @@ class _CfMarqueeTextState extends State<CfMarqueeText>
         final textHeight = painter.height;
         final shouldMarquee = textWidth > viewportWidth + 1;
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _ensureAnimation(
-            shouldMarquee: shouldMarquee,
-            viewportWidth: viewportWidth,
-            textWidth: textWidth,
-          );
-        });
+        if (!_postFrameScheduled) {
+          _postFrameScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _postFrameScheduled = false;
+            if (!mounted) return;
+            _ensureAnimation(
+              shouldMarquee: shouldMarquee,
+              viewportWidth: viewportWidth,
+              textWidth: textWidth,
+            );
+          });
+        }
 
         if (!shouldMarquee) {
           return Text(

@@ -34,11 +34,39 @@ extension StreamBroadcastSetupModeX on StreamBroadcastSetupMode {
       };
 }
 
+/// Broadcast orientation — portrait or landscape only.
 enum StreamOrientationMode {
   portrait,
-  landscapeLeft,
-  landscapeRight,
-  auto,
+  landscape,
+}
+
+/// Orientations available in stream studio UI.
+const kStreamStudioOrientations = <StreamOrientationMode>[
+  StreamOrientationMode.portrait,
+  StreamOrientationMode.landscape,
+];
+
+/// Maps legacy persisted values to the two supported modes.
+StreamOrientationMode parseStreamOrientation(String? raw) {
+  return switch (raw) {
+    'landscape' || 'landscapeLeft' || 'landscapeRight' => StreamOrientationMode.landscape,
+    _ => StreamOrientationMode.portrait,
+  };
+}
+
+extension StreamOrientationModeX on StreamOrientationMode {
+  String get studioLabel => switch (this) {
+        StreamOrientationMode.portrait => 'Portrait',
+        StreamOrientationMode.landscape => 'Landscape',
+      };
+
+  /// Native encoder / Pedro orientation mode string.
+  String get nativeModeName => name;
+
+  StreamOrientationMode get toggled => switch (this) {
+        StreamOrientationMode.portrait => StreamOrientationMode.landscape,
+        StreamOrientationMode.landscape => StreamOrientationMode.portrait,
+      };
 }
 
 enum StreamResolutionPreset {

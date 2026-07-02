@@ -12,6 +12,7 @@ import '../../core/constants/enums.dart';
 import '../../features/streaming/domain/camera_control_settings.dart';
 import '../../features/streaming/domain/stream_credential_normalizer.dart';
 import '../../features/streaming/data/models/camera_lens_info.dart';
+import '../../features/streaming/services/stream_foreground_bridge.dart';
 import '../../features/streaming/domain/streaming_enums.dart';
 
 export '../../features/streaming/data/models/camera_lens_info.dart';
@@ -47,8 +48,9 @@ class StreamService extends ChangeNotifier {
   String? _lastError;
   List<CameraLensInfo> _lenses = const [];
   int _selectedLensIndex = 0;
-  StreamOrientationMode _orientation = StreamOrientationMode.landscapeLeft;
+  StreamOrientationMode _orientation = StreamOrientationMode.portrait;
   bool _orientationLocked = false;
+  bool _liveSessionActive = false;
   ResolutionPreset _resolutionPreset = ResolutionPreset.high;
   bool _micEnabled = true;
   String? _localRecordingPath;
@@ -60,6 +62,7 @@ class StreamService extends ChangeNotifier {
   Timer? _healthTimer;
   bool _switchingLens = false;
   Future<void>? _cameraOperation;
+  bool _previewRecovering = false;
   VoidCallback? onRtmpConnected;
 
   StreamStatus get status => _status;
@@ -74,6 +77,7 @@ class StreamService extends ChangeNotifier {
   int get selectedLensIndex => _selectedLensIndex;
   StreamOrientationMode get orientation => _orientation;
   bool get orientationLocked => _orientationLocked;
+  bool get liveSessionActive => _liveSessionActive;
   Stream<StreamHealthMetrics> get healthStream => _healthController.stream;
 
   static bool get isPlatformSupported =>
@@ -109,19 +113,16 @@ class StreamService extends ChangeNotifier {
 
       _lenses = CameraLensCatalog.fromCameras(cameras);
       _selectedLensIndex = lensIndex.clamp(0, _lenses.length - 1);
-      _orientation = orientation;
+      _orientation = parseStreamOrientation(orientation.name);
       _orientationLocked = lockOrientation;
       _micEnabled = enableAudio;
       _resolutionPreset = _mapResolution(resolution);
 
-      if (_orientationLocked) {
-        await _applyOrientationLock();
-      } else {
-        await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-      }
+      await _applyDeviceOrientation();
 
       await _releaseCamera(waitForSurfaceTeardown: false);
       await _openSelectedLens();
+      await _syncNativeOrientationMode();
       _lastError = null;
       notifyListeners();
     });
@@ -286,11 +287,13 @@ class StreamService extends ChangeNotifier {
   Future<void> recoverPreview() {
     return _runCameraOperation(() async {
       if (!isPlatformSupported) return;
-      if (isStreaming) {
+      if (isStreaming || _liveSessionActive) {
+        await reconnectPreview();
         notifyListeners();
         return;
       }
 
+      _previewRecovering = true;
       try {
         if (_lenses.isEmpty) {
           final cameras = await availableCameras();
@@ -309,8 +312,7 @@ class StreamService extends ChangeNotifier {
         if (_controller != null && isInitialized) {
           try {
             await _controller!.restartPreview();
-            await _applyZoomForLens(lens);
-            await refreshDeviceZoomSteps();
+            await _waitForNativePreviewReady();
             recovered = isInitialized;
           } catch (_) {
             recovered = false;
@@ -320,21 +322,38 @@ class StreamService extends ChangeNotifier {
         if (!recovered) {
           await _releaseCamera(waitForSurfaceTeardown: true);
           await _openSelectedLens();
-          await refreshDeviceZoomSteps();
-          await _applyZoomForLens(_lenses[_selectedLensIndex]);
         }
 
+        await _syncNativeOrientationMode();
+        await _applyZoomAfterPreviewReady(lens);
         _lastError = null;
       } catch (e) {
         _lastError = '$e';
+      } finally {
+        _previewRecovering = false;
       }
       notifyListeners();
     });
   }
 
+  Future<void> _waitForNativePreviewReady() async {
+    for (var i = 0; i < 12; i++) {
+      await SchedulerBinding.instance.endOfFrame;
+      await Future<void>.delayed(Duration(milliseconds: 50 * (i + 1)));
+      if (_controller?.value.isInitialized == true) return;
+    }
+  }
+
+  Future<void> _applyZoomAfterPreviewReady(CameraLensInfo lens) async {
+    await _waitForNativePreviewReady();
+    try {
+      await _applyZoomForLens(lens);
+    } catch (_) {}
+  }
+
   /// Call after [CameraPreview] is mounted so the native view exists.
   Future<void> refreshDeviceZoomSteps() async {
-    if (_controller == null || !isInitialized) return;
+    if (_controller == null || !isInitialized || _previewRecovering) return;
     try {
       final maxZoom = await _controller!.getMaxZoom();
       final cameras = await availableCameras();
@@ -348,6 +367,7 @@ class StreamService extends ChangeNotifier {
       }
       _selectedLensIndex =
           CameraLensCatalog.indexForZoomFactor(_lenses, prevFactor);
+      await _waitForNativePreviewReady();
       await _applyZoomForLens(_lenses[_selectedLensIndex]);
       _lastError = null;
       notifyListeners();
@@ -369,16 +389,20 @@ class StreamService extends ChangeNotifier {
   Future<void> _applyZoomWithRetry(double level) async {
     if (_controller == null) return;
     Object? lastError;
-    for (var attempt = 0; attempt < 8; attempt++) {
+    for (var attempt = 0; attempt < 12; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(Duration(milliseconds: 60 * attempt));
+        await SchedulerBinding.instance.endOfFrame;
+      }
       try {
         await _controller!.setZoom(level);
         return;
       } catch (e) {
         lastError = e;
-        await Future<void>.delayed(Duration(milliseconds: 50 * (attempt + 1)));
       }
     }
-    if (lastError != null) throw lastError!;
+    // Native side queues pending zoom — do not fail recovery.
+    if (lastError != null && !isStreaming) throw lastError!;
   }
 
   Future<void> _applyNativeWithRetry(Future<void> Function() action) async {
@@ -431,19 +455,112 @@ class StreamService extends ChangeNotifier {
     await operation;
   }
 
-  Future<void> lockOrientation(StreamOrientationMode mode) async {
-    _orientation = mode;
-    _orientationLocked = true;
-    await _applyOrientationLock();
+  /// Starts Android foreground protection for an active live session.
+  Future<void> beginLiveSession({required String title}) async {
+    _liveSessionActive = true;
+    await StreamForegroundBridge.start(title: title);
+    notifyListeners();
   }
 
-  Future<void> _applyOrientationLock() async {
-    final orientations = switch (_orientation) {
-      StreamOrientationMode.portrait => [DeviceOrientation.portraitUp],
-      StreamOrientationMode.landscapeLeft => [DeviceOrientation.landscapeLeft],
-      StreamOrientationMode.landscapeRight => [DeviceOrientation.landscapeRight],
-      StreamOrientationMode.auto => DeviceOrientation.values,
-    };
+  /// Ends foreground protection — call when broadcast stops.
+  Future<void> endLiveSession() async {
+    _liveSessionActive = false;
+    await StreamForegroundBridge.stop();
+    notifyListeners();
+  }
+
+  /// Reattaches GL preview without stopping RTMP (safe while live).
+  Future<void> reconnectPreviewWhileLive() => reconnectPreview();
+
+  /// Reattaches preview surface after rotation or Activity resume.
+  Future<void> reconnectPreview({int retries = 6}) async {
+    if (_controller == null || !isInitialized) return;
+    if (!isStreaming && !_liveSessionActive) {
+      await recoverPreview();
+      return;
+    }
+    _previewRecovering = true;
+    try {
+      for (var attempt = 0; attempt < retries; attempt++) {
+        if (attempt > 0) {
+          await Future<void>.delayed(Duration(milliseconds: 100 * attempt));
+        }
+        await SchedulerBinding.instance.endOfFrame;
+        try {
+          await _controller!.restartPreview();
+          await _waitForNativePreviewReady();
+          if (_lenses.isNotEmpty) {
+            await _applyZoomForLens(
+              _lenses[_selectedLensIndex.clamp(0, _lenses.length - 1)],
+            );
+          }
+          return;
+        } catch (_) {}
+      }
+    } finally {
+      _previewRecovering = false;
+    }
+  }
+
+  /// Portrait ↔ landscape — keeps encoder alive while live.
+  Future<void> toggleOrientation() async {
+    _orientation = _orientation.toggled;
+    _orientationLocked = true;
+    await _applyDeviceOrientation();
+    await _syncNativeOrientationMode();
+    notifyListeners();
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    await SchedulerBinding.instance.endOfFrame;
+    await reconnectPreview(retries: 5);
+    notifyListeners();
+  }
+
+  Future<void> setOrientationMode(StreamOrientationMode mode) async {
+    _orientation = parseStreamOrientation(mode.name);
+    _orientationLocked = true;
+    await _applyDeviceOrientation();
+    await _syncNativeOrientationMode();
+    notifyListeners();
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await reconnectPreview();
+  }
+
+  Future<void> lockOrientation(StreamOrientationMode mode) async {
+    _orientation = parseStreamOrientation(mode.name);
+    _orientationLocked = true;
+    await _applyDeviceOrientation();
+    await _syncNativeOrientationMode();
+  }
+
+  /// Returns UI to portrait after leaving stream studio / ending a broadcast.
+  Future<void> resetToPortraitUi() async {
+    _orientationLocked = false;
+    _orientation = StreamOrientationMode.portrait;
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    await _syncNativeOrientationMode(fixedMode: StreamOrientationMode.portrait);
+  }
+
+  Future<void> _syncNativeOrientationMode({
+    StreamOrientationMode? fixedMode,
+  }) async {
+    if (_controller == null || !isInitialized) return;
+    final mode = fixedMode ?? _orientation;
+    try {
+      await _controller!.setOrientationMode(
+        autoRotate: false,
+        mode: mode.nativeModeName,
+      );
+    } catch (_) {}
+  }
+
+  /// Rotates app UI only — native camera preview is never modified.
+  Future<void> _applyDeviceOrientation() async {
+    final orientations = _orientation == StreamOrientationMode.portrait
+        ? [DeviceOrientation.portraitUp]
+        : [
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ];
     await SystemChrome.setPreferredOrientations(orientations);
   }
 

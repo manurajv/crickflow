@@ -282,6 +282,17 @@ class MethodCallHandlerImplNew(
                 }
             }
 
+            "setOrientationMode" -> {
+                val autoRotate = call.argument<Boolean>("autoRotate") ?: false
+                val mode = call.argument<String>("mode") ?: "portrait"
+                val view = getCameraView()
+                if (view == null) {
+                    result.success(null)
+                } else {
+                    view.setOrientationMode(autoRotate, mode, result)
+                }
+            }
+
             "updateStreamOverlay" -> {
                 val png = call.argument<ByteArray>("png")
                 val width = call.argument<Int>("width") ?: 0

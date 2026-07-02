@@ -59,15 +59,7 @@ class StreamCameraPreview extends ConsumerWidget {
         controller != null && controller.value.isInitialized == true
             ? RepaintBoundary(
                 child: SizedBox.expand(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    clipBehavior: Clip.hardEdge,
-                    child: SizedBox(
-                      width: controller.value.previewSize?.width ?? 1280,
-                      height: controller.value.previewSize?.height ?? 720,
-                      child: CameraPreview(controller),
-                    ),
-                  ),
+                  child: CameraPreview(controller),
                 ),
               )
             : Center(
