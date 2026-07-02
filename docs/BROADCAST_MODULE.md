@@ -32,7 +32,7 @@ Professional live streaming for cricket — native camera RTMP, OBS/external enc
         RTMP → YouTube / Facebook / Twitch / custom server
 ```
 
-**Phase 3 (done):** GPU overlay burn-in — Flutter captures overlay PNG at encoder resolution → native pedro `ImageObjectFilterRender` on `OpenGlView`. OBS mode still uses hosted browser source at `https://crickflow-b06bc.web.app/live/{matchId}`.
+**Phase 3 (done):** GPU overlay burn-in — Flutter captures overlay PNG at encoder resolution → native pedro `ImageObjectFilterRender` on **`OpenGlView`** (`SafeOpenGlView`). `LightOpenGlView.setFilter()` is a no-op in pedro 1.9.6 and must not be used for burn-in.
 
 ---
 

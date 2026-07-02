@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,9 +15,12 @@ import 'overlay/broadcast_scoreboard_overlay.dart';
 import 'overlay/stream_event_overlay_widget.dart';
 import 'overlay/stream_score_ticker.dart';
 
-/// Composites camera preview + broadcast overlays for the outgoing preview.
+/// Composites camera preview + broadcast overlays for Stream Studio.
 ///
-/// Parent must provide bounded constraints (e.g. [AspectRatio] or full-screen).
+/// Pre-live: Flutter overlays on the preview for setup.
+/// Live: native [SafeOpenGlView] burns PNG overlays into preview + RTMP — visible
+/// Flutter layers are hidden to avoid duplication. An off-screen painted capture
+/// tree keeps pushing overlay PNGs to the native compositor.
 class StreamStudioCompositor extends ConsumerStatefulWidget {
   const StreamStudioCompositor({
     super.key,
@@ -40,11 +45,32 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   String? _rotatingSponsorName;
   String? _rotatingSponsorLogo;
   int? _lastOverlayVersion;
+  Size _encoderSize = const Size(1280, 720);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshEncoderSize());
+  }
 
   @override
   void dispose() {
     _sponsorRotation?.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshEncoderSize() async {
+    if (!mounted) return;
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    final service = ref.read(streamServiceProvider);
+    final size = await encoderFrameSizeForLive(
+      config,
+      service.cameraController,
+    );
+    if (mounted && size != _encoderSize) {
+      setState(() => _encoderSize = size);
+      _scheduleBurnIn();
+    }
   }
 
   @override
@@ -131,6 +157,41 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     ];
   }
 
+  Widget _buildCaptureTree({
+    required List<Widget> burnInLayers,
+    required GlobalKey repaintKey,
+    required double previewW,
+    required double previewH,
+  }) {
+    // Must remain in the paint tree (Offstage/Visibility skip painting).
+    return Positioned(
+      left: -_encoderSize.width - 32,
+      top: 0,
+      child: IgnorePointer(
+        child: SizedBox(
+          width: _encoderSize.width,
+          height: _encoderSize.height,
+          child: RepaintBoundary(
+            key: repaintKey,
+            child: FittedBox(
+              fit: BoxFit.fill,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: previewW,
+                height: previewH,
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  fit: StackFit.expand,
+                  children: burnInLayers,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(activeEventOverlayProvider(widget.matchId), (prev, next) {
@@ -141,16 +202,20 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
         _scheduleBurnIn();
       }
     });
+    ref.listen(streamServiceProvider.select((s) => s.isStreaming), (prev, next) {
+      if (next) {
+        unawaited(_refreshEncoderSize());
+      }
+    });
 
     final eventOverlay = ref.watch(activeEventOverlayProvider(widget.matchId));
-    final config = ref.watch(streamStudioConfigProvider(widget.matchId));
     final overlayTheme = ref
         .watch(streamStudioConfigProvider(widget.matchId).notifier)
         .overlayTheme;
     final match = ref.watch(matchProvider(widget.matchId)).valueOrNull;
     final tournamentId = match?.tournamentId;
     final burnIn = ref.watch(streamOverlayBurnInServiceProvider);
-    final encoderSize = encoderFrameSizeFor(config);
+    final isStreaming = ref.watch(streamServiceProvider.select((s) => s.isStreaming));
 
     if (tournamentId != null &&
         tournamentId.isNotEmpty &&
@@ -171,12 +236,6 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
 
     final overlay = widget.overlay;
     final sponsorLine = _resolveSponsorText(overlay);
-    final layers = _overlayLayers(
-      overlay: overlay,
-      overlayTheme: overlayTheme,
-      sponsorLine: sponsorLine,
-      eventOverlay: eventOverlay,
-    );
     final burnInLayers = _overlayLayers(
       overlay: overlay,
       overlayTheme: overlayTheme,
@@ -184,6 +243,14 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       eventOverlay: eventOverlay,
       forBurnInCapture: true,
     );
+    final previewLayers = isStreaming
+        ? const <Widget>[]
+        : _overlayLayers(
+            overlay: overlay,
+            overlayTheme: overlayTheme,
+            sponsorLine: sponsorLine,
+            eventOverlay: eventOverlay,
+          );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -194,34 +261,13 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
           clipBehavior: Clip.none,
           children: [
             Positioned.fill(child: widget.cameraPreview),
-            ...layers,
-            // Off-screen encoder-sized capture: preview layout scaled to stream frame.
-            if (previewW > 0 && previewH > 0)
-              Positioned(
-                left: -encoderSize.width - 16,
-                top: 0,
-                child: IgnorePointer(
-                  child: SizedBox(
-                    width: encoderSize.width,
-                    height: encoderSize.height,
-                    child: RepaintBoundary(
-                      key: burnIn.repaintKey,
-                      child: FittedBox(
-                        fit: BoxFit.fill,
-                        alignment: Alignment.center,
-                        child: SizedBox(
-                          width: previewW,
-                          height: previewH,
-                          child: Stack(
-                            clipBehavior: Clip.hardEdge,
-                            fit: StackFit.expand,
-                            children: burnInLayers,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+            ...previewLayers,
+            if (isStreaming && previewW > 0 && previewH > 0)
+              _buildCaptureTree(
+                burnInLayers: burnInLayers,
+                repaintKey: burnIn.repaintKey,
+                previewW: previewW,
+                previewH: previewH,
               ),
           ],
         );

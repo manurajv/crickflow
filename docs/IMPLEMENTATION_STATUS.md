@@ -26,7 +26,7 @@
 | **StreamPermissionService** — organizer, assigned streamer, scorer, creator | Done |
 | **Replay markers** — `matches/{id}/replayMarkers` + in-studio flag button | Done |
 | Cloud Functions — `onStreamStatusChanged`, `createYouTubeLiveStream` stub | Done — deploy + YouTube OAuth |
-| RTMP overlay burn-in (native compositing for YouTube viewers) | Done — Flutter PNG capture (visible paint tree) → `glInterface.setFilter` full-frame (Android) |
+| RTMP overlay burn-in (native compositing for YouTube viewers) | Done — Flutter PNG → `SafeOpenGlView` + `glInterface.setFilter` (Android). **Fix:** `LightOpenGlView.setFilter()` is a no-op in pedro 1.9.6 — overlays never reached RTMP |
 | Facebook/Twitch OAuth + auto RTMP | Deferred — manual RTMP keys work |
 | Digital zoom after max optical | Done — 0.5x / 1x / 2x / 3x only (focal-length mapped + digital fill) |
 | Live chat / sponsor video rotation | Live chat done; sponsor logos deferred |
@@ -49,7 +49,7 @@
 | **Broadcast setup UX** — Automatic vs Manual toggle (YouTube); manual = RTMP key only; exposure sheet on studio overlay; removed duplicate checklist/camera controls from setup sheets | Done |
 | **Live mic mute** — overlay/settings mic toggle; native `disableAudio` before/during RTMP start when muted; reconnect re-applies mute | Done |
 | **Camera recovery + zoom + key history** — native preview restart on RTMP stop; YouTube `endYouTubeLiveStream` on end broadcast; standard zoom row | Done |
-| **Camera preview (Oppo/Adreno)** — reverted hybrid platform-view composition (ImageReader format 0x3b loop); keep `SafeLightOpenGlView` + surface size gate | Done |
+| **Camera preview (Oppo/Adreno)** — `SafeOpenGlView` (OpenGlView + surface gate) for RTMP overlay burn-in; `SafeLightOpenGlView` retained in legacy `Camera.kt` only | Done |
 
 ---
 

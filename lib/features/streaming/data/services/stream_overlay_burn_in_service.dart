@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/providers/providers.dart';
@@ -18,11 +20,14 @@ class StreamOverlayBurnInService {
   Timer? _debounce;
   Timer? _liveRefreshTimer;
   int _generation = 0;
+  int _pushCount = 0;
 
   void schedulePush() {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 120), () {
-      unawaited(pushNow());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(pushNow());
+      });
     });
   }
 
@@ -38,7 +43,7 @@ class StreamOverlayBurnInService {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       schedulePush();
-      // Encoder GL filter may attach only after RTMP connects.
+      // Encoder GL filter attaches after RTMP connects and OpenGlView is ready.
       Future<void>.delayed(const Duration(milliseconds: 800), schedulePush);
       Future<void>.delayed(const Duration(milliseconds: 2000), schedulePush);
     });
@@ -51,15 +56,29 @@ class StreamOverlayBurnInService {
 
   Future<void> pushNow() async {
     final stream = _ref.read(streamServiceProvider);
-    if (!stream.isStreaming) return;
+    if (!stream.isStreaming) {
+      _log('push skipped — not streaming');
+      return;
+    }
     final controller = stream.cameraController;
     if (controller == null || !(controller.value.isInitialized ?? false)) {
+      _log('push skipped — camera not initialized');
       return;
     }
 
     final boundary =
         repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-    if (boundary == null) return;
+    if (boundary == null) {
+      _log('push skipped — RepaintBoundary not mounted');
+      return;
+    }
+
+    boundary.markNeedsPaint();
+    final painted = await _waitUntilPainted(boundary);
+    if (!painted) {
+      _log('push skipped — overlay tree not painted yet');
+      return;
+    }
 
     final gen = ++_generation;
     try {
@@ -73,15 +92,34 @@ class StreamOverlayBurnInService {
       final byteData =
           await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
-      if (byteData == null || gen != _generation) return;
+      if (byteData == null || gen != _generation) {
+        _log('push skipped — PNG encode failed');
+        return;
+      }
+
+      final png = byteData.buffer.asUint8List();
+      if (png.length < 512) {
+        _log('push skipped — PNG too small (${png.length} bytes), overlay not painted');
+        return;
+      }
+
+      _pushCount++;
+      if (_pushCount <= 3 || _pushCount % 25 == 0) {
+        _log(
+          'overlay rendered ${width}x$height (${png.length} bytes) → native compositor (#$_pushCount)',
+        );
+      }
 
       await controller.updateStreamOverlay(
-        byteData.buffer.asUint8List(),
+        png,
         width: width,
         height: height,
       );
-    } catch (_) {
-      // Overlay burn-in is best-effort; preview overlays still work.
+      if (_pushCount <= 3 || _pushCount % 25 == 0) {
+        _log('frame sent to encoder (#$_pushCount)');
+      }
+    } catch (e, st) {
+      _log('push failed: $e\n$st');
     }
   }
 
@@ -89,16 +127,39 @@ class StreamOverlayBurnInService {
     _debounce?.cancel();
     stopLiveRefresh();
     _generation++;
+    _pushCount = 0;
     final controller = _ref.read(streamServiceProvider).cameraController;
     if (controller == null) return;
     try {
       await controller.clearStreamOverlay();
-    } catch (_) {}
+      _log('overlay cleared');
+    } catch (e) {
+      _log('clear failed: $e');
+    }
   }
 
   void dispose() {
     _debounce?.cancel();
     stopLiveRefresh();
+  }
+
+  /// [Offstage] and [Visibility.visible=false] skip painting — only capture
+  /// trees that are painted can be passed to [RenderRepaintBoundary.toImage].
+  Future<bool> _waitUntilPainted(
+    RenderRepaintBoundary boundary, {
+    int maxFrames = 8,
+  }) async {
+    for (var i = 0; i < maxFrames; i++) {
+      await SchedulerBinding.instance.endOfFrame;
+      if (!boundary.debugNeedsPaint) return true;
+    }
+    return !boundary.debugNeedsPaint;
+  }
+
+  void _log(String message) {
+    if (kDebugMode) {
+      debugPrint('[StreamOverlayBurnIn] $message');
+    }
   }
 }
 
@@ -123,4 +184,22 @@ Size encoderFrameSizeFor(StreamStudioConfig config) {
     return Size(base.height, base.width);
   }
   return base;
+}
+
+/// Prefer native encoder dimensions when the RTMP session is active.
+Future<Size> encoderFrameSizeForLive(
+  StreamStudioConfig config,
+  dynamic cameraController,
+) async {
+  if (cameraController != null) {
+    try {
+      final stats = await cameraController.getStreamStatistics();
+      final w = stats.width;
+      final h = stats.height;
+      if (w != null && h != null && w > 0 && h > 0) {
+        return Size(w.toDouble(), h.toDouble());
+      }
+    } catch (_) {}
+  }
+  return encoderFrameSizeFor(config);
 }

@@ -16,7 +16,6 @@ import android.widget.Toast
 import com.pedro.encoder.input.video.CameraHelper.Facing.BACK
 import com.pedro.encoder.input.video.CameraHelper.Facing.FRONT
 import com.pedro.rtplibrary.rtmp.RtmpCamera2
-import com.pedro.rtplibrary.view.LightOpenGlView
 import com.pedro.rtplibrary.view.OpenGlView
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.platform.PlatformView
@@ -36,7 +35,8 @@ class CameraNativeView(
     SurfaceHolder.Callback,
     ConnectCheckerRtmp {
 
-    private val glView = SafeLightOpenGlView(viewContext)
+    // OpenGlView required — LightOpenGlView.setFilter() is a no-op (no RTMP burn-in).
+    private val glView = SafeOpenGlView(viewContext)
     private val rtmpCamera: RtmpCamera2
     private val overlayBurnIn: StreamOverlayBurnIn
 
@@ -179,33 +179,42 @@ class CameraNativeView(
             if (!rtmpCamera.isStreaming) {
                 val streamingSize =
                     CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset)
-                if (!encoderPrepared) {
-                    val prepared = if (rtmpCamera.isRecording) {
-                        true
-                    } else {
-                        rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
-                            streamingSize.videoFrameWidth,
-                            streamingSize.videoFrameHeight,
-                            bitrate ?: streamingSize.videoBitRate
-                        )
-                    }
-                    if (!prepared) {
-                        result.error(
-                            "videoStreamingFailed",
-                            "Error preparing stream, This device cant do it",
-                            null
-                        )
-                        return
-                    }
-                    encoderPrepared = true
+                // MediaCodec is released on stopStream() — always re-prepare before go-live.
+                val prepared = if (rtmpCamera.isRecording) {
+                    rtmpCamera.prepareVideo(
+                        streamingSize.videoFrameWidth,
+                        streamingSize.videoFrameHeight,
+                        bitrate ?: streamingSize.videoBitRate,
+                    )
+                } else {
+                    rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
+                        streamingSize.videoFrameWidth,
+                        streamingSize.videoFrameHeight,
+                        bitrate ?: streamingSize.videoBitRate,
+                    )
                 }
+                if (!prepared) {
+                    encoderPrepared = false
+                    result.error(
+                        "videoStreamingFailed",
+                        "Error preparing stream, This device cant do it",
+                        null,
+                    )
+                    return
+                }
+                encoderPrepared = true
                 if (!micEnabled) {
                     rtmpCamera.disableAudio()
                 }
                 rtmpCamera.startStream(url)
             } else {
                 rtmpCamera.stopStream()
+                encoderPrepared = false
             }
+            Log.i(
+                "CameraNativeView",
+                "RTMP stream started — encoder ${rtmpCamera.streamWidth}x${rtmpCamera.streamHeight} url=$url",
+            )
             result.success(null)
         } catch (e: CameraAccessException) {
             result.error("videoStreamingFailed", e.message, null)
@@ -259,6 +268,7 @@ class CameraNativeView(
                     if (isStreaming) stopStream()
                     if (isRecording) stopRecord()
                 }
+                encoderPrepared = false
                 if (isSurfaceCreated) {
                     val previewSize = CameraUtils.computeBestPreviewSize(cameraName, preset)
                     if (rtmpCamera.isOnPreview) {
@@ -518,6 +528,7 @@ class CameraNativeView(
                 if (rtmpCamera.isStreaming) {
                     rtmpCamera.stopStream()
                     overlayBurnIn.release()
+                    encoderPrepared = false
                 }
                 val previewSize = CameraUtils.computeBestPreviewSize(cameraName, preset)
                 if (rtmpCamera.isOnPreview) {

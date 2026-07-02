@@ -209,7 +209,7 @@ Share highlight rows include `t=` seek links when `youtubeWatchUrl` is on the ma
 
 | Feature | Workaround |
 |---------|------------|
-| **Overlay burn-in on RTMP** | Scorebug + event graphics composited into YouTube/Facebook RTMP via native GL filter (Android) |
+| **Overlay burn-in on RTMP** | Fixed — requires `OpenGlView` (`SafeOpenGlView`); scorebug + event graphics composited into YouTube/Facebook RTMP on Android |
 | **Facebook/Twitch auto RTMP** | Paste keys manually |
 | **Digital zoom** | Use optical lens chips only |
 | **Camera lens switch on some Oppo/Samsung** | Select lens before opening preview; UI polish pending |

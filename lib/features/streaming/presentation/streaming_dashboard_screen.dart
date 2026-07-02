@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/enums.dart';
 import '../../../data/models/ball_event_model.dart';
@@ -367,6 +368,9 @@ class _StreamingDashboardScreenState
         _cameraLoading = false;
         _cameraError = service.lastError;
       });
+      // Leave stream studio so the native camera/encoder fully resets; user can
+      // re-enter from the match Live tab for a clean second go-live.
+      context.go('/match/${widget.matchId}?tab=live');
     }
   }
 
