@@ -38,17 +38,14 @@ object PreviewOrientationPolicy {
     }
 
     /**
-     * RTMP stream rotation metadata — only applied while live via [GlInterface.setStreamRotation].
-     * Preview uses Pedro's built-in [startPreview] rotation separately.
+     * Landscape: same preview pixels as portrait, then encoder rotates 90° left (CCW = 270°)
+     * so YouTube receives 16:9. Portrait: 0 (already working).
      */
-    fun streamRotationFor(context: Context, cameraId: String, broadcastMode: String): Int {
-        return if (isLandscapeBroadcast(broadcastMode)) {
-            // Encoder stays at camcorder landscape (e.g. 1280×720); no extra rotation needed.
-            0
-        } else {
-            sensorOrientation(context, cameraId)
-        }
-    }
+    fun streamRotationFor(
+        @Suppress("UNUSED_PARAMETER") context: Context,
+        @Suppress("UNUSED_PARAMETER") cameraId: String,
+        broadcastMode: String,
+    ): Int = if (PreviewSizeSelector.isLandscapeBroadcast(broadcastMode)) 270 else 0
 
     fun selectedPreviewSize(
         context: Context,
@@ -80,7 +77,7 @@ object PreviewOrientationPolicy {
         preserveStream: Boolean,
     ): Boolean {
         val previewSize = selectedPreviewSize(context, cameraId, preset, broadcastMode, glView)
-        val displayRotation = displayRotation(context)
+        val glConfig = BroadcastGlConfig.compute(context, cameraId, preset, broadcastMode)
 
         return try {
             val ok = if (preserveStream && rtmpCamera.isStreaming) {
@@ -88,20 +85,29 @@ object PreviewOrientationPolicy {
                     rtmpCamera,
                     context,
                     previewSize,
-                    displayRotation,
+                    glConfig,
                 )
             } else {
                 if (rtmpCamera.isOnPreview) {
                     rtmpCamera.stopPreview()
                 }
-                // 3-arg path: Pedro reads display rotation from the Activity — native camera semantics.
-                rtmpCamera.startPreview(facing, previewSize.width, previewSize.height)
+                rtmpCamera.startPreview(
+                    facing,
+                    previewSize.width,
+                    previewSize.height,
+                    glConfig.previewStartRotation,
+                )
+                rtmpCamera.glInterface?.let {
+                    PedroCameraBridge.applyPedroPreviewGlSetup(it, glConfig)
+                }
                 true
             }
             Log.i(
                 TAG,
                 "Preview reconfigured mode=$broadcastMode size=${previewSize.width}x${previewSize.height} " +
-                    "displayRot=$displayRotation streaming=${rtmpCamera.isStreaming} preserve=$preserveStream",
+                    "previewGl=${glConfig.previewGlWidth}x${glConfig.previewGlHeight} " +
+                    "stream=${glConfig.encoderWidth}x${glConfig.encoderHeight} glRot=${glConfig.glRotation} " +
+                    "streaming=${rtmpCamera.isStreaming} preserve=$preserveStream",
             )
             ok
         } catch (e: Exception) {

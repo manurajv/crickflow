@@ -52,7 +52,12 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshEncoderSize());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final config = ref.read(streamStudioConfigProvider(widget.matchId));
+      setState(() => _encoderSize = encoderFrameSizeFor(config));
+      unawaited(_refreshEncoderSize());
+    });
   }
 
   @override
@@ -162,11 +167,14 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   Widget _buildCaptureTree({
     required List<Widget> burnInLayers,
     required GlobalKey repaintKey,
-    required double previewW,
-    required double previewH,
-    required bool landscapeLayout,
+    required bool landscapeUi,
   }) {
-    // Must remain in the paint tree (Offstage/Visibility skip painting).
+    final overlayStack = Stack(
+      clipBehavior: Clip.hardEdge,
+      fit: StackFit.expand,
+      children: burnInLayers,
+    );
+
     return Positioned(
       left: -_encoderSize.width - 32,
       top: 0,
@@ -176,25 +184,12 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
           height: _encoderSize.height,
           child: RepaintBoundary(
             key: repaintKey,
-            child: landscapeLayout
-                ? Stack(
-                    clipBehavior: Clip.hardEdge,
-                    fit: StackFit.expand,
-                    children: burnInLayers,
+            child: landscapeUi
+                ? RotatedBox(
+                    quarterTurns: 1,
+                    child: overlayStack,
                   )
-                : FittedBox(
-                    fit: BoxFit.fill,
-                    alignment: Alignment.center,
-                    child: SizedBox(
-                      width: previewW,
-                      height: previewH,
-                      child: Stack(
-                        clipBehavior: Clip.hardEdge,
-                        fit: StackFit.expand,
-                        children: burnInLayers,
-                      ),
-                    ),
-                  ),
+                : overlayStack,
           ),
         ),
       ),
@@ -222,6 +217,24 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
         if (prev != next) unawaited(_refreshEncoderSize());
       },
     );
+    ref.listen(
+      streamStudioConfigProvider(widget.matchId).select(
+        (c) => (
+          c.overlayLayout,
+          c.overlayPrimaryColor,
+          c.overlaySecondaryColor,
+          c.overlayOpacity,
+          c.overlayRoundedCorners,
+          c.overlayCompactMode,
+          c.showSponsorBanner,
+          c.showTicker,
+          c.orientation,
+        ),
+      ),
+      (prev, next) {
+        if (prev != next) _scheduleBurnIn();
+      },
+    );
 
     final eventOverlay = ref.watch(activeEventOverlayProvider(widget.matchId));
     final overlayTheme = ref
@@ -230,7 +243,9 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     final match = ref.watch(matchProvider(widget.matchId)).valueOrNull;
     final tournamentId = match?.tournamentId;
     final burnIn = ref.watch(streamOverlayBurnInServiceProvider);
+    final burnInActive = ref.watch(streamOverlayBurnInActiveProvider);
     final isStreaming = ref.watch(streamServiceProvider.select((s) => s.isStreaming));
+    final hideFlutterOverlays = isStreaming && burnInActive;
     final landscapeUi = ref.watch(
           streamStudioConfigProvider(widget.matchId).select((c) => c.orientation),
         ) ==
@@ -262,7 +277,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       eventOverlay: eventOverlay,
       forBurnInCapture: true,
     );
-    final Widget previewLayers = isStreaming
+    final Widget previewLayers = hideFlutterOverlays
         ? const SizedBox.shrink()
         : Stack(
             fit: StackFit.expand,
@@ -275,32 +290,23 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
             ),
           );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final previewW = constraints.maxWidth;
-        final previewH = constraints.maxHeight;
-
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(child: widget.cameraPreview),
-            Positioned.fill(
-              child: StudioLandscapeRotation(
-                landscape: landscapeUi,
-                child: previewLayers,
-              ),
-            ),
-            if (isStreaming && previewW > 0 && previewH > 0)
-              _buildCaptureTree(
-                burnInLayers: burnInLayers,
-                repaintKey: burnIn.repaintKey,
-                previewW: previewW,
-                previewH: previewH,
-                landscapeLayout: landscapeUi,
-              ),
-          ],
-        );
-      },
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(child: widget.cameraPreview),
+        Positioned.fill(
+          child: StudioLandscapeRotation(
+            landscape: landscapeUi,
+            child: previewLayers,
+          ),
+        ),
+        if (isStreaming && _encoderSize.width > 0 && _encoderSize.height > 0)
+          _buildCaptureTree(
+            burnInLayers: burnInLayers,
+            repaintKey: burnIn.repaintKey,
+            landscapeUi: landscapeUi,
+          ),
+      ],
     );
   }
 

@@ -1,11 +1,8 @@
 package com.app.rtmp_publisher
 
-import android.content.Context
 import android.graphics.SurfaceTexture
 import android.util.Log
-import android.util.Size
 import android.view.Surface
-import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.rtplibrary.rtmp.RtmpCamera2
 import com.pedro.rtplibrary.view.GlInterface
@@ -52,9 +49,7 @@ object PreviewSurfaceLifecycle {
         previewWidth: Int,
         previewHeight: Int,
         streaming: Boolean,
-        context: Context? = null,
-        broadcastMode: String = "portrait",
-        displayRotationOverride: Int? = null,
+        glConfig: BroadcastGlConfig.Config,
     ): Boolean {
         if (previewWidth <= 0 || previewHeight <= 0) return false
         if (!isHolderSurfaceValid(glView)) {
@@ -66,20 +61,9 @@ object PreviewSurfaceLifecycle {
         val apiManager = PedroCameraBridge.getCamera2ApiManager(rtmpCamera) ?: return false
 
         return try {
-            // 1) New GL thread + SurfaceTexture (blocks until Pedro semaphore releases).
             glInterface.start()
 
-            if (context != null) {
-                val previewSize = Size(previewWidth, previewHeight)
-                val displayRotation = displayRotationOverride
-                    ?: CameraHelper.getCameraOrientation(context)
-                PedroCameraBridge.applyPedroPreviewGlSetup(
-                    glInterface,
-                    context,
-                    previewSize,
-                    displayRotation,
-                )
-            }
+            PedroCameraBridge.applyPedroGlSetup(glInterface, glConfig, streaming)
 
             val surfaceTexture: SurfaceTexture = glInterface.surfaceTexture
                 ?: run {
@@ -95,10 +79,8 @@ object PreviewSurfaceLifecycle {
             val fps = getVideoEncoderFps(rtmpCamera) ?: 30
             surfaceTexture.setDefaultBufferSize(previewWidth, previewHeight)
 
-            // 2) Bind camera at preview resolution — GL scales to encoder when streaming.
             apiManager.prepareCamera(surfaceTexture, previewWidth, previewHeight, fps)
 
-            // 3) While streaming, re-link MediaCodec input surface to GL output.
             if (streaming) {
                 val encoderSurface = getVideoEncoderInputSurface(rtmpCamera)
                 if (encoderSurface != null && encoderSurface.isValid) {
@@ -108,11 +90,14 @@ object PreviewSurfaceLifecycle {
                 }
             }
 
-            // 4) Open camera on a fresh HandlerThread (Pedro creates one per openCameraId).
             apiManager.openLastCamera()
 
             setOnPreview(rtmpCamera, true)
-            Log.i(TAG, "Preview pipeline reattached (streaming=$streaming)")
+            Log.i(
+                TAG,
+                "Preview pipeline reattached streaming=$streaming " +
+                    "camera=${previewWidth}x$previewHeight gl=${glConfig.encoderWidth}x${glConfig.encoderHeight}",
+            )
             true
         } catch (e: Exception) {
             Log.e(TAG, "reattachPreviewPipeline failed", e)

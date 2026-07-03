@@ -122,6 +122,28 @@ Configure in **Stream setup → Broadcast mode**.
 
 ---
 
+## Stream pipeline debug (logcat)
+
+Filter Android Studio Logcat or adb:
+
+```text
+adb logcat -s CrickFlowStream
+```
+
+| Log line | Meaning |
+|----------|---------|
+| `PREVIEW_LOCKED` | In-app preview GL size/rotation frozen |
+| `GO_LIVE` | `prepareVideo` size + `setStreamRotation` (landscape = same preview + rotate 90° left) |
+| `STREAM_ROTATION` | Encoder rotation applied (0 portrait, 270 landscape) |
+| `PIPELINE_LINKED` | Preview restored after go-live; `rtmpAdvertised=` is what YouTube receives |
+| `OVERLAY_BURNIN` | Score overlay PNG composited onto encoder |
+
+Flutter overlay capture uses the same tag in debug builds: `[CrickFlowStream]`.
+
+**Landscape model:** portrait already works — encoder reads the **same** preview GL frame (`720×1280`), then `setStreamRotation(270)` rotates 90° left for YouTube 16:9. Preview is unchanged.
+
+---
+
 ## Deferred (roadmap)
 
 - Facebook/Twitch OAuth + API live create

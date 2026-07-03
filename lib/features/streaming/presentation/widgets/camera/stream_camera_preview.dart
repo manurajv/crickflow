@@ -37,7 +37,7 @@ class StreamCameraPreview extends ConsumerWidget {
   ) {
     if (loading || !service.isInitialized) {
       return ColoredBox(
-        color: cf.background,
+        color: Colors.black,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -74,7 +74,7 @@ class StreamCameraPreview extends ConsumerWidget {
               );
 
     return ColoredBox(
-      color: cf.background,
+      color: Colors.black,
       child: Stack(
         fit: StackFit.expand,
         children: [

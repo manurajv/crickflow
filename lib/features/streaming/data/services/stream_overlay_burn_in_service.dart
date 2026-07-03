@@ -11,6 +11,9 @@ import '../../../../shared/providers/providers.dart';
 import '../../data/models/stream_studio_config.dart';
 import '../../domain/streaming_enums.dart';
 
+/// Captures at 1:1 encoder pixels — native GL filter scales if needed.
+const _kOverlayCapturePixelRatio = 1.0;
+
 /// Captures Flutter overlay widgets and pushes PNG frames to native RTMP burn-in.
 class StreamOverlayBurnInService {
   StreamOverlayBurnInService(this._ref);
@@ -82,7 +85,7 @@ class StreamOverlayBurnInService {
 
     final gen = ++_generation;
     try {
-      final image = await boundary.toImage(pixelRatio: 1.0);
+      final image = await boundary.toImage(pixelRatio: _kOverlayCapturePixelRatio);
       if (gen != _generation) {
         image.dispose();
         return;
@@ -115,6 +118,7 @@ class StreamOverlayBurnInService {
         width: width,
         height: height,
       );
+      _ref.read(streamOverlayBurnInActiveProvider.notifier).state = true;
       if (_pushCount <= 3 || _pushCount % 25 == 0) {
         _log('frame sent to encoder (#$_pushCount)');
       }
@@ -128,6 +132,7 @@ class StreamOverlayBurnInService {
     stopLiveRefresh();
     _generation++;
     _pushCount = 0;
+    _ref.read(streamOverlayBurnInActiveProvider.notifier).state = false;
     final controller = _ref.read(streamServiceProvider).cameraController;
     if (controller == null) return;
     try {
@@ -158,10 +163,12 @@ class StreamOverlayBurnInService {
 
   void _log(String message) {
     if (kDebugMode) {
-      debugPrint('[StreamOverlayBurnIn] $message');
+      debugPrint('[CrickFlowStream] $message');
     }
   }
 }
+
+final streamOverlayBurnInActiveProvider = StateProvider<bool>((ref) => false);
 
 final streamOverlayBurnInServiceProvider = Provider<StreamOverlayBurnInService>(
   (ref) {
@@ -171,7 +178,7 @@ final streamOverlayBurnInServiceProvider = Provider<StreamOverlayBurnInService>(
   },
 );
 
-/// Encoder frame size for RTMP overlay PNG capture (landscape dimensions).
+/// Overlay PNG capture size — matches native encoder GL (portrait preview or landscape stream).
 Size encoderFrameSizeFor(StreamStudioConfig config) {
   final base = switch (config.resolution) {
     StreamResolutionPreset.p480 => const Size(854, 480),
@@ -180,13 +187,13 @@ Size encoderFrameSizeFor(StreamStudioConfig config) {
     StreamResolutionPreset.p1440 => const Size(2560, 1440),
     StreamResolutionPreset.p4k => const Size(3840, 2160),
   };
-  if (config.orientation == StreamOrientationMode.portrait) {
-    return Size(base.height, base.width);
+  if (config.orientation == StreamOrientationMode.landscape) {
+    return base;
   }
-  return base;
+  return Size(base.height, base.width);
 }
 
-/// Prefer native encoder dimensions when the RTMP session is active.
+/// Prefer native encoder GL dimensions when the RTMP session is active.
 Future<Size> encoderFrameSizeForLive(
   StreamStudioConfig config,
   dynamic cameraController,
@@ -194,10 +201,20 @@ Future<Size> encoderFrameSizeForLive(
   if (cameraController != null) {
     try {
       final stats = await cameraController.getStreamStatistics();
-      final w = stats.width;
-      final h = stats.height;
-      if (w != null && h != null && w > 0 && h > 0) {
-        return Size(w.toDouble(), h.toDouble());
+      final landscape =
+          config.orientation == StreamOrientationMode.landscape;
+      if (landscape) {
+        final sw = stats.streamOutputWidth;
+        final sh = stats.streamOutputHeight;
+        if (sw != null && sh != null && sw > 0 && sh > 0) {
+          return Size(sw.toDouble(), sh.toDouble());
+        }
+      } else {
+        final glW = stats.glOutputWidth;
+        final glH = stats.glOutputHeight;
+        if (glW != null && glH != null && glW > 0 && glH > 0) {
+          return Size(glW.toDouble(), glH.toDouble());
+        }
       }
     } catch (_) {}
   }

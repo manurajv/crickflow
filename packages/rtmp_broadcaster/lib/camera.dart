@@ -146,6 +146,10 @@ class StreamStatistics {
   final int? bitrate;
   final int? width;
   final int? height;
+  final int? glOutputWidth;
+  final int? glOutputHeight;
+  final int? streamOutputWidth;
+  final int? streamOutputHeight;
 
   StreamStatistics({
     required this.cacheSize,
@@ -157,6 +161,10 @@ class StreamStatistics {
     required this.width,
     required this.height,
     required this.isAudioMuted,
+    this.glOutputWidth,
+    this.glOutputHeight,
+    this.streamOutputWidth,
+    this.streamOutputHeight,
   });
 
   @override
@@ -623,6 +631,10 @@ class CameraController extends ValueNotifier<CameraValue> {
         sentVideoFrames: data["sentVideoFrames"],
         height: data["height"],
         width: data["width"],
+        glOutputWidth: data["glOutputWidth"],
+        glOutputHeight: data["glOutputHeight"],
+        streamOutputWidth: data["streamOutputWidth"],
+        streamOutputHeight: data["streamOutputHeight"],
         bitrate: data["bitrate"],
         isAudioMuted: data["isAudioMuted"],
         cacheSize: data["cacheSize"],

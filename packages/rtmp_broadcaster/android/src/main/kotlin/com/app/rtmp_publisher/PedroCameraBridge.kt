@@ -10,7 +10,6 @@ import android.util.Log
 import android.util.Size
 import android.view.Surface
 import com.pedro.encoder.input.video.Camera2ApiManager
-import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.rtplibrary.rtmp.RtmpCamera2
 import com.pedro.rtplibrary.view.GlInterface
 import kotlin.math.roundToInt
@@ -133,12 +132,12 @@ object PedroCameraBridge {
         rtmpCamera: RtmpCamera2,
         context: Context,
         previewSize: Size,
-        displayRotation: Int,
+        glConfig: BroadcastGlConfig.Config,
     ): Boolean {
         val glInterface = rtmpCamera.glInterface ?: return false
         val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
 
-        applyPedroPreviewGlSetup(glInterface, context, previewSize, displayRotation)
+        applyPedroGlSetup(glInterface, glConfig, rtmpCamera.isStreaming)
 
         val fps = getVideoEncoderFps(rtmpCamera) ?: 30
         val prepW = previewSize.width
@@ -166,22 +165,74 @@ object PedroCameraBridge {
         }
     }
 
-    /** Same GL setup Pedro performs inside [com.pedro.rtplibrary.base.Camera2Base.startPreview]. */
+    /**
+     * Applies locked broadcast GL output. Never switches to encoder dimensions while live —
+     * preview and stream share the same GL frame size in Pedro RtmpCamera2.
+     */
     fun applyPedroPreviewGlSetup(
         glInterface: GlInterface,
-        context: Context,
-        previewSize: Size,
-        displayRotation: Int,
+        glConfig: BroadcastGlConfig.Config,
     ) {
-        val isPortrait = CameraHelper.isPortrait(context)
-        if (isPortrait) {
-            glInterface.setEncoderSize(previewSize.height, previewSize.width)
-        } else {
-            glInterface.setEncoderSize(previewSize.width, previewSize.height)
+        BroadcastGlConfig.applyPreviewGlToInterface(glInterface, glConfig)
+    }
+
+    fun applyPedroGlSetup(
+        glInterface: GlInterface,
+        glConfig: BroadcastGlConfig.Config,
+        streaming: Boolean,
+    ) {
+        BroadcastGlConfig.applyGlToInterface(glInterface, glConfig, streaming)
+    }
+
+    /** Re-attach MediaCodec input surface after GL preview reconfiguration while live. */
+    fun relinkEncoderSurface(rtmpCamera: RtmpCamera2): Boolean {
+        if (!rtmpCamera.isStreaming) return false
+        val glInterface = rtmpCamera.glInterface ?: return false
+        val encoderSurface = getVideoEncoderInputSurface(rtmpCamera) ?: return false
+        if (!encoderSurface.isValid) {
+            Log.w(TAG, "relinkEncoderSurface skipped — invalid encoder surface")
+            return false
         }
-        glInterface.setRotation(
-            if (displayRotation == 0) 270 else displayRotation - 90,
-        )
+        return try {
+            glInterface.addMediaCodecSurface(encoderSurface)
+            Log.i(TAG, "Encoder surface re-linked to GL")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "relinkEncoderSurface", e)
+            false
+        }
+    }
+
+    /**
+     * Pedro prepareGlView() re-binds Camera2 at encoder dimensions (e.g. 720×1280) which stretches
+     * a 1280×720 sensor buffer. Restore capture at [bufferWidth]×[bufferHeight] after go-live.
+     */
+    fun rebindCameraAtPreviewBuffer(
+        rtmpCamera: RtmpCamera2,
+        bufferWidth: Int,
+        bufferHeight: Int,
+    ): Boolean {
+        if (bufferWidth <= 0 || bufferHeight <= 0) return false
+        val glInterface = rtmpCamera.glInterface ?: return false
+        val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
+        val surfaceTexture = glInterface.surfaceTexture ?: return false
+        val fps = getVideoEncoderFps(rtmpCamera) ?: 30
+        return try {
+            surfaceTexture.setDefaultBufferSize(bufferWidth, bufferHeight)
+            if (apiManager.isRunning) {
+                apiManager.closeCamera(true)
+            }
+            apiManager.prepareCamera(surfaceTexture, bufferWidth, bufferHeight, fps)
+            apiManager.openLastCamera()
+            Log.i(
+                TAG,
+                "Camera rebound at sensor buffer ${bufferWidth}x$bufferHeight (streaming=${rtmpCamera.isStreaming})",
+            )
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "rebindCameraAtPreviewBuffer", e)
+            false
+        }
     }
 
     private fun isGlThreadRunning(glInterface: GlInterface): Boolean {

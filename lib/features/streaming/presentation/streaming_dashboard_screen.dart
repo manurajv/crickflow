@@ -48,6 +48,7 @@ class _StreamingDashboardScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _applyStudioSystemUi();
     // Camera preview is portrait-native — never rotate the Activity in studio.
     unawaited(
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
@@ -393,12 +394,15 @@ class _StreamingDashboardScreenState
       }
     }
     if (config.streamingMode == StreamingMode.nativeCamera) {
+      final burnIn = ref.read(streamOverlayBurnInServiceProvider);
       final stream = ref.read(streamServiceProvider);
       stream.onRtmpConnected = () {
-        ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+        burnIn.schedulePush();
       };
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(streamOverlayBurnInServiceProvider).startLiveRefresh();
+        if (!mounted || !_isLive) return;
+        burnIn.startLiveRefresh();
+        burnIn.schedulePush();
       });
     }
   }
@@ -438,12 +442,30 @@ class _StreamingDashboardScreenState
     }
   }
 
+  void _applyStudioSystemUi() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+  }
+
+  void _restoreSystemUi() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopHeartbeat();
     if (!_isLive) {
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      _restoreSystemUi();
     }
     super.dispose();
   }
@@ -508,7 +530,9 @@ class _StreamingDashboardScreenState
         }
 
         return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          backgroundColor: Colors.black,
+          extendBody: true,
+          extendBodyBehindAppBar: true,
           body: Stack(
             fit: StackFit.expand,
             children: [
@@ -537,17 +561,13 @@ class _StreamingDashboardScreenState
                 )
               else
                 StreamStudioCompositor(
-                  key: _isLive
-                      ? const ValueKey('studio_live')
-                      : ValueKey('studio_$_previewSession'),
+                  key: ValueKey('stream_studio_$_previewSession'),
                   matchId: widget.matchId,
                   overlay: overlayAsync.valueOrNull,
                   cameraPreview: StreamCameraPreview(
-                    key: _isLive
-                        ? const ValueKey('cam_live')
-                        : ValueKey('cam_$_previewSession'),
+                    key: ValueKey('stream_camera_$_previewSession'),
                     matchId: widget.matchId,
-                    loading: _isLive ? false : _cameraLoading,
+                    loading: _cameraLoading,
                     error: _cameraError,
                     fill: true,
                   ),

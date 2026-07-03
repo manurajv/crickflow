@@ -16,11 +16,30 @@ import 'stream_camera_settings_sheet.dart';
 import 'studio_landscape_rotation.dart';
 
 const _kTopBarH = 48.0;
-const _kBottomDockH = 52.0;
+const _kQuickRowH = 40.0;
+const _kPreLiveRowH = 44.0;
+const _kBroadcastBtnH = 50.0;
+const _kBottomLiveH = 44.0;
 const _kEdge = 12.0;
-const _kLensChipH = 32.0;
+const _kLensChipH = 34.0;
 const _kIconSize = 18.0;
 const _kControlSize = 38.0;
+
+/// Dark base + tint for outdoor readability on bright camera preview.
+Color _outdoorFill(Color tint, {required bool selected, required bool enabled}) {
+  if (!enabled) {
+    return Colors.black.withValues(alpha: 0.45);
+  }
+  return Color.alphaBlend(
+    tint.withValues(alpha: selected ? 0.72 : 0.48),
+    Colors.black.withValues(alpha: 0.68),
+  );
+}
+
+Color _outdoorBorder(Color tint, {required bool selected, required bool enabled}) {
+  if (!enabled) return Colors.white.withValues(alpha: 0.22);
+  return tint.withValues(alpha: selected ? 0.95 : 0.65);
+}
 
 enum _BroadcastButtonState { setup, ready, connecting, live, reconnecting }
 
@@ -205,11 +224,19 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     final showLens = !widget.isObsMode &&
         backLenses.length > 1 &&
         (canSwitch || !widget.isLive);
-    final bottomReserve = pad.bottom + _kBottomDockH + _kEdge;
-    final lensReserve = showLens ? _kLensChipH + 14 : 0;
-    final broadcastReserve =
-        !widget.isLive && !widget.isObsMode ? 56.0 : 0;
+    final topInset = isLandscapeUi ? 0.0 : pad.top;
     final sideInset = isLandscapeUi ? pad.left + _kEdge : _kEdge;
+    final subBarTop = topInset + _kTopBarH + (isLandscapeUi ? 2 : 6);
+    final bottomSafe = pad.bottom + _kEdge;
+    final liveBarH = widget.isLive ? _kBottomLiveH + 8 : 0.0;
+    final readyBottom = bottomSafe + liveBarH;
+    final showPreLiveEssentials = !widget.isLive && !widget.isObsMode;
+    final preLiveRowBottom = readyBottom + _kBroadcastBtnH + 6;
+    final zoomBottom = widget.isLive
+        ? readyBottom
+        : showPreLiveEssentials
+            ? preLiveRowBottom + _kPreLiveRowH + 8
+            : readyBottom + _kBroadcastBtnH + 6;
 
     if (_chromeHidden) {
       return Positioned.fill(
@@ -257,7 +284,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           top: 0,
           left: 0,
           right: 0,
-          height: pad.top + _kTopBarH + 24,
+          height: topInset + _kTopBarH + _kQuickRowH + (isLandscapeUi ? 8 : 20),
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -277,7 +304,12 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           left: 0,
           right: 0,
           bottom: 0,
-          height: bottomReserve + lensReserve + broadcastReserve + 32,
+          height: bottomSafe +
+              liveBarH +
+              _kBroadcastBtnH +
+              (showLens ? _kLensChipH + 14 : 0) +
+              (showPreLiveEssentials ? _kPreLiveRowH + 12 : 0) +
+              24,
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -297,64 +329,164 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           top: 0,
           left: 0,
           right: 0,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(sideInset, 4, pad.right + _kEdge, 0),
-              child: _StudioTopBar(
-                cf: cf,
-                title: config.title.trim().isNotEmpty
-                    ? config.title.trim()
-                    : 'Stream Studio',
-                isLive: widget.isLive,
-                duration: widget.isLive ? _liveDuration() : null,
-                micOn: config.micEnabled,
-                connectionQuality: health?.connectionQuality,
-                isReconnecting: health?.isReconnecting ?? false,
-                orientation: config.orientation,
-                onBack: widget.isLive
-                    ? null
-                    : () => Navigator.maybePop(context),
-                onMic: () async {
-                  final next = !config.micEnabled;
-                  notifier.update((c) => c.copyWith(micEnabled: next));
-                  await service.setMicEnabled(next);
-                },
-                onFlip: canSwitch && !widget.isLive
-                    ? () {
-                        final frontIdx =
-                            lenses.indexWhere((l) => l.isFront);
-                        final backIdx =
-                            lenses.indexWhere((l) => !l.isFront);
-                        final isFront = lenses.isNotEmpty &&
-                            lenses[selectedIdx].isFront;
-                        if (isFront && backIdx >= 0) {
-                          widget.onLensSelected(backIdx);
-                        } else if (!isFront && frontIdx >= 0) {
-                          widget.onLensSelected(frontIdx);
-                        }
-                      }
-                    : null,
-                onOrientation: widget.isObsMode ? null : _toggleOrientation,
-                onSettings: () => showStreamStudioQuickSettingsSheet(
-                  context,
-                  matchId: widget.matchId,
-                  match: widget.match,
-                  canStart: widget.canStart,
-                  cameraReady: widget.cameraReady,
-                  onOpenBroadcastSetup: widget.onOpenBroadcastSetup,
+          child: isLandscapeUi
+              ? Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    sideInset,
+                    0,
+                    pad.right + _kEdge,
+                    0,
+                  ),
+                  child: _StudioTopBar(
+                    cf: cf,
+                    title: config.title.trim().isNotEmpty
+                        ? config.title.trim()
+                        : 'Stream Studio',
+                    isLive: widget.isLive,
+                    duration: widget.isLive ? _liveDuration() : null,
+                    micOn: config.micEnabled,
+                    connectionQuality: health?.connectionQuality,
+                    isReconnecting: health?.isReconnecting ?? false,
+                    orientation: config.orientation,
+                    onBack: widget.isLive
+                        ? null
+                        : () => Navigator.maybePop(context),
+                    onMic: () async {
+                      final next = !config.micEnabled;
+                      notifier.update((c) => c.copyWith(micEnabled: next));
+                      await service.setMicEnabled(next);
+                    },
+                    onFlip: canSwitch && !widget.isLive
+                        ? () {
+                            final frontIdx =
+                                lenses.indexWhere((l) => l.isFront);
+                            final backIdx =
+                                lenses.indexWhere((l) => !l.isFront);
+                            final isFront = lenses.isNotEmpty &&
+                                lenses[selectedIdx].isFront;
+                            if (isFront && backIdx >= 0) {
+                              widget.onLensSelected(backIdx);
+                            } else if (!isFront && frontIdx >= 0) {
+                              widget.onLensSelected(frontIdx);
+                            }
+                          }
+                        : null,
+                    onOrientation: widget.isObsMode || widget.isLive
+                        ? null
+                        : _toggleOrientation,
+                    onSettings: widget.isLive
+                        ? () => showStreamStudioQuickSettingsSheet(
+                              context,
+                              matchId: widget.matchId,
+                              match: widget.match,
+                              canStart: widget.canStart,
+                              cameraReady: widget.cameraReady,
+                              onOpenBroadcastSetup:
+                                  widget.onOpenBroadcastSetup,
+                            )
+                        : null,
+                    onToggleStats: widget.isLive
+                        ? () => setState(() => _statsVisible = !_statsVisible)
+                        : null,
+                    statsVisible: _statsVisible,
+                  ),
+                )
+              : SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      sideInset,
+                      4,
+                      pad.right + _kEdge,
+                      0,
+                    ),
+                    child: _StudioTopBar(
+                      cf: cf,
+                      title: config.title.trim().isNotEmpty
+                          ? config.title.trim()
+                          : 'Stream Studio',
+                      isLive: widget.isLive,
+                      duration: widget.isLive ? _liveDuration() : null,
+                      micOn: config.micEnabled,
+                      connectionQuality: health?.connectionQuality,
+                      isReconnecting: health?.isReconnecting ?? false,
+                      orientation: config.orientation,
+                      onBack: widget.isLive
+                          ? null
+                          : () => Navigator.maybePop(context),
+                      onMic: () async {
+                        final next = !config.micEnabled;
+                        notifier.update((c) => c.copyWith(micEnabled: next));
+                        await service.setMicEnabled(next);
+                      },
+                      onFlip: canSwitch && !widget.isLive
+                          ? () {
+                              final frontIdx =
+                                  lenses.indexWhere((l) => l.isFront);
+                              final backIdx =
+                                  lenses.indexWhere((l) => !l.isFront);
+                              final isFront = lenses.isNotEmpty &&
+                                  lenses[selectedIdx].isFront;
+                              if (isFront && backIdx >= 0) {
+                                widget.onLensSelected(backIdx);
+                              } else if (!isFront && frontIdx >= 0) {
+                                widget.onLensSelected(frontIdx);
+                              }
+                            }
+                          : null,
+                      onOrientation: widget.isObsMode || widget.isLive
+                          ? null
+                          : _toggleOrientation,
+                      onSettings: widget.isLive
+                          ? () => showStreamStudioQuickSettingsSheet(
+                                context,
+                                matchId: widget.matchId,
+                                match: widget.match,
+                                canStart: widget.canStart,
+                                cameraReady: widget.cameraReady,
+                                onOpenBroadcastSetup:
+                                    widget.onOpenBroadcastSetup,
+                              )
+                          : null,
+                      onToggleStats: widget.isLive
+                          ? () =>
+                              setState(() => _statsVisible = !_statsVisible)
+                          : null,
+                      statsVisible: _statsVisible,
+                    ),
+                  ),
                 ),
-                onToggleStats: widget.isLive
-                    ? () => setState(() => _statsVisible = !_statsVisible)
-                    : null,
-                statsVisible: _statsVisible,
-              ),
-            ),
+        ),
+        Positioned(
+          top: subBarTop,
+          left: sideInset,
+          child: _StudioQuickActions(
+            cf: cf,
+            onHideUi: () {
+              setState(() => _chromeHidden = true);
+              _autoHideTimer?.cancel();
+            },
+            onExposure: widget.isObsMode || !widget.cameraReady
+                ? null
+                : () => showStreamCameraSettingsSheet(
+                      context,
+                      matchId: widget.matchId,
+                      cameraReady: widget.cameraReady,
+                    ),
+          ),
+        ),
+        Positioned(
+          top: subBarTop,
+          right: pad.right + _kEdge,
+          child: _PlatformChip(
+            cf: cf,
+            platform: config.platform,
+            isObs: widget.isObsMode,
           ),
         ),
         if (_statsVisible && widget.isLive)
           Positioned(
-            top: pad.top + _kTopBarH + 4,
+            top: subBarTop + _kQuickRowH + 6,
             right: pad.right + _kEdge,
             child: _StatsCard(
               cf: cf,
@@ -367,11 +499,29 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
               onClose: () => setState(() => _statsVisible = false),
             ),
           ),
+        if (showPreLiveEssentials)
+          Positioned(
+            left: sideInset,
+            right: pad.right + _kEdge,
+            bottom: preLiveRowBottom,
+            child: _PreLiveEssentialsRow(
+              cf: cf,
+              onSetup: widget.onOpenBroadcastSetup,
+              onStreamSettings: () => showStreamStudioQuickSettingsSheet(
+                context,
+                matchId: widget.matchId,
+                match: widget.match,
+                canStart: widget.canStart,
+                cameraReady: widget.cameraReady,
+                onOpenBroadcastSetup: widget.onOpenBroadcastSetup,
+              ),
+            ),
+          ),
         if (showLens)
           Positioned(
             left: sideInset,
             right: pad.right + _kEdge,
-            bottom: bottomReserve + lensReserve + broadcastReserve,
+            bottom: zoomBottom,
             child: _LensStrip(
               cf: cf,
               lenses: backLenses,
@@ -385,7 +535,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           Positioned(
             left: sideInset,
             right: pad.right + _kEdge,
-            bottom: bottomReserve + lensReserve + 6,
+            bottom: readyBottom,
             child: _BroadcastStatusButton(
               cf: cf,
               state: _buttonState(service, health, configured),
@@ -395,40 +545,28 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
               onGoLive: widget.onGoLive,
             ),
           ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(sideInset, 0, pad.right + _kEdge, _kEdge),
-              child: _StudioBottomDock(
-                cf: cf,
-                platform: config.platform,
-                isObsMode: widget.isObsMode,
-                isLive: widget.isLive,
-                onHideUi: () {
-                  setState(() => _chromeHidden = true);
-                  _autoHideTimer?.cancel();
-                },
-                onSetup: widget.onOpenBroadcastSetup,
-                onCameraSettings: widget.isObsMode || !widget.cameraReady
-                    ? null
-                    : () => showStreamCameraSettingsSheet(
-                          context,
-                          matchId: widget.matchId,
-                          cameraReady: widget.cameraReady,
-                        ),
-                onMarkReplay: widget.onMarkReplay,
-                onEndLive: widget.onEndStream,
-                onGoLive: configured && widget.canStart && widget.cameraReady
-                    ? widget.onGoLive
-                    : null,
+        if (widget.isLive)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  sideInset,
+                  0,
+                  pad.right + _kEdge,
+                  _kEdge,
+                ),
+                child: _StudioLiveActionsBar(
+                  cf: cf,
+                  onMarkReplay: widget.onMarkReplay,
+                  onEndLive: widget.onEndStream,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
 
@@ -447,7 +585,7 @@ class _StudioTopBar extends StatelessWidget {
     required this.title,
     required this.isLive,
     required this.micOn,
-    required this.onSettings,
+    this.onSettings,
     this.duration,
     this.onBack,
     this.onMic,
@@ -473,7 +611,7 @@ class _StudioTopBar extends StatelessWidget {
   final VoidCallback? onMic;
   final VoidCallback? onFlip;
   final VoidCallback? onOrientation;
-  final VoidCallback onSettings;
+  final VoidCallback? onSettings;
   final VoidCallback? onToggleStats;
 
   @override
@@ -561,103 +699,238 @@ class _StudioTopBar extends StatelessWidget {
               selected: statsVisible,
               onTap: onToggleStats,
             ),
-          _RoundIcon(cf: cf, icon: Icons.tune_rounded, onTap: onSettings),
+          if (onSettings != null)
+            _RoundIcon(
+              cf: cf,
+              icon: Icons.tune_rounded,
+              onTap: onSettings,
+              tooltip: 'Stream settings',
+            ),
         ],
       ),
     );
   }
 }
 
-class _StudioBottomDock extends StatelessWidget {
-  const _StudioBottomDock({
+class _StudioQuickActions extends StatelessWidget {
+  const _StudioQuickActions({
     required this.cf,
-    required this.platform,
-    required this.isObsMode,
-    required this.isLive,
     required this.onHideUi,
-    required this.onSetup,
-    this.onCameraSettings,
-    this.onMarkReplay,
-    this.onEndLive,
-    this.onGoLive,
+    this.onExposure,
   });
 
   final CfColors cf;
-  final StreamPlatform platform;
-  final bool isObsMode;
-  final bool isLive;
   final VoidCallback onHideUi;
-  final VoidCallback onSetup;
-  final VoidCallback? onCameraSettings;
-  final VoidCallback? onMarkReplay;
-  final VoidCallback? onEndLive;
-  final VoidCallback? onGoLive;
+  final VoidCallback? onExposure;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: _kBottomDockH,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-          Expanded(
-            child: Row(
-              children: [
-                _DockBtn(
-                  cf: cf,
-                  icon: Icons.open_in_full_rounded,
-                  label: 'Hide',
-                  onTap: onHideUi,
-                ),
-                const SizedBox(width: 6),
-                _DockBtn(
-                  cf: cf,
-                  icon: Icons.settings_outlined,
-                  label: 'Setup',
-                  onTap: onSetup,
-                ),
-                if (onCameraSettings != null) ...[
-                  const SizedBox(width: 6),
-                  _DockBtn(
-                    cf: cf,
-                    icon: Icons.videocam_outlined,
-                    label: 'Camera',
-                    onTap: onCameraSettings,
+      height: _kQuickRowH,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _UtilityBtn(
+            cf: cf,
+            icon: Icons.open_in_full_rounded,
+            label: 'Hide',
+            onTap: onHideUi,
+          ),
+          if (onExposure != null) ...[
+            const SizedBox(width: 6),
+            _UtilityBtn(
+              cf: cf,
+              icon: Icons.exposure_outlined,
+              label: 'Exposure',
+              onTap: onExposure,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PreLiveEssentialsRow extends StatelessWidget {
+  const _PreLiveEssentialsRow({
+    required this.cf,
+    required this.onSetup,
+    required this.onStreamSettings,
+  });
+
+  final CfColors cf;
+  final VoidCallback onSetup;
+  final VoidCallback onStreamSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: _PrimaryActionBtn(
+            cf: cf,
+            icon: Icons.settings_outlined,
+            label: 'Setup',
+            onTap: onSetup,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _PrimaryActionBtn(
+            cf: cf,
+            icon: Icons.tune_rounded,
+            label: 'Stream settings',
+            onTap: onStreamSettings,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PrimaryActionBtn extends StatelessWidget {
+  const _PrimaryActionBtn({
+    required this.cf,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final CfColors cf;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = _outdoorFill(cf.accent, selected: true, enabled: true);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: _kPreLiveRowH,
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _outdoorBorder(cf.accent, selected: true, enabled: true),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    letterSpacing: 0.1,
                   ),
-                ],
-                const SizedBox(width: 8),
-                _PlatformChip(cf: cf, platform: platform, isObs: isObsMode),
-              ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UtilityBtn extends StatelessWidget {
+  const _UtilityBtn({
+    required this.cf,
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  final CfColors cf;
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StudioMiniCard(
+      cf: cf,
+      tintColor: Colors.white,
+      selected: false,
+      onTap: onTap,
+      height: _kQuickRowH,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: onTap == null ? cf.textDisabled : Colors.white,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: onTap == null ? cf.textDisabled : Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          if (isLive) ...[
-            _DockBtn(
-              cf: cf,
-              icon: Icons.flag_outlined,
-              label: 'Mark',
-              onTap: onMarkReplay,
-            ),
-            const SizedBox(width: 8),
-            _StudioActionButton(
-              cf: cf,
-              label: 'Stop',
-              icon: Icons.stop_rounded,
-              color: cf.error,
-              onTap: onEndLive,
-            ),
-          ] else if (onGoLive != null)
-            _StudioActionButton(
-              cf: cf,
-              label: 'Go Live',
-              icon: Icons.sensors_rounded,
-              color: cf.accent,
-              foreground: cf.onAccent,
-              onTap: onGoLive,
-            ),
         ],
-        ),
+      ),
+    );
+  }
+}
+
+class _StudioLiveActionsBar extends StatelessWidget {
+  const _StudioLiveActionsBar({
+    required this.cf,
+    this.onMarkReplay,
+    this.onEndLive,
+  });
+
+  final CfColors cf;
+  final VoidCallback? onMarkReplay;
+  final VoidCallback? onEndLive;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _kBottomLiveH,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _UtilityBtn(
+            cf: cf,
+            icon: Icons.flag_outlined,
+            label: 'Mark',
+            onTap: onMarkReplay,
+          ),
+          const SizedBox(width: 8),
+          _StudioActionButton(
+            cf: cf,
+            label: 'Stop',
+            icon: Icons.stop_rounded,
+            color: cf.error,
+            onTap: onEndLive,
+          ),
+        ],
       ),
     );
   }
@@ -682,50 +955,64 @@ class _BroadcastStatusButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, icon, color, onTap, enabled) = switch (state) {
+    final (label, icon, tint, fg, onTap, enabled, isPrimary) = switch (state) {
       _BroadcastButtonState.setup => (
           'Ready',
           Icons.radio_button_unchecked_rounded,
-          cf.textSecondary,
+          cf.accent,
+          Colors.white,
           onSetup,
+          true,
           true,
         ),
       _BroadcastButtonState.ready => (
           'Go Live',
           Icons.sensors_rounded,
           cf.accent,
+          Colors.white,
           onGoLive,
           canStart,
+          true,
         ),
       _BroadcastButtonState.connecting => (
           'Connecting…',
           Icons.sync_rounded,
           cf.info,
+          Colors.white,
           null,
+          false,
           false,
         ),
       _BroadcastButtonState.live => (
           'Live',
           Icons.fiber_manual_record_rounded,
           cf.statusLive,
+          Colors.white,
           null,
+          false,
           false,
         ),
       _BroadcastButtonState.reconnecting => (
           'Reconnecting…',
           Icons.sync_problem_rounded,
           cf.error,
+          Colors.white,
           null,
+          false,
           false,
         ),
     };
+
+    final fill = isPrimary
+        ? _outdoorFill(tint, selected: true, enabled: enabled)
+        : _outdoorFill(tint, selected: false, enabled: enabled);
 
     final child = AnimatedBuilder(
       animation: connectPulse,
       builder: (context, _) {
         final pulse = state == _BroadcastButtonState.connecting ||
                 state == _BroadcastButtonState.reconnecting
-            ? 0.92 + connectPulse.value * 0.08
+            ? 0.96 + connectPulse.value * 0.04
             : 1.0;
         return Transform.scale(
           scale: pulse,
@@ -733,30 +1020,39 @@ class _BroadcastStatusButton extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: enabled ? onTap : null,
-              borderRadius: BorderRadius.circular(26),
+              borderRadius: BorderRadius.circular(14),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                width: double.infinity,
+                height: _kBroadcastBtnH,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(26),
+                  color: fill,
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: color.withValues(alpha: enabled ? 0.92 : 0.35),
-                    width: 1.5,
+                    color: _outdoorBorder(tint, selected: isPrimary, enabled: enabled),
+                    width: isPrimary ? 2 : 1.5,
                   ),
+                  boxShadow: isPrimary
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, color: color, size: 20),
-                    const SizedBox(width: 8),
+                    Icon(icon, color: enabled ? fg : fg.withValues(alpha: 0.5), size: 22),
+                    const SizedBox(width: 10),
                     Text(
                       label,
                       style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        letterSpacing: 0.2,
+                        color: enabled ? fg : fg.withValues(alpha: 0.5),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ],
@@ -768,7 +1064,7 @@ class _BroadcastStatusButton extends StatelessWidget {
       },
     );
 
-    return Center(child: child);
+    return child;
   }
 }
 
@@ -903,9 +1199,11 @@ class _ZoomChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tint = selected ? cf.accent : Colors.white;
     return _StudioMiniCard(
       cf: cf,
       selected: selected,
+      tintColor: enabled ? tint : cf.textDisabled,
       onTap: enabled ? onTap : null,
       minWidth: 44,
       height: _kLensChipH,
@@ -914,12 +1212,12 @@ class _ZoomChip extends StatelessWidget {
           label,
           style: TextStyle(
             color: !enabled
-                ? cf.textDisabled
+                ? Colors.white.withValues(alpha: 0.4)
                 : selected
                     ? cf.accent
-                    : cf.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
+                    : Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
           ),
         ),
       ),
@@ -932,6 +1230,7 @@ class _StudioMiniCard extends StatelessWidget {
     required this.cf,
     required this.child,
     this.selected = false,
+    this.tintColor,
     this.onTap,
     this.minWidth,
     this.height,
@@ -940,12 +1239,18 @@ class _StudioMiniCard extends StatelessWidget {
   final CfColors cf;
   final Widget child;
   final bool selected;
+  final Color? tintColor;
   final VoidCallback? onTap;
   final double? minWidth;
   final double? height;
 
   @override
   Widget build(BuildContext context) {
+    final tint = tintColor ?? (selected ? cf.accent : Colors.white);
+    final enabled = onTap != null;
+    final fill = _outdoorFill(tint, selected: selected, enabled: enabled);
+    final border = _outdoorBorder(tint, selected: selected, enabled: enabled);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -958,15 +1263,16 @@ class _StudioMiniCard extends StatelessWidget {
               ? const EdgeInsets.symmetric(horizontal: 10, vertical: 7)
               : const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: selected
-                ? cf.accent.withValues(alpha: 0.16)
-                : Colors.black.withValues(alpha: cf.isLight ? 0.06 : 0.42),
+            color: fill,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected
-                  ? cf.accent.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: cf.isLight ? 0.14 : 0.1),
-            ),
+            border: Border.all(color: border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.28),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: child,
         ),
@@ -982,41 +1288,46 @@ class _StudioActionButton extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
-    this.foreground,
   });
 
   final CfColors cf;
   final String label;
   final IconData icon;
   final Color color;
-  final Color? foreground;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final fg = foreground ?? cf.onPrimary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: color,
+            color: color.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: fg),
+              Icon(icon, size: 16, color: Colors.white),
               const SizedBox(width: 6),
               Text(
                 label,
-                style: TextStyle(
-                  color: fg,
+                style: const TextStyle(
+                  color: Colors.white,
                   fontWeight: FontWeight.w700,
-                  fontSize: 12,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -1090,9 +1401,11 @@ class _RoundIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final btn = Material(
-      color: selected
-          ? cf.accent.withValues(alpha: 0.22)
-          : Colors.white.withValues(alpha: cf.isLight ? 0.08 : 0.06),
+      color: _outdoorFill(
+        selected ? cf.accent : Colors.white,
+        selected: selected,
+        enabled: onTap != null,
+      ),
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
@@ -1104,60 +1417,16 @@ class _RoundIcon extends StatelessWidget {
             icon,
             size: _kIconSize,
             color: onTap == null
-                ? cf.textDisabled
+                ? Colors.white.withValues(alpha: 0.35)
                 : selected
                     ? cf.accent
-                    : cf.textPrimary,
+                    : Colors.white,
           ),
         ),
       ),
     );
     if (tooltip == null) return btn;
     return Tooltip(message: tooltip!, child: btn);
-  }
-}
-
-class _DockBtn extends StatelessWidget {
-  const _DockBtn({
-    required this.cf,
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
-
-  final CfColors cf;
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return _StudioMiniCard(
-      cf: cf,
-      onTap: onTap,
-      height: 40,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: onTap == null ? cf.textDisabled : cf.textPrimary,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: onTap == null ? cf.textDisabled : cf.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.1,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1175,20 +1444,20 @@ class _PlatformChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = isObs ? 'OBS' : platform.label;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: cf.accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cf.accent.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: cf.accent,
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
+    return _StudioMiniCard(
+      cf: cf,
+      tintColor: cf.accent,
+      selected: true,
+      height: _kQuickRowH,
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.3,
+          ),
         ),
       ),
     );

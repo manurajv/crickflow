@@ -55,12 +55,12 @@ class CameraNativeView(
     }
 
     private var previewGlLocked = false
-    private var lockedPreviewSize: android.util.Size? = null
-    private var lockedDisplayRotation = 90
+    private var lockedGlConfig: BroadcastGlConfig.Config? = null
+    private var lastAppliedStreamRotation = 0
 
     init {
-        // Portrait-locked preview — GL rotation is frozen after first start.
-        glView.isKeepAspectRatio = true
+        // Fill the view — letterboxing (isKeepAspectRatio) leaves bars outdoors.
+        glView.isKeepAspectRatio = false
         glView.surfaceLifecycleListener = object : PreviewSurfaceLifecycle.Listener {
             override fun onPreviewSurfaceDestroyed(generation: Long) {
                 onPreviewSurfaceLost(generation)
@@ -73,7 +73,10 @@ class CameraNativeView(
         glView.previewSizeChangedListener = { _, _ -> reapplyLockedPreviewGl() }
         // View resize is handled by Pedro OpenGlView.surfaceChanged — do not restart Camera2.
         rtmpCamera = RtmpCamera2(glView, this)
-        overlayBurnIn = StreamOverlayBurnIn(rtmpCamera)
+        overlayBurnIn = StreamOverlayBurnIn(rtmpCamera).also {
+            it.onOverlayApplied = { applyStreamRotationIfLive() }
+            it.streamRotationDegrees = { streamRotationFor(lockedOrientationMode) }
+        }
         rtmpCamera.setReTries(10)
         rtmpCamera.setFpsListener { fps = it }
     }
@@ -114,40 +117,83 @@ class CameraNativeView(
     private fun lockPreviewGlAtFirstStart() {
         if (previewGlLocked) return
         val act = activity ?: return
-        lockedPreviewSize = PreviewPipeline.selectedPreviewSize(
-            act, cameraName, preset, lockedOrientationMode, glView,
+        lockedGlConfig = BroadcastGlConfig.compute(
+            act,
+            cameraName,
+            preset,
+            lockedOrientationMode,
         )
-        lockedDisplayRotation =
-            com.pedro.encoder.input.video.CameraHelper.getCameraOrientation(act)
         previewGlLocked = true
         reapplyLockedPreviewGl()
-        Log.i(
-            "CameraNativeView",
-            "Preview GL locked rot=$lockedDisplayRotation " +
-                "size=${lockedPreviewSize?.width}x${lockedPreviewSize?.height}",
-        )
+        val cfg = lockedGlConfig
+        cfg?.let {
+            overlayBurnIn.setOverlayScale(it.previewGlWidth, it.previewGlHeight)
+            StreamPipelineLog.previewLocked(it, lockedOrientationMode)
+        }
     }
 
-    /** Re-apply frozen GL setup when the surface resizes — preview content stays identical. */
-    private fun reapplyLockedPreviewGl() {
+    private fun currentGlConfig(): BroadcastGlConfig.Config? {
+        lockedGlConfig?.let { return it }
+        val act = activity ?: return null
+        return BroadcastGlConfig.compute(act, cameraName, preset, lockedOrientationMode)
+    }
+
+    /** Re-apply frozen GL setup — identical before and after go-live. */
+    private fun applyLockedGlToInterface() {
         if (!previewGlLocked || !rtmpCamera.isOnPreview) return
-        val act = activity ?: return
-        val size = lockedPreviewSize ?: return
+        val glConfig = lockedGlConfig ?: return
+        val glInterface = rtmpCamera.glInterface ?: return
         try {
-            PedroCameraBridge.applyPedroPreviewGlSetup(
-                rtmpCamera.glInterface,
-                act,
-                size,
-                lockedDisplayRotation,
+            PedroCameraBridge.applyPedroGlSetup(
+                glInterface,
+                glConfig,
+                streaming = rtmpCamera.isStreaming,
             )
         } catch (e: Exception) {
-            Log.w("CameraNativeView", "reapplyLockedPreviewGl", e)
+            Log.w("CameraNativeView", "applyLockedGlToInterface", e)
+        }
+    }
+
+    private fun reapplyLockedPreviewGl() {
+        applyLockedGlToInterface()
+        if (rtmpCamera.isStreaming) {
+            linkEncoderPipeline()
+        }
+    }
+
+    /** Restores GL, sensor-buffer camera, encoder surface, and overlay after go-live. */
+    private fun linkEncoderPipeline() {
+        if (!rtmpCamera.isStreaming) return
+        val glConfig = lockedGlConfig ?: return
+        try {
+            applyLockedGlToInterface()
+            PedroCameraBridge.rebindCameraAtPreviewBuffer(
+                rtmpCamera,
+                glConfig.cameraBuffer.width,
+                glConfig.cameraBuffer.height,
+            )
+            PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
+            val (scaleW, scaleH) = BroadcastGlConfig.overlayScaleFor(glConfig, streaming = true)
+            overlayBurnIn.setOverlayScale(scaleW, scaleH)
+            applyStreamRotationIfLive()
+            overlayBurnIn.onEncoderPipelineReady()
+            StreamPipelineLog.pipelineLinked(rtmpCamera, glConfig, lockedOrientationMode)
+            Log.i(
+                "CameraNativeView",
+                "Encoder pipeline linked enc=${rtmpCamera.streamWidth}x${rtmpCamera.streamHeight} " +
+                    "camera=${glConfig.cameraBuffer.width}x${glConfig.cameraBuffer.height} " +
+                    "previewGl=${glConfig.previewGlWidth}x${glConfig.previewGlHeight} " +
+                    "stream=${glConfig.encoderWidth}x${glConfig.encoderHeight} " +
+                    "encRot=${glConfig.videoEncoderRotation} bitrate=${rtmpCamera.bitrate}",
+            )
+        } catch (e: Exception) {
+            Log.e("CameraNativeView", "linkEncoderPipeline", e)
         }
     }
 
     private fun resetPreviewGlLock() {
         previewGlLocked = false
-        lockedPreviewSize = null
+        lockedGlConfig = null
     }
 
     private fun configurePreviewForOrientation() {
@@ -186,9 +232,10 @@ class CameraNativeView(
         val act = activity ?: return
         act.runOnUiThread {
             try {
-                rtmpCamera.glInterface.setStreamRotation(
-                    streamRotationFor(lockedOrientationMode),
-                )
+                val rot = streamRotationFor(lockedOrientationMode)
+                rtmpCamera.glInterface.setStreamRotation(rot)
+                lastAppliedStreamRotation = rot
+                StreamPipelineLog.streamRotationApplied(rot, lockedOrientationMode)
             } catch (e: Exception) {
                 Log.e("CameraNativeView", "applyStreamRotationIfLive", e)
             }
@@ -202,8 +249,24 @@ class CameraNativeView(
     ) {
         runOnMain(result) {
             try {
-                // UI broadcast mode — stored for RTMP encoder rotation when live only.
                 lockedOrientationMode = mode
+                val act = activity
+                if (act != null && !rtmpCamera.isStreaming) {
+                    val updated = BroadcastGlConfig.compute(
+                        act,
+                        cameraName,
+                        preset,
+                        mode,
+                    )
+                    if (previewGlLocked) {
+                        lockedGlConfig = updated
+                        reapplyLockedPreviewGl()
+                        Log.i(
+                            "CameraNativeView",
+                            "Orientation mode updated pre-live → gl=${updated.encoderWidth}x${updated.encoderHeight}",
+                        )
+                    }
+                }
                 applyStreamRotationIfLive()
                 result.success(null)
             } catch (e: Exception) {
@@ -262,26 +325,33 @@ class CameraNativeView(
         val mustRebuildPipeline = surfaceNeedsRebuild ||
             (streaming && !sessionReady) ||
             (streaming && !rtmpCamera.isOnPreview)
+        val glConfig = currentGlConfig()
 
         previewOperationInFlight = true
         try {
             if (mustRebuildPipeline) {
+                if (glConfig == null) {
+                    Log.w("CameraNativeView", "Preview pipeline rebuild skipped — no GL config")
+                    return
+                }
                 val ok = PreviewSurfaceLifecycle.reattachPreviewPipeline(
                     rtmpCamera,
                     glView,
                     previewSize.width,
                     previewSize.height,
                     streaming = streaming,
-                    context = activity,
-                    broadcastMode = lockedOrientationMode,
-                    displayRotationOverride = if (previewGlLocked) lockedDisplayRotation else null,
+                    glConfig = glConfig,
                 )
                 if (ok) {
                     surfaceNeedsRebuild = false
                     invokeSwitchCameraByIdIfNeeded(cameraName)
                     lockPreviewGlAtFirstStart()
                     reapplyLockedPreviewGl()
-                    applyStreamRotationIfLive()
+                    if (streaming) {
+                        linkEncoderPipeline()
+                    } else {
+                        applyStreamRotationIfLive()
+                    }
                     runWhenSessionReady { applyPendingControls() }
                     Log.i(
                         "CameraNativeView",
@@ -320,7 +390,18 @@ class CameraNativeView(
             }
 
             val facing = previewFacing()
-            rtmpCamera.startPreview(facing, previewSize.width, previewSize.height)
+            val glConfig = currentGlConfig()
+            if (glConfig != null) {
+                rtmpCamera.startPreview(
+                    facing,
+                    previewSize.width,
+                    previewSize.height,
+                    glConfig.previewStartRotation,
+                )
+                PedroCameraBridge.applyPedroPreviewGlSetup(rtmpCamera.glInterface!!, glConfig)
+            } else {
+                rtmpCamera.startPreview(facing, previewSize.width, previewSize.height)
+            }
             invokeSwitchCameraByIdIfNeeded(cameraName)
             runWhenSessionReady { applyPendingControls() }
             Log.i("CameraNativeView", "Preview restarted")
@@ -335,7 +416,7 @@ class CameraNativeView(
         if (!isSurfaceCreated || !PreviewSurfaceLifecycle.isHolderSurfaceValid(glView)) return
         if (previewOperationInFlight) return
 
-        if (surfaceNeedsRebuild || rtmpCamera.isStreaming) {
+        if (surfaceNeedsRebuild) {
             schedulePreviewReattach()
             return
         }
@@ -423,6 +504,9 @@ class CameraNativeView(
         activity = act
         isSurfaceCreated = PreviewSurfaceLifecycle.isHolderSurfaceValid(glView)
         Log.i("CameraNativeView", "Platform view reattached — recovering preview")
+        if (!rtmpCamera.isStreaming) {
+            overlayBurnIn.release()
+        }
         if (isSurfaceCreated) {
             schedulePreviewReattach()
         }
@@ -446,6 +530,7 @@ class CameraNativeView(
     override fun onConnectionSuccessRtmp() {
         Log.i("CameraNativeView", "RTMP connected")
         activity?.runOnUiThread {
+            linkEncoderPipeline()
             dartMessenger?.send(DartMessenger.EventType.RTMP_CONNECTED, null)
         }
     }
@@ -544,20 +629,60 @@ class CameraNativeView(
 
         try {
             if (!rtmpCamera.isStreaming) {
-                val streamingSize =
-                    CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset)
-                // MediaCodec is released on stopStream() — always re-prepare before go-live.
+                val act = activity
+                if (act == null) {
+                    result.error("videoStreamingFailed", "Activity unavailable", null)
+                    return
+                }
+                if (!previewGlLocked) {
+                    lockPreviewGlAtFirstStart()
+                }
+                val glConfig = lockedGlConfig ?: BroadcastGlConfig.compute(
+                    act,
+                    cameraName,
+                    preset,
+                    lockedOrientationMode,
+                )
+                // GL output must already match prepareVideo dimensions (Pedro constraint).
+                reapplyLockedPreviewGl()
+                val profile = CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(
+                    cameraName,
+                    preset,
+                )
+                val videoBitrate = bitrate ?: profile.videoBitRate
+                val landscape = PreviewSizeSelector.isLandscapeBroadcast(lockedOrientationMode)
+                // Landscape: 16:9 encoder fills YouTube width; portrait: same preview GL as app.
+                val encW = if (landscape) glConfig.encoderWidth else glConfig.previewGlWidth
+                val encH = if (landscape) glConfig.encoderHeight else glConfig.previewGlHeight
+                val streamRot = streamRotationFor(lockedOrientationMode)
+                StreamPipelineLog.goLive(
+                    mode = lockedOrientationMode,
+                    encW = encW,
+                    encH = encH,
+                    encRot = glConfig.videoEncoderRotation,
+                    streamRot = streamRot,
+                    previewGlW = glConfig.previewGlWidth,
+                    previewGlH = glConfig.previewGlHeight,
+                    glRot = glConfig.glRotation,
+                )
+                val encRot = glConfig.videoEncoderRotation
                 val prepared = if (rtmpCamera.isRecording) {
                     rtmpCamera.prepareVideo(
-                        streamingSize.videoFrameWidth,
-                        streamingSize.videoFrameHeight,
-                        bitrate ?: streamingSize.videoBitRate,
+                        encW,
+                        encH,
+                        30,
+                        videoBitrate,
+                        2,
+                        encRot,
                     )
                 } else {
                     rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
-                        streamingSize.videoFrameWidth,
-                        streamingSize.videoFrameHeight,
-                        bitrate ?: streamingSize.videoBitRate,
+                        encW,
+                        encH,
+                        30,
+                        videoBitrate,
+                        2,
+                        encRot,
                     )
                 }
                 if (!prepared) {
@@ -575,6 +700,7 @@ class CameraNativeView(
                 }
                 rtmpCamera.startStream(url)
                 applyStreamRotationIfLive()
+                linkEncoderPipeline()
             } else {
                 rtmpCamera.stopStream()
                 encoderPrepared = false
@@ -938,6 +1064,7 @@ class CameraNativeView(
     }
 
     fun getStreamStatistics(result: MethodChannel.Result) {
+        val cfg = lockedGlConfig
         val ret = hashMapOf<String, Any>()
         ret["cacheSize"] = rtmpCamera.cacheSize
         ret["sentAudioFrames"] = rtmpCamera.sentAudioFrames
@@ -949,6 +1076,27 @@ class CameraNativeView(
         ret["width"] = rtmpCamera.streamWidth
         ret["height"] = rtmpCamera.streamHeight
         ret["fps"] = fps
+        ret["broadcastMode"] = lockedOrientationMode
+        ret["previewGlLocked"] = previewGlLocked
+        ret["isStreaming"] = rtmpCamera.isStreaming
+        if (cfg != null) {
+            ret["glOutputWidth"] = cfg.previewGlWidth
+            ret["glOutputHeight"] = cfg.previewGlHeight
+            ret["streamOutputWidth"] = cfg.encoderWidth
+            ret["streamOutputHeight"] = cfg.encoderHeight
+            ret["glRotation"] = cfg.glRotation
+            ret["videoEncoderRotation"] = cfg.videoEncoderRotation
+            ret["previewStartRotation"] = cfg.previewStartRotation
+            ret["cameraBufferWidth"] = cfg.cameraBuffer.width
+            ret["cameraBufferHeight"] = cfg.cameraBuffer.height
+            ret["displayRotation"] = cfg.displayRotation
+            ret["streamRotationApplied"] = lastAppliedStreamRotation
+        }
+        val viewFrame = glView.holder?.surfaceFrame
+        if (viewFrame != null) {
+            ret["previewSurfaceWidth"] = viewFrame.width()
+            ret["previewSurfaceHeight"] = viewFrame.height()
+        }
         result.success(ret)
     }
 

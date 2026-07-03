@@ -273,6 +273,7 @@ class StreamService extends ChangeNotifier {
       enableAudio: _micEnabled,
     );
     await _controller!.initialize();
+    await _syncNativeOrientationMode();
     _attachCameraListener();
   }
 
