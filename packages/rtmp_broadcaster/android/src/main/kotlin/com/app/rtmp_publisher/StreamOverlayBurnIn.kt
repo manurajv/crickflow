@@ -1,6 +1,8 @@
 package com.app.rtmp_publisher
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -120,31 +122,36 @@ class StreamOverlayBurnIn(
                 )
             }
 
-            filterRender.setImage(bitmap)
-            filterRender.setDefaultScale(streamW, streamH)
-            filterRender.setScale(100f, 100f)
-            filterRender.setPosition(TranslateTo.CENTER)
-            filterRender.setAlpha(1f)
+            val streamRot = streamRotationDegrees?.invoke() ?: 0
+            // Re-apply stream rotation on the camera pipeline before overlay geometry.
+            onOverlayApplied?.invoke()
 
+            val overlayBitmap = compensateBitmapForStreamRotation(bitmap, streamRot)
+            filterRender.setImage(overlayBitmap)
+            applyOverlayGeometry(filterRender, overlayBitmap.width, overlayBitmap.height)
+
+            if (overlayBitmap !== bitmap) {
+                bitmap.recycle()
+            }
             lastBitmap?.recycle()
-            lastBitmap = bitmap
+            lastBitmap = overlayBitmap
 
             PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
             StreamPipelineLog.overlayBurnIn(
-                pngW = bitmap.width,
-                pngH = bitmap.height,
+                pngW = overlayBitmap.width,
+                pngH = overlayBitmap.height,
                 scaleW = streamW,
                 scaleH = streamH,
-                streamRot = streamRotationDegrees?.invoke() ?: 0,
+                streamRot = streamRot,
             )
-            onOverlayApplied?.invoke()
 
             updateCount++
             if (updateCount <= 3 || updateCount % 25 == 0) {
                 Log.d(
                     TAG,
-                    "Frame composited #$updateCount — png=${bitmap.width}x${bitmap.height} " +
-                        "stream=${streamW}x$streamH bytes=${pngBytes.size}",
+                    "Frame composited #$updateCount — png=${overlayBitmap.width}x${overlayBitmap.height} " +
+                        "stream=${streamW}x$streamH bytes=${pngBytes.size} " +
+                        "streamRot=$streamRot",
                 )
             }
         } catch (e: Exception) {
@@ -153,12 +160,58 @@ class StreamOverlayBurnIn(
         }
     }
 
+    /**
+     * Flutter PNG is already in final encoder coordinates (e.g. 1280×720 landscape).
+     * Pedro 1.9.6 has no sprite rotation — pre-rotate the bitmap and map scale into
+     * preview-GL space so [GlInterface.setStreamRotation] yields a bottom scorebug.
+     */
+    private fun applyOverlayGeometry(
+        filterRender: ImageObjectFilterRender,
+        bitmapWidth: Int,
+        bitmapHeight: Int,
+    ) {
+        val streamRot = streamRotationDegrees?.invoke() ?: 0
+        val scaleW: Int
+        val scaleH: Int
+        if (streamRot != 0) {
+            scaleW = resolveScaleHeight()
+            scaleH = resolveScaleWidth()
+        } else {
+            scaleW = resolveScaleWidth()
+            scaleH = resolveScaleHeight()
+        }
+        filterRender.setDefaultScale(scaleW, scaleH)
+        filterRender.setScale(100f, 100f)
+        filterRender.setPosition(TranslateTo.CENTER)
+        filterRender.setAlpha(1f)
+        if (updateCount <= 3) {
+            Log.d(
+                TAG,
+                "Overlay geometry scale=${scaleW}x$scaleH bitmap=${bitmapWidth}x$bitmapHeight " +
+                    "streamRot=$streamRot",
+            )
+        }
+    }
+
+    private fun compensateBitmapForStreamRotation(source: Bitmap, streamRot: Int): Bitmap {
+        if (streamRot == 0) return source
+        val matrix = Matrix()
+        matrix.postRotate((360 - streamRot).toFloat())
+        return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+    }
+
     private fun reattachExistingFilter() {
         val existing = filter ?: return
         val glInterface = rtmpCamera.glInterface ?: return
         try {
             glInterface.setFilter(existing)
-            existing.setAlpha(1f)
+            onOverlayApplied?.invoke()
+            val bitmap = lastBitmap
+            if (bitmap != null) {
+                applyOverlayGeometry(existing, bitmap.width, bitmap.height)
+            } else {
+                applyOverlayGeometry(existing, 0, 0)
+            }
             PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
             Log.i(TAG, "Overlay GL filter re-attached after pipeline restore")
         } catch (e: Exception) {

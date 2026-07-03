@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,8 +10,7 @@ import '../../data/services/stream_overlay_burn_in_service.dart';
 import '../../domain/stream_sponsor_rotation.dart';
 import '../../domain/streaming_enums.dart';
 import '../providers/streaming_studio_providers.dart';
-import 'overlay/broadcast_scoreboard_overlay.dart';
-import 'overlay/stream_event_overlay_widget.dart';
+import 'overlay/broadcast_overlay_host.dart';
 import 'overlay/stream_score_ticker.dart';
 import 'studio/studio_landscape_rotation.dart';
 
@@ -48,15 +45,15 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   String? _rotatingSponsorLogo;
   int? _lastOverlayVersion;
   Size _encoderSize = const Size(1280, 720);
+  bool _captureSizeLocked = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || _captureSizeLocked) return;
       final config = ref.read(streamStudioConfigProvider(widget.matchId));
       setState(() => _encoderSize = encoderFrameSizeFor(config));
-      unawaited(_refreshEncoderSize());
     });
   }
 
@@ -66,18 +63,17 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     super.dispose();
   }
 
-  Future<void> _refreshEncoderSize() async {
-    if (!mounted) return;
+  void _lockCaptureSizeForLive() {
     final config = ref.read(streamStudioConfigProvider(widget.matchId));
-    final service = ref.read(streamServiceProvider);
-    final size = await encoderFrameSizeForLive(
-      config,
-      service.cameraController,
-    );
-    if (mounted && size != _encoderSize) {
+    final size = encoderFrameSizeFor(config);
+    _captureSizeLocked = true;
+    if (size != _encoderSize && mounted) {
       setState(() => _encoderSize = size);
-      _scheduleBurnIn();
     }
+  }
+
+  void _unlockCaptureSize() {
+    _captureSizeLocked = false;
   }
 
   @override
@@ -124,6 +120,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     required StreamOverlayTheme overlayTheme,
     required String? sponsorLine,
     required StreamEventOverlay? eventOverlay,
+    required bool landscapeUi,
     bool forBurnInCapture = false,
   }) {
     return [
@@ -138,28 +135,23 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
           ),
         ),
       if (overlay != null)
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 24,
-          child: BroadcastScoreboardOverlay(
+        Positioned.fill(
+          child: BroadcastOverlayHost(
+            landscape: landscapeUi,
             overlay: _overlayWithSponsor(overlay, sponsorLine),
             theme: overlayTheme,
             sponsorLogoUrl: _rotatingSponsorLogo,
+            eventOverlay: eventOverlay,
+            forBurnInCapture: forBurnInCapture,
+            onEventFinished: forBurnInCapture
+                ? null
+                : () {
+                    ref
+                        .read(activeEventOverlayProvider(widget.matchId).notifier)
+                        .state = null;
+                    _scheduleBurnIn();
+                  },
           ),
-        ),
-      if (eventOverlay != null)
-        StreamEventOverlayWidget(
-          overlay: eventOverlay,
-          forBurnInCapture: forBurnInCapture,
-          onFinished: forBurnInCapture
-              ? null
-              : () {
-                  ref
-                      .read(activeEventOverlayProvider(widget.matchId).notifier)
-                      .state = null;
-                  _scheduleBurnIn();
-                },
         ),
     ];
   }
@@ -167,14 +159,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   Widget _buildCaptureTree({
     required List<Widget> burnInLayers,
     required GlobalKey repaintKey,
-    required bool landscapeUi,
   }) {
-    final overlayStack = Stack(
-      clipBehavior: Clip.hardEdge,
-      fit: StackFit.expand,
-      children: burnInLayers,
-    );
-
     return Positioned(
       left: -_encoderSize.width - 32,
       top: 0,
@@ -184,12 +169,11 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
           height: _encoderSize.height,
           child: RepaintBoundary(
             key: repaintKey,
-            child: landscapeUi
-                ? RotatedBox(
-                    quarterTurns: 1,
-                    child: overlayStack,
-                  )
-                : overlayStack,
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              fit: StackFit.expand,
+              children: burnInLayers,
+            ),
           ),
         ),
       ),
@@ -208,13 +192,22 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     });
     ref.listen(streamServiceProvider.select((s) => s.isStreaming), (prev, next) {
       if (next) {
-        unawaited(_refreshEncoderSize());
+        _lockCaptureSizeForLive();
+        _scheduleBurnIn();
+      } else {
+        _unlockCaptureSize();
       }
     });
     ref.listen(
       streamStudioConfigProvider(widget.matchId).select((c) => c.orientation),
       (prev, next) {
-        if (prev != next) unawaited(_refreshEncoderSize());
+        if (prev != next && !_captureSizeLocked && mounted) {
+          setState(
+            () => _encoderSize = encoderFrameSizeFor(
+              ref.read(streamStudioConfigProvider(widget.matchId)),
+            ),
+          );
+        }
       },
     );
     ref.listen(
@@ -275,6 +268,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       overlayTheme: overlayTheme,
       sponsorLine: sponsorLine,
       eventOverlay: eventOverlay,
+      landscapeUi: landscapeUi,
       forBurnInCapture: true,
     );
     final Widget previewLayers = hideFlutterOverlays
@@ -287,6 +281,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
               overlayTheme: overlayTheme,
               sponsorLine: sponsorLine,
               eventOverlay: eventOverlay,
+              landscapeUi: landscapeUi,
             ),
           );
 
@@ -304,7 +299,6 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
           _buildCaptureTree(
             burnInLayers: burnInLayers,
             repaintKey: burnIn.repaintKey,
-            landscapeUi: landscapeUi,
           ),
       ],
     );

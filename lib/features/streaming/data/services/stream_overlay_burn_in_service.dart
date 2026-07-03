@@ -11,7 +11,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../data/models/stream_studio_config.dart';
 import '../../domain/streaming_enums.dart';
 
-/// Captures at 1:1 encoder pixels — native GL filter scales if needed.
+/// 2× logical pixels for crisp scorebug text; native GL scales to encoder frame.
 const _kOverlayCapturePixelRatio = 1.0;
 
 /// Captures Flutter overlay widgets and pushes PNG frames to native RTMP burn-in.
@@ -178,7 +178,7 @@ final streamOverlayBurnInServiceProvider = Provider<StreamOverlayBurnInService>(
   },
 );
 
-/// Overlay PNG capture size — matches native encoder GL (portrait preview or landscape stream).
+/// Overlay PNG capture size from studio config — never from native stats (avoids live drift).
 Size encoderFrameSizeFor(StreamStudioConfig config) {
   final base = switch (config.resolution) {
     StreamResolutionPreset.p480 => const Size(854, 480),
@@ -193,30 +193,10 @@ Size encoderFrameSizeFor(StreamStudioConfig config) {
   return Size(base.height, base.width);
 }
 
-/// Prefer native encoder GL dimensions when the RTMP session is active.
+/// Same as [encoderFrameSizeFor] — capture size is locked from config for the live session.
 Future<Size> encoderFrameSizeForLive(
   StreamStudioConfig config,
   dynamic cameraController,
 ) async {
-  if (cameraController != null) {
-    try {
-      final stats = await cameraController.getStreamStatistics();
-      final landscape =
-          config.orientation == StreamOrientationMode.landscape;
-      if (landscape) {
-        final sw = stats.streamOutputWidth;
-        final sh = stats.streamOutputHeight;
-        if (sw != null && sh != null && sw > 0 && sh > 0) {
-          return Size(sw.toDouble(), sh.toDouble());
-        }
-      } else {
-        final glW = stats.glOutputWidth;
-        final glH = stats.glOutputHeight;
-        if (glW != null && glH != null && glW > 0 && glH > 0) {
-          return Size(glW.toDouble(), glH.toDouble());
-        }
-      }
-    } catch (_) {}
-  }
   return encoderFrameSizeFor(config);
 }
