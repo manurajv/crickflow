@@ -122,7 +122,6 @@ class StreamService extends ChangeNotifier {
 
       await _releaseCamera(waitForSurfaceTeardown: false);
       await _openSelectedLens();
-      await _syncNativeOrientationMode();
       _lastError = null;
       notifyListeners();
     });
@@ -474,6 +473,7 @@ class StreamService extends ChangeNotifier {
 
   /// Reattaches preview surface after rotation or Activity resume.
   Future<void> reconnectPreview({int retries = 6}) async {
+    if (_uiOrientationChanging) return;
     if (_controller == null || !isInitialized) return;
     if (!isStreaming && !_liveSessionActive) {
       await recoverPreview();
@@ -502,34 +502,42 @@ class StreamService extends ChangeNotifier {
     }
   }
 
-  /// Portrait ↔ landscape — keeps encoder alive while live.
+  /// True while the studio UI is rotating — skips native preview reconnect.
+  bool _uiOrientationChanging = false;
+
+  /// Portrait ↔ landscape — UI and overlays only; camera preview is unchanged.
   Future<void> toggleOrientation() async {
     _orientation = _orientation.toggled;
     _orientationLocked = true;
-    await _applyDeviceOrientation();
-    await _syncNativeOrientationMode();
-    notifyListeners();
-    await Future<void>.delayed(const Duration(milliseconds: 180));
-    await SchedulerBinding.instance.endOfFrame;
-    await reconnectPreview(retries: 5);
-    notifyListeners();
+    _uiOrientationChanging = true;
+    try {
+      await _applyDeviceOrientation();
+      notifyListeners();
+      await SchedulerBinding.instance.endOfFrame;
+    } finally {
+      _uiOrientationChanging = false;
+      notifyListeners();
+    }
   }
 
   Future<void> setOrientationMode(StreamOrientationMode mode) async {
     _orientation = parseStreamOrientation(mode.name);
     _orientationLocked = true;
-    await _applyDeviceOrientation();
-    await _syncNativeOrientationMode();
-    notifyListeners();
-    await Future<void>.delayed(const Duration(milliseconds: 120));
-    await reconnectPreview();
+    _uiOrientationChanging = true;
+    try {
+      await _applyDeviceOrientation();
+      notifyListeners();
+      await SchedulerBinding.instance.endOfFrame;
+    } finally {
+      _uiOrientationChanging = false;
+      notifyListeners();
+    }
   }
 
   Future<void> lockOrientation(StreamOrientationMode mode) async {
     _orientation = parseStreamOrientation(mode.name);
     _orientationLocked = true;
     await _applyDeviceOrientation();
-    await _syncNativeOrientationMode();
   }
 
   /// Returns UI to portrait after leaving stream studio / ending a broadcast.
@@ -540,6 +548,8 @@ class StreamService extends ChangeNotifier {
     await _syncNativeOrientationMode(fixedMode: StreamOrientationMode.portrait);
   }
 
+  /// Notifies native encoder of broadcast orientation (stream metadata only).
+  /// Does not reconfigure the camera preview.
   Future<void> _syncNativeOrientationMode({
     StreamOrientationMode? fixedMode,
   }) async {
@@ -553,15 +563,10 @@ class StreamService extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// Rotates app UI only — native camera preview is never modified.
+  /// Keeps the Activity in portrait so the native camera surface is never resized
+  /// or rotated. Landscape broadcast mode only changes Flutter UI + encoder metadata.
   Future<void> _applyDeviceOrientation() async {
-    final orientations = _orientation == StreamOrientationMode.portrait
-        ? [DeviceOrientation.portraitUp]
-        : [
-            DeviceOrientation.landscapeLeft,
-            DeviceOrientation.landscapeRight,
-          ];
-    await SystemChrome.setPreferredOrientations(orientations);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   Future<void> startStream({
@@ -589,6 +594,9 @@ class StreamService extends ChangeNotifier {
     _lastEndpoint = endpoint;
     _lastBitrate = (bitrate ?? 2500 * 1024);
     _localRecordingPath = localRecordingPath;
+
+    // Stream output orientation only — preview stays as initialized.
+    await _syncNativeOrientationMode();
 
     await _startStreamingInternal(
       endpoint: endpoint,

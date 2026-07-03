@@ -10,10 +10,12 @@ import '../../../../shared/providers/tournament_providers.dart';
 import '../../data/models/stream_overlay_theme.dart';
 import '../../data/services/stream_overlay_burn_in_service.dart';
 import '../../domain/stream_sponsor_rotation.dart';
+import '../../domain/streaming_enums.dart';
 import '../providers/streaming_studio_providers.dart';
 import 'overlay/broadcast_scoreboard_overlay.dart';
 import 'overlay/stream_event_overlay_widget.dart';
 import 'overlay/stream_score_ticker.dart';
+import 'studio/studio_landscape_rotation.dart';
 
 /// Composites camera preview + broadcast overlays for Stream Studio.
 ///
@@ -162,6 +164,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     required GlobalKey repaintKey,
     required double previewW,
     required double previewH,
+    required bool landscapeLayout,
   }) {
     // Must remain in the paint tree (Offstage/Visibility skip painting).
     return Positioned(
@@ -173,19 +176,25 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
           height: _encoderSize.height,
           child: RepaintBoundary(
             key: repaintKey,
-            child: FittedBox(
-              fit: BoxFit.fill,
-              alignment: Alignment.center,
-              child: SizedBox(
-                width: previewW,
-                height: previewH,
-                child: Stack(
-                  clipBehavior: Clip.hardEdge,
-                  fit: StackFit.expand,
-                  children: burnInLayers,
-                ),
-              ),
-            ),
+            child: landscapeLayout
+                ? Stack(
+                    clipBehavior: Clip.hardEdge,
+                    fit: StackFit.expand,
+                    children: burnInLayers,
+                  )
+                : FittedBox(
+                    fit: BoxFit.fill,
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: previewW,
+                      height: previewH,
+                      child: Stack(
+                        clipBehavior: Clip.hardEdge,
+                        fit: StackFit.expand,
+                        children: burnInLayers,
+                      ),
+                    ),
+                  ),
           ),
         ),
       ),
@@ -222,6 +231,10 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     final tournamentId = match?.tournamentId;
     final burnIn = ref.watch(streamOverlayBurnInServiceProvider);
     final isStreaming = ref.watch(streamServiceProvider.select((s) => s.isStreaming));
+    final landscapeUi = ref.watch(
+          streamStudioConfigProvider(widget.matchId).select((c) => c.orientation),
+        ) ==
+        StreamOrientationMode.landscape;
 
     if (tournamentId != null &&
         tournamentId.isNotEmpty &&
@@ -271,13 +284,19 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
           clipBehavior: Clip.none,
           children: [
             Positioned.fill(child: widget.cameraPreview),
-            Positioned.fill(child: previewLayers),
+            Positioned.fill(
+              child: StudioLandscapeRotation(
+                landscape: landscapeUi,
+                child: previewLayers,
+              ),
+            ),
             if (isStreaming && previewW > 0 && previewH > 0)
               _buildCaptureTree(
                 burnInLayers: burnInLayers,
                 repaintKey: burnIn.repaintKey,
                 previewW: previewW,
                 previewH: previewH,
+                landscapeLayout: landscapeUi,
               ),
           ],
         );

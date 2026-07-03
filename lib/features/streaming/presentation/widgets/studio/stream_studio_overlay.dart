@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,11 +13,14 @@ import '../../../domain/streaming_enums.dart';
 import '../../providers/streaming_studio_providers.dart';
 import 'stream_studio_quick_settings_sheet.dart';
 import 'stream_camera_settings_sheet.dart';
+import 'studio_landscape_rotation.dart';
 
-const _kTopBarH = 44.0;
+const _kTopBarH = 48.0;
 const _kBottomDockH = 52.0;
-const _kEdge = 8.0;
-const _kLensH = 36.0;
+const _kEdge = 12.0;
+const _kLensChipH = 32.0;
+const _kIconSize = 18.0;
+const _kControlSize = 38.0;
 
 enum _BroadcastButtonState { setup, ready, connecting, live, reconnecting }
 
@@ -183,6 +187,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     final health = ref.watch(streamHealthProvider).valueOrNull;
     final service = ref.watch(streamServiceProvider);
     final config = ref.watch(streamStudioConfigProvider(widget.matchId));
+    final isLandscapeUi = config.orientation == StreamOrientationMode.landscape;
     final notifier =
         ref.read(streamStudioConfigProvider(widget.matchId).notifier);
     final configured = config.isBroadcastConfigured;
@@ -201,48 +206,93 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
         backLenses.length > 1 &&
         (canSwitch || !widget.isLive);
     final bottomReserve = pad.bottom + _kBottomDockH + _kEdge;
-    final lensReserve = showLens ? _kLensH + 6 : 0;
+    final lensReserve = showLens ? _kLensChipH + 14 : 0;
     final broadcastReserve =
-        !widget.isLive && !widget.isObsMode ? 52.0 : 0;
+        !widget.isLive && !widget.isObsMode ? 56.0 : 0;
+    final sideInset = isLandscapeUi ? pad.left + _kEdge : _kEdge;
 
     if (_chromeHidden) {
       return Positioned.fill(
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: _showChrome,
-          child: Stack(
-            children: [
-              if (widget.isLive)
-                Positioned(
-                  top: pad.top + 6,
-                  left: pad.left + _kEdge,
-                  child: _LiveBadge(
-                    cf: cf,
-                    duration: _liveDuration(),
-                    pulse: _livePulse,
+        child: StudioLandscapeRotation(
+          landscape: isLandscapeUi,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _showChrome,
+            child: Stack(
+              children: [
+                if (widget.isLive)
+                  Positioned(
+                    top: pad.top + 6,
+                    left: pad.left + _kEdge,
+                    child: _LiveBadge(
+                      cf: cf,
+                      duration: _liveDuration(),
+                      pulse: _livePulse,
+                    ),
                   ),
-                ),
-              if (widget.isLive && _showNetworkWarning(health))
-                Positioned(
-                  left: pad.left + _kEdge,
-                  right: pad.right + _kEdge,
-                  bottom: pad.bottom + _kEdge,
-                  child: _NetworkWarning(
-                    cf: cf,
-                    text: health?.isReconnecting == true
-                        ? 'Reconnecting…'
-                        : 'Poor network',
+                if (widget.isLive && _showNetworkWarning(health))
+                  Positioned(
+                    left: pad.left + _kEdge,
+                    right: pad.right + _kEdge,
+                    bottom: pad.bottom + _kEdge,
+                    child: _NetworkWarning(
+                      cf: cf,
+                      text: health?.isReconnecting == true
+                          ? 'Reconnecting…'
+                          : 'Poor network',
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Stack(
+    final chrome = Stack(
       fit: StackFit.expand,
       children: [
+        // Subtle edge scrims — keeps controls readable without hiding preview.
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: pad.top + _kTopBarH + 24,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.55),
+                    Colors.black.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: bottomReserve + lensReserve + broadcastReserve + 32,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.62),
+                    Colors.black.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
         Positioned(
           top: 0,
           left: 0,
@@ -250,7 +300,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: _kEdge),
+              padding: EdgeInsets.fromLTRB(sideInset, 4, pad.right + _kEdge, 0),
               child: _StudioTopBar(
                 cf: cf,
                 title: config.title.trim().isNotEmpty
@@ -319,7 +369,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           ),
         if (showLens)
           Positioned(
-            left: pad.left + _kEdge,
+            left: sideInset,
             right: pad.right + _kEdge,
             bottom: bottomReserve + lensReserve + broadcastReserve,
             child: _LensStrip(
@@ -333,9 +383,9 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           ),
         if (!widget.isLive && !widget.isObsMode)
           Positioned(
-            left: pad.left + _kEdge,
+            left: sideInset,
             right: pad.right + _kEdge,
-            bottom: bottomReserve + lensReserve + 4,
+            bottom: bottomReserve + lensReserve + 6,
             child: _BroadcastStatusButton(
               cf: cf,
               state: _buttonState(service, health, configured),
@@ -352,7 +402,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(_kEdge, 0, _kEdge, _kEdge),
+              padding: EdgeInsets.fromLTRB(sideInset, 0, pad.right + _kEdge, _kEdge),
               child: _StudioBottomDock(
                 cf: cf,
                 platform: config.platform,
@@ -380,6 +430,13 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
           ),
         ),
       ],
+    );
+
+    return Positioned.fill(
+      child: StudioLandscapeRotation(
+        landscape: isLandscapeUi,
+        child: chrome,
+      ),
     );
   }
 }
@@ -442,13 +499,18 @@ class _StudioTopBar extends StatelessWidget {
                   style: TextStyle(
                     color: cf.textPrimary,
                     fontWeight: FontWeight.w700,
-                    fontSize: 13,
+                    fontSize: 14,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 if (isLive && duration != null)
                   Text(
                     duration!,
-                    style: TextStyle(color: cf.textSecondary, fontSize: 10),
+                    style: TextStyle(
+                      color: cf.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
               ],
             ),
@@ -533,22 +595,43 @@ class _StudioBottomDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassPanel(
-      cf: cf,
+    return SizedBox(
       height: _kBottomDockH,
-      child: Row(
-        children: [
-          _DockBtn(cf: cf, icon: Icons.open_in_full, label: 'Hide', onTap: onHideUi),
-          _DockBtn(cf: cf, icon: Icons.settings_outlined, label: 'Setup', onTap: onSetup),
-          if (onCameraSettings != null)
-            _DockBtn(
-              cf: cf,
-              icon: Icons.videocam_outlined,
-              label: 'Camera',
-              onTap: onCameraSettings,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+          Expanded(
+            child: Row(
+              children: [
+                _DockBtn(
+                  cf: cf,
+                  icon: Icons.open_in_full_rounded,
+                  label: 'Hide',
+                  onTap: onHideUi,
+                ),
+                const SizedBox(width: 6),
+                _DockBtn(
+                  cf: cf,
+                  icon: Icons.settings_outlined,
+                  label: 'Setup',
+                  onTap: onSetup,
+                ),
+                if (onCameraSettings != null) ...[
+                  const SizedBox(width: 6),
+                  _DockBtn(
+                    cf: cf,
+                    icon: Icons.videocam_outlined,
+                    label: 'Camera',
+                    onTap: onCameraSettings,
+                  ),
+                ],
+                const SizedBox(width: 8),
+                _PlatformChip(cf: cf, platform: platform, isObs: isObsMode),
+              ],
             ),
-          _PlatformChip(cf: cf, platform: platform, isObs: isObsMode),
-          const Spacer(),
+          ),
           if (isLive) ...[
             _DockBtn(
               cf: cf,
@@ -556,31 +639,25 @@ class _StudioBottomDock extends StatelessWidget {
               label: 'Mark',
               onTap: onMarkReplay,
             ),
-            const SizedBox(width: 6),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: cf.error,
-                foregroundColor: cf.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                visualDensity: VisualDensity.compact,
-              ),
-              onPressed: onEndLive,
-              icon: const Icon(Icons.stop_rounded, size: 18),
-              label: const Text('Stop', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 8),
+            _StudioActionButton(
+              cf: cf,
+              label: 'Stop',
+              icon: Icons.stop_rounded,
+              color: cf.error,
+              onTap: onEndLive,
             ),
           ] else if (onGoLive != null)
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: cf.accent,
-                foregroundColor: cf.onAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                visualDensity: VisualDensity.compact,
-              ),
-              onPressed: onGoLive,
-              icon: const Icon(Icons.sensors_rounded, size: 18),
-              label: const Text('Go Live', style: TextStyle(fontWeight: FontWeight.w700)),
+            _StudioActionButton(
+              cf: cf,
+              label: 'Go Live',
+              icon: Icons.sensors_rounded,
+              color: cf.accent,
+              foreground: cf.onAccent,
+              onTap: onGoLive,
             ),
         ],
+        ),
       ),
     );
   }
@@ -653,22 +730,17 @@ class _BroadcastStatusButton extends StatelessWidget {
         return Transform.scale(
           scale: pulse,
           child: Material(
-            elevation: enabled ? 6 : 2,
-            shadowColor: color.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(28),
-            color: enabled
-                ? color.withValues(alpha: 0.18)
-                : cf.surface.withValues(alpha: 0.88),
+            color: Colors.transparent,
             child: InkWell(
               onTap: enabled ? onTap : null,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(26),
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(26),
                   border: Border.all(
-                    color: color.withValues(alpha: enabled ? 0.9 : 0.45),
+                    color: color.withValues(alpha: enabled ? 0.92 : 0.35),
                     width: 1.5,
                   ),
                 ),
@@ -682,7 +754,7 @@ class _BroadcastStatusButton extends StatelessWidget {
                       label,
                       style: TextStyle(
                         color: color,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         fontSize: 14,
                         letterSpacing: 0.2,
                       ),
@@ -789,49 +861,164 @@ class _LensStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassPanel(
+    return Center(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final lens in lenses) ...[
+              _ZoomChip(
+                cf: cf,
+                label: formatLensZoom(lens.zoomFactor),
+                selected: allLenses.indexOf(lens) == selectedIndex,
+                enabled: canSwitch,
+                onTap: canSwitch
+                    ? () => onSelect(allLenses.indexOf(lens))
+                    : null,
+              ),
+              if (lens != lenses.last) const SizedBox(width: 6),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ZoomChip extends StatelessWidget {
+  const _ZoomChip({
+    required this.cf,
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    this.onTap,
+  });
+
+  final CfColors cf;
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StudioMiniCard(
       cf: cf,
-      height: _kLensH,
+      selected: selected,
+      onTap: enabled ? onTap : null,
+      minWidth: 44,
+      height: _kLensChipH,
       child: Center(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: !enabled
+                ? cf.textDisabled
+                : selected
+                    ? cf.accent
+                    : cf.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioMiniCard extends StatelessWidget {
+  const _StudioMiniCard({
+    required this.cf,
+    required this.child,
+    this.selected = false,
+    this.onTap,
+    this.minWidth,
+    this.height,
+  });
+
+  final CfColors cf;
+  final Widget child;
+  final bool selected;
+  final VoidCallback? onTap;
+  final double? minWidth;
+  final double? height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          constraints: BoxConstraints(minWidth: minWidth ?? 0, minHeight: height ?? 0),
+          height: height,
+          padding: height == null
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 7)
+              : const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? cf.accent.withValues(alpha: 0.16)
+                : Colors.black.withValues(alpha: cf.isLight ? 0.06 : 0.42),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? cf.accent.withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: cf.isLight ? 0.14 : 0.1),
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioActionButton extends StatelessWidget {
+  const _StudioActionButton({
+    required this.cf,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.foreground,
+  });
+
+  final CfColors cf;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color? foreground;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = foreground ?? cf.onPrimary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final lens in lenses)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Material(
-                    color: allLenses.indexOf(lens) == selectedIndex
-                        ? cf.accent.withValues(alpha: 0.22)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      onTap: canSwitch
-                          ? () => onSelect(allLenses.indexOf(lens))
-                          : null,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        child: Text(
-                          formatLensZoom(lens.zoomFactor),
-                          style: TextStyle(
-                            color: canSwitch
-                                ? (allLenses.indexOf(lens) == selectedIndex
-                                    ? cf.accent
-                                    : cf.textSecondary)
-                                : cf.textDisabled,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
                 ),
+              ),
             ],
           ),
         ),
@@ -853,23 +1040,33 @@ class _GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: cf.surface.withValues(alpha: cf.isLight ? 0.9 : 0.72),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cf.border.withValues(alpha: 0.55)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: cf.isLight ? 0.08 : 0.28),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    final radius = BorderRadius.circular(16);
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: cf.isLight
+                ? cf.surface.withValues(alpha: 0.82)
+                : Colors.black.withValues(alpha: 0.42),
+            borderRadius: radius,
+            border: Border.all(
+              color: cf.isLight
+                  ? cf.border.withValues(alpha: 0.65)
+                  : Colors.white.withValues(alpha: 0.12),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: cf.isLight ? 0.1 : 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: child,
+          child: child,
+        ),
       ),
     );
   }
@@ -893,17 +1090,19 @@ class _RoundIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final btn = Material(
-      color: selected ? cf.accent.withValues(alpha: 0.16) : Colors.transparent,
+      color: selected
+          ? cf.accent.withValues(alpha: 0.22)
+          : Colors.white.withValues(alpha: cf.isLight ? 0.08 : 0.06),
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 34,
-          height: 34,
+          width: _kControlSize,
+          height: _kControlSize,
           child: Icon(
             icon,
-            size: 18,
+            size: _kIconSize,
             color: onTap == null
                 ? cf.textDisabled
                 : selected
@@ -933,24 +1132,30 @@ class _DockBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: cf.textSecondary),
-              Text(
-                label,
-                style: TextStyle(color: cf.textSecondary, fontSize: 9),
-              ),
-            ],
+    return _StudioMiniCard(
+      cf: cf,
+      onTap: onTap,
+      height: 40,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: onTap == null ? cf.textDisabled : cf.textPrimary,
           ),
-        ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: onTap == null ? cf.textDisabled : cf.textSecondary,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -971,19 +1176,19 @@ class _PlatformChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = isObs ? 'OBS' : platform.label;
     return Container(
-      margin: const EdgeInsets.only(left: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: cf.accent.withValues(alpha: 0.12),
+        color: cf.accent.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cf.accent.withValues(alpha: 0.35)),
+        border: Border.all(color: cf.accent.withValues(alpha: 0.28)),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: cf.accent,
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
         ),
       ),
     );

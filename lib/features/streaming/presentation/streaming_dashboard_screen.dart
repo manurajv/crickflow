@@ -48,6 +48,10 @@ class _StreamingDashboardScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Camera preview is portrait-native — never rotate the Activity in studio.
+    unawaited(
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initCamera();
       _resumeIfLive();
@@ -216,8 +220,9 @@ class _StreamingDashboardScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_isLive && service.isStreaming) {
         ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+        // Surface reattach while live — not for UI orientation toggles.
+        unawaited(service.reconnectPreview(retries: 8));
       }
-      unawaited(service.reconnectPreview(retries: 8));
     });
   }
 

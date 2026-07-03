@@ -51,6 +51,8 @@
 | **Camera recovery + zoom + key history** — native preview restart on RTMP stop; YouTube `endYouTubeLiveStream` on end broadcast; standard zoom row | Done |
 | **Camera preview (Oppo/Adreno)** — `SafeOpenGlView` (OpenGlView + surface gate) for RTMP overlay burn-in; `SafeLightOpenGlView` retained in legacy `Camera.kt` only | Done |
 | **Stream Studio production refactor** — Android FGS; stable platform-view keys; preview reattach without stopping RTMP; portrait/landscape toggle only; compact non-overlapping studio chrome (top bar, bottom dock, stats card, broadcast status button); orientation preview recovery on metrics change | Done |
+| **Stream Studio preview orientation pipeline** — Activity locked portrait (camera surface never rotates); landscape mode = Flutter UI/overlays + RTMP encoder metadata only; preview GL frozen after first start | Done |
+| **Preview surface lifecycle (lock/notification/resume)** — `PreviewSurfaceLifecycle` detaches Camera2 on `surfaceDestroyed`, clears abandoned surfaces/HandlerThread, rebuilds GL→camera→capture session only after new valid surface; no RTMP/encoder restart | Done |
 | **Camera/encoder in dedicated Service** — FGS protects process; full camera ownership migration to `StreamingService` | Deferred |
 | UI/camera polish (CPU/memory HUD, snapshot/scenes row) | Deferred |
 

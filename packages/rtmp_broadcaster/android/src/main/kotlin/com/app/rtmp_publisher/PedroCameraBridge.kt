@@ -1,12 +1,18 @@
 package com.app.rtmp_publisher
 
+import android.content.Context
 import android.graphics.Rect
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
 import android.util.Log
+import android.util.Size
+import android.view.Surface
 import com.pedro.encoder.input.video.Camera2ApiManager
+import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.rtplibrary.rtmp.RtmpCamera2
+import com.pedro.rtplibrary.view.GlInterface
 import kotlin.math.roundToInt
 
 /**
@@ -57,8 +63,21 @@ object PedroCameraBridge {
     fun isCaptureSessionReady(rtmpCamera: RtmpCamera2): Boolean {
         if (!rtmpCamera.isOnPreview && !rtmpCamera.isStreaming) return false
         val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
+        if (!apiManager.isRunning) return false
+        if (!isCameraHandlerAlive(apiManager)) return false
         return getBuilderInputSurface(apiManager) != null &&
             getCaptureSession(apiManager) != null
+    }
+
+    private fun isCameraHandlerAlive(apiManager: Camera2ApiManager): Boolean {
+        return try {
+            val field = apiManager.javaClass.getDeclaredField("cameraHandler")
+            field.isAccessible = true
+            val handler = field.get(apiManager) as? android.os.Handler ?: return false
+            handler.looper.thread.isAlive
+        } catch (_: Exception) {
+            true
+        }
     }
 
     private fun repeatPreview(apiManager: Camera2ApiManager) {
@@ -102,6 +121,131 @@ object PedroCameraBridge {
         } catch (e: Exception) {
             Log.e(TAG, "flipCamera", e)
             false
+        }
+    }
+
+    /**
+     * Rebuilds the Camera2 preview session for the current display orientation while streaming.
+     * Encoder dimensions and RTMP are unchanged — mirrors Pedro [startPreview] GL setup using
+     * [CameraHelper.getCameraOrientation] (display rotation), not encoder rotation.
+     */
+    fun reconfigurePreviewForDisplay(
+        rtmpCamera: RtmpCamera2,
+        context: Context,
+        previewSize: Size,
+        displayRotation: Int,
+    ): Boolean {
+        val glInterface = rtmpCamera.glInterface ?: return false
+        val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false
+
+        applyPedroPreviewGlSetup(glInterface, context, previewSize, displayRotation)
+
+        val fps = getVideoEncoderFps(rtmpCamera) ?: 30
+        val prepW = previewSize.width
+        val prepH = previewSize.height
+
+        return try {
+            if (apiManager.isRunning) {
+                apiManager.closeCamera(true)
+            }
+            if (!isGlThreadRunning(glInterface)) {
+                glInterface.start()
+            }
+            val surfaceTexture: SurfaceTexture = glInterface.surfaceTexture ?: return false
+            surfaceTexture.setDefaultBufferSize(prepW, prepH)
+            apiManager.prepareCamera(surfaceTexture, prepW, prepH, fps)
+            val encoderSurface = getVideoEncoderInputSurface(rtmpCamera)
+            if (encoderSurface != null && encoderSurface.isValid) {
+                glInterface.addMediaCodecSurface(encoderSurface)
+            }
+            apiManager.openLastCamera()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "reconfigurePreviewForDisplay", e)
+            false
+        }
+    }
+
+    /** Same GL setup Pedro performs inside [com.pedro.rtplibrary.base.Camera2Base.startPreview]. */
+    fun applyPedroPreviewGlSetup(
+        glInterface: GlInterface,
+        context: Context,
+        previewSize: Size,
+        displayRotation: Int,
+    ) {
+        val isPortrait = CameraHelper.isPortrait(context)
+        if (isPortrait) {
+            glInterface.setEncoderSize(previewSize.height, previewSize.width)
+        } else {
+            glInterface.setEncoderSize(previewSize.width, previewSize.height)
+        }
+        glInterface.setRotation(
+            if (displayRotation == 0) 270 else displayRotation - 90,
+        )
+    }
+
+    private fun isGlThreadRunning(glInterface: GlInterface): Boolean {
+        return try {
+            val field = glInterface.javaClass.superclass?.getDeclaredField("running")
+                ?: glInterface.javaClass.getDeclaredField("running")
+            field.isAccessible = true
+            field.getBoolean(glInterface)
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun getVideoEncoder(rtmpCamera: RtmpCamera2): Any? {
+        var clazz: Class<*>? = rtmpCamera.javaClass
+        while (clazz != null) {
+            try {
+                val field = clazz.getDeclaredField("videoEncoder")
+                field.isAccessible = true
+                return field.get(rtmpCamera)
+            } catch (_: NoSuchFieldException) {
+                clazz = clazz.superclass
+            }
+        }
+        return null
+    }
+
+    private fun getVideoEncoderInputSurface(rtmpCamera: RtmpCamera2): Surface? {
+        val encoder = getVideoEncoder(rtmpCamera) ?: return null
+        return try {
+            val method = encoder.javaClass.getMethod("getInputSurface")
+            method.invoke(encoder) as? Surface
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun getVideoEncoderFps(rtmpCamera: RtmpCamera2): Int? {
+        val encoder = getVideoEncoder(rtmpCamera) ?: return null
+        return try {
+            val method = encoder.javaClass.getMethod("getFps")
+            method.invoke(encoder) as? Int
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun getVideoEncoderWidth(rtmpCamera: RtmpCamera2): Int? {
+        val encoder = getVideoEncoder(rtmpCamera) ?: return null
+        return try {
+            val method = encoder.javaClass.getMethod("getWidth")
+            method.invoke(encoder) as? Int
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun getVideoEncoderHeight(rtmpCamera: RtmpCamera2): Int? {
+        val encoder = getVideoEncoder(rtmpCamera) ?: return null
+        return try {
+            val method = encoder.javaClass.getMethod("getHeight")
+            method.invoke(encoder) as? Int
+        } catch (_: Exception) {
+            null
         }
     }
 
