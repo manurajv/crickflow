@@ -38,7 +38,8 @@ class StreamOverlayBurnInService {
   void startLiveRefresh() {
     _liveRefreshTimer?.cancel();
     _liveRefreshTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
-      if (_ref.read(streamServiceProvider).isStreaming) {
+      final stream = _ref.read(streamServiceProvider);
+      if (stream.isStreaming || stream.liveSessionActive) {
         schedulePush();
       } else {
         stopLiveRefresh();
@@ -59,7 +60,7 @@ class StreamOverlayBurnInService {
 
   Future<void> pushNow() async {
     final stream = _ref.read(streamServiceProvider);
-    if (!stream.isStreaming) {
+    if (!stream.isStreaming && !stream.liveSessionActive) {
       _log('push skipped — not streaming');
       return;
     }

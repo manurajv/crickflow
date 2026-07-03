@@ -539,6 +539,7 @@ class StreamService extends ChangeNotifier {
     _orientation = parseStreamOrientation(mode.name);
     _orientationLocked = true;
     await _applyDeviceOrientation();
+    await _syncNativeOrientationMode();
   }
 
   /// Returns UI to portrait after leaving stream studio / ending a broadcast.

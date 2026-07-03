@@ -32,6 +32,34 @@ class StreamOverlayBurnIn(
     private var pendingPng: ByteArray? = null
     private var pendingWidth = 0
     private var pendingHeight = 0
+    /** Frozen at go-live so preview reconnects cannot flip overlay compositing. */
+    private var lockedLiveStreamRot: Int? = null
+    private var lockedScaleW: Int = 0
+    private var lockedScaleH: Int = 0
+
+    fun lockLiveOverlaySession(streamRot: Int, scaleW: Int, scaleH: Int) {
+        if (scaleW <= 0 || scaleH <= 0) return
+        lockedLiveStreamRot = streamRot
+        lockedScaleW = scaleW
+        lockedScaleH = scaleH
+        overlayScaleWidth = scaleW
+        overlayScaleHeight = scaleH
+        Log.i(
+            TAG,
+            "Live overlay session locked rot=$streamRot scale=${scaleW}x$scaleH",
+        )
+    }
+
+    private fun clearLiveOverlaySession() {
+        lockedLiveStreamRot = null
+        lockedScaleW = 0
+        lockedScaleH = 0
+    }
+
+    private fun effectiveStreamRot(): Int {
+        lockedLiveStreamRot?.let { return it }
+        return streamRotationDegrees?.invoke() ?: 0
+    }
 
     private fun resolveScaleWidth(): Int {
         if (overlayScaleWidth > 0) return overlayScaleWidth
@@ -122,7 +150,7 @@ class StreamOverlayBurnIn(
                 )
             }
 
-            val streamRot = streamRotationDegrees?.invoke() ?: 0
+            val streamRot = effectiveStreamRot()
             // Re-apply stream rotation on the camera pipeline before overlay geometry.
             onOverlayApplied?.invoke()
 
@@ -170,16 +198,8 @@ class StreamOverlayBurnIn(
         bitmapWidth: Int,
         bitmapHeight: Int,
     ) {
-        val streamRot = streamRotationDegrees?.invoke() ?: 0
-        val scaleW: Int
-        val scaleH: Int
-        if (streamRot != 0) {
-            scaleW = resolveScaleHeight()
-            scaleH = resolveScaleWidth()
-        } else {
-            scaleW = resolveScaleWidth()
-            scaleH = resolveScaleHeight()
-        }
+        val streamRot = effectiveStreamRot()
+        val (scaleW, scaleH) = overlayScaleDimensions(streamRot, bitmapWidth, bitmapHeight)
         filterRender.setDefaultScale(scaleW, scaleH)
         filterRender.setScale(100f, 100f)
         filterRender.setPosition(TranslateTo.CENTER)
@@ -188,13 +208,29 @@ class StreamOverlayBurnIn(
             Log.d(
                 TAG,
                 "Overlay geometry scale=${scaleW}x$scaleH bitmap=${bitmapWidth}x$bitmapHeight " +
-                    "streamRot=$streamRot",
+                    "streamRot=$streamRot locked=${lockedLiveStreamRot != null}",
             )
         }
     }
 
+    private fun overlayScaleDimensions(
+        streamRot: Int,
+        bitmapWidth: Int,
+        bitmapHeight: Int,
+    ): Pair<Int, Int> {
+        val baseW = if (lockedScaleW > 0) lockedScaleW else resolveScaleWidth()
+        val baseH = if (lockedScaleH > 0) lockedScaleH else resolveScaleHeight()
+        if (streamRot == 0) return baseW to baseH
+        // Portrait-shaped PNG is already in preview-GL space (720×1280).
+        if (bitmapHeight > bitmapWidth) return baseH to baseW
+        // Landscape-shaped PNG (1280×720) is rotated into preview-GL space.
+        return baseH to baseW
+    }
+
     private fun compensateBitmapForStreamRotation(source: Bitmap, streamRot: Int): Bitmap {
         if (streamRot == 0) return source
+        // Flutter PNG already in preview-GL space (portrait-shaped) — skip rotation.
+        if (source.height > source.width) return source
         val matrix = Matrix()
         matrix.postRotate((360 - streamRot).toFloat())
         return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
@@ -240,6 +276,7 @@ class StreamOverlayBurnIn(
         pendingPng = null
         pendingWidth = 0
         pendingHeight = 0
+        clearLiveOverlaySession()
         lastBitmap?.recycle()
         lastBitmap = null
     }

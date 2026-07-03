@@ -206,7 +206,9 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     final health = ref.watch(streamHealthProvider).valueOrNull;
     final service = ref.watch(streamServiceProvider);
     final config = ref.watch(streamStudioConfigProvider(widget.matchId));
-    final isLandscapeUi = config.orientation == StreamOrientationMode.landscape;
+    final isLandscapeUi = widget.isLive
+        ? service.orientation == StreamOrientationMode.landscape
+        : config.orientation == StreamOrientationMode.landscape;
     final notifier =
         ref.read(streamStudioConfigProvider(widget.matchId).notifier);
     final configured = config.isBroadcastConfigured;

@@ -153,6 +153,15 @@ final streamStudioConfigProvider = StateNotifierProvider.autoDispose
   if (match != null) {
     notifier.initFromMatch(match);
   }
+  final stream = ref.read(streamServiceProvider);
+  if (stream.liveSessionActive || stream.isStreaming) {
+    notifier.update(
+      (c) => c.copyWith(
+        orientation: stream.orientation,
+        orientationLocked: true,
+      ),
+    );
+  }
   ref.listen(matchProvider(matchId), (prev, next) {
     final m = next.valueOrNull;
     if (m != null && prev?.valueOrNull?.stream != m.stream) {

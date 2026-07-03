@@ -219,10 +219,9 @@ class _StreamingDashboardScreenState
     if (!service.isInitialized && !_isLive) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isLive && service.isStreaming) {
+      if (_isLive && (service.isStreaming || service.liveSessionActive)) {
+        // Insets/keyboard changes only — do not rebuild the GL pipeline while live.
         ref.read(streamOverlayBurnInServiceProvider).schedulePush();
-        // Surface reattach while live — not for UI orientation toggles.
-        unawaited(service.reconnectPreview(retries: 8));
       }
     });
   }

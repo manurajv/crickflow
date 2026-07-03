@@ -127,7 +127,9 @@ class CameraNativeView(
         reapplyLockedPreviewGl()
         val cfg = lockedGlConfig
         cfg?.let {
-            overlayBurnIn.setOverlayScale(it.previewGlWidth, it.previewGlHeight)
+            if (!rtmpCamera.isStreaming) {
+                overlayBurnIn.setOverlayScale(it.previewGlWidth, it.previewGlHeight)
+            }
             StreamPipelineLog.previewLocked(it, lockedOrientationMode)
         }
     }
@@ -174,7 +176,8 @@ class CameraNativeView(
             )
             PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
             val (scaleW, scaleH) = BroadcastGlConfig.overlayScaleFor(glConfig, streaming = true)
-            overlayBurnIn.setOverlayScale(scaleW, scaleH)
+            val streamRot = streamRotationFor(lockedOrientationMode)
+            overlayBurnIn.lockLiveOverlaySession(streamRot, scaleW, scaleH)
             applyStreamRotationIfLive()
             overlayBurnIn.onEncoderPipelineReady()
             StreamPipelineLog.pipelineLinked(rtmpCamera, glConfig, lockedOrientationMode)
@@ -379,7 +382,11 @@ class CameraNativeView(
                     preserveStream = streaming,
                 )
                 invokeSwitchCameraByIdIfNeeded(cameraName)
-                applyStreamRotationIfLive()
+                if (streaming) {
+                    linkEncoderPipeline()
+                } else {
+                    applyStreamRotationIfLive()
+                }
                 runWhenSessionReady { applyPendingControls() }
                 return
             }
