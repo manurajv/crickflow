@@ -6,6 +6,7 @@ import 'core/routing/deep_link_handler.dart';
 import 'core/theme/app_theme.dart';
 import 'shared/providers/offline_sync_provider.dart';
 import 'shared/providers/theme_provider.dart';
+import 'features/streaming/services/live_stream_shutdown_coordinator.dart';
 import 'shared/widgets/fcm_registration_listener.dart';
 
 class CrickFlowApp extends ConsumerStatefulWidget {
@@ -47,8 +48,10 @@ class _CrickFlowAppState extends ConsumerState<CrickFlowApp> {
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
       routerConfig: router,
-      builder: (context, child) => FcmRegistrationListener(
-        child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => LiveStreamShutdownCoordinator(
+        child: FcmRegistrationListener(
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     );
   }

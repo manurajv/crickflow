@@ -161,7 +161,8 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     super.dispose();
   }
 
-  bool _showNetworkWarning(StreamHealthMetrics? health) {
+  bool _showNetworkWarning(StreamService service, StreamHealthMetrics? health) {
+    if (service.isReconnecting) return true;
     if (health == null) return false;
     return health.isReconnecting ||
         health.connectionQuality == StreamConnectionQuality.poor;
@@ -173,8 +174,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     bool configured,
   ) {
     if (widget.isLive) {
-      if (service.status == StreamStatus.connecting ||
-          health?.isReconnecting == true) {
+      if (service.isReconnecting || !service.isRtmpLive) {
         return _BroadcastButtonState.reconnecting;
       }
       return _BroadcastButtonState.live;
@@ -259,14 +259,15 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                       pulse: _livePulse,
                     ),
                   ),
-                if (widget.isLive && _showNetworkWarning(health))
+                if (widget.isLive && _showNetworkWarning(service, health))
                   Positioned(
                     left: pad.left + _kEdge,
                     right: pad.right + _kEdge,
                     bottom: pad.bottom + _kEdge,
                     child: _NetworkWarning(
                       cf: cf,
-                      text: health?.isReconnecting == true
+                      text: service.isReconnecting ||
+                              (health?.isReconnecting == true)
                           ? 'Reconnecting…'
                           : 'Poor network',
                     ),
@@ -348,7 +349,8 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                     duration: widget.isLive ? _liveDuration() : null,
                     micOn: config.micEnabled,
                     connectionQuality: health?.connectionQuality,
-                    isReconnecting: health?.isReconnecting ?? false,
+                    isReconnecting:
+                        service.isReconnecting || (health?.isReconnecting ?? false),
                     orientation: config.orientation,
                     onBack: widget.isLive
                         ? null
@@ -411,7 +413,8 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                       duration: widget.isLive ? _liveDuration() : null,
                       micOn: config.micEnabled,
                       connectionQuality: health?.connectionQuality,
-                      isReconnecting: health?.isReconnecting ?? false,
+                      isReconnecting:
+                        service.isReconnecting || (health?.isReconnecting ?? false),
                       orientation: config.orientation,
                       onBack: widget.isLive
                           ? null
@@ -497,7 +500,8 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
               dropped: health?.droppedVideoFrames,
               uploadKbps: health?.uploadSpeedKbps,
               connectionQuality: health?.connectionQuality,
-              isReconnecting: health?.isReconnecting ?? false,
+              isReconnecting:
+                  service.isReconnecting || (health?.isReconnecting ?? false),
               onClose: () => setState(() => _statsVisible = false),
             ),
           ),

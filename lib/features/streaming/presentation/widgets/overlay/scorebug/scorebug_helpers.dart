@@ -27,10 +27,16 @@ class ScorebugHelpers {
   }
 
   static String bowlerLine(OverlayStateModel overlay) {
+    return '${bowlerName(overlay)} ${bowlerFigures(overlay)}';
+  }
+
+  static String bowlerName(OverlayStateModel overlay) =>
+      shortName(overlay.bowlerName, max: 14);
+
+  static String bowlerFigures(OverlayStateModel overlay) {
     final overs =
         CricketMath.formatOvers(overlay.bowlerBalls, overlay.ballsPerOver);
-    return '${shortName(overlay.bowlerName, max: 12)} '
-        '${overlay.bowlerWickets}-${overlay.bowlerRuns} $overs';
+    return '${overlay.bowlerWickets}-${overlay.bowlerRuns} $overs';
   }
 
   static String? chaseLine(OverlayStateModel overlay) {
@@ -48,5 +54,36 @@ class ScorebugHelpers {
 
   static String runRateLine(OverlayStateModel overlay) {
     return 'CRR ${overlay.runRate.toStringAsFixed(2)}';
+  }
+
+  /// Projected final score from current runs at different run rates.
+  static List<({double rr, int score, bool isCurrent})> projectedScores({
+    required int totalRuns,
+    required int legalBalls,
+    required int totalOvers,
+    required int ballsPerOver,
+    required double currentRunRate,
+  }) {
+    final totalBalls = totalOvers * ballsPerOver;
+    final remainingBalls = (totalBalls - legalBalls).clamp(0, totalBalls);
+    int project(double rr) =>
+        totalRuns + ((rr * remainingBalls) / ballsPerOver).round();
+
+    return [
+      (rr: currentRunRate, score: project(currentRunRate), isCurrent: true),
+      (rr: 6, score: project(6), isCurrent: false),
+      (rr: 8, score: project(8), isCurrent: false),
+      (rr: 10, score: project(10), isCurrent: false),
+    ];
+  }
+
+  static String bowlingTeamName({
+    required String teamAName,
+    required String teamBName,
+    required String battingTeamName,
+  }) {
+    if (battingTeamName == teamAName) return teamBName;
+    if (battingTeamName == teamBName) return teamAName;
+    return teamBName;
   }
 }

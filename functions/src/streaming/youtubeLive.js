@@ -200,10 +200,104 @@ async function getYouTubeLiveChat(uid, videoId) {
   return { messages, liveChatId };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Transitions an API-created broadcast to live after RTMP ingest is active.
+ */
+async function transitionYouTubeBroadcastToLive(uid, broadcastId) {
+  if (!broadcastId) {
+    throw new Error('broadcastId required');
+  }
+  const youtube = await getYouTubeClient(uid);
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const res = await youtube.liveBroadcasts.list({
+      part: ['status'],
+      id: [broadcastId],
+      maxResults: 1,
+    });
+    const broadcast = res.data.items?.[0];
+    if (!broadcast) {
+      throw new Error('YouTube broadcast not found');
+    }
+
+    const lifeCycleStatus = broadcast.status?.lifeCycleStatus || 'unknown';
+    const streamStatus = broadcast.status?.streamStatus || null;
+
+    if (lifeCycleStatus === 'live') {
+      return { ok: true, broadcastId, lifeCycleStatus, streamStatus };
+    }
+    if (lifeCycleStatus === 'complete' || lifeCycleStatus === 'revoked') {
+      throw new Error('YouTube broadcast already ended');
+    }
+
+    if (lifeCycleStatus === 'testing' || streamStatus === 'active') {
+      try {
+        const transitioned = await youtube.liveBroadcasts.transition({
+          id: broadcastId,
+          broadcastStatus: 'live',
+          part: ['status'],
+        });
+        return {
+          ok: true,
+          broadcastId,
+          lifeCycleStatus:
+            transitioned.data?.status?.lifeCycleStatus || 'live',
+          streamStatus: transitioned.data?.status?.streamStatus || streamStatus,
+        };
+      } catch (err) {
+        const reason = err?.message || '';
+        if (
+          !reason.includes('invalidTransition') &&
+          !reason.includes('redundantTransition')
+        ) {
+          throw err;
+        }
+      }
+    }
+
+    await sleep(2500);
+  }
+
+  throw new Error(
+    'YouTube did not go live — open YouTube Studio and click Go live',
+  );
+}
+
+/**
+ * Returns YouTube live broadcast lifecycle status for app-side sync.
+ */
+async function getYouTubeBroadcastStatus(uid, broadcastId) {
+  if (!broadcastId) {
+    throw new Error('broadcastId required');
+  }
+  const youtube = await getYouTubeClient(uid);
+  const res = await youtube.liveBroadcasts.list({
+    part: ['status', 'snippet'],
+    id: [broadcastId],
+    maxResults: 1,
+  });
+  const broadcast = res.data.items?.[0];
+  if (!broadcast) {
+    return { broadcastId, lifeCycleStatus: 'not_found', streamStatus: null };
+  }
+  return {
+    broadcastId,
+    lifeCycleStatus: broadcast.status?.lifeCycleStatus || 'unknown',
+    streamStatus: broadcast.status?.streamStatus || null,
+    title: broadcast.snippet?.title || '',
+  };
+}
+
 module.exports = {
   syncYouTubeChannel,
   listYouTubeChannels,
   createYouTubeLiveBroadcast,
   endYouTubeLiveBroadcast,
+  transitionYouTubeBroadcastToLive,
   getYouTubeLiveChat,
+  getYouTubeBroadcastStatus,
 };

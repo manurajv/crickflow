@@ -108,7 +108,7 @@ class BroadcastSessionController {
       );
     }
 
-    // Automatic: preview-first or immediate via linked account + API.
+    // Automatic: preview-first — reuse a Studio preview event when already created.
     if (!config.goLiveImmediately) {
       if (config.youtubeChannelId.isEmpty) {
         return BroadcastSessionResult(
@@ -152,17 +152,7 @@ class BroadcastSessionController {
       }
     }
 
-    // Immediate mode: manual stream key goes straight to YouTube ingest.
-    if (config.streamKey.trim().isNotEmpty) {
-      final manual = await provider.resolveManualCredentials(config);
-      if (manual != null) {
-        return BroadcastSessionResult(
-          config: _applyCredentials(config, manual),
-          credentials: manual,
-        );
-      }
-    }
-
+    // Immediate mode with linked account — always mint fresh ingest credentials.
     if (config.youtubeChannelId.isNotEmpty) {
       try {
         final creds = await provider.createLiveBroadcast(config);
@@ -176,6 +166,17 @@ class BroadcastSessionController {
         return BroadcastSessionResult(
           config: config,
           errorMessage: e.message,
+        );
+      }
+    }
+
+    // Immediate mode without linked account — manual stream key only.
+    if (config.streamKey.trim().isNotEmpty) {
+      final manual = await provider.resolveManualCredentials(config);
+      if (manual != null) {
+        return BroadcastSessionResult(
+          config: _applyCredentials(config, manual),
+          credentials: manual,
         );
       }
     }
@@ -240,11 +241,11 @@ class BroadcastSessionController {
         localRecordingPath: recordPath,
       );
 
-      if (_streamService.isStreaming) {
+      if (_streamService.isRtmpLive) {
         await _streamService.setMicEnabled(resolved.micEnabled);
       }
 
-      if (!_streamService.isStreaming) {
+      if (!_streamService.isRtmpLive) {
         await _streamService.stopStream();
         await _streamService.resumePreviewAfterStreamEnd();
         return BroadcastSessionResult(
@@ -252,6 +253,24 @@ class BroadcastSessionController {
           errorMessage:
               'RTMP connection failed. Check server URL, stream key, and network.',
         );
+      }
+
+      if (resolved.platform == StreamPlatform.youtube &&
+          resolved.goLiveImmediately &&
+          resolved.broadcastSetupMode == StreamBroadcastSetupMode.automatic &&
+          resolved.youtubeBroadcastId.isNotEmpty) {
+        try {
+          await StreamPlatformService().startYouTubeLiveBroadcast(
+            broadcastId: resolved.youtubeBroadcastId,
+          );
+        } on StreamPlatformException catch (e) {
+          await _streamService.stopStream();
+          await _streamService.resumePreviewAfterStreamEnd();
+          return BroadcastSessionResult(
+            config: resolved,
+            errorMessage: e.message,
+          );
+        }
       }
 
       await _persistStreamMeta(
@@ -285,6 +304,7 @@ class BroadcastSessionController {
       await _streamService.resumePreviewAfterStreamEnd();
     }
     if (config.platform == StreamPlatform.youtube &&
+        config.broadcastSetupMode == StreamBroadcastSetupMode.automatic &&
         config.youtubeBroadcastId.isNotEmpty) {
       try {
         await StreamPlatformService().endYouTubeLive(
@@ -324,12 +344,8 @@ class BroadcastSessionController {
     return config.copyWith(
       rtmpUrl: creds.rtmpUrl,
       streamKey: creds.streamKey,
-      youtubeWatchUrl: creds.watchUrl.isNotEmpty
-          ? creds.watchUrl
-          : config.youtubeWatchUrl,
-      youtubeBroadcastId: creds.broadcastId.isNotEmpty
-          ? creds.broadcastId
-          : config.youtubeBroadcastId,
+      youtubeWatchUrl: creds.watchUrl.isNotEmpty ? creds.watchUrl : '',
+      youtubeBroadcastId: creds.broadcastId,
     );
   }
 

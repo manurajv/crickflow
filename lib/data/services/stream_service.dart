@@ -13,9 +13,15 @@ import '../../features/streaming/domain/camera_control_settings.dart';
 import '../../features/streaming/domain/stream_credential_normalizer.dart';
 import '../../features/streaming/data/models/camera_lens_info.dart';
 import '../../features/streaming/services/stream_foreground_bridge.dart';
+import '../../features/streaming/services/stream_lifecycle_log.dart';
 import '../../features/streaming/domain/streaming_enums.dart';
 
 export '../../features/streaming/data/models/camera_lens_info.dart';
+
+/// Exponential backoff delays for RTMP transport reconnect (ms).
+const _kReconnectBackoffMs = [1000, 2000, 4000, 8000, 15000];
+
+const _kMaxReconnectAttempts = 5;
 
 /// Live stream health metrics from RTMP stats + device probes.
 class StreamHealthMetrics {
@@ -64,12 +70,27 @@ class StreamService extends ChangeNotifier {
   Future<void>? _cameraOperation;
   bool _previewRecovering = false;
   VoidCallback? onRtmpConnected;
+  Timer? _reconnectTimer;
+  int _reconnectAttempt = 0;
+  bool _reconnectExhausted = false;
+  bool _reconnectInFlight = false;
+  bool _networkOnline = true;
+  Completer<bool>? _pendingConnectCompleter;
+  bool _healthMonitoringActive = false;
+  Timer? _connectivityDebounce;
+  int _zeroBitrateTicks = 0;
+  StreamHealthMetrics _lastHealth = const StreamHealthMetrics();
+  bool _rtmpPublishConfirmed = false;
+  bool _confirmingPublish = false;
+  int _baselineSentVideoFrames = 0;
 
   StreamStatus get status => _status;
   String? get lastError => _lastError;
   CameraController? get cameraController => _controller;
   bool get isInitialized => _controller?.value.isInitialized ?? false;
   bool get isStreaming => _controller?.value.isStreamingVideoRtmp ?? false;
+  /// True when RTMP is connected AND video frames are reaching the destination.
+  bool get isRtmpLive => _rtmpPublishConfirmed && _status == StreamStatus.live;
   bool get isSwitchingLens => _switchingLens;
   /// Zoom / back lens changes are supported while RTMP is active.
   bool get canAdjustZoomWhileLive => isInitialized && _controller != null;
@@ -78,6 +99,11 @@ class StreamService extends ChangeNotifier {
   StreamOrientationMode get orientation => _orientation;
   bool get orientationLocked => _orientationLocked;
   bool get liveSessionActive => _liveSessionActive;
+  bool get reconnectExhausted => _reconnectExhausted;
+  bool get isReconnecting =>
+      _status == StreamStatus.connecting &&
+      (_liveSessionActive || _lastEndpoint != null);
+  bool get networkOnline => _networkOnline;
   Stream<StreamHealthMetrics> get healthStream => _healthController.stream;
 
   static bool get isPlatformSupported =>
@@ -476,6 +502,7 @@ class StreamService extends ChangeNotifier {
   Future<void> reconnectPreview({int retries = 6}) async {
     if (_uiOrientationChanging) return;
     if (_controller == null || !isInitialized) return;
+    if (isReconnecting || !_networkOnline) return;
     if (!isStreaming && !_liveSessionActive) {
       await recoverPreview();
       return;
@@ -612,6 +639,12 @@ class StreamService extends ChangeNotifier {
     required int bitrate,
     String? recordPath,
   }) async {
+    _reconnectAttempt = 0;
+    _reconnectExhausted = false;
+    _cancelReconnectTimer();
+    _pendingConnectCompleter = Completer<bool>();
+    _startConnectivityWatch(endpoint, bitrate);
+
     try {
       if (recordPath != null && recordPath.isNotEmpty) {
         await _controller!.startVideoRecordingAndStreaming(
@@ -627,16 +660,33 @@ class StreamService extends ChangeNotifier {
           micEnabled: _micEnabled,
         );
       }
-      _status = StreamStatus.live;
+
+      final connected = await _pendingConnectCompleter!.future.timeout(
+        const Duration(seconds: 45),
+        onTimeout: () => false,
+      );
+      if (!connected) {
+        _status = StreamStatus.error;
+        _lastError =
+            'RTMP connection failed. Check server URL, stream key, and network.';
+        notifyListeners();
+        throw StateError(_lastError!);
+      }
       _lastError = null;
-      _startHealthMonitoring();
-      _startConnectivityWatch(endpoint, bitrate);
     } on CameraException catch (e) {
       _status = StreamStatus.error;
       _lastError = e.description ?? e.code;
       rethrow;
+    } finally {
+      _pendingConnectCompleter = null;
     }
   }
+
+  bool get _rtmpSessionActive =>
+      _lastEndpoint != null &&
+      (_status == StreamStatus.connecting ||
+          _status == StreamStatus.live ||
+          _liveSessionActive);
 
   void _attachCameraListener() {
     if (_controller == null) return;
@@ -648,35 +698,343 @@ class StreamService extends ChangeNotifier {
       if (event is! Map) return;
       final type = event['eventType'] as String?;
       if (type == 'rtmp_retry') {
-        _healthController.add(const StreamHealthMetrics(isReconnecting: true));
-        _status = StreamStatus.connecting;
+        _onRtmpTransportLost();
       } else if (type == 'rtmp_connected') {
-        _status = StreamStatus.live;
-        _healthController.add(const StreamHealthMetrics(isReconnecting: false));
-        onRtmpConnected?.call();
+        _onRtmpTransportConnected();
       } else if (type == 'rtmp_stopped') {
-        _status = StreamStatus.ended;
+        if (_rtmpSessionActive && !_reconnectExhausted) {
+          _onRtmpTransportLost();
+        } else {
+          _status = StreamStatus.ended;
+          _pendingConnectCompleter?.complete(false);
+          notifyListeners();
+        }
       }
     };
     _controller!.addListener(_cameraListener!);
   }
 
+  void _onRtmpTransportLost() {
+    if (!_rtmpSessionActive && !_liveSessionActive) return;
+    _rtmpPublishConfirmed = false;
+    _confirmingPublish = false;
+    _status = StreamStatus.connecting;
+    _emitHealth(reconnecting: true);
+    notifyListeners();
+    if (!_reconnectExhausted && (_liveSessionActive || _healthMonitoringActive)) {
+      _scheduleReconnectTransport();
+    }
+  }
+
+  void _onRtmpTransportConnected() {
+    if (_confirmingPublish) return;
+    _confirmingPublish = true;
+    unawaited(_confirmRtmpPublishing());
+  }
+
+  Future<void> _confirmRtmpPublishing() async {
+    try {
+      _baselineSentVideoFrames = await _readSentVideoFrames();
+
+      for (var i = 0; i < 30; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        if (_controller == null) break;
+
+        final sent = await _readSentVideoFrames();
+        final bitrate = await _readBitrateKbps();
+        final publishing = sent > _baselineSentVideoFrames ||
+            (sent >= 3 && bitrate > 0);
+
+        if (publishing) {
+          _markRtmpPublishConfirmed(wasReconnecting: _reconnectAttempt > 0);
+          return;
+        }
+      }
+
+      _pendingConnectCompleter?.complete(false);
+      if (_healthMonitoringActive || _liveSessionActive) {
+        _lastError = 'RTMP connected but no video reached the server.';
+        _onRtmpTransportLost();
+      }
+    } finally {
+      _confirmingPublish = false;
+    }
+  }
+
+  Future<int> _readSentVideoFrames() async {
+    if (_controller == null) return 0;
+    try {
+      final stats = await _controller!.getStreamStatistics().timeout(
+        const Duration(seconds: 2),
+      );
+      return stats.sentVideoFrames ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<int> _readBitrateKbps() async {
+    if (_controller == null) return 0;
+    try {
+      final stats = await _controller!.getStreamStatistics().timeout(
+        const Duration(seconds: 2),
+      );
+      return ((stats.bitrate ?? 0) / 1024).round();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  void _markRtmpPublishConfirmed({required bool wasReconnecting}) {
+    _rtmpPublishConfirmed = true;
+    _status = StreamStatus.live;
+    _reconnectAttempt = 0;
+    _reconnectExhausted = false;
+    _reconnectInFlight = false;
+    _cancelReconnectTimer();
+    _zeroBitrateTicks = 0;
+    _emitHealth(reconnecting: false);
+    if (!_healthMonitoringActive) {
+      StreamLifecycleLog.liveStarted();
+      _startHealthMonitoring();
+      _healthMonitoringActive = true;
+    } else if (wasReconnecting) {
+      StreamLifecycleLog.retrySuccess();
+      StreamLifecycleLog.rtmpReconnected();
+    }
+    _pendingConnectCompleter?.complete(true);
+    onRtmpConnected?.call();
+    notifyListeners();
+  }
+
+  void _scheduleReconnectTransport() {
+    if (!_rtmpSessionActive && !_liveSessionActive) return;
+    if (_controller == null || _lastEndpoint == null) return;
+    if (_reconnectTimer != null || _reconnectInFlight) return;
+
+    // Pause retries until connectivity returns — do not burn attempts offline.
+    if (!_networkOnline) return;
+
+    if (_reconnectAttempt >= _kMaxReconnectAttempts) {
+      _onReconnectExhausted();
+      return;
+    }
+
+    final delayMs = _kReconnectBackoffMs[_reconnectAttempt];
+    final attemptNumber = _reconnectAttempt + 1;
+    StreamLifecycleLog.retry(attemptNumber);
+    _reconnectAttempt = attemptNumber;
+
+    _reconnectTimer = Timer(Duration(milliseconds: delayMs), () {
+      _reconnectTimer = null;
+      unawaited(_attemptRtmpReconnect());
+    });
+    notifyListeners();
+  }
+
+  Future<void> _attemptRtmpReconnect() async {
+    if (!_rtmpSessionActive && !_liveSessionActive) return;
+    if (_controller == null || _lastEndpoint == null) return;
+    if (!_networkOnline) {
+      _reconnectInFlight = false;
+      return;
+    }
+
+    _reconnectInFlight = true;
+    _rtmpPublishConfirmed = false;
+    _confirmingPublish = false;
+    try {
+      await _controller!.reconnectRtmpTransport().timeout(
+        const Duration(seconds: 8),
+      );
+      for (var i = 0; i < 30; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        if (!_rtmpSessionActive && !_liveSessionActive) return;
+        if (_reconnectExhausted) return;
+        if (_rtmpPublishConfirmed) return;
+      }
+      _reconnectInFlight = false;
+      if ((_rtmpSessionActive || _liveSessionActive) && !_reconnectExhausted) {
+        _scheduleReconnectTransport();
+      }
+    } catch (_) {
+      _reconnectInFlight = false;
+      if ((_rtmpSessionActive || _liveSessionActive) &&
+          !_reconnectExhausted &&
+          _networkOnline) {
+        _scheduleReconnectTransport();
+      }
+    }
+  }
+
+  void _onNetworkLost() {
+    if (!_liveSessionActive && _lastEndpoint == null) return;
+    _networkOnline = false;
+    _rtmpPublishConfirmed = false;
+    _confirmingPublish = false;
+    _cancelReconnectTimer();
+    _reconnectInFlight = false;
+    StreamLifecycleLog.networkLost();
+    if (_status == StreamStatus.live || _status == StreamStatus.connecting) {
+      _status = StreamStatus.connecting;
+      _emitHealth(reconnecting: true);
+      notifyListeners();
+    }
+  }
+
+  void _onNetworkRestored() {
+    if (!_liveSessionActive && _lastEndpoint == null) return;
+    _networkOnline = true;
+    _reconnectExhausted = false;
+    _reconnectAttempt = 0;
+    _reconnectInFlight = false;
+    _cancelReconnectTimer();
+    _zeroBitrateTicks = 0;
+    if (_status == StreamStatus.live || _status == StreamStatus.connecting) {
+      _status = StreamStatus.connecting;
+      _emitHealth(reconnecting: true);
+      notifyListeners();
+      _scheduleReconnectTransport();
+    }
+  }
+
+  void _emitHealth({
+    bool? reconnecting,
+    int? bitrateKbps,
+    int? fps,
+    int? droppedVideoFrames,
+    int? droppedAudioFrames,
+    StreamConnectionQuality? connectionQuality,
+  }) {
+    _lastHealth = StreamHealthMetrics(
+      bitrateKbps: bitrateKbps ?? _lastHealth.bitrateKbps,
+      fps: fps ?? _lastHealth.fps,
+      droppedVideoFrames: droppedVideoFrames ?? _lastHealth.droppedVideoFrames,
+      droppedAudioFrames: droppedAudioFrames ?? _lastHealth.droppedAudioFrames,
+      uploadSpeedKbps: _lastHealth.uploadSpeedKbps,
+      connectionQuality: connectionQuality ?? _lastHealth.connectionQuality,
+      batteryPercent: _lastHealth.batteryPercent,
+      isReconnecting:
+          reconnecting ?? (_status == StreamStatus.connecting || !_networkOnline),
+    );
+    _healthController.add(_lastHealth);
+  }
+
+  void _onReconnectExhausted() {
+    _cancelReconnectTimer();
+    _reconnectExhausted = true;
+    _reconnectInFlight = false;
+    _emitHealth(reconnecting: false);
+    StreamLifecycleLog.retryFailed();
+    _pendingConnectCompleter?.complete(false);
+    notifyListeners();
+  }
+
+  void _cancelReconnectTimer() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+  }
+
+  /// Manual retry after all automatic attempts failed — reuses go-live config.
+  Future<void> retryConnection() async {
+    if (_lastEndpoint == null ||
+        _status == StreamStatus.idle ||
+        _status == StreamStatus.ended) {
+      return;
+    }
+    _reconnectExhausted = false;
+    _reconnectAttempt = 0;
+    _cancelReconnectTimer();
+    _status = StreamStatus.connecting;
+    _emitHealth(reconnecting: true);
+    notifyListeners();
+    await _attemptRtmpReconnect();
+  }
+
+  /// Hard stop when the app is removed from Recents — no camera preview recovery.
+  Future<void> emergencyStopLive() async {
+    _cancelReconnectTimer();
+    _pendingConnectCompleter?.complete(false);
+    _pendingConnectCompleter = null;
+    _healthTimer?.cancel();
+    _healthMonitoringActive = false;
+    _connectivityDebounce?.cancel();
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
+    _reconnectAttempt = 0;
+    _reconnectExhausted = false;
+    _reconnectInFlight = false;
+    _rtmpPublishConfirmed = false;
+    _confirmingPublish = false;
+    onRtmpConnected = null;
+
+    if (_controller != null && isInitialized) {
+      try {
+        await _controller!.clearStreamOverlay();
+      } catch (_) {}
+      try {
+        await _controller!.stopEverything();
+      } catch (_) {}
+    }
+
+    _liveSessionActive = false;
+    _status = StreamStatus.idle;
+    _lastEndpoint = null;
+    await StreamForegroundBridge.stop();
+    StreamLifecycleLog.liveStopped();
+    notifyListeners();
+  }
+
   void _startHealthMonitoring() {
     _healthTimer?.cancel();
     _healthTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
-      if (!isStreaming || _controller == null) return;
+      if (_controller == null) return;
+      if (!_liveSessionActive && _lastEndpoint == null) return;
+
+      if (!_networkOnline || _status == StreamStatus.connecting) {
+        _emitHealth(reconnecting: true);
+        return;
+      }
+
+      if (!isStreaming) return;
+
       try {
-        final stats = await _controller!.getStreamStatistics();
+        final stats = await _controller!.getStreamStatistics().timeout(
+          const Duration(seconds: 2),
+        );
         final dropped = stats.droppedVideoFrames ?? 0;
         final quality = _qualityFromDrops(dropped);
-        _healthController.add(StreamHealthMetrics(
-          bitrateKbps: ((stats.bitrate ?? 0) / 1024).round(),
+        final bitrateKbps = ((stats.bitrate ?? 0) / 1024).round();
+
+        if (_status == StreamStatus.live &&
+            _rtmpPublishConfirmed &&
+            _networkOnline &&
+            bitrateKbps <= 0) {
+          _zeroBitrateTicks++;
+          if (_zeroBitrateTicks >= 3) {
+            _zeroBitrateTicks = 0;
+            _onRtmpTransportLost();
+            return;
+          }
+        } else {
+          _zeroBitrateTicks = 0;
+        }
+
+        _emitHealth(
+          reconnecting: false,
+          bitrateKbps: bitrateKbps,
           fps: 30,
           droppedVideoFrames: dropped,
           droppedAudioFrames: stats.droppedAudioFrames ?? 0,
           connectionQuality: quality,
-        ));
-      } catch (_) {}
+        );
+      } on TimeoutException {
+        if (_status == StreamStatus.live) _onRtmpTransportLost();
+      } catch (_) {
+        if (_status == StreamStatus.live && _networkOnline) {
+          _emitHealth(reconnecting: true);
+        }
+      }
     });
   }
 
@@ -689,14 +1047,62 @@ class StreamService extends ChangeNotifier {
 
   void _startConnectivityWatch(String endpoint, int bitrate) {
     _connectivitySub?.cancel();
-    // Native Pedro RTMP handles reconnect via reTry(); avoid Dart-side
-    // startVideoStreaming that re-prepares the encoder and resets the camera.
+    _connectivityDebounce?.cancel();
+    unawaited(Connectivity().checkConnectivity().then((results) {
+      _networkOnline = _hasNetwork(results);
+    }));
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      if (!_liveSessionActive && _lastEndpoint == null) return;
+      _connectivityDebounce?.cancel();
+      _connectivityDebounce = Timer(const Duration(milliseconds: 500), () {
+        _handleConnectivityChange(results);
+      });
+    });
+  }
+
+  bool _hasNetwork(List<ConnectivityResult> results) {
+    return results.any(
+      (r) =>
+          r == ConnectivityResult.mobile ||
+          r == ConnectivityResult.wifi ||
+          r == ConnectivityResult.ethernet ||
+          r == ConnectivityResult.vpn,
+    );
+  }
+
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    if (!_liveSessionActive && _lastEndpoint == null) return;
+
+    final online = _hasNetwork(results);
+
+    if (!online && _networkOnline) {
+      _onNetworkLost();
+    } else if (online && !_networkOnline) {
+      _onNetworkRestored();
+    } else if (online &&
+        (_status == StreamStatus.connecting || isReconnecting) &&
+        !_reconnectExhausted &&
+        _reconnectTimer == null &&
+        !_reconnectInFlight) {
+      _scheduleReconnectTransport();
+    }
   }
 
   Future<void> stopStream() async {
     return _runCameraOperation(() async {
+      _cancelReconnectTimer();
+      _connectivityDebounce?.cancel();
+      _pendingConnectCompleter?.complete(false);
+      _pendingConnectCompleter = null;
       _healthTimer?.cancel();
+      _healthMonitoringActive = false;
       _connectivitySub?.cancel();
+      _connectivitySub = null;
+      _reconnectAttempt = 0;
+      _reconnectExhausted = false;
+      _reconnectInFlight = false;
+      _rtmpPublishConfirmed = false;
+      _confirmingPublish = false;
       if (_controller != null && isInitialized) {
         try {
           await _controller!.clearStreamOverlay();
@@ -707,6 +1113,7 @@ class StreamService extends ChangeNotifier {
       }
       _status = StreamStatus.idle;
       _lastEndpoint = null;
+      StreamLifecycleLog.liveStopped();
       notifyListeners();
     });
   }
@@ -721,10 +1128,13 @@ class StreamService extends ChangeNotifier {
   }
 
   Future<void> _shutdown() async {
+    _cancelReconnectTimer();
     _healthTimer?.cancel();
     _connectivitySub?.cancel();
+    _connectivitySub = null;
     await _releaseCamera(waitForSurfaceTeardown: false);
     _status = StreamStatus.idle;
+    _liveSessionActive = false;
     if (!_healthController.isClosed) {
       await _healthController.close();
     }

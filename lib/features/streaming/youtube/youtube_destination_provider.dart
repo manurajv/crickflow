@@ -50,8 +50,8 @@ class YouTubeDestinationProvider implements StreamDestinationProvider {
     return StreamLiveCredentials(
       rtmpUrl: url,
       streamKey: normalized.streamKey,
-      watchUrl: config.youtubeWatchUrl,
-      broadcastId: config.youtubeBroadcastId,
+      watchUrl: '',
+      broadcastId: '',
       providerLabel: label,
     );
   }

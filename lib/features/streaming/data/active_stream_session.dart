@@ -13,6 +13,13 @@ class ActiveStreamSession {
     await prefs.setString(PrefsKeys.activeLiveStreamMatchId, matchId);
   }
 
+  static Future<String?> readMatchId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final matchId = prefs.getString(PrefsKeys.activeLiveStreamMatchId);
+    if (matchId == null || matchId.isEmpty) return null;
+    return matchId;
+  }
+
   static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(PrefsKeys.activeLiveStreamMatchId);

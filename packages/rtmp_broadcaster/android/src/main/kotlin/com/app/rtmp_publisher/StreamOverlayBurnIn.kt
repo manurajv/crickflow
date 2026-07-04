@@ -36,6 +36,8 @@ class StreamOverlayBurnIn(
     private var lockedLiveStreamRot: Int? = null
     private var lockedScaleW: Int = 0
     private var lockedScaleH: Int = 0
+    /** When true, overlay PNG is queued but GL filter work is deferred (RTMP reconnect). */
+    var glUpdatesPaused: Boolean = false
 
     fun lockLiveOverlaySession(streamRot: Int, scaleW: Int, scaleH: Int) {
         if (scaleW <= 0 || scaleH <= 0) return
@@ -96,8 +98,12 @@ class StreamOverlayBurnIn(
         pendingWidth = width
         pendingHeight = height
 
-        if (!rtmpCamera.isStreaming) {
-            Log.d(TAG, "updateOverlay queued — not streaming yet (${pngBytes.size} bytes, ${width}x$height)")
+        if (!rtmpCamera.isStreaming || glUpdatesPaused) {
+            Log.d(
+                TAG,
+                "updateOverlay queued — streaming=${rtmpCamera.isStreaming} glPaused=$glUpdatesPaused " +
+                    "(${pngBytes.size} bytes, ${width}x$height)",
+            )
             return
         }
 
@@ -106,7 +112,7 @@ class StreamOverlayBurnIn(
 
     /** Re-attach overlay filter after GL pipeline restart while streaming. */
     fun onEncoderPipelineReady() {
-        if (!rtmpCamera.isStreaming) return
+        if (!rtmpCamera.isStreaming || glUpdatesPaused) return
         val png = pendingPng
         if (png != null && pendingWidth > 0 && pendingHeight > 0) {
             Log.i(TAG, "Re-applying queued overlay after GL pipeline restore")
@@ -164,7 +170,6 @@ class StreamOverlayBurnIn(
             lastBitmap?.recycle()
             lastBitmap = overlayBitmap
 
-            PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
             StreamPipelineLog.overlayBurnIn(
                 pngW = overlayBitmap.width,
                 pngH = overlayBitmap.height,
@@ -248,7 +253,6 @@ class StreamOverlayBurnIn(
             } else {
                 applyOverlayGeometry(existing, 0, 0)
             }
-            PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
             Log.i(TAG, "Overlay GL filter re-attached after pipeline restore")
         } catch (e: Exception) {
             Log.e(TAG, "reattachExistingFilter failed", e)

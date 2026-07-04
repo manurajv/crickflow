@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.app.rtmp_publisher.StreamLifecycleBridge
 
 /**
  * Keeps the streaming process alive while RTMP is active.
@@ -36,13 +37,20 @@ class StreamForegroundService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
-                val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Live broadcast"
+                val title = intent?.getStringExtra(EXTRA_TITLE) ?: "CrickFlow Live"
                 startForeground(NOTIFICATION_ID, buildNotification(title))
                 acquireWakeLock()
-                Log.i(TAG, "Encoder session foreground — process protected")
+                Log.i(TAG, "LIVE_STARTED — foreground service active")
                 return START_STICKY
             }
         }
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.i(TAG, "APP_REMOVED — stopping live stream")
+        StreamLifecycleBridge.stopActiveStream()
+        stopForegroundAndSelf()
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
@@ -112,8 +120,8 @@ class StreamForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText("Live stream in progress")
+            .setContentTitle("CrickFlow Live")
+            .setContentText("Streaming...")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setContentIntent(pending)

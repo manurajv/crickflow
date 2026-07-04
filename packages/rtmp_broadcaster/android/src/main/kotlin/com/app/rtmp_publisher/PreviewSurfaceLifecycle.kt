@@ -84,6 +84,10 @@ object PreviewSurfaceLifecycle {
             if (streaming) {
                 val encoderSurface = getVideoEncoderInputSurface(rtmpCamera)
                 if (encoderSurface != null && encoderSurface.isValid) {
+                    try {
+                        glInterface.removeMediaCodecSurface()
+                    } catch (_: Exception) {
+                    }
                     glInterface.addMediaCodecSurface(encoderSurface)
                 } else {
                     Log.w(TAG, "Encoder input surface invalid during reattach")

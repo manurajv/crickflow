@@ -64,6 +64,10 @@ class StreamOverlayBurnInService {
       _log('push skipped — not streaming');
       return;
     }
+    if (stream.isReconnecting || !stream.networkOnline) {
+      _log('push skipped — reconnecting or offline');
+      return;
+    }
     final controller = stream.cameraController;
     if (controller == null || !(controller.value.isInitialized ?? false)) {
       _log('push skipped — camera not initialized');

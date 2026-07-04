@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../data/models/ball_event_model.dart';
+import '../../../../data/models/match_model.dart';
 import '../../../../data/models/overlay_state_model.dart';
 import '../../../../data/models/tournament/tournament_sponsor_model.dart';
+import '../../../../shared/providers/match_squads_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../data/models/stream_studio_config.dart';
@@ -12,6 +15,7 @@ import '../../domain/stream_sponsor_rotation.dart';
 import '../../domain/streaming_enums.dart';
 import '../providers/streaming_studio_providers.dart';
 import 'overlay/broadcast_overlay_host.dart';
+import 'overlay/scorebug/landscape/landscape_scorebug_context_builder.dart';
 import 'overlay/stream_score_ticker.dart';
 import 'studio/studio_landscape_rotation.dart';
 
@@ -153,8 +157,24 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     required String? sponsorLine,
     required StreamEventOverlay? eventOverlay,
     required bool landscapeUi,
+    MatchModel? match,
+    List<BallEventModel> ballEvents = const [],
+    String? tournamentTitle,
+    String? battingTeamLogoUrl,
+    String? bowlingTeamLogoUrl,
     bool forBurnInCapture = false,
   }) {
+    final landscapeContext = overlay != null && landscapeUi
+        ? LandscapeScorebugContextBuilder.build(
+            overlay: overlay,
+            match: match,
+            tournamentTitle: tournamentTitle,
+            battingTeamLogoUrl: battingTeamLogoUrl,
+            bowlingTeamLogoUrl: bowlingTeamLogoUrl,
+            events: ballEvents,
+          )
+        : null;
+
     return [
       if (overlay != null && overlayTheme.showTicker)
         Positioned(
@@ -173,6 +193,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
             overlay: _overlayWithSponsor(overlay, sponsorLine),
             theme: overlayTheme,
             sponsorLogoUrl: _rotatingSponsorLogo,
+            landscapeContext: landscapeContext,
             eventOverlay: eventOverlay,
             forBurnInCapture: forBurnInCapture,
             onEventFinished: forBurnInCapture
@@ -270,7 +291,14 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
         .overlayTheme;
     // studioConfig read above for locked orientation during live.
     final match = ref.watch(matchProvider(widget.matchId)).valueOrNull;
+    final ballEvents =
+        ref.watch(ballEventsProvider(widget.matchId)).valueOrNull ?? const [];
+    final squads =
+        ref.watch(matchDualSquadsProvider(widget.matchId)).valueOrNull;
     final tournamentId = match?.tournamentId;
+    final tournament = tournamentId != null && tournamentId.isNotEmpty
+        ? ref.watch(tournamentProvider(tournamentId)).valueOrNull
+        : null;
     final burnIn = ref.watch(streamOverlayBurnInServiceProvider);
     final burnInActive = ref.watch(streamOverlayBurnInActiveProvider);
     final stream = ref.watch(streamServiceProvider);
@@ -298,12 +326,18 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
 
     final overlay = widget.overlay;
     final sponsorLine = _resolveSponsorText(overlay);
+    final landscapeLogos = _resolveLandscapeLogos(match, squads, overlay);
     final burnInLayers = _overlayLayers(
       overlay: overlay,
       overlayTheme: overlayTheme,
       sponsorLine: sponsorLine,
       eventOverlay: eventOverlay,
       landscapeUi: landscapeUi,
+      match: match,
+      ballEvents: ballEvents,
+      tournamentTitle: tournament?.name,
+      battingTeamLogoUrl: landscapeLogos.$1,
+      bowlingTeamLogoUrl: landscapeLogos.$2,
       forBurnInCapture: true,
     );
     final Widget previewLayers = hideFlutterOverlays
@@ -317,6 +351,11 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
               sponsorLine: sponsorLine,
               eventOverlay: eventOverlay,
               landscapeUi: landscapeUi,
+              match: match,
+              ballEvents: ballEvents,
+              tournamentTitle: tournament?.name,
+              battingTeamLogoUrl: landscapeLogos.$1,
+              bowlingTeamLogoUrl: landscapeLogos.$2,
             ),
           );
 
@@ -349,6 +388,25 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       return overlay.sponsorText;
     }
     return null;
+  }
+
+  (String?, String?) _resolveLandscapeLogos(
+    MatchModel? match,
+    MatchDualSquads? squads,
+    OverlayStateModel? overlay,
+  ) {
+    if (match == null || overlay == null || squads == null) {
+      return (null, null);
+    }
+    final innings = match.currentInnings;
+    if (innings == null) return (null, null);
+
+    final battingIsA = innings.battingTeamId == match.teamAId;
+    final battingLogo =
+        battingIsA ? squads.teamA.teamLogoUrl : squads.teamB.teamLogoUrl;
+    final bowlingLogo =
+        battingIsA ? squads.teamB.teamLogoUrl : squads.teamA.teamLogoUrl;
+    return (battingLogo, bowlingLogo);
   }
 
   OverlayStateModel _overlayWithSponsor(

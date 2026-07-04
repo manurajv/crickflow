@@ -891,6 +891,24 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  /// Reconnect RTMP transport only — camera, encoder, and overlays stay alive.
+  Future<void> reconnectRtmpTransport() async {
+    if (!value.isInitialized! || _isDisposed) {
+      throw CameraException(
+        'Uninitialized CameraController',
+        'reconnectRtmpTransport was called on uninitialized CameraController',
+      );
+    }
+    try {
+      await _channel.invokeMethod<void>(
+        'reconnectRtmpTransport',
+        <String, dynamic>{'textureId': _textureId},
+      );
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
   /// Stop streaming.
   Future<void> stopEverything() async {
     if (!value.isInitialized! || _isDisposed) {

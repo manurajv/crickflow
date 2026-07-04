@@ -22,7 +22,11 @@ import 'widgets/studio/stream_studio_overlay.dart';
 import 'widgets/health/stream_live_chat_panel.dart';
 import 'widgets/camera/stream_camera_preview.dart';
 import 'widgets/health/stream_health_panel.dart';
+import 'widgets/end_live_stream_dialog.dart';
+import 'widgets/stream_reconnecting_banner.dart';
+import 'widgets/stream_connection_lost_banner.dart';
 import 'widgets/stream_studio_compositor.dart';
+import '../services/stream_lifecycle_log.dart';
 
 /// Pre-live streaming dashboard + live broadcast studio for a match.
 class StreamingDashboardScreen extends ConsumerStatefulWidget {
@@ -41,6 +45,7 @@ class _StreamingDashboardScreenState
   String? _cameraError;
   bool _isLive = false;
   Timer? _heartbeatTimer;
+  Timer? _youtubeStatusTimer;
   String? _lastEventId;
   int _previewSession = 0;
 
@@ -66,7 +71,7 @@ class _StreamingDashboardScreenState
     if (!StreamService.isPlatformSupported) return;
 
     final service = ref.read(streamServiceProvider);
-    final live = _isLive && service.isStreaming;
+    final live = _isLive && service.isRtmpLive;
 
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
@@ -80,7 +85,11 @@ class _StreamingDashboardScreenState
     if (live) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(streamOverlayBurnInServiceProvider).schedulePush();
-        unawaited(service.reconnectPreview(retries: 8));
+        // Do not restart the GL preview while RTMP is reconnecting — avoids ANR.
+        if (service.isReconnecting || !service.networkOnline) return;
+        unawaited(service.reconnectPreview(retries: 8).then((_) {
+          StreamLifecycleLog.cameraReconnected();
+        }));
       });
       return;
     }
@@ -190,12 +199,13 @@ class _StreamingDashboardScreenState
   void _resumeIfLive() {
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     final service = ref.read(streamServiceProvider);
-    if (match?.stream.status == StreamStatus.live ||
-        service.status == StreamStatus.live) {
+    final rtmpLive = service.isRtmpLive;
+    if (match?.stream.status == StreamStatus.live || rtmpLive) {
       setState(() => _isLive = true);
       _startHeartbeat();
+      _startYouTubeStatusMonitor();
       unawaited(ActiveStreamSession.setActive(widget.matchId));
-      if (service.isStreaming && !service.liveSessionActive) {
+      if (rtmpLive && !service.liveSessionActive) {
         final config = ref.read(streamStudioConfigProvider(widget.matchId));
         final title = config.title.trim().isNotEmpty
             ? config.title.trim()
@@ -279,6 +289,46 @@ class _StreamingDashboardScreenState
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       ref.read(matchRepositoryProvider).touchStreamHeartbeat(widget.matchId);
     });
+  }
+
+  void _startYouTubeStatusMonitor() {
+    _youtubeStatusTimer?.cancel();
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    if (config.platform != StreamPlatform.youtube) return;
+    if (config.broadcastSetupMode != StreamBroadcastSetupMode.automatic) return;
+    if (config.youtubeBroadcastId.isEmpty) return;
+
+    _youtubeStatusTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      unawaited(_pollYouTubeBroadcastEnded());
+    });
+    unawaited(_pollYouTubeBroadcastEnded());
+  }
+
+  void _stopYouTubeStatusMonitor() {
+    _youtubeStatusTimer?.cancel();
+    _youtubeStatusTimer = null;
+  }
+
+  Future<void> _pollYouTubeBroadcastEnded() async {
+    if (!mounted || !_isLive) return;
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    final broadcastId = config.youtubeBroadcastId;
+    if (broadcastId.isEmpty) return;
+
+    final status = await ref
+        .read(streamPlatformServiceProvider)
+        .fetchYouTubeBroadcastStatus(broadcastId: broadcastId);
+    if (!mounted || !_isLive || status == null) return;
+    if (status.isEnded) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('YouTube live stream ended — stopping broadcast'),
+          ),
+        );
+      }
+      await _endStream();
+    }
   }
 
   void _stopHeartbeat() {
@@ -375,6 +425,7 @@ class _StreamingDashboardScreenState
     }
 
     _startHeartbeat();
+    _startYouTubeStatusMonitor();
     await ActiveStreamSession.setActive(widget.matchId);
     final streamTitle = config.title.trim().isNotEmpty
         ? config.title.trim()
@@ -408,6 +459,7 @@ class _StreamingDashboardScreenState
 
   Future<void> _endStream() async {
     _stopHeartbeat();
+    _stopYouTubeStatusMonitor();
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     final config = ref.read(streamStudioConfigProvider(widget.matchId));
     if (match != null) {
@@ -458,10 +510,24 @@ class _StreamingDashboardScreenState
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
   }
 
+  Future<void> _handleBackWhileLive() async {
+    final end = await showEndLiveStreamDialog(context);
+    if (end == true && mounted) {
+      await _endStream();
+    }
+  }
+
+  Future<void> _retryConnection() async {
+    await ref.read(streamServiceProvider).retryConnection();
+    if (!mounted) return;
+    ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopHeartbeat();
+    _stopYouTubeStatusMonitor();
     if (!_isLive) {
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
       _restoreSystemUi();
@@ -528,13 +594,36 @@ class _StreamingDashboardScreenState
           return const Scaffold(body: Center(child: Text('Match not found')));
         }
 
-        return Scaffold(
+        return PopScope(
+          canPop: !_isLive,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop || !_isLive) return;
+            await _handleBackWhileLive();
+          },
+          child: Scaffold(
           backgroundColor: Colors.black,
           extendBody: true,
           extendBodyBehindAppBar: true,
           body: Stack(
             fit: StackFit.expand,
             children: [
+              if (_isLive && service.isReconnecting && !service.reconnectExhausted && !isObs)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: StreamReconnectingBanner(),
+                ),
+              if (_isLive && service.reconnectExhausted && !isObs)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: StreamConnectionLostBanner(
+                    onRetry: _retryConnection,
+                    onEndStream: _endStream,
+                  ),
+                ),
               if (isObs)
                 SafeArea(
                   child: SingleChildScrollView(
@@ -598,6 +687,7 @@ class _StreamingDashboardScreenState
                 ),
             ],
           ),
+        ),
         );
       },
       loading: () =>

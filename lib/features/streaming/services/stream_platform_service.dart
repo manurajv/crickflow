@@ -147,6 +147,45 @@ class StreamPlatformService {
     }
   }
 
+  /// Transitions an API-created broadcast to public live after RTMP ingest starts.
+  Future<void> startYouTubeLiveBroadcast({required String broadcastId}) async {
+    if (_auth.currentUser == null) {
+      throw StreamPlatformException('Sign in required');
+    }
+    if (broadcastId.isEmpty) {
+      throw StreamPlatformException('YouTube broadcast id missing');
+    }
+    try {
+      final callable = _functions.httpsCallable('startYouTubeLiveBroadcast');
+      await callable.call<Map<String, dynamic>>({
+        'broadcastId': broadcastId,
+      });
+    } on FirebaseFunctionsException catch (e) {
+      throw StreamPlatformException(e.message ?? e.code);
+    }
+  }
+
+  /// Poll YouTube broadcast lifecycle — `complete` / `revoked` means stream ended.
+  Future<YouTubeBroadcastStatus?> fetchYouTubeBroadcastStatus({
+    required String broadcastId,
+  }) async {
+    if (_auth.currentUser == null || broadcastId.isEmpty) return null;
+    try {
+      final callable = _functions.httpsCallable('getYouTubeBroadcastStatus');
+      final result = await callable.call<Map<String, dynamic>>({
+        'broadcastId': broadcastId,
+      });
+      final data = result.data;
+      return YouTubeBroadcastStatus(
+        broadcastId: data['broadcastId'] as String? ?? broadcastId,
+        lifeCycleStatus: data['lifeCycleStatus'] as String? ?? 'unknown',
+        streamStatus: data['streamStatus'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<YouTubeChatMessage>> fetchLiveChat({required String videoId}) async {
     if (_auth.currentUser == null) return const [];
     try {
@@ -223,6 +262,23 @@ class YouTubeChannel {
 
   final String id;
   final String title;
+}
+
+class YouTubeBroadcastStatus {
+  const YouTubeBroadcastStatus({
+    required this.broadcastId,
+    required this.lifeCycleStatus,
+    this.streamStatus,
+  });
+
+  final String broadcastId;
+  final String lifeCycleStatus;
+  final String? streamStatus;
+
+  bool get isEnded =>
+      lifeCycleStatus == 'complete' ||
+      lifeCycleStatus == 'revoked' ||
+      lifeCycleStatus == 'not_found';
 }
 
 class YouTubeChatMessage {

@@ -12,7 +12,9 @@ const {
   listYouTubeChannels,
   createYouTubeLiveBroadcast,
   endYouTubeLiveBroadcast,
+  transitionYouTubeBroadcastToLive,
   getYouTubeLiveChat,
+  getYouTubeBroadcastStatus,
 } = require('./youtubeLive');
 
 const youtubeClientId = defineSecret('YOUTUBE_CLIENT_ID');
@@ -196,6 +198,38 @@ exports.getYouTubeLiveChat = onCall({ secrets: youtubeSecrets }, async (request)
     return await getYouTubeLiveChat(request.auth.uid, id);
   } catch (err) {
     throw new HttpsError('failed-precondition', err.message || 'Chat unavailable');
+  }
+});
+
+exports.getYouTubeBroadcastStatus = onCall({ secrets: youtubeSecrets }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required');
+  }
+  const { broadcastId } = request.data || {};
+  if (!broadcastId) {
+    throw new HttpsError('invalid-argument', 'broadcastId required');
+  }
+  try {
+    bindYouTubeSecrets();
+    return await getYouTubeBroadcastStatus(request.auth.uid, broadcastId);
+  } catch (err) {
+    throw new HttpsError('failed-precondition', err.message || 'Status unavailable');
+  }
+});
+
+exports.startYouTubeLiveBroadcast = onCall({ secrets: youtubeSecrets }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required');
+  }
+  const { broadcastId } = request.data || {};
+  if (!broadcastId) {
+    throw new HttpsError('invalid-argument', 'broadcastId required');
+  }
+  try {
+    bindYouTubeSecrets();
+    return await transitionYouTubeBroadcastToLive(request.auth.uid, broadcastId);
+  } catch (err) {
+    throw new HttpsError('failed-precondition', err.message || 'YouTube go-live failed');
   }
 });
 

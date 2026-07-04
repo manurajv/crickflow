@@ -57,6 +57,9 @@ class CameraNativeView(
     private var previewGlLocked = false
     private var lockedGlConfig: BroadcastGlConfig.Config? = null
     private var lastAppliedStreamRotation = 0
+    private var lastStreamUrl: String? = null
+    private var encoderPipelineLinked = false
+    private var rtmpTransportUnstable = false
 
     init {
         // Fill the view — letterboxing (isKeepAspectRatio) leaves bars outdoors.
@@ -70,15 +73,29 @@ class CameraNativeView(
                 onPreviewSurfaceReady(generation)
             }
         }
-        glView.previewSizeChangedListener = { _, _ -> reapplyLockedPreviewGl() }
+        glView.previewSizeChangedListener = { _, _ ->
+            // Size churn during reconnect must not rebuild the encoder pipeline.
+            if (!rtmpTransportUnstable) {
+                applyLockedGlToInterface()
+            }
+        }
         // View resize is handled by Pedro OpenGlView.surfaceChanged — do not restart Camera2.
         rtmpCamera = RtmpCamera2(glView, this)
         overlayBurnIn = StreamOverlayBurnIn(rtmpCamera).also {
             it.onOverlayApplied = { applyStreamRotationIfLive() }
             it.streamRotationDegrees = { streamRotationFor(lockedOrientationMode) }
         }
-        rtmpCamera.setReTries(10)
+        rtmpCamera.setReTries(0)
         rtmpCamera.setFpsListener { fps = it }
+        StreamLifecycleBridge.emergencyStop = {
+            try {
+                if (rtmpCamera.isStreaming) {
+                    rtmpCamera.stopStream()
+                }
+            } catch (_: Exception) {
+            }
+            forceRelease()
+        }
     }
 
     private fun onPreviewSurfaceLost(generation: Long) {
@@ -158,28 +175,35 @@ class CameraNativeView(
 
     private fun reapplyLockedPreviewGl() {
         applyLockedGlToInterface()
-        if (rtmpCamera.isStreaming) {
-            linkEncoderPipeline()
+        if (rtmpCamera.isStreaming && !rtmpTransportUnstable) {
+            linkEncoderPipeline(fullRebuild = !encoderPipelineLinked)
         }
     }
 
     /** Restores GL, sensor-buffer camera, encoder surface, and overlay after go-live. */
-    private fun linkEncoderPipeline() {
+    private fun linkEncoderPipeline(fullRebuild: Boolean = true) {
         if (!rtmpCamera.isStreaming) return
         val glConfig = lockedGlConfig ?: return
         try {
             applyLockedGlToInterface()
-            PedroCameraBridge.rebindCameraAtPreviewBuffer(
-                rtmpCamera,
-                glConfig.cameraBuffer.width,
-                glConfig.cameraBuffer.height,
-            )
-            PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
+            val sessionReady = PedroCameraBridge.isCaptureSessionReady(rtmpCamera)
+            val needsCameraRebind = fullRebuild && !sessionReady
+            if (needsCameraRebind) {
+                PedroCameraBridge.rebindCameraAtPreviewBuffer(
+                    rtmpCamera,
+                    glConfig.cameraBuffer.width,
+                    glConfig.cameraBuffer.height,
+                )
+            }
+            if (needsCameraRebind || !encoderPipelineLinked) {
+                PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
+            }
             val (scaleW, scaleH) = BroadcastGlConfig.overlayScaleFor(glConfig, streaming = true)
             val streamRot = streamRotationFor(lockedOrientationMode)
             overlayBurnIn.lockLiveOverlaySession(streamRot, scaleW, scaleH)
             applyStreamRotationIfLive()
             overlayBurnIn.onEncoderPipelineReady()
+            encoderPipelineLinked = true
             StreamPipelineLog.pipelineLinked(rtmpCamera, glConfig, lockedOrientationMode)
             Log.i(
                 "CameraNativeView",
@@ -316,6 +340,11 @@ class CameraNativeView(
     private fun reattachPreviewSurface(preserveStream: Boolean) {
         if (!isSurfaceCreated || previewOperationInFlight) return
         if (!PreviewSurfaceLifecycle.isHolderSurfaceValid(glView)) return
+        if (rtmpTransportUnstable && preserveStream) {
+            Log.i("CameraNativeView", "Preview reattach deferred — RTMP reconnect in progress")
+            schedulePreviewReattach()
+            return
+        }
 
         val act = activity
         val previewSize = if (act != null) {
@@ -524,6 +553,9 @@ class CameraNativeView(
             overlayBurnIn.release()
         } catch (_: Exception) {
         }
+        encoderPipelineLinked = false
+        rtmpTransportUnstable = false
+        overlayBurnIn.glUpdatesPaused = false
         resetPreviewGlLock()
         encoderPrepared = false
     }
@@ -537,20 +569,26 @@ class CameraNativeView(
     override fun onConnectionSuccessRtmp() {
         Log.i("CameraNativeView", "RTMP connected")
         activity?.runOnUiThread {
-            linkEncoderPipeline()
+            rtmpTransportUnstable = false
+            overlayBurnIn.glUpdatesPaused = false
+            if (encoderPipelineLinked && PedroCameraBridge.isCaptureSessionReady(rtmpCamera)) {
+                applyStreamRotationIfLive()
+                overlayBurnIn.onEncoderPipelineReady()
+            } else {
+                linkEncoderPipeline(fullRebuild = !encoderPipelineLinked)
+            }
             dartMessenger?.send(DartMessenger.EventType.RTMP_CONNECTED, null)
         }
     }
 
     override fun onConnectionFailedRtmp(reason: String) {
         Log.e("CameraNativeView", "RTMP disconnected: $reason")
-        activity?.runOnUiThread { //Wait 5s and retry connect stream
-            if (rtmpCamera.reTry(5000, reason)) {
-                dartMessenger?.send(DartMessenger.EventType.RTMP_RETRY, reason)
-            } else {
-                dartMessenger?.send(DartMessenger.EventType.RTMP_STOPPED, "Failed retry")
-                rtmpCamera.stopStream()
+        activity?.runOnUiThread {
+            if (rtmpCamera.isStreaming) {
+                rtmpTransportUnstable = true
+                overlayBurnIn.glUpdatesPaused = true
             }
+            dartMessenger?.send(DartMessenger.EventType.RTMP_RETRY, reason)
         }
     }
 
@@ -563,6 +601,10 @@ class CameraNativeView(
     override fun onDisconnectRtmp() {
         Log.i("CameraNativeView", "RTMP disconnected")
         activity?.runOnUiThread {
+            if (rtmpCamera.isStreaming) {
+                rtmpTransportUnstable = true
+                overlayBurnIn.glUpdatesPaused = true
+            }
             dartMessenger?.send(DartMessenger.EventType.RTMP_STOPPED, "Disconnected")
         }
     }
@@ -705,9 +747,10 @@ class CameraNativeView(
                 if (!micEnabled) {
                     rtmpCamera.disableAudio()
                 }
+                lastStreamUrl = url
                 rtmpCamera.startStream(url)
                 applyStreamRotationIfLive()
-                linkEncoderPipeline()
+                // Pipeline links on onConnectionSuccessRtmp — not before RTMP connects.
             } else {
                 rtmpCamera.stopStream()
                 encoderPrepared = false
@@ -767,6 +810,8 @@ class CameraNativeView(
                     if (isRecording) stopRecord()
                 }
                 encoderPrepared = false
+                encoderPipelineLinked = false
+                rtmpTransportUnstable = false
                 if (isSurfaceCreated) {
                     configurePreviewForOrientation()
                 }
@@ -789,6 +834,40 @@ class CameraNativeView(
             result.error("stopVideoRecordingFailed", e.message, null)
         } catch (e: IllegalStateException) {
             result.error("stopVideoRecordingFailed", e.message, null)
+        }
+    }
+
+    fun reconnectRtmpTransport(result: MethodChannel.Result) {
+        runOnMain(result) {
+            try {
+                val url = lastStreamUrl
+                if (url.isNullOrEmpty()) {
+                    result.error("reconnectRtmpTransportFailed", "No stream URL", null)
+                    return@runOnMain
+                }
+                rtmpTransportUnstable = true
+                overlayBurnIn.glUpdatesPaused = true
+                Log.i(
+                    "CameraNativeView",
+                    "RTMP transport reconnect — streaming=${rtmpCamera.isStreaming} encoderPrepared=$encoderPrepared",
+                )
+                if (rtmpCamera.isStreaming) {
+                    rtmpCamera.reConnect(0)
+                } else if (encoderPrepared) {
+                    // Socket died while encoder/camera stayed up — restart transport only.
+                    rtmpCamera.startStream(url)
+                } else {
+                    rtmpTransportUnstable = false
+                    overlayBurnIn.glUpdatesPaused = false
+                    result.error("reconnectRtmpTransportFailed", "Encoder not prepared", null)
+                    return@runOnMain
+                }
+                result.success(null)
+            } catch (e: Exception) {
+                rtmpTransportUnstable = false
+                overlayBurnIn.glUpdatesPaused = false
+                result.error("reconnectRtmpTransportFailed", e.message, null)
+            }
         }
     }
 

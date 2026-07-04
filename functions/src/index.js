@@ -38,6 +38,8 @@ const {
   endYouTubeLiveStream,
   listYouTubeChannels,
   getYouTubeLiveChat,
+  getYouTubeBroadcastStatus,
+  startYouTubeLiveBroadcast,
   exportYouTubeChapters,
   createFacebookLiveStream,
   createTwitchLiveStream,
@@ -66,6 +68,8 @@ exports.createYouTubeLiveStream = createYouTubeLiveStream;
 exports.endYouTubeLiveStream = endYouTubeLiveStream;
 exports.listYouTubeChannels = listYouTubeChannels;
 exports.getYouTubeLiveChat = getYouTubeLiveChat;
+exports.getYouTubeBroadcastStatus = getYouTubeBroadcastStatus;
+exports.startYouTubeLiveBroadcast = startYouTubeLiveBroadcast;
 exports.exportYouTubeChapters = exportYouTubeChapters;
 exports.createFacebookLiveStream = createFacebookLiveStream;
 exports.createTwitchLiveStream = createTwitchLiveStream;

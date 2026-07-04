@@ -20,6 +20,7 @@ import kotlin.math.roundToInt
  */
 object PedroCameraBridge {
     private const val TAG = "PedroCameraBridge"
+    private val encoderSurfaceLock = Any()
 
     fun getCamera2ApiManager(rtmpCamera: RtmpCamera2): Camera2ApiManager? {
         var clazz: Class<*>? = rtmpCamera.javaClass
@@ -155,6 +156,10 @@ object PedroCameraBridge {
             apiManager.prepareCamera(surfaceTexture, prepW, prepH, fps)
             val encoderSurface = getVideoEncoderInputSurface(rtmpCamera)
             if (encoderSurface != null && encoderSurface.isValid) {
+                try {
+                    glInterface.removeMediaCodecSurface()
+                } catch (_: Exception) {
+                }
                 glInterface.addMediaCodecSurface(encoderSurface)
             }
             apiManager.openLastCamera()
@@ -193,13 +198,25 @@ object PedroCameraBridge {
             Log.w(TAG, "relinkEncoderSurface skipped — invalid encoder surface")
             return false
         }
-        return try {
-            glInterface.addMediaCodecSurface(encoderSurface)
-            Log.i(TAG, "Encoder surface re-linked to GL")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "relinkEncoderSurface", e)
-            false
+        if (!isGlThreadRunning(glInterface)) {
+            Log.w(TAG, "relinkEncoderSurface skipped — GL thread not running")
+            return false
+        }
+        synchronized(encoderSurfaceLock) {
+            return try {
+                // Pedro throws EGL_BAD_ALLOC if the encoder surface is already connected.
+                try {
+                    glInterface.removeMediaCodecSurface()
+                } catch (e: Exception) {
+                    Log.w(TAG, "removeMediaCodecSurface before relink", e)
+                }
+                glInterface.addMediaCodecSurface(encoderSurface)
+                Log.i(TAG, "Encoder surface re-linked to GL")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "relinkEncoderSurface", e)
+                false
+            }
         }
     }
 

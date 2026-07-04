@@ -67,8 +67,12 @@ class SafeOpenGlView(context: Context) : OpenGlView(context) {
             super.run()
         } catch (e: IllegalArgumentException) {
             Log.e(TAG, "GL surface not ready", e)
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "GL thread state error", e)
         } catch (e: RuntimeException) {
             Log.e(TAG, "GL thread failed", e)
+        } catch (e: Exception) {
+            Log.e(TAG, "GL thread unexpected error", e)
         }
     }
 

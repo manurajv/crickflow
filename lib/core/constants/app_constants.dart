@@ -6,6 +6,10 @@ class AppConstants {
   static const String appBuildNumber = '1';
   static const String defaultCountry = 'Sri Lanka';
 
+  /// Brand logo for landscape stream overlay header.
+  static const String crickflowLogoUrl =
+      'https://crickflow-b06bc.web.app/assets/crickflow-logo.png';
+
   // Firestore collections
   static const String usersCollection = 'users';
   static const String teamsCollection = 'teams';
