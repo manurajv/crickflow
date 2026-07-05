@@ -5,8 +5,8 @@ import '../scorebug_helpers.dart';
 import '../scorebug_tokens.dart';
 import 'landscape_scorebug_layout.dart';
 
-/// Center panel — striker / non-striker with optional chase target.
-class LandscapeBatsmenPanel extends StatelessWidget {
+/// Center panel — fixed left/right batter slots with on-strike indicator only.
+class LandscapeBatsmenPanel extends StatefulWidget {
   const LandscapeBatsmenPanel({
     super.key,
     required this.overlay,
@@ -14,6 +14,7 @@ class LandscapeBatsmenPanel extends StatelessWidget {
     required this.scale,
     this.centerTitle,
     this.showTarget = true,
+    this.compact = false,
   });
 
   final OverlayStateModel overlay;
@@ -21,60 +22,92 @@ class LandscapeBatsmenPanel extends StatelessWidget {
   final double scale;
   final String? centerTitle;
   final bool showTarget;
+  final bool compact;
+
+  @override
+  State<LandscapeBatsmenPanel> createState() => _LandscapeBatsmenPanelState();
+}
+
+class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
+  final _slotTracker = ScorebugBatterSlotTracker();
+  String? _trackedMatchId;
 
   @override
   Widget build(BuildContext context) {
-    final hasTarget = showTarget && overlay.target != null;
-    final reserveTarget = showTarget;
-    final targetWidth = LandscapeScorebugLayout.targetChipWidth(scale);
+    if (_trackedMatchId != widget.overlay.matchId) {
+      _trackedMatchId = widget.overlay.matchId;
+      _slotTracker.reset();
+    }
+
+    final hasTarget = widget.showTarget && widget.overlay.target != null;
+    final reserveTarget = widget.showTarget;
+    final targetWidth = LandscapeScorebugLayout.targetChipWidth(widget.scale);
+    final slots = _slotTracker.resolve(widget.overlay);
+    final horizontalPad = widget.compact ? 12 * widget.scale : 40 * widget.scale;
+    final batterGap = widget.compact
+        ? 14 * widget.scale
+        : LandscapeScorebugLayout.batterGap(widget.scale);
 
     return Container(
       width: double.infinity,
       height: double.infinity,
-      color: tokens.navy,
-      padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 3 * scale),
+      color: widget.tokens.navy,
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPad,
+        vertical: 3 * widget.scale,
+      ),
       alignment: Alignment.center,
-      child: centerTitle != null && centerTitle!.isNotEmpty
-          ? _CenterTitle(title: centerTitle!, tokens: tokens, scale: scale)
+      child: widget.centerTitle != null && widget.centerTitle!.isNotEmpty
+          ? _CenterTitle(
+              title: widget.centerTitle!,
+              tokens: widget.tokens,
+              scale: widget.scale,
+            )
           : Row(
               children: [
                 Expanded(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: _BatterRow(
-                          tokens: tokens,
-                          scale: scale,
-                          name: overlay.strikerName,
-                          runs: overlay.strikerRuns,
-                          balls: overlay.strikerBalls,
-                          onStrike: true,
+                      if (slots.isNotEmpty) ...[
+                        Flexible(
+                          child: _BatterRow(
+                            tokens: widget.tokens,
+                            scale: widget.scale,
+                            name: slots[0].name,
+                            runs: slots[0].runs,
+                            balls: slots[0].balls,
+                            onStrike: slots[0].onStrike,
+                            compact: widget.compact,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: LandscapeScorebugLayout.batterGap(scale)),
-                      Flexible(
-                        child: _BatterRow(
-                          tokens: tokens,
-                          scale: scale,
-                          name: overlay.nonStrikerName,
-                          runs: overlay.nonStrikerRuns,
-                          balls: overlay.nonStrikerBalls,
-                          onStrike: false,
-                        ),
-                      ),
+                        if (slots.length > 1) ...[
+                          SizedBox(width: batterGap),
+                          Flexible(
+                            child: _BatterRow(
+                              tokens: widget.tokens,
+                              scale: widget.scale,
+                              name: slots[1].name,
+                              runs: slots[1].runs,
+                              balls: slots[1].balls,
+                              onStrike: slots[1].onStrike,
+                              compact: widget.compact,
+                            ),
+                          ),
+                        ],
+                      ],
                     ],
                   ),
                 ),
                 if (reserveTarget) ...[
-                  SizedBox(width: 10 * scale),
+                  SizedBox(width: 10 * widget.scale),
                   SizedBox(
                     width: targetWidth,
                     child: hasTarget
                         ? _TargetChip(
-                            target: overlay.target!,
-                            tokens: tokens,
-                            scale: scale,
+                            target: widget.overlay.target!,
+                            tokens: widget.tokens,
+                            scale: widget.scale,
                           )
                         : const SizedBox.shrink(),
                   ),
@@ -121,6 +154,7 @@ class _BatterRow extends StatelessWidget {
     required this.runs,
     required this.balls,
     required this.onStrike,
+    this.compact = false,
   });
 
   final ScorebugTokens tokens;
@@ -129,27 +163,56 @@ class _BatterRow extends StatelessWidget {
   final int runs;
   final int balls;
   final bool onStrike;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final displayName = ScorebugHelpers.shortName(name, max: 12);
+    final displayName = ScorebugHelpers.shortName(name, max: compact ? 9 : 12);
+    final nameStyle = compact
+        ? TextStyle(
+            color: onStrike
+                ? tokens.white
+                : tokens.white.withValues(alpha: 0.88),
+            fontSize: (onStrike ? 13.5 : 12.5) * scale,
+            fontWeight: onStrike ? FontWeight.w800 : FontWeight.w600,
+            letterSpacing: 0.3,
+            height: 1.1,
+          )
+        : LandscapeScorebugLayout.playerNameStyle(
+            tokens,
+            scale,
+            onStrike: onStrike,
+          );
+    final runsStyle = compact
+        ? TextStyle(
+            color: tokens.white,
+            fontSize: 14 * scale,
+            fontWeight: FontWeight.w900,
+            height: 1.1,
+          )
+        : LandscapeScorebugLayout.playerRunsStyle(tokens, scale);
+    final ballsStyle = compact
+        ? TextStyle(
+            color: tokens.white.withValues(alpha: 0.65),
+            fontSize: 11 * scale,
+            fontWeight: FontWeight.w500,
+            height: 1.1,
+          )
+        : LandscapeScorebugLayout.playerBallsStyle(tokens, scale);
+
     return AnimatedDefaultTextStyle(
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
-      style: LandscapeScorebugLayout.playerNameStyle(
-        tokens,
-        scale,
-        onStrike: onStrike,
-      ),
+      style: nameStyle,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (onStrike)
             Padding(
-              padding: EdgeInsets.only(right: 6 * scale),
+              padding: EdgeInsets.only(right: 2 * scale),
               child: Text(
                 '🏏',
-                style: TextStyle(fontSize: 13 * scale, height: 1),
+                style: TextStyle(fontSize: (compact ? 13 : 16) * scale, height: 1),
               ),
             ),
           Flexible(
@@ -159,16 +222,10 @@ class _BatterRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(width: 8 * scale),
-          Text(
-            '$runs',
-            style: LandscapeScorebugLayout.playerRunsStyle(tokens, scale),
-          ),
-          SizedBox(width: 5 * scale),
-          Text(
-            '$balls',
-            style: LandscapeScorebugLayout.playerBallsStyle(tokens, scale),
-          ),
+          SizedBox(width: (compact ? 5 : 8) * scale),
+          Text('$runs', style: runsStyle),
+          SizedBox(width: (compact ? 3 : 5) * scale),
+          Text('$balls', style: ballsStyle),
         ],
       ),
     );

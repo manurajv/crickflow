@@ -8,6 +8,7 @@ class ScorebugTokens {
   const ScorebugTokens({
     required this.navy,
     required this.navyDeep,
+    required this.panelBg,
     required this.blue,
     required this.gold,
     required this.white,
@@ -18,6 +19,8 @@ class ScorebugTokens {
 
   final Color navy;
   final Color navyDeep;
+  /// Title chip, team abbrev, and bowler block — broadcast blue (not near-black).
+  final Color panelBg;
   final Color blue;
   final Color gold;
   final Color white;
@@ -27,11 +30,20 @@ class ScorebugTokens {
 
   factory ScorebugTokens.fromTheme(StreamOverlayTheme theme) {
     final primary = Color(theme.primaryColor);
+    final panelBase = Color.lerp(
+      const Color(0xFF1A5FA8),
+      CfColors.primaryBlue,
+      0.45,
+    )!;
     return ScorebugTokens(
       navy: primary.withValues(alpha: theme.opacity),
       navyDeep: Color.alphaBlend(
         Colors.black.withValues(alpha: 0.35),
         primary.withValues(alpha: theme.opacity),
+      ),
+      panelBg: Color.alphaBlend(
+        panelBase.withValues(alpha: 0.94),
+        primary.withValues(alpha: theme.opacity * 0.82),
       ),
       blue: CfColors.primaryBlue.withValues(alpha: theme.opacity),
       gold: Color(theme.secondaryColor),

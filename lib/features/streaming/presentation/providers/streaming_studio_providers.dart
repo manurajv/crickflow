@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/constants/enums.dart';
 import '../../../../data/models/match_model.dart';
+import '../../../../data/models/player_model.dart';
 import '../../../../data/services/stream_service.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
@@ -11,7 +12,13 @@ import '../../data/models/saved_rtmp_server.dart';
 import '../../data/models/saved_stream_key.dart';
 import '../../data/models/stream_studio_config.dart';
 import '../../data/repositories/stream_studio_repository.dart';
+import '../../../../shared/providers/match_squads_provider.dart';
+import '../../data/models/batter_intro_profile.dart';
+import '../../data/models/bowler_intro_profile.dart';
+import '../../domain/batter_intro_profile_builder.dart';
+import '../../domain/bowler_intro_profile_builder.dart';
 import '../../domain/stream_event_detector.dart';
+import 'player_intro_lookup.dart';
 import '../../domain/stream_permission_service.dart';
 import '../../domain/streaming_enums.dart';
 import '../../data/models/stream_overlay_theme.dart';
@@ -128,6 +135,19 @@ class StreamStudioNotifier extends StateNotifier<StreamStudioConfig> {
     );
   }
 
+  /// Updates stream metadata from Firestore without resetting locked orientation.
+  void syncStreamMetadataFromMatch(MatchModel match) {
+    final lockedOrientation = state.orientation;
+    final orientationLocked = state.orientationLocked;
+    initFromMatch(match);
+    if (orientationLocked) {
+      state = state.copyWith(
+        orientation: lockedOrientation,
+        orientationLocked: true,
+      );
+    }
+  }
+
   void update(StreamStudioConfig Function(StreamStudioConfig) fn) {
     state = fn(state);
   }
@@ -148,8 +168,8 @@ class StreamStudioNotifier extends StateNotifier<StreamStudioConfig> {
 
 final streamStudioConfigProvider = StateNotifierProvider.autoDispose
     .family<StreamStudioNotifier, StreamStudioConfig, String>((ref, matchId) {
-  final match = ref.watch(matchProvider(matchId)).valueOrNull;
   final notifier = StreamStudioNotifier();
+  final match = ref.read(matchProvider(matchId)).valueOrNull;
   if (match != null) {
     notifier.initFromMatch(match);
   }
@@ -165,7 +185,7 @@ final streamStudioConfigProvider = StateNotifierProvider.autoDispose
   ref.listen(matchProvider(matchId), (prev, next) {
     final m = next.valueOrNull;
     if (m != null && prev?.valueOrNull?.stream != m.stream) {
-      notifier.initFromMatch(m);
+      notifier.syncStreamMetadataFromMatch(m);
     }
   });
   return notifier;
@@ -173,6 +193,100 @@ final streamStudioConfigProvider = StateNotifierProvider.autoDispose
 
 final activeEventOverlayProvider = StateProvider.autoDispose
     .family<StreamEventOverlay?, String>((ref, matchId) => null);
+
+/// Side-panel intro queued while a center overlay (e.g. WICKET) is still showing.
+final pendingSidePanelOverlayProvider = StateProvider.autoDispose
+    .family<StreamEventOverlay?, String>((ref, matchId) => null);
+
+final bowlerIntroProfileProvider = FutureProvider.autoDispose
+    .family<BowlerIntroProfile, PlayerIntroLookup>((ref, lookup) async {
+  final match = await ref.watch(matchProvider(lookup.matchId).future);
+  if (match == null) {
+    return BowlerIntroProfile(playerName: lookup.fallbackName);
+  }
+
+  final squads =
+      await ref.watch(matchDualSquadsProvider(lookup.matchId).future);
+  final playerRepo = ref.read(playerRepositoryProvider);
+
+  PlayerModel? player;
+  if (lookup.playerId.isNotEmpty) {
+    player = await playerRepo.getPlayer(lookup.playerId);
+  }
+
+  String? teamName;
+  String? teamLogoUrl;
+  for (final side in [squads.teamA, squads.teamB]) {
+    final inSquad = side.allPlayers.any(
+      (p) => p.id == lookup.playerId || p.playerId == lookup.playerId,
+    );
+    if (inSquad) {
+      teamName = side.teamName;
+      teamLogoUrl = side.teamLogoUrl;
+      break;
+    }
+  }
+
+  final matches = await ref.watch(matchesProvider.future);
+  final completed = matches
+      .where((m) => m.status == MatchStatus.completed)
+      .toList(growable: false);
+
+  return BowlerIntroProfileBuilder.build(
+    match: match,
+    playerId: lookup.playerId,
+    fallbackName: lookup.fallbackName,
+    player: player,
+    teamName: teamName,
+    teamLogoUrl: teamLogoUrl,
+    completedMatches: completed,
+  );
+});
+
+final batterIntroProfileProvider = FutureProvider.autoDispose
+    .family<BatterIntroProfile, PlayerIntroLookup>((ref, lookup) async {
+  final match = await ref.watch(matchProvider(lookup.matchId).future);
+  if (match == null) {
+    return BatterIntroProfile(playerName: lookup.fallbackName);
+  }
+
+  final squads =
+      await ref.watch(matchDualSquadsProvider(lookup.matchId).future);
+  final playerRepo = ref.read(playerRepositoryProvider);
+
+  PlayerModel? player;
+  if (lookup.playerId.isNotEmpty) {
+    player = await playerRepo.getPlayer(lookup.playerId);
+  }
+
+  String? teamName;
+  String? teamLogoUrl;
+  for (final side in [squads.teamA, squads.teamB]) {
+    final inSquad = side.allPlayers.any(
+      (p) => p.id == lookup.playerId || p.playerId == lookup.playerId,
+    );
+    if (inSquad) {
+      teamName = side.teamName;
+      teamLogoUrl = side.teamLogoUrl;
+      break;
+    }
+  }
+
+  final matches = await ref.watch(matchesProvider.future);
+  final completed = matches
+      .where((m) => m.status == MatchStatus.completed)
+      .toList(growable: false);
+
+  return BatterIntroProfileBuilder.build(
+    match: match,
+    playerId: lookup.playerId,
+    fallbackName: lookup.fallbackName,
+    player: player,
+    teamName: teamName,
+    teamLogoUrl: teamLogoUrl,
+    completedMatches: completed,
+  );
+});
 
 final streamHealthProvider = StreamProvider.autoDispose<StreamHealthMetrics>((ref) {
   return ref.watch(streamServiceProvider).healthStream;

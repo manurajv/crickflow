@@ -70,8 +70,6 @@ class LandscapeBannerScheduler {
     required bool centerEventActive,
     required bool forBurnInCapture,
   }) {
-    if (forBurnInCapture) return;
-
     _maybeEnqueuePartnership(context);
     _maybeEnqueueOverTriggers(overlay, context);
 
@@ -102,21 +100,27 @@ class LandscapeBannerScheduler {
     OverlayStateModel overlay,
     LandscapeScorebugContext context,
   ) {
-    if (_prevLegalBalls < 0) {
-      return;
-    }
+    if (_prevLegalBalls < 0) return;
 
-    final overChanged = context.currentOverNumber != _prevOverNumber;
-    final overJustStarted =
-        context.ballsInCurrentOver == 0 && overlay.legalBalls > _prevLegalBalls;
-    final overJustCompleted =
-        context.ballsInCurrentOver == 0 &&
-            overlay.legalBalls > _prevLegalBalls &&
-            _prevLegalBalls > 0;
+    final overNumber = context.currentOverNumber;
+    final overChanged = overNumber != _prevOverNumber;
+    final inningsStarted = _prevLegalBalls == 0 && overlay.legalBalls > 0;
+    final overBoundaryCompleted = overlay.legalBalls > _prevLegalBalls &&
+        overlay.ballsPerOver > 0 &&
+        overlay.legalBalls % overlay.ballsPerOver == 0;
 
-    if (overJustStarted || (overChanged && context.ballsInCurrentOver == 0)) {
-      if (_lastOverForCrr != context.currentOverNumber) {
-        _lastOverForCrr = context.currentOverNumber;
+    final showOverStartBanner =
+        overChanged || inningsStarted || overBoundaryCompleted;
+
+    if (showOverStartBanner) {
+      final crrOver = overChanged
+          ? overNumber
+          : (overBoundaryCompleted && !overChanged
+              ? overNumber + 1
+              : overNumber);
+
+      if (_lastOverForCrr != crrOver) {
+        _lastOverForCrr = crrOver;
         _enqueue(
           const LandscapeTopBannerRequest(
             kind: LandscapeTopBannerKind.currentRunRate,
@@ -126,8 +130,8 @@ class LandscapeBannerScheduler {
       }
 
       if (context.showProjectionPhase &&
-          _lastOverForProjection != context.currentOverNumber) {
-        _lastOverForProjection = context.currentOverNumber;
+          _lastOverForProjection != crrOver) {
+        _lastOverForProjection = crrOver;
         _enqueue(
           const LandscapeTopBannerRequest(
             kind: LandscapeTopBannerKind.projectedScore,
@@ -137,9 +141,9 @@ class LandscapeBannerScheduler {
       }
 
       if (context.isChase &&
-          context.currentOverNumber % 4 == 0 &&
-          _lastOverForToWin != context.currentOverNumber) {
-        _lastOverForToWin = context.currentOverNumber;
+          crrOver % 4 == 0 &&
+          _lastOverForToWin != crrOver) {
+        _lastOverForToWin = crrOver;
         _enqueue(
           const LandscapeTopBannerRequest(
             kind: LandscapeTopBannerKind.toWin,
@@ -149,11 +153,11 @@ class LandscapeBannerScheduler {
       }
     }
 
-    if (overJustCompleted &&
+    if ((overChanged || overBoundaryCompleted) &&
         context.isChase &&
         overlay.requiredRunRate != null &&
-        _lastOverForRrr != context.currentOverNumber) {
-      _lastOverForRrr = context.currentOverNumber;
+        _lastOverForRrr != overNumber) {
+      _lastOverForRrr = overNumber;
       _enqueue(
         const LandscapeTopBannerRequest(
           kind: LandscapeTopBannerKind.requiredRunRate,

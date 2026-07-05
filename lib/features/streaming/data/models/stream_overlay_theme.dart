@@ -41,6 +41,7 @@ class StreamEventOverlay extends Equatable {
     required this.title,
     this.subtitle = '',
     this.playerName = '',
+    this.playerId = '',
     this.duration = const Duration(seconds: 4),
     this.createdAt,
   });
@@ -49,9 +50,14 @@ class StreamEventOverlay extends Equatable {
   final String title;
   final String subtitle;
   final String playerName;
+  final String playerId;
   final Duration duration;
   final DateTime? createdAt;
 
+  bool get isSidePanelEvent =>
+      type == StreamEventOverlayType.newBowler ||
+      type == StreamEventOverlayType.newBatter;
+
   @override
-  List<Object?> get props => [type, title, createdAt];
+  List<Object?> get props => [type, title, playerId, createdAt];
 }

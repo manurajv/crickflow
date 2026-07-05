@@ -71,9 +71,35 @@ class MatchRepository {
   CollectionReference<Map<String, dynamic>> _activityLogs(String matchId) =>
       _matchDoc(matchId).collection('activity_logs');
 
-  bool _isActiveScoring(MatchModel match) =>
-      match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak;
+  /// Prefer Firestore when the scorer updates from another device.
+  MatchModel? _pickNewerMatch(MatchModel? local, MatchModel? remote) {
+    if (local == null) return remote;
+    if (remote == null) return local;
+    return remote.overlayVersion >= local.overlayVersion ? remote : local;
+  }
+
+  OverlayStateModel? _pickNewerOverlay(
+    OverlayStateModel? local,
+    OverlayStateModel? remote,
+  ) {
+    if (local == null) return remote;
+    if (remote == null) return local;
+    return remote.version >= local.version ? remote : local;
+  }
+
+  List<BallEventModel> _pickNewerBallEvents(
+    List<BallEventModel> local,
+    List<BallEventModel> remote,
+  ) {
+    if (remote.isEmpty) return local;
+    if (local.isEmpty) return remote;
+    final remoteMax = remote.last.sequence;
+    final localMax = local.last.sequence;
+    if (remoteMax != localMax) {
+      return remoteMax > localMax ? remote : local;
+    }
+    return remote.length >= local.length ? remote : local;
+  }
 
   Future<MatchModel?> _getMatchFromFirestore(String id) async {
     try {
@@ -302,12 +328,11 @@ class MatchRepository {
     MatchModel? remoteMatch;
 
     void emit() {
-      if (localMatch != null &&
-          (_localStore!.hasPendingSync(id) || _isActiveScoring(localMatch!))) {
-        controller.add(localMatch);
-      } else {
-        controller.add(remoteMatch ?? localMatch);
+      if (_localStore!.hasPendingSync(id)) {
+        controller.add(localMatch ?? remoteMatch);
+        return;
       }
+      controller.add(_pickNewerMatch(localMatch, remoteMatch));
     }
 
     final localSub = _localStore!.watchMatch(id).listen((match) {
@@ -966,11 +991,11 @@ class MatchRepository {
     OverlayStateModel? remoteOverlay;
 
     void emit() {
-      if (_localStore!.hasPendingSync(matchId) || localOverlay != null) {
+      if (_localStore!.hasPendingSync(matchId)) {
         controller.add(localOverlay ?? remoteOverlay);
-      } else {
-        controller.add(remoteOverlay ?? localOverlay);
+        return;
       }
+      controller.add(_pickNewerOverlay(localOverlay, remoteOverlay));
     }
 
     final localSub = _localStore!.watchOverlay(matchId).listen((overlay) {
@@ -1010,14 +1035,11 @@ class MatchRepository {
     List<BallEventModel> remoteEvents = [];
 
     void emit() {
-      if (_localStore!.hasLocalSnapshot(matchId) &&
-          (_localStore!.hasPendingSync(matchId) || localEvents.isNotEmpty)) {
+      if (_localStore!.hasPendingSync(matchId)) {
         controller.add(localEvents);
-      } else {
-        controller.add(
-          remoteEvents.isNotEmpty ? remoteEvents : localEvents,
-        );
+        return;
       }
+      controller.add(_pickNewerBallEvents(localEvents, remoteEvents));
     }
 
     final localSub = _localStore!.watchBallEvents(matchId).listen((events) {

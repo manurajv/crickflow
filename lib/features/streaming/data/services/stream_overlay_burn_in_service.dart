@@ -37,7 +37,7 @@ class StreamOverlayBurnInService {
   /// Keeps RTMP overlay in sync with scorebug and event graphics while live.
   void startLiveRefresh() {
     _liveRefreshTimer?.cancel();
-    _liveRefreshTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+    _liveRefreshTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
       final stream = _ref.read(streamServiceProvider);
       if (stream.isStreaming || stream.liveSessionActive) {
         schedulePush();

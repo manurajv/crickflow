@@ -3,7 +3,44 @@ import 'package:flutter/material.dart';
 import '../scorebug_tokens.dart';
 import 'landscape_scorebug_layout.dart';
 
-/// Ball-by-ball strip above the bowler — all deliveries in the over (incl. extras).
+/// Compact ball-by-ball cells — reusable in the over strip or inside the bowler panel.
+class ThisOverBallStrip extends StatelessWidget {
+  const ThisOverBallStrip({
+    super.key,
+    required this.labels,
+    required this.tokens,
+    required this.scale,
+  });
+
+  final List<String> labels;
+  final ScorebugTokens tokens;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    if (labels.isEmpty) return const SizedBox.shrink();
+
+    final cells = <Widget>[];
+    for (var i = 0; i < labels.length; i++) {
+      if (i > 0) cells.add(SizedBox(width: 3 * scale));
+      cells.add(_BallCell(label: labels[i], tokens: tokens, scale: scale));
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: cells,
+        ),
+      ),
+    );
+  }
+}
+
+/// Ball-by-ball strip above the bowler — landscape layout only.
 class LandscapeThisOverWidget extends StatelessWidget {
   const LandscapeThisOverWidget({
     super.key,
@@ -24,24 +61,15 @@ class LandscapeThisOverWidget extends StatelessWidget {
       return SizedBox(height: rowHeight);
     }
 
-    final cells = <Widget>[];
-    for (var i = 0; i < labels.length; i++) {
-      if (i > 0) cells.add(SizedBox(width: 3 * scale));
-      cells.add(_BallCell(label: labels[i], tokens: tokens, scale: scale));
-    }
-
     return Container(
       height: rowHeight,
       color: tokens.white.withValues(alpha: 0.97),
       padding: EdgeInsets.only(left: 4 * scale, right: 8 * scale),
       alignment: Alignment.centerLeft,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: cells,
-        ),
+      child: ThisOverBallStrip(
+        labels: labels,
+        tokens: tokens,
+        scale: scale,
       ),
     );
   }

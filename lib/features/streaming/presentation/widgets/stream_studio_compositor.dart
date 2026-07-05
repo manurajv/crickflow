@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,6 +17,7 @@ import '../../domain/stream_sponsor_rotation.dart';
 import '../../domain/streaming_enums.dart';
 import '../providers/streaming_studio_providers.dart';
 import 'overlay/broadcast_overlay_host.dart';
+import 'overlay/events/broadcast_event_anim.dart';
 import 'overlay/scorebug/landscape/landscape_scorebug_context_builder.dart';
 import 'overlay/stream_score_ticker.dart';
 import 'studio/studio_landscape_rotation.dart';
@@ -48,18 +51,22 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   StreamSponsorRotation? _sponsorRotation;
   String? _rotatingSponsorName;
   String? _rotatingSponsorLogo;
-  int? _lastOverlayVersion;
   Size _encoderSize = const Size(1280, 720);
   bool _captureSizeLocked = false;
   StreamOrientationMode? _lockedLiveOrientation;
+  Timer? _eventDismissTimer;
 
   @override
   void initState() {
     super.initState();
+    final stream = ref.read(streamServiceProvider);
+    if (stream.isStreaming || stream.liveSessionActive) {
+      _lockCaptureSizeForLive();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final stream = ref.read(streamServiceProvider);
-      if (stream.isStreaming || stream.liveSessionActive) {
+      final liveStream = ref.read(streamServiceProvider);
+      if (liveStream.isStreaming || liveStream.liveSessionActive) {
         _lockCaptureSizeForLive();
         return;
       }
@@ -71,12 +78,14 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
 
   @override
   void dispose() {
+    _eventDismissTimer?.cancel();
     _sponsorRotation?.dispose();
     super.dispose();
   }
 
   StreamOrientationMode _broadcastOrientation(StreamStudioConfig config) {
     if (_lockedLiveOrientation != null) return _lockedLiveOrientation!;
+    if (config.orientationLocked) return config.orientation;
     final stream = ref.read(streamServiceProvider);
     if (stream.liveSessionActive || stream.isStreaming) {
       return stream.orientation;
@@ -96,7 +105,12 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
 
   void _lockCaptureSizeForLive() {
     final config = ref.read(streamStudioConfigProvider(widget.matchId));
-    _lockedLiveOrientation ??= _broadcastOrientation(config);
+    final stream = ref.read(streamServiceProvider);
+    _lockedLiveOrientation ??= config.orientationLocked
+        ? config.orientation
+        : ((stream.liveSessionActive || stream.isStreaming)
+            ? stream.orientation
+            : config.orientation);
     final size = _encoderSizeForSession(config);
     _captureSizeLocked = true;
     if (size != _encoderSize && mounted) {
@@ -114,9 +128,23 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   @override
   void didUpdateWidget(covariant StreamStudioCompositor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final version = widget.overlay?.version;
-    if (version != null && version != _lastOverlayVersion) {
-      _lastOverlayVersion = version;
+    final prev = oldWidget.overlay;
+    final next = widget.overlay;
+    final overlayChanged = next != null &&
+        (prev?.version != next.version ||
+            prev?.totalRuns != next.totalRuns ||
+            prev?.totalWickets != next.totalWickets ||
+            prev?.legalBalls != next.legalBalls ||
+            prev?.strikerRuns != next.strikerRuns ||
+            prev?.strikerName != next.strikerName ||
+            prev?.nonStrikerRuns != next.nonStrikerRuns ||
+            prev?.bowlerRuns != next.bowlerRuns ||
+            prev?.bowlerWickets != next.bowlerWickets);
+    if (overlayChanged) {
+      final stream = ref.read(streamServiceProvider);
+      if (stream.isStreaming || stream.liveSessionActive) {
+        _lockCaptureSizeForLive();
+      }
       _scheduleBurnIn();
     }
   }
@@ -125,6 +153,48 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     final stream = ref.read(streamServiceProvider);
     if (!stream.isStreaming && !stream.liveSessionActive) return;
     ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+  }
+
+  void _clearActiveEventOverlay() {
+    ref.read(activeEventOverlayProvider(widget.matchId).notifier).state = null;
+    _eventDismissTimer?.cancel();
+    _eventDismissTimer = null;
+    _scheduleBurnIn();
+  }
+
+  void _flushPendingSidePanelOverlay() {
+    final pending =
+        ref.read(pendingSidePanelOverlayProvider(widget.matchId));
+    if (pending == null) return;
+    ref.read(pendingSidePanelOverlayProvider(widget.matchId).notifier).state =
+        null;
+    ref.read(activeEventOverlayProvider(widget.matchId).notifier).state =
+        pending;
+    _scheduleEventDismissSafety(pending);
+    _scheduleBurnIn();
+  }
+
+  void _onEventOverlayFinished() {
+    if (!mounted) return;
+    final active = ref.read(activeEventOverlayProvider(widget.matchId));
+    if (active == null) return;
+    _clearActiveEventOverlay();
+    _flushPendingSidePanelOverlay();
+  }
+
+  void _scheduleEventDismissSafety(StreamEventOverlay event) {
+    _eventDismissTimer?.cancel();
+    _eventDismissTimer = Timer(
+      BroadcastEventAnim.totalSequenceDuration(event.duration),
+      () {
+        if (!mounted) return;
+        final active = ref.read(activeEventOverlayProvider(widget.matchId));
+        if (active == event) {
+          _clearActiveEventOverlay();
+          _flushPendingSidePanelOverlay();
+        }
+      },
+    );
   }
 
   void _bindSponsors(List<TournamentSponsorModel> sponsors) {
@@ -164,7 +234,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     String? bowlingTeamLogoUrl,
     bool forBurnInCapture = false,
   }) {
-    final landscapeContext = overlay != null && landscapeUi
+    final scorebugContext = overlay != null
         ? LandscapeScorebugContextBuilder.build(
             overlay: overlay,
             match: match,
@@ -189,21 +259,15 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       if (overlay != null)
         Positioned.fill(
           child: BroadcastOverlayHost(
+            matchId: widget.matchId,
             landscape: landscapeUi,
             overlay: _overlayWithSponsor(overlay, sponsorLine),
             theme: overlayTheme,
             sponsorLogoUrl: _rotatingSponsorLogo,
-            landscapeContext: landscapeContext,
+            landscapeContext: scorebugContext,
             eventOverlay: eventOverlay,
             forBurnInCapture: forBurnInCapture,
-            onEventFinished: forBurnInCapture
-                ? null
-                : () {
-                    ref
-                        .read(activeEventOverlayProvider(widget.matchId).notifier)
-                        .state = null;
-                    _scheduleBurnIn();
-                  },
+            onEventFinished: _onEventOverlayFinished,
           ),
         ),
     ];
@@ -237,8 +301,24 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   Widget build(BuildContext context) {
     ref.listen(activeEventOverlayProvider(widget.matchId), (prev, next) {
       _scheduleBurnIn();
+      if (next != null) {
+        _scheduleEventDismissSafety(next);
+      } else {
+        _eventDismissTimer?.cancel();
+        _eventDismissTimer = null;
+      }
     });
     ref.listen(overlayProvider(widget.matchId), (prev, next) {
+      if (next.valueOrNull != null) {
+        _scheduleBurnIn();
+      }
+    });
+    ref.listen(matchProvider(widget.matchId), (prev, next) {
+      if (next.valueOrNull != null) {
+        _scheduleBurnIn();
+      }
+    });
+    ref.listen(ballEventsProvider(widget.matchId), (prev, next) {
       if (next.valueOrNull != null) {
         _scheduleBurnIn();
       }

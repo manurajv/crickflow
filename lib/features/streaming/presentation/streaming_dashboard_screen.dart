@@ -47,6 +47,8 @@ class _StreamingDashboardScreenState
   Timer? _heartbeatTimer;
   Timer? _youtubeStatusTimer;
   String? _lastEventId;
+  int _lastEventCount = 0;
+  int _lastEventSequence = -1;
   int _previewSession = 0;
 
   @override
@@ -237,13 +239,51 @@ class _StreamingDashboardScreenState
   }
 
   void _processBallEvents(List<BallEventModel> events) {
-    if (events.isEmpty) return;
+    if (events.isEmpty) {
+      _lastEventCount = 0;
+      _lastEventId = null;
+      _lastEventSequence = -1;
+      ref.read(activeEventOverlayProvider(widget.matchId).notifier).state = null;
+      ref.read(pendingSidePanelOverlayProvider(widget.matchId).notifier).state =
+          null;
+      return;
+    }
+
     final latest = events.last;
+    final isUndo = _lastEventCount > 0 &&
+        (events.length < _lastEventCount ||
+            latest.sequence < _lastEventSequence);
+
+    if (isUndo) {
+      _lastEventId = latest.id;
+      _lastEventCount = events.length;
+      _lastEventSequence = latest.sequence;
+      ref.read(activeEventOverlayProvider(widget.matchId).notifier).state = null;
+      ref.read(pendingSidePanelOverlayProvider(widget.matchId).notifier).state =
+          null;
+      return;
+    }
+
     if (latest.id == _lastEventId) return;
+
     _lastEventId = latest.id;
+    _lastEventCount = events.length;
+    _lastEventSequence = latest.sequence;
+
+    final previous = events.length >= 2 ? events[events.length - 2] : null;
     final detector = ref.read(streamEventDetectorProvider);
-    final graphic = detector.detect(latest);
+    final graphic = detector.detect(latest, previous: previous);
     if (graphic != null) {
+      final active =
+          ref.read(activeEventOverlayProvider(widget.matchId));
+      if (active != null) {
+        if (graphic.isSidePanelEvent && !active.isSidePanelEvent) {
+          ref
+              .read(pendingSidePanelOverlayProvider(widget.matchId).notifier)
+              .state = graphic;
+        }
+        return;
+      }
       ref.read(activeEventOverlayProvider(widget.matchId).notifier).state =
           graphic;
       if (_isLive) {

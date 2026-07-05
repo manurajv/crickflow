@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../../../../data/models/overlay_state_model.dart';
@@ -25,6 +27,27 @@ class LandscapeBattingPanel extends StatelessWidget {
   final String? teamLogoUrl;
   final String? powerplayBadge;
 
+  /// Width of logo + abbreviation + score blocks (excludes overs / powerplay).
+  static double widthThroughScore({
+    required double scale,
+    required String scoreDisplay,
+  }) {
+    final logoSize = LandscapeScorebugLayout.barHeight(scale);
+    final abbrWidth = 46 * scale;
+    final scoreStyle = TextStyle(
+      fontSize: 24 * scale,
+      fontWeight: FontWeight.w900,
+      height: 1,
+    );
+    final painter = TextPainter(
+      text: TextSpan(text: scoreDisplay, style: scoreStyle),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final scoreBlockWidth = math.max(78 * scale, painter.width + 28 * scale);
+    return logoSize + abbrWidth + scoreBlockWidth;
+  }
+
   @override
   Widget build(BuildContext context) {
     final logoSize = LandscapeScorebugLayout.barHeight(scale);
@@ -41,7 +64,7 @@ class LandscapeBattingPanel extends StatelessWidget {
         ),
         Container(
           width: 46 * scale,
-          color: tokens.navyDeep,
+          color: tokens.navy,
           alignment: Alignment.center,
           child: Text(
             teamAbbr,

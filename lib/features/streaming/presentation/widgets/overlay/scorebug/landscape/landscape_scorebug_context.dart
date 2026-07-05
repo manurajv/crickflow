@@ -50,10 +50,14 @@ class LandscapeScorebugContext {
 
   bool get inPowerplay => powerplayBadge != null && powerplayBadge!.isNotEmpty;
 
+  /// When projected-score banners may appear in the 1st innings.
+  /// Up to 20 overs: last 50%; 21+ overs: last 20%.
+  double get projectionPhaseStartProgress =>
+      totalOvers > 20 ? 0.8 : 0.5;
+
   bool get showProjectionPhase {
     if (!isFirstInnings || totalOvers <= 0) return false;
-    final progress = legalProgress;
-    return progress >= 0.8;
+    return legalProgress >= projectionPhaseStartProgress;
   }
 
   double get legalProgress {

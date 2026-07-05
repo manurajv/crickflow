@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../../../data/models/overlay_state_model.dart';
 import '../../../../../data/models/stream_overlay_theme.dart';
+import '../scorebug_banner_host.dart';
 import '../scorebug_helpers.dart';
 import '../scorebug_tokens.dart';
 import 'landscape_banner_scheduler.dart';
@@ -53,9 +54,12 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
   @override
   void didUpdateWidget(covariant LandscapeBroadcastScorebug oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.overlay.version != widget.overlay.version ||
-        oldWidget.context.partnershipRuns != widget.context.partnershipRuns ||
-        oldWidget.context.currentOverNumber != widget.context.currentOverNumber) {
+    if (shouldSyncScorebugBannerScheduler(
+      oldOverlay: oldWidget.overlay,
+      newOverlay: widget.overlay,
+      oldContext: oldWidget.context,
+      newContext: widget.context,
+    )) {
       _syncScheduler();
     }
     if (oldWidget.eventOverlay != null && widget.eventOverlay == null) {
@@ -67,7 +71,8 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
     _scheduler.onOverlayUpdate(
       overlay: widget.overlay,
       context: widget.context,
-      centerEventActive: widget.eventOverlay != null,
+      centerEventActive:
+          ScorebugHelpers.isCenterScorebugEvent(widget.eventOverlay),
       forBurnInCapture: widget.forBurnInCapture,
     );
   }
@@ -96,7 +101,8 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
         final barHeight = LandscapeScorebugLayout.barHeight(scale);
         final secondaryHeight = LandscapeScorebugLayout.secondaryRowHeight(scale);
         final gap = LandscapeScorebugLayout.panelGap(scale);
-        final centerEvent = widget.eventOverlay;
+        final centerEvent =
+            ScorebugHelpers.centerScorebugEvent(widget.eventOverlay);
         final showEvent = centerEvent != null;
         final beforeBall = ctx.beforeFirstBall && !showEvent;
         final topBanner = !showEvent && _scheduler.active != null
@@ -111,7 +117,10 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
 
         final centerPanel = showEvent
             ? LandscapeEventBanner(
-                key: ValueKey(centerEvent.createdAt ?? centerEvent.title),
+                key: ValueKey(
+                  '${centerEvent.type.name}-'
+                  '${centerEvent.createdAt?.millisecondsSinceEpoch ?? centerEvent.title}',
+                ),
                 event: centerEvent,
                 tokens: tokens,
                 scale: scale,
@@ -129,7 +138,7 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
 
         final totalHeight = secondaryHeight + (2 * scale) + barHeight;
         final bowlerColumnWidth =
-            (constraints.maxWidth * 0.26).clamp(148 * scale, 208 * scale);
+            (constraints.maxWidth * 0.26).clamp(148 * scale, 230 * scale);
         final edgeInset = LandscapeScorebugLayout.edgeInset(scale);
         final sectionGap = LandscapeScorebugLayout.batsmenBowlerGap(scale);
 
@@ -153,10 +162,17 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
                         children: [
                           SizedBox(
                             height: secondaryHeight,
+                            width: double.infinity,
                             child: Align(
                               alignment: Alignment.bottomLeft,
                               child: topBanner != null
-                                  ? AnimatedSwitcher(
+                                  ? SizedBox(
+                                      width:
+                                          LandscapeBattingPanel.widthThroughScore(
+                                        scale: scale,
+                                        scoreDisplay: overlay.scoreDisplay,
+                                      ),
+                                      child: AnimatedSwitcher(
                                       duration:
                                           const Duration(milliseconds: 320),
                                       switchInCurve: Curves.easeOutCubic,
@@ -176,7 +192,8 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
                                         key: ValueKey(_scheduler.active!.kind),
                                         child: topBanner,
                                       ),
-                                    )
+                                    ),
+                                  )
                                   : const SizedBox.shrink(),
                             ),
                           ),
@@ -196,25 +213,28 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
                                 ),
                                 SizedBox(width: gap),
                                 Expanded(
-                                  child: AnimatedSwitcher(
-                                    duration:
-                                        const Duration(milliseconds: 360),
-                                    switchInCurve: Curves.easeOutCubic,
-                                    switchOutCurve: Curves.easeIn,
-                                    transitionBuilder: (child, animation) {
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: SlideTransition(
-                                          position: Tween<Offset>(
-                                            begin: const Offset(0.06, 0),
-                                            end: Offset.zero,
-                                          ).animate(animation),
-                                          child: child,
+                                  child: showEvent
+                                      ? centerPanel
+                                      : AnimatedSwitcher(
+                                          duration:
+                                              const Duration(milliseconds: 360),
+                                          switchInCurve: Curves.easeOutCubic,
+                                          switchOutCurve: Curves.easeIn,
+                                          transitionBuilder:
+                                              (child, animation) {
+                                            return FadeTransition(
+                                              opacity: animation,
+                                              child: SlideTransition(
+                                                position: Tween<Offset>(
+                                                  begin: const Offset(0.06, 0),
+                                                  end: Offset.zero,
+                                                ).animate(animation),
+                                                child: child,
+                                              ),
+                                            );
+                                          },
+                                          child: centerPanel,
                                         ),
-                                      );
-                                    },
-                                    child: centerPanel,
-                                  ),
                                 ),
                               ],
                             ),

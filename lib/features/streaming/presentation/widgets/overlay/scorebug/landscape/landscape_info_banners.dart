@@ -88,7 +88,7 @@ class LandscapePartnershipBanner extends StatelessWidget {
   }
 }
 
-/// Floating banner — projected score during the last 20% of the first innings.
+/// Floating banner — projected score in the late 1st innings (50% up to 20 overs, 20% from 21+).
 class LandscapeProjectionBanner extends StatelessWidget {
   const LandscapeProjectionBanner({
     super.key,
@@ -291,6 +291,7 @@ class _TopBannerShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       height: LandscapeScorebugLayout.secondaryRowHeight(scale),
       padding: EdgeInsets.symmetric(horizontal: 10 * scale),
       decoration: BoxDecoration(

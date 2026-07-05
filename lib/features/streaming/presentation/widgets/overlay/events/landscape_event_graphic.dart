@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../domain/streaming_enums.dart';
+import 'broadcast_event_anim.dart';
 import 'broadcast_event_styles.dart';
 
 /// Animated landscape (16:9) broadcast event graphic — center banner style.
@@ -32,8 +33,8 @@ class _LandscapeEventGraphicState extends State<LandscapeEventGraphic>
     with SingleTickerProviderStateMixin {
   AnimationController? _controller;
   Animation<Offset>? _slide;
-  Animation<double>? _fade;
   Animation<double>? _scale;
+  bool _finished = false;
 
   @override
   void initState() {
@@ -50,20 +51,24 @@ class _LandscapeEventGraphicState extends State<LandscapeEventGraphic>
       begin: const Offset(-1.2, 0),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
-    _fade = CurvedAnimation(
-      parent: controller,
-      curve: const Interval(0.6, 1, curve: Curves.easeIn),
-    );
     _scale = Tween<double>(begin: 0.7, end: 1).animate(
       CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
     );
 
-    unawaited(controller.forward());
-    Future<void>.delayed(widget.duration, () async {
-      if (!mounted || _controller == null) return;
-      await _controller!.reverse();
-      widget.onFinished?.call();
-    });
+    unawaited(
+      BroadcastEventAnim.runSequence(
+        controller: controller,
+        hold: widget.duration,
+        isMounted: () => mounted,
+        onFinished: _finish,
+      ),
+    );
+  }
+
+  void _finish() {
+    if (_finished || !mounted) return;
+    _finished = true;
+    widget.onFinished?.call();
   }
 
   @override
@@ -91,15 +96,21 @@ class _LandscapeEventGraphicState extends State<LandscapeEventGraphic>
 
     return IgnorePointer(
       child: Center(
-        child: SlideTransition(
-          position: _slide!,
-          child: ScaleTransition(
-            scale: _scale!,
-            child: FadeTransition(
-              opacity: Tween<double>(begin: 1, end: 0).animate(_fade!),
-              child: card,
-            ),
-          ),
+        child: AnimatedBuilder(
+          animation: _controller!,
+          builder: (context, child) {
+            return Opacity(
+              opacity: BroadcastEventAnim.exitAwareOpacity(_controller!),
+              child: SlideTransition(
+                position: _slide!,
+                child: ScaleTransition(
+                  scale: _scale!,
+                  child: child,
+                ),
+              ),
+            );
+          },
+          child: card,
         ),
       ),
     );

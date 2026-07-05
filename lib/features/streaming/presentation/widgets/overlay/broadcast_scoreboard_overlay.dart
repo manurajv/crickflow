@@ -12,6 +12,7 @@ class BroadcastScoreboardOverlay extends StatelessWidget {
     super.key,
     required this.overlay,
     required this.theme,
+    this.matchId = '',
     this.tournamentLogoUrl,
     this.sponsorLogoUrl,
     this.landscape = false,
@@ -19,6 +20,7 @@ class BroadcastScoreboardOverlay extends StatelessWidget {
 
   final OverlayStateModel overlay;
   final StreamOverlayTheme theme;
+  final String matchId;
   final String? tournamentLogoUrl;
   final String? sponsorLogoUrl;
   final bool landscape;
@@ -26,6 +28,7 @@ class BroadcastScoreboardOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BroadcastOverlayHost(
+      matchId: matchId,
       landscape: landscape,
       overlay: overlay,
       theme: theme,

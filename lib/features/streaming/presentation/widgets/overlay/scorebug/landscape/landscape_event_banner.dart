@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../../data/models/stream_overlay_theme.dart';
+import '../../events/broadcast_event_anim.dart';
 import '../../events/broadcast_event_styles.dart';
 import '../scorebug_tokens.dart';
 
@@ -31,34 +32,37 @@ class _LandscapeEventBannerState extends State<LandscapeEventBanner>
     with SingleTickerProviderStateMixin {
   AnimationController? _controller;
   Animation<Offset>? _slide;
-  Animation<double>? _opacity;
+  bool _finished = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.forBurnInCapture) return;
 
     final controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 420),
-      reverseDuration: const Duration(milliseconds: 360),
+      duration: BroadcastEventAnim.defaultEnter,
+      reverseDuration: BroadcastEventAnim.defaultExit,
     );
     _controller = controller;
     _slide = Tween<Offset>(
       begin: const Offset(0, 0.35),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
-    _opacity = CurvedAnimation(
-      parent: controller,
-      curve: const Interval(0.65, 1, curve: Curves.easeIn),
-    );
 
-    unawaited(controller.forward());
-    Future<void>.delayed(widget.event.duration, () async {
-      if (!mounted || _controller == null) return;
-      await _controller!.reverse();
-      widget.onFinished?.call();
-    });
+    unawaited(
+      BroadcastEventAnim.runSequence(
+        controller: controller,
+        hold: widget.event.duration,
+        isMounted: () => mounted,
+        onFinished: _finish,
+      ),
+    );
+  }
+
+  void _finish() {
+    if (_finished || !mounted) return;
+    _finished = true;
+    widget.onFinished?.call();
   }
 
   @override
@@ -75,16 +79,22 @@ class _LandscapeEventBannerState extends State<LandscapeEventBanner>
     );
     final content = _EventContent(style: style, scale: widget.scale);
 
-    if (widget.forBurnInCapture || _controller == null) {
+    if (_controller == null) {
       return content;
     }
 
-    return SlideTransition(
-      position: _slide!,
-      child: FadeTransition(
-        opacity: Tween<double>(begin: 1, end: 0).animate(_opacity!),
-        child: content,
-      ),
+    return AnimatedBuilder(
+      animation: _controller!,
+      builder: (context, child) {
+        return Opacity(
+          opacity: BroadcastEventAnim.exitAwareOpacity(_controller!),
+          child: SlideTransition(
+            position: _slide!,
+            child: child,
+          ),
+        );
+      },
+      child: content,
     );
   }
 }

@@ -9,14 +9,18 @@ import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/match_model.dart';
 import '../../../../../data/services/stream_service.dart';
 import '../../../../../shared/providers/providers.dart';
+import '../../../data/models/stream_studio_config.dart';
 import '../../../domain/streaming_enums.dart';
 import '../../providers/streaming_studio_providers.dart';
-import 'stream_studio_quick_settings_sheet.dart';
 import 'stream_camera_settings_sheet.dart';
+import 'stream_platform_setup_info_sheet.dart';
+import 'stream_studio_quick_settings_sheet.dart';
 import 'studio_landscape_rotation.dart';
 
 const _kTopBarH = 48.0;
 const _kQuickRowH = 40.0;
+const _kDestinationStackGap = 6.0;
+const _kDestinationStackH = _kQuickRowH + _kDestinationStackGap + _kQuickRowH;
 const _kPreLiveRowH = 44.0;
 const _kBroadcastBtnH = 50.0;
 const _kBottomLiveH = 44.0;
@@ -104,6 +108,19 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
       _startDurationTicker();
       _statsVisible = true;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.isObsMode || _chromeHidden) return;
+      final config = ref.read(streamStudioConfigProvider(widget.matchId));
+      if (config.platform == StreamPlatform.youtube &&
+          config.broadcastSetupMode == StreamBroadcastSetupMode.manual) {
+        unawaited(
+          showStreamPlatformSetupInfoSheet(
+            context,
+            matchId: widget.matchId,
+          ),
+        );
+      }
+    });
   }
 
   @override
@@ -239,6 +256,27 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
         : showPreLiveEssentials
             ? preLiveRowBottom + _kPreLiveRowH + 8
             : readyBottom + _kBroadcastBtnH + 6;
+
+    ref.listen(
+      streamStudioConfigProvider(widget.matchId),
+      (prev, next) {
+        if (widget.isObsMode) return;
+        final switchedToManual = prev != null &&
+            next.platform == StreamPlatform.youtube &&
+            next.broadcastSetupMode == StreamBroadcastSetupMode.manual &&
+            prev.broadcastSetupMode != StreamBroadcastSetupMode.manual;
+        if (!switchedToManual) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _chromeHidden) return;
+          unawaited(
+            showStreamPlatformSetupInfoSheet(
+              context,
+              matchId: widget.matchId,
+            ),
+          );
+        });
+      },
+    );
 
     if (_chromeHidden) {
       return Positioned.fill(
@@ -464,9 +502,12 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
         ),
         Positioned(
           top: subBarTop,
-          left: sideInset,
-          child: _StudioQuickActions(
+          right: pad.right + _kEdge,
+          child: _StudioDestinationPanel(
             cf: cf,
+            matchId: widget.matchId,
+            config: config,
+            isObs: widget.isObsMode,
             onHideUi: () {
               setState(() => _chromeHidden = true);
               _autoHideTimer?.cancel();
@@ -480,18 +521,9 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                     ),
           ),
         ),
-        Positioned(
-          top: subBarTop,
-          right: pad.right + _kEdge,
-          child: _PlatformChip(
-            cf: cf,
-            platform: config.platform,
-            isObs: widget.isObsMode,
-          ),
-        ),
         if (_statsVisible && widget.isLive)
           Positioned(
-            top: subBarTop + _kQuickRowH + 6,
+            top: subBarTop + _kDestinationStackH + 6,
             right: pad.right + _kEdge,
             child: _StatsCard(
               cf: cf,
@@ -713,6 +745,88 @@ class _StudioTopBar extends StatelessWidget {
               tooltip: 'Stream settings',
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _StudioDestinationPanel extends StatelessWidget {
+  const _StudioDestinationPanel({
+    required this.cf,
+    required this.matchId,
+    required this.config,
+    required this.isObs,
+    required this.onHideUi,
+    this.onExposure,
+  });
+
+  final CfColors cf;
+  final String matchId;
+  final StreamStudioConfig config;
+  final bool isObs;
+  final VoidCallback onHideUi;
+  final VoidCallback? onExposure;
+
+  bool get _showSetupInfo => !isObs;
+
+  @override
+  Widget build(BuildContext context) {
+    final badgeLabel = streamPlatformBadgeLabel(config, isObs: isObs);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _StudioQuickActions(
+          cf: cf,
+          onHideUi: onHideUi,
+          onExposure: onExposure,
+        ),
+        const SizedBox(height: _kDestinationStackGap),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _PlatformChip(cf: cf, label: badgeLabel),
+            if (_showSetupInfo) ...[
+              const SizedBox(width: 6),
+              _SetupInfoButton(
+                cf: cf,
+                onTap: () => showStreamPlatformSetupInfoSheet(
+                  context,
+                  matchId: matchId,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SetupInfoButton extends StatelessWidget {
+  const _SetupInfoButton({required this.cf, required this.onTap});
+
+  final CfColors cf;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _outdoorFill(cf.accent, selected: false, enabled: true),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: _kQuickRowH,
+          height: _kQuickRowH,
+          child: Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }
@@ -1439,30 +1553,37 @@ class _RoundIcon extends StatelessWidget {
 class _PlatformChip extends StatelessWidget {
   const _PlatformChip({
     required this.cf,
-    required this.platform,
-    required this.isObs,
+    required this.label,
   });
 
   final CfColors cf;
-  final StreamPlatform platform;
-  final bool isObs;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final label = isObs ? 'OBS' : platform.label;
-    return _StudioMiniCard(
-      cf: cf,
-      tintColor: cf.accent,
-      selected: true,
-      height: _kQuickRowH,
-      child: Center(
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.3,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 168),
+      child: _StudioMiniCard(
+        cf: cf,
+        tintColor: cf.accent,
+        selected: true,
+        height: _kQuickRowH,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
           ),
         ),
       ),

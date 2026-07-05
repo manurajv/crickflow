@@ -21,7 +21,7 @@
 | **StreamingStudioScreen flow** — dashboard → lock orientation → Go Live → fullscreen studio | Done |
 | Enhanced **StreamService** — lens catalog, orientation lock, bitrate/resolution, record+stream, health stats, reconnect | Done |
 | **Broadcast scoreboard overlay** — full/compact/minimal layouts on camera preview | Done |
-| **Event overlays** — wicket, four, six, new batter/bowler from ball events | Done |
+| **Event overlays** — wicket, four, six; new batter/bowler = 5s side career cards | Done |
 | Platform UI — YouTube + custom RTMP (Facebook/Twitch hidden until OAuth ships) | Done |
 | **StreamPermissionService** — organizer, assigned streamer, scorer, creator | Done |
 | **Replay markers** — `matches/{id}/replayMarkers` + in-studio flag button | Done |
@@ -53,7 +53,10 @@
 | **Stream Studio production refactor** — Android FGS; stable platform-view keys; preview reattach without stopping RTMP; portrait/landscape toggle only; compact non-overlapping studio chrome (top bar, bottom dock, stats card, broadcast status button); orientation preview recovery on metrics change | Done |
 | **Stream Studio preview orientation pipeline** — Activity locked portrait (camera surface never rotates); landscape mode = Flutter UI/overlays + RTMP encoder metadata only; preview GL frozen after first start | Done |
 | **Landscape RTMP + overlay burn-in** — same preview GL as portrait + `setStreamRotation(270)` (90° left); logcat tag `CrickFlowStream`; live overlay/theme edits push burn-in | Done |
-| **Landscape broadcast scorebug redesign** — TV-style bottom bar (`LandscapeBroadcastScorebug`): top match title + CrickFlow logo/MATCH header; modular batting/batsmen/bowler panels; This Over strip; powerplay badge; center event area (FOUR/SIX/WICKET etc.); priority-queued info banners (partnership, CRR, projected score, to win, RRR); portrait overlay unchanged | Done |
+| **Landscape broadcast scorebug redesign** — TV-style bottom bar (`LandscapeBroadcastScorebug`): top match title + CrickFlow logo/MATCH header; modular batting/batsmen/bowler panels; This Over strip; powerplay badge; center event area (FOUR/SIX/WICKET etc.); priority-queued info banners (partnership, CRR, projected score, to win, RRR); fixed batter slots (names stay put on odd runs) | Done |
+| **Portrait broadcast scorebug redesign** — `PortraitBroadcastScorebug` mirrors landscape features (top header, info banners, this over, team logos, powerplay, chase target, center events, fixed batter slots); portrait no longer uses separate full-screen event graphic | Done |
+| **Bowler intro side panel** — on bowler change, 5s vertical card (team logo, profile photo, name, bowling style, format chip, Mat/Wkts/Avg/5WI/Best for match ball type) slides in on the right; scorebug batsmen area stays visible; burn-in included | Done |
+| **Batter intro side panel** — on new batter, 5s vertical card (team logo, full photo, name, batting style, format chip, Mat/Avg/SR/Best) slides in on the left; burn-in included | Done |
 | **Live stream lifecycle** — back-press end confirmation while LIVE; FGS + Recents kill cleanup; background/foreground seamless resume; RTMP transport reconnect (5× exponential backoff); connection-lost banner with Retry/End; structured lifecycle logs | Done |
 | **YouTube live truthfulness** — RTMP publish verified before LIVE UI; API mints fresh ingest per immediate go-live; `startYouTubeLiveBroadcast` CF transitions broadcast to public live; polls `getYouTubeBroadcastStatus` and auto-ends app when YouTube completes | Done — deploy `startYouTubeLiveBroadcast` + `getYouTubeBroadcastStatus` |
 | **Preview surface lifecycle (lock/notification/resume)** — `PreviewSurfaceLifecycle` detaches Camera2 on `surfaceDestroyed`, clears abandoned surfaces/HandlerThread, rebuilds GL→camera→capture session only after new valid surface; no RTMP/encoder restart | Done |

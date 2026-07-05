@@ -33,6 +33,14 @@ class LandscapeScorebugContextBuilder {
             overlay.nonStrikerName.isEmpty,
         legalBalls: overlay.legalBalls,
         ballsPerOver: overlay.ballsPerOver,
+        currentOverNumber: _overNumberFromLegalBalls(
+          overlay.legalBalls,
+          overlay.ballsPerOver,
+        ),
+        ballsInCurrentOver: _ballsInOverFromLegalBalls(
+          overlay.legalBalls,
+          overlay.ballsPerOver,
+        ),
       );
     }
 
@@ -45,6 +53,15 @@ class LandscapeScorebugContextBuilder {
         bowlingTeamLogoUrl: bowlingTeamLogoUrl,
         legalBalls: overlay.legalBalls,
         ballsPerOver: overlay.ballsPerOver,
+        isChase: overlay.target != null,
+        currentOverNumber: _overNumberFromLegalBalls(
+          overlay.legalBalls,
+          overlay.ballsPerOver,
+        ),
+        ballsInCurrentOver: _ballsInOverFromLegalBalls(
+          overlay.legalBalls,
+          overlay.ballsPerOver,
+        ),
       );
     }
 
@@ -93,8 +110,21 @@ class LandscapeScorebugContextBuilder {
     }
     final a = overlay.teamAName.trim();
     final b = overlay.teamBName.trim();
-    if (a.isNotEmpty && b.isNotEmpty)     return '$a vs $b';
+    if (a.isNotEmpty && b.isNotEmpty) return '$a vs $b';
     if (overlay.battingTeamName.isNotEmpty) return overlay.battingTeamName;
     return 'Match';
+  }
+
+  static int _overNumberFromLegalBalls(int legalBalls, int ballsPerOver) {
+    if (legalBalls <= 0 || ballsPerOver <= 0) return 1;
+    if (legalBalls % ballsPerOver == 0) {
+      return (legalBalls ~/ ballsPerOver) + 1;
+    }
+    return ((legalBalls - 1) ~/ ballsPerOver) + 1;
+  }
+
+  static int _ballsInOverFromLegalBalls(int legalBalls, int ballsPerOver) {
+    if (legalBalls <= 0 || ballsPerOver <= 0) return 0;
+    return legalBalls % ballsPerOver;
   }
 }

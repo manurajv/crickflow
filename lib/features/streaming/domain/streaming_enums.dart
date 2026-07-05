@@ -210,13 +210,16 @@ extension StreamEventOverlayTypeX on StreamEventOverlayType {
       };
 
   Duration get defaultDuration => switch (this) {
+        StreamEventOverlayType.newBowler ||
+        StreamEventOverlayType.newBatter =>
+          const Duration(seconds: 5),
         StreamEventOverlayType.wicket ||
         StreamEventOverlayType.hugeSix ||
         StreamEventOverlayType.boundaryFour ||
         StreamEventOverlayType.hatTrick ||
         StreamEventOverlayType.century ||
         StreamEventOverlayType.fiftyRuns =>
-          const Duration(seconds: 5),
+          const Duration(seconds: 4),
         StreamEventOverlayType.matchFinished ||
         StreamEventOverlayType.victory ||
         StreamEventOverlayType.playerOfMatch ||

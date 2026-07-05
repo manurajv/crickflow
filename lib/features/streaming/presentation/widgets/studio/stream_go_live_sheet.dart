@@ -12,6 +12,7 @@ import '../../../domain/streaming_enums.dart';
 import '../../../services/stream_platform_service.dart';
 import '../../providers/streaming_studio_providers.dart';
 import '../dashboard/stream_youtube_link_section.dart';
+import 'stream_platform_setup_info_sheet.dart';
 import 'stream_setup_checklist.dart';
 
 /// Opens broadcast destination setup (YouTube, Facebook, or custom RTMP) without going live.
@@ -181,31 +182,7 @@ class _HowToGoLiveCard extends ConsumerWidget {
     final cf = context.cf;
     final config = ref.watch(streamStudioConfigProvider(matchId));
 
-    final steps = switch (config.platform) {
-      StreamPlatform.youtube when config.broadcastSetupMode ==
-          StreamBroadcastSetupMode.manual => [
-          'Pick YouTube and Manual setup above.',
-          'Paste your stream key from YouTube Studio (Go Live → Stream).',
-          'Tap Go Live on the camera — video goes to YouTube ingest.',
-          'Open YouTube Studio and click Go live when ready (unless auto-start is on there).',
-        ],
-      StreamPlatform.youtube => [
-          'Link your Google account and pick a channel.',
-          'Set title and visibility, then create the YouTube event.',
-          config.goLiveImmediately
-              ? 'Tap Go Live — YouTube goes public when video connects.'
-              : 'Tap Go Live — preview in YouTube Studio, then click Go live there.',
-        ],
-      StreamPlatform.facebook => [
-          'Copy the RTMPS server URL and stream key from Facebook Live Producer.',
-          'Paste them above, then tap Go Live on the camera.',
-        ],
-      StreamPlatform.customRtmp => [
-          'Enter your RTMP server URL and stream key.',
-          'Tap Go Live on the camera when credentials are saved.',
-        ],
-      StreamPlatform.twitch => ['Twitch is not available in this release.'],
-    };
+    final steps = streamPlatformSetupSteps(config);
 
     return Container(
       width: double.infinity,
