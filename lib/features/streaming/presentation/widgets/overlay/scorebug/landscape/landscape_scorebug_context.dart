@@ -66,6 +66,22 @@ class LandscapeScorebugContext {
     return (legalBalls / totalBalls).clamp(0.0, 1.0);
   }
 
+  /// Persistent 2nd-innings chip after half the target is scored or 50% of overs.
+  bool shouldShowChaseNeedChip({
+    required int totalRuns,
+    int? target,
+  }) {
+    if (!isChase || runsNeeded == null || ballsRemaining == null) {
+      return false;
+    }
+    if (runsNeeded! <= 0) return false;
+
+    final halfScoreReached =
+        target != null && target > 0 && totalRuns * 2 >= target;
+    final halfOversReached = legalProgress >= 0.5;
+    return halfScoreReached || halfOversReached;
+  }
+
   LandscapeScorebugContext copyWith({
     String? matchTitle,
     String? tournamentTitle,

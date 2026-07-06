@@ -40,8 +40,6 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
     }
 
     final hasTarget = widget.showTarget && widget.overlay.target != null;
-    final reserveTarget = widget.showTarget;
-    final targetWidth = LandscapeScorebugLayout.targetChipWidth(widget.scale);
     final slots = _slotTracker.resolve(widget.overlay);
     final horizontalPad = widget.compact ? 12 * widget.scale : 40 * widget.scale;
     final batterGap = widget.compact
@@ -52,9 +50,11 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
       width: double.infinity,
       height: double.infinity,
       color: widget.tokens.navy,
-      padding: EdgeInsets.symmetric(
-        horizontal: horizontalPad,
-        vertical: 3 * widget.scale,
+      padding: EdgeInsets.only(
+        left: horizontalPad,
+        top: 3 * widget.scale,
+        bottom: 3 * widget.scale,
+        right: hasTarget ? 0 : horizontalPad,
       ),
       alignment: Alignment.center,
       child: widget.centerTitle != null && widget.centerTitle!.isNotEmpty
@@ -64,13 +64,16 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
               scale: widget.scale,
             )
           : Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       if (slots.isNotEmpty) ...[
                         Flexible(
+                          flex: 3,
                           child: _BatterRow(
                             tokens: widget.tokens,
                             scale: widget.scale,
@@ -84,6 +87,7 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
                         if (slots.length > 1) ...[
                           SizedBox(width: batterGap),
                           Flexible(
+                            flex: 3,
                             child: _BatterRow(
                               tokens: widget.tokens,
                               scale: widget.scale,
@@ -99,19 +103,12 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
                     ],
                   ),
                 ),
-                if (reserveTarget) ...[
-                  SizedBox(width: 10 * widget.scale),
-                  SizedBox(
-                    width: targetWidth,
-                    child: hasTarget
-                        ? _TargetChip(
-                            target: widget.overlay.target!,
-                            tokens: widget.tokens,
-                            scale: widget.scale,
-                          )
-                        : const SizedBox.shrink(),
+                if (hasTarget)
+                  _TargetChip(
+                    target: widget.overlay.target!,
+                    tokens: widget.tokens,
+                    scale: widget.scale,
                   ),
-                ],
               ],
             ),
     );
@@ -167,7 +164,7 @@ class _BatterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayName = ScorebugHelpers.shortName(name, max: compact ? 9 : 12);
+    final displayName = ScorebugHelpers.batterName(name);
     final nameStyle = compact
         ? TextStyle(
             color: onStrike
@@ -245,27 +242,27 @@ class _TargetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scoreSize = LandscapeScorebugLayout.totalScoreFontSize(scale);
+
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 4 * scale),
       color: tokens.white,
+      padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 4 * scale),
       alignment: Alignment.center,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.gps_fixed, color: tokens.liveRed, size: 12 * scale),
-            SizedBox(width: 4 * scale),
-            Text(
-              '$target',
-              style: TextStyle(
-                color: tokens.onScore,
-                fontSize: 13 * scale,
-                fontWeight: FontWeight.w900,
-              ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.gps_fixed, color: tokens.liveRed, size: scoreSize),
+          SizedBox(width: 4 * scale),
+          Text(
+            '$target',
+            style: TextStyle(
+              color: tokens.onScore,
+              fontSize: scoreSize,
+              fontWeight: FontWeight.w900,
+              height: 1,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

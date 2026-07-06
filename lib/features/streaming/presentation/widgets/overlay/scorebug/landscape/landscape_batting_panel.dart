@@ -35,7 +35,7 @@ class LandscapeBattingPanel extends StatelessWidget {
     final logoSize = LandscapeScorebugLayout.barHeight(scale);
     final abbrWidth = 46 * scale;
     final scoreStyle = TextStyle(
-      fontSize: 24 * scale,
+      fontSize: LandscapeScorebugLayout.totalScoreFontSize(scale),
       fontWeight: FontWeight.w900,
       height: 1,
     );
@@ -47,6 +47,8 @@ class LandscapeBattingPanel extends StatelessWidget {
     final scoreBlockWidth = math.max(78 * scale, painter.width + 28 * scale);
     return logoSize + abbrWidth + scoreBlockWidth;
   }
+
+  static double oversColumnWidth(double scale) => 52 * scale;
 
   @override
   Widget build(BuildContext context) {
@@ -85,14 +87,14 @@ class LandscapeBattingPanel extends StatelessWidget {
             overlay.scoreDisplay,
             style: TextStyle(
               color: tokens.onScore,
-              fontSize: 24 * scale,
+              fontSize: LandscapeScorebugLayout.totalScoreFontSize(scale),
               fontWeight: FontWeight.w900,
               height: 1,
             ),
           ),
         ),
         Container(
-          width: 52 * scale,
+          width: LandscapeBattingPanel.oversColumnWidth(scale),
           color: tokens.blue,
           alignment: Alignment.center,
           child: Text(

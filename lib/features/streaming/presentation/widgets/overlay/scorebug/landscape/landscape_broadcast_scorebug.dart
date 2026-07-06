@@ -105,15 +105,44 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
             ScorebugHelpers.centerScorebugEvent(widget.eventOverlay);
         final showEvent = centerEvent != null;
         final beforeBall = ctx.beforeFirstBall && !showEvent;
-        final topBanner = !showEvent && _scheduler.active != null
+        final activeBanner = _scheduler.active;
+        final showChaseNeedChip = !showEvent &&
+            activeBanner == null &&
+            ctx.shouldShowChaseNeedChip(
+              totalRuns: overlay.totalRuns,
+              target: overlay.target,
+            );
+        final topBanner = !showEvent && activeBanner != null
             ? _buildTopBanner(
-                request: _scheduler.active!,
+                request: activeBanner,
                 tokens: tokens,
                 scale: scale,
                 overlay: overlay,
                 ctx: ctx,
               )
             : null;
+        final topSecondary = topBanner ??
+            (showChaseNeedChip
+                ? LandscapeChaseNeedChip(
+                    runsNeeded: ctx.runsNeeded!,
+                    ballsRemaining: ctx.ballsRemaining!,
+                    tokens: tokens,
+                    scale: scale,
+                  )
+                : null);
+        final topBannerWidth = activeBanner?.kind ==
+                LandscapeTopBannerKind.projectedScore
+            ? LandscapeScorebugLayout.bannerWidthThroughBatsmen(
+                totalWidth: constraints.maxWidth,
+                scale: scale,
+              )
+            : LandscapeBattingPanel.widthThroughScore(
+                scale: scale,
+                scoreDisplay: overlay.scoreDisplay,
+              );
+        final secondaryRowH = topBanner != null
+            ? secondaryHeight
+            : (showChaseNeedChip ? barHeight : secondaryHeight);
 
         final centerPanel = showEvent
             ? LandscapeEventBanner(
@@ -136,7 +165,7 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
                 showTarget: ctx.isChase,
               );
 
-        final totalHeight = secondaryHeight + (2 * scale) + barHeight;
+        final totalHeight = secondaryRowH + (2 * scale) + barHeight;
         final bowlerColumnWidth =
             (constraints.maxWidth * 0.26).clamp(148 * scale, 230 * scale);
         final edgeInset = LandscapeScorebugLayout.edgeInset(scale);
@@ -161,39 +190,41 @@ class _LandscapeBroadcastScorebugState extends State<LandscapeBroadcastScorebug>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           SizedBox(
-                            height: secondaryHeight,
+                            height: secondaryRowH,
                             width: double.infinity,
                             child: Align(
                               alignment: Alignment.bottomLeft,
-                              child: topBanner != null
+                              child: topSecondary != null
                                   ? SizedBox(
-                                      width:
-                                          LandscapeBattingPanel.widthThroughScore(
-                                        scale: scale,
-                                        scoreDisplay: overlay.scoreDisplay,
-                                      ),
-                                      child: AnimatedSwitcher(
-                                      duration:
-                                          const Duration(milliseconds: 320),
-                                      switchInCurve: Curves.easeOutCubic,
-                                      switchOutCurve: Curves.easeInCubic,
-                                      transitionBuilder: (child, animation) =>
-                                          SlideTransition(
-                                        position: Tween<Offset>(
-                                          begin: const Offset(-0.12, 0),
-                                          end: Offset.zero,
-                                        ).animate(animation),
-                                        child: FadeTransition(
-                                          opacity: animation,
-                                          child: child,
-                                        ),
-                                      ),
-                                      child: KeyedSubtree(
-                                        key: ValueKey(_scheduler.active!.kind),
-                                        child: topBanner,
-                                      ),
-                                    ),
-                                  )
+                                      width: topBannerWidth,
+                                      child: topBanner != null
+                                          ? AnimatedSwitcher(
+                                              duration: const Duration(
+                                                milliseconds: 320,
+                                              ),
+                                              switchInCurve: Curves.easeOutCubic,
+                                              switchOutCurve: Curves.easeInCubic,
+                                              transitionBuilder:
+                                                  (child, animation) =>
+                                                      SlideTransition(
+                                                position: Tween<Offset>(
+                                                  begin: const Offset(-0.12, 0),
+                                                  end: Offset.zero,
+                                                ).animate(animation),
+                                                child: FadeTransition(
+                                                  opacity: animation,
+                                                  child: child,
+                                                ),
+                                              ),
+                                              child: KeyedSubtree(
+                                                key: ValueKey(
+                                                  _scheduler.active!.kind,
+                                                ),
+                                                child: topBanner,
+                                              ),
+                                            )
+                                          : topSecondary,
+                                    )
                                   : const SizedBox.shrink(),
                             ),
                           ),

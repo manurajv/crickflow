@@ -103,48 +103,47 @@ class LandscapeProjectionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final labelStyle = LandscapeScorebugLayout.labelStyle(tokens, scale);
+    final rrLabelStyle = labelStyle.copyWith(fontSize: 10 * scale);
+    final valueStyle = LandscapeScorebugLayout.valueStyle(tokens, scale).copyWith(
+      fontSize: 13 * scale,
+    );
+
     return _TopBannerShell(
       tokens: tokens,
       scale: scale,
       accent: tokens.blue,
+      fillWidth: true,
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'PROJECTED SCORE',
-            style: LandscapeScorebugLayout.labelStyle(tokens, scale),
-          ),
-          SizedBox(width: 8 * scale),
-          for (final p in projections) ...[
-            if (p.isCurrent)
-              Text(
-                'CURR',
-                style: LandscapeScorebugLayout.labelStyle(tokens, scale).copyWith(
-                  fontSize: 8 * scale,
-                ),
-              )
-            else
-              Text(
-                'RR ${p.rr.toStringAsFixed(0)}',
-                style: LandscapeScorebugLayout.labelStyle(tokens, scale).copyWith(
-                  fontSize: 8 * scale,
-                ),
-              ),
-            SizedBox(width: 3 * scale),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 5 * scale, vertical: 1 * scale),
-              color: tokens.gold,
-              child: Text(
-                '${p.score}',
-                style: TextStyle(
-                  color: tokens.onScore,
-                  fontSize: 9 * scale,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+          Text('PROJECTED SCORE', style: labelStyle),
+          SizedBox(width: 12 * scale),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                for (final p in projections) ...[
+                  if (p.isCurrent)
+                    Text('CURR', style: rrLabelStyle)
+                  else
+                    Text(
+                      'RR ${p.rr.toStringAsFixed(0)}',
+                      style: rrLabelStyle,
+                    ),
+                  SizedBox(width: 4 * scale),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 7 * scale,
+                      vertical: 2 * scale,
+                    ),
+                    color: tokens.gold,
+                    child: Text('${p.score}', style: valueStyle),
+                  ),
+                  SizedBox(width: 10 * scale),
+                ],
+              ],
             ),
-            SizedBox(width: 8 * scale),
-          ],
+          ),
         ],
       ),
     );
@@ -233,6 +232,90 @@ class LandscapeRequiredRrBanner extends StatelessWidget {
   }
 }
 
+/// Persistent 2nd-innings fallback chip — "Need X off Y" (target-chip styling).
+class LandscapeChaseNeedChip extends StatelessWidget {
+  const LandscapeChaseNeedChip({
+    super.key,
+    required this.runsNeeded,
+    required this.ballsRemaining,
+    required this.tokens,
+    required this.scale,
+  });
+
+  final int runsNeeded;
+  final int ballsRemaining;
+  final ScorebugTokens tokens;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final scoreSize = LandscapeScorebugLayout.totalScoreFontSize(scale);
+    final barHeight = LandscapeScorebugLayout.barHeight(scale);
+    final labelStyle = LandscapeScorebugLayout.labelStyle(tokens, scale).copyWith(
+      fontSize: 11 * scale,
+      letterSpacing: 0.8,
+      color: tokens.onScore.withValues(alpha: 0.72),
+    );
+    final scoreStyle = TextStyle(
+      color: tokens.onScore,
+      fontSize: scoreSize,
+      fontWeight: FontWeight.w900,
+      height: 1,
+    );
+    final connectorStyle = labelStyle.copyWith(
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.4,
+    );
+
+    return Container(
+      height: barHeight,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: tokens.white,
+        border: Border(
+          left: BorderSide(color: tokens.liveRed, width: 6 * scale),
+          right: BorderSide(color: tokens.liveRed, width: 6 * scale),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12 * scale),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text('NEED', style: labelStyle),
+                    SizedBox(width: 8 * scale),
+                    Text('$runsNeeded', style: scoreStyle),
+                    SizedBox(width: 8 * scale),
+                    Text('off', style: connectorStyle),
+                    SizedBox(width: 8 * scale),
+                    Text('$ballsRemaining', style: scoreStyle),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ValueBox extends StatelessWidget {
   const _ValueBox({
     required this.value,
@@ -281,15 +364,28 @@ class _TopBannerShell extends StatelessWidget {
     required this.scale,
     required this.accent,
     required this.child,
+    this.fillWidth = false,
   });
 
   final ScorebugTokens tokens;
   final double scale;
   final Color accent;
   final Widget child;
+  final bool fillWidth;
 
   @override
   Widget build(BuildContext context) {
+    final content = fillWidth
+        ? Align(alignment: Alignment.centerLeft, child: child)
+        : Align(
+            alignment: Alignment.centerLeft,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: child,
+            ),
+          );
+
     return Container(
       width: double.infinity,
       height: LandscapeScorebugLayout.secondaryRowHeight(scale),
@@ -307,14 +403,7 @@ class _TopBannerShell extends StatelessWidget {
           ),
         ],
       ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: child,
-        ),
-      ),
+      child: content,
     );
   }
 }

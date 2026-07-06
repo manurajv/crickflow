@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/replay_marker_model.dart';
 import '../models/saved_rtmp_server.dart';
 import '../models/saved_stream_key.dart';
+import '../models/saved_stream_studio_preferences.dart';
+import '../models/stream_studio_config.dart';
 import '../../domain/streaming_enums.dart';
 
 class StreamStudioRepository {
@@ -16,6 +18,7 @@ class StreamStudioRepository {
   final FirebaseFirestore _firestore;
   static const _savedServersKey = 'crickflow_saved_rtmp_servers';
   static const _streamKeyHistoryKey = 'crickflow_stream_key_history';
+  static const _lastStudioPreferencesKey = 'crickflow_last_studio_preferences';
   static const _maxStreamKeyHistory = 24;
 
   CollectionReference<Map<String, dynamic>> _markers(String matchId) =>
@@ -114,6 +117,40 @@ class StreamStudioRepository {
           .where((e) => e.id != id)
           .map((e) => jsonEncode(e.toMap()))
           .toList(),
+    );
+  }
+
+  Future<SavedStreamStudioPreferences?> loadLastStudioPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_lastStudioPreferencesKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return SavedStreamStudioPreferences.fromMap(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> rememberLastStudioPreferences(StreamStudioConfig config) async {
+    final prefs = await SharedPreferences.getInstance();
+    final entry = SavedStreamStudioPreferences(
+      platform: config.platform,
+      broadcastSetupMode: config.broadcastSetupMode,
+      orientation: config.orientation,
+      streamingMode: config.streamingMode,
+      rtmpUrl: config.rtmpUrl.trim(),
+      streamKey: config.streamKey.trim(),
+      youtubeChannelId: config.youtubeChannelId.trim(),
+      youtubeChannelName: config.youtubeChannelName.trim(),
+      goLiveImmediately: config.goLiveImmediately,
+      resolution: config.resolution,
+      lastUsedAt: DateTime.now(),
+    );
+    await prefs.setString(
+      _lastStudioPreferencesKey,
+      jsonEncode(entry.toMap()),
     );
   }
 }

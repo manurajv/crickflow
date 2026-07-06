@@ -14,6 +14,9 @@ import '../../domain/streaming_enums.dart';
 /// 2× logical pixels for crisp scorebug text; native GL scales to encoder frame.
 const _kOverlayCapturePixelRatio = 1.0;
 
+/// Bumped on Android lifecycle resume while live — forces capture tree rebuild.
+final overlayLifecycleRecoveryProvider = StateProvider<int>((ref) => 0);
+
 /// Captures Flutter overlay widgets and pushes PNG frames to native RTMP burn-in.
 class StreamOverlayBurnInService {
   StreamOverlayBurnInService(this._ref);
@@ -24,6 +27,7 @@ class StreamOverlayBurnInService {
   Timer? _liveRefreshTimer;
   int _generation = 0;
   int _pushCount = 0;
+  bool _lifecycleRecoveryInFlight = false;
 
   void schedulePush() {
     _debounce?.cancel();
@@ -58,34 +62,81 @@ class StreamOverlayBurnInService {
     _liveRefreshTimer = null;
   }
 
-  Future<void> pushNow() async {
+  /// Restores native GL overlay + re-captures Flutter overlay after surface/GL recreation.
+  Future<void> recoverAfterLifecycle() async {
+    if (_lifecycleRecoveryInFlight) return;
+    final stream = _ref.read(streamServiceProvider);
+    if (!stream.isStreaming && !stream.liveSessionActive) return;
+
+    _lifecycleRecoveryInFlight = true;
+    try {
+      _ref.read(overlayLifecycleRecoveryProvider.notifier).state++;
+      startLiveRefresh();
+
+      const delaysMs = <int>[0, 150, 300, 450, 600, 800, 1000, 1200];
+      for (final delayMs in delaysMs) {
+        if (delayMs > 0) {
+          await Future<void>.delayed(Duration(milliseconds: delayMs));
+        }
+        final live = _ref.read(streamServiceProvider);
+        if (!live.isStreaming && !live.liveSessionActive) return;
+
+        await _restoreNativeOverlayPipeline();
+        await SchedulerBinding.instance.endOfFrame;
+
+        final ok = await pushNow(force: true);
+        if (ok) {
+          _log('overlay recovered after lifecycle');
+          return;
+        }
+      }
+      _log('overlay lifecycle recovery exhausted retries');
+    } finally {
+      _lifecycleRecoveryInFlight = false;
+    }
+  }
+
+  Future<void> _restoreNativeOverlayPipeline() async {
+    final controller = _ref.read(streamServiceProvider).cameraController;
+    if (controller == null || !(controller.value.isInitialized ?? false)) {
+      return;
+    }
+    try {
+      await controller.restoreStreamOverlayPipeline();
+    } catch (e) {
+      _log('native overlay pipeline restore failed: $e');
+    }
+  }
+
+  /// Returns true when a PNG frame was sent to the native compositor.
+  Future<bool> pushNow({bool force = false}) async {
     final stream = _ref.read(streamServiceProvider);
     if (!stream.isStreaming && !stream.liveSessionActive) {
       _log('push skipped — not streaming');
-      return;
+      return false;
     }
-    if (stream.isReconnecting || !stream.networkOnline) {
+    if (!force && (stream.isReconnecting || !stream.networkOnline)) {
       _log('push skipped — reconnecting or offline');
-      return;
+      return false;
     }
     final controller = stream.cameraController;
     if (controller == null || !(controller.value.isInitialized ?? false)) {
       _log('push skipped — camera not initialized');
-      return;
+      return false;
     }
 
     final boundary =
         repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) {
       _log('push skipped — RepaintBoundary not mounted');
-      return;
+      return false;
     }
 
     boundary.markNeedsPaint();
     final painted = await _waitUntilPainted(boundary);
     if (!painted) {
       _log('push skipped — overlay tree not painted yet');
-      return;
+      return false;
     }
 
     final gen = ++_generation;
@@ -93,7 +144,7 @@ class StreamOverlayBurnInService {
       final image = await boundary.toImage(pixelRatio: _kOverlayCapturePixelRatio);
       if (gen != _generation) {
         image.dispose();
-        return;
+        return false;
       }
       final width = image.width;
       final height = image.height;
@@ -102,13 +153,13 @@ class StreamOverlayBurnInService {
       image.dispose();
       if (byteData == null || gen != _generation) {
         _log('push skipped — PNG encode failed');
-        return;
+        return false;
       }
 
       final png = byteData.buffer.asUint8List();
       if (png.length < 512) {
         _log('push skipped — PNG too small (${png.length} bytes), overlay not painted');
-        return;
+        return false;
       }
 
       _pushCount++;
@@ -127,8 +178,10 @@ class StreamOverlayBurnInService {
       if (_pushCount <= 3 || _pushCount % 25 == 0) {
         _log('frame sent to encoder (#$_pushCount)');
       }
+      return true;
     } catch (e, st) {
       _log('push failed: $e\n$st');
+      return false;
     }
   }
 
@@ -137,6 +190,7 @@ class StreamOverlayBurnInService {
     stopLiveRefresh();
     _generation++;
     _pushCount = 0;
+    _lifecycleRecoveryInFlight = false;
     _ref.read(streamOverlayBurnInActiveProvider.notifier).state = false;
     final controller = _ref.read(streamServiceProvider).cameraController;
     if (controller == null) return;

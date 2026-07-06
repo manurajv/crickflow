@@ -8,9 +8,9 @@ import 'landscape_scorebug_context.dart';
 
 enum LandscapeTopBannerKind {
   partnership(1),
+  projectedScore(3),
   toWin(4),
   currentRunRate(5),
-  projectedScore(6),
   requiredRunRate(7);
 
   const LandscapeTopBannerKind(this.priority);
@@ -44,6 +44,13 @@ class LandscapeBannerScheduler {
   int _lastOverForToWin = -1;
   int _prevLegalBalls = -1;
   int _prevOverNumber = -1;
+  int _latestLegalBalls = 0;
+  int? _projectionStartLegalBalls;
+  DateTime? _projectionStartedAt;
+
+  static const _projectionMinDuration = Duration(seconds: 10);
+  static const _projectionMinDeliveries = 2;
+  static const _projectionMaxDuration = Duration(seconds: 15);
 
   LandscapeTopBannerRequest? get active => _active;
 
@@ -62,6 +69,9 @@ class LandscapeBannerScheduler {
     _lastOverForToWin = -1;
     _prevLegalBalls = -1;
     _prevOverNumber = -1;
+    _latestLegalBalls = 0;
+    _projectionStartLegalBalls = null;
+    _projectionStartedAt = null;
   }
 
   void onOverlayUpdate({
@@ -70,11 +80,16 @@ class LandscapeBannerScheduler {
     required bool centerEventActive,
     required bool forBurnInCapture,
   }) {
+    _latestLegalBalls = overlay.legalBalls;
     _maybeEnqueuePartnership(context);
     _maybeEnqueueOverTriggers(overlay, context);
 
     _prevLegalBalls = overlay.legalBalls;
     _prevOverNumber = context.currentOverNumber;
+
+    if (_active?.kind == LandscapeTopBannerKind.projectedScore) {
+      _maybeCompleteProjection(overlay);
+    }
 
     if (centerEventActive) return;
     _pumpQueue();
@@ -129,17 +144,6 @@ class LandscapeBannerScheduler {
         );
       }
 
-      if (context.showProjectionPhase &&
-          _lastOverForProjection != crrOver) {
-        _lastOverForProjection = crrOver;
-        _enqueue(
-          const LandscapeTopBannerRequest(
-            kind: LandscapeTopBannerKind.projectedScore,
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-
       if (context.isChase &&
           crrOver % 4 == 0 &&
           _lastOverForToWin != crrOver) {
@@ -151,6 +155,18 @@ class LandscapeBannerScheduler {
           ),
         );
       }
+    }
+
+    if (overBoundaryCompleted &&
+        context.showProjectionPhase &&
+        _lastOverForProjection != overNumber) {
+      _lastOverForProjection = overNumber;
+      _enqueue(
+        const LandscapeTopBannerRequest(
+          kind: LandscapeTopBannerKind.projectedScore,
+          duration: _projectionMinDuration,
+        ),
+      );
     }
 
     if ((overChanged || overBoundaryCompleted) &&
@@ -165,6 +181,35 @@ class LandscapeBannerScheduler {
         ),
       );
     }
+  }
+
+  void _maybeCompleteProjection(OverlayStateModel overlay) {
+    final startedAt = _projectionStartedAt;
+    final startBalls = _projectionStartLegalBalls;
+    if (startedAt == null || startBalls == null) return;
+
+    final elapsed =
+        DateTime.now().difference(startedAt) >= _projectionMinDuration;
+    final deliveries = overlay.legalBalls - startBalls;
+    if (elapsed && deliveries >= _projectionMinDeliveries) {
+      _finishActiveBanner();
+    }
+  }
+
+  void _finishActiveBanner() {
+    _timer?.cancel();
+    _projectionStartLegalBalls = null;
+    _projectionStartedAt = null;
+    _active = null;
+    onChanged();
+    _pumpQueue();
+  }
+
+  void _startProjectionBanner() {
+    _projectionStartLegalBalls = _latestLegalBalls;
+    _projectionStartedAt = DateTime.now();
+    _timer?.cancel();
+    _timer = Timer(_projectionMaxDuration, _finishActiveBanner);
   }
 
   void _enqueue(LandscapeTopBannerRequest request) {
@@ -183,11 +228,11 @@ class LandscapeBannerScheduler {
 
     _active = _queue.removeFirst();
     _timer?.cancel();
-    _timer = Timer(_active!.duration, () {
-      _active = null;
-      onChanged();
-      _pumpQueue();
-    });
+    if (_active!.kind == LandscapeTopBannerKind.projectedScore) {
+      _startProjectionBanner();
+    } else {
+      _timer = Timer(_active!.duration, _finishActiveBanner);
+    }
     onChanged();
   }
 

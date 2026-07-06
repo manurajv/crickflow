@@ -110,6 +110,13 @@ class StreamOverlayBurnIn(
         applyPendingOverlay()
     }
 
+    /** GL context was destroyed — drop stale filter; keep last frame for reapply. */
+    fun onGlSurfaceLost() {
+        filter = null
+        overlayAttached = false
+        Log.i(TAG, "GL surface lost — overlay filter invalidated (pending=${pendingPng != null})")
+    }
+
     /** Re-attach overlay filter after GL pipeline restart while streaming. */
     fun onEncoderPipelineReady() {
         if (!rtmpCamera.isStreaming || glUpdatesPaused) return
@@ -119,8 +126,9 @@ class StreamOverlayBurnIn(
             applyPendingOverlay()
             return
         }
-        if (lastBitmap != null && overlayAttached) {
-            reattachExistingFilter()
+        if (lastBitmap != null) {
+            Log.i(TAG, "Re-applying last overlay bitmap after GL pipeline restore")
+            reapplyLastBitmap()
         }
     }
 
@@ -241,21 +249,23 @@ class StreamOverlayBurnIn(
         return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
     }
 
-    private fun reattachExistingFilter() {
-        val existing = filter ?: return
+    private fun reapplyLastBitmap() {
+        val bitmap = lastBitmap ?: return
         val glInterface = rtmpCamera.glInterface ?: return
         try {
-            glInterface.setFilter(existing)
-            onOverlayApplied?.invoke()
-            val bitmap = lastBitmap
-            if (bitmap != null) {
-                applyOverlayGeometry(existing, bitmap.width, bitmap.height)
-            } else {
-                applyOverlayGeometry(existing, 0, 0)
+            val filterRender = ImageObjectFilterRender().also {
+                filter = it
+                glInterface.setFilter(it)
+                overlayAttached = true
+                Log.i(TAG, "Overlay GL filter re-created after surface loss")
             }
-            Log.i(TAG, "Overlay GL filter re-attached after pipeline restore")
+            onOverlayApplied?.invoke()
+            filterRender.setImage(bitmap)
+            applyOverlayGeometry(filterRender, bitmap.width, bitmap.height)
         } catch (e: Exception) {
-            Log.e(TAG, "reattachExistingFilter failed", e)
+            Log.e(TAG, "reapplyLastBitmap failed", e)
+            filter = null
+            overlayAttached = false
         }
     }
 

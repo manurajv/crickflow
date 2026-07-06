@@ -10,6 +10,7 @@ import '../../../../shared/providers/tournament_providers.dart';
 import '../../data/models/replay_marker_model.dart';
 import '../../data/models/saved_rtmp_server.dart';
 import '../../data/models/saved_stream_key.dart';
+import '../../data/models/saved_stream_studio_preferences.dart';
 import '../../data/models/stream_studio_config.dart';
 import '../../data/repositories/stream_studio_repository.dart';
 import '../../../../shared/providers/match_squads_provider.dart';
@@ -89,6 +90,39 @@ Future<void> rememberStreamKeyForConfig(
       rtmpUrl: config.rtmpUrl.trim(),
       label: label ?? config.platform.label,
     ),
+  );
+}
+
+Future<void> rememberLastStudioPreferencesForConfig(
+  StreamStudioRepository repo,
+  StreamStudioConfig config,
+) async {
+  await repo.rememberLastStudioPreferences(config);
+}
+
+StreamStudioConfig applySavedStudioPreferences(
+  StreamStudioConfig current,
+  SavedStreamStudioPreferences? saved,
+) {
+  if (saved == null) {
+    return current.copyWith(
+      orientation: StreamOrientationMode.landscape,
+      orientationLocked: true,
+    );
+  }
+
+  return current.copyWith(
+    platform: saved.platform,
+    broadcastSetupMode: saved.broadcastSetupMode,
+    orientation: saved.orientation,
+    orientationLocked: true,
+    streamingMode: saved.streamingMode,
+    rtmpUrl: saved.rtmpUrl.isNotEmpty ? saved.rtmpUrl : current.rtmpUrl,
+    streamKey: saved.streamKey,
+    youtubeChannelId: saved.youtubeChannelId,
+    youtubeChannelName: saved.youtubeChannelName,
+    goLiveImmediately: saved.goLiveImmediately,
+    resolution: saved.resolution,
   );
 }
 

@@ -673,4 +673,132 @@ class DismissalFormatter {
     if (t == 'run out ()') return true;
     return RegExp(r'^c\s*[-–]?\s*b?\s*[-–]?\s*$').hasMatch(t);
   }
+
+  /// Separate fielder(s) and bowler columns for broadcast scorecards.
+  static ({String fielders, String bowler}) broadcastColumns(
+    BallEventModel event, {
+    Map<String, String>? playerNames,
+  }) {
+    final bowler = _shortName(_resolvedBowlerName(event, playerNames: playerNames));
+    final fielder = _shortName(
+      _resolvedPrimaryFielderName(event, playerNames: playerNames),
+    );
+    final secondary = _shortName(_secondaryFielderName(event));
+    final type = event.wicketType;
+
+    if (event.isMankad || type == WicketType.mankad) {
+      return (fielders: bowler, bowler: '');
+    }
+
+    if (type == WicketType.runOut) {
+      var primary = fielder;
+      if (primary.isEmpty &&
+          event.primaryFielderId != null &&
+          playerNames != null) {
+        primary =
+            _shortName(playerNames[event.primaryFielderId!]?.trim() ?? '');
+      }
+      var sec = secondary;
+      if (sec.isEmpty &&
+          event.secondaryFielderId != null &&
+          playerNames != null) {
+        sec = _shortName(playerNames[event.secondaryFielderId!]?.trim() ?? '');
+      }
+      final built = formatRunOutDisplay(
+        primaryFielderName: primary,
+        secondaryFielderName: sec,
+        fielders: event.fielders,
+      );
+      final names = built.replaceFirst(RegExp(r'^run out\s*', caseSensitive: false), '').trim();
+      return (fielders: names == 'run out' ? '' : names, bowler: '');
+    }
+
+    if (type == WicketType.caughtAndBowled) {
+      return (fielders: 'c & b', bowler: bowler);
+    }
+
+    if (type == WicketType.caughtBehind ||
+        (type == WicketType.caught &&
+            event.dismissalSubType == DismissalSubType.caughtBehind)) {
+      return (
+        fielders: formatKeeperDisplayName(fielder),
+        bowler: bowler,
+      );
+    }
+
+    if (type == WicketType.caught) {
+      return (fielders: fielder, bowler: bowler);
+    }
+
+    if (type == WicketType.stumped) {
+      return (
+        fielders: formatKeeperDisplayName(fielder),
+        bowler: bowler,
+      );
+    }
+
+    if (type == WicketType.bowled ||
+        type == WicketType.lbw ||
+        type == WicketType.hitWicket) {
+      return (fielders: '', bowler: bowler);
+    }
+
+    return (fielders: '', bowler: '');
+  }
+
+  /// Parses legacy dismissal text when wicket metadata is unavailable.
+  static ({String fielders, String bowler}) broadcastColumnsFromText(
+    String raw,
+  ) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return (fielders: '', bowler: '');
+
+    final lower = trimmed.toLowerCase();
+    if (lower.startsWith('run out')) {
+      final names = trimmed
+          .replaceFirst(RegExp(r'^run out\s*', caseSensitive: false), '')
+          .trim();
+      return (fielders: names, bowler: '');
+    }
+
+    if (lower.contains('c & b') || lower.contains('c&b')) {
+      final idx = lower.indexOf('c & b');
+      final after = trimmed.substring(idx + 5).trim();
+      return (fielders: 'c & b', bowler: after);
+    }
+
+    final caught = RegExp(
+      r'^c\s+(.+?)\s+b\s+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (caught != null) {
+      return (fielders: caught.group(1)!.trim(), bowler: caught.group(2)!.trim());
+    }
+
+    final lbw = RegExp(r'^lbw\s+b\s+(.+)$', caseSensitive: false).firstMatch(trimmed);
+    if (lbw != null) {
+      return (fielders: '', bowler: lbw.group(1)!.trim());
+    }
+
+    final bowled = RegExp(r'^b\s+(.+)$', caseSensitive: false).firstMatch(trimmed);
+    if (bowled != null) {
+      return (fielders: '', bowler: bowled.group(1)!.trim());
+    }
+
+    return (fielders: '', bowler: '');
+  }
+
+  static ({String fielders, String bowler}) broadcastColumnsForDismissal({
+    BallEventModel? event,
+    Map<String, String>? playerNames,
+    required String fallbackText,
+  }) {
+    if (event != null) {
+      final fromEvent = broadcastColumns(event, playerNames: playerNames);
+      if (fromEvent.fielders.isNotEmpty || fromEvent.bowler.isNotEmpty) {
+        return fromEvent;
+      }
+    }
+    return broadcastColumnsFromText(fallbackText);
+  }
 }

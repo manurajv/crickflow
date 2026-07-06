@@ -103,7 +103,14 @@ class CameraNativeView(
         surfaceNeedsRebuild = true
         cancelScheduledReattach()
         PreviewSurfaceLifecycle.detachAfterSurfaceLoss(rtmpCamera)
-        Log.i("CameraNativeView", "Preview surface destroyed gen=$generation")
+        if (rtmpCamera.isStreaming) {
+            encoderPipelineLinked = false
+            overlayBurnIn.onGlSurfaceLost()
+        }
+        Log.i(
+            "CameraNativeView",
+            "Preview surface destroyed gen=$generation streaming=${rtmpCamera.isStreaming}",
+        )
     }
 
     private fun onPreviewSurfaceReady(@Suppress("UNUSED_PARAMETER") generation: Long) {
@@ -181,7 +188,10 @@ class CameraNativeView(
     }
 
     /** Restores GL, sensor-buffer camera, encoder surface, and overlay after go-live. */
-    private fun linkEncoderPipeline(fullRebuild: Boolean = true) {
+    private fun linkEncoderPipeline(
+        fullRebuild: Boolean = true,
+        forceRelink: Boolean = false,
+    ) {
         if (!rtmpCamera.isStreaming) return
         val glConfig = lockedGlConfig ?: return
         try {
@@ -195,7 +205,7 @@ class CameraNativeView(
                     glConfig.cameraBuffer.height,
                 )
             }
-            if (needsCameraRebind || !encoderPipelineLinked) {
+            if (needsCameraRebind || !encoderPipelineLinked || forceRelink) {
                 PedroCameraBridge.relinkEncoderSurface(rtmpCamera)
             }
             val (scaleW, scaleH) = BroadcastGlConfig.overlayScaleFor(glConfig, streaming = true)
@@ -380,7 +390,8 @@ class CameraNativeView(
                     lockPreviewGlAtFirstStart()
                     reapplyLockedPreviewGl()
                     if (streaming) {
-                        linkEncoderPipeline()
+                        overlayBurnIn.glUpdatesPaused = false
+                        linkEncoderPipeline(fullRebuild = true, forceRelink = true)
                     } else {
                         applyStreamRotationIfLive()
                     }
@@ -412,7 +423,8 @@ class CameraNativeView(
                 )
                 invokeSwitchCameraByIdIfNeeded(cameraName)
                 if (streaming) {
-                    linkEncoderPipeline()
+                    overlayBurnIn.glUpdatesPaused = false
+                    linkEncoderPipeline(fullRebuild = true, forceRelink = true)
                 } else {
                     applyStreamRotationIfLive()
                 }
@@ -571,11 +583,8 @@ class CameraNativeView(
         activity?.runOnUiThread {
             rtmpTransportUnstable = false
             overlayBurnIn.glUpdatesPaused = false
-            if (encoderPipelineLinked && PedroCameraBridge.isCaptureSessionReady(rtmpCamera)) {
-                applyStreamRotationIfLive()
-                overlayBurnIn.onEncoderPipelineReady()
-            } else {
-                linkEncoderPipeline(fullRebuild = !encoderPipelineLinked)
+            if (rtmpCamera.isStreaming) {
+                linkEncoderPipeline(fullRebuild = true, forceRelink = true)
             }
             dartMessenger?.send(DartMessenger.EventType.RTMP_CONNECTED, null)
         }
@@ -1054,6 +1063,29 @@ class CameraNativeView(
                     Log.e("CameraNativeView", "restartPreview", e)
                     result.error("previewFailed", e.message, null)
                 }
+            }
+        }
+    }
+
+    /** Re-links encoder GL and re-attaches overlay filter while RTMP stays live. */
+    fun restoreStreamOverlayPipeline(result: MethodChannel.Result) {
+        runOnMain(result) {
+            try {
+                if (!rtmpCamera.isStreaming) {
+                    result.success(null)
+                    return@runOnMain
+                }
+                overlayBurnIn.glUpdatesPaused = false
+                if (!rtmpTransportUnstable) {
+                    linkEncoderPipeline(fullRebuild = true, forceRelink = true)
+                } else {
+                    overlayBurnIn.onEncoderPipelineReady()
+                }
+                Log.i("CameraNativeView", "Live overlay pipeline restore requested")
+                result.success(null)
+            } catch (e: Exception) {
+                Log.e("CameraNativeView", "restoreStreamOverlayPipeline", e)
+                result.error("overlayRestoreFailed", e.message, null)
             }
         }
     }

@@ -282,6 +282,15 @@ class MethodCallHandlerImplNew(
                 }
             }
 
+            "restoreStreamOverlayPipeline" -> {
+                val view = getCameraView()
+                if (view == null) {
+                    result.success(null)
+                } else {
+                    view.restoreStreamOverlayPipeline(result)
+                }
+            }
+
             "setOrientationMode" -> {
                 val autoRotate = call.argument<Boolean>("autoRotate") ?: false
                 val mode = call.argument<String>("mode") ?: "portrait"

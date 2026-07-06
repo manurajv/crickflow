@@ -46,10 +46,22 @@ class LandscapeScorebugLayout {
   /// Visible gap between the batsmen block and the bowler column — team logo width.
   static double batsmenBowlerGap(double scale) => barHeight(scale);
 
-  static double batterGap(double scale) => 80 * scale;
+  static double batterGap(double scale) => 56 * scale;
 
-  /// Reserved width for chase target chip in 2nd innings.
-  static double targetChipWidth(double scale) => 68 * scale;
+  /// Total score (e.g. 20/1) and chase target chip typography.
+  static double totalScoreFontSize(double scale) => 24 * scale;
+
+  /// Secondary-row width aligned with the batting + batsmen bar (excludes bowler column).
+  static double bannerWidthThroughBatsmen({
+    required double totalWidth,
+    required double scale,
+  }) {
+    final inset = edgeInset(scale);
+    final gap = batsmenBowlerGap(scale);
+    final bowlerColumnWidth =
+        (totalWidth * 0.56).clamp(148 * scale, 230 * scale);
+    return totalWidth - (2 * inset) - gap - bowlerColumnWidth;
+  }
 
   static BoxShadow barShadow() => BoxShadow(
         color: Colors.black.withValues(alpha: 0.35),

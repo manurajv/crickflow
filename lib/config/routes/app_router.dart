@@ -372,62 +372,78 @@ final routerProvider = Provider<GoRouter>((ref) {
           matchId: state.pathParameters['id']!,
           initialTab: state.uri.queryParameters['tab'] ?? 'summary',
         ),
-      ),
-      GoRoute(
-        path: '/match/:id/mvp/how',
-        builder: (_, state) => MatchMvpHowScreen(
-          matchId: state.pathParameters['id']!,
-        ),
-      ),
-      GoRoute(
-        path: '/match/:id/head-to-head',
-        builder: (_, state) => TeamHeadToHeadScreen(
-          matchId: state.pathParameters['id']!,
-        ),
-      ),
-      GoRoute(
-        path: '/match/:id/start-innings',
-        builder: (_, state) =>
-            StartInningsScreen(matchId: state.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/match/:id/score',
-        builder: (_, state) =>
-            LiveScoringScreen(matchId: state.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/match/:id/takeover',
-        builder: (_, state) => ScorerTakeoverScreen(
-          matchId: state.pathParameters['id']!,
-          ownershipToken: state.uri.queryParameters['token'] ?? '',
-        ),
-      ),
-      GoRoute(
-        path: '/match/:id/scorecard',
-        builder: (_, state) => ScorecardScreen(
-          matchId: state.pathParameters['id']!,
-          exitToHomeOnBack: state.uri.queryParameters['from'] == 'complete',
-        ),
-      ),
-      GoRoute(
-        path: '/match/:id/highlights',
-        builder: (_, state) =>
-            MatchHighlightsScreen(matchId: state.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/match/:id/stream',
-        builder: (_, state) =>
-            StreamingDashboardScreen(matchId: state.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/match/:id/webrtc',
-        builder: (_, state) =>
-            WebrtcViewerScreen(matchId: state.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/match/:id/overlay',
-        builder: (_, state) =>
-            LiveOverlayScreen(matchId: state.pathParameters['id']!),
+        routes: [
+          GoRoute(
+            path: 'mvp/how',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) => MatchMvpHowScreen(
+              matchId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: 'head-to-head',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) => TeamHeadToHeadScreen(
+              matchId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: 'start-innings',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) =>
+                StartInningsScreen(matchId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: 'score',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) =>
+                LiveScoringScreen(matchId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: 'takeover',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) => ScorerTakeoverScreen(
+              matchId: state.pathParameters['id']!,
+              ownershipToken: state.uri.queryParameters['token'] ?? '',
+            ),
+          ),
+          GoRoute(
+            path: 'scorecard',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) => ScorecardScreen(
+              matchId: state.pathParameters['id']!,
+              exitToHomeOnBack: state.uri.queryParameters['from'] == 'complete',
+            ),
+          ),
+          GoRoute(
+            path: 'highlights',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) =>
+                MatchHighlightsScreen(matchId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: 'stream',
+            parentNavigatorKey: rootNavigatorKey,
+            pageBuilder: (context, state) => MaterialPage<void>(
+              key: state.pageKey,
+              child: StreamingDashboardScreen(
+                matchId: state.pathParameters['id']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'webrtc',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) =>
+                WebrtcViewerScreen(matchId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: 'overlay',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (_, state) =>
+                LiveOverlayScreen(matchId: state.pathParameters['id']!),
+          ),
+        ],
       ),
       GoRoute(
         path: '/tournaments/:id/join',

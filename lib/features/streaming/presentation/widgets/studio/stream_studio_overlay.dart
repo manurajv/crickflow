@@ -60,6 +60,7 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
     required this.cameraReady,
     this.isLive = false,
     this.isObsMode = false,
+    this.onNavigateBack,
     this.onEndStream,
     this.onMarkReplay,
   });
@@ -73,6 +74,7 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
   final bool cameraReady;
   final bool isLive;
   final bool isObsMode;
+  final Future<void> Function()? onNavigateBack;
   final VoidCallback? onEndStream;
   final VoidCallback? onMarkReplay;
 
@@ -299,15 +301,17 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                   ),
                 if (widget.isLive && _showNetworkWarning(service, health))
                   Positioned(
-                    left: pad.left + _kEdge,
-                    right: pad.right + _kEdge,
-                    bottom: pad.bottom + _kEdge,
-                    child: _NetworkWarning(
-                      cf: cf,
-                      text: service.isReconnecting ||
-                              (health?.isReconnecting == true)
-                          ? 'Reconnecting…'
-                          : 'Poor network',
+                    top: pad.top + 6,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: _NetworkWarning(
+                        cf: cf,
+                        text: service.isReconnecting ||
+                                (health?.isReconnecting == true)
+                            ? 'Reconnecting…'
+                            : 'Poor network',
+                      ),
                     ),
                   ),
               ],
@@ -392,7 +396,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                     orientation: config.orientation,
                     onBack: widget.isLive
                         ? null
-                        : () => Navigator.maybePop(context),
+                        : () => unawaited(widget.onNavigateBack?.call()),
                     onMic: () async {
                       final next = !config.micEnabled;
                       notifier.update((c) => c.copyWith(micEnabled: next));
@@ -456,7 +460,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                       orientation: config.orientation,
                       onBack: widget.isLive
                           ? null
-                          : () => Navigator.maybePop(context),
+                          : () => unawaited(widget.onNavigateBack?.call()),
                       onMic: () async {
                         final next = !config.micEnabled;
                         notifier.update((c) => c.copyWith(micEnabled: next));
@@ -500,6 +504,21 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                   ),
                 ),
         ),
+        if (widget.isLive && _showNetworkWarning(service, health))
+          Positioned(
+            top: topInset + _kTopBarH + 6,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _NetworkWarning(
+                cf: cf,
+                text: service.isReconnecting ||
+                        (health?.isReconnecting == true)
+                    ? 'Reconnecting…'
+                    : 'Poor network',
+              ),
+            ),
+          ),
         Positioned(
           top: subBarTop,
           right: pad.right + _kEdge,
@@ -1686,27 +1705,35 @@ class _NetworkWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: cf.error.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 14),
+            const SizedBox(width: 6),
+            Text(
               text,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

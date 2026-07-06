@@ -23,10 +23,12 @@ import 'widgets/health/stream_live_chat_panel.dart';
 import 'widgets/camera/stream_camera_preview.dart';
 import 'widgets/health/stream_health_panel.dart';
 import 'widgets/end_live_stream_dialog.dart';
+import 'widgets/leave_stream_studio_dialog.dart';
 import 'widgets/stream_reconnecting_banner.dart';
 import 'widgets/stream_connection_lost_banner.dart';
 import 'widgets/stream_studio_compositor.dart';
 import '../services/stream_lifecycle_log.dart';
+import 'providers/post_match_controller.dart';
 
 /// Pre-live streaming dashboard + live broadcast studio for a match.
 class StreamingDashboardScreen extends ConsumerStatefulWidget {
@@ -44,6 +46,7 @@ class _StreamingDashboardScreenState
   bool _cameraLoading = true;
   String? _cameraError;
   bool _isLive = false;
+  bool _endingStream = false;
   Timer? _heartbeatTimer;
   Timer? _youtubeStatusTimer;
   String? _lastEventId;
@@ -61,9 +64,25 @@ class _StreamingDashboardScreenState
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initCamera();
-      _resumeIfLive();
+      unawaited(_bootstrapStudio());
     });
+  }
+
+  Future<void> _bootstrapStudio() async {
+    await _applySavedStudioPreferences();
+    if (!mounted) return;
+    await _initCamera();
+    if (!mounted) return;
+    _resumeIfLive();
+  }
+
+  Future<void> _applySavedStudioPreferences() async {
+    if (_isLive) return;
+    final repo = ref.read(streamStudioRepositoryProvider);
+    final saved = await repo.loadLastStudioPreferences();
+    ref.read(streamStudioConfigProvider(widget.matchId).notifier).update(
+          (c) => applySavedStudioPreferences(c, saved),
+        );
   }
 
   @override
@@ -72,9 +91,6 @@ class _StreamingDashboardScreenState
     if (config.streamingMode == StreamingMode.externalEncoder) return;
     if (!StreamService.isPlatformSupported) return;
 
-    final service = ref.read(streamServiceProvider);
-    final live = _isLive && service.isRtmpLive;
-
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       // Never tear down camera/encoder while live — foreground service holds process.
@@ -82,29 +98,43 @@ class _StreamingDashboardScreenState
     }
 
     if (state != AppLifecycleState.resumed) return;
-    if (_cameraLoading && !live) return;
 
-    if (live) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(streamOverlayBurnInServiceProvider).schedulePush();
-        // Do not restart the GL preview while RTMP is reconnecting — avoids ANR.
-        if (service.isReconnecting || !service.networkOnline) return;
-        unawaited(service.reconnectPreview(retries: 8).then((_) {
-          StreamLifecycleLog.cameraReconnected();
-        }));
-      });
-      return;
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final service = ref.read(streamServiceProvider);
+      final sessionLive = _isLive &&
+          (service.isStreaming || service.liveSessionActive);
+      if (sessionLive) {
+        unawaited(_resumeLiveSessionUi());
+        return;
+      }
+      if (_cameraLoading) return;
 
-    if (service.isInitialized) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (service.isInitialized) {
         unawaited(service.recoverPreview());
-      });
-      return;
-    }
+        return;
+      }
 
-    setState(() => _previewSession++);
-    unawaited(_recoverCameraAfterResume());
+      setState(() => _previewSession++);
+      unawaited(_recoverCameraAfterResume());
+    });
+  }
+
+  Future<void> _resumeLiveSessionUi() async {
+    if (!mounted) return;
+    final service = ref.read(streamServiceProvider);
+    final burnIn = ref.read(streamOverlayBurnInServiceProvider);
+
+    burnIn.startLiveRefresh();
+
+    try {
+      await service.reconnectPreview(retries: 8);
+      StreamLifecycleLog.cameraReconnected();
+    } catch (_) {}
+
+    if (!mounted) return;
+    await burnIn.recoverAfterLifecycle();
+    if (mounted) setState(() {});
   }
 
   Future<void> _recoverCameraAfterResume() async {
@@ -112,6 +142,9 @@ class _StreamingDashboardScreenState
     final service = ref.read(streamServiceProvider);
     if (_isLive && service.isStreaming) {
       await service.reconnectPreview(retries: 8);
+      if (mounted) {
+        await ref.read(streamOverlayBurnInServiceProvider).recoverAfterLifecycle();
+      }
       return;
     }
 
@@ -464,6 +497,11 @@ class _StreamingDashboardScreenState
       ref.invalidate(streamKeyHistoryProvider);
     }
 
+    await rememberLastStudioPreferencesForConfig(
+      ref.read(streamStudioRepositoryProvider),
+      config,
+    );
+
     _startHeartbeat();
     _startYouTubeStatusMonitor();
     await ActiveStreamSession.setActive(widget.matchId);
@@ -488,6 +526,7 @@ class _StreamingDashboardScreenState
       final stream = ref.read(streamServiceProvider);
       stream.onRtmpConnected = () {
         burnIn.schedulePush();
+        unawaited(burnIn.recoverAfterLifecycle());
       };
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_isLive) return;
@@ -498,6 +537,8 @@ class _StreamingDashboardScreenState
   }
 
   Future<void> _endStream() async {
+    if (_endingStream) return;
+    _endingStream = true;
     _stopHeartbeat();
     _stopYouTubeStatusMonitor();
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
@@ -557,6 +598,24 @@ class _StreamingDashboardScreenState
     }
   }
 
+  Future<void> _handleBackFromStudio() async {
+    final leave = await showLeaveStreamStudioDialog(context);
+    if (leave != true || !mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/match/${widget.matchId}?tab=live');
+    }
+  }
+
+  Future<void> _handleNavigateBack() async {
+    if (_isLive) {
+      await _handleBackWhileLive();
+    } else {
+      await _handleBackFromStudio();
+    }
+  }
+
   Future<void> _retryConnection() async {
     await ref.read(streamServiceProvider).retryConnection();
     if (!mounted) return;
@@ -598,6 +657,15 @@ class _StreamingDashboardScreenState
       if (events != null) _processBallEvents(events);
     });
 
+    ref.listen(postMatchControllerProvider(widget.matchId), (prev, next) {
+      if (next != PostMatchPhase.complete ||
+          prev == PostMatchPhase.complete ||
+          !_isLive) {
+        return;
+      }
+      unawaited(_endStream());
+    });
+
     ref.listen(
       streamStudioConfigProvider(widget.matchId).select((c) => c.streamingMode),
       (prev, next) {
@@ -635,10 +703,10 @@ class _StreamingDashboardScreenState
         }
 
         return PopScope(
-          canPop: !_isLive,
+          canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
-            if (didPop || !_isLive) return;
-            await _handleBackWhileLive();
+            if (didPop) return;
+            await _handleNavigateBack();
           },
           child: Scaffold(
           backgroundColor: Colors.black,
@@ -692,6 +760,9 @@ class _StreamingDashboardScreenState
                   key: ValueKey('stream_studio_$_previewSession'),
                   matchId: widget.matchId,
                   overlay: overlayAsync.valueOrNull,
+                  onPostMatchAutoEnd: () {
+                    if (_isLive) unawaited(_endStream());
+                  },
                   cameraPreview: StreamCameraPreview(
                     key: ValueKey('stream_camera_$_previewSession'),
                     matchId: widget.matchId,
@@ -710,6 +781,7 @@ class _StreamingDashboardScreenState
                 cameraReady: _isLive ? true : cameraReady,
                 isLive: _isLive,
                 isObsMode: isObs,
+                onNavigateBack: _handleNavigateBack,
                 onEndStream: _isLive ? _endStream : null,
                 onMarkReplay: _isLive ? () => _markReplay(match) : null,
               ),

@@ -1120,6 +1120,17 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  /// Re-links encoder GL and re-attaches the overlay burn-in filter while live.
+  Future<void> restoreStreamOverlayPipeline() async {
+    if (!value.isInitialized! || _isDisposed) return;
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('restoreStreamOverlayPipeline');
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
   /// Sync native GL preview/stream rotation (auto-follow device or fixed mode).
   Future<void> setOrientationMode({
     required bool autoRotate,

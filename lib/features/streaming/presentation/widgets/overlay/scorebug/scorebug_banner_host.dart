@@ -10,8 +10,12 @@ bool shouldSyncScorebugBannerScheduler({
 }) {
   return oldOverlay.version != newOverlay.version ||
       oldOverlay.legalBalls != newOverlay.legalBalls ||
+      oldOverlay.totalRuns != newOverlay.totalRuns ||
+      oldOverlay.target != newOverlay.target ||
       oldContext.partnershipRuns != newContext.partnershipRuns ||
       oldContext.currentOverNumber != newContext.currentOverNumber ||
       oldContext.ballsInCurrentOver != newContext.ballsInCurrentOver ||
-      oldContext.isChase != newContext.isChase;
+      oldContext.isChase != newContext.isChase ||
+      oldContext.runsNeeded != newContext.runsNeeded ||
+      oldContext.ballsRemaining != newContext.ballsRemaining;
 }

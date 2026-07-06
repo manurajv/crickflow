@@ -502,8 +502,9 @@ class StreamService extends ChangeNotifier {
   Future<void> reconnectPreview({int retries = 6}) async {
     if (_uiOrientationChanging) return;
     if (_controller == null || !isInitialized) return;
-    if (isReconnecting || !_networkOnline) return;
-    if (!isStreaming && !_liveSessionActive) {
+    final live = isStreaming || _liveSessionActive;
+    if (!live && (isReconnecting || !_networkOnline)) return;
+    if (!live) {
       await recoverPreview();
       return;
     }
