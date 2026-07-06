@@ -324,11 +324,13 @@ class MethodCallHandlerImplNew(
             }
 
             "reconnectRtmpTransport" -> {
+                val url = call.argument<String>("url")
+                val bitrate = call.argument<Int>("bitrate")
                 val view = getCameraView()
                 if (view == null) {
                     result.success(null)
                 } else {
-                    view.reconnectRtmpTransport(result)
+                    view.reconnectRtmpTransport(url, bitrate, result)
                 }
             }
 

@@ -657,11 +657,11 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
         ? ref.watch(tournamentProvider(tournamentId)).valueOrNull
         : null;
     final burnIn = ref.watch(streamOverlayBurnInServiceProvider);
-    final burnInActive = ref.watch(streamOverlayBurnInActiveProvider);
     final overlayRecoveryGen = ref.watch(overlayLifecycleRecoveryProvider);
     final stream = ref.watch(streamServiceProvider);
     final isStreaming = stream.isStreaming;
-    final hideFlutterOverlays = isStreaming && burnInActive;
+    // While live, preview overlays are native burn-in only — hide Flutter duplicates.
+    final hideFlutterOverlays = stream.liveSessionActive;
     final studioConfig = ref.watch(streamStudioConfigProvider(widget.matchId));
     final landscapeUi = _landscapeUiForSession(studioConfig);
 

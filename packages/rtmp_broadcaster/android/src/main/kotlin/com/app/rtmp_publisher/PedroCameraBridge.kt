@@ -397,6 +397,80 @@ object PedroCameraBridge {
         }
     }
 
+    /** Stops RTMP socket and encoders even when [RtmpCamera2.isStreaming] is false (stale after disconnect). */
+    fun forceHaltRtmpPublish(rtmpCamera: RtmpCamera2) {
+        try {
+            getSrsFlvMuxer(rtmpCamera)?.let { muxer ->
+                muxer.javaClass.getMethod("stop").invoke(muxer)
+                Log.i(TAG, "RTMP muxer force-stopped")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "forceHalt muxer", e)
+        }
+        setStreamingFlag(rtmpCamera, false)
+        try {
+            rtmpCamera.stopStream()
+        } catch (e: Exception) {
+            Log.w(TAG, "forceHalt stopStream", e)
+        }
+        stopEncoderComponent(rtmpCamera, "microphoneManager", "stop")
+        stopEncoderComponent(rtmpCamera, "audioEncoder", "stop")
+        stopEncoderComponent(rtmpCamera, "videoEncoder", "stop")
+    }
+
+    private fun getSrsFlvMuxer(rtmpCamera: RtmpCamera2): Any? {
+        var clazz: Class<*>? = rtmpCamera.javaClass
+        while (clazz != null) {
+            try {
+                val field = clazz.getDeclaredField("srsFlvMuxer")
+                field.isAccessible = true
+                return field.get(rtmpCamera)
+            } catch (_: NoSuchFieldException) {
+                clazz = clazz.superclass
+            } catch (e: Exception) {
+                Log.w(TAG, "getSrsFlvMuxer", e)
+                return null
+            }
+        }
+        return null
+    }
+
+    private fun setStreamingFlag(rtmpCamera: RtmpCamera2, streaming: Boolean) {
+        var clazz: Class<*>? = rtmpCamera.javaClass
+        while (clazz != null) {
+            try {
+                val field = clazz.getDeclaredField("isStreaming")
+                field.isAccessible = true
+                field.setBoolean(rtmpCamera, streaming)
+                return
+            } catch (_: NoSuchFieldException) {
+                clazz = clazz.superclass
+            } catch (e: Exception) {
+                Log.w(TAG, "setStreamingFlag", e)
+                return
+            }
+        }
+    }
+
+    private fun stopEncoderComponent(rtmpCamera: RtmpCamera2, fieldName: String, method: String) {
+        try {
+            var clazz: Class<*>? = rtmpCamera.javaClass
+            while (clazz != null) {
+                try {
+                    val field = clazz.getDeclaredField(fieldName)
+                    field.isAccessible = true
+                    val component = field.get(rtmpCamera) ?: return
+                    component.javaClass.getMethod(method).invoke(component)
+                    return
+                } catch (_: NoSuchFieldException) {
+                    clazz = clazz.superclass
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "stopEncoderComponent $fieldName", e)
+        }
+    }
+
     fun tapToFocus(rtmpCamera: RtmpCamera2, x: Float, y: Float): Boolean {
         if (!isCaptureSessionReady(rtmpCamera)) return false
         val apiManager = getCamera2ApiManager(rtmpCamera) ?: return false

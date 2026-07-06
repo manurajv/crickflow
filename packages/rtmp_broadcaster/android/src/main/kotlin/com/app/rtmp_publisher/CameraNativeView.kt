@@ -58,6 +58,8 @@ class CameraNativeView(
     private var lockedGlConfig: BroadcastGlConfig.Config? = null
     private var lastAppliedStreamRotation = 0
     private var lastStreamUrl: String? = null
+    private var lastStreamBitrate: Int = 0
+    private var lastMicEnabled: Boolean = true
     private var encoderPipelineLinked = false
     private var rtmpTransportUnstable = false
 
@@ -687,64 +689,8 @@ class CameraNativeView(
 
         try {
             if (!rtmpCamera.isStreaming) {
-                val act = activity
-                if (act == null) {
-                    result.error("videoStreamingFailed", "Activity unavailable", null)
-                    return
-                }
-                if (!previewGlLocked) {
-                    lockPreviewGlAtFirstStart()
-                }
-                val glConfig = lockedGlConfig ?: BroadcastGlConfig.compute(
-                    act,
-                    cameraName,
-                    preset,
-                    lockedOrientationMode,
-                )
-                // GL output must already match prepareVideo dimensions (Pedro constraint).
-                reapplyLockedPreviewGl()
-                val profile = CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(
-                    cameraName,
-                    preset,
-                )
-                val videoBitrate = bitrate ?: profile.videoBitRate
-                val landscape = PreviewSizeSelector.isLandscapeBroadcast(lockedOrientationMode)
-                // Landscape: 16:9 encoder fills YouTube width; portrait: same preview GL as app.
-                val encW = if (landscape) glConfig.encoderWidth else glConfig.previewGlWidth
-                val encH = if (landscape) glConfig.encoderHeight else glConfig.previewGlHeight
-                val streamRot = streamRotationFor(lockedOrientationMode)
-                StreamPipelineLog.goLive(
-                    mode = lockedOrientationMode,
-                    encW = encW,
-                    encH = encH,
-                    encRot = glConfig.videoEncoderRotation,
-                    streamRot = streamRot,
-                    previewGlW = glConfig.previewGlWidth,
-                    previewGlH = glConfig.previewGlHeight,
-                    glRot = glConfig.glRotation,
-                )
-                val encRot = glConfig.videoEncoderRotation
-                val prepared = if (rtmpCamera.isRecording) {
-                    rtmpCamera.prepareVideo(
-                        encW,
-                        encH,
-                        30,
-                        videoBitrate,
-                        2,
-                        encRot,
-                    )
-                } else {
-                    rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
-                        encW,
-                        encH,
-                        30,
-                        videoBitrate,
-                        2,
-                        encRot,
-                    )
-                }
-                if (!prepared) {
-                    encoderPrepared = false
+                val ok = publishRtmpStream(url, bitrate, micEnabled)
+                if (!ok) {
                     result.error(
                         "videoStreamingFailed",
                         "Error preparing stream, This device cant do it",
@@ -752,14 +698,6 @@ class CameraNativeView(
                     )
                     return
                 }
-                encoderPrepared = true
-                if (!micEnabled) {
-                    rtmpCamera.disableAudio()
-                }
-                lastStreamUrl = url
-                rtmpCamera.startStream(url)
-                applyStreamRotationIfLive()
-                // Pipeline links on onConnectionSuccessRtmp — not before RTMP connects.
             } else {
                 rtmpCamera.stopStream()
                 encoderPrepared = false
@@ -771,6 +709,99 @@ class CameraNativeView(
         } catch (e: IOException) {
             result.error("videoStreamingFailed", e.message, null)
         }
+    }
+
+    /**
+     * Prepares encoder and publishes RTMP — used for go-live and reconnect with the same URL/key.
+     */
+    private fun publishRtmpStream(
+        url: String,
+        bitrate: Int?,
+        micEnabled: Boolean,
+    ): Boolean {
+        val act = activity ?: return false
+        try {
+            if (rtmpCamera.isStreaming) {
+                rtmpCamera.stopStream()
+            } else {
+                PedroCameraBridge.forceHaltRtmpPublish(rtmpCamera)
+            }
+        } catch (e: Exception) {
+            Log.w("CameraNativeView", "stopStream before republish", e)
+        }
+
+        encoderPipelineLinked = false
+        if (!rtmpCamera.isOnPreview && isSurfaceCreated) {
+            ensurePreviewRunning()
+        }
+
+        if (!previewGlLocked) {
+            lockPreviewGlAtFirstStart()
+        }
+        val glConfig = lockedGlConfig ?: BroadcastGlConfig.compute(
+            act,
+            cameraName,
+            preset,
+            lockedOrientationMode,
+        )
+        reapplyLockedPreviewGl()
+        val profile = CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(
+            cameraName,
+            preset,
+        )
+        val videoBitrate = bitrate?.takeIf { it > 0 }
+            ?: lastStreamBitrate.takeIf { it > 0 }
+            ?: profile.videoBitRate
+        val landscape = PreviewSizeSelector.isLandscapeBroadcast(lockedOrientationMode)
+        val encW = if (landscape) glConfig.encoderWidth else glConfig.previewGlWidth
+        val encH = if (landscape) glConfig.encoderHeight else glConfig.previewGlHeight
+        val streamRot = streamRotationFor(lockedOrientationMode)
+        StreamPipelineLog.goLive(
+            mode = lockedOrientationMode,
+            encW = encW,
+            encH = encH,
+            encRot = glConfig.videoEncoderRotation,
+            streamRot = streamRot,
+            previewGlW = glConfig.previewGlWidth,
+            previewGlH = glConfig.previewGlHeight,
+            glRot = glConfig.glRotation,
+        )
+        val encRot = glConfig.videoEncoderRotation
+        val prepared = if (rtmpCamera.isRecording) {
+            rtmpCamera.prepareVideo(
+                encW,
+                encH,
+                30,
+                videoBitrate,
+                2,
+                encRot,
+            )
+        } else {
+            rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
+                encW,
+                encH,
+                30,
+                videoBitrate,
+                2,
+                encRot,
+            )
+        }
+        if (!prepared) {
+            encoderPrepared = false
+            return false
+        }
+        encoderPrepared = true
+        lastStreamUrl = url
+        lastStreamBitrate = videoBitrate
+        lastMicEnabled = micEnabled
+        if (micEnabled) {
+            rtmpCamera.enableAudio()
+        } else {
+            rtmpCamera.disableAudio()
+        }
+        rtmpCamera.startStream(url)
+        applyStreamRotationIfLive()
+        return true
     }
 
     fun startVideoRecordingAndStreaming(
@@ -814,16 +845,23 @@ class CameraNativeView(
         runOnMain(result) {
             try {
                 overlayBurnIn.release()
-                rtmpCamera.apply {
-                    if (isStreaming) stopStream()
-                    if (isRecording) stopRecord()
+                rtmpTransportUnstable = false
+                overlayBurnIn.glUpdatesPaused = false
+                encoderPipelineLinked = false
+                if (rtmpCamera.isRecording) {
+                    rtmpCamera.stopRecord()
+                }
+                if (rtmpCamera.isStreaming) {
+                    rtmpCamera.stopStream()
+                } else {
+                    PedroCameraBridge.forceHaltRtmpPublish(rtmpCamera)
                 }
                 encoderPrepared = false
-                encoderPipelineLinked = false
-                rtmpTransportUnstable = false
+                lastStreamUrl = null
                 if (isSurfaceCreated) {
                     configurePreviewForOrientation()
                 }
+                Log.i("CameraNativeView", "RTMP publish halted")
                 result.success(null)
             } catch (e: CameraAccessException) {
                 result.error("videoRecordingFailed", e.message, null)
@@ -846,10 +884,14 @@ class CameraNativeView(
         }
     }
 
-    fun reconnectRtmpTransport(result: MethodChannel.Result) {
+    fun reconnectRtmpTransport(
+        urlArg: String?,
+        bitrateArg: Int?,
+        result: MethodChannel.Result,
+    ) {
         runOnMain(result) {
             try {
-                val url = lastStreamUrl
+                val url = urlArg?.takeIf { it.isNotEmpty() } ?: lastStreamUrl
                 if (url.isNullOrEmpty()) {
                     result.error("reconnectRtmpTransportFailed", "No stream URL", null)
                     return@runOnMain
@@ -858,17 +900,22 @@ class CameraNativeView(
                 overlayBurnIn.glUpdatesPaused = true
                 Log.i(
                     "CameraNativeView",
-                    "RTMP transport reconnect — streaming=${rtmpCamera.isStreaming} encoderPrepared=$encoderPrepared",
+                    "RTMP republish reconnect — same endpoint as go-live",
                 )
-                if (rtmpCamera.isStreaming) {
-                    rtmpCamera.reConnect(0)
-                } else if (encoderPrepared) {
-                    // Socket died while encoder/camera stayed up — restart transport only.
-                    rtmpCamera.startStream(url)
-                } else {
+                val ok = publishRtmpStream(
+                    url = url,
+                    bitrate = bitrateArg?.takeIf { it > 0 }
+                        ?: lastStreamBitrate.takeIf { it > 0 },
+                    micEnabled = lastMicEnabled,
+                )
+                if (!ok) {
                     rtmpTransportUnstable = false
                     overlayBurnIn.glUpdatesPaused = false
-                    result.error("reconnectRtmpTransportFailed", "Encoder not prepared", null)
+                    result.error(
+                        "reconnectRtmpTransportFailed",
+                        "Encoder prepare failed",
+                        null,
+                    )
                     return@runOnMain
                 }
                 result.success(null)

@@ -101,6 +101,7 @@ class StreamService extends ChangeNotifier {
   bool get liveSessionActive => _liveSessionActive;
   bool get reconnectExhausted => _reconnectExhausted;
   bool get isReconnecting =>
+      !_rtmpPublishConfirmed &&
       _status == StreamStatus.connecting &&
       (_liveSessionActive || _lastEndpoint != null);
   bool get networkOnline => _networkOnline;
@@ -735,19 +736,21 @@ class StreamService extends ChangeNotifier {
 
   Future<void> _confirmRtmpPublishing() async {
     try {
+      final reconnectAttempt = _reconnectAttempt > 0 || _reconnectInFlight;
       _baselineSentVideoFrames = await _readSentVideoFrames();
 
-      for (var i = 0; i < 30; i++) {
+      for (var i = 0; i < 40; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 500));
         if (_controller == null) break;
 
         final sent = await _readSentVideoFrames();
         final bitrate = await _readBitrateKbps();
         final publishing = sent > _baselineSentVideoFrames ||
-            (sent >= 3 && bitrate > 0);
+            (sent >= 3 && bitrate > 0) ||
+            (reconnectAttempt && bitrate > 0 && i >= 2);
 
         if (publishing) {
-          _markRtmpPublishConfirmed(wasReconnecting: _reconnectAttempt > 0);
+          _markRtmpPublishConfirmed(wasReconnecting: reconnectAttempt);
           return;
         }
       }
@@ -845,10 +848,13 @@ class StreamService extends ChangeNotifier {
     _rtmpPublishConfirmed = false;
     _confirmingPublish = false;
     try {
-      await _controller!.reconnectRtmpTransport().timeout(
-        const Duration(seconds: 8),
+      await _controller!.reconnectRtmpTransport(
+        url: _lastEndpoint,
+        bitrate: _lastBitrate,
+      ).timeout(
+        const Duration(seconds: 15),
       );
-      for (var i = 0; i < 30; i++) {
+      for (var i = 0; i < 40; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 500));
         if (!_rtmpSessionActive && !_liveSessionActive) return;
         if (_reconnectExhausted) return;
@@ -937,11 +943,19 @@ class StreamService extends ChangeNotifier {
   }
 
   /// Manual retry after all automatic attempts failed — reuses go-live config.
-  Future<void> retryConnection() async {
+  /// Manual retry after reconnect attempts are exhausted.
+  /// Pass [endpoint] / [bitrate] when credentials were refreshed (e.g. YouTube automatic).
+  Future<void> retryConnection({String? endpoint, int? bitrate}) async {
     if (_lastEndpoint == null ||
         _status == StreamStatus.idle ||
         _status == StreamStatus.ended) {
       return;
+    }
+    if (endpoint != null && endpoint.isNotEmpty) {
+      _lastEndpoint = endpoint;
+    }
+    if (bitrate != null && bitrate > 0) {
+      _lastBitrate = bitrate;
     }
     _reconnectExhausted = false;
     _reconnectAttempt = 0;
@@ -997,7 +1011,12 @@ class StreamService extends ChangeNotifier {
         return;
       }
 
-      if (!isStreaming) return;
+      if (!isStreaming) {
+        if (_rtmpPublishConfirmed && _status == StreamStatus.live) {
+          _emitHealth(reconnecting: false);
+        }
+        return;
+      }
 
       try {
         final stats = await _controller!.getStreamStatistics().timeout(

@@ -617,9 +617,30 @@ class _StreamingDashboardScreenState
   }
 
   Future<void> _retryConnection() async {
-    await ref.read(streamServiceProvider).retryConnection();
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    final stream = ref.read(streamServiceProvider);
+
+    // YouTube automatic may mint a fresh ingest key; manual reuses saved URL/key.
+    if (config.platform == StreamPlatform.youtube &&
+        config.broadcastSetupMode == StreamBroadcastSetupMode.automatic) {
+      final result = await ref
+          .read(broadcastSessionControllerProvider)
+          .resolveCredentials(config);
+      final creds = result.credentials;
+      if (creds != null) {
+        await stream.retryConnection(
+          endpoint: creds.fullRtmpEndpoint,
+          bitrate: config.effectiveBitrateKbps * 1024,
+        );
+      } else {
+        await stream.retryConnection();
+      }
+    } else {
+      await stream.retryConnection();
+    }
+
     if (!mounted) return;
-    ref.read(streamOverlayBurnInServiceProvider).schedulePush();
+    await ref.read(streamOverlayBurnInServiceProvider).recoverAfterLifecycle();
   }
 
   @override

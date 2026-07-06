@@ -469,7 +469,11 @@ class CameraController extends ValueNotifier<CameraValue> {
             event: uniEvent);
         break;
       case 'rtmp_connected':
-        value = value.copyWith(event: uniEvent);
+        value = value.copyWith(
+          isStreamingVideoRtmp: true,
+          isStreamingPaused: false,
+          event: uniEvent,
+        );
         break;
       case 'rtmp_retry':
         value = value.copyWith(event: uniEvent);
@@ -891,8 +895,11 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
-  /// Reconnect RTMP transport only — camera, encoder, and overlays stay alive.
-  Future<void> reconnectRtmpTransport() async {
+  /// Reconnect RTMP — republishes to the same URL/key (manual RTMP / YouTube manual).
+  Future<void> reconnectRtmpTransport({
+    String? url,
+    int? bitrate,
+  }) async {
     if (!value.isInitialized! || _isDisposed) {
       throw CameraException(
         'Uninitialized CameraController',
@@ -902,14 +909,23 @@ class CameraController extends ValueNotifier<CameraValue> {
     try {
       await _channel.invokeMethod<void>(
         'reconnectRtmpTransport',
-        <String, dynamic>{'textureId': _textureId},
+        <String, dynamic>{
+          'textureId': _textureId,
+          if (url != null && url.isNotEmpty) 'url': url,
+          if (bitrate != null && bitrate > 0) 'bitrate': bitrate,
+        },
+      );
+      value = value.copyWith(
+        isStreamingVideoRtmp: true,
+        isStreamingPaused: false,
       );
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
   }
 
-  /// Stop streaming.
+  /// Stop streaming and recording. Always hits native teardown — the Dart
+  /// [isStreamingVideoRtmp] flag can be stale after RTMP republish reconnect.
   Future<void> stopEverything() async {
     if (!value.isInitialized! || _isDisposed) {
       throw CameraException(
@@ -918,18 +934,15 @@ class CameraController extends ValueNotifier<CameraValue> {
       );
     }
     try {
-      final wasRecording = value.isRecordingVideo ?? false;
-      final wasStreaming = value.isStreamingVideoRtmp ?? false;
-      if (wasRecording || wasStreaming) {
-        await _channel.invokeMethod<void>(
-          'stopRecordingOrStreaming',
-          <String, dynamic>{'textureId': _textureId},
-        );
-        value = value.copyWith(
-          isRecordingVideo: false,
-          isStreamingVideoRtmp: false,
-        );
-      }
+      await _channel.invokeMethod<void>(
+        'stopRecordingOrStreaming',
+        <String, dynamic>{'textureId': _textureId},
+      );
+      value = value.copyWith(
+        isRecordingVideo: false,
+        isStreamingVideoRtmp: false,
+        isStreamingPaused: false,
+      );
       if (value.isStreamingImages!) {
         value = value.copyWith(isStreamingImages: false);
         await _channel.invokeMethod<void>('stopImageStream');
