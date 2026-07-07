@@ -23,8 +23,8 @@ const youtubeClientSecret = defineSecret('YOUTUBE_CLIENT_SECRET');
 const youtubeSecrets = [youtubeClientId, youtubeClientSecret];
 
 function bindYouTubeSecrets() {
-  process.env.YOUTUBE_CLIENT_ID = youtubeClientId.value();
-  process.env.YOUTUBE_CLIENT_SECRET = youtubeClientSecret.value();
+  process.env.YOUTUBE_CLIENT_ID = youtubeClientId.value().trim();
+  process.env.YOUTUBE_CLIENT_SECRET = youtubeClientSecret.value().trim();
 }
 
 const db = getFirestore();
@@ -135,8 +135,19 @@ exports.createYouTubeLiveStream = onCall({ secrets: youtubeSecrets }, async (req
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required');
   }
-  const { title, description, visibility, channelId, language, tags, goLiveImmediately } =
-    request.data || {};
+  const {
+    title,
+    description,
+    visibility,
+    channelId,
+    language,
+    tags,
+    category,
+    goLiveImmediately,
+    scheduledAt,
+    thumbnailBase64,
+    thumbnailMimeType,
+  } = request.data || {};
 
   try {
     bindYouTubeSecrets();
@@ -147,7 +158,11 @@ exports.createYouTubeLiveStream = onCall({ secrets: youtubeSecrets }, async (req
       channelId,
       language: language || 'en',
       tags: tags || [],
+      category: category || 'Sports',
       goLiveImmediately: goLiveImmediately === true,
+      scheduledAt,
+      thumbnailBase64,
+      thumbnailMimeType,
     });
   } catch (err) {
     const message = err.message || 'YouTube live creation failed';
@@ -221,13 +236,17 @@ exports.startYouTubeLiveBroadcast = onCall({ secrets: youtubeSecrets }, async (r
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required');
   }
-  const { broadcastId } = request.data || {};
+  const { broadcastId, streamId } = request.data || {};
   if (!broadcastId) {
     throw new HttpsError('invalid-argument', 'broadcastId required');
   }
   try {
     bindYouTubeSecrets();
-    return await transitionYouTubeBroadcastToLive(request.auth.uid, broadcastId);
+    return await transitionYouTubeBroadcastToLive(
+      request.auth.uid,
+      broadcastId,
+      streamId,
+    );
   } catch (err) {
     throw new HttpsError('failed-precondition', err.message || 'YouTube go-live failed');
   }

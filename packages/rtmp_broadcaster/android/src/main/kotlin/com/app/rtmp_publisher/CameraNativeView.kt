@@ -352,11 +352,6 @@ class CameraNativeView(
     private fun reattachPreviewSurface(preserveStream: Boolean) {
         if (!isSurfaceCreated || previewOperationInFlight) return
         if (!PreviewSurfaceLifecycle.isHolderSurfaceValid(glView)) return
-        if (rtmpTransportUnstable && preserveStream) {
-            Log.i("CameraNativeView", "Preview reattach deferred — RTMP reconnect in progress")
-            schedulePreviewReattach()
-            return
-        }
 
         val act = activity
         val previewSize = if (act != null) {
@@ -370,6 +365,14 @@ class CameraNativeView(
             (streaming && !sessionReady) ||
             (streaming && !rtmpCamera.isOnPreview)
         val glConfig = currentGlConfig()
+
+        // During reconnect only defer a full pipeline rebuild — lightweight
+        // preview reattach keeps the camera visible while RTMP retries.
+        if (rtmpTransportUnstable && preserveStream && mustRebuildPipeline) {
+            Log.i("CameraNativeView", "Preview pipeline rebuild deferred — RTMP reconnect in progress")
+            schedulePreviewReattach()
+            return
+        }
 
         previewOperationInFlight = true
         try {
@@ -588,6 +591,7 @@ class CameraNativeView(
             if (rtmpCamera.isStreaming) {
                 linkEncoderPipeline(fullRebuild = true, forceRelink = true)
             }
+            schedulePreviewReattach()
             dartMessenger?.send(DartMessenger.EventType.RTMP_CONNECTED, null)
         }
     }
@@ -918,11 +922,32 @@ class CameraNativeView(
                     )
                     return@runOnMain
                 }
+                linkEncoderPipeline(fullRebuild = true, forceRelink = true)
+                schedulePreviewReattach()
                 result.success(null)
             } catch (e: Exception) {
                 rtmpTransportUnstable = false
                 overlayBurnIn.glUpdatesPaused = false
                 result.error("reconnectRtmpTransportFailed", e.message, null)
+            }
+        }
+    }
+
+    /** Clears reconnect guard flags and restores preview/overlay after retries exhaust. */
+    fun recoverRtmpReconnectState(result: MethodChannel.Result) {
+        runOnMain(result) {
+            try {
+                rtmpTransportUnstable = false
+                overlayBurnIn.glUpdatesPaused = false
+                if (rtmpCamera.isStreaming) {
+                    linkEncoderPipeline(fullRebuild = true, forceRelink = true)
+                }
+                schedulePreviewReattach()
+                Log.i("CameraNativeView", "RTMP reconnect state recovered")
+                result.success(null)
+            } catch (e: Exception) {
+                Log.e("CameraNativeView", "recoverRtmpReconnectState", e)
+                result.error("recoverRtmpReconnectStateFailed", e.message, null)
             }
         }
     }

@@ -1,15 +1,38 @@
 const { google } = require('googleapis');
-const { getYouTubeTokens, storeYouTubeTokens } = require('./youtubeOAuth');
+const {
+  getYouTubeTokens,
+  storeYouTubeTokens,
+  readYouTubeOAuthCredentials,
+  normalizeOAuthSecret,
+} = require('./youtubeOAuth');
 
 function requireYouTubeEnv() {
-  const clientId = process.env.YOUTUBE_CLIENT_ID;
-  const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new Error(
-      'Set YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET on Cloud Functions',
-    );
-  }
-  return { clientId, clientSecret };
+  return readYouTubeOAuthCredentials();
+}
+
+function oauthErrorMessage(err) {
+  return (
+    err?.response?.data?.error_description ||
+    err?.response?.data?.error ||
+    err?.message ||
+    String(err)
+  );
+}
+
+async function persistAuthCredentials(uid, auth, tokens) {
+  const creds = auth.credentials;
+  const refreshToken = creds.refresh_token
+    ? normalizeOAuthSecret(creds.refresh_token)
+    : normalizeOAuthSecret(tokens.refreshToken);
+  await storeYouTubeTokens(uid, {
+    refreshToken,
+    accessToken: creds.access_token || null,
+    expiresAt: creds.expiry_date
+      ? new Date(creds.expiry_date).toISOString()
+      : null,
+    channelId: tokens.channelId,
+    channelTitle: tokens.channelTitle,
+  });
 }
 
 async function getYouTubeClient(uid) {
@@ -19,7 +42,32 @@ async function getYouTubeClient(uid) {
   }
   const { clientId, clientSecret } = requireYouTubeEnv();
   const auth = new google.auth.OAuth2(clientId, clientSecret);
-  auth.setCredentials({ refresh_token: tokens.refreshToken });
+  const refreshToken = normalizeOAuthSecret(tokens.refreshToken);
+  auth.setCredentials({
+    refresh_token: refreshToken,
+    ...(tokens.accessToken
+      ? {
+          access_token: tokens.accessToken,
+          expiry_date: tokens.expiresAt
+            ? Date.parse(tokens.expiresAt)
+            : undefined,
+        }
+      : {}),
+  });
+
+  try {
+    await auth.getAccessToken();
+  } catch (err) {
+    const message = oauthErrorMessage(err);
+    if (/invalid_grant/i.test(message)) {
+      throw new Error(
+        'YouTube sign-in expired — open stream setup and connect your Google account again.',
+      );
+    }
+    throw new Error(message);
+  }
+
+  await persistAuthCredentials(uid, auth, tokens);
   return google.youtube({ version: 'v3', auth });
 }
 
@@ -75,12 +123,61 @@ function mapPrivacy(visibility) {
   return 'public';
 }
 
+const YOUTUBE_CATEGORY_IDS = {
+  Sports: '17',
+  Gaming: '20',
+  Entertainment: '24',
+  News: '25',
+};
+
+function mapCategoryId(category) {
+  if (!category) return '17';
+  return YOUTUBE_CATEGORY_IDS[category] || '17';
+}
+
+async function uploadYouTubeThumbnail(youtube, videoId, thumbnailBase64, mimeType) {
+  if (!thumbnailBase64) return;
+  const buffer = Buffer.from(thumbnailBase64, 'base64');
+  if (buffer.length > 2 * 1024 * 1024) {
+    throw new Error('Thumbnail must be under 2 MB');
+  }
+  await youtube.thumbnails.set({
+    videoId,
+    media: {
+      mimeType: mimeType || 'image/jpeg',
+      body: buffer,
+    },
+  });
+}
+
+async function applyYouTubeVideoMetadata(youtube, videoId, options) {
+  const categoryId = mapCategoryId(options.category);
+  await youtube.videos.update({
+    part: ['snippet', 'status'],
+    requestBody: {
+      id: videoId,
+      snippet: {
+        title: options.title || 'CrickFlow Live',
+        description: options.description || '',
+        categoryId,
+        defaultLanguage: options.language || 'en',
+        tags: Array.isArray(options.tags) ? options.tags.slice(0, 10) : [],
+      },
+      status: {
+        privacyStatus: mapPrivacy(options.visibility),
+        selfDeclaredMadeForKids: false,
+      },
+    },
+  });
+}
+
 /**
  * Creates YouTube live broadcast + ingest stream and binds them.
  */
 async function createYouTubeLiveBroadcast(uid, options) {
   const youtube = await getYouTubeClient(uid);
-  const scheduledStart = new Date().toISOString();
+  const scheduledStart =
+    options.scheduledAt || new Date().toISOString();
   const privacyStatus = mapPrivacy(options.visibility);
   const autoStart = options.goLiveImmediately === true;
 
@@ -91,6 +188,9 @@ async function createYouTubeLiveBroadcast(uid, options) {
         title: options.title || 'CrickFlow Live',
         description: options.description || '',
         scheduledStartTime: scheduledStart,
+        categoryId: mapCategoryId(options.category),
+        defaultLanguage: options.language || 'en',
+        tags: Array.isArray(options.tags) ? options.tags.slice(0, 10) : [],
       },
       status: {
         privacyStatus,
@@ -110,6 +210,24 @@ async function createYouTubeLiveBroadcast(uid, options) {
   const broadcast = broadcastRes.data;
   if (!broadcast?.id) {
     throw new Error('YouTube did not return a broadcast id');
+  }
+
+  await applyYouTubeVideoMetadata(youtube, broadcast.id, options);
+
+  if (options.thumbnailBase64) {
+    try {
+      await uploadYouTubeThumbnail(
+        youtube,
+        broadcast.id,
+        options.thumbnailBase64,
+        options.thumbnailMimeType,
+      );
+    } catch (err) {
+      console.warn(
+        'YouTube thumbnail upload skipped:',
+        err?.message || err,
+      );
+    }
   }
 
   const streamRes = await youtube.liveStreams.insert({
@@ -204,18 +322,37 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function isYouTubeIngestActive(youtube, broadcast, streamIdHint) {
+  const streamStatus = broadcast.status?.streamStatus || null;
+  if (streamStatus === 'active' || streamStatus === 'good') {
+    return true;
+  }
+
+  const boundStreamId =
+    streamIdHint || broadcast.contentDetails?.boundStreamId || null;
+  if (!boundStreamId) return false;
+
+  const streamRes = await youtube.liveStreams.list({
+    part: ['status'],
+    id: [boundStreamId],
+    maxResults: 1,
+  });
+  const ingestStatus = streamRes.data.items?.[0]?.status?.streamStatus;
+  return ingestStatus === 'active' || ingestStatus === 'good';
+}
+
 /**
  * Transitions an API-created broadcast to live after RTMP ingest is active.
  */
-async function transitionYouTubeBroadcastToLive(uid, broadcastId) {
+async function transitionYouTubeBroadcastToLive(uid, broadcastId, streamId) {
   if (!broadcastId) {
     throw new Error('broadcastId required');
   }
   const youtube = await getYouTubeClient(uid);
 
-  for (let attempt = 0; attempt < 24; attempt += 1) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
     const res = await youtube.liveBroadcasts.list({
-      part: ['status'],
+      part: ['status', 'contentDetails'],
       id: [broadcastId],
       maxResults: 1,
     });
@@ -226,6 +363,11 @@ async function transitionYouTubeBroadcastToLive(uid, broadcastId) {
 
     const lifeCycleStatus = broadcast.status?.lifeCycleStatus || 'unknown';
     const streamStatus = broadcast.status?.streamStatus || null;
+    const streamActive = await isYouTubeIngestActive(
+      youtube,
+      broadcast,
+      streamId,
+    );
 
     if (lifeCycleStatus === 'live') {
       return { ok: true, broadcastId, lifeCycleStatus, streamStatus };
@@ -234,7 +376,27 @@ async function transitionYouTubeBroadcastToLive(uid, broadcastId) {
       throw new Error('YouTube broadcast already ended');
     }
 
-    if (lifeCycleStatus === 'testing' || streamStatus === 'active') {
+    if (lifeCycleStatus === 'ready' && streamActive) {
+      try {
+        await youtube.liveBroadcasts.transition({
+          id: broadcastId,
+          broadcastStatus: 'testing',
+          part: ['status'],
+        });
+        await sleep(1500);
+        continue;
+      } catch (err) {
+        const reason = err?.message || '';
+        if (
+          !reason.includes('invalidTransition') &&
+          !reason.includes('redundantTransition')
+        ) {
+          throw err;
+        }
+      }
+    }
+
+    if (lifeCycleStatus === 'testing' || streamActive) {
       try {
         const transitioned = await youtube.liveBroadcasts.transition({
           id: broadcastId,
@@ -263,7 +425,7 @@ async function transitionYouTubeBroadcastToLive(uid, broadcastId) {
   }
 
   throw new Error(
-    'YouTube did not go live — open YouTube Studio and click Go live',
+    'YouTube did not go live — check Studio or try again in a moment',
   );
 }
 

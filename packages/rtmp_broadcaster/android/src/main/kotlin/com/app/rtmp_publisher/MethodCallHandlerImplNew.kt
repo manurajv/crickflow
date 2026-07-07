@@ -334,6 +334,15 @@ class MethodCallHandlerImplNew(
                 }
             }
 
+            "recoverRtmpReconnectState" -> {
+                val view = getCameraView()
+                if (view == null) {
+                    result.success(null)
+                } else {
+                    view.recoverRtmpReconnectState(result)
+                }
+            }
+
             "dispose" -> {
                 Log.i("Stuff", "dispose")
                 // Native camera view handles the view lifecircle by themselves

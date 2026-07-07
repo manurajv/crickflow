@@ -100,10 +100,27 @@ class StreamService extends ChangeNotifier {
   bool get orientationLocked => _orientationLocked;
   bool get liveSessionActive => _liveSessionActive;
   bool get reconnectExhausted => _reconnectExhausted;
-  bool get isReconnecting =>
-      !_rtmpPublishConfirmed &&
-      _status == StreamStatus.connecting &&
-      (_liveSessionActive || _lastEndpoint != null);
+  bool get isReconnecting {
+    if (_reconnectExhausted) return false;
+    final sessionActive = _liveSessionActive || _lastEndpoint != null;
+    if (!sessionActive) return false;
+    if (_reconnectInFlight || _reconnectTimer != null) return true;
+    if (!_networkOnline &&
+        (_status == StreamStatus.live || _status == StreamStatus.connecting)) {
+      return true;
+    }
+    if (_status == StreamStatus.connecting && !_rtmpPublishConfirmed) {
+      return true;
+    }
+    // Native RTMP dropped but Dart state still thinks we are live.
+    if (_status == StreamStatus.live &&
+        _rtmpPublishConfirmed &&
+        !isStreaming &&
+        _networkOnline) {
+      return true;
+    }
+    return false;
+  }
   bool get networkOnline => _networkOnline;
   Stream<StreamHealthMetrics> get healthStream => _healthController.stream;
 
@@ -314,7 +331,7 @@ class StreamService extends ChangeNotifier {
   Future<void> recoverPreview() {
     return _runCameraOperation(() async {
       if (!isPlatformSupported) return;
-      if (isStreaming || _liveSessionActive) {
+      if (isStreaming && _lastEndpoint != null) {
         await reconnectPreview();
         notifyListeners();
         return;
@@ -503,7 +520,7 @@ class StreamService extends ChangeNotifier {
   Future<void> reconnectPreview({int retries = 6}) async {
     if (_uiOrientationChanging) return;
     if (_controller == null || !isInitialized) return;
-    final live = isStreaming || _liveSessionActive;
+    final live = isStreaming && _lastEndpoint != null;
     if (!live && (isReconnecting || !_networkOnline)) return;
     if (!live) {
       await recoverPreview();
@@ -704,6 +721,9 @@ class StreamService extends ChangeNotifier {
       } else if (type == 'rtmp_connected') {
         _onRtmpTransportConnected();
       } else if (type == 'rtmp_stopped') {
+        // Ignore spurious stop while native is still publishing during republish.
+        if (_reconnectInFlight && isStreaming) return;
+        if (_reconnectInFlight) _reconnectInFlight = false;
         if (_rtmpSessionActive && !_reconnectExhausted) {
           _onRtmpTransportLost();
         } else {
@@ -723,7 +743,8 @@ class StreamService extends ChangeNotifier {
     _status = StreamStatus.connecting;
     _emitHealth(reconnecting: true);
     notifyListeners();
-    if (!_reconnectExhausted && (_liveSessionActive || _healthMonitoringActive)) {
+    if (!_reconnectExhausted &&
+        (_liveSessionActive || _healthMonitoringActive || _lastEndpoint != null)) {
       _scheduleReconnectTransport();
     }
   }
@@ -935,6 +956,16 @@ class StreamService extends ChangeNotifier {
     StreamLifecycleLog.retryFailed();
     _pendingConnectCompleter?.complete(false);
     notifyListeners();
+    unawaited(_recoverAfterReconnectExhausted());
+  }
+
+  Future<void> _recoverAfterReconnectExhausted() async {
+    if (_controller == null || !isInitialized) return;
+    try {
+      await _controller!.recoverRtmpReconnectState();
+    } catch (_) {}
+    await reconnectPreview(retries: 4);
+    notifyListeners();
   }
 
   void _cancelReconnectTimer() {
@@ -942,9 +973,7 @@ class StreamService extends ChangeNotifier {
     _reconnectTimer = null;
   }
 
-  /// Manual retry after all automatic attempts failed — reuses go-live config.
-  /// Manual retry after reconnect attempts are exhausted.
-  /// Pass [endpoint] / [bitrate] when credentials were refreshed (e.g. YouTube automatic).
+  /// Manual retry after reconnect attempts are exhausted — reuses go-live endpoint.
   Future<void> retryConnection({String? endpoint, int? bitrate}) async {
     if (_lastEndpoint == null ||
         _status == StreamStatus.idle ||
@@ -1012,8 +1041,15 @@ class StreamService extends ChangeNotifier {
       }
 
       if (!isStreaming) {
-        if (_rtmpPublishConfirmed && _status == StreamStatus.live) {
-          _emitHealth(reconnecting: false);
+        if ((_liveSessionActive || _lastEndpoint != null) &&
+            !_reconnectExhausted &&
+            !_reconnectInFlight &&
+            _reconnectTimer == null &&
+            _rtmpPublishConfirmed &&
+            _status == StreamStatus.live) {
+          _onRtmpTransportLost();
+        } else if (isReconnecting) {
+          _emitHealth(reconnecting: true);
         }
         return;
       }
@@ -1100,10 +1136,11 @@ class StreamService extends ChangeNotifier {
     } else if (online && !_networkOnline) {
       _onNetworkRestored();
     } else if (online &&
-        (_status == StreamStatus.connecting || isReconnecting) &&
+        (_liveSessionActive || _lastEndpoint != null) &&
         !_reconnectExhausted &&
         _reconnectTimer == null &&
-        !_reconnectInFlight) {
+        !_reconnectInFlight &&
+        (!_rtmpPublishConfirmed || _status == StreamStatus.connecting)) {
       _scheduleReconnectTransport();
     }
   }

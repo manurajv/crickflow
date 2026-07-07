@@ -6,11 +6,8 @@ import '../../../../data/models/stream_overlay_theme.dart';
 class ScorebugHelpers {
   ScorebugHelpers._();
 
-  /// Max characters shown for a batter name in the scorebug batsmen panel.
-  static const int batterNameMaxLength = 22;
-
-  static String batterName(String name) =>
-      shortName(name, max: batterNameMaxLength);
+  /// Uppercase batter name — layout ellipsis trims when space runs out.
+  static String batterName(String name) => name.trim().toUpperCase();
 
   static String teamAbbrev(String name) {
     final trimmed = name.trim();

@@ -22,6 +22,7 @@ class MatchIntroductionOverlay extends StatefulWidget {
     required this.landscape,
     this.onFinished,
     this.onVisualChange,
+    this.captureFrame = false,
   });
 
   final MatchIntroductionSnapshot snapshot;
@@ -29,6 +30,8 @@ class MatchIntroductionOverlay extends StatefulWidget {
   final bool landscape;
   final VoidCallback? onFinished;
   final VoidCallback? onVisualChange;
+  /// When true, renders the fully revealed intro frame (for YouTube thumbnail capture).
+  final bool captureFrame;
 
   @override
   State<MatchIntroductionOverlay> createState() =>
@@ -48,6 +51,11 @@ class _MatchIntroductionOverlayState extends State<MatchIntroductionOverlay>
       duration: MatchIntroductionAnim.enter,
       reverseDuration: MatchIntroductionAnim.exit,
     )..addListener(() => widget.onVisualChange?.call());
+
+    if (widget.captureFrame) {
+      _controller.value = 1.0;
+      return;
+    }
 
     unawaited(
       MatchIntroductionAnim.runSequence(

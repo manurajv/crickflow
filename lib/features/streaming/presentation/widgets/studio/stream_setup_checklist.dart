@@ -61,9 +61,7 @@ List<StreamSetupStep> buildStreamSetupSteps(StreamStudioConfig config) {
         ),
         StreamSetupStep(
           title: 'YouTube delivery',
-          subtitle: config.goLiveImmediately
-              ? 'Go public on YouTube when video connects'
-              : 'Preview in YouTube Studio first — you click Go live',
+          subtitle: 'Goes public on YouTube when video connects',
           status: StreamSetupStepStatus.done,
         ),
         StreamSetupStep(
@@ -78,21 +76,10 @@ List<StreamSetupStep> buildStreamSetupSteps(StreamStudioConfig config) {
               : StreamSetupStepStatus.pending,
         ),
         StreamSetupStep(
-          title: 'Create YouTube broadcast',
-          subtitle: hasKey || config.youtubeBroadcastId.isNotEmpty
-              ? (config.youtubeBroadcastId.isNotEmpty
-                  ? 'YouTube event created'
-                  : 'Stream key saved')
-              : 'Tap "Create YouTube live broadcast" or go live to create one',
-          status: hasKey || config.youtubeBroadcastId.isNotEmpty
-              ? StreamSetupStepStatus.done
-              : StreamSetupStepStatus.pending,
-        ),
-        StreamSetupStep(
-          title: 'Stream title',
+          title: 'Stream details',
           subtitle: config.title.trim().isNotEmpty
-              ? config.title
-              : 'Add a title for the YouTube event',
+              ? '${config.title} · ${_visibilityLabel(config.visibility)}'
+              : 'Add title and visibility (optional thumbnail)',
           status: config.title.trim().isNotEmpty
               ? StreamSetupStepStatus.done
               : StreamSetupStepStatus.optional,
@@ -242,6 +229,12 @@ class StreamSetupChecklist extends ConsumerWidget {
     );
   }
 }
+
+String _visibilityLabel(StreamVisibility visibility) => switch (visibility) {
+      StreamVisibility.public => 'Public',
+      StreamVisibility.unlisted => 'Unlisted',
+      StreamVisibility.private => 'Private',
+    };
 
 class _StepRow extends StatelessWidget {
   const _StepRow({required this.cf, required this.step});

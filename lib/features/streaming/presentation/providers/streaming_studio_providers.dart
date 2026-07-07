@@ -46,6 +46,7 @@ final broadcastSessionControllerProvider =
     streamService: ref.watch(streamServiceProvider),
     destinationRegistry: ref.watch(streamDestinationRegistryProvider),
     matchRepository: ref.watch(matchRepositoryProvider),
+    ref: ref,
   );
 });
 
@@ -121,9 +122,41 @@ StreamStudioConfig applySavedStudioPreferences(
     streamKey: saved.streamKey,
     youtubeChannelId: saved.youtubeChannelId,
     youtubeChannelName: saved.youtubeChannelName,
-    goLiveImmediately: saved.goLiveImmediately,
+    goLiveImmediately: true,
     resolution: saved.resolution,
   );
+}
+
+/// Hydrates studio config when OAuth is linked server-side but [youtubeChannelId]
+/// was never written to local config (checklist / Go Live depend on config).
+void syncYouTubeChannelToStudioConfig(
+  WidgetRef ref,
+  String matchId, {
+  List<YouTubeChannel>? channels,
+}) {
+  final list = channels ?? ref.read(youtubeChannelsProvider).valueOrNull;
+  if (list == null || list.isEmpty) return;
+
+  final config = ref.read(streamStudioConfigProvider(matchId));
+  if (config.youtubeChannelId.isNotEmpty &&
+      list.any((c) => c.id == config.youtubeChannelId)) {
+    return;
+  }
+
+  final linked = list.first;
+  ref.read(streamStudioConfigProvider(matchId).notifier).update(
+        (c) => c.copyWith(
+          youtubeChannelId: linked.id,
+          youtubeChannelName: linked.title,
+        ),
+      );
+}
+
+Future<void> persistStudioConfigPreferences(WidgetRef ref, String matchId) async {
+  final config = ref.read(streamStudioConfigProvider(matchId));
+  await ref.read(streamStudioRepositoryProvider).rememberLastStudioPreferences(
+        config,
+      );
 }
 
 final replayMarkersProvider =

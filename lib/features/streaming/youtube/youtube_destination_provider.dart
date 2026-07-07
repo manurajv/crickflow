@@ -21,15 +21,20 @@ class YouTubeDestinationProvider implements StreamDestinationProvider {
 
   @override
   Future<StreamLiveCredentials?> createLiveBroadcast(
-    StreamStudioConfig config,
-  ) async {
-    final creds = await _platformService.createYouTubeLive(config: config);
+    StreamStudioConfig config, {
+    Map<String, String>? thumbnailPayload,
+  }) async {
+    final creds = await _platformService.createYouTubeLive(
+      config: config,
+      thumbnailPayload: thumbnailPayload,
+    );
     if (creds == null) return null;
     return StreamLiveCredentials(
       rtmpUrl: creds.rtmpUrl,
       streamKey: creds.streamKey,
       watchUrl: creds.watchUrl,
       broadcastId: creds.broadcastId,
+      streamId: creds.streamId,
       providerLabel: label,
     );
   }

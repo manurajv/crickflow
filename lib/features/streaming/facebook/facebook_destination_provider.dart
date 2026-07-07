@@ -20,8 +20,9 @@ class FacebookDestinationProvider implements StreamDestinationProvider {
 
   @override
   Future<StreamLiveCredentials?> createLiveBroadcast(
-    StreamStudioConfig config,
-  ) async {
+    StreamStudioConfig config, {
+    Map<String, String>? thumbnailPayload,
+  }) async {
     final creds = await _platformService.createFacebookLive(config: config);
     if (creds == null) return null;
     return StreamLiveCredentials(

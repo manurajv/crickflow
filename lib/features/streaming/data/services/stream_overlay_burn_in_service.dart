@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/providers/providers.dart';
+import '../../../../data/services/stream_service.dart';
 import '../../data/models/stream_studio_config.dart';
 import '../../domain/streaming_enums.dart';
 
@@ -29,11 +30,17 @@ class StreamOverlayBurnInService {
   int _pushCount = 0;
   bool _lifecycleRecoveryInFlight = false;
 
-  void schedulePush() {
+  bool _isLiveSession(StreamService stream) =>
+      stream.liveSessionActive ||
+      stream.isStreaming ||
+      stream.isRtmpLive ||
+      (stream.isReconnecting && !stream.reconnectExhausted);
+
+  void schedulePush({bool force = false}) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 120), () {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(pushNow());
+        unawaited(pushNow(force: force));
       });
     });
   }
@@ -43,8 +50,11 @@ class StreamOverlayBurnInService {
     _liveRefreshTimer?.cancel();
     _liveRefreshTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
       final stream = _ref.read(streamServiceProvider);
-      if (stream.isStreaming || stream.liveSessionActive) {
-        schedulePush();
+      if (_isLiveSession(stream)) {
+        final force = stream.isRtmpLive &&
+            !stream.isReconnecting &&
+            stream.networkOnline;
+        schedulePush(force: force);
       } else {
         stopLiveRefresh();
       }
@@ -66,7 +76,7 @@ class StreamOverlayBurnInService {
   Future<void> recoverAfterLifecycle() async {
     if (_lifecycleRecoveryInFlight) return;
     final stream = _ref.read(streamServiceProvider);
-    if (!stream.isStreaming && !stream.liveSessionActive) return;
+    if (!stream.isStreaming && !stream.liveSessionActive && !stream.isRtmpLive) return;
 
     _lifecycleRecoveryInFlight = true;
     try {
@@ -79,7 +89,7 @@ class StreamOverlayBurnInService {
           await Future<void>.delayed(Duration(milliseconds: delayMs));
         }
         final live = _ref.read(streamServiceProvider);
-        if (!live.isStreaming && !live.liveSessionActive) return;
+        if (!_isLiveSession(live)) return;
 
         await _restoreNativeOverlayPipeline();
         await SchedulerBinding.instance.endOfFrame;
@@ -111,7 +121,7 @@ class StreamOverlayBurnInService {
   /// Returns true when a PNG frame was sent to the native compositor.
   Future<bool> pushNow({bool force = false}) async {
     final stream = _ref.read(streamServiceProvider);
-    if (!stream.isStreaming && !stream.liveSessionActive) {
+    if (!_isLiveSession(stream)) {
       _log('push skipped — not streaming');
       return false;
     }

@@ -43,8 +43,8 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
     final slots = _slotTracker.resolve(widget.overlay);
     final horizontalPad = widget.compact ? 12 * widget.scale : 40 * widget.scale;
     final batterGap = widget.compact
-        ? 14 * widget.scale
-        : LandscapeScorebugLayout.batterGap(widget.scale);
+        ? 8 * widget.scale
+        : 24 * widget.scale;
 
     return Container(
       width: double.infinity,
@@ -68,12 +68,10 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
               children: [
                 Expanded(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       if (slots.isNotEmpty) ...[
-                        Flexible(
-                          flex: 3,
+                        Expanded(
                           child: _BatterRow(
                             tokens: widget.tokens,
                             scale: widget.scale,
@@ -86,8 +84,7 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
                         ),
                         if (slots.length > 1) ...[
                           SizedBox(width: batterGap),
-                          Flexible(
-                            flex: 3,
+                          Expanded(
                             child: _BatterRow(
                               tokens: widget.tokens,
                               scale: widget.scale,
@@ -197,33 +194,45 @@ class _BatterRow extends StatelessWidget {
           )
         : LandscapeScorebugLayout.playerBallsStyle(tokens, scale);
 
-    return AnimatedDefaultTextStyle(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-      style: nameStyle,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (onStrike)
-            Padding(
-              padding: EdgeInsets.only(right: 2 * scale),
+    final nameStatsGap = (compact ? 10 : 12) * scale;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: AnimatedDefaultTextStyle(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        style: nameStyle,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            if (onStrike)
+              Padding(
+                padding: EdgeInsets.only(right: 2 * scale),
+                child: Text(
+                  '🏏',
+                  style: TextStyle(
+                    fontSize: (compact ? 13 : 16) * scale,
+                    height: 1,
+                  ),
+                ),
+              ),
+            Flexible(
+              fit: FlexFit.loose,
               child: Text(
-                '🏏',
-                style: TextStyle(fontSize: (compact ? 13 : 16) * scale, height: 1),
+                displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
               ),
             ),
-          Flexible(
-            child: Text(
-              displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          SizedBox(width: (compact ? 5 : 8) * scale),
-          Text('$runs', style: runsStyle),
-          SizedBox(width: (compact ? 3 : 5) * scale),
-          Text('$balls', style: ballsStyle),
-        ],
+            SizedBox(width: nameStatsGap),
+            Text('$runs', style: runsStyle),
+            SizedBox(width: (compact ? 3 : 5) * scale),
+            Text('$balls', style: ballsStyle),
+          ],
+        ),
       ),
     );
   }

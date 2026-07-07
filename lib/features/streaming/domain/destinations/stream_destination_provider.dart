@@ -13,7 +13,10 @@ abstract class StreamDestinationProvider {
 
   /// Creates a live broadcast and returns ingest credentials.
   /// Returns `null` when user must sign in or enter credentials manually.
-  Future<StreamLiveCredentials?> createLiveBroadcast(StreamStudioConfig config);
+  Future<StreamLiveCredentials?> createLiveBroadcast(
+    StreamStudioConfig config, {
+    Map<String, String>? thumbnailPayload,
+  });
 
   /// Validates manual RTMP settings (custom servers).
   Future<StreamLiveCredentials?> resolveManualCredentials(

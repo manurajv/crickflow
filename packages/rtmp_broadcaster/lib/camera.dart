@@ -924,6 +924,17 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  /// Clears native reconnect guard flags and reattaches preview/overlay.
+  Future<void> recoverRtmpReconnectState() async {
+    if (!value.isInitialized! || _isDisposed) return;
+    try {
+      await _channel.invokeMethod<void>(
+        'recoverRtmpReconnectState',
+        <String, dynamic>{'textureId': _textureId},
+      );
+    } on PlatformException catch (_) {}
+  }
+
   /// Stop streaming and recording. Always hits native teardown — the Dart
   /// [isStreamingVideoRtmp] flag can be stale after RTMP republish reconnect.
   Future<void> stopEverything() async {

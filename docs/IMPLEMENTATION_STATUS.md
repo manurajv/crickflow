@@ -41,7 +41,7 @@
 | **YouTube live chat** — read-only panel in live studio | Done |
 | **YouTube chapters export** — replay markers → description format | Done |
 | **Setup guide** — `docs/STREAMING_SETUP.md` | Done |
-| **YouTube OAuth fix** — `kYouTubeWebClientId` aligned to Firebase Web client (`202403125129-vnidfi...`); ApiException 10 docs + error UX | Done — update `YOUTUBE_CLIENT_SECRET` for same Web client + redeploy functions |
+| **YouTube OAuth fix** — `kYouTubeWebClientId` aligned to Firebase Web client (`202403125129-vnidfi...`); ApiException 10 docs + error UX; CF trims `YOUTUBE_CLIENT_ID`/`SECRET` (trailing newline from piped `secrets:set` caused *OAuth client not found*) | Done — redeployed functions |
 | **Broadcast module architecture** — modular destinations, OBS mode, session controller, pro camera settings, analytics | Done — see `docs/BROADCAST_MODULE.md` |
 | UI/camera polish | Deferred |
 | **Studio UX** — Ready → broadcast setup → Go Live; center camera button; stats strip w/ mic meter + reopen; YouTube/Facebook/Custom RTMP destinations with preset servers; setup checklist; saved RTMP servers; resume live studio on app reopen; camera recovery after screen off | Done |
@@ -64,7 +64,7 @@
 | **Post-match presentation** — on `MatchStatus.completed` while live: 10s full match summary card (both innings top batters/bowlers + result banner), then thank-you card until auto end at 2 min; scorebug title/LIVE header kept | Done |
 | **Live stream lifecycle** — back-press end confirmation while LIVE; FGS + Recents kill cleanup; background/foreground seamless resume; RTMP transport reconnect (5× exponential backoff); connection-lost banner with Retry/End; structured lifecycle logs | Done |
 | **RTMP reconnect (manual)** — on network restore, republishes to same saved RTMP URL + stream key (same as go-live); reconnecting badge clears on publish confirm; stop always halts native RTMP after reconnect | Done |
-| **YouTube live truthfulness** — RTMP publish verified before LIVE UI; API mints fresh ingest per immediate go-live; `startYouTubeLiveBroadcast` CF transitions broadcast to public live; polls `getYouTubeBroadcastStatus` and auto-ends app when YouTube completes | Done — deploy `startYouTubeLiveBroadcast` + `getYouTubeBroadcastStatus` |
+| **YouTube live truthfulness** — RTMP publish verified before LIVE UI; API mints fresh ingest per immediate go-live; `startYouTubeLiveBroadcast` CF transitions broadcast to public live (preview-first: ready→testing→live); polls `getYouTubeBroadcastStatus` and auto-ends app when YouTube completes | Done — category, visibility, tags, thumbnail on create |
 | **Preview surface lifecycle (lock/notification/resume)** — `PreviewSurfaceLifecycle` detaches Camera2 on `surfaceDestroyed`, clears abandoned surfaces/HandlerThread, rebuilds GL→camera→capture session only after new valid surface; no RTMP/encoder restart | Done |
 | **Live overlay lifecycle recovery** — on surface/GL recreation while streaming: native invalidates stale GL filter, force-relinks encoder pipeline, `restoreStreamOverlayPipeline`; Dart `recoverAfterLifecycle()` retries PNG capture/push (even during brief RTMP reconnect); capture tree rebuild via `overlayLifecycleRecoveryProvider` | Done |
 | **Camera/encoder in dedicated Service** — FGS protects process; full camera ownership migration to `StreamingService` | Deferred |

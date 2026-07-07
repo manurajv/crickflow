@@ -59,6 +59,7 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
     required this.onOpenBroadcastSetup,
     required this.cameraReady,
     this.isLive = false,
+    this.isStartingLive = false,
     this.isObsMode = false,
     this.onNavigateBack,
     this.onEndStream,
@@ -73,6 +74,7 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
   final VoidCallback onOpenBroadcastSetup;
   final bool cameraReady;
   final bool isLive;
+  final bool isStartingLive;
   final bool isObsMode;
   final Future<void> Function()? onNavigateBack;
   final VoidCallback? onEndStream;
@@ -191,6 +193,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     StreamService service,
     StreamHealthMetrics? health,
     bool configured,
+    bool isStartingLive,
   ) {
     if (widget.isLive) {
       if (service.isReconnecting || !service.isRtmpLive) {
@@ -198,7 +201,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
       }
       return _BroadcastButtonState.live;
     }
-    if (service.status == StreamStatus.connecting) {
+    if (isStartingLive || service.status == StreamStatus.connecting) {
       return _BroadcastButtonState.connecting;
     }
     if (configured) return _BroadcastButtonState.ready;
@@ -595,7 +598,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
             bottom: readyBottom,
             child: _BroadcastStatusButton(
               cf: cf,
-              state: _buttonState(service, health, configured),
+              state: _buttonState(service, health, configured, widget.isStartingLive),
               canStart: widget.canStart && widget.cameraReady,
               connectPulse: _connectPulse,
               onSetup: widget.onOpenBroadcastSetup,

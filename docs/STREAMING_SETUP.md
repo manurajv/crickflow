@@ -93,7 +93,7 @@ firebase functions:secrets:access YOUTUBE_CLIENT_ID
 firebase functions:secrets:access YOUTUBE_CLIENT_SECRET
 ```
 
-Each should print the value (not `404` / `not found`).
+Each should print the value (not `404` / `not found`). **No trailing blank line** — PowerShell pipes often append a newline to `YOUTUBE_CLIENT_ID`, which makes Google return *"The OAuth client was not found."* If you used Option B, re-set secrets from a one-line file (`Set-Content -NoNewline`) or run Option A interactively.
 
 If you created wrongly named secrets in Secret Manager (e.g. `GOCSPX_1_...`), delete them in [Google Cloud → Secret Manager](https://console.cloud.google.com/security/secret-manager) and run the two commands above again.
 

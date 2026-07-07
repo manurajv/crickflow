@@ -14,7 +14,7 @@ class SavedStreamStudioPreferences extends Equatable {
     this.streamKey = '',
     this.youtubeChannelId = '',
     this.youtubeChannelName = '',
-    this.goLiveImmediately = false,
+    this.goLiveImmediately = true,
     this.resolution = StreamResolutionPreset.p720,
     this.lastUsedAt,
   });
@@ -69,7 +69,7 @@ class SavedStreamStudioPreferences extends Equatable {
       streamKey: map['streamKey'] as String? ?? '',
       youtubeChannelId: map['youtubeChannelId'] as String? ?? '',
       youtubeChannelName: map['youtubeChannelName'] as String? ?? '',
-      goLiveImmediately: map['goLiveImmediately'] as bool? ?? false,
+      goLiveImmediately: map['goLiveImmediately'] as bool? ?? true,
       resolution: parseResolution(map['resolution'] as String?),
       lastUsedAt: map['lastUsedAt'] != null
           ? DateTime.tryParse(map['lastUsedAt'] as String)

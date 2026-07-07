@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -16,11 +17,25 @@ class StreamYouTubeAuthService {
   final StreamPlatformService _platformService;
 
   Future<void> linkYouTubeAccount() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw StreamPlatformException(
+        'Sign in to CrickFlow first, then connect your YouTube account.',
+      );
+    }
+
     final googleSignIn = GoogleSignIn(
       scopes: _youtubeScopes,
       serverClientId: kYouTubeWebClientId,
+      // Required so Google returns a refresh token for any chosen account
+      // (not only the CrickFlow sign-in account).
+      forceCodeForRefreshToken: true,
     );
 
+    // Fresh consent + account picker — disconnect clears prior YouTube OAuth
+    // for this app so a different Google account can be linked.
+    try {
+      await googleSignIn.disconnect();
+    } catch (_) {}
     await googleSignIn.signOut();
     final GoogleSignInAccount? account;
     try {
@@ -35,7 +50,9 @@ class StreamYouTubeAuthService {
     final authCode = account.serverAuthCode;
     if (authCode == null || authCode.isEmpty) {
       throw StreamPlatformException(
-        'No server auth code — check Web client ID in Google Cloud Console',
+        'No server auth code from Google. Use the Firebase Web client ID in '
+        'kYouTubeWebClientId, add your app SHA-1 in Firebase, and set '
+        'YOUTUBE_CLIENT_ID/SECRET on Cloud Functions. See docs/STREAMING_SETUP.md.',
       );
     }
 

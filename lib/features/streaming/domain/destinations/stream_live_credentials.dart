@@ -7,6 +7,7 @@ class StreamLiveCredentials extends Equatable {
     required this.streamKey,
     this.watchUrl = '',
     this.broadcastId = '',
+    this.streamId = '',
     this.providerLabel = '',
   });
 
@@ -14,6 +15,7 @@ class StreamLiveCredentials extends Equatable {
   final String streamKey;
   final String watchUrl;
   final String broadcastId;
+  final String streamId;
   final String providerLabel;
 
   String get fullRtmpEndpoint {
@@ -22,5 +24,5 @@ class StreamLiveCredentials extends Equatable {
   }
 
   @override
-  List<Object?> get props => [rtmpUrl, streamKey, watchUrl, broadcastId];
+  List<Object?> get props => [rtmpUrl, streamKey, watchUrl, broadcastId, streamId];
 }

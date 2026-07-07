@@ -36,7 +36,11 @@ class StreamPlatformService {
   }
 
   Future<void> linkYouTubeAccount({required String serverAuthCode}) async {
-    if (_auth.currentUser == null) return;
+    if (_auth.currentUser == null) {
+      throw StreamPlatformException(
+        'Sign in to CrickFlow first, then connect your YouTube account.',
+      );
+    }
     try {
       final callable = _functions.httpsCallable('linkYouTubeAccount');
       await callable.call<Map<String, dynamic>>({
@@ -49,6 +53,7 @@ class StreamPlatformService {
 
   Future<YouTubeLiveCredentials?> createYouTubeLive({
     required StreamStudioConfig config,
+    Map<String, String>? thumbnailPayload,
   }) async {
     if (_auth.currentUser == null) return null;
     try {
@@ -60,7 +65,10 @@ class StreamPlatformService {
         'channelId': config.youtubeChannelId,
         'language': config.language,
         'tags': config.tags,
-        'goLiveImmediately': config.goLiveImmediately,
+        'goLiveImmediately': true,
+        if (config.scheduledAt != null)
+          'scheduledAt': config.scheduledAt!.toIso8601String(),
+        if (thumbnailPayload != null) ...thumbnailPayload,
       });
       final data = result.data;
       return YouTubeLiveCredentials(
@@ -68,6 +76,7 @@ class StreamPlatformService {
         streamKey: data['streamKey'] as String? ?? '',
         watchUrl: data['watchUrl'] as String? ?? '',
         broadcastId: data['broadcastId'] as String? ?? '',
+        streamId: data['streamId'] as String? ?? '',
       );
     } on FirebaseFunctionsException catch (e) {
       throw StreamPlatformException(e.message ?? e.code);
@@ -119,7 +128,11 @@ class StreamPlatformService {
   }
 
   Future<List<YouTubeChannel>> fetchYouTubeChannels() async {
-    if (_auth.currentUser == null) return const [];
+    if (_auth.currentUser == null) {
+      throw StreamPlatformException(
+        'Sign in to CrickFlow to load YouTube channels.',
+      );
+    }
     try {
       final callable = _functions.httpsCallable('listYouTubeChannels');
       final result = await callable.call<Map<String, dynamic>>();
@@ -129,9 +142,10 @@ class StreamPlatformService {
                 id: (e as Map)['id'] as String? ?? '',
                 title: e['title'] as String? ?? '',
               ))
+          .where((c) => c.id.isNotEmpty)
           .toList();
-    } catch (_) {
-      return const [];
+    } on FirebaseFunctionsException catch (e) {
+      throw StreamPlatformException(e.message ?? e.code);
     }
   }
 
@@ -148,7 +162,10 @@ class StreamPlatformService {
   }
 
   /// Transitions an API-created broadcast to public live after RTMP ingest starts.
-  Future<void> startYouTubeLiveBroadcast({required String broadcastId}) async {
+  Future<void> startYouTubeLiveBroadcast({
+    required String broadcastId,
+    String streamId = '',
+  }) async {
     if (_auth.currentUser == null) {
       throw StreamPlatformException('Sign in required');
     }
@@ -159,6 +176,7 @@ class StreamPlatformService {
       final callable = _functions.httpsCallable('startYouTubeLiveBroadcast');
       await callable.call<Map<String, dynamic>>({
         'broadcastId': broadcastId,
+        if (streamId.isNotEmpty) 'streamId': streamId,
       });
     } on FirebaseFunctionsException catch (e) {
       throw StreamPlatformException(e.message ?? e.code);
@@ -237,12 +255,14 @@ class YouTubeLiveCredentials {
     required this.streamKey,
     required this.watchUrl,
     required this.broadcastId,
+    this.streamId = '',
   });
 
   final String rtmpUrl;
   final String streamKey;
   final String watchUrl;
   final String broadcastId;
+  final String streamId;
 }
 
 class PlatformLiveCredentials {

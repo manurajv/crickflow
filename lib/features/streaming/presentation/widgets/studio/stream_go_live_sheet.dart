@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/match_model.dart';
-import '../../../../../shared/widgets/cf_button.dart';
 import '../../../data/models/saved_rtmp_server.dart';
 import '../../../data/models/stream_studio_config.dart';
 import '../../../domain/rtmp_server_presets.dart';
@@ -12,7 +15,6 @@ import '../../../domain/streaming_enums.dart';
 import '../../../services/stream_platform_service.dart';
 import '../../providers/streaming_studio_providers.dart';
 import '../dashboard/stream_youtube_link_section.dart';
-import 'stream_platform_setup_info_sheet.dart';
 import 'stream_setup_checklist.dart';
 
 /// Opens broadcast destination setup (YouTube, Facebook, or custom RTMP) without going live.
@@ -91,14 +93,15 @@ class _StreamBroadcastSetupSheet extends ConsumerWidget {
                             style: TextStyle(
                               color: cf.textPrimary,
                               fontWeight: FontWeight.w700,
-                              fontSize: 16,
+                              fontSize: 18,
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
-                            'Configure your destination, then start from the camera',
+                            'Configure destination and stream details',
                             style: TextStyle(
                               color: cf.textSecondary,
-                              fontSize: 12,
+                              fontSize: 13,
                             ),
                           ),
                         ],
@@ -115,23 +118,29 @@ class _StreamBroadcastSetupSheet extends ConsumerWidget {
               Expanded(
                 child: ListView(
                   controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   children: [
                     StreamSetupChecklist(matchId: matchId),
-                    const SizedBox(height: 16),
-                    StreamBroadcastDestinationSection(matchId: matchId),
+                    const SizedBox(height: 20),
+                    _SetupSectionCard(
+                      title: 'Destination',
+                      subtitle: 'Where your stream will be published',
+                      child: StreamBroadcastDestinationSection(matchId: matchId),
+                    ),
                     if (config.platform == StreamPlatform.youtube &&
                         config.broadcastSetupMode ==
                             StreamBroadcastSetupMode.automatic) ...[
                       const SizedBox(height: 16),
-                      _BroadcastMetadataSection(
-                        matchId: matchId,
-                        match: match,
+                      _SetupSectionCard(
+                        title: 'Stream details',
+                        subtitle: 'Title, visibility, and thumbnail for YouTube',
+                        child: _BroadcastMetadataSection(
+                          matchId: matchId,
+                          match: match,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),
-                    _HowToGoLiveCard(matchId: matchId),
-                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -140,7 +149,10 @@ class _StreamBroadcastSetupSheet extends ConsumerWidget {
                               canStart && configured ? cf.accent : cf.textDisabled,
                           foregroundColor:
                               canStart && configured ? cf.onAccent : cf.textSecondary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         onPressed: canStart && configured
                             ? () {
@@ -152,15 +164,14 @@ class _StreamBroadcastSetupSheet extends ConsumerWidget {
                         label: const Text('Start live broadcast'),
                       ),
                     ),
-                    if (!configured)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Complete the checklist above, then use Ready → Go Live on the camera.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: cf.textMuted, fontSize: 12),
-                        ),
-                      ),
+                    const SizedBox(height: 10),
+                    Text(
+                      configured
+                          ? 'Or close this sheet and tap Go Live on the camera.'
+                          : 'Link your YouTube account and add a title to continue.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: cf.textMuted, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
@@ -172,91 +183,53 @@ class _StreamBroadcastSetupSheet extends ConsumerWidget {
   }
 }
 
-class _HowToGoLiveCard extends ConsumerWidget {
-  const _HowToGoLiveCard({required this.matchId});
+class _SetupSectionCard extends StatelessWidget {
+  const _SetupSectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
 
-  final String matchId;
+  final String title;
+  final String subtitle;
+  final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cf = context.cf;
-    final config = ref.watch(streamStudioConfigProvider(matchId));
-
-    final steps = streamPlatformSetupSteps(config);
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cf.sectionBackground.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cf.border),
+        color: cf.sectionBackground.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cf.border.withValues(alpha: 0.8)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'How to go live',
+            title,
             style: TextStyle(
               color: cf.textPrimary,
               fontWeight: FontWeight.w700,
-              fontSize: 13,
+              fontSize: 15,
             ),
           ),
-          const SizedBox(height: 8),
-          for (var i = 0; i < steps.length; i++)
-            _StepLine(cf: cf, n: '${i + 1}', text: steps[i]),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(color: cf.textSecondary, fontSize: 12),
+          ),
+          const SizedBox(height: 14),
+          child,
         ],
       ),
     );
   }
 }
 
-class _StepLine extends StatelessWidget {
-  const _StepLine({required this.cf, required this.n, required this.text});
-
-  final CfColors cf;
-  final String n;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 18,
-            height: 18,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: cf.accent.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              n,
-              style: TextStyle(
-                color: cf.accent,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(color: cf.textSecondary, fontSize: 11),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BroadcastMetadataSection extends ConsumerWidget {
+class _BroadcastMetadataSection extends ConsumerStatefulWidget {
   const _BroadcastMetadataSection({
     required this.matchId,
     required this.match,
@@ -265,81 +238,147 @@ class _BroadcastMetadataSection extends ConsumerWidget {
   final String matchId;
   final MatchModel match;
 
+  static const int kYouTubeTitleMaxLength = 100;
+  static const int kYouTubeDescriptionMaxLength = 5000;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cf = context.cf;
-    final config = ref.watch(streamStudioConfigProvider(matchId));
-    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
+  ConsumerState<_BroadcastMetadataSection> createState() =>
+      _BroadcastMetadataSectionState();
+}
+
+class _BroadcastMetadataSectionState
+    extends ConsumerState<_BroadcastMetadataSection> {
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
     final defaultTitle = config.title.isNotEmpty
         ? config.title
-        : 'LIVE | ${match.teamAName} vs ${match.teamBName}';
+        : 'LIVE | ${widget.match.teamAName} vs ${widget.match.teamBName}';
+    final defaultDescription = config.description.isNotEmpty
+        ? config.description
+        : 'Live cricket on CrickFlow';
+
+    _titleController = TextEditingController(text: defaultTitle);
+    _descriptionController = TextEditingController(text: defaultDescription);
+
+    if (config.title.isEmpty || config.description.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(streamStudioConfigProvider(widget.matchId).notifier).update(
+              (c) => c.copyWith(
+                title: config.title.isEmpty ? defaultTitle : c.title,
+                description:
+                    config.description.isEmpty ? defaultDescription : c.description,
+              ),
+            );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    final config = ref.watch(streamStudioConfigProvider(widget.matchId));
+    final notifier = ref.read(streamStudioConfigProvider(widget.matchId).notifier);
+
+    ref.listen(
+      streamStudioConfigProvider(widget.matchId).select((c) => c.title),
+      (prev, next) {
+        if (_titleController.text != next) _titleController.text = next;
+      },
+    );
+    ref.listen(
+      streamStudioConfigProvider(widget.matchId).select((c) => c.description),
+      (prev, next) {
+        if (_descriptionController.text != next) {
+          _descriptionController.text = next;
+        }
+      },
+    );
+
+    InputDecoration fieldDecoration(String label) => InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: cf.surface,
+          labelStyle: TextStyle(color: cf.textSecondary),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: cf.border),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: cf.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: cf.accent),
+          ),
+        );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'STREAM DETAILS',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1,
-            color: cf.accent,
-          ),
-        ),
-        const SizedBox(height: 8),
         TextField(
-          style: TextStyle(color: cf.textPrimary, fontWeight: FontWeight.w600),
-          maxLines: 2,
-          decoration: InputDecoration(
-            labelText: 'Title',
-            labelStyle: TextStyle(color: cf.textSecondary),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: cf.border),
-            ),
+          controller: _titleController,
+          style: TextStyle(
+            color: cf.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
           ),
-          controller: TextEditingController(text: defaultTitle),
+          maxLength: _BroadcastMetadataSection.kYouTubeTitleMaxLength,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          decoration: fieldDecoration('Title'),
           onChanged: (v) => notifier.update((c) => c.copyWith(title: v)),
         ),
-        const SizedBox(height: 12),
-        TextField(
-          style: TextStyle(color: cf.textPrimary),
-          maxLines: 2,
-          decoration: InputDecoration(
-            labelText: 'Description',
-            labelStyle: TextStyle(color: cf.textSecondary),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: cf.border),
-            ),
+        const SizedBox(height: 14),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 160),
+          child: TextField(
+            controller: _descriptionController,
+            style: TextStyle(color: cf.textPrimary, fontSize: 14),
+            keyboardType: TextInputType.multiline,
+            minLines: 4,
+            maxLines: null,
+            maxLength: _BroadcastMetadataSection.kYouTubeDescriptionMaxLength,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            scrollPhysics: const BouncingScrollPhysics(),
+            decoration: fieldDecoration('Description'),
+            onChanged: (v) => notifier.update((c) => c.copyWith(description: v)),
           ),
-          controller: TextEditingController(
-            text: config.description.isNotEmpty
-                ? config.description
-                : 'Live cricket on CrickFlow',
-          ),
-          onChanged: (v) => notifier.update((c) => c.copyWith(description: v)),
         ),
         if (config.platform == StreamPlatform.youtube) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _PickerTile(
             cf: cf,
             icon: Icons.public,
             label: 'Visibility',
-            value: config.visibility.name,
-            onTap: () => _pickVisibility(context, ref, matchId, config),
+            value: _visibilityLabel(config.visibility),
+            onTap: () => _pickVisibility(context, ref, widget.matchId, config),
           ),
-          _PickerTile(
-            cf: cf,
-            icon: Icons.grid_view_rounded,
-            label: 'Category',
-            value: config.category,
-            onTap: () => _pickCategory(context, ref, matchId, config),
-          ),
+          const SizedBox(height: 14),
+          _ThumbnailPicker(matchId: widget.matchId),
         ],
       ],
     );
   }
+
+  static String _visibilityLabel(StreamVisibility visibility) =>
+      switch (visibility) {
+        StreamVisibility.public => 'Public',
+        StreamVisibility.unlisted => 'Unlisted',
+        StreamVisibility.private => 'Private',
+      };
 
   static Future<void> _pickVisibility(
     BuildContext context,
@@ -374,41 +413,6 @@ class _BroadcastMetadataSection extends ConsumerWidget {
           );
     }
   }
-
-  static Future<void> _pickCategory(
-    BuildContext context,
-    WidgetRef ref,
-    String matchId,
-    StreamStudioConfig config,
-  ) async {
-    const categories = ['Sports', 'Entertainment', 'Gaming', 'News'];
-    final cf = context.cf;
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: cf.surface,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: categories
-              .map(
-                (c) => ListTile(
-                  title: Text(c, style: TextStyle(color: cf.textPrimary)),
-                  trailing: config.category == c
-                      ? Icon(Icons.check, color: cf.accent)
-                      : null,
-                  onTap: () => Navigator.pop(ctx, c),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-    if (picked != null) {
-      ref.read(streamStudioConfigProvider(matchId).notifier).update(
-            (c) => c.copyWith(category: picked),
-          );
-    }
-  }
 }
 
 class _PickerTile extends StatelessWidget {
@@ -429,13 +433,24 @@ class _PickerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: cf.textSecondary),
-      title: Text(label, style: TextStyle(color: cf.textPrimary)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      tileColor: cf.sectionBackground.withValues(alpha: 0.35),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: cf.border.withValues(alpha: 0.6)),
+      ),
+      leading: Icon(icon, color: cf.accent, size: 22),
+      title: Text(
+        label,
+        style: TextStyle(color: cf.textPrimary, fontWeight: FontWeight.w600),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(value, style: TextStyle(color: cf.textMuted, fontSize: 13)),
+          Text(
+            value,
+            style: TextStyle(color: cf.textMuted, fontSize: 13),
+          ),
           Icon(Icons.chevron_right, color: cf.textMuted, size: 20),
         ],
       ),
@@ -459,16 +474,6 @@ class StreamBroadcastDestinationSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'DESTINATION',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1,
-            color: cf.accent,
-          ),
-        ),
-        const SizedBox(height: 10),
         Row(
           children: kImplementedStreamPlatforms.map((platform) {
             final selected = config.platform == platform;
@@ -658,6 +663,95 @@ class _BroadcastSetupModeSelector extends ConsumerWidget {
   }
 }
 
+class _ThumbnailPicker extends ConsumerWidget {
+  const _ThumbnailPicker({required this.matchId});
+
+  final String matchId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cf = context.cf;
+    final config = ref.watch(streamStudioConfigProvider(matchId));
+    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
+    final path = config.thumbnailPath;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Thumbnail',
+          style: TextStyle(
+            color: cf.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 96,
+                height: 54,
+                color: cf.sectionBackground,
+                child: path != null && path.isNotEmpty
+                    ? Image.file(File(path), fit: BoxFit.cover)
+                    : Icon(Icons.image_outlined, color: cf.textMuted),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    path != null
+                        ? 'Custom thumbnail selected'
+                        : 'Optional — YouTube uses its default if empty',
+                    style: TextStyle(color: cf.textPrimary, fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _pickThumbnail(notifier),
+                        icon: const Icon(Icons.upload_file, size: 16),
+                        label: Text(path != null ? 'Change' : 'Upload'),
+                      ),
+                      if (path != null)
+                        TextButton(
+                          onPressed: () => notifier.update(
+                            (c) => c.copyWith(thumbnailPath: null),
+                          ),
+                          child: const Text('Remove'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickThumbnail(
+    StreamStudioNotifier notifier,
+  ) async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+      maxWidth: 1920,
+    );
+    if (picked != null) {
+      notifier.update((c) => c.copyWith(thumbnailPath: picked.path));
+    }
+  }
+}
+
 class _YouTubeAutomaticSetup extends ConsumerWidget {
   const _YouTubeAutomaticSetup({required this.matchId});
 
@@ -670,25 +764,50 @@ class _YouTubeAutomaticSetup extends ConsumerWidget {
     final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
     final channelsAsync = ref.watch(youtubeChannelsProvider);
 
+    ref.listen<AsyncValue<List<YouTubeChannel>>>(
+      youtubeChannelsProvider,
+      (_, next) {
+        syncYouTubeChannelToStudioConfig(
+          ref,
+          matchId,
+          channels: next.valueOrNull,
+        );
+      },
+    );
+    final channelsNow = channelsAsync.valueOrNull;
+    if (channelsNow != null && channelsNow.isNotEmpty) {
+      syncYouTubeChannelToStudioConfig(ref, matchId, channels: channelsNow);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _YouTubeAutoStartToggle(matchId: matchId),
-        const SizedBox(height: 16),
         StreamYouTubeLinkSection(matchId: matchId),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         channelsAsync.when(
           data: (channels) {
             if (channels.isEmpty) return const SizedBox.shrink();
+            final uniqueChannels = <String, YouTubeChannel>{};
+            for (final ch in channels) {
+              uniqueChannels.putIfAbsent(ch.id, () => ch);
+            }
+            final items = uniqueChannels.values.toList();
+            final selectedId = items.any((c) => c.id == config.youtubeChannelId)
+                ? config.youtubeChannelId
+                : items.first.id;
             return DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: 'YouTube channel',
+                filled: true,
+                fillColor: cf.surface,
                 labelStyle: TextStyle(color: cf.textSecondary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: cf.border),
+                ),
               ),
-              value: config.youtubeChannelId.isNotEmpty
-                  ? config.youtubeChannelId
-                  : null,
-              items: channels
+              value: selectedId,
+              items: items
                   .map(
                     (c) => DropdownMenuItem(
                       value: c.id,
@@ -698,7 +817,7 @@ class _YouTubeAutomaticSetup extends ConsumerWidget {
                   .toList(),
               onChanged: (id) {
                 if (id == null) return;
-                final ch = channels.firstWhere((c) => c.id == id);
+                final ch = items.firstWhere((c) => c.id == id);
                 notifier.update(
                   (c) => c.copyWith(
                     youtubeChannelId: ch.id,
@@ -709,82 +828,18 @@ class _YouTubeAutomaticSetup extends ConsumerWidget {
             );
           },
           loading: () => const LinearProgressIndicator(),
-          error: (_, __) => const SizedBox.shrink(),
-        ),
-        const SizedBox(height: 8),
-        CfButton(
-          compact: true,
-          label: 'Create YouTube live broadcast',
-          icon: Icons.live_tv,
-          onPressed: () => _createYouTubeBroadcast(context, ref),
-        ),
-        if (config.youtubeBroadcastId.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: cf.accent.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: cf.accent.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle, color: cf.accent, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    config.goLiveImmediately
-                        ? 'YouTube event ready — goes public when connected'
-                        : 'YouTube event ready — preview in Studio first',
-                    style: TextStyle(color: cf.textSecondary, fontSize: 11),
-                  ),
-                ),
-              ],
+          error: (error, _) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              error is StreamPlatformException
+                  ? error.message
+                  : 'Could not load channels: $error',
+              style: TextStyle(color: cf.error, fontSize: 11),
             ),
           ),
-        ],
+        ),
       ],
     );
-  }
-
-  Future<void> _createYouTubeBroadcast(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final config = ref.read(streamStudioConfigProvider(matchId));
-    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
-    try {
-      final creds = await ref
-          .read(streamPlatformServiceProvider)
-          .createYouTubeLive(config: config);
-      if (creds == null || !context.mounted) return;
-      notifier.update(
-        (c) => c.copyWith(
-          rtmpUrl: creds.rtmpUrl,
-          streamKey: creds.streamKey,
-          youtubeWatchUrl: creds.watchUrl,
-          youtubeBroadcastId: creds.broadcastId,
-        ),
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              config.goLiveImmediately
-                  ? 'YouTube broadcast created — will go public when connected'
-                  : 'YouTube broadcast created — preview in Studio, then click Go live',
-            ),
-          ),
-        );
-      }
-    } on StreamPlatformException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
-      }
-    }
   }
 }
 
@@ -825,47 +880,6 @@ class _YouTubeManualSetup extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _YouTubeAutoStartToggle extends ConsumerWidget {
-  const _YouTubeAutoStartToggle({required this.matchId});
-
-  final String matchId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cf = context.cf;
-    final config = ref.watch(streamStudioConfigProvider(matchId));
-    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: cf.sectionBackground.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cf.border),
-      ),
-      child: SwitchListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        title: Text(
-          'Go live on YouTube immediately',
-          style: TextStyle(
-            color: cf.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
-        subtitle: Text(
-          config.goLiveImmediately
-              ? 'Applies when YouTube is linked — goes public when video connects'
-              : 'Requires linked YouTube — preview in Studio first, you click Go live',
-          style: TextStyle(color: cf.textSecondary, fontSize: 11),
-        ),
-        value: config.goLiveImmediately,
-        activeTrackColor: cf.accent,
-        onChanged: (v) => notifier.update((c) => c.copyWith(goLiveImmediately: v)),
-      ),
     );
   }
 }

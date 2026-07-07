@@ -15,8 +15,9 @@ class CustomRtmpDestinationProvider implements StreamDestinationProvider {
 
   @override
   Future<StreamLiveCredentials?> createLiveBroadcast(
-    StreamStudioConfig config,
-  ) async {
+    StreamStudioConfig config, {
+    Map<String, String>? thumbnailPayload,
+  }) async {
     return resolveManualCredentials(config);
   }
 

@@ -34,10 +34,8 @@ List<String> streamPlatformSetupSteps(StreamStudioConfig config) {
       ],
     StreamPlatform.youtube => [
       'Link your Google account and pick a YouTube channel.',
-      'Set title and visibility, then create the YouTube event in the app.',
-      config.goLiveImmediately
-          ? 'Tap Go Live — YouTube goes public when video connects.'
-          : 'Tap Go Live — preview in YouTube Studio, then click Go live there.',
+      'Set title, visibility, and optional thumbnail.',
+      'Tap Go Live — CrickFlow creates the YouTube event, sends video, and publishes.',
     ],
     StreamPlatform.facebook => [
       'Open Facebook Live Producer and create a live stream.',

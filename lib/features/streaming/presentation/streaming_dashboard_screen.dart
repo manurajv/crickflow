@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/enums.dart';
 import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/services/stream_service.dart';
 import '../../../shared/providers/providers.dart';
 import '../data/models/stream_overlay_theme.dart';
+import '../data/models/stream_studio_config.dart';
 import '../data/active_stream_session.dart';
 import '../data/services/stream_overlay_burn_in_service.dart';
 import '../obs/presentation/obs_setup_section.dart';
@@ -28,6 +28,7 @@ import 'widgets/stream_reconnecting_banner.dart';
 import 'widgets/stream_connection_lost_banner.dart';
 import 'widgets/stream_studio_compositor.dart';
 import '../services/stream_lifecycle_log.dart';
+import '../services/stream_platform_service.dart';
 import 'providers/post_match_controller.dart';
 
 /// Pre-live streaming dashboard + live broadcast studio for a match.
@@ -46,6 +47,7 @@ class _StreamingDashboardScreenState
   bool _cameraLoading = true;
   String? _cameraError;
   bool _isLive = false;
+  bool _startingLive = false;
   bool _endingStream = false;
   Timer? _heartbeatTimer;
   Timer? _youtubeStatusTimer;
@@ -76,6 +78,56 @@ class _StreamingDashboardScreenState
     _resumeIfLive();
   }
 
+  bool _nativeSessionActive(StreamService service) =>
+      service.liveSessionActive ||
+      service.isStreaming ||
+      service.isRtmpLive ||
+      (service.isReconnecting && !service.reconnectExhausted);
+
+  /// Restores scorebug burn-in after RTMP (re)connect — all native manual/auto modes.
+  void _wireNativeOverlayHandlers() {
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    if (config.streamingMode != StreamingMode.nativeCamera) return;
+
+    final burnIn = ref.read(streamOverlayBurnInServiceProvider);
+    final stream = ref.read(streamServiceProvider);
+    stream.onRtmpConnected = () {
+      burnIn.schedulePush();
+      unawaited(burnIn.recoverAfterLifecycle());
+      unawaited(stream.reconnectPreview(retries: 6));
+      final cfg = ref.read(streamStudioConfigProvider(widget.matchId));
+      if (cfg.platform == StreamPlatform.youtube &&
+          cfg.broadcastSetupMode == StreamBroadcastSetupMode.automatic &&
+          cfg.youtubeBroadcastId.isNotEmpty) {
+        unawaited(_publishYouTubeBroadcast(cfg));
+      }
+    };
+  }
+
+  void _onRtmpReconnectCompleted() {
+    final service = ref.read(streamServiceProvider);
+    if (!_nativeSessionActive(service)) return;
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    if (config.streamingMode != StreamingMode.nativeCamera) return;
+    final burnIn = ref.read(streamOverlayBurnInServiceProvider);
+    burnIn.schedulePush();
+    unawaited(burnIn.recoverAfterLifecycle());
+  }
+
+  void _ensureLiveUiForNativeSession() {
+    if (_isLive) return;
+    final service = ref.read(streamServiceProvider);
+    if (!_nativeSessionActive(service)) return;
+    setState(() => _isLive = true);
+    _startHeartbeat();
+    unawaited(ActiveStreamSession.setActive(widget.matchId));
+    _wireNativeOverlayHandlers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isLive) return;
+      ref.read(streamOverlayBurnInServiceProvider).startLiveRefresh();
+    });
+  }
+
   Future<void> _applySavedStudioPreferences() async {
     if (_isLive) return;
     final repo = ref.read(streamStudioRepositoryProvider);
@@ -83,6 +135,18 @@ class _StreamingDashboardScreenState
     ref.read(streamStudioConfigProvider(widget.matchId).notifier).update(
           (c) => applySavedStudioPreferences(c, saved),
         );
+    try {
+      final channels = await ref
+          .read(streamPlatformServiceProvider)
+          .fetchYouTubeChannels();
+      if (!mounted || channels.isEmpty) return;
+      syncYouTubeChannelToStudioConfig(
+        ref,
+        widget.matchId,
+        channels: channels,
+      );
+      await persistStudioConfigPreferences(ref, widget.matchId);
+    } catch (_) {}
   }
 
   @override
@@ -102,22 +166,36 @@ class _StreamingDashboardScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final service = ref.read(streamServiceProvider);
-      final sessionLive = _isLive &&
-          (service.isStreaming || service.liveSessionActive);
+      final sessionLive = _nativeSessionActive(service);
       if (sessionLive) {
         unawaited(_resumeLiveSessionUi());
         return;
       }
-      if (_cameraLoading) return;
 
       if (service.isInitialized) {
-        unawaited(service.recoverPreview());
+        unawaited(_recoverCameraAfterOAuthReturn());
         return;
       }
+      if (_cameraLoading) return;
 
       setState(() => _previewSession++);
       unawaited(_recoverCameraAfterResume());
     });
+  }
+
+  /// After Google Sign-In / system overlays tear down the GL surface.
+  Future<void> _recoverCameraAfterOAuthReturn() async {
+    if (!mounted) return;
+    final service = ref.read(streamServiceProvider);
+    try {
+      await service.recoverPreview();
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _cameraLoading = false;
+        _cameraError = service.lastError;
+      });
+    }
   }
 
   Future<void> _resumeLiveSessionUi() async {
@@ -232,25 +310,25 @@ class _StreamingDashboardScreenState
   }
 
   void _resumeIfLive() {
-    final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     final service = ref.read(streamServiceProvider);
-    final rtmpLive = service.isRtmpLive;
-    if (match?.stream.status == StreamStatus.live || rtmpLive) {
-      setState(() => _isLive = true);
-      _startHeartbeat();
-      _startYouTubeStatusMonitor();
-      unawaited(ActiveStreamSession.setActive(widget.matchId));
-      if (rtmpLive && !service.liveSessionActive) {
-        final config = ref.read(streamStudioConfigProvider(widget.matchId));
-        final title = config.title.trim().isNotEmpty
-            ? config.title.trim()
-            : 'CrickFlow Live';
-        unawaited(service.beginLiveSession(title: title));
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(streamOverlayBurnInServiceProvider).startLiveRefresh();
-      });
+    if (!_nativeSessionActive(service)) return;
+
+    setState(() => _isLive = true);
+    _startHeartbeat();
+    _startYouTubeStatusMonitor();
+    unawaited(ActiveStreamSession.setActive(widget.matchId));
+    if (service.isRtmpLive && !service.liveSessionActive) {
+      final config = ref.read(streamStudioConfigProvider(widget.matchId));
+      final title = config.title.trim().isNotEmpty
+          ? config.title.trim()
+          : 'CrickFlow Live';
+      unawaited(service.beginLiveSession(title: title));
     }
+    _wireNativeOverlayHandlers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isLive) return;
+      ref.read(streamOverlayBurnInServiceProvider).startLiveRefresh();
+    });
   }
 
   @override
@@ -451,6 +529,8 @@ class _StreamingDashboardScreenState
   }
 
   Future<void> _goLive() async {
+    if (_startingLive || _isLive) return;
+
     final canStart = ref.read(streamCanStartProvider(widget.matchId));
     if (!canStart) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -466,73 +546,104 @@ class _StreamingDashboardScreenState
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     if (match == null) return;
 
-    setState(() => _cameraError = null);
+    setState(() {
+      _cameraError = null;
+      _startingLive = true;
+    });
 
-    final controller = ref.read(broadcastSessionControllerProvider);
-    final result = await controller.startBroadcast(
-      matchId: widget.matchId,
-      config: config,
-      match: match,
-    );
+    try {
+      final controller = ref.read(broadcastSessionControllerProvider);
+      final result = await controller.startBroadcast(
+        matchId: widget.matchId,
+        config: config,
+        match: match,
+      );
 
-    if (!result.isSuccess) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.errorMessage ?? 'Stream failed')),
-        );
+      if (!result.isSuccess) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result.errorMessage ?? 'Stream failed')),
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    config = result.config;
-    ref.read(streamStudioConfigProvider(widget.matchId).notifier).update(
-          (c) => config,
+      config = result.config;
+      ref.read(streamStudioConfigProvider(widget.matchId).notifier).update(
+            (c) => config,
+          );
+
+      if (config.usesManualBroadcastSetup) {
+        await rememberStreamKeyForConfig(
+          ref.read(streamStudioRepositoryProvider),
+          config,
         );
+        ref.invalidate(streamKeyHistoryProvider);
+      }
 
-    if (config.usesManualBroadcastSetup) {
-      await rememberStreamKeyForConfig(
+      await rememberLastStudioPreferencesForConfig(
         ref.read(streamStudioRepositoryProvider),
         config,
       );
-      ref.invalidate(streamKeyHistoryProvider);
+
+      _startHeartbeat();
+      _startYouTubeStatusMonitor();
+      await ActiveStreamSession.setActive(widget.matchId);
+      final streamTitle = config.title.trim().isNotEmpty
+          ? config.title.trim()
+          : 'CrickFlow Live';
+      await ref.read(streamServiceProvider).beginLiveSession(title: streamTitle);
+      if (mounted) {
+        setState(() => _isLive = true);
+        if (config.platform == StreamPlatform.youtube &&
+            config.broadcastSetupMode == StreamBroadcastSetupMode.automatic) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Starting broadcast — connecting to YouTube…'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+          unawaited(_publishYouTubeBroadcast(config));
+        }
+      }
+      if (config.streamingMode == StreamingMode.nativeCamera) {
+        _wireNativeOverlayHandlers();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_isLive) return;
+          final burnIn = ref.read(streamOverlayBurnInServiceProvider);
+          burnIn.startLiveRefresh();
+          burnIn.schedulePush();
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _startingLive = false);
     }
+  }
 
-    await rememberLastStudioPreferencesForConfig(
-      ref.read(streamStudioRepositoryProvider),
-      config,
-    );
-
-    _startHeartbeat();
-    _startYouTubeStatusMonitor();
-    await ActiveStreamSession.setActive(widget.matchId);
-    final streamTitle = config.title.trim().isNotEmpty
-        ? config.title.trim()
-        : 'CrickFlow Live';
-    await ref.read(streamServiceProvider).beginLiveSession(title: streamTitle);
-    if (mounted) {
-      setState(() => _isLive = true);
-      if (config.platform == StreamPlatform.youtube) {
-        final message = config.goLiveImmediately
-            ? 'Stream is live on YouTube.'
-            : 'Sending to YouTube. Open YouTube Studio, check the preview, '
-                'then click Go live when you are ready.';
+  Future<void> _publishYouTubeBroadcast(StreamStudioConfig config) async {
+    if (config.youtubeBroadcastId.isEmpty) return;
+    try {
+      await ref.read(streamPlatformServiceProvider).startYouTubeLiveBroadcast(
+            broadcastId: config.youtubeBroadcastId,
+            streamId: config.youtubeStreamId,
+          );
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message), duration: const Duration(seconds: 7)),
+          const SnackBar(
+            content: Text('Stream is live on YouTube'),
+            duration: Duration(seconds: 5),
+          ),
         );
       }
-    }
-    if (config.streamingMode == StreamingMode.nativeCamera) {
-      final burnIn = ref.read(streamOverlayBurnInServiceProvider);
-      final stream = ref.read(streamServiceProvider);
-      stream.onRtmpConnected = () {
-        burnIn.schedulePush();
-        unawaited(burnIn.recoverAfterLifecycle());
-      };
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_isLive) return;
-        burnIn.startLiveRefresh();
-        burnIn.schedulePush();
-      });
+    } on StreamPlatformException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('YouTube go-live: ${e.message}'),
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
     }
   }
 
@@ -617,27 +728,11 @@ class _StreamingDashboardScreenState
   }
 
   Future<void> _retryConnection() async {
-    final config = ref.read(streamStudioConfigProvider(widget.matchId));
     final stream = ref.read(streamServiceProvider);
 
-    // YouTube automatic may mint a fresh ingest key; manual reuses saved URL/key.
-    if (config.platform == StreamPlatform.youtube &&
-        config.broadcastSetupMode == StreamBroadcastSetupMode.automatic) {
-      final result = await ref
-          .read(broadcastSessionControllerProvider)
-          .resolveCredentials(config);
-      final creds = result.credentials;
-      if (creds != null) {
-        await stream.retryConnection(
-          endpoint: creds.fullRtmpEndpoint,
-          bitrate: config.effectiveBitrateKbps * 1024,
-        );
-      } else {
-        await stream.retryConnection();
-      }
-    } else {
-      await stream.retryConnection();
-    }
+    // Always republish the same RTMP URL/key from go-live — never mint a new
+    // YouTube broadcast on retry (viewers stay on the same event).
+    await stream.retryConnection();
 
     if (!mounted) return;
     await ref.read(streamOverlayBurnInServiceProvider).recoverAfterLifecycle();
@@ -660,18 +755,31 @@ class _StreamingDashboardScreenState
     ref.listen(matchProvider(widget.matchId), (prev, next) {
       final match = next.valueOrNull;
       if (match == null) return;
-      if (match.stream.status == StreamStatus.live && !_isLive) {
-        setState(() => _isLive = true);
-        _startHeartbeat();
-        unawaited(ActiveStreamSession.setActive(widget.matchId));
-      } else if (match.stream.status != StreamStatus.live &&
-          _isLive &&
-          !ref.read(streamServiceProvider).isStreaming) {
+      final service = ref.read(streamServiceProvider);
+      final nativeLive = _nativeSessionActive(service);
+      if (nativeLive && !_isLive) {
+        _ensureLiveUiForNativeSession();
+      } else if (_isLive && !nativeLive && !service.isReconnecting) {
         setState(() => _isLive = false);
         _stopHeartbeat();
         unawaited(ActiveStreamSession.clear());
       }
     });
+
+    ref.listen(
+      streamServiceProvider.select((s) => (s.isReconnecting, s.isRtmpLive)),
+      (prev, next) {
+        if (prev == null) return;
+        final service = ref.read(streamServiceProvider);
+        if (service.isReconnecting && _nativeSessionActive(service)) {
+          _ensureLiveUiForNativeSession();
+        }
+        if (prev.$1 && !next.$1 && next.$2) {
+          _ensureLiveUiForNativeSession();
+          _onRtmpReconnectCompleted();
+        }
+      },
+    );
 
     ref.listen(ballEventsProvider(widget.matchId), (prev, next) {
       final events = next.valueOrNull;
@@ -801,6 +909,7 @@ class _StreamingDashboardScreenState
                 onOpenBroadcastSetup: () => _openBroadcastSetup(match),
                 cameraReady: _isLive ? true : cameraReady,
                 isLive: _isLive,
+                isStartingLive: _startingLive,
                 isObsMode: isObs,
                 onNavigateBack: _handleNavigateBack,
                 onEndStream: _isLive ? _endStream : null,

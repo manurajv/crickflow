@@ -14,7 +14,7 @@ class StreamStudioConfig extends Equatable {
     this.language = 'en',
     this.tags = const [],
     this.scheduledAt,
-    this.goLiveImmediately = false,
+    this.goLiveImmediately = true,
     this.broadcastSetupMode = StreamBroadcastSetupMode.automatic,
     this.platform = StreamPlatform.youtube,
     this.rtmpUrl = 'rtmp://a.rtmp.youtube.com/live2',
@@ -23,6 +23,7 @@ class StreamStudioConfig extends Equatable {
     this.youtubeChannelName = '',
     this.youtubeWatchUrl = '',
     this.youtubeBroadcastId = '',
+    this.youtubeStreamId = '',
     this.facebookPageId = '',
     this.twitchChannel = '',
     this.resolution = StreamResolutionPreset.p720,
@@ -75,6 +76,7 @@ class StreamStudioConfig extends Equatable {
   final String youtubeChannelName;
   final String youtubeWatchUrl;
   final String youtubeBroadcastId;
+  final String youtubeStreamId;
   final String facebookPageId;
   final String twitchChannel;
   final StreamResolutionPreset resolution;
@@ -138,6 +140,7 @@ class StreamStudioConfig extends Equatable {
     String? youtubeChannelName,
     String? youtubeWatchUrl,
     String? youtubeBroadcastId,
+    String? youtubeStreamId,
     String? facebookPageId,
     String? twitchChannel,
     StreamResolutionPreset? resolution,
@@ -190,6 +193,7 @@ class StreamStudioConfig extends Equatable {
       youtubeChannelName: youtubeChannelName ?? this.youtubeChannelName,
       youtubeWatchUrl: youtubeWatchUrl ?? this.youtubeWatchUrl,
       youtubeBroadcastId: youtubeBroadcastId ?? this.youtubeBroadcastId,
+      youtubeStreamId: youtubeStreamId ?? this.youtubeStreamId,
       facebookPageId: facebookPageId ?? this.facebookPageId,
       twitchChannel: twitchChannel ?? this.twitchChannel,
       resolution: resolution ?? this.resolution,
@@ -259,6 +263,10 @@ class StreamStudioConfig extends Equatable {
 
   /// True when RTMP credentials are saved and the user can start broadcasting.
   bool get isBroadcastConfigured {
+    if (platform == StreamPlatform.youtube &&
+        broadcastSetupMode == StreamBroadcastSetupMode.automatic) {
+      return youtubeChannelId.isNotEmpty;
+    }
     final normalized = StreamCredentialNormalizer.normalize(
       rtmpUrl: rtmpUrl,
       streamKey: streamKey,
