@@ -166,6 +166,19 @@ class StreamService extends ChangeNotifier {
 
       await _releaseCamera(waitForSurfaceTeardown: false);
       await _openSelectedLens();
+
+      // Rebuild the zoom row with the device's real max zoom so it shows the
+      // standard 0.5x/1x/2x/3x set (digital steps included) immediately, rather
+      // than waiting on the post-mount refresh.
+      try {
+        final prevFactor =
+            _lenses[_selectedLensIndex.clamp(0, _lenses.length - 1)].zoomFactor;
+        final maxZoom = await _controller!.getMaxZoom();
+        _lenses = CameraLensCatalog.standardZoomLenses(cameras, maxZoom);
+        _selectedLensIndex =
+            CameraLensCatalog.indexForZoomFactor(_lenses, prevFactor);
+      } catch (_) {}
+
       _lastError = null;
       notifyListeners();
     });

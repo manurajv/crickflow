@@ -383,6 +383,7 @@ class MethodCallHandlerImplNew(
             nativeViewFactory?.preset = preset
             nativeViewFactory?.enableAudio = enableAudio
             nativeViewFactory?.dartMessenger = dartMessenger
+            getCameraView()?.applyCapturePreset(preset)
             // Preview starts in CameraNativeView.surfaceCreated when the GL surface exists.
             result.success(reply)
         }, 100)

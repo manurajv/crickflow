@@ -237,9 +237,11 @@ async function createYouTubeLiveBroadcast(uid, options) {
         title: `${options.title || 'CrickFlow Live'} — RTMP`,
       },
       cdn: {
-        frameRate: '30fps',
+        // Variable lets YouTube auto-detect the ingested resolution/frame rate
+        // (e.g. 720p or 1080p) instead of forcing a fixed 720p ingest.
+        frameRate: 'variable',
         ingestionType: 'rtmp',
-        resolution: '720p',
+        resolution: 'variable',
       },
       contentDetails: {
         isReusable: false,

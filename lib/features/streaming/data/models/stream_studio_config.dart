@@ -112,16 +112,19 @@ class StreamStudioConfig extends Equatable {
   final StreamingMode streamingMode;
   final CameraControlSettings cameraControls;
 
-  int get effectiveBitrateKbps => switch (bitrateMode) {
-        StreamBitrateMode.adaptive => switch (resolution) {
-            StreamResolutionPreset.p480 => 1500,
-            StreamResolutionPreset.p720 => 2500,
-            StreamResolutionPreset.p1080 => 4500,
-            StreamResolutionPreset.p1440 => 8000,
-            StreamResolutionPreset.p4k => 12000,
-          },
-        StreamBitrateMode.manual => manualBitrateKbps,
-      };
+  int get effectiveBitrateKbps {
+    final base = switch (bitrateMode) {
+      StreamBitrateMode.adaptive => switch (resolution) {
+          StreamResolutionPreset.p480 => 1500,
+          StreamResolutionPreset.p720 => 2500,
+          StreamResolutionPreset.p1080 => 4500,
+          StreamResolutionPreset.p1440 => 8000,
+          StreamResolutionPreset.p4k => 12000,
+        },
+      StreamBitrateMode.manual => manualBitrateKbps,
+    };
+    return latency.adjustBitrateKbps(base);
+  }
 
   StreamStudioConfig copyWith({
     String? title,

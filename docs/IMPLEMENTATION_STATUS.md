@@ -17,6 +17,9 @@
 
 | Item | Status |
 |------|--------|
+| **Saved stream keys** — recent-key list shows last 8 digits (not "YouTube"/"Facebook"), tap to apply, per-entry delete with confirmation (YT manual + FB/custom manual) | Done — `SavedStreamKey.keyPreview`, `_SavedStreamKeyTile` |
+| **Realtime health pill** — speed (kbps) · fps · connection quality shown outside the title bar on the preview, updates live | Done — `StreamLiveStatsPill` |
+| **Battery-saver dim screen** — full-screen black overlay after live (auto ~60s or manual "Dim" button), shows LIVE time + connection quality + speed/fps, tap to wake; stream/burn-in unaffected. Also **natively dims the backlight** to 0 via `screen_brightness` (app-scoped, restored on wake/dispose) for real power savings on LCD + OLED | Done — `StreamBatterySaverOverlay` + `screen_brightness` |
 | **Streaming Dashboard** — `/match/:id/stream` pre-live setup (camera, match info, platform, quality, audio, overlays, health) | Done |
 | **StreamingStudioScreen flow** — dashboard → lock orientation → Go Live → fullscreen studio | Done |
 | Enhanced **StreamService** — lens catalog, orientation lock, bitrate/resolution, record+stream, health stats, reconnect | Done |
@@ -67,6 +70,11 @@
 | **YouTube live truthfulness** — RTMP publish verified before LIVE UI; API mints fresh ingest per immediate go-live; `startYouTubeLiveBroadcast` CF transitions broadcast to public live (preview-first: ready→testing→live); polls `getYouTubeBroadcastStatus` and auto-ends app when YouTube completes | Done — category, visibility, tags, thumbnail on create |
 | **Preview surface lifecycle (lock/notification/resume)** — `PreviewSurfaceLifecycle` detaches Camera2 on `surfaceDestroyed`, clears abandoned surfaces/HandlerThread, rebuilds GL→camera→capture session only after new valid surface; no RTMP/encoder restart | Done |
 | **Live overlay lifecycle recovery** — on surface/GL recreation while streaming: native invalidates stale GL filter, force-relinks encoder pipeline, `restoreStreamOverlayPipeline`; Dart `recoverAfterLifecycle()` retries PNG capture/push (even during brief RTMP reconnect); capture tree rebuild via `overlayLifecycleRecoveryProvider` | Done |
+| **Resolution ↔ overlay sync** — changing stream resolution pre-live re-inits camera + compositor capture size; native `applyCapturePreset` resets frozen GL/overlay lock; go-live validates GL lock vs preset (`ensureGlLockMatchesPreset`) | Done |
+| **High-res overlay crash fix** — overlay burn-in capture layer capped to 720p short side (`overlayCaptureSizeFor`); native GL still scales PNG to encoder frame, so 1080p/1440p/4K no longer allocate an oversized offscreen raster (fixes native GPU/OOM `Process Quit itself` crash); safer native PNG decode (bounds + subsample + OOM retry) and `prepareVideo`/`startStream` try-catch that releases overlay on failure | Done |
+| **1080p streaming fix** — camera now captures natively up to 1080p (`CameraUtils.computeBestPreviewSize` cap raised high→veryHigh) so the encoder pipeline is dimensionally consistent instead of upscaling 720p→1080p (fixes portrait always-720p + landscape 1080p `RTMP connection failed`); studio picker limited to 480p/720p/1080p with 720p **(Recommended)**; YouTube CF `liveStreams.insert` uses `resolution:'variable'`/`frameRate:'variable'` so automatic mode ingests the selected resolution (was forced 720p) | Done |
+| **1080p only where reliable** — 1080p offered only on YouTube **Automatic** (`streamSupports1080p`/`supportedStreamResolutionsFor`); YouTube manual, Facebook, custom RTMP show 480p/720p with an inline note (manual stream keys stall at 1080p → `RTMP connection failed`); go-live clamps to 720p as a safety net | Done |
+| **Reconnect quality restore** — after an RTMP drop/reconnect, `onConnectionSuccessRtmp` re-asserts the pre-drop bitrate (`setVideoBitrateOnFly`) and forces an encoder keyframe (`PedroCameraBridge.restoreFullQualityAfterReconnect`) so YouTube ABR re-locks to the original rendition instead of a lower one; `hasConnectedOnce` distinguishes first connect from reconnect | Done |
 | **Camera/encoder in dedicated Service** — FGS protects process; full camera ownership migration to `StreamingService` | Deferred |
 | UI/camera polish (CPU/memory HUD, snapshot/scenes row) | Deferred |
 

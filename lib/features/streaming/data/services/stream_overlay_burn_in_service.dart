@@ -269,3 +269,23 @@ Future<Size> encoderFrameSizeForLive(
 ) async {
   return encoderFrameSizeFor(config);
 }
+
+/// Max short-side (in px) for the Flutter overlay capture layer.
+///
+/// The overlay PNG is scaled to the encoder frame by native GL, so it does not
+/// need to match encoder pixels. Capping the offscreen raster avoids GPU/native
+/// OOM crashes at 1080p/1440p/4K while keeping scorebug text crisp.
+const double _kMaxOverlayCaptureShortSide = 720;
+
+/// Aspect-preserving capture size for the overlay burn-in tree, capped so high
+/// encoder resolutions never allocate an oversized offscreen layer.
+Size overlayCaptureSizeFor(StreamStudioConfig config) {
+  final encoder = encoderFrameSizeFor(config);
+  final short = encoder.shortestSide;
+  if (short <= _kMaxOverlayCaptureShortSide || short <= 0) return encoder;
+  final scale = _kMaxOverlayCaptureShortSide / short;
+  return Size(
+    (encoder.width * scale).roundToDouble(),
+    (encoder.height * scale).roundToDouble(),
+  );
+}

@@ -138,13 +138,14 @@ class StreamOverlayBurnIn(
         val height = pendingHeight
         if (width <= 0 || height <= 0) return
 
-        val bitmap = BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, BITMAP_OPTS)
+        val bitmap = decodeOverlayPng(pngBytes)
         if (bitmap == null) {
             Log.w(TAG, "updateOverlay: failed to decode PNG (${pngBytes.size} bytes)")
             return
         }
 
         try {
+            val streamRot = effectiveStreamRot()
             val streamW = resolveScaleWidth()
             val streamH = resolveScaleHeight()
             val glInterface = rtmpCamera.glInterface
@@ -164,7 +165,6 @@ class StreamOverlayBurnIn(
                 )
             }
 
-            val streamRot = effectiveStreamRot()
             // Re-apply stream rotation on the camera pipeline before overlay geometry.
             onOverlayApplied?.invoke()
 
@@ -198,6 +198,31 @@ class StreamOverlayBurnIn(
         } catch (e: Exception) {
             bitmap.recycle()
             Log.e(TAG, "updateOverlay failed", e)
+        }
+    }
+
+    private fun decodeOverlayPng(pngBytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, bounds)
+        val opts = BitmapFactory.Options().apply {
+            inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+            inScaled = false
+        }
+        val pixels = bounds.outWidth * bounds.outHeight
+        if (pixels > 1920 * 1080) {
+            opts.inSampleSize = 2
+        }
+        return try {
+            BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts)
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "OOM decoding overlay — retrying at quarter size", e)
+            opts.inSampleSize = 4
+            try {
+                BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts)
+            } catch (e2: OutOfMemoryError) {
+                Log.e(TAG, "OOM decoding overlay at quarter size", e2)
+                null
+            }
         }
     }
 
@@ -273,6 +298,7 @@ class StreamOverlayBurnIn(
         pendingPng = null
         pendingWidth = 0
         pendingHeight = 0
+        clearLiveOverlaySession()
         if (filter != null) {
             filter?.setAlpha(0f)
             Log.d(TAG, "Overlay cleared (alpha=0)")
@@ -297,9 +323,5 @@ class StreamOverlayBurnIn(
 
     companion object {
         private const val TAG = "StreamOverlayBurnIn"
-        private val BITMAP_OPTS = BitmapFactory.Options().apply {
-            inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
-            inScaled = false
-        }
     }
 }

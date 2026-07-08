@@ -77,6 +77,41 @@ enum StreamResolutionPreset {
   p4k,
 }
 
+/// Resolutions offered in the studio picker — camera captures natively up to 1080p.
+const kSupportedStreamResolutions = <StreamResolutionPreset>[
+  StreamResolutionPreset.p480,
+  StreamResolutionPreset.p720,
+  StreamResolutionPreset.p1080,
+];
+
+/// Resolutions when 1080p isn't reliable (manual RTMP keys — YouTube manual,
+/// Facebook, custom RTMP — where the platform stream is tied to a fixed ingest).
+const kManualStreamResolutions = <StreamResolutionPreset>[
+  StreamResolutionPreset.p480,
+  StreamResolutionPreset.p720,
+];
+
+/// Default / recommended resolution shown in the studio picker.
+const kRecommendedStreamResolution = StreamResolutionPreset.p720;
+
+/// 1080p is only reliable on YouTube automatic (fresh `variable` ingest).
+/// Manual RTMP destinations use the platform's fixed stream and can stall at 1080p.
+bool streamSupports1080p({
+  required StreamPlatform platform,
+  required StreamBroadcastSetupMode setupMode,
+}) =>
+    platform == StreamPlatform.youtube &&
+    setupMode == StreamBroadcastSetupMode.automatic;
+
+/// Resolutions offered for the given destination/setup mode.
+List<StreamResolutionPreset> supportedStreamResolutionsFor({
+  required StreamPlatform platform,
+  required StreamBroadcastSetupMode setupMode,
+}) =>
+    streamSupports1080p(platform: platform, setupMode: setupMode)
+        ? kSupportedStreamResolutions
+        : kManualStreamResolutions;
+
 enum StreamFps { fps24, fps30, fps60 }
 
 enum StreamBitrateMode { adaptive, manual }
@@ -86,6 +121,44 @@ enum StreamLatencyPreset {
   low,
   normal,
   highQuality,
+}
+
+extension StreamLatencyPresetX on StreamLatencyPreset {
+  String get label => switch (this) {
+        StreamLatencyPreset.ultraLow => 'Ultra low',
+        StreamLatencyPreset.low => 'Low',
+        StreamLatencyPreset.normal => 'Normal',
+        StreamLatencyPreset.highQuality => 'High quality',
+      };
+
+  /// Tunes encoder bitrate — lower latency uses a leaner bitrate profile.
+  int adjustBitrateKbps(int baseKbps) => switch (this) {
+        StreamLatencyPreset.ultraLow => (baseKbps * 0.82).round().clamp(800, 20000),
+        StreamLatencyPreset.low => (baseKbps * 0.92).round(),
+        StreamLatencyPreset.normal => baseKbps,
+        StreamLatencyPreset.highQuality => (baseKbps * 1.1).round(),
+      };
+}
+
+extension StreamFpsX on StreamFps {
+  String get label => switch (this) {
+        StreamFps.fps24 => '24 fps',
+        StreamFps.fps30 => '30 fps',
+        StreamFps.fps60 => '60 fps',
+      };
+
+  int get value => switch (this) {
+        StreamFps.fps24 => 24,
+        StreamFps.fps30 => 30,
+        StreamFps.fps60 => 60,
+      };
+}
+
+extension StreamBitrateModeX on StreamBitrateMode {
+  String get label => switch (this) {
+        StreamBitrateMode.adaptive => 'Adaptive',
+        StreamBitrateMode.manual => 'Manual',
+      };
 }
 
 enum StreamVideoCodec { h264, h265 }

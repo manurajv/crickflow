@@ -6,6 +6,7 @@ import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../data/models/match_model.dart';
 import '../../../../../shared/providers/providers.dart';
 import '../../../domain/streaming_enums.dart';
+import '../../../domain/streaming_mode.dart';
 import '../../providers/streaming_studio_providers.dart';
 
 class StreamMatchInfoSection extends StatelessWidget {
@@ -48,24 +49,56 @@ class StreamQualitySection extends ConsumerWidget {
           children: [
             const Text('Video quality',
                 style: TextStyle(fontWeight: FontWeight.bold)),
-            DropdownButtonFormField<StreamResolutionPreset>(
-              value: config.resolution,
-              decoration: const InputDecoration(labelText: 'Resolution'),
-              items: StreamResolutionPreset.values
-                  .map((r) => DropdownMenuItem(
-                        value: r,
-                        child: Text(r.mapping.label),
-                      ))
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) notifier.update((c) => c.copyWith(resolution: v));
-              },
+            Text(
+              'Applied on next go-live · ${config.effectiveBitrateKbps} kbps target',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
+            const SizedBox(height: 8),
+            Builder(builder: (context) {
+              final options = supportedStreamResolutionsFor(
+                platform: config.platform,
+                setupMode: config.broadcastSetupMode,
+              );
+              final selected = options.contains(config.resolution)
+                  ? config.resolution
+                  : kRecommendedStreamResolution;
+              return DropdownButtonFormField<StreamResolutionPreset>(
+                value: selected,
+                decoration: const InputDecoration(labelText: 'Resolution'),
+                items: options
+                    .map((r) => DropdownMenuItem(
+                          value: r,
+                          child: Text(
+                            r == kRecommendedStreamResolution
+                                ? '${r.mapping.label} (Recommended)'
+                                : r.mapping.label,
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    notifier.update((c) => c.copyWith(resolution: v));
+                  }
+                },
+              );
+            }),
+            if (!streamSupports1080p(
+              platform: config.platform,
+              setupMode: config.broadcastSetupMode,
+            ))
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '1080p is available only on YouTube in Automatic mode. '
+                  'Manual RTMP (YouTube manual, Facebook, custom) supports up to 720p.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             DropdownButtonFormField<StreamFps>(
               value: config.fps,
-              decoration: const InputDecoration(labelText: 'FPS'),
+              decoration: const InputDecoration(labelText: 'Frame rate'),
               items: StreamFps.values
-                  .map((f) => DropdownMenuItem(value: f, child: Text(f.name)))
+                  .map((f) => DropdownMenuItem(value: f, child: Text(f.label)))
                   .toList(),
               onChanged: (v) {
                 if (v != null) notifier.update((c) => c.copyWith(fps: v));
@@ -73,19 +106,34 @@ class StreamQualitySection extends ConsumerWidget {
             ),
             DropdownButtonFormField<StreamBitrateMode>(
               value: config.bitrateMode,
-              decoration: const InputDecoration(labelText: 'Bitrate'),
+              decoration: const InputDecoration(labelText: 'Bitrate mode'),
               items: StreamBitrateMode.values
-                  .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
+                  .map((b) => DropdownMenuItem(value: b, child: Text(b.label)))
                   .toList(),
               onChanged: (v) {
                 if (v != null) notifier.update((c) => c.copyWith(bitrateMode: v));
               },
             ),
+            if (config.bitrateMode == StreamBitrateMode.manual)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('${config.manualBitrateKbps} kbps'),
+                subtitle: Slider(
+                  value: config.manualBitrateKbps.toDouble(),
+                  min: 800,
+                  max: 12000,
+                  divisions: 46,
+                  label: '${config.manualBitrateKbps} kbps',
+                  onChanged: (v) => notifier.update(
+                    (c) => c.copyWith(manualBitrateKbps: v.round()),
+                  ),
+                ),
+              ),
             DropdownButtonFormField<StreamLatencyPreset>(
               value: config.latency,
-              decoration: const InputDecoration(labelText: 'Latency'),
+              decoration: const InputDecoration(labelText: 'Latency profile'),
               items: StreamLatencyPreset.values
-                  .map((l) => DropdownMenuItem(value: l, child: Text(l.name)))
+                  .map((l) => DropdownMenuItem(value: l, child: Text(l.label)))
                   .toList(),
               onChanged: (v) {
                 if (v != null) notifier.update((c) => c.copyWith(latency: v));
@@ -127,6 +175,7 @@ class StreamAudioSection extends ConsumerWidget {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Noise suppression'),
+              subtitle: const Text('Applied on next go-live'),
               value: config.noiseSuppression,
               onChanged: (v) =>
                   notifier.update((c) => c.copyWith(noiseSuppression: v)),
@@ -134,6 +183,7 @@ class StreamAudioSection extends ConsumerWidget {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Echo cancellation'),
+              subtitle: const Text('Applied on next go-live'),
               value: config.echoCancellation,
               onChanged: (v) =>
                   notifier.update((c) => c.copyWith(echoCancellation: v)),
@@ -158,97 +208,47 @@ class StreamAudioSection extends ConsumerWidget {
   }
 }
 
-class StreamOverlaySettingsSection extends ConsumerWidget {
-  const StreamOverlaySettingsSection({super.key, required this.matchId});
-
-  final String matchId;
+class StreamObsQualityNote extends StatelessWidget {
+  const StreamObsQualityNote({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(streamStudioConfigProvider(matchId));
-    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
-
+  Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimens.spaceMd),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Overlay settings',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            DropdownButtonFormField<StreamOverlayLayout>(
-              value: config.overlayLayout,
-              decoration: const InputDecoration(labelText: 'Layout'),
-              items: StreamOverlayLayout.values
-                  .map((l) => DropdownMenuItem(value: l, child: Text(l.name)))
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) notifier.update((c) => c.copyWith(overlayLayout: v));
-              },
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Sponsor banner'),
-              value: config.showSponsorBanner,
-              onChanged: (v) =>
-                  notifier.update((c) => c.copyWith(showSponsorBanner: v)),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('CrickFlow watermark'),
-              value: config.showWatermark,
-              onChanged: (v) =>
-                  notifier.update((c) => c.copyWith(showWatermark: v)),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Overlay opacity'),
-              subtitle: Slider(
-                value: config.overlayOpacity,
-                min: 0.5,
-                max: 1,
-                onChanged: (v) =>
-                    notifier.update((c) => c.copyWith(overlayOpacity: v)),
-              ),
-            ),
-          ],
+      child: ListTile(
+        leading: const Icon(Icons.info_outline),
+        title: const Text('Encoder quality'),
+        subtitle: Text(
+          'OBS / external encoder mode uses your encoder settings. '
+          'Configure resolution and bitrate in OBS.',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ),
     );
   }
 }
 
-class StreamRecordingSection extends ConsumerWidget {
-  const StreamRecordingSection({super.key, required this.matchId});
+class StreamSettingsSectionHeader extends StatelessWidget {
+  const StreamSettingsSectionHeader({super.key, required this.title});
 
-  final String matchId;
+  final String title;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(streamStudioConfigProvider(matchId));
-    final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
-
-    return Card(
-      child: Column(
-        children: [
-          SwitchListTile(
-            title: const Text('Record locally while streaming'),
-            subtitle: const Text('Saved as MP4 on device'),
-            value: config.recordLocally,
-            onChanged: (v) =>
-                notifier.update((c) => c.copyWith(recordLocally: v)),
-          ),
-          SwitchListTile(
-            title: const Text('Auto replay markers'),
-            subtitle: const Text(
-              'Flag wickets, boundaries, and milestones for highlights',
-            ),
-            value: config.autoReplayMarkers,
-            onChanged: (v) =>
-                notifier.update((c) => c.copyWith(autoReplayMarkers: v)),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6, top: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1,
+          color: color,
+        ),
       ),
     );
   }
 }
+
+bool streamSettingsShowNativeEncoderOptions(StreamingMode mode) =>
+    mode == StreamingMode.nativeCamera;

@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/match_model.dart';
 import '../../../data/models/saved_rtmp_server.dart';
+import '../../../data/models/saved_stream_key.dart';
 import '../../../data/models/stream_studio_config.dart';
 import '../../../domain/rtmp_server_presets.dart';
 import '../../../domain/streaming_enums.dart';
@@ -806,7 +807,7 @@ class _YouTubeAutomaticSetup extends ConsumerWidget {
                   borderSide: BorderSide(color: cf.border),
                 ),
               ),
-              value: selectedId,
+              initialValue: selectedId,
               items: items
                   .map(
                     (c) => DropdownMenuItem(
@@ -1120,6 +1121,8 @@ class _StreamKeyHistorySection extends ConsumerWidget {
     final historyAsync =
         ref.watch(streamKeyHistoryForPlatformProvider(config.platform));
 
+    final activeKey = config.streamKey.trim();
+
     return historyAsync.when(
       data: (entries) {
         if (entries.isEmpty) return const SizedBox.shrink();
@@ -1129,44 +1132,137 @@ class _StreamKeyHistorySection extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Recent stream keys',
+                'Saved stream keys',
                 style: TextStyle(
                   color: cf.textPrimary,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
               ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final entry in entries.take(10))
-                    ActionChip(
-                      label: Text(
-                        entry.displayLabel,
-                        style: const TextStyle(fontSize: 11),
+              const SizedBox(height: 4),
+              for (final entry in entries.take(10))
+                _SavedStreamKeyTile(
+                  cf: cf,
+                  entry: entry,
+                  selected: entry.streamKey.trim() == activeKey &&
+                      activeKey.isNotEmpty,
+                  onApply: () {
+                    notifier.update(
+                      (c) => c.copyWith(
+                        streamKey: entry.streamKey,
+                        rtmpUrl: entry.rtmpUrl.isNotEmpty
+                            ? entry.rtmpUrl
+                            : c.rtmpUrl,
                       ),
-                      side: BorderSide(color: cf.border),
-                      onPressed: () {
-                        notifier.update(
-                          (c) => c.copyWith(
-                            streamKey: entry.streamKey,
-                            rtmpUrl: entry.rtmpUrl.isNotEmpty
-                                ? entry.rtmpUrl
-                                : c.rtmpUrl,
-                          ),
-                        );
-                      },
-                    ),
-                ],
-              ),
+                    );
+                  },
+                  onDelete: () async {
+                    final confirmed = await _confirmDeleteStreamKey(
+                      context,
+                      cf,
+                      entry.keyPreview,
+                    );
+                    if (!confirmed) return;
+                    final active = config.streamKey.trim() ==
+                        entry.streamKey.trim();
+                    await ref
+                        .read(streamStudioRepositoryProvider)
+                        .deleteStreamKeyHistoryEntry(entry.id);
+                    if (active) {
+                      notifier.update((c) => c.copyWith(streamKey: ''));
+                    }
+                    ref.invalidate(streamKeyHistoryProvider);
+                    ref.invalidate(
+                      streamKeyHistoryForPlatformProvider(config.platform),
+                    );
+                  },
+                ),
             ],
           ),
         );
       },
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (e, st) => const SizedBox.shrink(),
+    );
+  }
+}
+
+Future<bool> _confirmDeleteStreamKey(
+  BuildContext context,
+  CfColors cf,
+  String keyPreview,
+) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: cf.surface,
+      title: Text('Delete stream key?', style: TextStyle(color: cf.textPrimary)),
+      content: Text(
+        'Remove the saved key ending in $keyPreview? This cannot be undone.',
+        style: TextStyle(color: cf.textSecondary),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text('Cancel', style: TextStyle(color: cf.textSecondary)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text('Delete', style: TextStyle(color: cf.error)),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
+class _SavedStreamKeyTile extends StatelessWidget {
+  const _SavedStreamKeyTile({
+    required this.cf,
+    required this.entry,
+    required this.selected,
+    required this.onApply,
+    required this.onDelete,
+  });
+
+  final CfColors cf;
+  final SavedStreamKey entry;
+  final bool selected;
+  final VoidCallback onApply;
+  final Future<void> Function() onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: Icon(
+        selected ? Icons.vpn_key : Icons.vpn_key_outlined,
+        color: selected ? cf.accent : cf.textSecondary,
+        size: 18,
+      ),
+      title: Text(
+        'Key ${entry.keyPreview}',
+        style: TextStyle(
+          color: selected ? cf.accent : cf.textPrimary,
+          fontSize: 13,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+      subtitle: entry.rtmpUrl.isNotEmpty
+          ? Text(
+              entry.rtmpUrl,
+              style: TextStyle(color: cf.textMuted, fontSize: 10),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          : null,
+      trailing: IconButton(
+        icon: Icon(Icons.delete_outline, color: cf.error, size: 20),
+        tooltip: 'Delete key',
+        onPressed: () => onDelete(),
+      ),
+      onTap: onApply,
     );
   }
 }
@@ -1261,7 +1357,7 @@ class _SavedRtmpServersSection extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (e, st) => const SizedBox.shrink(),
     );
   }
 

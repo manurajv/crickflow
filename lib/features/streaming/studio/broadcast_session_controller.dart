@@ -163,6 +163,15 @@ class BroadcastSessionController {
     if (!credsResult.isSuccess) return credsResult;
     var resolved = credsResult.config;
 
+    // 1080p only works on YouTube automatic; manual RTMP keys stall at 1080p.
+    final allowedResolutions = supportedStreamResolutionsFor(
+      platform: resolved.platform,
+      setupMode: resolved.broadcastSetupMode,
+    );
+    if (!allowedResolutions.contains(resolved.resolution)) {
+      resolved = resolved.copyWith(resolution: kRecommendedStreamResolution);
+    }
+
     if (resolved.streamKey.trim().isEmpty) {
       return BroadcastSessionResult(
         config: resolved,

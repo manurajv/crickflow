@@ -397,6 +397,43 @@ object PedroCameraBridge {
         }
     }
 
+    /**
+     * Re-asserts the full target bitrate and forces an IDR keyframe on the video encoder.
+     *
+     * After an RTMP reconnect, YouTube's ABR can lock playback to a lower rendition unless a
+     * clean keyframe at the full bitrate/resolution arrives immediately. This restores the
+     * pre-drop quality without recreating the encoder.
+     */
+    fun restoreFullQualityAfterReconnect(rtmpCamera: RtmpCamera2, bitrate: Int) {
+        if (bitrate > 0) {
+            try {
+                rtmpCamera.setVideoBitrateOnFly(bitrate)
+                Log.i(TAG, "Reconnect bitrate re-asserted: $bitrate")
+            } catch (e: Exception) {
+                Log.w(TAG, "setVideoBitrateOnFly on reconnect failed", e)
+            }
+        }
+        forceEncoderSyncFrame(rtmpCamera)
+    }
+
+    private fun forceEncoderSyncFrame(rtmpCamera: RtmpCamera2) {
+        val encoder = getVideoEncoder(rtmpCamera) ?: return
+        for (name in arrayOf("forceSyncFrame", "requestKeyframe", "requestKeyFrame")) {
+            try {
+                val method = encoder.javaClass.getMethod(name)
+                method.invoke(encoder)
+                Log.i(TAG, "Encoder keyframe forced via $name")
+                return
+            } catch (_: NoSuchMethodException) {
+                // Try next known method name across pedro versions.
+            } catch (e: Exception) {
+                Log.w(TAG, "forceEncoderSyncFrame via $name failed", e)
+                return
+            }
+        }
+        Log.w(TAG, "No force-keyframe method available on encoder")
+    }
+
     /** Stops RTMP socket and encoders even when [RtmpCamera2.isStreaming] is false (stale after disconnect). */
     fun forceHaltRtmpPublish(rtmpCamera: RtmpCamera2) {
         try {

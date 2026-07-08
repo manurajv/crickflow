@@ -20,11 +20,17 @@ class SavedStreamKey extends Equatable {
   final String label;
   final DateTime? lastUsedAt;
 
-  String get displayLabel {
-    if (label.trim().isNotEmpty) return label.trim();
+  /// Last 8 characters of the stream key — the primary identifier shown in the UI.
+  String get keyPreview {
     final key = streamKey.trim();
     if (key.length <= 8) return key;
-    return '${key.substring(0, 4)}…${key.substring(key.length - 4)}';
+    return '…${key.substring(key.length - 8)}';
+  }
+
+  /// Prefers a user-set label, otherwise the last-8 key preview (never the platform name).
+  String get displayLabel {
+    if (label.trim().isNotEmpty) return label.trim();
+    return keyPreview;
   }
 
   factory SavedStreamKey.fromMap(Map<String, dynamic> map) {

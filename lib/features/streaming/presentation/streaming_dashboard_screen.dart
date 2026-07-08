@@ -17,11 +17,11 @@ import '../obs/presentation/obs_setup_section.dart';
 import '../domain/streaming_enums.dart';
 import '../domain/streaming_mode.dart';
 import 'providers/streaming_studio_providers.dart';
+import 'widgets/studio/stream_battery_saver_overlay.dart';
 import 'widgets/studio/stream_go_live_sheet.dart';
 import 'widgets/studio/stream_studio_overlay.dart';
 import 'widgets/health/stream_live_chat_panel.dart';
 import 'widgets/camera/stream_camera_preview.dart';
-import 'widgets/health/stream_health_panel.dart';
 import 'widgets/end_live_stream_dialog.dart';
 import 'widgets/leave_stream_studio_dialog.dart';
 import 'widgets/stream_reconnecting_banner.dart';
@@ -55,6 +55,13 @@ class _StreamingDashboardScreenState
   int _lastEventCount = 0;
   int _lastEventSequence = -1;
   int _previewSession = 0;
+
+  // Battery-saver ("dim screen") state.
+  static const Duration _batterySaverAutoDelay = Duration(seconds: 60);
+  bool _batterySaverActive = false;
+  bool _sawLiveForSaver = false;
+  DateTime? _liveStartedAtForSaver;
+  Timer? _batterySaverAutoTimer;
 
   @override
   void initState() {
@@ -738,11 +745,52 @@ class _StreamingDashboardScreenState
     await ref.read(streamOverlayBurnInServiceProvider).recoverAfterLifecycle();
   }
 
+  /// Tracks live transitions so the battery-saver can auto-arm/disarm.
+  void _syncBatterySaverForLive(bool live) {
+    if (live == _sawLiveForSaver) return;
+    _sawLiveForSaver = live;
+    if (live) {
+      _liveStartedAtForSaver = DateTime.now();
+      _scheduleBatterySaverAuto();
+    } else {
+      _batterySaverAutoTimer?.cancel();
+      _liveStartedAtForSaver = null;
+      if (_batterySaverActive) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _batterySaverActive = false);
+        });
+      }
+    }
+  }
+
+  void _scheduleBatterySaverAuto() {
+    _batterySaverAutoTimer?.cancel();
+    _batterySaverAutoTimer = Timer(_batterySaverAutoDelay, () {
+      if (mounted && _isLive && !_batterySaverActive) {
+        setState(() => _batterySaverActive = true);
+      }
+    });
+  }
+
+  void _activateBatterySaver() {
+    if (!_isLive || _batterySaverActive) return;
+    _batterySaverAutoTimer?.cancel();
+    setState(() => _batterySaverActive = true);
+  }
+
+  void _dismissBatterySaver() {
+    if (!_batterySaverActive) return;
+    setState(() => _batterySaverActive = false);
+    // Re-arm auto-dim after the user wakes the screen.
+    if (_isLive) _scheduleBatterySaverAuto();
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopHeartbeat();
     _stopYouTubeStatusMonitor();
+    _batterySaverAutoTimer?.cancel();
     if (!_isLive) {
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
       _restoreSystemUi();
@@ -815,6 +863,21 @@ class _StreamingDashboardScreenState
       },
     );
 
+    ref.listen(
+      streamStudioConfigProvider(widget.matchId).select((c) => c.resolution),
+      (prev, next) {
+        if (prev == next || _isLive) return;
+        final config = ref.read(streamStudioConfigProvider(widget.matchId));
+        if (config.streamingMode == StreamingMode.externalEncoder) return;
+        setState(() {
+          _cameraLoading = true;
+          _cameraError = null;
+          _previewSession++;
+        });
+        unawaited(_initCamera());
+      },
+    );
+
     final matchAsync = ref.watch(matchProvider(widget.matchId));
     final overlayAsync = ref.watch(overlayProvider(widget.matchId));
     final canStart = ref.watch(streamCanStartProvider(widget.matchId));
@@ -824,6 +887,7 @@ class _StreamingDashboardScreenState
     final obsCredentials = broadcastController.credentialsFromConfig(config);
     final isObs = config.streamingMode == StreamingMode.externalEncoder;
     final cameraReady = isObs || (!_cameraLoading && service.isInitialized);
+    _syncBatterySaverForLive(_isLive && !isObs);
 
     return matchAsync.when(
       data: (match) {
@@ -876,10 +940,6 @@ class _StreamingDashboardScreenState
                           matchId: widget.matchId,
                           credentials: obsCredentials,
                         ),
-                        if (_isLive) ...[
-                          const SizedBox(height: 12),
-                          const StreamHealthPanel(),
-                        ],
                       ],
                     ),
                   ),
@@ -914,6 +974,8 @@ class _StreamingDashboardScreenState
                 onNavigateBack: _handleNavigateBack,
                 onEndStream: _isLive ? _endStream : null,
                 onMarkReplay: _isLive ? () => _markReplay(match) : null,
+                onBatterySaver:
+                    _isLive && !isObs ? _activateBatterySaver : null,
               ),
               if (_isLive && !isObs)
                 Positioned(
@@ -926,6 +988,11 @@ class _StreamingDashboardScreenState
                       StreamLiveChatPanel(matchId: widget.matchId),
                     ],
                   ),
+                ),
+              if (_isLive && !isObs && _batterySaverActive)
+                StreamBatterySaverOverlay(
+                  liveStartedAt: _liveStartedAtForSaver,
+                  onWake: _dismissBatterySaver,
                 ),
             ],
           ),

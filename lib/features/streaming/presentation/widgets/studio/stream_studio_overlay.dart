@@ -12,15 +12,14 @@ import '../../../../../shared/providers/providers.dart';
 import '../../../data/models/stream_studio_config.dart';
 import '../../../domain/streaming_enums.dart';
 import '../../providers/streaming_studio_providers.dart';
-import 'stream_camera_settings_sheet.dart';
 import 'stream_platform_setup_info_sheet.dart';
 import 'stream_studio_quick_settings_sheet.dart';
+import '../health/stream_health_overlay.dart';
 import 'studio_landscape_rotation.dart';
 
 const _kTopBarH = 48.0;
 const _kQuickRowH = 40.0;
 const _kDestinationStackGap = 6.0;
-const _kDestinationStackH = _kQuickRowH + _kDestinationStackGap + _kQuickRowH;
 const _kPreLiveRowH = 44.0;
 const _kBroadcastBtnH = 50.0;
 const _kBottomLiveH = 44.0;
@@ -64,6 +63,7 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
     this.onNavigateBack,
     this.onEndStream,
     this.onMarkReplay,
+    this.onBatterySaver,
   });
 
   final String matchId;
@@ -79,6 +79,7 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
   final Future<void> Function()? onNavigateBack;
   final VoidCallback? onEndStream;
   final VoidCallback? onMarkReplay;
+  final VoidCallback? onBatterySaver;
 
   @override
   ConsumerState<StreamStudioOverlay> createState() => _StreamStudioOverlayState();
@@ -87,7 +88,6 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
 class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     with TickerProviderStateMixin {
   bool _chromeHidden = false;
-  bool _statsVisible = false;
   Timer? _autoHideTimer;
   Timer? _durationTimer;
   DateTime? _liveStartedAt;
@@ -110,7 +110,6 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     if (widget.isLive) {
       _liveStartedAt = DateTime.now();
       _startDurationTicker();
-      _statsVisible = true;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || widget.isObsMode || _chromeHidden) return;
@@ -133,7 +132,6 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
     if (widget.isLive && !oldWidget.isLive) {
       _liveStartedAt = DateTime.now();
       _startDurationTicker();
-      _statsVisible = true;
       _scheduleAutoHide();
       _livePulse.repeat(reverse: true);
     } else if (!widget.isLive && oldWidget.isLive) {
@@ -434,10 +432,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                                   widget.onOpenBroadcastSetup,
                             )
                         : null,
-                    onToggleStats: widget.isLive
-                        ? () => setState(() => _statsVisible = !_statsVisible)
-                        : null,
-                    statsVisible: _statsVisible,
+                    showHealthOverlay: false,
                   ),
                 )
               : SafeArea(
@@ -498,11 +493,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                                     widget.onOpenBroadcastSetup,
                               )
                           : null,
-                      onToggleStats: widget.isLive
-                          ? () =>
-                              setState(() => _statsVisible = !_statsVisible)
-                          : null,
-                      statsVisible: _statsVisible,
+                      showHealthOverlay: false,
                     ),
                   ),
                 ),
@@ -534,30 +525,13 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
               setState(() => _chromeHidden = true);
               _autoHideTimer?.cancel();
             },
-            onExposure: widget.isObsMode || !widget.cameraReady
-                ? null
-                : () => showStreamCameraSettingsSheet(
-                      context,
-                      matchId: widget.matchId,
-                      cameraReady: widget.cameraReady,
-                    ),
           ),
         ),
-        if (_statsVisible && widget.isLive)
+        if (!widget.isObsMode)
           Positioned(
-            top: subBarTop + _kDestinationStackH + 6,
-            right: pad.right + _kEdge,
-            child: _StatsCard(
-              cf: cf,
-              fps: health?.fps,
-              kbps: health?.bitrateKbps,
-              dropped: health?.droppedVideoFrames,
-              uploadKbps: health?.uploadSpeedKbps,
-              connectionQuality: health?.connectionQuality,
-              isReconnecting:
-                  service.isReconnecting || (health?.isReconnecting ?? false),
-              onClose: () => setState(() => _statsVisible = false),
-            ),
+            top: subBarTop,
+            left: sideInset,
+            child: const StreamLiveStatsPill(),
           ),
         if (showPreLiveEssentials)
           Positioned(
@@ -623,6 +597,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                   cf: cf,
                   onMarkReplay: widget.onMarkReplay,
                   onEndLive: widget.onEndStream,
+                  onBatterySaver: widget.onBatterySaver,
                 ),
               ),
             ),
@@ -651,11 +626,10 @@ class _StudioTopBar extends StatelessWidget {
     this.onMic,
     this.onFlip,
     this.onOrientation,
-    this.onToggleStats,
     this.connectionQuality,
     this.isReconnecting = false,
     this.orientation = StreamOrientationMode.portrait,
-    this.statsVisible = false,
+    this.showHealthOverlay = false,
   });
 
   final CfColors cf;
@@ -666,20 +640,21 @@ class _StudioTopBar extends StatelessWidget {
   final StreamConnectionQuality? connectionQuality;
   final bool isReconnecting;
   final StreamOrientationMode orientation;
-  final bool statsVisible;
+  final bool showHealthOverlay;
   final VoidCallback? onBack;
   final VoidCallback? onMic;
   final VoidCallback? onFlip;
   final VoidCallback? onOrientation;
   final VoidCallback? onSettings;
-  final VoidCallback? onToggleStats;
 
   @override
   Widget build(BuildContext context) {
     return _GlassPanel(
       cf: cf,
-      height: _kTopBarH,
-      child: Row(
+      height: showHealthOverlay ? null : _kTopBarH,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: showHealthOverlay ? 4 : 0),
+        child: Row(
         children: [
           if (onBack != null)
             _RoundIcon(cf: cf, icon: Icons.arrow_back_rounded, onTap: onBack)
@@ -710,6 +685,7 @@ class _StudioTopBar extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                if (showHealthOverlay) const StreamHealthOverlay(),
               ],
             ),
           ),
@@ -750,15 +726,6 @@ class _StudioTopBar extends StatelessWidget {
               onTap: onOrientation,
               tooltip: orientation.studioLabel,
             ),
-          if (onToggleStats != null)
-            _RoundIcon(
-              cf: cf,
-              icon: statsVisible
-                  ? Icons.insights_rounded
-                  : Icons.insights_outlined,
-              selected: statsVisible,
-              onTap: onToggleStats,
-            ),
           if (onSettings != null)
             _RoundIcon(
               cf: cf,
@@ -767,6 +734,7 @@ class _StudioTopBar extends StatelessWidget {
               tooltip: 'Stream settings',
             ),
         ],
+        ),
       ),
     );
   }
@@ -779,7 +747,6 @@ class _StudioDestinationPanel extends StatelessWidget {
     required this.config,
     required this.isObs,
     required this.onHideUi,
-    this.onExposure,
   });
 
   final CfColors cf;
@@ -787,7 +754,6 @@ class _StudioDestinationPanel extends StatelessWidget {
   final StreamStudioConfig config;
   final bool isObs;
   final VoidCallback onHideUi;
-  final VoidCallback? onExposure;
 
   bool get _showSetupInfo => !isObs;
 
@@ -802,7 +768,6 @@ class _StudioDestinationPanel extends StatelessWidget {
         _StudioQuickActions(
           cf: cf,
           onHideUi: onHideUi,
-          onExposure: onExposure,
         ),
         const SizedBox(height: _kDestinationStackGap),
         Row(
@@ -858,12 +823,10 @@ class _StudioQuickActions extends StatelessWidget {
   const _StudioQuickActions({
     required this.cf,
     required this.onHideUi,
-    this.onExposure,
   });
 
   final CfColors cf;
   final VoidCallback onHideUi;
-  final VoidCallback? onExposure;
 
   @override
   Widget build(BuildContext context) {
@@ -878,15 +841,6 @@ class _StudioQuickActions extends StatelessWidget {
             label: 'Hide',
             onTap: onHideUi,
           ),
-          if (onExposure != null) ...[
-            const SizedBox(width: 6),
-            _UtilityBtn(
-              cf: cf,
-              icon: Icons.exposure_outlined,
-              label: 'Exposure',
-              onTap: onExposure,
-            ),
-          ],
         ],
       ),
     );
@@ -1044,11 +998,13 @@ class _StudioLiveActionsBar extends StatelessWidget {
     required this.cf,
     this.onMarkReplay,
     this.onEndLive,
+    this.onBatterySaver,
   });
 
   final CfColors cf;
   final VoidCallback? onMarkReplay;
   final VoidCallback? onEndLive;
+  final VoidCallback? onBatterySaver;
 
   @override
   Widget build(BuildContext context) {
@@ -1063,6 +1019,13 @@ class _StudioLiveActionsBar extends StatelessWidget {
             icon: Icons.flag_outlined,
             label: 'Mark',
             onTap: onMarkReplay,
+          ),
+          const SizedBox(width: 8),
+          _UtilityBtn(
+            cf: cf,
+            icon: Icons.dark_mode_outlined,
+            label: 'Dim',
+            onTap: onBatterySaver,
           ),
           const SizedBox(width: 8),
           _StudioActionButton(
@@ -1207,76 +1170,6 @@ class _BroadcastStatusButton extends StatelessWidget {
     );
 
     return child;
-  }
-}
-
-class _StatsCard extends StatelessWidget {
-  const _StatsCard({
-    required this.cf,
-    this.fps,
-    this.kbps,
-    this.dropped,
-    this.uploadKbps,
-    this.connectionQuality,
-    this.isReconnecting = false,
-    required this.onClose,
-  });
-
-  final CfColors cf;
-  final int? fps;
-  final int? kbps;
-  final int? dropped;
-  final double? uploadKbps;
-  final StreamConnectionQuality? connectionQuality;
-  final bool isReconnecting;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassPanel(
-      cf: cf,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isReconnecting ? 'Reconnecting' : 'Stream health',
-                  style: TextStyle(
-                    color: isReconnecting ? cf.error : cf.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: onClose,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: Icon(Icons.close, size: 14, color: cf.textMuted),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              [
-                if (fps != null) '$fps fps',
-                if (kbps != null) '$kbps kbps',
-                if (dropped != null && dropped! > 0) '$dropped drop',
-                if (uploadKbps != null) '↑${uploadKbps!.round()}k',
-                if (connectionQuality != null)
-                  _connectionLabel(connectionQuality!),
-              ].join(' · '),
-              style: TextStyle(color: cf.textPrimary, fontSize: 11),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -1765,11 +1658,3 @@ Color _connectionColor(
     StreamConnectionQuality.unknown => cf.textMuted,
   };
 }
-
-String _connectionLabel(StreamConnectionQuality q) => switch (q) {
-      StreamConnectionQuality.excellent => 'Excellent',
-      StreamConnectionQuality.good => 'Good',
-      StreamConnectionQuality.fair => 'Fair',
-      StreamConnectionQuality.poor => 'Poor',
-      StreamConnectionQuality.unknown => 'Unknown',
-    };

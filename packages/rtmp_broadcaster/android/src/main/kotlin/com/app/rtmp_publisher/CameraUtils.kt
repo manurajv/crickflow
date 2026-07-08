@@ -22,8 +22,10 @@ object CameraUtils {
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     fun computeBestPreviewSize(cameraName: String, presetArg: ResolutionPreset): Size {
         var preset = presetArg
-        if (preset.ordinal > ResolutionPreset.high.ordinal) {
-            preset = ResolutionPreset.high
+        // Capture natively up to 1080p so the encoder pipeline stays dimensionally
+        // consistent (no 720p→1080p GL upscale). 1440p/4K capture is capped at 1080p.
+        if (preset.ordinal > ResolutionPreset.veryHigh.ordinal) {
+            preset = ResolutionPreset.veryHigh
         }
         val profile = getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset)
         return Size(profile.videoFrameWidth, profile.videoFrameHeight)

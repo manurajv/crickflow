@@ -26,7 +26,7 @@ class CameraNativeView(
     viewContext: Context,
     private var activity: Activity? = null,
     private val enableAudio: Boolean = false,
-    private val preset: Camera.ResolutionPreset,
+    private var preset: Camera.ResolutionPreset,
     private var cameraName: String,
     private var dartMessenger: DartMessenger? = null
 ) :
@@ -62,6 +62,8 @@ class CameraNativeView(
     private var lastMicEnabled: Boolean = true
     private var encoderPipelineLinked = false
     private var rtmpTransportUnstable = false
+    /** True once RTMP has connected in this session — later connects are reconnects. */
+    private var hasConnectedOnce = false
 
     init {
         // Fill the view — letterboxing (isKeepAspectRatio) leaves bars outdoors.
@@ -233,6 +235,87 @@ class CameraNativeView(
     private fun resetPreviewGlLock() {
         previewGlLocked = false
         lockedGlConfig = null
+    }
+
+    /**
+     * Re-syncs capture preset when Flutter re-inits the camera (e.g. resolution change).
+     * Resets frozen GL/overlay state so encoder and overlay PNG dimensions stay aligned.
+     */
+    fun applyCapturePreset(newPreset: Camera.ResolutionPreset): Boolean {
+        if (rtmpCamera.isStreaming) {
+            if (newPreset != preset) {
+                Log.w("CameraNativeView", "Ignoring preset change while streaming")
+            }
+            return false
+        }
+        preset = newPreset
+        resetPreviewGlLock()
+        overlayBurnIn.release()
+        encoderPipelineLinked = false
+        encoderPrepared = false
+
+        val act = activity ?: return true
+        if (!isSurfaceCreated || !PreviewSurfaceLifecycle.isHolderSurfaceValid(glView)) {
+            return true
+        }
+        return try {
+            if (rtmpCamera.isOnPreview) {
+                PreviewOrientationPolicy.reconfigurePreview(
+                    rtmpCamera,
+                    glView,
+                    act,
+                    cameraName,
+                    preset,
+                    lockedOrientationMode,
+                    previewFacing(),
+                    preserveStream = false,
+                )
+            }
+            lockPreviewGlAtFirstStart()
+            Log.i("CameraNativeView", "Capture preset applied: $preset")
+            true
+        } catch (e: Exception) {
+            Log.e("CameraNativeView", "applyCapturePreset", e)
+            false
+        }
+    }
+
+    private fun ensureGlLockMatchesPreset() {
+        if (!previewGlLocked) return
+        val act = activity ?: return
+        val fresh = BroadcastGlConfig.compute(act, cameraName, preset, lockedOrientationMode)
+        val locked = lockedGlConfig ?: return
+        if (locked.encoderWidth == fresh.encoderWidth &&
+            locked.encoderHeight == fresh.encoderHeight &&
+            locked.previewGlWidth == fresh.previewGlWidth &&
+            locked.previewGlHeight == fresh.previewGlHeight
+        ) {
+            return
+        }
+        Log.w(
+            "CameraNativeView",
+            "Stale GL lock enc=${locked.encoderWidth}x${locked.encoderHeight} " +
+                "previewGl=${locked.previewGlWidth}x${locked.previewGlHeight} " +
+                "— resetting for preset $preset (${fresh.encoderWidth}x${fresh.encoderHeight})",
+        )
+        resetPreviewGlLock()
+        overlayBurnIn.release()
+        encoderPipelineLinked = false
+        if (isSurfaceCreated && PreviewSurfaceLifecycle.isHolderSurfaceValid(glView)) {
+            if (rtmpCamera.isOnPreview) {
+                PreviewOrientationPolicy.reconfigurePreview(
+                    rtmpCamera,
+                    glView,
+                    act,
+                    cameraName,
+                    preset,
+                    lockedOrientationMode,
+                    previewFacing(),
+                    preserveStream = false,
+                )
+            }
+            lockPreviewGlAtFirstStart()
+        }
     }
 
     private fun configurePreviewForOrientation() {
@@ -572,6 +655,7 @@ class CameraNativeView(
         }
         encoderPipelineLinked = false
         rtmpTransportUnstable = false
+        hasConnectedOnce = false
         overlayBurnIn.glUpdatesPaused = false
         resetPreviewGlLock()
         encoderPrepared = false
@@ -585,11 +669,21 @@ class CameraNativeView(
 
     override fun onConnectionSuccessRtmp() {
         Log.i("CameraNativeView", "RTMP connected")
+        val wasReconnect = hasConnectedOnce
+        hasConnectedOnce = true
         activity?.runOnUiThread {
             rtmpTransportUnstable = false
             overlayBurnIn.glUpdatesPaused = false
             if (rtmpCamera.isStreaming) {
                 linkEncoderPipeline(fullRebuild = true, forceRelink = true)
+                if (wasReconnect) {
+                    // Restore pre-drop quality: re-assert bitrate + force keyframe so
+                    // YouTube ABR re-locks to the full rendition after the ingest gap.
+                    PedroCameraBridge.restoreFullQualityAfterReconnect(
+                        rtmpCamera,
+                        lastStreamBitrate,
+                    )
+                }
             }
             schedulePreviewReattach()
             dartMessenger?.send(DartMessenger.EventType.RTMP_CONNECTED, null)
@@ -739,6 +833,7 @@ class CameraNativeView(
             ensurePreviewRunning()
         }
 
+        ensureGlLockMatchesPreset()
         if (!previewGlLocked) {
             lockPreviewGlAtFirstStart()
         }
@@ -771,41 +866,64 @@ class CameraNativeView(
             glRot = glConfig.glRotation,
         )
         val encRot = glConfig.videoEncoderRotation
-        val prepared = if (rtmpCamera.isRecording) {
-            rtmpCamera.prepareVideo(
-                encW,
-                encH,
-                30,
-                videoBitrate,
-                2,
-                encRot,
+        val prepared = try {
+            if (rtmpCamera.isRecording) {
+                rtmpCamera.prepareVideo(
+                    encW,
+                    encH,
+                    30,
+                    videoBitrate,
+                    2,
+                    encRot,
+                )
+            } else {
+                rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
+                    encW,
+                    encH,
+                    30,
+                    videoBitrate,
+                    2,
+                    encRot,
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(
+                "CameraNativeView",
+                "prepareVideo failed enc=${encW}x$encH bitrate=$videoBitrate",
+                e,
             )
-        } else {
-            rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
-                encW,
-                encH,
-                30,
-                videoBitrate,
-                2,
-                encRot,
-            )
+            encoderPrepared = false
+            overlayBurnIn.release()
+            return false
         }
         if (!prepared) {
             encoderPrepared = false
+            overlayBurnIn.release()
             return false
         }
         encoderPrepared = true
         lastStreamUrl = url
         lastStreamBitrate = videoBitrate
         lastMicEnabled = micEnabled
-        if (micEnabled) {
-            rtmpCamera.enableAudio()
-        } else {
-            rtmpCamera.disableAudio()
+        return try {
+            if (micEnabled) {
+                rtmpCamera.enableAudio()
+            } else {
+                rtmpCamera.disableAudio()
+            }
+            rtmpCamera.startStream(url)
+            applyStreamRotationIfLive()
+            true
+        } catch (e: Exception) {
+            Log.e("CameraNativeView", "startStream failed", e)
+            encoderPrepared = false
+            overlayBurnIn.release()
+            try {
+                if (rtmpCamera.isStreaming) rtmpCamera.stopStream()
+            } catch (_: Exception) {
+            }
+            false
         }
-        rtmpCamera.startStream(url)
-        applyStreamRotationIfLive()
-        return true
     }
 
     fun startVideoRecordingAndStreaming(
@@ -850,6 +968,7 @@ class CameraNativeView(
             try {
                 overlayBurnIn.release()
                 rtmpTransportUnstable = false
+                hasConnectedOnce = false
                 overlayBurnIn.glUpdatesPaused = false
                 encoderPipelineLinked = false
                 if (rtmpCamera.isRecording) {
@@ -923,6 +1042,8 @@ class CameraNativeView(
                     return@runOnMain
                 }
                 linkEncoderPipeline(fullRebuild = true, forceRelink = true)
+                // Full-quality restore (bitrate re-assert + keyframe) runs in
+                // onConnectionSuccessRtmp once the socket actually reconnects.
                 schedulePreviewReattach()
                 result.success(null)
             } catch (e: Exception) {
@@ -954,9 +1075,15 @@ class CameraNativeView(
 
     fun stopVideoStreaming(result: MethodChannel.Result) {
         try {
+            overlayBurnIn.release()
+            encoderPipelineLinked = false
+            rtmpTransportUnstable = false
+            hasConnectedOnce = false
+            overlayBurnIn.glUpdatesPaused = false
             rtmpCamera.apply {
                 if (isStreaming) stopStream()
             }
+            encoderPrepared = false
             result.success(null)
         } catch (e: CameraAccessException) {
             result.error("stopVideoStreamingFailed", e.message, null)

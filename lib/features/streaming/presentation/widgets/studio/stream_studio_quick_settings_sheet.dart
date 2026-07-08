@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/match_model.dart';
+import '../../../data/models/stream_studio_config.dart';
+import '../../../domain/streaming_enums.dart';
+import '../../../domain/streaming_mode.dart';
 import '../../../settings/presentation/stream_mode_selector.dart';
 import '../../providers/streaming_studio_providers.dart';
 import '../camera/stream_camera_controls.dart';
-import 'stream_camera_settings_sheet.dart';
-import 'stream_setup_bottom_sheet.dart';
+import '../dashboard/stream_dashboard_sections.dart';
+import 'stream_setup_checklist.dart';
 
 Future<void> showStreamStudioQuickSettingsSheet(
   BuildContext context, {
@@ -23,11 +27,11 @@ Future<void> showStreamStudioQuickSettingsSheet(
     backgroundColor: Colors.transparent,
     useSafeArea: true,
     builder: (ctx) => DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.85,
+      initialChildSize: 0.82,
+      minChildSize: 0.45,
+      maxChildSize: 0.94,
       builder: (context, scrollController) {
-        return _QuickSettingsSheet(
+        return _StreamSettingsSheet(
           scrollController: scrollController,
           matchId: matchId,
           match: match,
@@ -40,8 +44,27 @@ Future<void> showStreamStudioQuickSettingsSheet(
   );
 }
 
-class _QuickSettingsSheet extends ConsumerWidget {
-  const _QuickSettingsSheet({
+/// Alias kept for any legacy callers.
+Future<void> showStreamSetupSheet(
+  BuildContext context, {
+  required String matchId,
+  required MatchModel match,
+  required bool canStart,
+  required bool cameraLoading,
+  required VoidCallback onOpenBroadcastSetup,
+}) {
+  return showStreamStudioQuickSettingsSheet(
+    context,
+    matchId: matchId,
+    match: match,
+    canStart: canStart,
+    cameraReady: !cameraLoading,
+    onOpenBroadcastSetup: onOpenBroadcastSetup,
+  );
+}
+
+class _StreamSettingsSheet extends ConsumerWidget {
+  const _StreamSettingsSheet({
     required this.scrollController,
     required this.matchId,
     required this.match,
@@ -62,6 +85,7 @@ class _QuickSettingsSheet extends ConsumerWidget {
     final cf = context.cf;
     final config = ref.watch(streamStudioConfigProvider(matchId));
     final notifier = ref.read(streamStudioConfigProvider(matchId).notifier);
+    final isNative = config.streamingMode == StreamingMode.nativeCamera;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -81,9 +105,11 @@ class _QuickSettingsSheet extends ConsumerWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: Row(
               children: [
+                Icon(Icons.tune_rounded, color: cf.accent, size: 18),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Stream settings',
@@ -99,93 +125,161 @@ class _QuickSettingsSheet extends ConsumerWidget {
                     Navigator.pop(context);
                     onOpenBroadcastSetup();
                   },
-                  child: Text(
-                    'Broadcast',
-                    style: TextStyle(color: cf.accent),
-                  ),
+                  child: Text('Broadcast', style: TextStyle(color: cf.accent)),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Done', style: TextStyle(color: cf.accent)),
                 ),
               ],
             ),
           ),
+          Divider(height: 1, color: cf.border),
           Expanded(
             child: ListView(
               controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+                AppDimens.spaceMd,
+                AppDimens.spaceLg,
+              ),
               children: [
+                if (!canStart)
+                  Card(
+                    color: cf.error,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      dense: true,
+                      title: Text(
+                        'Streaming restricted',
+                        style: TextStyle(color: cf.textPrimary, fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        'Only organizers, streamers, or scorers can go live.',
+                        style: TextStyle(
+                          color: cf.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ),
+                StreamSetupChecklist(matchId: matchId, compact: true),
+                const SizedBox(height: 10),
+                _BroadcastSetupCard(
+                  cf: cf,
+                  config: config,
+                  onOpen: () {
+                    Navigator.pop(context);
+                    onOpenBroadcastSetup();
+                  },
+                ),
+                const SizedBox(height: 10),
+                StreamMatchInfoSection(match: match),
+                const SizedBox(height: 10),
                 StreamModeSelector(matchId: matchId),
                 const SizedBox(height: 12),
+                const StreamSettingsSectionHeader(title: 'Recording'),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Record locally', style: TextStyle(color: cf.textPrimary)),
+                  title: Text(
+                    'Record locally',
+                    style: TextStyle(color: cf.textPrimary),
+                  ),
+                  subtitle: Text(
+                    isNative
+                        ? 'Saves MP4 on device while streaming'
+                        : 'Only available in native camera mode',
+                    style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                  ),
                   value: config.recordLocally,
                   activeTrackColor: cf.accent,
-                  onChanged: (v) =>
-                      notifier.update((c) => c.copyWith(recordLocally: v)),
+                  onChanged: isNative
+                      ? (v) =>
+                          notifier.update((c) => c.copyWith(recordLocally: v))
+                      : null,
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Auto replay markers', style: TextStyle(color: cf.textPrimary)),
+                  title: Text(
+                    'Auto replay markers',
+                    style: TextStyle(color: cf.textPrimary),
+                  ),
+                  subtitle: Text(
+                    'Flags wickets, boundaries, and milestones for highlights',
+                    style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                  ),
                   value: config.autoReplayMarkers,
                   activeTrackColor: cf.accent,
-                  onChanged: (v) =>
-                      notifier.update((c) => c.copyWith(autoReplayMarkers: v)),
+                  onChanged: (v) => notifier
+                      .update((c) => c.copyWith(autoReplayMarkers: v)),
                 ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Score ticker', style: TextStyle(color: cf.textPrimary)),
-                  value: config.showTicker,
-                  activeTrackColor: cf.accent,
-                  onChanged: (v) =>
-                      notifier.update((c) => c.copyWith(showTicker: v)),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Sponsor banner', style: TextStyle(color: cf.textPrimary)),
-                  value: config.showSponsorBanner,
-                  activeTrackColor: cf.accent,
-                  onChanged: (v) =>
-                      notifier.update((c) => c.copyWith(showSponsorBanner: v)),
-                ),
-                const SizedBox(height: 8),
-                CameraOrientationSelector(matchId: matchId),
-                if (cameraReady) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () => showStreamCameraSettingsSheet(
-                      context,
-                      matchId: matchId,
-                      cameraReady: cameraReady,
-                    ),
-                    icon: Icon(Icons.camera_outlined, color: cf.accent),
-                    label: Text(
-                      'Exposure',
-                      style: TextStyle(color: cf.accent),
-                    ),
-                  ),
+                if (isNative) ...[
+                  const SizedBox(height: 12),
+                  const StreamSettingsSectionHeader(title: 'Orientation'),
+                  CameraOrientationSelector(matchId: matchId),
+                  const SizedBox(height: 12),
+                  const StreamSettingsSectionHeader(title: 'Quality & audio'),
+                  StreamQualitySection(matchId: matchId),
+                  StreamAudioSection(matchId: matchId),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  const StreamSettingsSectionHeader(title: 'Encoder'),
+                  const StreamObsQualityNote(),
                 ],
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    showStreamSetupSheet(
-                      context,
-                      matchId: matchId,
-                      match: match,
-                      canStart: canStart,
-                      cameraLoading: !cameraReady,
-                      onOpenBroadcastSetup: onOpenBroadcastSetup,
-                    );
-                  },
-                  icon: Icon(Icons.open_in_new, color: cf.accent),
-                  label: Text(
-                    'Full setup (quality, overlays, recording)',
-                    style: TextStyle(color: cf.accent),
-                  ),
-                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BroadcastSetupCard extends StatelessWidget {
+  const _BroadcastSetupCard({
+    required this.cf,
+    required this.config,
+    required this.onOpen,
+  });
+
+  final CfColors cf;
+  final StreamStudioConfig config;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final configured = config.isBroadcastConfigured;
+    final platformLabel = config.platform.label;
+    final setupHint = switch (config.platform) {
+      StreamPlatform.youtube when config.broadcastSetupMode ==
+              StreamBroadcastSetupMode.automatic =>
+        'YouTube automatic · linked Google account',
+      StreamPlatform.youtube => 'YouTube manual · stream key',
+      StreamPlatform.facebook => 'Facebook Live · manual RTMP',
+      _ => 'Custom RTMP',
+    };
+
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          configured ? Icons.check_circle : Icons.live_tv,
+          color: configured ? cf.accent : cf.textSecondary,
+        ),
+        title: Text(
+          configured ? 'Broadcast configured' : 'Configure broadcast',
+          style: TextStyle(
+            color: cf.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+        subtitle: Text(
+          configured ? '$platformLabel · $setupHint' : setupHint,
+          style: TextStyle(color: cf.textSecondary, fontSize: 12),
+        ),
+        trailing: Icon(Icons.chevron_right, color: cf.accent),
+        onTap: onOpen,
       ),
     );
   }

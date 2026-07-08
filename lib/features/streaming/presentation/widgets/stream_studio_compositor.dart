@@ -94,7 +94,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       }
       if (_captureSizeLocked) return;
       final config = ref.read(streamStudioConfigProvider(widget.matchId));
-      setState(() => _encoderSize = encoderFrameSizeFor(config));
+      setState(() => _encoderSize = overlayCaptureSizeFor(config));
     });
   }
 
@@ -142,7 +142,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   }
 
   Size _encoderSizeForSession(StreamStudioConfig config) {
-    return encoderFrameSizeFor(
+    return overlayCaptureSizeFor(
       config.copyWith(orientation: _broadcastOrientation(config)),
     );
   }
@@ -165,6 +165,10 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
     if (_isLiveSession(stream)) return;
     _captureSizeLocked = false;
     _lockedLiveOrientation = null;
+    if (mounted) {
+      final config = ref.read(streamStudioConfigProvider(widget.matchId));
+      setState(() => _encoderSize = overlayCaptureSizeFor(config));
+    }
   }
 
   @override
@@ -636,10 +640,23 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
       (prev, next) {
         if (prev != next && !_captureSizeLocked && mounted) {
           setState(
-            () => _encoderSize = encoderFrameSizeFor(
+            () => _encoderSize = overlayCaptureSizeFor(
               ref.read(streamStudioConfigProvider(widget.matchId)),
             ),
           );
+        }
+      },
+    );
+    ref.listen(
+      streamStudioConfigProvider(widget.matchId).select((c) => c.resolution),
+      (prev, next) {
+        if (prev != next && !_captureSizeLocked && mounted) {
+          setState(
+            () => _encoderSize = overlayCaptureSizeFor(
+              ref.read(streamStudioConfigProvider(widget.matchId)),
+            ),
+          );
+          _scheduleBurnIn();
         }
       },
     );

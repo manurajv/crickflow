@@ -89,7 +89,8 @@ Future<void> rememberStreamKeyForConfig(
       streamKey: config.streamKey.trim(),
       platform: config.platform,
       rtmpUrl: config.rtmpUrl.trim(),
-      label: label ?? config.platform.label,
+      // No platform-name fallback — the saved-key UI shows the last 8 key digits.
+      label: label ?? '',
     ),
   );
 }

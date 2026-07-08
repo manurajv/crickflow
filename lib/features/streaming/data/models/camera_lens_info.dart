@@ -32,40 +32,12 @@ class CameraLensInfo extends Equatable {
 class CameraLensCatalog {
   CameraLensCatalog._();
 
-  static const _factorTolerance = 0.08;
-
+  /// Initial lens list before device max-zoom is known. Uses the same standard
+  /// 0.5x/1x/2x/3x slot labeling as [standardZoomLenses] so back cameras never
+  /// produce duplicate labels (e.g. "1x, 1x"); digital 2x/3x steps are added
+  /// once max zoom is queried via [standardZoomLenses]/[enrichWithDigitalZoom].
   static List<CameraLensInfo> fromCameras(List<CameraDescription> cameras) {
-    final front = cameras
-        .where((c) => c.lensDirection == CameraLensDirection.front)
-        .toList();
-    final back = cameras
-        .where((c) => c.lensDirection == CameraLensDirection.back)
-        .toList()
-      ..sort(_compareBackCameras);
-    final external = cameras
-        .where((c) => c.lensDirection == CameraLensDirection.external)
-        .toList();
-
-    final lenses = <CameraLensInfo>[];
-
-    lenses.addAll(_labelBackCameras(back));
-    for (final cam in front) {
-      lenses.add(CameraLensInfo(
-        description: cam,
-        label: 'Front',
-        zoomFactor: 1,
-        isFront: true,
-      ));
-    }
-    for (var i = 0; i < external.length; i++) {
-      lenses.add(CameraLensInfo(
-        description: external[i],
-        label: 'External ${i + 1}',
-        zoomFactor: 1,
-        isFront: false,
-      ));
-    }
-    return lenses;
+    return standardZoomLenses(cameras, 0);
   }
 
   /// Builds the back-camera zoom row: 0.5x, 1x, 2x, and 3x only.
@@ -256,39 +228,6 @@ class CameraLensCatalog {
       return '${factor.toInt()}x';
     }
     return '${factor.toStringAsFixed(1)}x';
-  }
-
-  static List<CameraLensInfo> _labelBackCameras(List<CameraDescription> back) {
-    if (back.isEmpty) return const [];
-
-    if (back.length == 1) {
-      return [
-        CameraLensInfo(
-          description: back.first,
-          label: '1x',
-          zoomFactor: 1,
-          isFront: false,
-        ),
-      ];
-    }
-
-    final baseFocal = _baseFocalLength(back);
-    return back.asMap().entries.map((entry) {
-      final cam = entry.value;
-      final focal = cam.focalLengthMm;
-      final factor = focal != null && baseFocal != null && baseFocal > 0
-          ? (focal / baseFocal).clamp(0.5, 10.0)
-          : _fallbackZoomFactor(entry.key, back.length);
-      final label = formatLensZoomLabel(factor);
-      return CameraLensInfo(
-        description: cam,
-        label: label,
-        zoomFactor: factor,
-        isFront: false,
-        isUltraWide: factor <= 0.6,
-        isTelephoto: factor >= 1.8,
-      );
-    }).toList();
   }
 
   static double? _baseFocalLength(List<CameraDescription> back) {
