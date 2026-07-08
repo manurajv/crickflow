@@ -9,6 +9,11 @@ import 'shared/providers/theme_provider.dart';
 import 'features/streaming/services/live_stream_shutdown_coordinator.dart';
 import 'shared/widgets/fcm_registration_listener.dart';
 
+/// App-wide messenger so snackbars can outlive a screen (e.g. showing
+/// "Recording saved" right after leaving the stream studio).
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
 class CrickFlowApp extends ConsumerStatefulWidget {
   const CrickFlowApp({super.key});
 
@@ -43,6 +48,7 @@ class _CrickFlowAppState extends ConsumerState<CrickFlowApp> {
 
     return MaterialApp.router(
       title: AppConstants.appName,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

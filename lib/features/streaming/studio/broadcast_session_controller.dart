@@ -202,10 +202,11 @@ class BroadcastSessionController {
     }
 
     try {
-      String? recordPath;
-      if (resolved.recordLocally) {
-        recordPath = await StreamService.defaultRecordingPath(matchId);
-      }
+      // Local recording is hidden/disabled for now — never record until the
+      // feature is completed, regardless of any persisted recordLocally flag.
+      // To re-enable, restore: if (resolved.recordLocally) recordPath =
+      //   await StreamService.defaultRecordingPath(matchId);
+      const String? recordPath = null;
       await _streamService.startStream(
         rtmpUrl: resolved.rtmpUrl,
         streamKey: resolved.streamKey,

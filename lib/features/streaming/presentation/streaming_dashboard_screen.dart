@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app.dart';
 import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/services/stream_service.dart';
@@ -30,6 +33,11 @@ import 'widgets/stream_studio_compositor.dart';
 import '../services/stream_lifecycle_log.dart';
 import '../services/stream_platform_service.dart';
 import 'providers/post_match_controller.dart';
+
+/// Replay markers start this far before the triggering moment so the highlight
+/// captures the build-up (e.g. the bowler's run-up / shot) rather than starting
+/// exactly on the boundary or wicket.
+const int _kReplayPreRollMs = 10000;
 
 /// Pre-live streaming dashboard + live broadcast studio for a match.
 class StreamingDashboardScreen extends ConsumerStatefulWidget {
@@ -419,9 +427,13 @@ class _StreamingDashboardScreenState
 
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     final started = match?.stream.startedAt;
-    final offsetMs = started == null
+    final rawOffsetMs = started == null
         ? 0
         : DateTime.now().difference(started).inMilliseconds;
+    // Roll the marker back ~10s so the replay opens on the build-up, e.g. a
+    // boundary scored at 03:20 is marked at 03:10.
+    final offsetMs =
+        (rawOffsetMs - _kReplayPreRollMs).clamp(0, rawOffsetMs).toInt();
 
     final kind = switch (graphic.type) {
       StreamEventOverlayType.wicket => ReplayMarkerKind.wicket,
@@ -656,14 +668,25 @@ class _StreamingDashboardScreenState
 
   Future<void> _endStream() async {
     if (_endingStream) return;
-    _endingStream = true;
+    if (mounted) {
+      setState(() => _endingStream = true);
+    } else {
+      _endingStream = true;
+    }
+    _batterySaverAutoTimer?.cancel();
+    if (_batterySaverActive && mounted) {
+      setState(() => _batterySaverActive = false);
+    }
     _stopHeartbeat();
     _stopYouTubeStatusMonitor();
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    final wasNative = config.streamingMode == StreamingMode.nativeCamera;
+    // Capture the local recording path before teardown so we can export it.
+    final recordingPath = wasNative && config.recordLocally && _isLive
+        ? ref.read(streamServiceProvider).lastRecordingPath
+        : null;
     if (match != null) {
-      final wasNative =
-          config.streamingMode == StreamingMode.nativeCamera;
       await ref.read(broadcastSessionControllerProvider).endBroadcast(
             matchId: widget.matchId,
             config: config,
@@ -678,6 +701,9 @@ class _StreamingDashboardScreenState
     await ref.read(streamServiceProvider).endLiveSession();
     await ActiveStreamSession.clear();
     await ref.read(streamServiceProvider).resetToPortraitUi();
+    if (recordingPath != null) {
+      await _exportRecordingToGallery(recordingPath);
+    }
     if (mounted) {
       final service = ref.read(streamServiceProvider);
       setState(() {
@@ -689,6 +715,48 @@ class _StreamingDashboardScreenState
       await Future<void>.delayed(const Duration(milliseconds: 200));
       if (!mounted) return;
       context.go('/match/${widget.matchId}?tab=live');
+    }
+  }
+
+  /// Saves the local MP4 recording into the device gallery (album "CrickFlow").
+  /// Uses the app-wide messenger so the result shows even after we navigate away.
+  Future<void> _exportRecordingToGallery(String path) async {
+    final messenger = rootScaffoldMessengerKey.currentState;
+    try {
+      final file = File(path);
+      if (!await file.exists()) return;
+
+      final hasAccess = await Gal.hasAccess(toAlbum: true);
+      if (!hasAccess) {
+        final granted = await Gal.requestAccess(toAlbum: true);
+        if (!granted) {
+          messenger?.showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Recording saved on device, but gallery permission was denied.',
+              ),
+            ),
+          );
+          return;
+        }
+      }
+
+      await Gal.putVideo(path, album: 'CrickFlow');
+      // Clean up the app-scoped copy now that it's in the gallery.
+      try {
+        await file.delete();
+      } catch (_) {}
+      messenger?.showSnackBar(
+        const SnackBar(content: Text('Recording saved to gallery (CrickFlow)')),
+      );
+    } on GalException catch (e) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Could not save recording: ${e.type.message}')),
+      );
+    } catch (_) {
+      messenger?.showSnackBar(
+        const SnackBar(content: Text('Could not save recording to gallery')),
+      );
     }
   }
 
@@ -740,7 +808,6 @@ class _StreamingDashboardScreenState
     // Always republish the same RTMP URL/key from go-live — never mint a new
     // YouTube broadcast on retry (viewers stay on the same event).
     await stream.retryConnection();
-
     if (!mounted) return;
     await ref.read(streamOverlayBurnInServiceProvider).recoverAfterLifecycle();
   }
@@ -970,9 +1037,10 @@ class _StreamingDashboardScreenState
                 cameraReady: _isLive ? true : cameraReady,
                 isLive: _isLive,
                 isStartingLive: _startingLive,
+                isEndingLive: _endingStream,
                 isObsMode: isObs,
                 onNavigateBack: _handleNavigateBack,
-                onEndStream: _isLive ? _endStream : null,
+                onEndStream: _isLive && !_endingStream ? _endStream : null,
                 onMarkReplay: _isLive ? () => _markReplay(match) : null,
                 onBatterySaver:
                     _isLive && !isObs ? _activateBatterySaver : null,
@@ -1007,9 +1075,12 @@ class _StreamingDashboardScreenState
 
   Future<void> _markReplay(MatchModel match) async {
     final started = match.stream.startedAt;
-    final offsetMs = started == null
+    final rawOffsetMs = started == null
         ? 0
         : DateTime.now().difference(started).inMilliseconds;
+    // Same 10s pre-roll as auto markers so the replay opens on the build-up.
+    final offsetMs =
+        (rawOffsetMs - _kReplayPreRollMs).clamp(0, rawOffsetMs).toInt();
     await saveReplayMarker(
       ref: ref,
       matchId: widget.matchId,

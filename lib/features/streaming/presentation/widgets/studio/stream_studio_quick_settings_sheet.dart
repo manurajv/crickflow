@@ -179,26 +179,9 @@ class _StreamSettingsSheet extends ConsumerWidget {
                 const SizedBox(height: 10),
                 StreamModeSelector(matchId: matchId),
                 const SizedBox(height: 12),
-                const StreamSettingsSectionHeader(title: 'Recording'),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Record locally',
-                    style: TextStyle(color: cf.textPrimary),
-                  ),
-                  subtitle: Text(
-                    isNative
-                        ? 'Saves MP4 on device while streaming'
-                        : 'Only available in native camera mode',
-                    style: TextStyle(color: cf.textSecondary, fontSize: 12),
-                  ),
-                  value: config.recordLocally,
-                  activeTrackColor: cf.accent,
-                  onChanged: isNative
-                      ? (v) =>
-                          notifier.update((c) => c.copyWith(recordLocally: v))
-                      : null,
-                ),
+                const StreamSettingsSectionHeader(title: 'Highlights'),
+                // NOTE: "Record locally" is hidden for now — feature to be
+                // completed later. See recordLocally in StreamStudioConfig.
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(

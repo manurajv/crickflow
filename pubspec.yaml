@@ -51,6 +51,8 @@ dependencies:
   webview_flutter: ^4.13.1
   qr_flutter: ^4.1.0
   screen_brightness: ^2.1.11
+  gal: ^2.3.2
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:

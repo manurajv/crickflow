@@ -59,6 +59,7 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
     required this.cameraReady,
     this.isLive = false,
     this.isStartingLive = false,
+    this.isEndingLive = false,
     this.isObsMode = false,
     this.onNavigateBack,
     this.onEndStream,
@@ -75,6 +76,7 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
   final bool cameraReady;
   final bool isLive;
   final bool isStartingLive;
+  final bool isEndingLive;
   final bool isObsMode;
   final Future<void> Function()? onNavigateBack;
   final VoidCallback? onEndStream;
@@ -598,6 +600,7 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                   onMarkReplay: widget.onMarkReplay,
                   onEndLive: widget.onEndStream,
                   onBatterySaver: widget.onBatterySaver,
+                  isEndingLive: widget.isEndingLive,
                 ),
               ),
             ),
@@ -999,12 +1002,14 @@ class _StudioLiveActionsBar extends StatelessWidget {
     this.onMarkReplay,
     this.onEndLive,
     this.onBatterySaver,
+    this.isEndingLive = false,
   });
 
   final CfColors cf;
   final VoidCallback? onMarkReplay;
   final VoidCallback? onEndLive;
   final VoidCallback? onBatterySaver;
+  final bool isEndingLive;
 
   @override
   Widget build(BuildContext context) {
@@ -1014,26 +1019,29 @@ class _StudioLiveActionsBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _UtilityBtn(
-            cf: cf,
-            icon: Icons.flag_outlined,
-            label: 'Mark',
-            onTap: onMarkReplay,
-          ),
-          const SizedBox(width: 8),
-          _UtilityBtn(
-            cf: cf,
-            icon: Icons.dark_mode_outlined,
-            label: 'Dim',
-            onTap: onBatterySaver,
-          ),
-          const SizedBox(width: 8),
+          if (!isEndingLive) ...[
+            _UtilityBtn(
+              cf: cf,
+              icon: Icons.flag_outlined,
+              label: 'Mark',
+              onTap: onMarkReplay,
+            ),
+            const SizedBox(width: 8),
+            _UtilityBtn(
+              cf: cf,
+              icon: Icons.dark_mode_outlined,
+              label: 'Dim',
+              onTap: onBatterySaver,
+            ),
+            const SizedBox(width: 8),
+          ],
           _StudioActionButton(
             cf: cf,
-            label: 'Stop',
+            label: isEndingLive ? 'Ending live…' : 'Stop',
             icon: Icons.stop_rounded,
             color: cf.error,
-            onTap: onEndLive,
+            busy: isEndingLive,
+            onTap: isEndingLive ? null : onEndLive,
           ),
         ],
       ),
@@ -1323,6 +1331,7 @@ class _StudioActionButton extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    this.busy = false,
   });
 
   final CfColors cf;
@@ -1330,6 +1339,7 @@ class _StudioActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -1355,7 +1365,17 @@ class _StudioActionButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: Colors.white),
+              if (busy)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              else
+                Icon(icon, size: 16, color: Colors.white),
               const SizedBox(width: 6),
               Text(
                 label,

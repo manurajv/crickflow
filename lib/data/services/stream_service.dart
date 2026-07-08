@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rtmp_broadcaster/camera.dart';
 
@@ -83,6 +84,11 @@ class StreamService extends ChangeNotifier {
   bool _rtmpPublishConfirmed = false;
   bool _confirmingPublish = false;
   int _baselineSentVideoFrames = 0;
+  // True from the initial go-live connect until the first confirmed publish (or
+  // failure). While set, transient transport losses must NOT spin up the
+  // persistent reconnect loop — a low-network go-live should fail cleanly
+  // instead of getting stuck half-live.
+  bool _initialConnectInProgress = false;
 
   StreamStatus get status => _status;
   String? get lastError => _lastError;
@@ -100,6 +106,8 @@ class StreamService extends ChangeNotifier {
   bool get orientationLocked => _orientationLocked;
   bool get liveSessionActive => _liveSessionActive;
   bool get reconnectExhausted => _reconnectExhausted;
+  /// Path of the most recent local recording (MP4), if record-locally was on.
+  String? get lastRecordingPath => _localRecordingPath;
   bool get isReconnecting {
     if (_reconnectExhausted) return false;
     final sessionActive = _liveSessionActive || _lastEndpoint != null;
@@ -459,7 +467,7 @@ class StreamService extends ChangeNotifier {
       }
     }
     // Native side queues pending zoom — do not fail recovery.
-    if (lastError != null && !isStreaming) throw lastError!;
+    if (lastError != null && !isStreaming) throw lastError;
   }
 
   Future<void> _applyNativeWithRetry(Future<void> Function() action) async {
@@ -473,7 +481,7 @@ class StreamService extends ChangeNotifier {
         await Future<void>.delayed(Duration(milliseconds: 50 * (attempt + 1)));
       }
     }
-    if (lastError != null) throw lastError!;
+    if (lastError != null) throw lastError;
   }
 
   Future<void> _releaseCamera({required bool waitForSurfaceTeardown}) async {
@@ -673,6 +681,7 @@ class StreamService extends ChangeNotifier {
   }) async {
     _reconnectAttempt = 0;
     _reconnectExhausted = false;
+    _initialConnectInProgress = true;
     _cancelReconnectTimer();
     _pendingConnectCompleter = Completer<bool>();
     _startConnectivityWatch(endpoint, bitrate);
@@ -711,6 +720,7 @@ class StreamService extends ChangeNotifier {
       rethrow;
     } finally {
       _pendingConnectCompleter = null;
+      _initialConnectInProgress = false;
     }
   }
 
@@ -756,6 +766,12 @@ class StreamService extends ChangeNotifier {
     _status = StreamStatus.connecting;
     _emitHealth(reconnecting: true);
     notifyListeners();
+    // During the very first go-live connect, do not spin up the persistent
+    // reconnect loop on a transient drop — let the connect attempt time out and
+    // fail cleanly so we never end up half-live on a poor connection.
+    if (_initialConnectInProgress && !_rtmpPublishConfirmed) {
+      return;
+    }
     if (!_reconnectExhausted &&
         (_liveSessionActive || _healthMonitoringActive || _lastEndpoint != null)) {
       _scheduleReconnectTransport();
@@ -825,6 +841,7 @@ class StreamService extends ChangeNotifier {
 
   void _markRtmpPublishConfirmed({required bool wasReconnecting}) {
     _rtmpPublishConfirmed = true;
+    _initialConnectInProgress = false;
     _status = StreamStatus.live;
     _reconnectAttempt = 0;
     _reconnectExhausted = false;
@@ -1173,6 +1190,7 @@ class StreamService extends ChangeNotifier {
       _reconnectInFlight = false;
       _rtmpPublishConfirmed = false;
       _confirmingPublish = false;
+      _initialConnectInProgress = false;
       if (_controller != null && isInitialized) {
         try {
           await _controller!.clearStreamOverlay();
@@ -1227,9 +1245,25 @@ class StreamService extends ChangeNotifier {
     };
   }
 
-  /// Local recording path helper for match streams.
+  /// Local recording path helper for match streams. Uses a persistent
+  /// app-scoped directory (not the temp cache) so the MP4 survives until it is
+  /// exported to the gallery after the stream ends.
   static Future<String> defaultRecordingPath(String matchId) async {
-    final dir = Directory.systemTemp;
+    Directory dir;
+    try {
+      dir = await getApplicationDocumentsDirectory();
+    } catch (_) {
+      dir = Directory.systemTemp;
+    }
+    final recordings = Directory('${dir.path}/recordings');
+    try {
+      if (!await recordings.exists()) {
+        await recordings.create(recursive: true);
+      }
+      dir = recordings;
+    } catch (_) {
+      // Fall back to the base directory if the subfolder can't be created.
+    }
     final ts = DateTime.now().millisecondsSinceEpoch;
     return '${dir.path}/crickflow_${matchId}_$ts.mp4';
   }
