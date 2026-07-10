@@ -49,6 +49,10 @@
         "destination": "/scorecard/index.html"
       },
       {
+        "source": "/overlay/**",
+        "destination": "/overlay/index.html"
+      },
+      {
         "source": "/match/**",
         "destination": "/open-app.html"
       },

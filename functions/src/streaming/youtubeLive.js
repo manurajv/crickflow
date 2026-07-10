@@ -166,9 +166,62 @@ async function applyYouTubeVideoMetadata(youtube, videoId, options) {
       status: {
         privacyStatus: mapPrivacy(options.visibility),
         selfDeclaredMadeForKids: false,
+        embeddable: true,
+        publicStatsViewable: true,
       },
     },
   });
+}
+
+/**
+ * Forces "Allow embedding" on the live video + broadcast so in-app scorecard playback works.
+ * Called on create and again when the broadcast transitions to live (YouTube can reset flags).
+ */
+async function ensureYouTubeLiveEmbeddable(youtube, broadcastId) {
+  if (!broadcastId) return;
+
+  try {
+    const videoRes = await youtube.videos.list({
+      part: ['status'],
+      id: [broadcastId],
+      maxResults: 1,
+    });
+    const currentStatus = videoRes.data.items?.[0]?.status;
+    if (currentStatus) {
+      await youtube.videos.update({
+        part: ['status'],
+        requestBody: {
+          id: broadcastId,
+          status: {
+            ...currentStatus,
+            embeddable: true,
+          },
+        },
+      });
+    }
+  } catch (err) {
+    console.warn(
+      'YouTube embeddable (video) update skipped:',
+      err?.message || err,
+    );
+  }
+
+  try {
+    await youtube.liveBroadcasts.update({
+      part: ['contentDetails'],
+      requestBody: {
+        id: broadcastId,
+        contentDetails: {
+          enableEmbed: true,
+        },
+      },
+    });
+  } catch (err) {
+    console.warn(
+      'YouTube enableEmbed (broadcast) update skipped:',
+      err?.message || err,
+    );
+  }
 }
 
 /**
@@ -260,11 +313,13 @@ async function createYouTubeLiveBroadcast(uid, options) {
     streamId: stream.id,
   });
 
+  await ensureYouTubeLiveEmbeddable(youtube, broadcast.id);
+
   const ingestion = stream.cdn?.ingestionInfo || {};
   return {
     rtmpUrl: ingestion.ingestionAddress || 'rtmp://a.rtmp.youtube.com/live2',
     streamKey: ingestion.streamName || '',
-    watchUrl: `https://www.youtube.com/watch?v=${broadcast.id}`,
+    watchUrl: `https://www.youtube.com/live/${broadcast.id}`,
     broadcastId: broadcast.id,
     streamId: stream.id,
   };
@@ -372,6 +427,7 @@ async function transitionYouTubeBroadcastToLive(uid, broadcastId, streamId) {
     );
 
     if (lifeCycleStatus === 'live') {
+      await ensureYouTubeLiveEmbeddable(youtube, broadcastId);
       return { ok: true, broadcastId, lifeCycleStatus, streamStatus };
     }
     if (lifeCycleStatus === 'complete' || lifeCycleStatus === 'revoked') {
@@ -405,6 +461,7 @@ async function transitionYouTubeBroadcastToLive(uid, broadcastId, streamId) {
           broadcastStatus: 'live',
           part: ['status'],
         });
+        await ensureYouTubeLiveEmbeddable(youtube, broadcastId);
         return {
           ok: true,
           broadcastId,

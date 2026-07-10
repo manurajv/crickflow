@@ -65,6 +65,8 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
     this.onEndStream,
     this.onMarkReplay,
     this.onBatterySaver,
+    this.onAddStreamLink,
+    this.showStreamLinkDot = false,
   });
 
   final String matchId;
@@ -82,6 +84,8 @@ class StreamStudioOverlay extends ConsumerStatefulWidget {
   final VoidCallback? onEndStream;
   final VoidCallback? onMarkReplay;
   final VoidCallback? onBatterySaver;
+  final VoidCallback? onAddStreamLink;
+  final bool showStreamLinkDot;
 
   @override
   ConsumerState<StreamStudioOverlay> createState() => _StreamStudioOverlayState();
@@ -600,6 +604,8 @@ class _StreamStudioOverlayState extends ConsumerState<StreamStudioOverlay>
                   onMarkReplay: widget.onMarkReplay,
                   onEndLive: widget.onEndStream,
                   onBatterySaver: widget.onBatterySaver,
+                  onAddStreamLink: widget.onAddStreamLink,
+                  showStreamLinkDot: widget.showStreamLinkDot,
                   isEndingLive: widget.isEndingLive,
                 ),
               ),
@@ -958,12 +964,14 @@ class _UtilityBtn extends StatelessWidget {
     required this.icon,
     required this.label,
     this.onTap,
+    this.showDot = false,
   });
 
   final CfColors cf;
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final bool showDot;
 
   @override
   Widget build(BuildContext context) {
@@ -976,10 +984,29 @@ class _UtilityBtn extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: onTap == null ? cf.textDisabled : Colors.white,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: onTap == null ? cf.textDisabled : Colors.white,
+              ),
+              if (showDot)
+                Positioned(
+                  right: -3,
+                  top: -2,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: cf.error,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black54, width: 1),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 2),
           Text(
@@ -1002,6 +1029,8 @@ class _StudioLiveActionsBar extends StatelessWidget {
     this.onMarkReplay,
     this.onEndLive,
     this.onBatterySaver,
+    this.onAddStreamLink,
+    this.showStreamLinkDot = false,
     this.isEndingLive = false,
   });
 
@@ -1009,6 +1038,8 @@ class _StudioLiveActionsBar extends StatelessWidget {
   final VoidCallback? onMarkReplay;
   final VoidCallback? onEndLive;
   final VoidCallback? onBatterySaver;
+  final VoidCallback? onAddStreamLink;
+  final bool showStreamLinkDot;
   final bool isEndingLive;
 
   @override
@@ -1020,6 +1051,14 @@ class _StudioLiveActionsBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           if (!isEndingLive) ...[
+            _UtilityBtn(
+              cf: cf,
+              icon: Icons.link_rounded,
+              label: 'Link',
+              showDot: showStreamLinkDot,
+              onTap: onAddStreamLink,
+            ),
+            const SizedBox(width: 8),
             _UtilityBtn(
               cf: cf,
               icon: Icons.flag_outlined,

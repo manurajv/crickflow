@@ -28,6 +28,8 @@ import '../../domain/scoring/match_completion_policy.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../domain/scoring/scoring_integrity_check.dart';
 import '../../domain/scoring/toss_team_policy.dart';
+import '../../domain/streaming/stream_playback_merger.dart';
+import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import '../local/match_local_store.dart';
 import '../local/pending_sync_action.dart';
 import '../services/offline_sync_service.dart';
@@ -56,6 +58,9 @@ class MatchRepository {
   final MatchLocalStore? _localStore;
   final OfflineSyncService? _syncService;
   final Uuid _uuid;
+
+  /// Per-match (teamA logo, teamB logo) cache for the web overlay extras.
+  final Map<String, (String?, String?)> _teamLogoCache = {};
 
   bool get _offlineEnabled => _localStore != null && _syncService != null;
 
@@ -311,6 +316,64 @@ class MatchRepository {
     });
   }
 
+  /// Updates public watch URLs and appends to playback history.
+  Future<void> updateStreamWatchUrls(
+    String matchId, {
+    String? primaryUrl,
+    String? secondaryUrl,
+    bool clearSecondary = false,
+    bool markLive = false,
+    String? addedByUserId,
+    String? addedByName,
+  }) async {
+    final match = await getMatch(matchId);
+    if (match == null) return;
+
+    var entries = List.of(match.stream.playbackEntries);
+    final now = DateTime.now();
+    final isLive =
+        markLive || match.stream.status == StreamStatus.live;
+
+    void addUrl(String? url, {bool isSecondary = false}) {
+      final normalized = url?.trim();
+      if (normalized == null || normalized.isEmpty) return;
+      entries = StreamPlaybackMerger.appendSession(
+        existing: entries,
+        url: normalized,
+        isLive: isLive,
+        addedAt: now,
+        addedByUserId: addedByUserId,
+        addedByName: addedByName,
+        label: isSecondary ? match.stream.cameraBLabel : '',
+        forceNewSession: true,
+      );
+    }
+
+    addUrl(primaryUrl);
+    addUrl(secondaryUrl, isSecondary: true);
+
+    final latest = StreamPlaybackMerger.latestWatchUrl(entries);
+    final patch = <String, dynamic>{
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    if (primaryUrl != null) {
+      patch['stream.youtubeWatchUrl'] = primaryUrl.trim();
+    } else if (latest != null) {
+      patch['stream.youtubeWatchUrl'] = latest;
+    }
+    if (secondaryUrl != null) {
+      patch['stream.secondaryYoutubeWatchUrl'] = secondaryUrl.trim();
+    } else if (clearSecondary) {
+      patch['stream.secondaryYoutubeWatchUrl'] = FieldValue.delete();
+    }
+    if (entries.isNotEmpty) {
+      patch['stream.playbackEntries'] =
+          entries.map((e) => e.toMap()).toList();
+    }
+    if (patch.length <= 1) return;
+    await _matches.doc(matchId).update(patch);
+  }
+
   Future<MatchModel?> getMatch(String id) async {
     final local = _localStore;
     if (local != null) {
@@ -478,7 +541,152 @@ class MatchRepository {
       context: 'recordBall',
     );
 
+    // Fire-and-forget: surface four/six/wicket graphics on the web / OBS overlay.
+    unawaited(_publishBroadcastEvent(match.id, event));
+    // Fire-and-forget: this-over strip + team logos + title for the web overlay.
+    unawaited(_publishOverlayExtras(result.match, allEvents));
+
     return ScoringInput(match: result.match, event: event, overlay: result.overlay);
+  }
+
+  /// Publishes scorebug extras the realtime overlay can't carry: current-over
+  /// ball labels, batting/bowling team logos, and the match title.
+  Future<void> _publishOverlayExtras(
+    MatchModel match,
+    List<BallEventModel> allEvents,
+  ) async {
+    try {
+      final innings = match.currentInnings;
+      var thisOver = const <String>[];
+      if (innings != null) {
+        final overEvents = ScoringDisplayUtils.currentOverEvents(
+          events: allEvents,
+          inn: innings,
+          ballsPerOver: match.rules.ballsPerOver,
+        );
+        thisOver = overEvents
+            .map(ScoringDisplayUtils.ballBubbleLabel)
+            .where((label) => label.isNotEmpty)
+            .toList();
+      }
+
+      final logos = await _resolveTeamLogos(match);
+      final battingIsA =
+          innings != null && innings.battingTeamId == match.teamAId;
+      final battingLogo = battingIsA ? logos.$1 : logos.$2;
+      final bowlingLogo = battingIsA ? logos.$2 : logos.$1;
+
+      final extras = <String, dynamic>{
+        'matchTitle': match.title,
+        'thisOver': thisOver,
+      };
+      if (battingLogo != null) extras['battingTeamLogoUrl'] = battingLogo;
+      if (bowlingLogo != null) extras['bowlingTeamLogoUrl'] = bowlingLogo;
+      await _publicSync.publishOverlayExtras(match.id, extras);
+    } catch (_) {
+      // Live-only nicety; never block scoring on it.
+    }
+  }
+
+  /// (teamA logo, teamB logo) resolved from team docs, cached per match since
+  /// crests don't change mid-match.
+  Future<(String?, String?)> _resolveTeamLogos(MatchModel match) async {
+    final cached = _teamLogoCache[match.id];
+    if (cached != null) return cached;
+
+    Future<String?> fetch(String? teamId) async {
+      if (teamId == null || teamId.isEmpty) return null;
+      try {
+        final doc = await _firestore
+            .collection(AppConstants.teamsCollection)
+            .doc(teamId)
+            .get();
+        final data = doc.data();
+        if (data == null) return null;
+        final profile = data['teamProfileImageUrl'] as String?;
+        final logo = data['logoUrl'] as String?;
+        if (profile != null && profile.isNotEmpty) return profile;
+        if (logo != null && logo.isNotEmpty) return logo;
+        return null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final resolved = (await fetch(match.teamAId), await fetch(match.teamBId));
+    _teamLogoCache[match.id] = resolved;
+    return resolved;
+  }
+
+  /// Derives a broadcast event graphic from a ball and publishes it to the
+  /// public overlay feed. Mirrors [StreamEventDetector] boundary/wicket rules so
+  /// the OBS browser-source shows the same animations as the burn-in overlay.
+  Future<void> _publishBroadcastEvent(
+    String matchId,
+    BallEventModel event,
+  ) async {
+    final data = _deriveBroadcastEvent(event);
+    if (data == null) return;
+    try {
+      await _publicSync.publishOverlayEvent(matchId, data);
+    } catch (_) {
+      // Live-only nicety; never block scoring on it.
+    }
+  }
+
+  Map<String, dynamic>? _deriveBroadcastEvent(BallEventModel event) {
+    final createdAt =
+        (event.timestamp ?? DateTime.now()).millisecondsSinceEpoch;
+
+    if (event.eventType == BallEventType.wicket || event.isWicket) {
+      return {
+        'id': event.id,
+        'kind': 'wicket',
+        'label': 'WICKET',
+        'subtitle': event.dismissedPlayerName ?? '',
+        'createdAt': createdAt,
+      };
+    }
+    if (_isBroadcastSix(event)) {
+      return {
+        'id': event.id,
+        'kind': 'six',
+        'label': 'SIX',
+        'subtitle': '',
+        'createdAt': createdAt,
+      };
+    }
+    if (_isBroadcastFour(event)) {
+      return {
+        'id': event.id,
+        'kind': 'four',
+        'label': 'FOUR',
+        'subtitle': '',
+        'createdAt': createdAt,
+      };
+    }
+    return null;
+  }
+
+  bool _isBroadcastSix(BallEventModel event) {
+    if (event.boundaryType == 'six') return true;
+    return switch (event.eventType) {
+      BallEventType.runs => event.batsmanRuns >= 6,
+      BallEventType.noBall => event.batsmanRuns >= 6,
+      BallEventType.bye || BallEventType.legBye => event.runs >= 6,
+      _ => false,
+    };
+  }
+
+  bool _isBroadcastFour(BallEventModel event) {
+    if (_isBroadcastSix(event)) return false;
+    if (event.boundaryType == 'four') return true;
+    return switch (event.eventType) {
+      BallEventType.runs => event.batsmanRuns == 4,
+      BallEventType.noBall => event.batsmanRuns == 4,
+      BallEventType.bye || BallEventType.legBye => event.runs == 4,
+      _ => false,
+    };
   }
 
   /// Ensures chase innings have a fixed target from completed 1st innings.

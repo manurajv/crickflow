@@ -20,13 +20,16 @@ import '../../../domain/display/match_revision_display.dart';
 
 import '../../../domain/scoring/innings_completion_policy.dart';
 
+import '../../../domain/streaming/match_stream_playback.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/match_follow_button.dart';
+import '../../../shared/widgets/match_stream_watch_section.dart';
+import '../../../shared/widgets/stream_live_toggle_action.dart';
 import 'widgets/match_scorecard_view.dart';
 
 
 
-class ScorecardScreen extends ConsumerWidget {
+class ScorecardScreen extends ConsumerStatefulWidget {
 
   const ScorecardScreen({
 
@@ -48,21 +51,27 @@ class ScorecardScreen extends ConsumerWidget {
 
   final bool exitToHomeOnBack;
 
-
-
   static String routeForMatch(String matchId, {bool fromMatchComplete = false}) {
-
     if (fromMatchComplete) {
-
       return '/match/$matchId/scorecard?from=complete';
-
     }
-
     return '/match/$matchId/scorecard';
-
   }
 
+  @override
+  ConsumerState<ScorecardScreen> createState() => _ScorecardScreenState();
+}
 
+class _ScorecardScreenState extends ConsumerState<ScorecardScreen> {
+  bool? _streamVisibleOverride;
+
+  String get matchId => widget.matchId;
+  bool get exitToHomeOnBack => widget.exitToHomeOnBack;
+
+  bool _isStreamVisible(MatchModel match) {
+    if (_streamVisibleOverride != null) return _streamVisibleOverride!;
+    return MatchStreamPlayback.shouldShowStreamByDefault(match);
+  }
 
   void _exit(BuildContext context) {
 
@@ -82,7 +91,8 @@ class ScorecardScreen extends ConsumerWidget {
 
   @override
 
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final ref = this.ref;
 
     final matchAsync = ref.watch(matchProvider(matchId));
 
@@ -126,6 +136,22 @@ class ScorecardScreen extends ConsumerWidget {
 
           actions: [
             MatchFollowButton(matchId: matchId, compact: true),
+            matchAsync.when(
+              data: (match) {
+                if (match == null ||
+                    !MatchStreamPlayback.hasWatchablePlayback(match)) {
+                  return const SizedBox.shrink();
+                }
+                return StreamLiveToggleAction(
+                  visible: _isStreamVisible(match),
+                  onToggle: () => setState(
+                    () => _streamVisibleOverride = !_isStreamVisible(match),
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
             IconButton(
 
               icon: const Icon(Icons.share),
@@ -162,7 +188,22 @@ class ScorecardScreen extends ConsumerWidget {
 
             if (match == null) return const Center(child: Text('Not found'));
 
-            return MatchScorecardView(match: match);
+            final showStream = _isStreamVisible(match);
+            final hasStream = MatchStreamPlayback.hasWatchablePlayback(match);
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (hasStream && showStream)
+                  MatchStreamWatchSection(
+                    match: match,
+                    edgeToEdge: true,
+                  ),
+                Expanded(
+                  child: MatchScorecardView(match: match),
+                ),
+              ],
+            );
 
           },
 

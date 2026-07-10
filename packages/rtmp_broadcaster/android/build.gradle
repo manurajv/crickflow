@@ -51,5 +51,6 @@ dependencies {
     implementation 'androidx.annotation:annotation:1.1.0'
     implementation 'com.android.support:support-v4:28.0.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.github.pedroSG94.rtmp-rtsp-stream-client-java:rtplibrary:1.9.6'
+    // a049b6f fixes RTMP NPE when stop() races connect (null swfUrl in sendConnect).
+    implementation 'com.github.pedroSG94.rtmp-rtsp-stream-client-java:rtplibrary:a049b6f167c'
 }

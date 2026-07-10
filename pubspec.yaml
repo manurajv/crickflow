@@ -49,6 +49,7 @@ dependencies:
   permission_handler: ^12.0.1
   url_launcher: ^6.3.2
   webview_flutter: ^4.13.1
+  webview_flutter_android: ^4.12.0
   qr_flutter: ^4.1.0
   screen_brightness: ^2.1.11
   gal: ^2.3.2

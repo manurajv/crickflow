@@ -17,13 +17,15 @@
 
 | Item | Status |
 |------|--------|
+| **Match scorecard live stream player** — pinned below app bar; **Live on / Live off** toggle; multi-session **stream dropdown** with streamer name `(CrickFlow user)`; **Add stream link** manual only (studio **Link** button + OBS card — no auto sheet on go-live or stop) | Done — `StreamPlaybackMerger.appendSession` |
 | **Saved stream keys** — recent-key list shows last 8 digits (not "YouTube"/"Facebook"), tap to apply, per-entry delete with confirmation (YT manual + FB/custom manual) | Done — `SavedStreamKey.keyPreview`, `_SavedStreamKeyTile` |
 | **Realtime health pill** — speed (kbps) · fps · connection quality shown outside the title bar on the preview, updates live | Done — `StreamLiveStatsPill` |
 | **Battery-saver dim screen** — full-screen black overlay after live (auto ~60s or manual "Dim" button), shows LIVE time + connection quality + speed/fps, tap to wake; stream/burn-in unaffected. Also **natively dims the backlight** to 0 via `screen_brightness` (app-scoped, restored on wake/dispose) for real power savings on LCD + OLED | Done — `StreamBatterySaverOverlay` + `screen_brightness` |
-| **Clean go-live failure on poor network** — initial connect no longer spins up the persistent reconnect loop on a transient drop (`_initialConnectInProgress` guard); a low-connection go-live times out and fully stops instead of getting stuck half-live | Done — `StreamService._onRtmpTransportLost` |
+| **RTMP go-live / end stability** — single connect attempt; 4s go-live settling; never stop RTMP after successful connect (metadata persist best-effort); **end stream** captures user ref before teardown (fixes Riverpod assert + stuck processing spinner); `_endStream` try/catch resets `_endingStream` | Done — `stream_service.dart`, `broadcast_session_controller.dart`, `streaming_dashboard_screen.dart` |
 | **Go-live / stop feedback** — "Go Live" → "Connecting…" while establishing RTMP; Stop → "Ending live…" spinner while tearing down | Done — `StreamStudioOverlay` |
 | **Replay marker pre-roll** — auto AND manual markers roll back 10s so the replay opens on the build-up (e.g. boundary at 03:20 → marker at 03:10); clamped to ≥0 | Done — `_kReplayPreRollMs` in `streaming_dashboard_screen.dart` |
 | **Record-locally → gallery export** — MP4 writes to a persistent app dir and exports to the device gallery (album "CrickFlow") on stop via `gal`; temp copy deleted after save | Built, **hidden for now** — UI toggle removed and go-live forces recordPath null; re-enable later (see `broadcast_session_controller.dart`) |
+| **OBS / external-encoder screen redesign** — full-screen professional setup (own header, no studio chrome/hide button/black screen/title-bar overlap); shows the live overlay browser-source URL + RTMP server URLs for YouTube/Facebook/Twitch (copy-tap); no stream key, no QR. Overlays reach OBS via the browser source. External-encoder go-live no longer requires a stream key and skips the camera foreground service | Done — `ObsBroadcastScreen`; old `ObsSetupSection` removed |
 | **Streaming Dashboard** — `/match/:id/stream` pre-live setup (camera, match info, platform, quality, audio, overlays, health) | Done |
 | **StreamingStudioScreen flow** — dashboard → lock orientation → Go Live → fullscreen studio | Done |
 | Enhanced **StreamService** — lens catalog, orientation lock, bitrate/resolution, record+stream, health stats, reconnect | Done |
@@ -45,6 +47,7 @@
 | **Highlights merge** — replay markers + ball events; YouTube `t=` deep links | Done |
 | **YouTube account link** — Google Sign-In → `linkYouTubeAccount` CF | Done |
 | **YouTube auto RTMP** — full Data API v3 broadcast + stream + bind | Done |
+| **YouTube auto live embedding** — `enableEmbed` + `embeddable: true` on create and on go-live transition (`ensureYouTubeLiveEmbeddable`) | Done — `functions/src/streaming/youtubeLive.js` |
 | **YouTube live chat** — read-only panel in live studio | Done |
 | **YouTube chapters export** — replay markers → description format | Done |
 | **Setup guide** — `docs/STREAMING_SETUP.md` | Done |

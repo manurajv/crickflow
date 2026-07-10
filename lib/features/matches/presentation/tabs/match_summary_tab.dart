@@ -11,7 +11,6 @@ import '../../../../data/models/match_model.dart';
 import '../../../../domain/services/match_summary_models.dart';
 import '../../../../shared/providers/match_summary_provider.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/widgets/multi_camera_watch_section.dart';
 import '../widgets/match_break_history_section.dart';
 import '../widgets/summary/match_summary_sections.dart';
 
@@ -133,14 +132,6 @@ class _SummaryBody extends ConsumerWidget {
           onTab: (tabName) => _tabOrGo(context, tabName),
         ),
         MatchBreakHistorySection(match: match),
-        if (match.stream.status == StreamStatus.live ||
-            match.stream.status == StreamStatus.connecting)
-          MultiCameraWatchSection(
-            primaryUrl: match.stream.youtubeWatchUrl,
-            secondaryUrl: match.stream.secondaryYoutubeWatchUrl,
-            primaryLabel: match.stream.cameraALabel,
-            secondaryLabel: match.stream.cameraBLabel,
-          ),
         SummaryManageActions(
           canStartSetup: access.canStartSetup,
           canManageLive: access.canScoreLive,

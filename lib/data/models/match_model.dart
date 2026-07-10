@@ -9,6 +9,7 @@ import 'match_target_state_model.dart';
 import 'over_metadata_model.dart';
 import 'over_note_model.dart';
 import 'scorer_transfer_models.dart';
+import 'stream_playback_entry_model.dart';
 
 class MatchHeroModel extends Equatable {
   const MatchHeroModel({
@@ -55,6 +56,7 @@ class StreamMetadataModel extends Equatable {
     this.lastHeartbeatAt,
     this.youtubeWatchUrl,
     this.secondaryYoutubeWatchUrl,
+    this.playbackEntries = const [],
     this.cameraALabel = 'Main camera',
     this.cameraBLabel = 'Camera 2',
     this.webrtcEnabled = false,
@@ -71,6 +73,8 @@ class StreamMetadataModel extends Equatable {
   final String? youtubeWatchUrl;
   /// Second angle (drone / stump cam) — separate YouTube live link.
   final String? secondaryYoutubeWatchUrl;
+  /// Full history of watch links (multiple broadcasters / re-go-lives).
+  final List<StreamPlaybackEntryModel> playbackEntries;
   final String cameraALabel;
   final String cameraBLabel;
   /// Experimental low-latency WebRTC room (Phase 3.3).
@@ -95,6 +99,7 @@ class StreamMetadataModel extends Equatable {
           DateTime.tryParse(map['lastHeartbeatAt']?.toString() ?? ''),
       youtubeWatchUrl: map['youtubeWatchUrl'] as String?,
       secondaryYoutubeWatchUrl: map['secondaryYoutubeWatchUrl'] as String?,
+      playbackEntries: parseStreamPlaybackEntries(map['playbackEntries']),
       cameraALabel: map['cameraALabel'] as String? ?? 'Main camera',
       cameraBLabel: map['cameraBLabel'] as String? ?? 'Camera 2',
       webrtcEnabled: map['webrtcEnabled'] as bool? ?? false,
@@ -113,6 +118,8 @@ class StreamMetadataModel extends Equatable {
         if (youtubeWatchUrl != null) 'youtubeWatchUrl': youtubeWatchUrl,
         if (secondaryYoutubeWatchUrl != null)
           'secondaryYoutubeWatchUrl': secondaryYoutubeWatchUrl,
+        if (playbackEntries.isNotEmpty)
+          'playbackEntries': playbackEntries.map((e) => e.toMap()).toList(),
         'cameraALabel': cameraALabel,
         'cameraBLabel': cameraBLabel,
         'webrtcEnabled': webrtcEnabled,
@@ -128,6 +135,7 @@ class StreamMetadataModel extends Equatable {
     DateTime? lastHeartbeatAt,
     String? youtubeWatchUrl,
     String? secondaryYoutubeWatchUrl,
+    List<StreamPlaybackEntryModel>? playbackEntries,
     String? cameraALabel,
     String? cameraBLabel,
     bool? webrtcEnabled,
@@ -143,6 +151,7 @@ class StreamMetadataModel extends Equatable {
       youtubeWatchUrl: youtubeWatchUrl ?? this.youtubeWatchUrl,
       secondaryYoutubeWatchUrl:
           secondaryYoutubeWatchUrl ?? this.secondaryYoutubeWatchUrl,
+      playbackEntries: playbackEntries ?? this.playbackEntries,
       cameraALabel: cameraALabel ?? this.cameraALabel,
       cameraBLabel: cameraBLabel ?? this.cameraBLabel,
       webrtcEnabled: webrtcEnabled ?? this.webrtcEnabled,

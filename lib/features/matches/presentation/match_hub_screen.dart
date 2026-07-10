@@ -6,8 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/match_share_utils.dart';
 import '../../../core/constants/enums.dart';
+import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/repositories/match_audience_repository.dart';
+import '../../../domain/streaming/match_stream_playback.dart';
 import '../../../shared/providers/match_audience_provider.dart';
 import '../../../shared/providers/match_live_provider.dart';
 import '../../../shared/providers/match_summary_provider.dart';
@@ -15,6 +17,8 @@ import '../../../shared/providers/match_upcoming_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../../shared/widgets/cf_marquee_text.dart';
+import '../../../shared/widgets/match_stream_watch_section.dart';
+import '../../../shared/widgets/stream_live_toggle_action.dart';
 import 'match_hub_tabs.dart';
 import 'tabs/match_commentary_tab.dart';
 import 'tabs/match_highlights_tab.dart';
@@ -91,6 +95,7 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
   bool _viewRecorded = false;
   bool _liveAudienceJoined = false;
   String? _audienceUid;
+  bool? _streamVisibleOverride;
   late final MatchAudienceRepository _audienceRepo;
   ProviderSubscription<AsyncValue<User?>>? _authSubscription;
 
@@ -161,6 +166,7 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
     final oldIndex = oldController?.index ?? 0;
     final oldId = previousConfig?.idAt(oldIndex) ?? _config?.idAt(oldIndex);
 
+    oldController?.removeListener(_onTabChanged);
     oldController?.dispose();
 
     _config = config;
@@ -182,7 +188,12 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
       vsync: this,
       initialIndex: initialIndex,
     );
+    _tabController!.addListener(_onTabChanged);
     if (applyInitialTab) _initialTabApplied = true;
+  }
+
+  void _onTabChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -217,11 +228,18 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
     controller.animateTo(config.indexOf(id));
   }
 
+  bool _isStreamVisible(MatchModel match) {
+    if (_streamVisibleOverride != null) return _streamVisibleOverride!;
+    return MatchStreamPlayback.shouldShowStreamByDefault(match);
+  }
+
   @override
   Widget build(BuildContext context) {
     final match = widget.match;
     final config = _config!;
     final controller = _tabController!;
+    final hasStream = MatchStreamPlayback.hasWatchablePlayback(match);
+    final showStream = hasStream && _isStreamVisible(match);
 
     // Keep live feeds subscribed for the whole hub session — TabBarView
     // lazily builds tabs, so without this the Live tab streams may not start
@@ -266,6 +284,13 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
                 tooltip: 'Go Live',
                 onPressed: () => context.push('/match/${widget.matchId}/stream'),
               ),
+            if (hasStream)
+              StreamLiveToggleAction(
+                visible: _isStreamVisible(match),
+                onToggle: () => setState(
+                  () => _streamVisibleOverride = !_isStreamVisible(match),
+                ),
+              ),
             IconButton(
               icon: const Icon(Icons.share),
               tooltip: 'Share match',
@@ -275,18 +300,38 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
               ),
             ),
           ],
-          bottom: TabBar(
-            controller: controller,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: config.tabs,
-          ),
         ),
-        body: TabBarView(
-          controller: controller,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final id in config.tabIds)
-              _tabFor(id, match, _navigateTab),
+            if (showStream)
+              MatchStreamWatchSection(
+                match: match,
+                edgeToEdge: true,
+              ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: context.cf.appBarGradient,
+                border: Border(
+                  bottom: BorderSide(color: context.cf.border),
+                ),
+              ),
+              child: TabBar(
+                controller: controller,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: config.tabs,
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: controller,
+                children: [
+                  for (final id in config.tabIds)
+                    _tabFor(id, match, _navigateTab),
+                ],
+              ),
+            ),
           ],
         ),
       ),

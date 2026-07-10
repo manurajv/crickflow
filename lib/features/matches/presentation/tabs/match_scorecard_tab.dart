@@ -24,11 +24,14 @@ class MatchScorecardTab extends ConsumerWidget {
         final showInsight = match.status == MatchStatus.completed &&
             summary.insight != null;
 
+        Widget? header;
+        if (showInsight) {
+          header = SummaryInsightCard(insight: summary.insight!);
+        }
+
         return MatchScorecardView(
           match: match,
-          header: showInsight
-              ? SummaryInsightCard(insight: summary.insight!)
-              : null,
+          header: header,
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

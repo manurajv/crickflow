@@ -434,25 +434,110 @@ object PedroCameraBridge {
         Log.w(TAG, "No force-keyframe method available on encoder")
     }
 
-    /** Stops RTMP socket and encoders even when [RtmpCamera2.isStreaming] is false (stale after disconnect). */
-    fun forceHaltRtmpPublish(rtmpCamera: RtmpCamera2) {
-        try {
-            getSrsFlvMuxer(rtmpCamera)?.let { muxer ->
-                muxer.javaClass.getMethod("stop").invoke(muxer)
-                Log.i(TAG, "RTMP muxer force-stopped")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "forceHalt muxer", e)
-        }
+    /**
+     * Stops RTMP and waits for the muxer worker thread to exit.
+     *
+     * Pedro's [SrsFlvMuxer.stop] only joins the worker for 100ms. If stop races with an in-flight
+     * RTMP handshake, [RtmpConnection.reset] nulls connect fields while sendConnect still runs and
+     * the process crashes with an AMF NPE. Always join the worker before starting a new publish.
+     */
+    fun haltRtmpPublisher(rtmpCamera: RtmpCamera2, joinTimeoutMs: Long = 5000) {
+        getSrsFlvMuxer(rtmpCamera)?.let { haltMuxerAndJoinWorker(it, joinTimeoutMs) }
         setStreamingFlag(rtmpCamera, false)
         try {
-            rtmpCamera.stopStream()
+            if (rtmpCamera.isStreaming) {
+                rtmpCamera.stopStream()
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "forceHalt stopStream", e)
+            Log.w(TAG, "haltRtmpPublisher stopStream", e)
         }
         stopEncoderComponent(rtmpCamera, "microphoneManager", "stop")
         stopEncoderComponent(rtmpCamera, "audioEncoder", "stop")
         stopEncoderComponent(rtmpCamera, "videoEncoder", "stop")
+    }
+
+    /** @see haltRtmpPublisher */
+    fun forceHaltRtmpPublish(rtmpCamera: RtmpCamera2) {
+        haltRtmpPublisher(rtmpCamera)
+    }
+
+    fun haltMuxerAndJoinWorker(muxer: Any, timeoutMs: Long = 8000) {
+        val workerRef = getMuxerWorker(muxer)
+        try {
+            muxer.javaClass.getMethod("stop").invoke(muxer)
+            Log.i(TAG, "RTMP muxer stop requested")
+        } catch (e: Exception) {
+            Log.w(TAG, "haltMuxerAndJoinWorker stop", e)
+        }
+        if (workerRef != null && workerRef.isAlive) {
+            try {
+                workerRef.join(timeoutMs)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                Log.w(TAG, "haltMuxerAndJoinWorker interrupted", e)
+            }
+            if (workerRef.isAlive) {
+                Log.e(TAG, "RTMP worker still alive after ${timeoutMs}ms — publish halted anyway")
+            }
+        }
+        // SrsFlvMuxer.stop() also spawns a disconnect thread — wait before republish.
+        waitForMuxerDisconnected(muxer, timeoutMs)
+    }
+
+    private fun waitForMuxerDisconnected(muxer: Any, timeoutMs: Long) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            val connected = isMuxerConnected(muxer)
+            if (connected == false) return
+            try {
+                Thread.sleep(50)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return
+            }
+        }
+        Log.w(TAG, "RTMP muxer still connected after ${timeoutMs}ms")
+    }
+
+    private fun isMuxerConnected(muxer: Any): Boolean? {
+        return try {
+            val field = muxer.javaClass.getDeclaredField("connected")
+            field.isAccessible = true
+            field.getBoolean(muxer)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Lightweight RTMP socket reconnect — keeps encoder running. */
+    fun reconnectRtmpTransport(rtmpCamera: RtmpCamera2, delayMs: Long = 500) {
+        try {
+            rtmpCamera.javaClass
+                .getMethod("reConnect", Long::class.javaPrimitiveType)
+                .invoke(rtmpCamera, delayMs)
+            Log.i(TAG, "RTMP reConnect($delayMs) invoked")
+        } catch (e: Exception) {
+            Log.w(TAG, "reConnect failed, falling back to reTry", e)
+            try {
+                rtmpCamera.javaClass
+                    .getMethod("reTry", Long::class.javaPrimitiveType, String::class.java)
+                    .invoke(rtmpCamera, delayMs, "reconnect")
+            } catch (e2: Exception) {
+                Log.e(TAG, "reTry reconnect failed", e2)
+                throw e2
+            }
+        }
+    }
+
+    private fun getMuxerWorker(muxer: Any): Thread? {
+        return try {
+            val field = muxer.javaClass.getDeclaredField("worker")
+            field.isAccessible = true
+            field.get(muxer) as? Thread
+        } catch (e: Exception) {
+            Log.w(TAG, "getMuxerWorker", e)
+            null
+        }
     }
 
     private fun getSrsFlvMuxer(rtmpCamera: RtmpCamera2): Any? {

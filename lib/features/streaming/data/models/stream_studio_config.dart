@@ -264,6 +264,16 @@ class StreamStudioConfig extends Equatable {
       broadcastSetupMode == StreamBroadcastSetupMode.manual ||
       platform != StreamPlatform.youtube;
 
+  /// Public watch link must be pasted by the user (no API watch URL).
+  bool get needsManualWatchUrl {
+    if (streamingMode == StreamingMode.externalEncoder) return true;
+    if (platform == StreamPlatform.youtube &&
+        broadcastSetupMode == StreamBroadcastSetupMode.automatic) {
+      return false;
+    }
+    return true;
+  }
+
   /// True when RTMP credentials are saved and the user can start broadcasting.
   bool get isBroadcastConfigured {
     if (platform == StreamPlatform.youtube &&

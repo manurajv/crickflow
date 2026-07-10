@@ -64,6 +64,13 @@ class CameraNativeView(
     private var rtmpTransportUnstable = false
     /** True once RTMP has connected in this session — later connects are reconnects. */
     private var hasConnectedOnce = false
+    /** Suppresses RTMP_STOPPED events fired while intentionally tearing down before republish. */
+    private var suppressRtmpDisconnectEvents = false
+
+    companion object {
+        /** Serializes RTMP publish/stop so a handshake cannot race with teardown. */
+        private val rtmpPublishLock = Any()
+    }
 
     init {
         // Fill the view — letterboxing (isKeepAspectRatio) leaves bars outdoors.
@@ -710,6 +717,7 @@ class CameraNativeView(
     override fun onDisconnectRtmp() {
         Log.i("CameraNativeView", "RTMP disconnected")
         activity?.runOnUiThread {
+            if (suppressRtmpDisconnectEvents) return@runOnUiThread
             if (rtmpCamera.isStreaming) {
                 rtmpTransportUnstable = true
                 overlayBurnIn.glUpdatesPaused = true
@@ -786,19 +794,14 @@ class CameraNativeView(
         }
 
         try {
-            if (!rtmpCamera.isStreaming) {
-                val ok = publishRtmpStream(url, bitrate, micEnabled)
-                if (!ok) {
-                    result.error(
-                        "videoStreamingFailed",
-                        "Error preparing stream, This device cant do it",
-                        null,
-                    )
-                    return
-                }
-            } else {
-                rtmpCamera.stopStream()
-                encoderPrepared = false
+            val ok = publishRtmpStream(url, bitrate, micEnabled)
+            if (!ok) {
+                result.error(
+                    "videoStreamingFailed",
+                    "Error preparing stream, This device cant do it",
+                    null,
+                )
+                return
             }
             Log.i("CameraNativeView", "Encoder started")
             result.success(null)
@@ -817,15 +820,17 @@ class CameraNativeView(
         bitrate: Int?,
         micEnabled: Boolean,
     ): Boolean {
+        synchronized(rtmpPublishLock) {
         val act = activity ?: return false
-        try {
-            if (rtmpCamera.isStreaming) {
-                rtmpCamera.stopStream()
-            } else {
-                PedroCameraBridge.forceHaltRtmpPublish(rtmpCamera)
+        if (rtmpCamera.isStreaming) {
+            suppressRtmpDisconnectEvents = true
+            try {
+                PedroCameraBridge.haltRtmpPublisher(rtmpCamera)
+            } catch (e: Exception) {
+                Log.w("CameraNativeView", "halt before republish", e)
+            } finally {
+                suppressRtmpDisconnectEvents = false
             }
-        } catch (e: Exception) {
-            Log.w("CameraNativeView", "stopStream before republish", e)
         }
 
         encoderPipelineLinked = false
@@ -919,10 +924,11 @@ class CameraNativeView(
             encoderPrepared = false
             overlayBurnIn.release()
             try {
-                if (rtmpCamera.isStreaming) rtmpCamera.stopStream()
+                PedroCameraBridge.haltRtmpPublisher(rtmpCamera)
             } catch (_: Exception) {
             }
             false
+        }
         }
     }
 
@@ -965,6 +971,7 @@ class CameraNativeView(
 
     fun stopVideoRecordingOrStreaming(result: MethodChannel.Result) {
         runOnMain(result) {
+            synchronized(rtmpPublishLock) {
             try {
                 overlayBurnIn.release()
                 rtmpTransportUnstable = false
@@ -974,10 +981,11 @@ class CameraNativeView(
                 if (rtmpCamera.isRecording) {
                     rtmpCamera.stopRecord()
                 }
-                if (rtmpCamera.isStreaming) {
-                    rtmpCamera.stopStream()
-                } else {
-                    PedroCameraBridge.forceHaltRtmpPublish(rtmpCamera)
+                suppressRtmpDisconnectEvents = true
+                try {
+                    PedroCameraBridge.haltRtmpPublisher(rtmpCamera)
+                } finally {
+                    suppressRtmpDisconnectEvents = false
                 }
                 encoderPrepared = false
                 lastStreamUrl = null
@@ -990,6 +998,7 @@ class CameraNativeView(
                 result.error("videoRecordingFailed", e.message, null)
             } catch (e: IllegalStateException) {
                 result.error("videoRecordingFailed", e.message, null)
+            }
             }
         }
     }
@@ -1013,6 +1022,7 @@ class CameraNativeView(
         result: MethodChannel.Result,
     ) {
         runOnMain(result) {
+            synchronized(rtmpPublishLock) {
             try {
                 val url = urlArg?.takeIf { it.isNotEmpty() } ?: lastStreamUrl
                 if (url.isNullOrEmpty()) {
@@ -1021,9 +1031,23 @@ class CameraNativeView(
                 }
                 rtmpTransportUnstable = true
                 overlayBurnIn.glUpdatesPaused = true
+                lastStreamUrl = url
+                bitrateArg?.takeIf { it > 0 }?.let { lastStreamBitrate = it }
+
+                if (encoderPrepared && rtmpCamera.isStreaming) {
+                    Log.i(
+                        "CameraNativeView",
+                        "RTMP reconnect — muxer reConnect (encoder stays live)",
+                    )
+                    PedroCameraBridge.reconnectRtmpTransport(rtmpCamera)
+                    schedulePreviewReattach()
+                    result.success(null)
+                    return@runOnMain
+                }
+
                 Log.i(
                     "CameraNativeView",
-                    "RTMP republish reconnect — same endpoint as go-live",
+                    "RTMP republish — full encoder prepare",
                 )
                 val ok = publishRtmpStream(
                     url = url,
@@ -1042,14 +1066,13 @@ class CameraNativeView(
                     return@runOnMain
                 }
                 linkEncoderPipeline(fullRebuild = true, forceRelink = true)
-                // Full-quality restore (bitrate re-assert + keyframe) runs in
-                // onConnectionSuccessRtmp once the socket actually reconnects.
                 schedulePreviewReattach()
                 result.success(null)
             } catch (e: Exception) {
                 rtmpTransportUnstable = false
                 overlayBurnIn.glUpdatesPaused = false
                 result.error("reconnectRtmpTransportFailed", e.message, null)
+            }
             }
         }
     }

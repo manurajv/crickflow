@@ -12,11 +12,13 @@ import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/services/stream_service.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/match_stream_watch_section.dart';
+import '../../../domain/streaming/match_stream_playback.dart';
 import '../data/models/stream_overlay_theme.dart';
 import '../data/models/stream_studio_config.dart';
 import '../data/active_stream_session.dart';
 import '../data/services/stream_overlay_burn_in_service.dart';
-import '../obs/presentation/obs_setup_section.dart';
+import '../obs/presentation/obs_broadcast_screen.dart';
 import '../domain/streaming_enums.dart';
 import '../domain/streaming_mode.dart';
 import 'providers/streaming_studio_providers.dart';
@@ -182,7 +184,7 @@ class _StreamingDashboardScreenState
       if (!mounted) return;
       final service = ref.read(streamServiceProvider);
       final sessionLive = _nativeSessionActive(service);
-      if (sessionLive) {
+      if (sessionLive && !_startingLive) {
         unawaited(_resumeLiveSessionUi());
         return;
       }
@@ -547,6 +549,15 @@ class _StreamingDashboardScreenState
     );
   }
 
+  Future<void> _openStreamLinkSheet(MatchModel match) async {
+    await showStreamWatchUrlSheet(
+      context: context,
+      matchId: widget.matchId,
+      match: match,
+      title: 'Add stream link',
+    );
+  }
+
   Future<void> _goLive() async {
     if (_startingLive || _isLive) return;
 
@@ -579,6 +590,7 @@ class _StreamingDashboardScreenState
       );
 
       if (!result.isSuccess) {
+        ref.read(streamServiceProvider).onRtmpConnected = null;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(result.errorMessage ?? 'Stream failed')),
@@ -608,10 +620,6 @@ class _StreamingDashboardScreenState
       _startHeartbeat();
       _startYouTubeStatusMonitor();
       await ActiveStreamSession.setActive(widget.matchId);
-      final streamTitle = config.title.trim().isNotEmpty
-          ? config.title.trim()
-          : 'CrickFlow Live';
-      await ref.read(streamServiceProvider).beginLiveSession(title: streamTitle);
       if (mounted) {
         setState(() => _isLive = true);
         if (config.platform == StreamPlatform.youtube &&
@@ -679,35 +687,42 @@ class _StreamingDashboardScreenState
     }
     _stopHeartbeat();
     _stopYouTubeStatusMonitor();
-    final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
-    final config = ref.read(streamStudioConfigProvider(widget.matchId));
-    final wasNative = config.streamingMode == StreamingMode.nativeCamera;
-    // Capture the local recording path before teardown so we can export it.
-    final recordingPath = wasNative && config.recordLocally && _isLive
-        ? ref.read(streamServiceProvider).lastRecordingPath
-        : null;
-    if (match != null) {
-      await ref.read(broadcastSessionControllerProvider).endBroadcast(
-            matchId: widget.matchId,
-            config: config,
-            match: match,
-            wasNativeStream: wasNative && _isLive,
-          );
-    } else {
-      await ref.read(streamServiceProvider).stopStream();
-    }
-    await ref.read(streamOverlayBurnInServiceProvider).clear();
-    ref.read(streamServiceProvider).onRtmpConnected = null;
-    await ref.read(streamServiceProvider).endLiveSession();
-    await ActiveStreamSession.clear();
-    await ref.read(streamServiceProvider).resetToPortraitUi();
-    if (recordingPath != null) {
-      await _exportRecordingToGallery(recordingPath);
-    }
-    if (mounted) {
+
+    try {
+      final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
+      final config = ref.read(streamStudioConfigProvider(widget.matchId));
+      final wasNative = config.streamingMode == StreamingMode.nativeCamera;
+      final nativeWasLive = wasNative && _isLive;
+      // Capture the local recording path before teardown so we can export it.
+      final recordingPath = nativeWasLive && config.recordLocally
+          ? ref.read(streamServiceProvider).lastRecordingPath
+          : null;
+      if (match != null) {
+        await ref.read(broadcastSessionControllerProvider).endBroadcast(
+              matchId: widget.matchId,
+              config: config,
+              match: match,
+              wasNativeStream: nativeWasLive,
+            );
+      } else {
+        await ref.read(streamServiceProvider).stopStream();
+        await ref.read(streamServiceProvider).endLiveSession();
+      }
+      await ref.read(streamOverlayBurnInServiceProvider).clear();
+      ref.read(streamServiceProvider).onRtmpConnected = null;
+      if (!nativeWasLive && match != null) {
+        await ref.read(streamServiceProvider).endLiveSession();
+      }
+      await ActiveStreamSession.clear();
+      await ref.read(streamServiceProvider).resetToPortraitUi();
+      if (recordingPath != null) {
+        await _exportRecordingToGallery(recordingPath);
+      }
+      if (!mounted) return;
       final service = ref.read(streamServiceProvider);
       setState(() {
         _isLive = false;
+        _endingStream = false;
         _cameraLoading = false;
         _cameraError = service.lastError;
       });
@@ -715,6 +730,16 @@ class _StreamingDashboardScreenState
       await Future<void>.delayed(const Duration(milliseconds: 200));
       if (!mounted) return;
       context.go('/match/${widget.matchId}?tab=live');
+    } catch (e) {
+      debugPrint('[CrickFlowStream] end stream failed: $e');
+      if (mounted) {
+        setState(() => _endingStream = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not finish ending the stream. Try again.'),
+          ),
+        );
+      }
     }
   }
 
@@ -872,7 +897,7 @@ class _StreamingDashboardScreenState
       if (match == null) return;
       final service = ref.read(streamServiceProvider);
       final nativeLive = _nativeSessionActive(service);
-      if (nativeLive && !_isLive) {
+      if (nativeLive && !_isLive && !_startingLive) {
         _ensureLiveUiForNativeSession();
       } else if (_isLive && !nativeLive && !service.isReconnecting) {
         setState(() => _isLive = false);
@@ -886,10 +911,10 @@ class _StreamingDashboardScreenState
       (prev, next) {
         if (prev == null) return;
         final service = ref.read(streamServiceProvider);
-        if (service.isReconnecting && _nativeSessionActive(service)) {
+        if (service.isReconnecting && _nativeSessionActive(service) && !_startingLive) {
           _ensureLiveUiForNativeSession();
         }
-        if (prev.$1 && !next.$1 && next.$2) {
+        if (prev.$1 && !next.$1 && next.$2 && !_startingLive) {
           _ensureLiveUiForNativeSession();
           _onRtmpReconnectCompleted();
         }
@@ -950,8 +975,6 @@ class _StreamingDashboardScreenState
     final canStart = ref.watch(streamCanStartProvider(widget.matchId));
     final config = ref.watch(streamStudioConfigProvider(widget.matchId));
     final service = ref.watch(streamServiceProvider);
-    final broadcastController = ref.watch(broadcastSessionControllerProvider);
-    final obsCredentials = broadcastController.credentialsFromConfig(config);
     final isObs = config.streamingMode == StreamingMode.externalEncoder;
     final cameraReady = isObs || (!_cameraLoading && service.isInitialized);
     _syncBatterySaverForLive(_isLive && !isObs);
@@ -961,6 +984,9 @@ class _StreamingDashboardScreenState
         if (match == null) {
           return const Scaffold(body: Center(child: Text('Match not found')));
         }
+
+        final showStreamLinkDot =
+            !MatchStreamPlayback.hasWatchablePlayback(match);
 
         return PopScope(
           canPop: false,
@@ -993,25 +1019,16 @@ class _StreamingDashboardScreenState
                   ),
                 ),
               if (isObs)
-                SafeArea(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      72,
-                      16,
-                      _isLive ? 16 : 120,
-                    ),
-                    child: Column(
-                      children: [
-                        ObsSetupSection(
-                          matchId: widget.matchId,
-                          credentials: obsCredentials,
-                        ),
-                      ],
-                    ),
-                  ),
+                ObsBroadcastScreen(
+                  matchId: widget.matchId,
+                  isLive: _isLive,
+                  showStreamLinkDot: showStreamLinkDot,
+                  linkedStreamCount:
+                      MatchStreamPlayback.sourcesFor(match).length,
+                  onAddStreamLink: () => _openStreamLinkSheet(match),
+                  onBack: () => unawaited(_handleNavigateBack()),
                 )
-              else
+              else ...[
                 StreamStudioCompositor(
                   key: ValueKey('stream_studio_$_previewSession'),
                   matchId: widget.matchId,
@@ -1027,41 +1044,45 @@ class _StreamingDashboardScreenState
                     fill: true,
                   ),
                 ),
-              StreamStudioOverlay(
-                matchId: widget.matchId,
-                match: match,
-                canStart: _isLive ? true : canStart,
-                onLensSelected: _switchLens,
-                onGoLive: _goLive,
-                onOpenBroadcastSetup: () => _openBroadcastSetup(match),
-                cameraReady: _isLive ? true : cameraReady,
-                isLive: _isLive,
-                isStartingLive: _startingLive,
-                isEndingLive: _endingStream,
-                isObsMode: isObs,
-                onNavigateBack: _handleNavigateBack,
-                onEndStream: _isLive && !_endingStream ? _endStream : null,
-                onMarkReplay: _isLive ? () => _markReplay(match) : null,
-                onBatterySaver:
-                    _isLive && !isObs ? _activateBatterySaver : null,
-              ),
-              if (_isLive && !isObs)
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 100,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      StreamLiveChatPanel(matchId: widget.matchId),
-                    ],
+                StreamStudioOverlay(
+                  matchId: widget.matchId,
+                  match: match,
+                  canStart: _isLive ? true : canStart,
+                  onLensSelected: _switchLens,
+                  onGoLive: _goLive,
+                  onOpenBroadcastSetup: () => _openBroadcastSetup(match),
+                  cameraReady: _isLive ? true : cameraReady,
+                  isLive: _isLive,
+                  isStartingLive: _startingLive,
+                  isEndingLive: _endingStream,
+                  isObsMode: false,
+                  onNavigateBack: _handleNavigateBack,
+                  onEndStream: _isLive && !_endingStream ? _endStream : null,
+                  onMarkReplay: _isLive ? () => _markReplay(match) : null,
+                  onBatterySaver: _isLive ? _activateBatterySaver : null,
+                  onAddStreamLink: _isLive
+                      ? () => _openStreamLinkSheet(match)
+                      : null,
+                  showStreamLinkDot: showStreamLinkDot,
+                ),
+                if (_isLive)
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 100,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        StreamLiveChatPanel(matchId: widget.matchId),
+                      ],
+                    ),
                   ),
-                ),
-              if (_isLive && !isObs && _batterySaverActive)
-                StreamBatterySaverOverlay(
-                  liveStartedAt: _liveStartedAtForSaver,
-                  onWake: _dismissBatterySaver,
-                ),
+                if (_isLive && _batterySaverActive)
+                  StreamBatterySaverOverlay(
+                    liveStartedAt: _liveStartedAtForSaver,
+                    onWake: _dismissBatterySaver,
+                  ),
+              ],
             ],
           ),
         ),

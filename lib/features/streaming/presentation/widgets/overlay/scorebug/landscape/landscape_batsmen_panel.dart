@@ -202,36 +202,40 @@ class _BatterRow extends StatelessWidget {
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOutCubic,
         style: nameStyle,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            if (onStrike)
-              Padding(
-                padding: EdgeInsets.only(right: 2 * scale),
-                child: Text(
-                  '🏏',
-                  style: TextStyle(
-                    fontSize: (compact ? 13 : 16) * scale,
-                    height: 1,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              if (onStrike)
+                Padding(
+                  padding: EdgeInsets.only(right: 2 * scale),
+                  child: Text(
+                    '🏏',
+                    style: TextStyle(
+                      fontSize: (compact ? 13 : 16) * scale,
+                      height: 1,
+                    ),
                   ),
                 ),
+              Flexible(
+                fit: FlexFit.loose,
+                child: Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
               ),
-            Flexible(
-              fit: FlexFit.loose,
-              child: Text(
-                displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-              ),
-            ),
-            SizedBox(width: nameStatsGap),
-            Text('$runs', style: runsStyle),
-            SizedBox(width: (compact ? 3 : 5) * scale),
-            Text('$balls', style: ballsStyle),
-          ],
+              SizedBox(width: nameStatsGap),
+              Text('$runs', style: runsStyle),
+              SizedBox(width: (compact ? 3 : 5) * scale),
+              Text('$balls', style: ballsStyle),
+            ],
+          ),
         ),
       ),
     );

@@ -89,6 +89,17 @@ class StreamService extends ChangeNotifier {
   // persistent reconnect loop — a low-network go-live should fail cleanly
   // instead of getting stuck half-live.
   bool _initialConnectInProgress = false;
+  /// True while the native [startVideoStreaming] call is in flight — ignore
+  /// stale RTMP_STOPPED events from intentional pre-publish cleanup.
+  bool _nativeStreamHandoffPending = false;
+  /// After the first RTMP publish confirm, ignore transient transport drops
+  /// while the camera/overlay pipeline settles (lifecycle churn, GL relink).
+  DateTime? _goLiveSettlingUntil;
+  StreamPlatform? _lastConnectPlatform;
+
+  bool get _inGoLiveSettling =>
+      _goLiveSettlingUntil != null &&
+      DateTime.now().isBefore(_goLiveSettlingUntil!);
 
   StreamStatus get status => _status;
   String? get lastError => _lastError;
@@ -524,6 +535,10 @@ class StreamService extends ChangeNotifier {
   Future<void> beginLiveSession({required String title}) async {
     _liveSessionActive = true;
     await StreamForegroundBridge.start(title: title);
+    if (_rtmpPublishConfirmed && !_healthMonitoringActive) {
+      _startHealthMonitoring();
+      _healthMonitoringActive = true;
+    }
     notifyListeners();
   }
 
@@ -644,7 +659,10 @@ class StreamService extends ChangeNotifier {
     int? bitrate,
     StreamResolutionPreset resolution = StreamResolutionPreset.p720,
     String? localRecordingPath,
+    StreamPlatform? platform,
   }) async {
+    _lastConnectPlatform = platform;
+    _goLiveSettlingUntil = null;
     if (_controller == null || !isInitialized) {
       await initCamera(
         lensIndex: _selectedLensIndex,
@@ -687,6 +705,7 @@ class StreamService extends ChangeNotifier {
     _startConnectivityWatch(endpoint, bitrate);
 
     try {
+      _nativeStreamHandoffPending = true;
       if (recordPath != null && recordPath.isNotEmpty) {
         await _controller!.startVideoRecordingAndStreaming(
           recordPath,
@@ -701,22 +720,28 @@ class StreamService extends ChangeNotifier {
           micEnabled: _micEnabled,
         );
       }
+    } finally {
+      _nativeStreamHandoffPending = false;
+    }
 
+    try {
       final connected = await _pendingConnectCompleter!.future.timeout(
         const Duration(seconds: 45),
         onTimeout: () => false,
       );
       if (!connected) {
         _status = StreamStatus.error;
-        _lastError =
-            'RTMP connection failed. Check server URL, stream key, and network.';
+        _lastError ??=
+            'Could not connect to the streaming server. Check your network, '
+            'RTMP URL, and stream key, then try again.';
         notifyListeners();
         throw StateError(_lastError!);
       }
       _lastError = null;
     } on CameraException catch (e) {
       _status = StreamStatus.error;
-      _lastError = e.description ?? e.code;
+      final raw = e.description ?? e.code;
+      _lastError = _friendlyRtmpError(raw);
       rethrow;
     } finally {
       _pendingConnectCompleter = null;
@@ -738,19 +763,34 @@ class StreamService extends ChangeNotifier {
     _cameraListener = () {
       final event = _controller!.value.event;
       if (event is! Map) return;
+      if (_nativeStreamHandoffPending) return;
       final type = event['eventType'] as String?;
+      final reason = event['errorDescription'] as String?;
       if (type == 'rtmp_retry') {
-        _onRtmpTransportLost();
+        _onRtmpTransportLost(reason: reason);
       } else if (type == 'rtmp_connected') {
         _onRtmpTransportConnected();
       } else if (type == 'rtmp_stopped') {
         // Ignore spurious stop while native is still publishing during republish.
         if (_reconnectInFlight && isStreaming) return;
         if (_reconnectInFlight) _reconnectInFlight = false;
+        if (_inGoLiveSettling && _rtmpPublishConfirmed) return;
+        if (_initialConnectInProgress && !_rtmpPublishConfirmed) {
+          // Keep waiting for the initial connect attempt — do not abort early.
+          if (reason != null &&
+              reason.isNotEmpty &&
+              reason.toLowerCase() != 'disconnected') {
+            _lastError = _friendlyRtmpError(reason);
+          }
+          return;
+        }
         if (_rtmpSessionActive && !_reconnectExhausted) {
-          _onRtmpTransportLost();
+          _onRtmpTransportLost(reason: reason);
         } else {
           _status = StreamStatus.ended;
+          if (reason != null && reason.isNotEmpty) {
+            _lastError = _friendlyRtmpError(reason);
+          }
           _pendingConnectCompleter?.complete(false);
           notifyListeners();
         }
@@ -759,17 +799,28 @@ class StreamService extends ChangeNotifier {
     _controller!.addListener(_cameraListener!);
   }
 
-  void _onRtmpTransportLost() {
+  void _onRtmpTransportLost({String? reason}) {
     if (!_rtmpSessionActive && !_liveSessionActive) return;
+    if (_inGoLiveSettling && _rtmpPublishConfirmed) return;
     _rtmpPublishConfirmed = false;
     _confirmingPublish = false;
     _status = StreamStatus.connecting;
+    if (reason != null && reason.isNotEmpty) {
+      _lastError = _friendlyRtmpError(reason);
+    }
     _emitHealth(reconnecting: true);
     notifyListeners();
     // During the very first go-live connect, do not spin up the persistent
-    // reconnect loop on a transient drop — let the connect attempt time out and
-    // fail cleanly so we never end up half-live on a poor connection.
+    // reconnect loop on a transient drop — let the 45s connect window finish.
     if (_initialConnectInProgress && !_rtmpPublishConfirmed) {
+      if (reason != null &&
+          reason.isNotEmpty &&
+          reason.toLowerCase() != 'disconnected') {
+        _lastError = _friendlyRtmpError(reason);
+      }
+      if (reason != null && _isDefinitiveRtmpFailure(reason)) {
+        _pendingConnectCompleter?.complete(false);
+      }
       return;
     }
     if (!_reconnectExhausted &&
@@ -807,7 +858,8 @@ class StreamService extends ChangeNotifier {
 
       _pendingConnectCompleter?.complete(false);
       if (_healthMonitoringActive || _liveSessionActive) {
-        _lastError = 'RTMP connected but no video reached the server.';
+        _lastError ??=
+            'Could not reach the streaming server. Check your network and stream key.';
         _onRtmpTransportLost();
       }
     } finally {
@@ -851,18 +903,25 @@ class StreamService extends ChangeNotifier {
     _emitHealth(reconnecting: false);
     if (!_healthMonitoringActive) {
       StreamLifecycleLog.liveStarted();
-      _startHealthMonitoring();
-      _healthMonitoringActive = true;
     } else if (wasReconnecting) {
       StreamLifecycleLog.retrySuccess();
       StreamLifecycleLog.rtmpReconnected();
     }
+    _goLiveSettlingUntil = DateTime.now().add(const Duration(seconds: 4));
     _pendingConnectCompleter?.complete(true);
-    onRtmpConnected?.call();
+    final callback = onRtmpConnected;
+    if (callback != null) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_rtmpPublishConfirmed && _status == StreamStatus.live) {
+          callback();
+        }
+      });
+    }
     notifyListeners();
   }
 
   void _scheduleReconnectTransport() {
+    if (_inGoLiveSettling && _rtmpPublishConfirmed) return;
     if (!_rtmpSessionActive && !_liveSessionActive) return;
     if (_controller == null || _lastEndpoint == null) return;
     if (_reconnectTimer != null || _reconnectInFlight) return;
@@ -1040,6 +1099,7 @@ class StreamService extends ChangeNotifier {
     _reconnectInFlight = false;
     _rtmpPublishConfirmed = false;
     _confirmingPublish = false;
+    _goLiveSettlingUntil = null;
     onRtmpConnected = null;
 
     if (_controller != null && isInitialized) {
@@ -1071,6 +1131,7 @@ class StreamService extends ChangeNotifier {
       }
 
       if (!isStreaming) {
+        if (_inGoLiveSettling && _rtmpPublishConfirmed) return;
         if ((_liveSessionActive || _lastEndpoint != null) &&
             !_reconnectExhausted &&
             !_reconnectInFlight &&
@@ -1115,7 +1176,9 @@ class StreamService extends ChangeNotifier {
           connectionQuality: quality,
         );
       } on TimeoutException {
-        if (_status == StreamStatus.live) _onRtmpTransportLost();
+        if (_status == StreamStatus.live && !_inGoLiveSettling) {
+          _onRtmpTransportLost();
+        }
       } catch (_) {
         if (_status == StreamStatus.live && _networkOnline) {
           _emitHealth(reconnecting: true);
@@ -1233,6 +1296,44 @@ class StreamService extends ChangeNotifier {
 
   static String buildRtmpEndpoint(String rtmpUrl, String streamKey) {
     return StreamCredentialNormalizer.buildEndpoint(rtmpUrl, streamKey);
+  }
+
+  /// Maps native RTMP failure reasons to actionable copy for the broadcaster.
+  String _friendlyRtmpError(String reason) {
+    final lower = reason.toLowerCase();
+    if (lower == 'disconnected' || lower.contains('socket is not connected')) {
+      return 'Connection lost. Check your network and stream key, then try again.';
+    }
+    if (lower.contains('connect error') || lower.contains('time out')) {
+      return 'Could not connect to the streaming server. Check your network, '
+          'RTMP URL, and stream key.';
+    }
+    if (lower.contains('publish permitted')) {
+      if (_lastConnectPlatform == StreamPlatform.facebook) {
+        return 'Facebook rejected the stream key. In Facebook Live Producer, '
+            'create or open a live video, then paste the stream key and try again.';
+      }
+      return 'YouTube rejected the stream key. In YouTube Studio, click Go live '
+          'first (or use a persistent stream key), then try again.';
+    }
+    if (lower.contains('auth')) {
+      return 'RTMP authentication failed. Check your stream key and server URL.';
+    }
+    if (lower.contains('badname')) {
+      return 'Invalid RTMP stream name. Check that the stream key is correct '
+          'and the live broadcast is active on the platform.';
+    }
+    return reason;
+  }
+
+  static bool _isDefinitiveRtmpFailure(String reason) {
+    final lower = reason.toLowerCase();
+    return lower.contains('publish permitted') ||
+        lower.contains('auth error') ||
+        lower.contains('authfail') ||
+        lower.contains('endpoint malformed') ||
+        lower.contains('badname') ||
+        lower.contains('bad name');
   }
 
   ResolutionPreset _mapResolution(StreamResolutionPreset preset) {

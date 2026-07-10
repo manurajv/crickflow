@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/enums.dart';
@@ -14,6 +15,8 @@ import '../domain/streaming_enums.dart';
 import '../domain/streaming_mode.dart';
 import '../services/stream_platform_service.dart';
 import '../services/stream_youtube_thumbnail_service.dart';
+import '../../../../shared/providers/providers.dart';
+import '../../../../domain/streaming/stream_playback_merger.dart';
 
 /// Result of preparing or starting a broadcast session.
 class BroadcastSessionResult {
@@ -158,6 +161,22 @@ class BroadcastSessionController {
     required MatchModel match,
   }) async {
     final workingConfig = _normalizeConfig(config);
+    final actor = _streamActor();
+
+    // External encoder (OBS / vMix): the encoder owns the RTMP connection and
+    // stream key. The app only marks the match live and serves the overlay
+    // browser source — no stream key or credential resolution needed here.
+    if (workingConfig.streamingMode == StreamingMode.externalEncoder) {
+      await _persistStreamMeta(
+        matchId: matchId,
+        match: match,
+        config: workingConfig,
+        status: StreamStatus.live,
+        addedByUserId: actor.uid,
+        addedByName: actor.name,
+      );
+      return BroadcastSessionResult(config: workingConfig);
+    }
 
     final credsResult = await resolveCredentials(workingConfig, matchId: matchId);
     if (!credsResult.isSuccess) return credsResult;
@@ -188,24 +207,10 @@ class BroadcastSessionController {
 
     await _streamService.lockOrientation(resolved.orientation);
 
-    if (resolved.streamingMode == StreamingMode.externalEncoder) {
-      await _persistStreamMeta(
-        matchId: matchId,
-        match: match,
-        config: resolved,
-        status: StreamStatus.live,
-      );
-      return BroadcastSessionResult(
-        config: resolved,
-        credentials: credsResult.credentials,
-      );
-    }
-
+    var rtmpConnected = false;
     try {
       // Local recording is hidden/disabled for now — never record until the
       // feature is completed, regardless of any persisted recordLocally flag.
-      // To re-enable, restore: if (resolved.recordLocally) recordPath =
-      //   await StreamService.defaultRecordingPath(matchId);
       const String? recordPath = null;
       await _streamService.startStream(
         rtmpUrl: resolved.rtmpUrl,
@@ -213,38 +218,70 @@ class BroadcastSessionController {
         bitrate: resolved.effectiveBitrateKbps * 1024,
         resolution: resolved.resolution,
         localRecordingPath: recordPath,
+        platform: resolved.platform,
       );
+      rtmpConnected = true;
 
-      if (_streamService.isRtmpLive) {
+      final streamTitle = resolved.title.trim().isNotEmpty
+          ? resolved.title.trim()
+          : 'CrickFlow Live';
+      try {
+        await _streamService.beginLiveSession(title: streamTitle);
+      } catch (e) {
+        debugPrint('[CrickFlowBroadcast] beginLiveSession failed (keeping stream live): $e');
+      }
+      try {
         await _streamService.setMicEnabled(resolved.micEnabled);
+      } catch (e) {
+        debugPrint('[CrickFlowBroadcast] setMicEnabled failed (keeping stream live): $e');
       }
 
-      if (!_streamService.isRtmpLive) {
-        await _streamService.stopStream();
-        await _streamService.resumePreviewAfterStreamEnd();
-        return BroadcastSessionResult(
+      try {
+        await _persistStreamMeta(
+          matchId: matchId,
+          match: match,
           config: resolved,
-          errorMessage:
-              'RTMP connection failed. Check server URL, stream key, and network.',
+          status: StreamStatus.live,
+          addedByUserId: actor.uid,
+          addedByName: actor.name,
         );
+      } catch (e) {
+        // RTMP is already live — never tear down the encoder for a Firestore hiccup.
+        debugPrint('[CrickFlowBroadcast] stream metadata persist failed: $e');
       }
 
-      await _persistStreamMeta(
-        matchId: matchId,
-        match: match,
-        config: resolved,
-        status: StreamStatus.live,
-      );
       return BroadcastSessionResult(
         config: resolved.copyWith(orientationLocked: true),
         credentials: credsResult.credentials,
       );
     } catch (e) {
-      await _streamService.stopStream();
-      await _streamService.resumePreviewAfterStreamEnd();
+      if (!rtmpConnected) {
+        if (_streamService.status != StreamStatus.idle) {
+          await _streamService.stopStream();
+        }
+        await _streamService.resumePreviewAfterStreamEnd();
+        final message = _streamService.lastError ??
+            (e is StateError ? e.message : null) ??
+            'Stream failed';
+        return BroadcastSessionResult(
+          config: resolved,
+          errorMessage: message,
+        );
+      }
+      debugPrint('[CrickFlowBroadcast] post-RTMP error (keeping stream live): $e');
+      try {
+        await _persistStreamMeta(
+          matchId: matchId,
+          match: match,
+          config: resolved,
+          status: StreamStatus.live,
+          addedByUserId: actor.uid,
+          addedByName: actor.name,
+        );
+      } catch (_) {}
       return BroadcastSessionResult(
-        config: resolved,
-        errorMessage: '$e',
+        config: resolved.copyWith(orientationLocked: true),
+        credentials: credsResult.credentials,
       );
     }
   }
@@ -255,6 +292,8 @@ class BroadcastSessionController {
     required MatchModel match,
     required bool wasNativeStream,
   }) async {
+    final actor = _streamActor();
+
     if (wasNativeStream) {
       await _streamService.stopStream();
       await _streamService.endLiveSession();
@@ -271,12 +310,18 @@ class BroadcastSessionController {
         // RTMP stop may already trigger YouTube auto-stop; best-effort API end.
       }
     }
-    await _persistStreamMeta(
-      matchId: matchId,
-      match: match,
-      config: config,
-      status: StreamStatus.ended,
-    );
+    try {
+      await _persistStreamMeta(
+        matchId: matchId,
+        match: match,
+        config: config,
+        status: StreamStatus.ended,
+        addedByUserId: actor.uid,
+        addedByName: actor.name,
+      );
+    } catch (e) {
+      debugPrint('[CrickFlowBroadcast] end metadata persist failed: $e');
+    }
   }
 
   StreamLiveCredentials? credentialsFromConfig(StreamStudioConfig config) {
@@ -290,9 +335,9 @@ class BroadcastSessionController {
     );
   }
 
-  /// Public overlay browser source for OBS (transparent scoreboard page).
+  /// Public overlay browser source for OBS — transparent, realtime scorebug page.
   static String overlayBrowserSourceUrl(String matchId) {
-    return 'https://${DeepLinkUtils.firebaseHostingHost}/live/$matchId';
+    return 'https://${DeepLinkUtils.firebaseHostingHost}/overlay/$matchId';
   }
 
   StreamStudioConfig _applyCredentials(
@@ -320,11 +365,19 @@ class BroadcastSessionController {
     );
   }
 
+  ({String? uid, String? name}) _streamActor() {
+    final profile = _ref.read(currentUserProfileProvider).valueOrNull;
+    final uid = _ref.read(authStateProvider).value?.uid;
+    return (uid: uid, name: profile?.effectiveName);
+  }
+
   Future<void> _persistStreamMeta({
     required String matchId,
     required MatchModel match,
     required StreamStudioConfig config,
     required StreamStatus status,
+    String? addedByUserId,
+    String? addedByName,
   }) async {
     final destination = switch (config.platform) {
       StreamPlatform.customRtmp => StreamDestination.customRtmp,
@@ -333,17 +386,40 @@ class BroadcastSessionController {
       StreamPlatform.twitch => StreamDestination.youtube,
     };
 
-    final stream = StreamMetadataModel(
-      status: status,
+    final watchUrl = config.youtubeWatchUrl.trim().isNotEmpty
+        ? config.youtubeWatchUrl.trim()
+        : match.stream.youtubeWatchUrl;
+    final isGoingLive = status == StreamStatus.live;
+    final isEnding = status == StreamStatus.ended;
+
+    var playbackEntries = match.stream.playbackEntries;
+    if (watchUrl != null &&
+        watchUrl.isNotEmpty &&
+        (isGoingLive || isEnding)) {
+      playbackEntries = StreamPlaybackMerger.appendSession(
+        existing: playbackEntries,
+        url: watchUrl,
+        isLive: isGoingLive,
+        addedAt: isGoingLive ? DateTime.now() : null,
+        addedByUserId: addedByUserId,
+        addedByName: addedByName,
+        forceNewSession: isGoingLive,
+      );
+    }
+
+    final anyLive = playbackEntries.any((e) => e.isLive);
+    final resolvedStatus = isEnding && anyLive ? StreamStatus.live : status;
+
+    final stream = match.stream.copyWith(
+      status: resolvedStatus,
       destination: destination,
       rtmpUrl: config.rtmpUrl,
       streamKey: config.streamKey,
-      startedAt:
-          status == StreamStatus.live ? DateTime.now() : match.stream.startedAt,
-      youtubeWatchUrl: config.youtubeWatchUrl.isEmpty
-          ? match.stream.youtubeWatchUrl
-          : config.youtubeWatchUrl,
-      webrtcEnabled: match.stream.webrtcEnabled,
+      startedAt: isGoingLive ? DateTime.now() : match.stream.startedAt,
+      youtubeWatchUrl: StreamPlaybackMerger.latestWatchUrl(playbackEntries) ??
+          watchUrl ??
+          match.stream.youtubeWatchUrl,
+      playbackEntries: playbackEntries,
     );
 
     await _matchRepository.updateStreamMetadata(matchId, stream);

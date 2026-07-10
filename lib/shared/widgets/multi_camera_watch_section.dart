@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:crickflow/core/theme/app_dimens.dart';
 import '../../core/theme/app_colors.dart';
-import 'youtube_embed_card.dart';
+import '../../domain/streaming/match_stream_playback.dart';
+import 'match_stream_player.dart';
 
 /// Two YouTube angles (main + secondary) for Phase 3.4 multi-camera.
 class MultiCameraWatchSection extends StatefulWidget {
@@ -25,13 +26,32 @@ class MultiCameraWatchSection extends StatefulWidget {
 class _MultiCameraWatchSectionState extends State<MultiCameraWatchSection> {
   int _index = 0;
 
-  bool get _hasSecondary =>
-      widget.secondaryUrl != null && widget.secondaryUrl!.trim().isNotEmpty;
-
   @override
   Widget build(BuildContext context) {
-    if (!_hasSecondary) {
-      return YoutubeEmbedCard(youtubeWatchUrl: widget.primaryUrl);
+    final primary = widget.primaryUrl?.trim();
+    final secondary = widget.secondaryUrl?.trim();
+    final sources = <MatchStreamSource>[];
+    if (primary != null && primary.isNotEmpty) {
+      sources.add(MatchStreamSource(
+        url: primary,
+        label: widget.primaryLabel,
+        platform: MatchStreamPlayback.platformFromUrl(primary),
+      ));
+    }
+    if (secondary != null && secondary.isNotEmpty) {
+      sources.add(MatchStreamSource(
+        url: secondary,
+        label: widget.secondaryLabel,
+        platform: MatchStreamPlayback.platformFromUrl(secondary),
+      ));
+    }
+
+    if (sources.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (sources.length == 1) {
+      return MatchStreamPlayer(source: sources.first);
     }
 
     return Column(
@@ -65,15 +85,10 @@ class _MultiCameraWatchSectionState extends State<MultiCameraWatchSection> {
         const SizedBox(height: 8),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
-          child: _index == 0
-              ? YoutubeEmbedCard(
-                  key: const ValueKey('cam-a'),
-                  youtubeWatchUrl: widget.primaryUrl,
-                )
-              : YoutubeEmbedCard(
-                  key: const ValueKey('cam-b'),
-                  youtubeWatchUrl: widget.secondaryUrl,
-                ),
+          child: MatchStreamPlayer(
+            key: ValueKey(_index == 0 ? 'cam-a' : 'cam-b'),
+            source: sources[_index],
+          ),
         ),
       ],
     );
