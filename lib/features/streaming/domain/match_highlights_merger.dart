@@ -1,3 +1,4 @@
+import '../../../domain/streaming/replay_marker_constants.dart';
 import '../../../core/utils/highlight_utils.dart';
 import '../../../data/models/ball_event_model.dart';
 import '../data/models/replay_marker_model.dart';
@@ -14,6 +15,7 @@ class MatchHighlightItem {
     required this.sortKey,
     this.streamOffsetMs,
     this.ballEventId,
+    this.streamSessionId,
   }) : assert(ballEvent != null || replayMarker != null);
 
   factory MatchHighlightItem.fromBallEvent(BallEventModel event) {
@@ -36,6 +38,7 @@ class MatchHighlightItem {
       sortKey: marker.streamOffsetMs,
       streamOffsetMs: marker.streamOffsetMs,
       ballEventId: marker.ballEventId,
+      streamSessionId: marker.streamSessionId,
     );
   }
 
@@ -47,6 +50,7 @@ class MatchHighlightItem {
   final int sortKey;
   final int? streamOffsetMs;
   final String? ballEventId;
+  final String? streamSessionId;
 
   String? get highlightTag {
     if (ballEvent != null) {
@@ -79,8 +83,13 @@ class MatchHighlightsMerger {
 
     for (final event in ballHighlights) {
       final marker = _markerForBall(replayMarkers, event.id);
-      final offsetMs = marker?.streamOffsetMs ??
-          _offsetMsFromStreamStart(streamStartedAt, event.timestamp);
+      final computedOffset = marker?.streamOffsetMs ??
+          replayMarkerOffsetMs(
+            sessionStartedAt: streamStartedAt,
+            eventTime: event.timestamp,
+          );
+      final streamOffset =
+          computedOffset > 0 ? computedOffset : null;
       items.add(
         MatchHighlightItem(
           source: MatchHighlightSource.ballEvent,
@@ -89,9 +98,10 @@ class MatchHighlightsMerger {
           label: HighlightUtils.label(event),
           subtitle:
               '${HighlightUtils.overBallLabel(event)} · ${event.commentary}',
-          sortKey: offsetMs ?? event.sequence * 1000,
-          streamOffsetMs: offsetMs,
+          sortKey: streamOffset ?? event.sequence * 1000,
+          streamOffsetMs: streamOffset,
           ballEventId: event.id,
+          streamSessionId: marker?.streamSessionId,
         ),
       );
     }
@@ -106,12 +116,6 @@ class MatchHighlightsMerger {
 
     items.sort((a, b) => b.sortKey.compareTo(a.sortKey));
     return items;
-  }
-
-  int? _offsetMsFromStreamStart(DateTime? started, DateTime? eventTime) {
-    if (started == null || eventTime == null) return null;
-    if (eventTime.isBefore(started)) return null;
-    return eventTime.difference(started).inMilliseconds;
   }
 
   ReplayMarkerModel? _markerForBall(

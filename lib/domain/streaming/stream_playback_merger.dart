@@ -59,6 +59,75 @@ class StreamPlaybackMerger {
     return '${start}_${end}_${entry.isLive}_${entry.url.hashCode}';
   }
 
+  /// Union playback history from local and remote snapshots.
+  static List<StreamPlaybackEntryModel> unionEntries(
+    List<StreamPlaybackEntryModel> a,
+    List<StreamPlaybackEntryModel> b,
+  ) {
+    if (a.isEmpty) return b;
+    if (b.isEmpty) return a;
+
+    final byKey = <String, StreamPlaybackEntryModel>{};
+    for (final entry in [...a, ...b]) {
+      final key = entry.sessionId.trim().isNotEmpty
+          ? entry.sessionId.trim()
+          : sessionKeyFor(entry);
+      final existing = byKey[key];
+      if (existing == null) {
+        byKey[key] = entry;
+        continue;
+      }
+      final winner = _pickRicherPlaybackEntry(existing, entry);
+      byKey[key] = winner;
+    }
+
+    final out = byKey.values.toList()..sort(_compareEntries);
+    return out;
+  }
+
+  /// Freezes resolved watch URLs onto ended rows (e.g. pending → real link).
+  ///
+  /// When [forSessionId] is set, only that session's row is updated — never
+  /// cross-contaminates prior playback history with a newer session's URL.
+  static List<StreamPlaybackEntryModel> finalizeEndedSessionUrls({
+    required List<StreamPlaybackEntryModel> entries,
+    String? canonicalWatchUrl,
+    String? forSessionId,
+  }) {
+    final canonical = canonicalWatchUrl?.trim() ?? '';
+    if (canonical.isEmpty || _isPendingWatchUrl(canonical)) return entries;
+
+    final targetSessionId = forSessionId?.trim() ?? '';
+
+    return [
+      for (final entry in entries)
+        if (!entry.isLive &&
+            (entry.url.trim().isEmpty || _isPendingWatchUrl(entry.url)) &&
+            _entryMatchesSessionTarget(entry, targetSessionId))
+          entry.copyWith(url: canonical)
+        else
+          entry,
+    ];
+  }
+
+  static bool _entryMatchesSessionTarget(
+    StreamPlaybackEntryModel entry,
+    String targetSessionId,
+  ) {
+    if (targetSessionId.isEmpty) return true;
+    final entrySid = entry.sessionId.trim();
+    if (entrySid.isNotEmpty && entrySid == targetSessionId) return true;
+    final pendingSid = _pendingSessionId(entry.url);
+    return pendingSid != null && pendingSid == targetSessionId;
+  }
+
+  static String? _pendingSessionId(String url) {
+    if (!_isPendingWatchUrl(url)) return null;
+    final parts = url.trim().split(':');
+    if (parts.length >= 3) return parts[2].trim();
+    return null;
+  }
+
   static List<StreamPlaybackEntryModel> _dedupeSessions(
     List<StreamPlaybackEntryModel> entries,
   ) {
@@ -94,14 +163,24 @@ class StreamPlaybackMerger {
     if (liveIdx >= 0) {
       final live = entries[liveIdx];
       if (hasCanonical && _isPendingWatchUrl(live.url)) {
-        final updated = [...entries];
-        updated[liveIdx] = live.copyWith(url: canonical);
-        return updated;
+        final canonicalKey = _urlIdentityKey(canonical);
+        final usedByOtherSession = entries.any(
+          (e) =>
+              !e.isLive &&
+              e.sessionId.trim() != live.sessionId.trim() &&
+              _urlIdentityKey(e.url) == canonicalKey &&
+              canonicalKey.isNotEmpty,
+        );
+        if (!usedByOtherSession) {
+          final updated = [...entries];
+          updated[liveIdx] = live.copyWith(url: canonical);
+          return updated;
+        }
       }
       return entries;
     }
 
-    if (hasCanonical && entries.isEmpty) {
+    if (hasCanonical) {
       final augmented = [
         ...entries,
         StreamPlaybackEntryModel(
@@ -307,6 +386,16 @@ class StreamPlaybackMerger {
     return null;
   }
 
+  /// Resolved watch URL for the current live row only (null when still pending).
+  static String? activeLiveWatchUrl(List<StreamPlaybackEntryModel> entries) {
+    final liveRows = entries.where((e) => e.isLive).toList()
+      ..sort(_compareEntries);
+    if (liveRows.isEmpty) return null;
+    final url = liveRows.first.url.trim();
+    if (url.isEmpty || _isPendingWatchUrl(url)) return null;
+    return url;
+  }
+
   /// Marks every active live session as ended (preserves each session's times).
   static List<StreamPlaybackEntryModel> endAllLiveSessions({
     required List<StreamPlaybackEntryModel> existing,
@@ -330,37 +419,108 @@ class StreamPlaybackMerger {
     String? addedByUserId,
     String? addedByName,
   }) {
+    return attachWatchUrlToSession(
+      existing: existing,
+      url: url,
+      sessionId: sessionId,
+      sessionStartedAt: sessionStartedAt,
+      addedByUserId: addedByUserId,
+      addedByName: addedByName,
+      requireLive: true,
+    );
+  }
+
+  /// Attaches a public watch URL to exactly one session — by [sessionId] when
+  /// provided, otherwise the current live row. Never mutates prior sessions.
+  static List<StreamPlaybackEntryModel> attachWatchUrlToSession({
+    required List<StreamPlaybackEntryModel> existing,
+    required String url,
+    String? sessionId,
+    DateTime? sessionStartedAt,
+    String? addedByUserId,
+    String? addedByName,
+    bool requireLive = false,
+  }) {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return existing;
 
-    final liveIndex = existing.lastIndexWhere((e) => e.isLive);
-    if (liveIndex >= 0) {
+    final sid = sessionId?.trim() ?? '';
+    var targetIndex = -1;
+
+    if (sid.isNotEmpty) {
+      targetIndex = existing.indexWhere((e) => e.sessionId.trim() == sid);
+    }
+    if (targetIndex < 0) {
+      targetIndex = existing.lastIndexWhere((e) => e.isLive);
+    }
+
+    if (targetIndex >= 0) {
       final updated = [...existing];
-      final live = updated[liveIndex];
-      updated[liveIndex] = live.copyWith(
+      final target = updated[targetIndex];
+      if (requireLive && !target.isLive) return existing;
+      updated[targetIndex] = target.copyWith(
         url: trimmed,
-        isLive: true,
-        sessionId: live.sessionId.isNotEmpty
-            ? live.sessionId
-            : (sessionId ?? _fallbackSessionId(live.addedAt ?? DateTime.now(), trimmed)),
-        addedAt: live.addedAt ?? sessionStartedAt,
-        endedAt: null,
+        isLive: target.isLive || !requireLive,
+        sessionId: target.sessionId.isNotEmpty
+            ? target.sessionId
+            : (sid.isNotEmpty
+                ? sid
+                : _fallbackSessionId(target.addedAt ?? DateTime.now(), trimmed)),
+        addedAt: target.addedAt ?? sessionStartedAt,
+        endedAt: target.isLive ? null : target.endedAt,
+        addedByUserId: addedByUserId ?? target.addedByUserId,
+        addedByName: addedByName ?? target.addedByName,
       );
+      updated.sort(_compareEntries);
       return updated;
     }
 
-    final started = sessionStartedAt ?? DateTime.now();
-    return beginLiveSession(
-      existing: existing,
-      sessionId: sessionId ?? _fallbackSessionId(started, trimmed),
-      url: trimmed,
-      addedAt: started,
-      addedByUserId: addedByUserId,
-      addedByName: addedByName,
-    );
+    if (requireLive) {
+      final started = sessionStartedAt ?? DateTime.now();
+      return beginLiveSession(
+        existing: existing,
+        sessionId: sid.isNotEmpty ? sid : _fallbackSessionId(started, trimmed),
+        url: trimmed,
+        addedAt: started,
+        addedByUserId: addedByUserId,
+        addedByName: addedByName,
+      );
+    }
+
+    return existing;
+  }
+
+  static String _urlIdentityKey(String url) {
+    final trimmed = url.trim().toLowerCase();
+    if (trimmed.isEmpty) return '';
+    final vMatch = RegExp(r'[?&]v=([^&]+)').firstMatch(trimmed);
+    if (vMatch != null) return 'yt:${vMatch.group(1)}';
+    final shortMatch = RegExp(r'youtu\.be/([^?&]+)').firstMatch(trimmed);
+    if (shortMatch != null) return 'yt:${shortMatch.group(1)}';
+    return trimmed;
   }
 
   static String _fallbackSessionId(DateTime addedAt, String url) {
     return '${addedAt.toUtc().millisecondsSinceEpoch}_${url.hashCode}';
+  }
+
+  static StreamPlaybackEntryModel _pickRicherPlaybackEntry(
+    StreamPlaybackEntryModel existing,
+    StreamPlaybackEntryModel incoming,
+  ) {
+    final existingScore = _playbackEntryRichness(existing);
+    final incomingScore = _playbackEntryRichness(incoming);
+    if (incomingScore > existingScore) return incoming;
+    if (existingScore > incomingScore) return existing;
+    if (incoming.isLive && !existing.isLive) return incoming;
+    return existing;
+  }
+
+  static int _playbackEntryRichness(StreamPlaybackEntryModel entry) {
+    final url = entry.url.trim();
+    if (url.isNotEmpty && !_isPendingWatchUrl(url)) return 3;
+    if (_isPendingWatchUrl(url)) return 1;
+    if (url.isNotEmpty) return 2;
+    return 0;
   }
 }

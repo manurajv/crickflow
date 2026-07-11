@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/enums.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/repositories/match_repository.dart';
+import '../../../domain/streaming/stream_playback_merger.dart';
 import '../../../shared/providers/providers.dart';
 import '../data/active_stream_session.dart';
 import 'stream_lifecycle_log.dart';
@@ -95,16 +96,22 @@ class _LiveStreamShutdownCoordinatorState
     String matchId,
     MatchModel match,
   ) async {
-    final stream = StreamMetadataModel(
-      status: StreamStatus.ended,
-      destination: match.stream.destination,
-      rtmpUrl: match.stream.rtmpUrl,
-      streamKey: match.stream.streamKey,
-      startedAt: match.stream.startedAt,
-      youtubeWatchUrl: match.stream.youtubeWatchUrl,
-      webrtcEnabled: match.stream.webrtcEnabled,
+    final endedAt = DateTime.now();
+    var entries = StreamPlaybackMerger.endAllLiveSessions(
+      existing: match.stream.playbackEntries,
+      endedAt: endedAt,
     );
-    await repo.updateStreamMetadata(matchId, stream);
+    entries = StreamPlaybackMerger.finalizeEndedSessionUrls(
+      entries: entries,
+      canonicalWatchUrl: match.stream.youtubeWatchUrl,
+    );
+    await repo.updateStreamMetadata(
+      matchId,
+      match.stream.copyWith(
+        status: StreamStatus.ended,
+        playbackEntries: entries,
+      ),
+    );
   }
 
   @override
@@ -125,16 +132,20 @@ Future<void> emergencyStopLiveSession(WidgetRef ref) async {
       final repo = ref.read(matchRepositoryProvider);
       final match = await repo.getMatch(matchId);
       if (match != null) {
+        final endedAt = DateTime.now();
+        var entries = StreamPlaybackMerger.endAllLiveSessions(
+          existing: match.stream.playbackEntries,
+          endedAt: endedAt,
+        );
+        entries = StreamPlaybackMerger.finalizeEndedSessionUrls(
+          entries: entries,
+          canonicalWatchUrl: match.stream.youtubeWatchUrl,
+        );
         await repo.updateStreamMetadata(
           matchId,
-          StreamMetadataModel(
+          match.stream.copyWith(
             status: StreamStatus.ended,
-            destination: match.stream.destination,
-            rtmpUrl: match.stream.rtmpUrl,
-            streamKey: match.stream.streamKey,
-            startedAt: match.stream.startedAt,
-            youtubeWatchUrl: match.stream.youtubeWatchUrl,
-            webrtcEnabled: match.stream.webrtcEnabled,
+            playbackEntries: entries,
           ),
         );
       }

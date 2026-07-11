@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/enums.dart';
@@ -12,20 +13,27 @@ class MatchStreamSource {
   const MatchStreamSource({
     required this.url,
     required this.label,
+    this.sessionId = '',
     this.sessionKey = '',
     this.platform = StreamPlaybackPlatform.unknown,
     this.isLive = false,
     this.addedAt,
     this.endedAt,
+    this.statusLabel = '',
+    this.startTimeLabel = '',
   });
 
   final String url;
   final String label;
+  /// Raw `playbackEntries.sessionId` (before UI dedupe suffix).
+  final String sessionId;
   final String sessionKey;
   final StreamPlaybackPlatform platform;
   final bool isLive;
   final DateTime? addedAt;
   final DateTime? endedAt;
+  final String statusLabel;
+  final String startTimeLabel;
 
   String get effectiveSessionKey =>
       sessionKey.isNotEmpty ? sessionKey : url;
@@ -33,6 +41,16 @@ class MatchStreamSource {
   bool get isEmbeddable =>
       platform == StreamPlaybackPlatform.youtube ||
       platform == StreamPlaybackPlatform.facebook;
+
+  bool get hasPlayableUrl =>
+      url.trim().isNotEmpty && !MatchStreamPlayback.isPendingWatchUrl(url);
+
+  IconData get platformIcon => switch (platform) {
+        StreamPlaybackPlatform.youtube => Icons.play_circle_outline,
+        StreamPlaybackPlatform.facebook => Icons.facebook,
+        StreamPlaybackPlatform.twitch => Icons.videogame_asset_outlined,
+        StreamPlaybackPlatform.unknown => Icons.live_tv_outlined,
+      };
 }
 
 enum StreamPlaybackPlatform { youtube, facebook, twitch, unknown }
@@ -89,8 +107,29 @@ class MatchStreamPlayback {
     return StreamPlaybackPlatform.unknown;
   }
 
-  static bool hasWatchablePlayback(MatchModel match) =>
-      sourcesFor(match).isNotEmpty;
+  static bool hasWatchablePlayback(MatchModel match) {
+    if (playableSourcesFor(match).isNotEmpty) return true;
+    return hasActiveAwaitingWatchUrl(match);
+  }
+
+  /// True while a go-live is in progress but the public URL is not ready yet.
+  static bool hasActiveAwaitingWatchUrl(MatchModel match) {
+    final active = match.stream.status == StreamStatus.live ||
+        match.stream.status == StreamStatus.connecting;
+    if (!active) return false;
+    return StreamPlaybackMerger.collect(match.stream).any(
+          (e) => e.isLive && isPendingWatchUrl(e.url),
+        );
+  }
+
+  static bool isStreamActive(MatchModel match) {
+    final status = match.stream.status;
+    return status == StreamStatus.live || status == StreamStatus.connecting;
+  }
+
+  /// Sources with a real public URL — used for the stream selector.
+  static List<MatchStreamSource> playableSourcesFor(MatchModel match) =>
+      sourcesFor(match).where((s) => s.hasPlayableUrl).toList(growable: false);
 
   static bool isStreamingOrStreamed(MatchModel match) {
     final status = match.stream.status;
@@ -107,17 +146,25 @@ class MatchStreamPlayback {
     final s = match.stream;
     final active = s.status == StreamStatus.live ||
         s.status == StreamStatus.connecting;
-    return active && !hasWatchablePlayback(match);
+    return active && playableSourcesFor(match).isEmpty;
   }
 
-  /// Newest / live-first ordering for the scorecard switcher.
+  /// Newest-first ordering for the hub stream switcher.
   static List<MatchStreamSource> sourcesFor(MatchModel match) {
     final entries = StreamPlaybackMerger.collect(match.stream);
+    final active = isStreamActive(match);
+    final filtered = entries.where((entry) {
+      final url = entry.url.trim();
+      if (url.isEmpty) return entry.sessionId.isNotEmpty || entry.addedAt != null;
+      if (!isPendingWatchUrl(url)) return true;
+      return active && entry.isLive;
+    }).toList();
+
     final out = <MatchStreamSource>[];
     final usedKeys = <String>{};
 
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
+    for (var i = 0; i < filtered.length; i++) {
+      final entry = filtered[i];
       final url = _resolveEntryUrl(entry, match.stream);
       var sessionKey = StreamPlaybackMerger.sessionKeyFor(entry);
       if (usedKeys.contains(sessionKey)) {
@@ -125,60 +172,135 @@ class MatchStreamPlayback {
       }
       usedKeys.add(sessionKey);
 
+      final platform = platformFromUrl(
+        url.isNotEmpty ? url : entry.url,
+      );
+      final statusLabel = _statusLabel(entry, i, filtered);
+      final sessionStart = _inferSessionStart(entry, match.stream);
+      final startTimeLabel = formatSessionStartTime(sessionStart);
+      final rawSessionId = entry.sessionId.trim();
+
       out.add(
         MatchStreamSource(
+          sessionId: rawSessionId,
           sessionKey: sessionKey,
           url: url,
-          label: _labelFor(entry, url),
-          platform: platformFromUrl(url.isNotEmpty ? url : entry.url),
+          label: _labelFor(platform, statusLabel, startTimeLabel),
+          platform: platform,
           isLive: entry.isLive,
-          addedAt: entry.addedAt,
+          addedAt: sessionStart,
           endedAt: entry.endedAt,
+          statusLabel: statusLabel,
+          startTimeLabel: startTimeLabel,
         ),
       );
     }
     return out;
   }
 
+  /// Resolves a playback entry URL, upgrading an active live pending row when
+  /// [StreamMetadataModel.youtubeWatchUrl] was pasted before entries synced.
   static String _resolveEntryUrl(
     StreamPlaybackEntryModel entry,
     StreamMetadataModel stream,
   ) {
     final trimmed = entry.url.trim();
     if (trimmed.isNotEmpty && !isPendingWatchUrl(trimmed)) return trimmed;
-    if (entry.isLive) {
-      final fallback = stream.youtubeWatchUrl?.trim();
-      if (fallback != null &&
-          fallback.isNotEmpty &&
-          !isPendingWatchUrl(fallback)) {
-        return fallback;
+
+    if (entry.isLive &&
+        isPendingWatchUrl(trimmed) &&
+        isStreamActiveFromMetadata(stream)) {
+      final canonical = stream.youtubeWatchUrl?.trim() ?? '';
+      if (canonical.isNotEmpty && !isPendingWatchUrl(canonical)) {
+        final canonicalKey = _urlIdentityKey(canonical);
+        final usedByOtherSession = stream.playbackEntries.any(
+          (e) =>
+              !e.isLive &&
+              e.sessionId.trim() != entry.sessionId.trim() &&
+              _urlIdentityKey(e.url) == canonicalKey &&
+              canonicalKey.isNotEmpty,
+        );
+        if (!usedByOtherSession) return canonical;
       }
     }
     return trimmed;
   }
 
-  static String _labelFor(StreamPlaybackEntryModel entry, String resolvedUrl) {
-    final platform =
-        platformLabel(platformFromUrl(resolvedUrl.isNotEmpty ? resolvedUrl : entry.url));
-    final fmt = DateFormat.jm();
+  static String _urlIdentityKey(String url) {
+    final trimmed = url.trim().toLowerCase();
+    if (trimmed.isEmpty) return '';
+    final vMatch = RegExp(r'[?&]v=([^&]+)').firstMatch(trimmed);
+    if (vMatch != null) return 'yt:${vMatch.group(1)}';
+    final shortMatch = RegExp(r'youtu\.be/([^?&]+)').firstMatch(trimmed);
+    if (shortMatch != null) return 'yt:${shortMatch.group(1)}';
+    return trimmed;
+  }
 
-    if (entry.isLive) {
-      final start = entry.addedAt;
-      if (start != null) {
-        return 'Live · $platform · ${fmt.format(start.toLocal())}';
+  static bool isStreamActiveFromMetadata(StreamMetadataModel stream) {
+    return stream.status == StreamStatus.live ||
+        stream.status == StreamStatus.connecting;
+  }
+
+  static DateTime? _inferSessionStart(
+    StreamPlaybackEntryModel entry,
+    StreamMetadataModel stream,
+  ) {
+    if (entry.addedAt != null) return entry.addedAt;
+    if (entry.isLive && stream.startedAt != null) return stream.startedAt;
+
+    final sid = entry.sessionId.trim();
+    if (sid.isNotEmpty) {
+      final ms = int.tryParse(sid.split('_').first);
+      if (ms != null && ms > 1_000_000_000_000) {
+        return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
       }
-      return 'Live · $platform';
     }
 
-    final start = entry.addedAt;
-    final end = entry.endedAt;
-    if (start != null && end != null) {
-      return 'Replay · $platform · ${fmt.format(start.toLocal())} – ${fmt.format(end.toLocal())}';
+    final storedSessions = stream.playbackEntries
+        .where(
+          (e) =>
+              e.url.trim().isNotEmpty ||
+              e.sessionId.isNotEmpty ||
+              e.addedAt != null,
+        )
+        .length;
+    if (stream.startedAt != null && storedSessions <= 1) {
+      return stream.startedAt;
     }
-    if (start != null) {
-      return 'Replay · $platform · ${fmt.format(start.toLocal())}';
+    return null;
+  }
+
+  static String formatSessionStartTime(DateTime? start) {
+    if (start == null) return '';
+    return DateFormat('d MMM, h:mm a').format(start.toLocal());
+  }
+
+  static String _statusLabel(
+    StreamPlaybackEntryModel entry,
+    int indexInNewestFirst,
+    List<StreamPlaybackEntryModel> allNewestFirst,
+  ) {
+    if (entry.isLive) return 'Live Now';
+
+    final firstCompletedIndex =
+        allNewestFirst.indexWhere((e) => !e.isLive);
+    if (firstCompletedIndex == indexInNewestFirst) {
+      return 'Latest Stream';
     }
-    return 'Replay · $platform';
+
+    return 'Previous Stream';
+  }
+
+  static String _labelFor(
+    StreamPlaybackPlatform platform,
+    String statusLabel,
+    String startTimeLabel,
+  ) {
+    final platformName = platformLabel(platform);
+    if (startTimeLabel.isNotEmpty) {
+      return '$platformName • $statusLabel • $startTimeLabel';
+    }
+    return '$platformName • $statusLabel';
   }
 
   static String platformLabel(StreamPlaybackPlatform platform) {
@@ -186,7 +308,7 @@ class MatchStreamPlayback {
       StreamPlaybackPlatform.youtube => 'YouTube',
       StreamPlaybackPlatform.facebook => 'Facebook',
       StreamPlaybackPlatform.twitch => 'Twitch',
-      StreamPlaybackPlatform.unknown => 'Browser',
+      StreamPlaybackPlatform.unknown => 'Stream',
     };
   }
 
@@ -212,10 +334,24 @@ class MatchStreamPlayback {
     return withScheme;
   }
 
+  static String? canonicalWatchUrl(String? raw) {
+    final trimmed = raw?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    final normalized = normalizeWatchUrl(trimmed);
+    if (normalized == null) return null;
+    if (platformFromUrl(normalized) == StreamPlaybackPlatform.youtube) {
+      final id = YoutubeUtils.videoIdFromUrl(normalized);
+      if (id != null && id.isNotEmpty) {
+        return 'https://www.youtube.com/watch?v=$id';
+      }
+    }
+    return normalized;
+  }
+
   static bool isValidWatchUrl(String? url) {
     if (url == null || url.trim().isEmpty) return false;
     if (isPendingWatchUrl(url)) return false;
-    final normalized = normalizeWatchUrl(url);
+    final normalized = canonicalWatchUrl(url);
     if (normalized == null) return false;
     final uri = Uri.tryParse(normalized);
     if (uri == null || !uri.hasScheme) return false;

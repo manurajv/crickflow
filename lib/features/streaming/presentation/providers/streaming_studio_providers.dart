@@ -380,6 +380,20 @@ Future<void> saveReplayMarker({
 }) async {
   final uid = ref.read(authStateProvider).value?.uid;
   if (uid == null) return;
+
+  final sessionId = streamSessionId?.trim() ?? '';
+  if (sessionId.isNotEmpty &&
+      ballEventId != null &&
+      ballEventId.trim().isNotEmpty) {
+    final exists = await ref.read(streamStudioRepositoryProvider).hasReplayMarker(
+          matchId: matchId,
+          streamSessionId: sessionId,
+          ballEventId: ballEventId,
+          kind: kind,
+        );
+    if (exists) return;
+  }
+
   final marker = ReplayMarkerModel(
     id: _uuid.v4(),
     matchId: matchId,

@@ -6,6 +6,7 @@ import '../../../../core/constants/enums.dart';
 import '../../../../core/utils/deep_link_utils.dart';
 import '../../../../core/utils/youtube_utils.dart';
 import '../../../../data/models/match_model.dart';
+import '../../../../data/models/stream_playback_entry_model.dart';
 import '../../../../data/repositories/match_repository.dart';
 import '../../../../data/services/stream_service.dart';
 import '../data/models/stream_studio_config.dart';
@@ -428,19 +429,48 @@ class BroadcastSessionController {
     return trimmed;
   }
 
-  /// Resolves the watch URL to persist — prefers config/broadcast id over stale match URL.
+  /// Resolves the watch URL to persist on go-live.
+  ///
+  /// Manual YouTube/Facebook/OBS always start as pending until the streamer
+  /// pastes a link. YouTube automatic may use the fresh API broadcast URL.
   String? _resolvePersistWatchUrl(
     StreamStudioConfig config,
     MatchModel match,
   ) {
+    if (config.needsManualWatchUrl) return null;
+
     final canonical = _canonicalYouTubeWatchUrl(
       config.youtubeWatchUrl,
       config.youtubeBroadcastId,
     );
     if (canonical.isNotEmpty) return canonical;
+
     final legacy = match.stream.youtubeWatchUrl?.trim();
     if (legacy != null && legacy.isNotEmpty) return legacy;
     return null;
+  }
+
+  /// Top-level [StreamMetadataModel.youtubeWatchUrl] for Firestore.
+  ///
+  /// When a new manual live session is still pending, do not leak the prior
+  /// session's URL into metadata (that would duplicate it in the hub instantly).
+  String? _resolveStreamYoutubeWatchUrl({
+    required StreamStudioConfig config,
+    required List<StreamPlaybackEntryModel> playbackEntries,
+    String? sessionWatchUrl,
+    required StreamMetadataModel baseStream,
+  }) {
+    final activeLive = StreamPlaybackMerger.activeLiveWatchUrl(playbackEntries);
+    if (activeLive != null) return activeLive;
+
+    final livePending = playbackEntries.any(
+      (e) => e.isLive && MatchStreamPlayback.isPendingWatchUrl(e.url),
+    );
+    if (livePending && config.needsManualWatchUrl) return null;
+
+    return StreamPlaybackMerger.latestWatchUrl(playbackEntries) ??
+        sessionWatchUrl ??
+        (config.needsManualWatchUrl ? null : baseStream.youtubeWatchUrl);
   }
 
   StreamStudioConfig _normalizeConfig(StreamStudioConfig config) {
@@ -469,6 +499,7 @@ class BroadcastSessionController {
     String? addedByUserId,
     String? addedByName,
   }) async {
+    final base = await _matchRepository.getMatch(matchId) ?? match;
     final destination = switch (config.platform) {
       StreamPlatform.customRtmp => StreamDestination.customRtmp,
       StreamPlatform.youtube => StreamDestination.youtube,
@@ -476,22 +507,30 @@ class BroadcastSessionController {
       StreamPlatform.twitch => StreamDestination.youtube,
     };
 
-    final watchUrl = _resolvePersistWatchUrl(config, match);
+    final watchUrl = _resolvePersistWatchUrl(config, base);
     final isGoingLive = status == StreamStatus.live;
     final isEnding = status == StreamStatus.ended;
     final liveStartedAt = DateTime.now();
 
-    var playbackEntries = match.stream.playbackEntries;
+    var playbackEntries = base.stream.playbackEntries;
     if (isEnding) {
       playbackEntries = StreamPlaybackMerger.endAllLiveSessions(
         existing: playbackEntries,
         endedAt: liveStartedAt,
       );
+      playbackEntries = StreamPlaybackMerger.finalizeEndedSessionUrls(
+        entries: playbackEntries,
+        canonicalWatchUrl: watchUrl ?? base.stream.youtubeWatchUrl,
+        forSessionId: _endedLiveSessionId(
+          playbackEntries,
+          endedAt: liveStartedAt,
+        ),
+      );
     } else if (isGoingLive) {
       final sessionId = _uuid.v4();
       final resolvedUrl = watchUrl?.trim() ?? '';
       final pendingUrl = MatchStreamPlayback.pendingWatchUrl(
-        platform: _playbackPlatformForDestination(destination),
+        platform: _playbackPlatformForConfig(config.platform),
         sessionId: sessionId,
       );
       playbackEntries = StreamPlaybackMerger.beginLiveSession(
@@ -507,27 +546,49 @@ class BroadcastSessionController {
     final anyLive = playbackEntries.any((e) => e.isLive);
     final resolvedStatus = isEnding && anyLive ? StreamStatus.live : status;
 
-    final stream = match.stream.copyWith(
+    final stream = base.stream.copyWith(
       status: resolvedStatus,
       destination: destination,
       rtmpUrl: config.rtmpUrl,
       streamKey: config.streamKey,
-      startedAt: isGoingLive ? liveStartedAt : match.stream.startedAt,
-      youtubeWatchUrl: StreamPlaybackMerger.latestWatchUrl(playbackEntries) ??
-          watchUrl ??
-          match.stream.youtubeWatchUrl,
+      startedAt: isGoingLive ? liveStartedAt : base.stream.startedAt,
+      youtubeWatchUrl: _resolveStreamYoutubeWatchUrl(
+        config: config,
+        playbackEntries: playbackEntries,
+        sessionWatchUrl: watchUrl,
+        baseStream: base.stream,
+      ),
       playbackEntries: playbackEntries,
     );
 
     await _matchRepository.updateStreamMetadata(matchId, stream);
   }
 
-  static StreamPlaybackPlatform _playbackPlatformForDestination(
-    StreamDestination destination,
+  static StreamPlaybackPlatform _playbackPlatformForConfig(
+    StreamPlatform platform,
   ) {
-    return switch (destination) {
-      StreamDestination.youtube => StreamPlaybackPlatform.youtube,
-      StreamDestination.customRtmp => StreamPlaybackPlatform.unknown,
+    return switch (platform) {
+      StreamPlatform.youtube => StreamPlaybackPlatform.youtube,
+      StreamPlatform.facebook => StreamPlaybackPlatform.facebook,
+      StreamPlatform.twitch => StreamPlaybackPlatform.twitch,
+      StreamPlatform.customRtmp => StreamPlaybackPlatform.unknown,
     };
+  }
+
+  /// Session that was just ended (most recently closed live row).
+  static String? _endedLiveSessionId(
+    List<StreamPlaybackEntryModel> entries, {
+    required DateTime endedAt,
+  }) {
+    StreamPlaybackEntryModel? best;
+    for (final entry in entries) {
+      if (entry.isLive) continue;
+      final end = entry.endedAt;
+      if (end == null) continue;
+      if ((end.difference(endedAt).inMilliseconds).abs() > 5000) continue;
+      if (entry.sessionId.trim().isEmpty) continue;
+      best = entry;
+    }
+    return best?.sessionId.trim();
   }
 }

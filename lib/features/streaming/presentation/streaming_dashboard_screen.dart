@@ -10,9 +10,11 @@ import 'package:go_router/go_router.dart';
 import '../../../app.dart';
 import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/match_model.dart';
+import '../../../data/models/overlay_state_model.dart';
 import '../../../data/services/stream_service.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/match_stream_watch_section.dart';
+import '../../../domain/streaming/batting_milestone_detector.dart';
 import '../../../domain/streaming/match_stream_playback.dart';
 import '../../../domain/streaming/replay_marker_session_utils.dart';
 import '../../../domain/streaming/replay_marker_commentary.dart';
@@ -37,12 +39,8 @@ import 'widgets/stream_connection_lost_banner.dart';
 import 'widgets/stream_studio_compositor.dart';
 import '../services/stream_lifecycle_log.dart';
 import '../services/stream_platform_service.dart';
+import '../../../domain/streaming/replay_marker_constants.dart';
 import 'providers/post_match_controller.dart';
-
-/// Replay markers start this far before the triggering moment so the highlight
-/// captures the build-up (e.g. the bowler's run-up / shot) rather than starting
-/// exactly on the boundary or wicket.
-const int _kReplayPreRollMs = 10000;
 
 /// Pre-live streaming dashboard + live broadcast studio for a match.
 class StreamingDashboardScreen extends ConsumerStatefulWidget {
@@ -68,6 +66,9 @@ class _StreamingDashboardScreenState
   int _lastEventCount = 0;
   int _lastEventSequence = -1;
   int _previewSession = 0;
+  final Set<String> _savedBattingMilestones = {};
+  int _lastStrikerRuns = -1;
+  int _lastNonStrikerRuns = -1;
 
   // Battery-saver ("dim screen") state.
   static const Duration _batterySaverAutoDelay = Duration(minutes: 1);
@@ -135,11 +136,18 @@ class _StreamingDashboardScreenState
     unawaited(burnIn.recoverAfterLifecycle());
   }
 
+  void _resetBattingMilestoneTracking() {
+    _savedBattingMilestones.clear();
+    _lastStrikerRuns = -1;
+    _lastNonStrikerRuns = -1;
+  }
+
   void _ensureLiveUiForNativeSession() {
     if (_isLive) return;
     final service = ref.read(streamServiceProvider);
     if (!_nativeSessionActive(service)) return;
     setState(() => _isLive = true);
+    _resetBattingMilestoneTracking();
     _startHeartbeat();
     unawaited(ActiveStreamSession.setActive(widget.matchId));
     _wireNativeOverlayHandlers();
@@ -335,6 +343,7 @@ class _StreamingDashboardScreenState
     if (!_nativeSessionActive(service)) return;
 
     setState(() => _isLive = true);
+    _resetBattingMilestoneTracking();
     _startHeartbeat();
     _startYouTubeStatusMonitor();
     unawaited(ActiveStreamSession.setActive(widget.matchId));
@@ -438,14 +447,10 @@ class _StreamingDashboardScreenState
       streamStartedAt: match?.stream.startedAt,
     );
     if (!session.isValid) return;
-    final started = session.sessionStartedAt;
-    final rawOffsetMs = started == null
-        ? 0
-        : DateTime.now().difference(started).inMilliseconds;
-    // Roll the marker back ~10s so the replay opens on the build-up, e.g. a
-    // boundary scored at 03:20 is marked at 03:10.
-    final offsetMs =
-        (rawOffsetMs - _kReplayPreRollMs).clamp(0, rawOffsetMs).toInt();
+    final offsetMs = replayMarkerOffsetMs(
+      sessionStartedAt: session.sessionStartedAt,
+      eventTime: event.timestamp,
+    );
 
     final kind = switch (graphic.type) {
       StreamEventOverlayType.wicket => ReplayMarkerKind.wicket,
@@ -453,8 +458,9 @@ class _StreamingDashboardScreenState
       StreamEventOverlayType.boundaryFour => ReplayMarkerKind.four,
       StreamEventOverlayType.century => ReplayMarkerKind.century,
       StreamEventOverlayType.fiftyRuns => ReplayMarkerKind.milestone,
-      _ => ReplayMarkerKind.milestone,
+      _ => null,
     };
+    if (kind == null) return;
 
     await saveReplayMarker(
       ref: ref,
@@ -479,6 +485,72 @@ class _StreamingDashboardScreenState
       streamSessionStartedAt: session.sessionStartedAt,
       streamSessionEndedAt: session.sessionEndedAt,
     );
+  }
+
+  Future<void> _maybeSaveBattingMilestoneMarkers(
+    OverlayStateModel overlay,
+  ) async {
+    if (!_isLive) return;
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    if (!config.autoReplayMarkers) return;
+
+    final checks = <({String name, int prev, int curr})>[
+      (name: overlay.strikerName, prev: _lastStrikerRuns, curr: overlay.strikerRuns),
+      (
+        name: overlay.nonStrikerName,
+        prev: _lastNonStrikerRuns,
+        curr: overlay.nonStrikerRuns,
+      ),
+    ];
+
+    _lastStrikerRuns = overlay.strikerRuns;
+    _lastNonStrikerRuns = overlay.nonStrikerRuns;
+
+    for (final check in checks) {
+      final name = check.name.trim();
+      if (name.isEmpty || check.prev < 0) continue;
+      final milestone =
+          BattingMilestoneDetector.crossedMilestone(check.prev, check.curr);
+      if (milestone == null) continue;
+
+      final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
+      final session = ReplayMarkerSessionUtils.liveSessionContext(
+        youtubeWatchUrl: match?.stream.youtubeWatchUrl,
+        playbackEntries: match?.stream.playbackEntries ?? const [],
+        streamStartedAt: match?.stream.startedAt,
+      );
+      if (!session.isValid) continue;
+
+      final dedupeKey =
+          '${session.sessionId}_${name.toLowerCase()}_$milestone';
+      if (!_savedBattingMilestones.add(dedupeKey)) continue;
+
+      final offsetMs = replayMarkerOffsetMs(
+        sessionStartedAt: session.sessionStartedAt,
+      );
+      final kind = milestone == 100
+          ? ReplayMarkerKind.century
+          : ReplayMarkerKind.milestone;
+      final label = milestone == 100
+          ? '$name reaches a century'
+          : milestone == 50
+              ? '$name reaches fifty'
+              : milestone == 200
+                  ? '$name reaches a double century'
+                  : '$name reaches $milestone';
+
+      await saveReplayMarker(
+        ref: ref,
+        matchId: widget.matchId,
+        kind: kind,
+        label: label,
+        streamOffsetMs: offsetMs,
+        streamSessionId: session.sessionId,
+        playbackUrl: session.playbackUrl,
+        streamSessionStartedAt: session.sessionStartedAt,
+        streamSessionEndedAt: session.sessionEndedAt,
+      );
+    }
   }
 
   void _startHeartbeat() {
@@ -629,7 +701,8 @@ class _StreamingDashboardScreenState
             (c) => config,
           );
 
-      if (config.platform == StreamPlatform.youtube) {
+      if (config.platform == StreamPlatform.youtube &&
+          config.broadcastSetupMode == StreamBroadcastSetupMode.automatic) {
         await _syncYouTubeWatchUrlToMatch(config);
       }
 
@@ -651,6 +724,7 @@ class _StreamingDashboardScreenState
       await ActiveStreamSession.setActive(widget.matchId);
       if (mounted) {
         setState(() => _isLive = true);
+        _resetBattingMilestoneTracking();
         if (config.platform == StreamPlatform.youtube &&
             config.broadcastSetupMode == StreamBroadcastSetupMode.automatic) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1015,6 +1089,13 @@ class _StreamingDashboardScreenState
       if (events != null) _processBallEvents(events);
     });
 
+    ref.listen(overlayProvider(widget.matchId), (prev, next) {
+      final overlay = next.valueOrNull;
+      if (overlay != null) {
+        unawaited(_maybeSaveBattingMilestoneMarkers(overlay));
+      }
+    });
+
     ref.listen(postMatchControllerProvider(widget.matchId), (prev, next) {
       if (next != PostMatchPhase.complete ||
           prev == PostMatchPhase.complete ||
@@ -1074,8 +1155,9 @@ class _StreamingDashboardScreenState
           return const Scaffold(body: Center(child: Text('Match not found')));
         }
 
-        final showStreamLinkDot =
+        final showStreamLinkDot = config.needsManualWatchUrl &&
             !MatchStreamPlayback.hasWatchablePlayback(match);
+        final showAddStreamLink = _isLive && config.needsManualWatchUrl;
 
         return PopScope(
           canPop: false,
@@ -1119,7 +1201,8 @@ class _StreamingDashboardScreenState
                   showStreamLinkDot: showStreamLinkDot,
                   linkedStreamCount:
                       MatchStreamPlayback.sourcesFor(match).length,
-                  onAddStreamLink: () => _openStreamLinkSheet(match),
+                  onAddStreamLink:
+                      showAddStreamLink ? () => _openStreamLinkSheet(match) : null,
                   onBack: () => unawaited(_handleNavigateBack()),
                 )
               else ...[
@@ -1154,7 +1237,7 @@ class _StreamingDashboardScreenState
                   onEndStream: _isLive && !_endingStream ? _endStream : null,
                   onMarkReplay: _isLive ? () => _markReplay(match) : null,
                   onBatterySaver: _isLive ? _activateBatterySaver : null,
-                  onAddStreamLink: _isLive
+                  onAddStreamLink: showAddStreamLink
                       ? () => _openStreamLinkSheet(match)
                       : null,
                   showStreamLinkDot: showStreamLinkDot,
@@ -1203,13 +1286,9 @@ class _StreamingDashboardScreenState
       }
       return;
     }
-    final started = session.sessionStartedAt;
-    final rawOffsetMs = started == null
-        ? 0
-        : DateTime.now().difference(started).inMilliseconds;
-    // Same 10s pre-roll as auto markers so the replay opens on the build-up.
-    final offsetMs =
-        (rawOffsetMs - _kReplayPreRollMs).clamp(0, rawOffsetMs).toInt();
+    final offsetMs = replayMarkerOffsetMs(
+      sessionStartedAt: session.sessionStartedAt,
+    );
     await saveReplayMarker(
       ref: ref,
       matchId: widget.matchId,

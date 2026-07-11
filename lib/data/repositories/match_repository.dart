@@ -20,6 +20,7 @@ import '../../data/models/match_break_model.dart';
 import '../../data/models/match_rules_model.dart';
 import '../../data/models/match_player_snapshot.dart';
 import '../../data/models/match_setup_draft_models.dart';
+import '../../data/models/stream_playback_entry_model.dart';
 import '../../domain/services/badge_service.dart';
 import '../../domain/services/commentary_service.dart';
 import '../../domain/services/scoring_engine.dart';
@@ -28,6 +29,7 @@ import '../../domain/scoring/match_completion_policy.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../domain/scoring/scoring_integrity_check.dart';
 import '../../domain/scoring/toss_team_policy.dart';
+import '../../domain/streaming/match_stream_playback.dart';
 import '../../domain/streaming/stream_playback_merger.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import '../local/match_local_store.dart';
@@ -92,6 +94,18 @@ class MatchRepository {
     StreamMetadataModel local,
     StreamMetadataModel remote,
   ) {
+    final mergedEntries =
+        StreamPlaybackMerger.unionEntries(local.playbackEntries, remote.playbackEntries);
+    final base = _pickStreamBase(local, remote, mergedEntries);
+    if (mergedEntries == base.playbackEntries) return base;
+    return base.copyWith(playbackEntries: mergedEntries);
+  }
+
+  StreamMetadataModel _pickStreamBase(
+    StreamMetadataModel local,
+    StreamMetadataModel remote,
+    List<StreamPlaybackEntryModel> mergedEntries,
+  ) {
     final localCount = local.playbackEntries.length;
     final remoteCount = remote.playbackEntries.length;
     final localLive = local.playbackEntries.any((e) => e.isLive);
@@ -108,6 +122,12 @@ class MatchRepository {
         local.status == StreamStatus.connecting;
     if (remoteActive && !localActive) return remote;
     if (localActive && !remoteActive) return local;
+
+    if (mergedEntries.isNotEmpty &&
+        remote.youtubeWatchUrl?.trim().isNotEmpty == true &&
+        local.youtubeWatchUrl?.trim().isEmpty != false) {
+      return remote;
+    }
 
     return remoteCount >= localCount ? remote : local;
   }
@@ -359,10 +379,107 @@ class MatchRepository {
     String matchId,
     StreamMetadataModel stream,
   ) async {
+    var toWrite = stream;
+    try {
+      final remote = await _getMatchFromFirestore(matchId);
+      if (remote != null) {
+        final mergedEntries = StreamPlaybackMerger.unionEntries(
+          remote.stream.playbackEntries,
+          stream.playbackEntries,
+        );
+        final richer = _richerStreamMetadata(remote.stream, stream);
+        toWrite = richer.copyWith(
+          playbackEntries: mergedEntries.isNotEmpty
+              ? mergedEntries
+              : richer.playbackEntries,
+        );
+      }
+    } catch (_) {}
+
     await _matches.doc(matchId).update({
-      'stream': stream.toMap(),
+      'stream': toWrite.toMap(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
+    final local = _localStore;
+    if (local != null) {
+      final cached = await local.getMatch(matchId);
+      if (cached != null) {
+        final mergedStream = _richerStreamMetadata(cached.stream, toWrite).copyWith(
+          playbackEntries: StreamPlaybackMerger.unionEntries(
+            cached.stream.playbackEntries,
+            toWrite.playbackEntries,
+          ),
+        );
+        await _persistMatchLocally(cached.copyWith(stream: mergedStream));
+      }
+    }
+  }
+
+  /// Saves a pasted public watch link the same way YouTube automatic sync does.
+  Future<void> addStreamWatchUrl(
+    String matchId, {
+    required String watchUrl,
+    String? addedByUserId,
+    String? addedByName,
+  }) async {
+    final normalized = MatchStreamPlayback.canonicalWatchUrl(watchUrl);
+    if (normalized == null || !MatchStreamPlayback.isValidWatchUrl(normalized)) {
+      throw ArgumentError('Invalid watch URL');
+    }
+
+    final match = await getMatch(matchId);
+    if (match == null) return;
+
+    final isActive = match.stream.status == StreamStatus.live ||
+        match.stream.status == StreamStatus.connecting;
+    final now = DateTime.now();
+
+    var playbackEntries = match.stream.playbackEntries;
+    if (isActive) {
+      String? liveSessionId;
+      DateTime? liveStartedAt;
+      for (final entry in playbackEntries) {
+        if (entry.isLive) {
+          if (entry.sessionId.trim().isNotEmpty) {
+            liveSessionId = entry.sessionId.trim();
+          }
+          liveStartedAt = entry.addedAt;
+          if (liveSessionId != null) break;
+        }
+      }
+      playbackEntries = StreamPlaybackMerger.attachWatchUrlToSession(
+        existing: playbackEntries,
+        url: normalized,
+        sessionId: liveSessionId,
+        sessionStartedAt: liveStartedAt ?? match.stream.startedAt ?? now,
+        addedByUserId: addedByUserId,
+        addedByName: addedByName,
+        requireLive: true,
+      );
+    } else {
+      playbackEntries = StreamPlaybackMerger.appendSession(
+        existing: playbackEntries,
+        url: normalized,
+        isLive: false,
+        addedAt: now,
+        endedAt: now,
+        sessionId: const Uuid().v4(),
+        addedByUserId: addedByUserId,
+        addedByName: addedByName,
+        forceNewSession: true,
+      );
+    }
+
+    final latestUrl = StreamPlaybackMerger.latestWatchUrl(playbackEntries) ??
+        normalized;
+
+    final stream = match.stream.copyWith(
+      youtubeWatchUrl: latestUrl,
+      playbackEntries: playbackEntries,
+      status: isActive ? StreamStatus.live : match.stream.status,
+      startedAt: isActive ? (match.stream.startedAt ?? now) : match.stream.startedAt,
+    );
+    await updateStreamMetadata(matchId, stream);
   }
 
   /// Updates public watch URLs and appends to playback history.
@@ -418,20 +535,48 @@ class MatchRepository {
       patch['stream.secondaryYoutubeWatchUrl'] = FieldValue.delete();
     }
     if (entries.isNotEmpty) {
+      final remote = await _getMatchFromFirestore(matchId);
+      if (remote != null) {
+        entries = StreamPlaybackMerger.unionEntries(
+          remote.stream.playbackEntries,
+          entries,
+        );
+      }
       patch['stream.playbackEntries'] =
           entries.map((e) => e.toMap()).toList();
     }
     if (patch.length <= 1) return;
     await _matches.doc(matchId).update(patch);
+    final local = _localStore;
+    if (local != null) {
+      final cached = await local.getMatch(matchId);
+      if (cached != null) {
+        final stream = cached.stream.copyWith(
+          youtubeWatchUrl: primaryUrl?.trim() ?? cached.stream.youtubeWatchUrl,
+          secondaryYoutubeWatchUrl: clearSecondary
+              ? null
+              : (secondaryUrl?.trim() ?? cached.stream.secondaryYoutubeWatchUrl),
+          playbackEntries: entries,
+        );
+        await _persistMatchLocally(cached.copyWith(stream: stream));
+      }
+    }
   }
 
   Future<MatchModel?> getMatch(String id) async {
     final local = _localStore;
+    MatchModel? localMatch;
     if (local != null) {
-      final cached = await local.getMatch(id);
-      if (cached != null) return cached;
+      localMatch = await local.getMatch(id);
     }
-    return _getMatchFromFirestore(id);
+
+    try {
+      final remoteMatch = await _getMatchFromFirestore(id);
+      return _pickNewerMatch(localMatch, remoteMatch);
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable' && localMatch != null) return localMatch;
+      rethrow;
+    }
   }
 
   Stream<MatchModel?> watchMatch(String id) {

@@ -1,6 +1,7 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
+import '../../data/models/stream_playback_entry_model.dart';
 import '../../data/models/tournament_match_link.dart';
 
 /// Keeps tournament metadata and innings history when persisting match updates.
@@ -19,6 +20,7 @@ abstract final class MatchUpdateMerge {
     final patch = Map<String, dynamic>.from(incoming);
     _preserveTournamentFields(existing, patch);
     _preserveAuditFields(existing, patch);
+    _preserveStreamFields(existing, patch);
     if (_isInningsRegression(existing.innings, patch['innings'])) {
       patch['innings'] = existing.innings.map((i) => i.toMap()).toList();
       patch['currentInningsIndex'] = existing.currentInningsIndex;
@@ -83,6 +85,55 @@ abstract final class MatchUpdateMerge {
             (incomingScorers is List && incomingScorers.isEmpty))) {
       patch['scorerIds'] = existing.scorerIds;
     }
+  }
+
+  static void _preserveStreamFields(
+    MatchModel existing,
+    Map<String, dynamic> patch,
+  ) {
+    final incomingStream = patch['stream'];
+    if (incomingStream is! Map) return;
+
+    final existingStream = existing.stream;
+    final merged = Map<String, dynamic>.from(incomingStream);
+    final incomingEntries =
+        parseStreamPlaybackEntries(merged['playbackEntries']);
+
+    if (existingStream.playbackEntries.isNotEmpty && incomingEntries.isEmpty) {
+      merged['playbackEntries'] =
+          existingStream.playbackEntries.map((e) => e.toMap()).toList();
+    }
+
+    final incomingWatch = (merged['youtubeWatchUrl'] as String?)?.trim();
+    final existingWatch = existingStream.youtubeWatchUrl?.trim();
+    if ((incomingWatch == null || incomingWatch.isEmpty) &&
+        existingWatch != null &&
+        existingWatch.isNotEmpty) {
+      merged['youtubeWatchUrl'] = existingWatch;
+    }
+
+    final incomingSecondary =
+        (merged['secondaryYoutubeWatchUrl'] as String?)?.trim();
+    final existingSecondary = existingStream.secondaryYoutubeWatchUrl?.trim();
+    if ((incomingSecondary == null || incomingSecondary.isEmpty) &&
+        existingSecondary != null &&
+        existingSecondary.isNotEmpty) {
+      merged['secondaryYoutubeWatchUrl'] = existingSecondary;
+    }
+
+    final incomingStatus = merged['status'] as String?;
+    final existingActive = existingStream.status == StreamStatus.live ||
+        existingStream.status == StreamStatus.connecting;
+    final incomingActive = incomingStatus == StreamStatus.live.name ||
+        incomingStatus == StreamStatus.connecting.name;
+    if (existingActive && !incomingActive) {
+      merged['status'] = existingStream.status.name;
+      if (merged['startedAt'] == null && existingStream.startedAt != null) {
+        merged['startedAt'] = existingStream.startedAt!.toIso8601String();
+      }
+    }
+
+    patch['stream'] = merged;
   }
 
   static bool _isInningsRegression(

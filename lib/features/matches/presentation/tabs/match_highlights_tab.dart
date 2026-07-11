@@ -14,6 +14,7 @@ class MatchHighlightsTab extends ConsumerWidget {
     return MatchHighlightsList(
       matchId: matchId,
       padding: AppDimens.listPadding,
+      seekInAppPlayer: true,
     );
   }
 }

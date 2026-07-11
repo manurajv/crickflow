@@ -53,6 +53,27 @@ class StreamStudioRepository {
     });
   }
 
+  Future<bool> hasReplayMarker({
+    required String matchId,
+    required String streamSessionId,
+    required String? ballEventId,
+    required ReplayMarkerKind kind,
+  }) async {
+    if (streamSessionId.trim().isEmpty) return false;
+    final dedupeKey = ballEventId?.trim() ?? '';
+    if (dedupeKey.isEmpty) return false;
+
+    final snap = await _firestore
+        .collectionGroup('replayMarkers')
+        .where('matchId', isEqualTo: matchId)
+        .where('streamSessionId', isEqualTo: streamSessionId.trim())
+        .where('ballEventId', isEqualTo: dedupeKey)
+        .where('kind', isEqualTo: kind.name)
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
+  }
+
   Future<void> addReplayMarker(ReplayMarkerModel marker) async {
     final data = marker.toMap();
     final sessionId = marker.streamSessionId.trim();

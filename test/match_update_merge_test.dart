@@ -5,6 +5,7 @@ import 'package:crickflow/core/utils/match_update_merge.dart';
 import 'package:crickflow/data/models/innings_model.dart';
 import 'package:crickflow/data/models/match_model.dart';
 import 'package:crickflow/data/models/match_rules_model.dart';
+import 'package:crickflow/data/models/stream_playback_entry_model.dart';
 
 void main() {
   MatchModel tournamentMatch({
@@ -101,5 +102,29 @@ void main() {
     expect(merged['matchType'], MatchType.tournament.name);
     expect(merged['tournamentId'], 't1');
     expect(merged['roundId'], 'r1');
+  });
+
+  test('merge preserves stream playback history when incoming omits entries', () {
+    final existing = tournamentMatch().copyWith(
+      stream: const StreamMetadataModel(
+        status: StreamStatus.live,
+        youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc',
+        playbackEntries: [
+          StreamPlaybackEntryModel(
+            sessionId: 'sess-1',
+            url: 'https://www.youtube.com/watch?v=abc',
+            isLive: true,
+          ),
+        ],
+      ),
+    );
+    final incoming = existing.copyWith(
+      stream: const StreamMetadataModel(status: StreamStatus.live),
+    );
+
+    final merged = MatchUpdateMerge.merge(existing, incoming);
+    expect(merged.stream.playbackEntries.length, 1);
+    expect(merged.stream.youtubeWatchUrl, 'https://www.youtube.com/watch?v=abc');
+    expect(merged.stream.status, StreamStatus.live);
   });
 }

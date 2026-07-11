@@ -1,31 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/deep_link_utils.dart';
 import '../../../../core/utils/youtube_utils.dart';
+import '../../../../domain/streaming/match_stream_playback.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../streaming/domain/match_highlights_merger.dart';
+import '../../../streaming/domain/streaming_enums.dart';
 import '../../../streaming/presentation/providers/match_highlights_merged_provider.dart';
+import '../../../streaming/presentation/providers/match_stream_seek_provider.dart';
 
-/// Shared highlights list — ball events + stream replay markers.
+/// Highlights list — scoring moments plus stream replay flags (auto + manual).
 class MatchHighlightsList extends ConsumerWidget {
   const MatchHighlightsList({
     super.key,
     required this.matchId,
     this.padding = const EdgeInsets.all(AppDimens.spaceMd),
+    this.seekInAppPlayer = false,
   });
 
   final String matchId;
   final EdgeInsets padding;
+  /// When true (match hub), highlight taps seek the in-app stream player.
+  final bool seekInAppPlayer;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final highlights = ref.watch(matchHighlightsMergedProvider(matchId));
     final match = ref.watch(matchProvider(matchId)).valueOrNull;
+    final hasStream =
+        match != null && MatchStreamPlayback.hasWatchablePlayback(match);
+    final canSeekInPlayer = seekInAppPlayer && hasStream;
     final youtubeUrl = match?.stream.youtubeWatchUrl;
 
     if (highlights.isEmpty) {
@@ -52,6 +60,27 @@ class MatchHighlightsList extends ConsumerWidget {
           matchId: matchId,
           item: highlights[index],
           youtubeWatchUrl: youtubeUrl,
+          canSeekInPlayer: canSeekInPlayer,
+          onSeek: (offsetMs) {
+            if (!seekInAppPlayer) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Open the match scorecard to play highlights in the stream.',
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              return;
+            }
+            requestMatchStreamSeek(
+              ref,
+              matchId: matchId,
+              offsetMs: offsetMs,
+              sessionId: highlights[index].streamSessionId,
+              label: highlights[index].label,
+            );
+          },
         );
       },
     );
@@ -63,24 +92,41 @@ class _MatchHighlightTile extends StatelessWidget {
     required this.matchId,
     required this.item,
     required this.youtubeWatchUrl,
+    required this.canSeekInPlayer,
+    required this.onSeek,
   });
 
   final String matchId;
   final MatchHighlightItem item;
   final String? youtubeWatchUrl;
+  final bool canSeekInPlayer;
+  final ValueChanged<int> onSeek;
 
   @override
   Widget build(BuildContext context) {
     final tag = item.highlightTag ?? '';
     final offset = YoutubeUtils.offsetFromMilliseconds(item.streamOffsetMs);
     final youtubeAt = YoutubeUtils.watchUrlAtOffset(youtubeWatchUrl, offset);
+    final isReplayOnly = item.source == MatchHighlightSource.replayMarker;
+    final isCustomReplay = item.replayMarker?.kind == ReplayMarkerKind.custom;
+    final canSeek = canSeekInPlayer && item.streamOffsetMs != null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: AppDimens.spaceSm),
       child: ListTile(
+        onTap: canSeek ? () => onSeek(item.streamOffsetMs!) : null,
         leading: CircleAvatar(
-          backgroundColor: _tagColor(tag).withValues(alpha: 0.25),
-          child: Icon(_tagIcon(tag), color: _tagColor(tag), size: 18),
+          backgroundColor: (isReplayOnly || isCustomReplay
+                  ? AppColors.textSecondary
+                  : _tagColor(tag))
+              .withValues(alpha: 0.25),
+          child: Icon(
+            isReplayOnly || isCustomReplay ? Icons.flag_outlined : _tagIcon(tag),
+            color: isReplayOnly || isCustomReplay
+                ? AppColors.textSecondary
+                : _tagColor(tag),
+            size: 18,
+          ),
         ),
         title: Text(
           item.label,
@@ -94,7 +140,7 @@ class _MatchHighlightTile extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   'Stream ${YoutubeUtils.formatStreamOffset(offset)}'
-                  '${item.source == MatchHighlightSource.replayMarker ? ' · replay flag' : ''}',
+                  '${isReplayOnly ? ' · replay' : ''}',
                   style: const TextStyle(
                     color: AppColors.gold,
                     fontSize: 12,
@@ -112,14 +158,11 @@ class _MatchHighlightTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (youtubeAt != null)
+            if (canSeek)
               IconButton(
                 icon: const Icon(Icons.play_circle_outline),
-                tooltip: 'Open in YouTube',
-                onPressed: () => launchUrl(
-                  Uri.parse(youtubeAt),
-                  mode: LaunchMode.externalApplication,
-                ),
+                tooltip: 'Play in stream',
+                onPressed: () => onSeek(item.streamOffsetMs!),
               ),
             IconButton(
               icon: const Icon(Icons.share_outlined),

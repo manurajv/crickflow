@@ -19,12 +19,15 @@ class MatchStreamPlayer extends StatefulWidget {
     this.edgeToEdge = false,
     this.pendingSeek,
     this.onPendingSeekApplied,
+    this.awaitingWatchUrl = false,
   });
 
   final MatchStreamSource source;
   final bool edgeToEdge;
   final Duration? pendingSeek;
   final VoidCallback? onPendingSeekApplied;
+  /// Show the go-live placeholder only while an active broadcast awaits a URL.
+  final bool awaitingWatchUrl;
 
   @override
   State<MatchStreamPlayer> createState() => MatchStreamPlayerState();
@@ -49,24 +52,40 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
   @override
   void didUpdateWidget(covariant MatchStreamPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.source.url != widget.source.url) {
+    if (oldWidget.source.url != widget.source.url ||
+        oldWidget.source.sessionKey != widget.source.sessionKey ||
+        oldWidget.awaitingWatchUrl != widget.awaitingWatchUrl) {
       _usingWatchPageFallback = false;
       _usingFacebookPluginFallback = false;
       _usingFacebookWatchFallback = false;
-      _initPlayer();
+      unawaited(_initPlayer());
       return;
     }
     if (widget.pendingSeek != null &&
         widget.pendingSeek != oldWidget.pendingSeek) {
-      unawaited(_seekToOffset(widget.pendingSeek!));
+      unawaited(_seekWhenReady(widget.pendingSeek!));
+    }
+  }
+
+  Future<void> _seekWhenReady(Duration offset) async {
+    for (var attempt = 0; attempt < 30; attempt++) {
+      if (!mounted) return;
+      final controller = _controller;
+      if (controller != null && !_loading && _error == null) {
+        await _seekToOffset(offset);
+        widget.onPendingSeekApplied?.call();
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 150));
     }
   }
 
   Future<void> _initPlayer() async {
-    if (MatchStreamPlayback.isPendingWatchUrl(widget.source.url)) {
+    if (widget.awaitingWatchUrl &&
+        MatchStreamPlayback.isPendingWatchUrl(widget.source.url)) {
       setState(() {
         _controller = null;
-        _loading = widget.source.isLive;
+        _loading = true;
         _error = null;
       });
       return;
@@ -198,8 +217,7 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
   Future<void> _applyPendingSeekIfNeeded() async {
     final pending = widget.pendingSeek;
     if (pending == null) return;
-    await _seekToOffset(pending);
-    widget.onPendingSeekApplied?.call();
+    await _seekWhenReady(pending);
   }
 
   /// Seek the in-app player to [offset] (YouTube iframe API or `t=` fallback).
@@ -469,8 +487,8 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
 
   Widget _buildPlayerBody(CfColors cf, String openLabel) {
     if (_controller == null &&
-        MatchStreamPlayback.isPendingWatchUrl(widget.source.url) &&
-        widget.source.isLive) {
+        widget.awaitingWatchUrl &&
+        MatchStreamPlayback.isPendingWatchUrl(widget.source.url)) {
       return ColoredBox(
         color: Colors.black,
         child: Center(

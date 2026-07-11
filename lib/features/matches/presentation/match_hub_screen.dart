@@ -10,6 +10,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/repositories/match_audience_repository.dart';
 import '../../../domain/streaming/match_stream_playback.dart';
+import '../../../features/streaming/presentation/providers/match_stream_seek_provider.dart';
 import '../../../shared/providers/match_audience_provider.dart';
 import '../../../shared/providers/match_live_provider.dart';
 import '../../../shared/providers/match_summary_provider.dart';
@@ -98,6 +99,14 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
   bool? _streamVisibleOverride;
   late final MatchAudienceRepository _audienceRepo;
   ProviderSubscription<AsyncValue<User?>>? _authSubscription;
+
+  @override
+  void activate() {
+    super.activate();
+    if (_streamVisibleOverride != null && mounted) {
+      setState(() => _streamVisibleOverride = null);
+    }
+  }
 
   @override
   void initState() {
@@ -241,6 +250,16 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
     final controller = _tabController!;
     final hasStream = MatchStreamPlayback.hasWatchablePlayback(match);
     final showStream = hasStream && _isStreamVisible(match);
+
+    ref.listen<MatchStreamSeekRequest?>(
+      matchStreamSeekProvider(widget.matchId),
+      (previous, next) {
+        if (next == null || !hasStream) return;
+        if (!_isStreamVisible(match)) {
+          setState(() => _streamVisibleOverride = true);
+        }
+      },
+    );
 
     // Keep live feeds subscribed for the whole hub session — TabBarView
     // lazily builds tabs, so without this the Live tab streams may not start
