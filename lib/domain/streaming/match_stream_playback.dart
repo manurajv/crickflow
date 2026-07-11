@@ -360,25 +360,50 @@ class MatchStreamPlayback {
       for (final source in sources) {
         final start = source.addedAt;
         if (start == null) continue;
-        final end = source.endedAt ?? (source.isLive ? DateTime.now() : start);
-        if (!eventTime.isBefore(start) && !eventTime.isAfter(end)) {
-          return source;
-        }
+        final end = source.endedAt ?? (source.isLive ? DateTime.now() : null);
+        if (eventTime.isBefore(start)) continue;
+        if (end != null && eventTime.isAfter(end)) continue;
+        return source;
       }
-
-      MatchStreamSource? latestBeforeEvent;
-      for (final source in sources) {
-        final start = source.addedAt;
-        if (start == null || eventTime.isBefore(start)) continue;
-        if (latestBeforeEvent == null ||
-            start.isAfter(latestBeforeEvent.addedAt!)) {
-          latestBeforeEvent = source;
-        }
-      }
-      if (latestBeforeEvent != null) return latestBeforeEvent;
+      return null;
     }
 
-    return sources.first;
+    return null;
+  }
+
+  /// Whether a highlight can be played or shared in a stream (not scoring-only).
+  static bool highlightIsStreamable(
+    MatchModel match, {
+    int? streamOffsetMs,
+    String? streamSessionId,
+    DateTime? eventTime,
+    bool fromReplayMarker = false,
+  }) {
+    if (streamOffsetMs == null || streamOffsetMs <= 0) return false;
+
+    if (fromReplayMarker) {
+      final session = resolveSessionForHighlight(
+        match,
+        sessionId: streamSessionId,
+      );
+      return session != null && session.hasPlayableUrl;
+    }
+
+    if (eventTime == null) return false;
+
+    final session = resolveSessionForHighlight(
+      match,
+      sessionId: streamSessionId,
+      eventTime: eventTime,
+    );
+    if (session == null || !session.hasPlayableUrl) return false;
+
+    final start = session.addedAt;
+    if (start == null) return false;
+    final end = session.endedAt ?? (session.isLive ? DateTime.now() : null);
+    if (eventTime.isBefore(start)) return false;
+    if (end != null && eventTime.isAfter(end)) return false;
+    return true;
   }
 
   static String? normalizeWatchUrl(String raw) {

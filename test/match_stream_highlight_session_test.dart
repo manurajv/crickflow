@@ -72,4 +72,101 @@ void main() {
 
     expect(resolved?.sessionId, 'sess-1');
   });
+
+  test('resolveSessionForHighlight returns null when event is after stream ended', () {
+    final match = _matchWithSessions([
+      StreamPlaybackEntryModel(
+        sessionId: 'sess-1',
+        url: 'https://www.youtube.com/watch?v=abc',
+        addedAt: DateTime(2026, 3, 9, 8),
+        endedAt: DateTime(2026, 3, 9, 9),
+        isLive: false,
+      ),
+    ]);
+
+    final resolved = MatchStreamPlayback.resolveSessionForHighlight(
+      match,
+      eventTime: DateTime(2026, 3, 9, 10),
+    );
+
+    expect(resolved, isNull);
+  });
+
+  test('highlightIsStreamable is false for scoring-only highlights', () {
+    final match = _matchWithSessions([
+      StreamPlaybackEntryModel(
+        sessionId: 'sess-1',
+        url: 'https://www.youtube.com/watch?v=abc',
+        addedAt: DateTime(2026, 3, 9, 8),
+        endedAt: DateTime(2026, 3, 9, 9),
+        isLive: false,
+      ),
+    ]);
+
+    final streamable = MatchStreamPlayback.highlightIsStreamable(
+      match,
+      streamOffsetMs: 120_000,
+      eventTime: DateTime(2026, 3, 9, 10, 30),
+    );
+
+    expect(streamable, isFalse);
+  });
+
+  test('highlightIsStreamable is true for in-session replay marker', () {
+    final match = _matchWithSessions([
+      StreamPlaybackEntryModel(
+        sessionId: 'sess-live',
+        url: 'https://www.youtube.com/watch?v=live',
+        addedAt: DateTime(2026, 3, 9, 10),
+        isLive: true,
+      ),
+    ]);
+
+    final streamable = MatchStreamPlayback.highlightIsStreamable(
+      match,
+      streamOffsetMs: 60_000,
+      streamSessionId: 'sess-live',
+      fromReplayMarker: true,
+    );
+
+    expect(streamable, isTrue);
+  });
+
+  test('highlightIsStreamable is false for pre-live wicket when new live is active', () {
+    final liveStart = DateTime(2026, 3, 9, 14);
+    final match = _matchWithSessions([
+      StreamPlaybackEntryModel(
+        sessionId: 'sess-new',
+        url: 'https://www.youtube.com/watch?v=new',
+        addedAt: liveStart,
+        isLive: true,
+      ),
+    ]);
+
+    final streamable = MatchStreamPlayback.highlightIsStreamable(
+      match,
+      streamOffsetMs: 120_000,
+      eventTime: liveStart.subtract(const Duration(minutes: 20)),
+    );
+
+    expect(streamable, isFalse);
+  });
+
+  test('highlightIsStreamable is false without event time or replay marker', () {
+    final match = _matchWithSessions([
+      StreamPlaybackEntryModel(
+        sessionId: 'sess-live',
+        url: 'https://www.youtube.com/watch?v=live',
+        addedAt: DateTime(2026, 3, 9, 14),
+        isLive: true,
+      ),
+    ]);
+
+    final streamable = MatchStreamPlayback.highlightIsStreamable(
+      match,
+      streamOffsetMs: 60_000,
+    );
+
+    expect(streamable, isFalse);
+  });
 }

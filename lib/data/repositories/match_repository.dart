@@ -708,6 +708,7 @@ class MatchRepository {
       id: eventId,
       commentary: commentary,
       sequence: sequence,
+      timestamp: DateTime.now(),
       isHighlight: highlight.isHighlight,
       highlightTag: highlight.tag,
       wagonWheel: input.wagonWheel ?? built.wagonWheel,

@@ -125,9 +125,12 @@ class MatchLocalStore {
   }
 
   Future<void> appendBallEvent(String matchId, BallEventModel event) async {
+    final normalized = event.timestamp == null
+        ? event.copyWith(timestamp: DateTime.now())
+        : event;
     final events = await getBallEvents(matchId);
-    if (events.any((e) => e.id == event.id)) return;
-    events.add(event);
+    if (events.any((e) => e.id == normalized.id)) return;
+    events.add(normalized);
     await setBallEvents(matchId, events);
   }
 

@@ -46,6 +46,17 @@ class MatchHighlightsList extends ConsumerWidget {
     final canSeekInPlayer = seekInAppPlayer && hasStream;
     final youtubeUrl = match?.stream.youtubeWatchUrl;
 
+    bool isStreamable(MatchHighlightItem item) {
+      if (match == null) return false;
+      return MatchStreamPlayback.highlightIsStreamable(
+        match,
+        streamOffsetMs: item.streamOffsetMs,
+        streamSessionId: item.streamSessionId,
+        eventTime: item.ballEvent?.timestamp ?? item.replayMarker?.createdAt,
+        fromReplayMarker: item.replayMarker != null,
+      );
+    }
+
     if (highlights.isEmpty) {
       return Center(
         child: Padding(
@@ -74,6 +85,7 @@ class MatchHighlightsList extends ConsumerWidget {
           linkedBall: _linkedBallFor(item, ballById),
           youtubeWatchUrl: youtubeUrl,
           canSeekInPlayer: canSeekInPlayer,
+          canShare: isStreamable(item),
           onSeek: (offsetMs) {
             if (!seekInAppPlayer) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -120,6 +132,7 @@ class _MatchHighlightTile extends StatelessWidget {
     required this.linkedBall,
     required this.youtubeWatchUrl,
     required this.canSeekInPlayer,
+    required this.canShare,
     required this.onSeek,
   });
 
@@ -129,12 +142,13 @@ class _MatchHighlightTile extends StatelessWidget {
   final BallEventModel? linkedBall;
   final String? youtubeWatchUrl;
   final bool canSeekInPlayer;
+  final bool canShare;
   final ValueChanged<int> onSeek;
 
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    final canSeek = canSeekInPlayer && item.streamOffsetMs != null;
+    final canSeek = canSeekInPlayer && canShare && item.streamOffsetMs != null;
     final eventId = item.ballEventId ?? item.ballEvent?.id;
     final commentary = commentaryFeed.ballItemForEventId(eventId);
 
@@ -144,7 +158,7 @@ class _MatchHighlightTile extends StatelessWidget {
         commentary: commentary,
         canSeek: canSeek,
         onSeek: canSeek ? () => onSeek(item.streamOffsetMs!) : null,
-        onShare: () => _share(commentary.headline),
+        onShare: canShare ? () => _share(commentary.headline) : null,
       );
     }
 
@@ -154,7 +168,7 @@ class _MatchHighlightTile extends StatelessWidget {
       linkedBall: linkedBall,
       canSeek: canSeek,
       onSeek: canSeek ? () => onSeek(item.streamOffsetMs!) : null,
-      onShare: () => _share(item.label),
+      onShare: canShare ? () => _share(item.label) : null,
     );
   }
 
@@ -185,7 +199,7 @@ class _CommentaryHighlightCard extends StatelessWidget {
   final BallCommentaryItem commentary;
   final bool canSeek;
   final VoidCallback? onSeek;
-  final VoidCallback onShare;
+  final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -318,21 +332,22 @@ class _CommentaryHighlightCard extends StatelessWidget {
                             tooltip: 'Play in stream',
                             onPressed: onSeek,
                           ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
+                        if (onShare != null)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            icon: Icon(
+                              Icons.share_outlined,
+                              color: cf.textMuted,
+                              size: 20,
+                            ),
+                            tooltip: 'Share',
+                            onPressed: onShare,
                           ),
-                          icon: Icon(
-                            Icons.share_outlined,
-                            color: cf.textMuted,
-                            size: 20,
-                          ),
-                          tooltip: 'Share',
-                          onPressed: onShare,
-                        ),
                       ],
                     ),
                   ],
@@ -368,7 +383,7 @@ class _ReplayHighlightCard extends StatelessWidget {
   final BallEventModel? linkedBall;
   final bool canSeek;
   final VoidCallback? onSeek;
-  final VoidCallback onShare;
+  final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -503,21 +518,22 @@ class _ReplayHighlightCard extends StatelessWidget {
                             tooltip: 'Play in stream',
                             onPressed: onSeek,
                           ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
+                        if (onShare != null)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            icon: Icon(
+                              Icons.share_outlined,
+                              color: cf.textMuted,
+                              size: 20,
+                            ),
+                            tooltip: 'Share',
+                            onPressed: onShare,
                           ),
-                          icon: Icon(
-                            Icons.share_outlined,
-                            color: cf.textMuted,
-                            size: 20,
-                          ),
-                          tooltip: 'Share',
-                          onPressed: onShare,
-                        ),
                       ],
                     ),
                   ],

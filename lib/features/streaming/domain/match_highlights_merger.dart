@@ -85,25 +85,52 @@ class MatchHighlightsMerger {
 
     for (final event in ballHighlights) {
       final marker = _markerForBall(replayMarkers, event.id);
-      final parentSession = match != null
+      final parentSession = match != null &&
+              marker == null &&
+              event.timestamp != null
           ? MatchStreamPlayback.resolveSessionForHighlight(
               match,
-              sessionId: marker?.streamSessionId,
               eventTime: event.timestamp,
             )
           : null;
-      final sessionStart =
-          parentSession?.addedAt ?? match?.stream.startedAt;
-      final markerOffset = marker != null && marker.streamOffsetMs > 0
-          ? marker.streamOffsetMs
-          : null;
-      final computedOffset = markerOffset ??
-          replayMarkerOffsetMs(
-            sessionStartedAt: sessionStart,
-            eventTime: event.timestamp,
-          );
-      final streamOffset =
-          computedOffset > 0 ? computedOffset : null;
+
+      int? streamOffset;
+      String? streamSessionId;
+
+      if (marker != null && marker.streamOffsetMs > 0) {
+        streamSessionId = marker.streamSessionId.isNotEmpty
+            ? marker.streamSessionId
+            : parentSession?.sessionId;
+        if (match != null &&
+            MatchStreamPlayback.highlightIsStreamable(
+              match,
+              streamOffsetMs: marker.streamOffsetMs,
+              streamSessionId: streamSessionId,
+              eventTime: event.timestamp ?? marker.createdAt,
+              fromReplayMarker: true,
+            )) {
+          streamOffset = marker.streamOffsetMs;
+        } else {
+          streamSessionId = null;
+        }
+      } else if (parentSession != null && event.timestamp != null) {
+        final computed = replayMarkerOffsetMs(
+          sessionStartedAt: parentSession.addedAt,
+          eventTime: event.timestamp,
+        );
+        if (computed > 0 &&
+            match != null &&
+            MatchStreamPlayback.highlightIsStreamable(
+              match,
+              streamOffsetMs: computed,
+              streamSessionId: parentSession.sessionId,
+              eventTime: event.timestamp,
+            )) {
+          streamOffset = computed;
+          streamSessionId = parentSession.sessionId;
+        }
+      }
+
       items.add(
         MatchHighlightItem(
           source: MatchHighlightSource.ballEvent,
@@ -112,11 +139,10 @@ class MatchHighlightsMerger {
           label: HighlightUtils.label(event),
           subtitle:
               '${HighlightUtils.overBallLabel(event)} · ${event.commentary}',
-          sortKey: _chronologicalKeyForBall(event),
+          sortKey: _ballSortKey(event),
           streamOffsetMs: streamOffset,
           ballEventId: event.id,
-          streamSessionId:
-              marker?.streamSessionId ?? parentSession?.sessionId,
+          streamSessionId: streamSessionId,
         ),
       );
     }
@@ -133,20 +159,28 @@ class MatchHighlightsMerger {
               eventTime: marker.createdAt,
             )
           : null;
+      final sessionId = marker.streamSessionId.isNotEmpty
+          ? marker.streamSessionId
+          : parentSession?.sessionId;
+      final streamable = match != null &&
+          MatchStreamPlayback.highlightIsStreamable(
+            match,
+            streamOffsetMs: marker.streamOffsetMs,
+            streamSessionId: sessionId,
+            fromReplayMarker: true,
+          );
       items.add(
         MatchHighlightItem(
           source: MatchHighlightSource.replayMarker,
           replayMarker: marker,
           label: ReplayMarkerUtils.label(marker),
           subtitle: marker.label,
-          sortKey: _chronologicalKeyForMarker(marker),
-          streamOffsetMs:
-              marker.streamOffsetMs > 0 ? marker.streamOffsetMs : null,
+          sortKey: _orphanMarkerSortKey(marker, ballHighlights),
+          streamOffsetMs: streamable && marker.streamOffsetMs > 0
+              ? marker.streamOffsetMs
+              : null,
           ballEventId: marker.ballEventId,
-          streamSessionId:
-              marker.streamSessionId.isNotEmpty
-                  ? marker.streamSessionId
-                  : parentSession?.sessionId,
+          streamSessionId: sessionId,
         ),
       );
     }
@@ -155,17 +189,55 @@ class MatchHighlightsMerger {
     return items;
   }
 
-  /// Newest-first ordering — match time, not stream offset (resets per go-live).
-  static int _chronologicalKeyForBall(BallEventModel event) {
-    final ts = event.timestamp?.millisecondsSinceEpoch;
-    if (ts != null && ts > 0) return ts;
-    return event.sequence;
+  /// Newest-first — uses match [sequence] so live/offline balls without
+  /// timestamps still sort above older persisted highlights.
+  static int _ballSortKey(BallEventModel event) => event.sequence * 2;
+
+  /// Orphan replay markers slot into sequence space beside ball highlights.
+  static int _orphanMarkerSortKey(
+    ReplayMarkerModel marker,
+    List<BallEventModel> ballHighlights,
+  ) {
+    final linkedId = marker.ballEventId;
+    if (linkedId != null) {
+      for (final ball in ballHighlights) {
+        if (ball.id == linkedId) return ball.sequence * 2 + 1;
+      }
+    }
+
+    final created = marker.createdAt;
+    if (created != null) {
+      var anchorSeq = 0;
+      for (final ball in ballHighlights) {
+        final ts = ball.timestamp;
+        if (ts != null && !ts.isAfter(created) && ball.sequence > anchorSeq) {
+          anchorSeq = ball.sequence;
+        }
+      }
+      if (anchorSeq > 0) return anchorSeq * 2 + 1;
+
+      var nextSeq = 0;
+      for (final ball in ballHighlights) {
+        final ts = ball.timestamp;
+        if (ts != null && ts.isAfter(created)) {
+          nextSeq = nextSeq == 0
+              ? ball.sequence
+              : (nextSeq < ball.sequence ? nextSeq : ball.sequence);
+        }
+      }
+      if (nextSeq > 0) return (nextSeq - 1) * 2 + 1;
+    }
+
+    final maxSeq = _maxBallSequence(ballHighlights);
+    if (created != null) return maxSeq * 2 + 1;
+    return marker.streamOffsetMs > 0 ? marker.streamOffsetMs : maxSeq * 2 + 1;
   }
 
-  static int _chronologicalKeyForMarker(ReplayMarkerModel marker) {
-    final ts = marker.createdAt?.millisecondsSinceEpoch;
-    if (ts != null && ts > 0) return ts;
-    return marker.streamOffsetMs;
+  static int _maxBallSequence(List<BallEventModel> ballHighlights) {
+    if (ballHighlights.isEmpty) return 0;
+    return ballHighlights
+        .map((e) => e.sequence)
+        .reduce((a, b) => a > b ? a : b);
   }
 
   ReplayMarkerModel? _markerForBall(
