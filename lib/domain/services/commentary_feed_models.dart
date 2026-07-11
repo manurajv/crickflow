@@ -208,6 +208,19 @@ class CommentaryFeed {
   List<CommentaryFeedItem> itemsForInnings(int inningsNumber) =>
       itemsByInnings[inningsNumber] ?? const [];
 
+  /// Commentary row for a ball event (headline, total, wicket/boundary lines).
+  BallCommentaryItem? ballItemForEventId(String? eventId) {
+    if (eventId == null || eventId.trim().isEmpty) return null;
+    for (final items in itemsByInnings.values) {
+      for (final item in items) {
+        if (item is BallCommentaryItem && item.event.id == eventId) {
+          return item;
+        }
+      }
+    }
+    return null;
+  }
+
   List<CommentaryFeedItem> filtered({
     required int inningsNumber,
     required CommentaryFilter filter,

@@ -319,6 +319,52 @@ class MatchStreamPlayback {
     return hasWatchablePlayback(match);
   }
 
+  /// Picks the playback session a highlight belongs to (by marker session id or
+  /// ball event time), so seek switches to the correct parent stream URL.
+  static MatchStreamSource? resolveSessionForHighlight(
+    MatchModel match, {
+    String? sessionId,
+    DateTime? eventTime,
+  }) {
+    final sources = sourcesFor(match).where((s) => s.hasPlayableUrl).toList();
+    if (sources.isEmpty) return null;
+
+    final sid = sessionId?.trim() ?? '';
+    if (sid.isNotEmpty) {
+      for (final source in sources) {
+        if (source.sessionId == sid ||
+            source.sessionKey == sid ||
+            source.effectiveSessionKey == sid) {
+          return source;
+        }
+      }
+    }
+
+    if (eventTime != null) {
+      for (final source in sources) {
+        final start = source.addedAt;
+        if (start == null) continue;
+        final end = source.endedAt ?? (source.isLive ? DateTime.now() : start);
+        if (!eventTime.isBefore(start) && !eventTime.isAfter(end)) {
+          return source;
+        }
+      }
+
+      MatchStreamSource? latestBeforeEvent;
+      for (final source in sources) {
+        final start = source.addedAt;
+        if (start == null || eventTime.isBefore(start)) continue;
+        if (latestBeforeEvent == null ||
+            start.isAfter(latestBeforeEvent.addedAt!)) {
+          latestBeforeEvent = source;
+        }
+      }
+      if (latestBeforeEvent != null) return latestBeforeEvent;
+    }
+
+    return sources.first;
+  }
+
   static String? normalizeWatchUrl(String raw) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return null;

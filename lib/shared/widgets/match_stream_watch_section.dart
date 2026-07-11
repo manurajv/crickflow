@@ -37,6 +37,8 @@ class _MatchStreamWatchSectionState extends ConsumerState<MatchStreamWatchSectio
   final _playerKey = GlobalKey<MatchStreamPlayerState>();
   Duration? _pendingSeekAfterSwitch;
   String? _pendingSeekLabel;
+  int? _lastAppliedSeekNonce;
+  bool _checkedInitialSeek = false;
 
   String _playbackSignature(List<MatchStreamSource> sources) {
     final key = _selectedSessionKey;
@@ -211,18 +213,29 @@ class _MatchStreamWatchSectionState extends ConsumerState<MatchStreamWatchSectio
   void _applySeekRequest(
     MatchStreamSeekRequest request,
     List<MatchStreamSource> sources,
+    MatchModel match,
   ) {
-    final offset = Duration(milliseconds: request.offsetMs);
-    String? targetKey;
+    if (request.nonce == _lastAppliedSeekNonce) return;
+    _lastAppliedSeekNonce = request.nonce;
 
-    final sessionId = request.sessionId;
-    if (sessionId != null && sessionId.isNotEmpty) {
-      for (final source in sources) {
-        if (source.sessionId == sessionId ||
-            source.sessionKey == sessionId ||
-            source.effectiveSessionKey == sessionId) {
-          targetKey = source.effectiveSessionKey;
-          break;
+    final offset = Duration(milliseconds: request.offsetMs);
+    final resolved = MatchStreamPlayback.resolveSessionForHighlight(
+      match,
+      sessionId: request.sessionId,
+      eventTime: request.eventTime,
+    );
+    String? targetKey = resolved?.effectiveSessionKey;
+
+    if (targetKey == null) {
+      final sessionId = request.sessionId;
+      if (sessionId != null && sessionId.isNotEmpty) {
+        for (final source in sources) {
+          if (source.sessionId == sessionId ||
+              source.sessionKey == sessionId ||
+              source.effectiveSessionKey == sessionId) {
+            targetKey = source.effectiveSessionKey;
+            break;
+          }
         }
       }
     }
@@ -298,9 +311,24 @@ class _MatchStreamWatchSectionState extends ConsumerState<MatchStreamWatchSectio
         if (next == null) return;
         final sources = MatchStreamPlayback.sourcesFor(match);
         if (sources.isEmpty) return;
-        _applySeekRequest(next, sources);
+        _applySeekRequest(next, sources, match);
       },
     );
+
+    if (!_checkedInitialSeek) {
+      _checkedInitialSeek = true;
+      final pendingSeek = ref.read(matchStreamSeekProvider(widget.match.id));
+      if (pendingSeek != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final latestMatch =
+              ref.read(matchProvider(widget.match.id)).valueOrNull ?? match;
+          final latestSources = MatchStreamPlayback.sourcesFor(latestMatch);
+          if (latestSources.isEmpty) return;
+          _applySeekRequest(pendingSeek, latestSources, latestMatch);
+        });
+      }
+    }
 
     final selectedIndex = _indexForSources(sources);
     final current = sources[selectedIndex];

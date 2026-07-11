@@ -13,11 +13,10 @@ final matchHighlightsMergedProvider =
   final events = ref.watch(ballEventsProvider(matchId)).valueOrNull ?? const [];
   final markers =
       ref.watch(replayMarkersProvider(matchId)).valueOrNull ?? const [];
-  final streamStartedAt =
-      ref.watch(matchProvider(matchId)).valueOrNull?.stream.startedAt;
+  final match = ref.watch(matchProvider(matchId)).valueOrNull;
   return ref.watch(matchHighlightsMergerProvider).merge(
         ballEvents: events,
         replayMarkers: markers,
-        streamStartedAt: streamStartedAt,
+        match: match,
       );
 });
