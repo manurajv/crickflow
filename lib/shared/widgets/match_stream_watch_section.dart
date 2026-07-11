@@ -341,13 +341,12 @@ class _MatchStreamWatchSectionState extends ConsumerState<MatchStreamWatchSectio
     );
     final horizontalPad = widget.edgeToEdge ? 0.0 : 16.0;
     final showPicker = playableSources.length > 1;
-    final showSessionBar = sources.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (showSessionBar)
+        if (showPicker)
           Padding(
             padding: EdgeInsets.fromLTRB(horizontalPad + 12, 4, horizontalPad + 12, 0),
             child: DecoratedBox(
@@ -358,45 +357,43 @@ class _MatchStreamWatchSectionState extends ConsumerState<MatchStreamWatchSectio
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: showPicker
-                    ? InkWell(
-                        onTap: () =>
-                            _pickStreamSession(context, playableSources, cf),
-                        borderRadius: BorderRadius.circular(6),
-                        child: _sessionBarRow(
-                          cf: cf,
-                          source: current,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cf.accent.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  '${playableSources.length}',
-                                  style: TextStyle(
-                                    color: cf.accent,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                Icons.unfold_more,
-                                size: 18,
-                                color: cf.textSecondary,
-                              ),
-                            ],
+                child: InkWell(
+                  onTap: () =>
+                      _pickStreamSession(context, playableSources, cf),
+                  borderRadius: BorderRadius.circular(6),
+                  child: _sessionBarRow(
+                    cf: cf,
+                    source: current,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cf.accent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '${playableSources.length}',
+                            style: TextStyle(
+                              color: cf.accent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      )
-                    : _sessionBarRow(cf: cf, source: current),
+                        Icon(
+                          Icons.unfold_more,
+                          size: 18,
+                          color: cf.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
