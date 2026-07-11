@@ -74,6 +74,18 @@ Future<String?> showRunOutDismissedPicker(
 /// Token for "New batter" in the next-striker picker.
 const kNewBatterNextStrikerToken = '__new_batter__';
 
+/// Batter who remains on the crease after a run-out dismissal.
+String? runOutSurvivorId(InningsModel innings, String dismissedPlayerId) {
+  if (innings.strikerId != null && innings.strikerId != dismissedPlayerId) {
+    return innings.strikerId;
+  }
+  if (innings.nonStrikerId != null &&
+      innings.nonStrikerId != dismissedPlayerId) {
+    return innings.nonStrikerId;
+  }
+  return null;
+}
+
 /// After run out: who faces the next delivery (striker / non-striker / new batter).
 Future<String?> showRunOutNextStrikerPicker(
   BuildContext context, {
@@ -141,11 +153,7 @@ Future<
   );
   if (picked == null) return null;
 
-  final survivorId = innings.strikerId == dismissedPlayerId
-      ? innings.nonStrikerId
-      : innings.nonStrikerId == dismissedPlayerId
-          ? innings.strikerId
-          : null;
+  final survivorId = runOutSurvivorId(innings, dismissedPlayerId);
   if (survivorId == null) return null;
 
   final survivorName =

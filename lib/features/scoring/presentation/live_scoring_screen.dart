@@ -161,6 +161,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     BallEventInput input, {
     String? undoGroupId,
     MatchModel? matchOverride,
+    bool deferOverCompletionPrompt = false,
   }) async {
     final match =
         ref.read(matchProvider(widget.matchId)).valueOrNull ?? matchOverride;
@@ -292,7 +293,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             allowUndo: true,
           );
         } else if (fullInput.type != BallEventType.wide &&
-            fullInput.type != BallEventType.noBall) {
+            fullInput.type != BallEventType.noBall &&
+            !deferOverCompletionPrompt) {
           final bpo = updated.rules.ballsPerOver;
           if (!_overContinuationActive &&
               ScoringDisplayUtils.shouldPromptOverCompletion(updatedInn, bpo)) {
@@ -379,8 +381,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
   Future<void> _promptOverCompletion(
     MatchModel match,
-    InningsModel innings,
-  ) async {
+    InningsModel innings, {
+    bool preserveCreaseOnEndOver = false,
+  }) async {
     final bpo = match.rules.ballsPerOver;
     final actual = ScoringDisplayUtils.ballsInCurrentOver(innings);
     final choice = await OverCompletionPromptDialog.show(
@@ -393,6 +396,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       await _finishOver(
         match,
         requireNoteIfAdjusted: actual != bpo,
+        preserveCreaseOnEndOver: preserveCreaseOnEndOver,
       );
     } else {
       setState(() => _overContinuationActive = true);
@@ -416,6 +420,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   Future<void> _finishOver(
     MatchModel match, {
     required bool requireNoteIfAdjusted,
+    bool preserveCreaseOnEndOver = false,
   }) async {
     if (!_guardActiveScorer(match)) return;
     final inn = match.currentInnings!;
@@ -456,6 +461,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               type: BallEventType.endOver,
               commentary: 'Over ended',
               createdBy: scorerUid,
+              preserveCreaseOnEndOver: preserveCreaseOnEndOver,
             ),
             sequence: sequence,
             overNote: overNote,
@@ -714,6 +720,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     var runsBeforeDismissal = 0;
     RunOutResult? runOutResult;
+    RunOutLineupResult? runOutLineup;
     final isMankad = wicketType == WicketType.mankad;
     final undoGroupId = _uuid.v4();
 
@@ -749,6 +756,42 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         fielderName = fielders.first.playerName;
       }
       runsBeforeDismissal = runOutResult.completedRuns;
+
+      if (!ScoringDisplayUtils.isInningsComplete(match, inn)) {
+        final survivorId =
+            runOutSurvivorId(inn, runOutResult.dismissedPlayerId);
+        final eligible = ScoringDisplayUtils.eligibleBatters(
+          inn,
+          squads.batting,
+          idOf: (p) => p.id,
+          excludePlayerId: runOutResult.dismissedPlayerId,
+        ).where((p) => survivorId == null || p.id != survivorId).toList();
+
+        if (eligible.isNotEmpty) {
+          final newBatterOptions = eligible
+              .map(
+                (p) {
+                  final b = ScoringDisplayUtils.batsman(inn, p.id);
+                  return CreaseBatterOption(
+                    playerId: p.id,
+                    name: p.name,
+                    runs: b?.runs ?? 0,
+                    balls: b?.balls ?? 0,
+                    roleLabel: 'Available',
+                  );
+                },
+              )
+              .toList();
+
+          runOutLineup = await showRunOutNextStrikerFlow(
+            context,
+            innings: inn,
+            dismissedPlayerId: runOutResult.dismissedPlayerId,
+            newBatterOptions: newBatterOptions,
+          );
+          if (runOutLineup == null || !mounted) return;
+        }
+      }
     } else if (DismissalFormatter.usesWicketKeeper(wicketType)) {
       dismissedPlayerId = inn.strikerId;
       if (activeKeeper.id == null || activeKeeper.id!.isEmpty) {
@@ -816,6 +859,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     final isKeeperCatch = dismissalSubType == DismissalSubType.caughtBehind;
 
+    final isRunOut = wicketType == WicketType.runOut;
+
     await _record(
       BallEventInput(
         type: BallEventType.wicket,
@@ -834,8 +879,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         wicketKeeperName: wicketKeeperName,
         currentWicketKeeperId: activeKeeper.id,
         currentWicketKeeperName: activeKeeper.name,
-        nextStrikerId: null,
-        nextStrikerName: null,
+        nextStrikerId: runOutLineup?.strikerId,
+        nextStrikerName: runOutLineup?.strikerName,
         runOutDeliveryKind: runOutResult?.deliveryKind,
         completedRuns:
             runOutResult?.completedRuns ?? runsBeforeDismissal,
@@ -850,6 +895,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       ),
       undoGroupId: undoGroupId,
       matchOverride: match,
+      deferOverCompletionPrompt: isRunOut,
     );
     if (!mounted) return;
     final updated =
@@ -857,61 +903,39 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final updatedInn = updated.currentInnings;
     if (updatedInn != null &&
         !ScoringDisplayUtils.isInningsComplete(updated, updatedInn)) {
-      if (wicketType == WicketType.runOut && runOutResult != null) {
-        final fresh =
+      if (isRunOut && runOutLineup != null) {
+        await _recordLineupChange(
+          match: updated,
+          strikerId: runOutLineup.strikerId,
+          strikerName: runOutLineup.strikerName,
+          nonStrikerId: runOutLineup.nonStrikerId,
+          nonStrikerName: runOutLineup.nonStrikerName,
+          bowlerId: updatedInn.currentBowlerId ?? '',
+          bowlerName: ScoringDisplayUtils.bowler(
+                updatedInn,
+                updatedInn.currentBowlerId,
+              )?.playerName ??
+              '',
+          undoGroupId: undoGroupId,
+          matchOverride: updated,
+        );
+        if (!mounted) return;
+        final afterLineup =
             ref.read(matchProvider(widget.matchId)).valueOrNull ?? updated;
-        final freshInn = fresh.currentInnings;
-        if (freshInn != null) {
-          final survivorId = freshInn.strikerId ?? freshInn.nonStrikerId;
-          final eligible = ScoringDisplayUtils.eligibleBatters(
-            freshInn,
-            squads.batting,
-            idOf: (p) => p.id,
-            excludePlayerId: runOutResult.dismissedPlayerId,
-          ).where((p) => p.id != survivorId).toList();
-
-          if (eligible.isNotEmpty) {
-            final newBatterOptions = eligible
-                .map(
-                  (p) {
-                    final b = ScoringDisplayUtils.batsman(freshInn, p.id);
-                    return CreaseBatterOption(
-                      playerId: p.id,
-                      name: p.name,
-                      runs: b?.runs ?? 0,
-                      balls: b?.balls ?? 0,
-                      roleLabel: 'Available',
-                    );
-                  },
-                )
-                .toList();
-
-            final lineup = await showRunOutNextStrikerFlow(
-              context,
-              innings: freshInn,
-              dismissedPlayerId: runOutResult.dismissedPlayerId,
-              newBatterOptions: newBatterOptions,
-            );
-            if (lineup != null && mounted) {
-              await _recordLineupChange(
-                match: fresh,
-                strikerId: lineup.strikerId,
-                strikerName: lineup.strikerName,
-                nonStrikerId: lineup.nonStrikerId,
-                nonStrikerName: lineup.nonStrikerName,
-                bowlerId: freshInn.currentBowlerId ?? '',
-                bowlerName: ScoringDisplayUtils.bowler(
-                      freshInn,
-                      freshInn.currentBowlerId,
-                    )?.playerName ??
-                    '',
-                undoGroupId: undoGroupId,
-                matchOverride: fresh,
-              );
-            }
-          }
+        final afterLineupInn = afterLineup.currentInnings;
+        if (afterLineupInn != null &&
+            !_overContinuationActive &&
+            ScoringDisplayUtils.shouldPromptOverCompletion(
+              afterLineupInn,
+              afterLineup.rules.ballsPerOver,
+            )) {
+          await _promptOverCompletion(
+            afterLineup,
+            afterLineupInn,
+            preserveCreaseOnEndOver: true,
+          );
         }
-      } else {
+      } else if (!isRunOut) {
         await _fillVacantCrease(updated, updatedInn, undoGroupId: undoGroupId);
       }
     }

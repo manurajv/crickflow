@@ -658,6 +658,7 @@
 | `OversFormatter` — single source for overs display, economy, run rate, RRR from `ballsPerOver` | Done |
 | Scorecard / live score / player stats use `OversFormatter` + per-innings `effectiveRules.ballsPerOver` | Done |
 | Run-out flow — full sheet (fielders, delivery type, runs) + “Who will face the next ball?” picker; `nextStrikerId`/`nextStrikerName` on event; wide/NB from match rules | Done |
+| Run-out next-ball striker fix — picker before wicket record; `runOutSurvivorId`; explicit lineup is final; `preserveCreaseOnEndOver` on end-over after run-out; `run_out_next_striker_test.dart` | Done |
 | BallEvent wicket metadata (fielders, dismissed name, FOW context) persisted in Firestore | Done |
 | Scorecard dismissal from event metadata — `run out Fielder` / `F1 / F2`, pro formats | Done |
 | Scorecard stumped display — `st b Bowler` only (keeper stored, not shown) | Done |

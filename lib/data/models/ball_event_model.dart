@@ -86,6 +86,7 @@ class BallEventModel extends Equatable {
     this.swapReason,
     this.runsCancelled,
     this.swapNote,
+    this.preserveCreaseOnEndOver = false,
   });
 
   final String id;
@@ -182,6 +183,9 @@ class BallEventModel extends Equatable {
   final String? swapReason;
   final int? runsCancelled;
   final String? swapNote;
+  /// When true on [BallEventType.endOver], do not swap striker/non-striker
+  /// (run-out next-ball choice is already authoritative).
+  final bool preserveCreaseOnEndOver;
 
   /// Alias for [batsmanRuns] per ball-event spec.
   int get runsOffBat => batsmanRuns;
@@ -302,6 +306,7 @@ class BallEventModel extends Equatable {
               : null),
       runsCancelled: map['runsCancelled'] as int?,
       swapNote: map['swapNote'] as String?,
+      preserveCreaseOnEndOver: map['preserveCreaseOnEndOver'] as bool? ?? false,
     );
   }
 
@@ -421,6 +426,7 @@ class BallEventModel extends Equatable {
         if (swapReason != null && swapReason!.isNotEmpty) 'swapReason': swapReason,
         if (runsCancelled != null) 'runsCancelled': runsCancelled,
         if (swapNote != null && swapNote!.isNotEmpty) 'swapNote': swapNote,
+        if (preserveCreaseOnEndOver) 'preserveCreaseOnEndOver': true,
       };
 
   /// Flat fielder id/name lists for analytics (from [fielders] when empty).
@@ -552,6 +558,7 @@ class BallEventModel extends Equatable {
     String? swapReason,
     int? runsCancelled,
     String? swapNote,
+    bool? preserveCreaseOnEndOver,
   }) {
     return BallEventModel(
       id: id ?? this.id,
@@ -637,6 +644,8 @@ class BallEventModel extends Equatable {
       swapReason: swapReason ?? this.swapReason,
       runsCancelled: runsCancelled ?? this.runsCancelled,
       swapNote: swapNote ?? this.swapNote,
+      preserveCreaseOnEndOver:
+          preserveCreaseOnEndOver ?? this.preserveCreaseOnEndOver,
     );
   }
 

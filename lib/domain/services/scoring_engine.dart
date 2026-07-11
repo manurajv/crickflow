@@ -190,6 +190,7 @@ class ScoringEngine {
       swapReason: event.swapReason,
       runsCancelled: event.runsCancelled,
       swapNote: event.swapNote,
+      preserveCreaseOnEndOver: event.preserveCreaseOnEndOver,
     );
   }
 
@@ -513,6 +514,8 @@ class ScoringEngine {
       swapReason: isBatterSwap ? input.swapReason : null,
       runsCancelled: isBatterSwap ? input.runsCancelled : null,
       swapNote: isBatterSwap ? input.swapNote : null,
+      preserveCreaseOnEndOver: input.type == BallEventType.endOver &&
+          input.preserveCreaseOnEndOver,
     );
   }
 
@@ -778,7 +781,9 @@ class ScoringEngine {
   InningsModel _applyEndOver(InningsModel innings, BallEventModel event) {
     var strikerId = innings.strikerId;
     var nonStrikerId = innings.nonStrikerId;
-    if (strikerId != null && nonStrikerId != null) {
+    if (!event.preserveCreaseOnEndOver &&
+        strikerId != null &&
+        nonStrikerId != null) {
       final temp = strikerId;
       strikerId = nonStrikerId;
       nonStrikerId = temp;
@@ -1554,6 +1559,7 @@ class ScoringEngine {
       swapReason: e.swapReason,
       runsCancelled: e.runsCancelled,
       swapNote: e.swapNote,
+      preserveCreaseOnEndOver: e.preserveCreaseOnEndOver,
     );
   }
 
@@ -1615,6 +1621,7 @@ class BallEventInput {
     this.swapReason,
     this.runsCancelled,
     this.swapNote,
+    this.preserveCreaseOnEndOver = false,
   });
 
   final BallEventType type;
@@ -1655,6 +1662,8 @@ class BallEventInput {
   final String? swapReason;
   final int? runsCancelled;
   final String? swapNote;
+  /// Skip end-of-over strike swap when run-out next-ball crease is final.
+  final bool preserveCreaseOnEndOver;
 }
 
 class ScoringInput {
