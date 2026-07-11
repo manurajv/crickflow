@@ -22,12 +22,7 @@ final tournamentMatchesFilteredProvider = Provider.family<
 
   bool isLive(MatchModel m) => MatchLifecycle.isEffectivelyLive(m);
 
-  bool isUpcoming(MatchModel m) {
-    final status = MatchLifecycle.effectiveStatus(m);
-    return status == MatchStatus.scheduled ||
-        status == MatchStatus.draft ||
-        status == MatchStatus.tossCompleted;
-  }
+  bool isUpcoming(MatchModel m) => MatchLifecycle.isUpcoming(m);
 
   bool isCompleted(MatchModel m) =>
       MatchLifecycle.effectiveStatus(m) == MatchStatus.completed;
@@ -73,6 +68,4 @@ final tournamentActiveRoundsProvider =
 });
 
 bool isDeletableUpcomingMatch(MatchStatus status) =>
-    status == MatchStatus.draft ||
-    status == MatchStatus.scheduled ||
-    status == MatchStatus.tossCompleted;
+    status == MatchStatus.draft || status == MatchStatus.scheduled;

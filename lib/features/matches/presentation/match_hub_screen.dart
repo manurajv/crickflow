@@ -235,7 +235,8 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
 
   @override
   Widget build(BuildContext context) {
-    final match = widget.match;
+    final match =
+        ref.watch(matchProvider(widget.matchId)).valueOrNull ?? widget.match;
     final config = _config!;
     final controller = _tabController!;
     final hasStream = MatchStreamPlayback.hasWatchablePlayback(match);

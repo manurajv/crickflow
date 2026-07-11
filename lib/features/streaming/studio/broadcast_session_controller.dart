@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/constants/enums.dart';
 import '../../../../core/utils/deep_link_utils.dart';
+import '../../../../core/utils/youtube_utils.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/repositories/match_repository.dart';
 import '../../../../data/services/stream_service.dart';
@@ -16,7 +18,10 @@ import '../domain/streaming_mode.dart';
 import '../services/stream_platform_service.dart';
 import '../services/stream_youtube_thumbnail_service.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../domain/streaming/match_stream_playback.dart';
 import '../../../../domain/streaming/stream_playback_merger.dart';
+
+const _uuid = Uuid();
 
 /// Result of preparing or starting a broadcast session.
 class BroadcastSessionResult {
@@ -311,9 +316,10 @@ class BroadcastSessionController {
       }
     }
     try {
+      final freshMatch = await _matchRepository.getMatch(matchId) ?? match;
       await _persistStreamMeta(
         matchId: matchId,
-        match: match,
+        match: freshMatch,
         config: config,
         status: StreamStatus.ended,
         addedByUserId: actor.uid,
@@ -322,6 +328,58 @@ class BroadcastSessionController {
     } catch (e) {
       debugPrint('[CrickFlowBroadcast] end metadata persist failed: $e');
     }
+  }
+
+  /// Writes the YouTube watch URL into match stream metadata (latest live session).
+  ///
+  /// Fetches a fresh match snapshot so [playbackEntries] merges correctly even
+  /// when the initial go-live persist failed or used stale data.
+  Future<void> syncLiveWatchUrl({
+    required String matchId,
+    required StreamStudioConfig config,
+  }) async {
+    final watchUrl = _canonicalYouTubeWatchUrl(
+      config.youtubeWatchUrl,
+      config.youtubeBroadcastId,
+    );
+    if (watchUrl.isEmpty) return;
+
+    final actor = _streamActor();
+    final match = await _matchRepository.getMatch(matchId);
+    if (match == null) return;
+
+    String? liveSessionId;
+    for (final entry in match.stream.playbackEntries) {
+      if (entry.isLive && entry.sessionId.trim().isNotEmpty) {
+        liveSessionId = entry.sessionId.trim();
+        break;
+      }
+    }
+
+    final playbackEntries = StreamPlaybackMerger.syncLiveWatchUrl(
+      existing: match.stream.playbackEntries,
+      url: watchUrl,
+      sessionStartedAt: match.stream.startedAt,
+      sessionId: liveSessionId,
+      addedByUserId: actor.uid,
+      addedByName: actor.name,
+    );
+
+    DateTime? liveStartedAt;
+    for (final entry in playbackEntries) {
+      if (entry.isLive && entry.addedAt != null) {
+        liveStartedAt = entry.addedAt;
+      }
+    }
+    liveStartedAt ??= match.stream.startedAt ?? DateTime.now();
+
+    final stream = match.stream.copyWith(
+      status: StreamStatus.live,
+      startedAt: liveStartedAt,
+      youtubeWatchUrl: watchUrl,
+      playbackEntries: playbackEntries,
+    );
+    await _matchRepository.updateStreamMetadata(matchId, stream);
   }
 
   StreamLiveCredentials? credentialsFromConfig(StreamStudioConfig config) {
@@ -344,13 +402,45 @@ class BroadcastSessionController {
     StreamStudioConfig config,
     StreamLiveCredentials creds,
   ) {
+    final watchUrl = _canonicalYouTubeWatchUrl(
+      creds.watchUrl,
+      creds.broadcastId,
+    );
     return config.copyWith(
       rtmpUrl: creds.rtmpUrl,
       streamKey: creds.streamKey,
-      youtubeWatchUrl: creds.watchUrl.isNotEmpty ? creds.watchUrl : '',
+      youtubeWatchUrl: watchUrl,
       youtubeBroadcastId: creds.broadcastId,
       youtubeStreamId: creds.streamId,
     );
+  }
+
+  static String _canonicalYouTubeWatchUrl(
+    String watchUrl,
+    String broadcastId,
+  ) {
+    final trimmed = watchUrl.trim();
+    final id = YoutubeUtils.videoIdFromUrl(trimmed) ??
+        (broadcastId.trim().isNotEmpty ? broadcastId.trim() : null);
+    if (id != null && id.isNotEmpty) {
+      return 'https://www.youtube.com/watch?v=$id';
+    }
+    return trimmed;
+  }
+
+  /// Resolves the watch URL to persist — prefers config/broadcast id over stale match URL.
+  String? _resolvePersistWatchUrl(
+    StreamStudioConfig config,
+    MatchModel match,
+  ) {
+    final canonical = _canonicalYouTubeWatchUrl(
+      config.youtubeWatchUrl,
+      config.youtubeBroadcastId,
+    );
+    if (canonical.isNotEmpty) return canonical;
+    final legacy = match.stream.youtubeWatchUrl?.trim();
+    if (legacy != null && legacy.isNotEmpty) return legacy;
+    return null;
   }
 
   StreamStudioConfig _normalizeConfig(StreamStudioConfig config) {
@@ -386,24 +476,31 @@ class BroadcastSessionController {
       StreamPlatform.twitch => StreamDestination.youtube,
     };
 
-    final watchUrl = config.youtubeWatchUrl.trim().isNotEmpty
-        ? config.youtubeWatchUrl.trim()
-        : match.stream.youtubeWatchUrl;
+    final watchUrl = _resolvePersistWatchUrl(config, match);
     final isGoingLive = status == StreamStatus.live;
     final isEnding = status == StreamStatus.ended;
+    final liveStartedAt = DateTime.now();
 
     var playbackEntries = match.stream.playbackEntries;
-    if (watchUrl != null &&
-        watchUrl.isNotEmpty &&
-        (isGoingLive || isEnding)) {
-      playbackEntries = StreamPlaybackMerger.appendSession(
+    if (isEnding) {
+      playbackEntries = StreamPlaybackMerger.endAllLiveSessions(
         existing: playbackEntries,
-        url: watchUrl,
-        isLive: isGoingLive,
-        addedAt: isGoingLive ? DateTime.now() : null,
+        endedAt: liveStartedAt,
+      );
+    } else if (isGoingLive) {
+      final sessionId = _uuid.v4();
+      final resolvedUrl = watchUrl?.trim() ?? '';
+      final pendingUrl = MatchStreamPlayback.pendingWatchUrl(
+        platform: _playbackPlatformForDestination(destination),
+        sessionId: sessionId,
+      );
+      playbackEntries = StreamPlaybackMerger.beginLiveSession(
+        existing: playbackEntries,
+        sessionId: sessionId,
+        url: resolvedUrl.isNotEmpty ? resolvedUrl : pendingUrl,
+        addedAt: liveStartedAt,
         addedByUserId: addedByUserId,
         addedByName: addedByName,
-        forceNewSession: isGoingLive,
       );
     }
 
@@ -415,7 +512,7 @@ class BroadcastSessionController {
       destination: destination,
       rtmpUrl: config.rtmpUrl,
       streamKey: config.streamKey,
-      startedAt: isGoingLive ? DateTime.now() : match.stream.startedAt,
+      startedAt: isGoingLive ? liveStartedAt : match.stream.startedAt,
       youtubeWatchUrl: StreamPlaybackMerger.latestWatchUrl(playbackEntries) ??
           watchUrl ??
           match.stream.youtubeWatchUrl,
@@ -423,5 +520,14 @@ class BroadcastSessionController {
     );
 
     await _matchRepository.updateStreamMetadata(matchId, stream);
+  }
+
+  static StreamPlaybackPlatform _playbackPlatformForDestination(
+    StreamDestination destination,
+  ) {
+    return switch (destination) {
+      StreamDestination.youtube => StreamPlaybackPlatform.youtube,
+      StreamDestination.customRtmp => StreamPlaybackPlatform.unknown,
+    };
   }
 }

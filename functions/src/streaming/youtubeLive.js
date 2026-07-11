@@ -319,7 +319,7 @@ async function createYouTubeLiveBroadcast(uid, options) {
   return {
     rtmpUrl: ingestion.ingestionAddress || 'rtmp://a.rtmp.youtube.com/live2',
     streamKey: ingestion.streamName || '',
-    watchUrl: `https://www.youtube.com/live/${broadcast.id}`,
+    watchUrl: `https://www.youtube.com/watch?v=${broadcast.id}`,
     broadcastId: broadcast.id,
     streamId: stream.id,
   };
@@ -375,6 +375,8 @@ async function getYouTubeLiveChat(uid, videoId) {
   return { messages, liveChatId };
 }
 
+const GO_LIVE_DEADLINE_MS = 2 * 60 * 1000;
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -407,7 +409,8 @@ async function transitionYouTubeBroadcastToLive(uid, broadcastId, streamId) {
   }
   const youtube = await getYouTubeClient(uid);
 
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < GO_LIVE_DEADLINE_MS) {
     const res = await youtube.liveBroadcasts.list({
       part: ['status', 'contentDetails'],
       id: [broadcastId],

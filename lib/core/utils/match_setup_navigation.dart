@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/enums.dart';
+import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../domain/scoring/match_lifecycle.dart';
+import '../../domain/scoring/toss_team_policy.dart';
 import '../../domain/services/tournament/tournament_official_assign_service.dart';
 import '../../shared/providers/providers.dart';
+import '../../shared/providers/offline_sync_provider.dart';
 import '../../shared/providers/start_match_draft_provider.dart';
 import '../../shared/providers/tournament_providers.dart';
 
@@ -90,6 +93,146 @@ Future<void> persistMatchSetupDraft(WidgetRef ref) async {
         teamBId: draft.teamB?.id,
         setup: draft.setup,
       );
+}
+
+bool _isTossStepComplete(MatchSetupData setup) {
+  return setup.tossReady &&
+      setup.coinResult != null &&
+      setup.coinResult!.isNotEmpty;
+}
+
+List<InningsModel> inningsAfterToss(
+  MatchModel? existing,
+  InningsModel firstInnings,
+) {
+  if (existing == null || existing.innings.isEmpty) return [firstInnings];
+  final hasScoring = existing.innings.any(
+    (i) =>
+        i.legalBalls > 0 ||
+        i.status == InningsStatus.inProgress ||
+        i.status == InningsStatus.completed,
+  );
+  if (hasScoring) return existing.innings;
+  return [firstInnings];
+}
+
+InningsModel _firstInningsAfterToss(StartMatchDraft draft, MatchSetupData setup) {
+  final tossSetupMatch = MatchModel(
+    id: draft.matchId,
+    title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
+    teamAId: draft.teamA?.id,
+    teamBId: draft.teamB?.id,
+    teamAName: draft.resolvedTeamAName,
+    teamBName: draft.resolvedTeamBName,
+    setup: setup,
+  );
+  final teams = TossTeamPolicy.firstInningsTeams(tossSetupMatch);
+  return InningsModel(
+    inningsNumber: 1,
+    battingTeamId: teams.battingTeamId,
+    bowlingTeamId: teams.bowlingTeamId,
+    status: InningsStatus.notStarted,
+  );
+}
+
+MatchModel buildMatchAfterToss({
+  required StartMatchDraft draft,
+  required MatchSetupData setup,
+  required MatchModel? existing,
+  String? createdBy,
+}) {
+  final city = draft.location.city.trim();
+  final ground = draft.venue.trim();
+  final scorerIds = setup.scorers
+      .map((s) => s.userId)
+      .whereType<String>()
+      .where((id) => id.isNotEmpty)
+      .toList();
+  final firstInnings = _firstInningsAfterToss(draft, setup);
+  final baseMatch = existing ??
+      MatchModel(
+        id: draft.matchId,
+        title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
+        matchType: MatchType.single,
+        teamAId: draft.teamA?.id,
+        teamBId: draft.teamB?.id,
+        teamAName: draft.resolvedTeamAName,
+        teamBName: draft.resolvedTeamBName,
+        rules: draft.rules,
+        location: draft.location.copyWith(city: city),
+        venue: ground,
+        scheduledAt: draft.scheduledAt ?? DateTime.now(),
+        createdBy: createdBy,
+        scorerIds: scorerIds,
+        setup: setup,
+      );
+  return baseMatch.copyWith(
+    title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
+    status: MatchStatus.tossCompleted,
+    teamAId: draft.teamA?.id,
+    teamBId: draft.teamB?.id,
+    teamAName: draft.resolvedTeamAName,
+    teamBName: draft.resolvedTeamBName,
+    rules: draft.rules,
+    location: draft.location.copyWith(city: city),
+    venue: ground,
+    setup: setup,
+    innings: inningsAfterToss(existing, firstInnings),
+    currentInningsIndex: 0,
+  );
+}
+
+Future<void> _ensureDefaultScorerOnDraft(WidgetRef ref) async {
+  final uid = ref.read(authStateProvider).value?.uid;
+  if (uid == null) return;
+  final profile = ref.read(currentUserProfileProvider).valueOrNull;
+  final player =
+      await ref.read(playerRepositoryProvider).getPlayerByUserId(uid);
+  await ref.read(startMatchDraftProvider.notifier).ensureDefaultScorer1(
+        userId: uid,
+        name: profile?.displayName ??
+            profile?.name ??
+            player?.name ??
+            'Scorer',
+        photoUrl: profile?.photoUrl ?? player?.photoUrl,
+        playerId: player?.playerId,
+        playerDocId: player?.id,
+      );
+}
+
+/// Commits toss result + first innings to Firestore.
+Future<void> commitTossToFirestore(WidgetRef ref) async {
+  final draft = ref.read(startMatchDraftProvider);
+  if (!_isTossStepComplete(draft.setup)) return;
+
+  await _ensureDefaultScorerOnDraft(ref);
+
+  final updated = ref.read(startMatchDraftProvider);
+  final setup = updated.setup.withViceCaptainsFromTeams(
+    teamAViceCaptainId: updated.teamA?.viceCaptainId,
+    teamBViceCaptainId: updated.teamB?.viceCaptainId,
+  );
+  final uid = ref.read(authStateProvider).value?.uid;
+  final repo = ref.read(matchRepositoryProvider);
+  final existing = await repo.getMatch(updated.matchId);
+  final matchToSave = buildMatchAfterToss(
+    draft: updated,
+    setup: setup,
+    existing: existing,
+    createdBy: uid,
+  );
+  if (existing != null) {
+    await repo.updateMatch(matchToSave);
+  } else {
+    await repo.createMatch(matchToSave);
+  }
+}
+
+/// Saves toss wizard data to Firestore when the scorer is online.
+/// Offline scorers keep progress in the draft until "Let's play".
+Future<void> persistTossSetupWhenOnline(WidgetRef ref) async {
+  if (!ref.read(connectivityServiceProvider).isOnline) return;
+  await commitTossToFirestore(ref);
 }
 
 bool _hasWizardProgress(MatchSetupData setup) {

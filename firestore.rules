@@ -833,6 +833,17 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      match /streamSessions/{sessionId} {
+        allow read: if isSignedIn();
+        allow write: if isMatchScorer(matchId) || isMatchCreator(matchId);
+
+        match /replayMarkers/{markerId} {
+          allow read: if isSignedIn();
+          allow create: if isMatchScorer(matchId) || isMatchCreator(matchId);
+          allow update, delete: if false;
+        }
+      }
+
       match /highlights/{highlightId} {
         allow read: if true;
         allow write: if false;

@@ -1,4 +1,5 @@
 import '../../../core/constants/enums.dart';
+import '../../../domain/scoring/match_lifecycle.dart';
 import '../match_model.dart';
 
 /// Tournament-scoped view of a [MatchModel] (persisted in `matches` collection).
@@ -22,14 +23,9 @@ class TournamentMatchModel {
   int get overs => match.rules.totalOvers;
   CricketMatchType get cricketMatchType => match.rules.cricketMatchType;
 
-  bool get isLive =>
-      match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak;
+  bool get isLive => MatchLifecycle.isEffectivelyLive(match);
 
-  bool get isUpcoming =>
-      match.status == MatchStatus.scheduled ||
-      match.status == MatchStatus.draft ||
-      match.status == MatchStatus.tossCompleted;
+  bool get isUpcoming => MatchLifecycle.isUpcoming(match);
 
   bool get isCompleted => match.status == MatchStatus.completed;
 

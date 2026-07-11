@@ -80,7 +80,56 @@ class MatchRepository {
   MatchModel? _pickNewerMatch(MatchModel? local, MatchModel? remote) {
     if (local == null) return remote;
     if (remote == null) return local;
-    return remote.overlayVersion >= local.overlayVersion ? remote : local;
+    final overlayWinner =
+        remote.overlayVersion >= local.overlayVersion ? remote : local;
+    final stream = _richerStreamMetadata(local.stream, remote.stream);
+    if (stream == overlayWinner.stream) return overlayWinner;
+    return overlayWinner.copyWith(stream: stream);
+  }
+
+  /// Keeps the fullest playback history when overlay and stream diverge.
+  StreamMetadataModel _richerStreamMetadata(
+    StreamMetadataModel local,
+    StreamMetadataModel remote,
+  ) {
+    final localCount = local.playbackEntries.length;
+    final remoteCount = remote.playbackEntries.length;
+    final localLive = local.playbackEntries.any((e) => e.isLive);
+    final remoteLive = remote.playbackEntries.any((e) => e.isLive);
+
+    if (remoteCount > localCount) return remote;
+    if (localCount > remoteCount) return local;
+    if (remoteLive && !localLive) return remote;
+    if (localLive && !remoteLive) return local;
+
+    final remoteActive = remote.status == StreamStatus.live ||
+        remote.status == StreamStatus.connecting;
+    final localActive = local.status == StreamStatus.live ||
+        local.status == StreamStatus.connecting;
+    if (remoteActive && !localActive) return remote;
+    if (localActive && !remoteActive) return local;
+
+    return remoteCount >= localCount ? remote : local;
+  }
+
+  /// While local scoring is queued, still surface remote live stream metadata.
+  MatchModel? _mergeRemoteStreamForPendingLocal(
+    MatchModel? local,
+    MatchModel? remote,
+  ) {
+    final base = local ?? remote;
+    if (base == null || remote == null || local == null) return base;
+
+    final remoteStream = remote.stream;
+    final hasRemotePlayback = remoteStream.playbackEntries.isNotEmpty ||
+        (remoteStream.youtubeWatchUrl?.trim().isNotEmpty ?? false) ||
+        remoteStream.status == StreamStatus.live ||
+        remoteStream.status == StreamStatus.connecting;
+    if (!hasRemotePlayback) return base;
+
+    return base.copyWith(
+      stream: _richerStreamMetadata(base.stream, remoteStream),
+    );
   }
 
   OverlayStateModel? _pickNewerOverlay(
@@ -337,15 +386,17 @@ class MatchRepository {
     void addUrl(String? url, {bool isSecondary = false}) {
       final normalized = url?.trim();
       if (normalized == null || normalized.isEmpty) return;
+      final hasLive = entries.any((e) => e.isLive);
       entries = StreamPlaybackMerger.appendSession(
         existing: entries,
         url: normalized,
         isLive: isLive,
         addedAt: now,
+        sessionId: isLive ? const Uuid().v4() : null,
         addedByUserId: addedByUserId,
         addedByName: addedByName,
         label: isSecondary ? match.stream.cameraBLabel : '',
-        forceNewSession: true,
+        forceNewSession: isSecondary || (isLive && !hasLive),
       );
     }
 
@@ -392,7 +443,9 @@ class MatchRepository {
 
     void emit() {
       if (_localStore!.hasPendingSync(id)) {
-        controller.add(localMatch ?? remoteMatch);
+        controller.add(
+          _mergeRemoteStreamForPendingLocal(localMatch, remoteMatch),
+        );
         return;
       }
       controller.add(_pickNewerMatch(localMatch, remoteMatch));

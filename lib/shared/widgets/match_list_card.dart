@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/constants/enums.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
 import '../../core/utils/match_card_navigation.dart';
@@ -34,10 +33,7 @@ class MatchListCard extends ConsumerWidget {
   final bool showTournamentHeader;
   final bool showRoundBadge;
 
-  bool get _isUpcoming =>
-      match.status == MatchStatus.scheduled ||
-      match.status == MatchStatus.draft ||
-      match.status == MatchStatus.tossCompleted;
+  bool get _isUpcoming => MatchLifecycle.isUpcoming(match);
 
   bool get _isLive => MatchLifecycle.isEffectivelyLive(match);
 

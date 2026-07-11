@@ -49,10 +49,7 @@ class MatchCardContent extends StatelessWidget {
 
   bool get _isHero => style == MatchCardStyle.hero;
 
-  bool get _isUpcoming =>
-      match.status == MatchStatus.scheduled ||
-      match.status == MatchStatus.draft ||
-      match.status == MatchStatus.tossCompleted;
+  bool get _isUpcoming => MatchLifecycle.isUpcoming(match);
 
   bool get _isLive => MatchLifecycle.isEffectivelyLive(match);
 
@@ -553,11 +550,12 @@ class MatchStatusChip extends StatelessWidget {
   }
 
   return switch (status) {
-    MatchStatus.live => (label: 'LIVE', color: cf.statusLive),
+    MatchStatus.live || MatchStatus.tossCompleted => (
+        label: 'LIVE',
+        color: cf.statusLive,
+      ),
     MatchStatus.inningsBreak => (label: 'BREAK', color: cf.info),
-    MatchStatus.scheduled ||
-    MatchStatus.tossCompleted ||
-    MatchStatus.draft => (
+    MatchStatus.scheduled || MatchStatus.draft => (
         label: 'Upcoming',
         color: cf.statusUpcoming,
       ),

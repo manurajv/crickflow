@@ -373,6 +373,10 @@ Future<void> saveReplayMarker({
   required String label,
   required int streamOffsetMs,
   String? ballEventId,
+  String? streamSessionId,
+  String? playbackUrl,
+  DateTime? streamSessionStartedAt,
+  DateTime? streamSessionEndedAt,
 }) async {
   final uid = ref.read(authStateProvider).value?.uid;
   if (uid == null) return;
@@ -385,6 +389,10 @@ Future<void> saveReplayMarker({
     createdBy: uid,
     ballEventId: ballEventId,
     createdAt: DateTime.now(),
+    streamSessionId: streamSessionId ?? '',
+    playbackUrl: playbackUrl,
+    streamSessionStartedAt: streamSessionStartedAt,
+    streamSessionEndedAt: streamSessionEndedAt,
   );
   await ref.read(streamStudioRepositoryProvider).addReplayMarker(marker);
 }

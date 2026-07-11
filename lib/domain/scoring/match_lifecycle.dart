@@ -10,11 +10,10 @@ class MatchLifecycle {
       match.status == MatchStatus.draft ||
       match.status == MatchStatus.scheduled;
 
-  /// Pre-match hub — only Info + Squads until scorer starts the match.
+  /// Pre-match hub — only Info + Squads until toss is done.
   static bool isUpcoming(MatchModel match) =>
       match.status == MatchStatus.draft ||
-      match.status == MatchStatus.scheduled ||
-      match.status == MatchStatus.tossCompleted;
+      match.status == MatchStatus.scheduled;
 
   static bool isTossCompleted(MatchModel match) =>
       match.status == MatchStatus.tossCompleted;
@@ -41,9 +40,12 @@ class MatchLifecycle {
     return match.status;
   }
 
+  /// Live tab / live badge — includes post-toss matches awaiting first ball.
   static bool isEffectivelyLive(MatchModel match) {
     final status = effectiveStatus(match);
-    return status == MatchStatus.live || status == MatchStatus.inningsBreak;
+    return status == MatchStatus.live ||
+        status == MatchStatus.inningsBreak ||
+        status == MatchStatus.tossCompleted;
   }
 
   static bool needsFinalization(MatchModel match) =>
@@ -61,7 +63,7 @@ class MatchLifecycle {
   static String statusLabel(MatchStatus status) => switch (status) {
         MatchStatus.draft => 'Draft',
         MatchStatus.scheduled => 'Upcoming',
-        MatchStatus.tossCompleted => 'Upcoming',
+        MatchStatus.tossCompleted => 'Live',
         MatchStatus.live => 'Live',
         MatchStatus.inningsBreak => 'Innings break',
         MatchStatus.completed => 'Completed',
@@ -70,7 +72,6 @@ class MatchLifecycle {
 
   static String upcomingBadgeLabel(MatchModel match) {
     if (!isUpcoming(match)) return statusLabel(match.status);
-    if (match.status == MatchStatus.tossCompleted) return 'Toss done';
     if (match.scheduledAt != null &&
         match.scheduledAt!.isBefore(DateTime.now())) {
       return 'Yet to start';

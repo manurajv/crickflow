@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
 import '../../data/models/match_model.dart';
 import '../../domain/streaming/match_stream_playback.dart';
+import '../../domain/streaming/replay_marker_session_utils.dart';
 import '../../features/streaming/data/models/stream_studio_config.dart';
 import '../../features/streaming/domain/streaming_enums.dart';
 import '../../features/streaming/domain/streaming_mode.dart';
@@ -11,9 +13,10 @@ import '../../features/streaming/presentation/providers/streaming_studio_provide
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/cf_button.dart';
 import 'match_stream_player.dart';
+import 'stream_replay_marker_bar.dart';
 
 /// Watch panel pinned below the app bar with a stream picker when multiple URLs exist.
-class MatchStreamWatchSection extends StatefulWidget {
+class MatchStreamWatchSection extends ConsumerStatefulWidget {
   const MatchStreamWatchSection({
     super.key,
     required this.match,
@@ -24,45 +27,161 @@ class MatchStreamWatchSection extends StatefulWidget {
   final bool edgeToEdge;
 
   @override
-  State<MatchStreamWatchSection> createState() => _MatchStreamWatchSectionState();
+  ConsumerState<MatchStreamWatchSection> createState() =>
+      _MatchStreamWatchSectionState();
 }
 
-class _MatchStreamWatchSectionState extends State<MatchStreamWatchSection> {
-  int _index = 0;
-  String? _trackedNewestUrl;
+class _MatchStreamWatchSectionState extends ConsumerState<MatchStreamWatchSection> {
+  String? _selectedSessionKey;
+  int? _trackedNewestStartMs;
+  final _playerKey = GlobalKey<MatchStreamPlayerState>();
+  Duration? _pendingSeekAfterSwitch;
+  ResolvedReplayMarker? _pendingResolvedAfterSwitch;
 
-  @override
-  void didUpdateWidget(covariant MatchStreamWatchSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final sources = MatchStreamPlayback.sourcesFor(widget.match);
+  void _syncSelectionWithSources(List<MatchStreamSource> sources) {
     if (sources.isEmpty) return;
-    final newest = sources.first.url;
-    if (_trackedNewestUrl != newest) {
-      _trackedNewestUrl = newest;
-      _index = 0;
-    } else if (_index >= sources.length) {
-      _index = 0;
+
+    final newestStart = sources.first.addedAt?.millisecondsSinceEpoch;
+    final newestChanged = _trackedNewestStartMs != newestStart;
+    if (newestChanged) {
+      _trackedNewestStartMs = newestStart;
+      _selectedSessionKey = sources.first.effectiveSessionKey;
+      return;
+    }
+
+    final selected = _selectedSessionKey;
+    if (selected == null ||
+        !sources.any((s) => s.effectiveSessionKey == selected)) {
+      _selectedSessionKey = sources.first.effectiveSessionKey;
+    }
+  }
+
+  int _indexForSources(List<MatchStreamSource> sources) {
+    final selected = _selectedSessionKey;
+    if (selected != null) {
+      final idx = sources.indexWhere((s) => s.effectiveSessionKey == selected);
+      if (idx >= 0) return idx;
+    }
+    return 0;
+  }
+
+  Future<void> _pickStreamSession(
+    BuildContext context,
+    List<MatchStreamSource> sources,
+    CfColors cf,
+  ) async {
+    if (sources.length <= 1) return;
+
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Text(
+                'Choose stream',
+                style: TextStyle(
+                  color: cf.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            for (final source in sources)
+              ListTile(
+                title: Text(
+                  source.label,
+                  style: TextStyle(
+                    color: cf.textPrimary,
+                    fontWeight: source.effectiveSessionKey == _selectedSessionKey
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+                trailing: source.effectiveSessionKey == _selectedSessionKey
+                    ? Icon(Icons.check, color: cf.accent)
+                    : null,
+                onTap: () => Navigator.of(ctx).pop(source.effectiveSessionKey),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (picked != null && mounted) {
+      setState(() => _selectedSessionKey = picked);
     }
   }
 
   @override
+  void didUpdateWidget(covariant MatchStreamWatchSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final match =
+        ref.read(matchProvider(widget.match.id)).valueOrNull ?? widget.match;
+    final sources = MatchStreamPlayback.sourcesFor(match);
+    if (sources.isEmpty) return;
+    setState(() => _syncSelectionWithSources(sources));
+  }
+
+  void _onMarkerTap(
+    ResolvedReplayMarker resolved,
+    List<MatchStreamSource> sources,
+  ) {
+    final offset = Duration(milliseconds: resolved.seekOffsetMs);
+    if (resolved.sourceIndex != _indexForSources(sources)) {
+      setState(() {
+        _selectedSessionKey = sources[resolved.sourceIndex.clamp(0, sources.length - 1)]
+            .effectiveSessionKey;
+        _pendingSeekAfterSwitch = offset;
+        _pendingResolvedAfterSwitch = resolved;
+      });
+      return;
+    }
+    _playerKey.currentState?.seekToOffset(
+      offset,
+      seekLabel: resolved.commentary,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final sources = MatchStreamPlayback.sourcesFor(widget.match);
+    ref.listen<AsyncValue<MatchModel?>>(
+      matchProvider(widget.match.id),
+      (previous, next) {
+        final match = next.valueOrNull ?? widget.match;
+        final sources = MatchStreamPlayback.sourcesFor(match);
+        if (sources.isEmpty) return;
+        final newestStart = sources.first.addedAt?.millisecondsSinceEpoch;
+        if (_trackedNewestStartMs == newestStart &&
+            _selectedSessionKey != null &&
+            sources.any((s) => s.effectiveSessionKey == _selectedSessionKey)) {
+          return;
+        }
+        setState(() => _syncSelectionWithSources(sources));
+      },
+    );
+
+    final match =
+        ref.watch(matchProvider(widget.match.id)).valueOrNull ?? widget.match;
+    final sources = MatchStreamPlayback.sourcesFor(match);
     if (sources.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final clampedIndex = _index.clamp(0, sources.length - 1);
-    final current = sources[clampedIndex];
-    _trackedNewestUrl ??= sources.first.url;
+    final selectedIndex = _indexForSources(sources);
+    final current = sources[selectedIndex];
     final cf = context.cf;
     final horizontalPad = widget.edgeToEdge ? 0.0 : 16.0;
+    final showPicker = sources.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (sources.length > 1)
+        if (showPicker)
           Padding(
             padding: EdgeInsets.fromLTRB(horizontalPad + 12, 8, horizontalPad + 12, 0),
             child: DecoratedBox(
@@ -72,7 +191,7 @@ class _MatchStreamWatchSectionState extends State<MatchStreamWatchSection> {
                 border: Border.all(color: cf.border),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
                     Text(
@@ -85,29 +204,35 @@ class _MatchStreamWatchSectionState extends State<MatchStreamWatchSection> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          isExpanded: true,
-                          value: clampedIndex,
-                          style: TextStyle(
-                            color: cf.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          items: [
-                            for (var i = 0; i < sources.length; i++)
-                              DropdownMenuItem(
-                                value: i,
+                      child: InkWell(
+                        onTap: sources.length <= 1
+                            ? null
+                            : () => _pickStreamSession(context, sources, cf),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              Expanded(
                                 child: Text(
-                                  sources[i].label,
+                                  current.label,
+                                  style: TextStyle(
+                                    color: cf.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                          ],
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setState(() => _index = value);
-                          },
+                              if (sources.length > 1)
+                                Icon(
+                                  Icons.unfold_more,
+                                  size: 18,
+                                  color: cf.textSecondary,
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -116,10 +241,86 @@ class _MatchStreamWatchSectionState extends State<MatchStreamWatchSection> {
               ),
             ),
           ),
-        MatchStreamPlayer(
-          key: ValueKey(current.url),
-          source: current,
-          edgeToEdge: widget.edgeToEdge,
+        Consumer(
+          builder: (context, ref, _) {
+            final markers =
+                ref.watch(replayMarkersProvider(widget.match.id)).valueOrNull ??
+                    const [];
+            final ballEvents =
+                ref.watch(ballEventsProvider(widget.match.id)).valueOrNull ??
+                    const [];
+            final ballEventsById = {
+              for (final event in ballEvents) event.id: event,
+            };
+            final resolved = ReplayMarkerSessionUtils.resolve(
+              markers: markers,
+              sources: sources,
+              ballEventsById: ballEventsById,
+            );
+            final sessions = ReplayMarkerSessionUtils.buildSessions(sources);
+            final totalDurationMs =
+                ReplayMarkerSessionUtils.totalTimelineDurationMs(sessions);
+            final horizontalPadding =
+                widget.edgeToEdge ? 12.0 : AppDimens.spaceMd;
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                MatchStreamPlayer(
+                  key: _playerKey,
+                  source: current,
+                  edgeToEdge: widget.edgeToEdge,
+                  pendingSeek: _pendingSeekAfterSwitch,
+                  onPendingSeekApplied: () {
+                    final pending = _pendingResolvedAfterSwitch;
+                    if (_pendingSeekAfterSwitch != null) {
+                      setState(() {
+                        _pendingSeekAfterSwitch = null;
+                        _pendingResolvedAfterSwitch = null;
+                      });
+                    }
+                    if (pending != null && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Jumped to ${pending.commentary}'),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                if (resolved.isNotEmpty && totalDurationMs > 0)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: cf.surface,
+                      border: widget.edgeToEdge
+                          ? null
+                          : Border(
+                              left: BorderSide(color: cf.border),
+                              right: BorderSide(color: cf.border),
+                              bottom: BorderSide(color: cf.border),
+                            ),
+                      borderRadius: widget.edgeToEdge
+                          ? null
+                          : const BorderRadius.only(
+                              bottomLeft: Radius.circular(12),
+                              bottomRight: Radius.circular(12),
+                            ),
+                    ),
+                    child: StreamReplayMarkerBar(
+                      resolvedMarkers: resolved,
+                      totalDurationMs: totalDurationMs,
+                      sessions: sessions,
+                      activeSourceIndex: selectedIndex,
+                      horizontalPadding: horizontalPadding,
+                      onMarkerTap: (item) => _onMarkerTap(item, sources),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -385,7 +586,8 @@ String _watchUrlPromptSubtitle(StreamStudioConfig config) {
       'Copy it from YouTube Studio → Go live → Share, then paste here.',
     StreamPlatform.facebook =>
       'Facebook manual RTMP does not return a watch link automatically. '
-      'Copy the public video URL from your Facebook live post.',
+      'Paste the share link (facebook.com/share/v/…), watch URL, or Embed code '
+      'from your live post.',
     StreamPlatform.twitch =>
       'Paste your Twitch channel or live VOD URL.',
     StreamPlatform.customRtmp =>

@@ -81,6 +81,38 @@ class OfflineSyncBadge extends ConsumerWidget {
                     ],
                   ),
                 ),
+                IconButton(
+                  tooltip: 'Sync now',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  onPressed: meta.status == ConnectivityStatus.syncing
+                      ? null
+                      : () async {
+                          final sync = ref.read(offlineSyncServiceProvider);
+                          final online =
+                              ref.read(connectivityServiceProvider).isOnline;
+                          if (!online) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('You are offline'),
+                              ),
+                            );
+                            return;
+                          }
+                          await sync.flush(matchId: matchId);
+                        },
+                  icon: meta.status == ConnectivityStatus.syncing
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: color,
+                          ),
+                        )
+                      : Icon(Icons.sync, size: 20, color: color),
+                ),
               ],
             ),
           ),

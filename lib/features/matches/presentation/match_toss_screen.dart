@@ -1,33 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_dimens.dart';
-import '../../../data/models/innings_model.dart';
-import '../../../data/models/match_model.dart';
-import '../../../domain/scoring/toss_team_policy.dart';
-import '../../../shared/providers/providers.dart';
+import '../../../core/utils/match_setup_navigation.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import 'widgets/cf_selection_card.dart';
 import 'widgets/toss_coin_flip.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 import '../../../core/theme/cf_colors.dart';
-
-List<InningsModel> _inningsAfterToss(
-  MatchModel? existing,
-  InningsModel firstInnings,
-) {
-  if (existing == null || existing.innings.isEmpty) return [firstInnings];
-  final hasScoring = existing.innings.any(
-    (i) =>
-        i.legalBalls > 0 ||
-        i.status == InningsStatus.inProgress ||
-        i.status == InningsStatus.completed,
-  );
-  if (hasScoring) return existing.innings;
-  return [firstInnings];
-}
 
 /// Toss: coin flip, then winner, bat/bowl, then create match and start scoring.
 class MatchTossScreen extends ConsumerStatefulWidget {
@@ -62,6 +43,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
   void _onCoinResult(String result) {
     ref.read(startMatchDraftProvider.notifier).setCoinResult(result);
     setState(() => _coinResult = result);
+    _maybePersistTossOnline();
   }
 
   void _syncTossDraft() {
@@ -71,6 +53,20 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
           winnerBatsFirst: _winnerBatsFirst!,
           coinResult: _coinResult,
         );
+    _maybePersistTossOnline();
+  }
+
+  Future<void> _maybePersistTossOnline() async {
+    if (_winnerIsTeamA == null ||
+        _winnerBatsFirst == null ||
+        _coinResult == null) {
+      return;
+    }
+    try {
+      await persistTossSetupWhenOnline(ref);
+    } catch (_) {
+      // Non-blocking — full save still happens on "Let's play".
+    }
   }
 
   bool get _canPlay =>
@@ -118,98 +114,13 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
         );
 
     setState(() => _saving = true);
-    final uid = ref.read(authStateProvider).value?.uid;
-    if (uid != null) {
-      final profile = ref.read(currentUserProfileProvider).valueOrNull;
-      final player =
-          await ref.read(playerRepositoryProvider).getPlayerByUserId(uid);
-      await ref.read(startMatchDraftProvider.notifier).ensureDefaultScorer1(
-            userId: uid,
-            name: profile?.displayName ??
-                profile?.name ??
-                player?.name ??
-                'Scorer',
-            photoUrl: profile?.photoUrl ?? player?.photoUrl,
-            playerId: player?.playerId,
-            playerDocId: player?.id,
-          );
-    }
-
     draft = ref.read(startMatchDraftProvider);
-    setup = draft.setup.withViceCaptainsFromTeams(
-      teamAViceCaptainId: draft.teamA?.viceCaptainId,
-      teamBViceCaptainId: draft.teamB?.viceCaptainId,
-    );
-    final scorerIds = setup.scorers
-        .map((s) => s.userId)
-        .whereType<String>()
-        .where((id) => id.isNotEmpty)
-        .toList();
-    final city = draft.location.city.trim();
-    final ground = draft.venue.trim();
-
-    final tossSetupMatch = MatchModel(
-      id: draft.matchId,
-      title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-      teamAId: draft.teamA?.id,
-      teamBId: draft.teamB?.id,
-      teamAName: draft.resolvedTeamAName,
-      teamBName: draft.resolvedTeamBName,
-      setup: setup,
-    );
-
-    final teams = TossTeamPolicy.firstInningsTeams(tossSetupMatch);
-    final battingTeamId = teams.battingTeamId;
-    final bowlingTeamId = teams.bowlingTeamId;
-
-    final firstInnings = InningsModel(
-      inningsNumber: 1,
-      battingTeamId: battingTeamId,
-      bowlingTeamId: bowlingTeamId,
-      status: InningsStatus.notStarted,
-    );
 
     try {
-      final repo = ref.read(matchRepositoryProvider);
-      final existing = await repo.getMatch(draft.matchId);
-      final baseMatch = existing ??
-          MatchModel(
-            id: draft.matchId,
-            title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-            matchType: MatchType.single,
-            teamAId: draft.teamA?.id,
-            teamBId: draft.teamB?.id,
-            teamAName: draft.resolvedTeamAName,
-            teamBName: draft.resolvedTeamBName,
-            rules: draft.rules,
-            location: draft.location.copyWith(city: city),
-            venue: ground,
-            scheduledAt: draft.scheduledAt ?? DateTime.now(),
-            createdBy: uid,
-            scorerIds: scorerIds,
-            setup: setup,
-          );
-      final matchToSave = baseMatch.copyWith(
-        title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-        status: MatchStatus.tossCompleted,
-        teamAId: draft.teamA?.id,
-        teamBId: draft.teamB?.id,
-        teamAName: draft.resolvedTeamAName,
-        teamBName: draft.resolvedTeamBName,
-        rules: draft.rules,
-        location: draft.location.copyWith(city: city),
-        venue: ground,
-        setup: setup,
-        innings: _inningsAfterToss(existing, firstInnings),
-        currentInningsIndex: 0,
-      );
-      if (existing != null) {
-        await repo.updateMatch(matchToSave);
-      } else {
-        await repo.createMatch(matchToSave);
-      }
+      await commitTossToFirestore(ref);
+      final matchId = draft.matchId;
       ref.read(startMatchDraftProvider.notifier).reset();
-      if (mounted) context.go('/match/${draft.matchId}/start-innings');
+      if (mounted) context.go('/match/$matchId/start-innings');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

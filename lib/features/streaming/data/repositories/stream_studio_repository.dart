@@ -24,17 +24,43 @@ class StreamStudioRepository {
   CollectionReference<Map<String, dynamic>> _markers(String matchId) =>
       _firestore.collection('matches').doc(matchId).collection('replayMarkers');
 
+  DocumentReference<Map<String, dynamic>> _sessionMarkerRef(
+    ReplayMarkerModel marker,
+  ) =>
+      _firestore
+          .collection('matches')
+          .doc(marker.matchId)
+          .collection('streamSessions')
+          .doc(marker.streamSessionId)
+          .collection('replayMarkers')
+          .doc(marker.id);
+
   Stream<List<ReplayMarkerModel>> watchReplayMarkers(String matchId) {
-    return _markers(matchId)
-        .orderBy('streamOffsetMs', descending: true)
+    return _firestore
+        .collectionGroup('replayMarkers')
+        .where('matchId', isEqualTo: matchId)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => ReplayMarkerModel.fromMap(d.id, d.data()))
-            .toList());
+        .map((snap) {
+      final markers = snap.docs
+          .map((d) => ReplayMarkerModel.fromMap(d.id, d.data()))
+          .toList()
+        ..sort((a, b) {
+          final aAt = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bAt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bAt.compareTo(aAt);
+        });
+      return markers;
+    });
   }
 
   Future<void> addReplayMarker(ReplayMarkerModel marker) async {
-    await _markers(marker.matchId).doc(marker.id).set(marker.toMap());
+    final data = marker.toMap();
+    final sessionId = marker.streamSessionId.trim();
+    if (sessionId.isNotEmpty) {
+      await _sessionMarkerRef(marker).set(data);
+      return;
+    }
+    await _markers(marker.matchId).doc(marker.id).set(data);
   }
 
   Future<List<SavedRtmpServer>> loadSavedRtmpServers() async {

@@ -173,7 +173,12 @@ class StreamPlatformService {
       throw StreamPlatformException('YouTube broadcast id missing');
     }
     try {
-      final callable = _functions.httpsCallable('startYouTubeLiveBroadcast');
+      final callable = _functions.httpsCallable(
+        'startYouTubeLiveBroadcast',
+        options: HttpsCallableOptions(
+          timeout: const Duration(minutes: 2),
+        ),
+      );
       await callable.call<Map<String, dynamic>>({
         'broadcastId': broadcastId,
         if (streamId.isNotEmpty) 'streamId': streamId,

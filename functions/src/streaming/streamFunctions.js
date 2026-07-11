@@ -232,25 +232,28 @@ exports.getYouTubeBroadcastStatus = onCall({ secrets: youtubeSecrets }, async (r
   }
 });
 
-exports.startYouTubeLiveBroadcast = onCall({ secrets: youtubeSecrets }, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required');
-  }
-  const { broadcastId, streamId } = request.data || {};
-  if (!broadcastId) {
-    throw new HttpsError('invalid-argument', 'broadcastId required');
-  }
-  try {
-    bindYouTubeSecrets();
-    return await transitionYouTubeBroadcastToLive(
-      request.auth.uid,
-      broadcastId,
-      streamId,
-    );
-  } catch (err) {
-    throw new HttpsError('failed-precondition', err.message || 'YouTube go-live failed');
-  }
-});
+exports.startYouTubeLiveBroadcast = onCall(
+  { secrets: youtubeSecrets, timeoutSeconds: 120 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign in required');
+    }
+    const { broadcastId, streamId } = request.data || {};
+    if (!broadcastId) {
+      throw new HttpsError('invalid-argument', 'broadcastId required');
+    }
+    try {
+      bindYouTubeSecrets();
+      return await transitionYouTubeBroadcastToLive(
+        request.auth.uid,
+        broadcastId,
+        streamId,
+      );
+    } catch (err) {
+      throw new HttpsError('failed-precondition', err.message || 'YouTube go-live failed');
+    }
+  },
+);
 
 exports.exportYouTubeChapters = onCall(async (request) => {
   if (!request.auth) {
@@ -262,18 +265,18 @@ exports.exportYouTubeChapters = onCall(async (request) => {
   }
 
   const snap = await db
-    .collection('matches')
-    .doc(matchId)
-    .collection('replayMarkers')
-    .orderBy('streamOffsetMs')
+    .collectionGroup('replayMarkers')
+    .where('matchId', '==', matchId)
     .get();
 
-  const lines = snap.docs.map((doc) => {
-    const m = doc.data();
-    const time = formatChapterTime(m.streamOffsetMs);
-    const kind = m.kind ? `[${m.kind}] ` : '';
-    return `${time} ${kind}${m.label || 'Highlight'}`;
-  });
+  const lines = snap.docs
+    .map((doc) => {
+      const m = doc.data();
+      const time = formatChapterTime(m.streamOffsetMs);
+      const kind = m.kind ? `[${m.kind}] ` : '';
+      return `${time} ${kind}${m.label || 'Highlight'}`;
+    })
+    .sort((a, b) => a.localeCompare(b));
 
   const chaptersText = lines.join('\n');
   const descriptionBlock = lines.length

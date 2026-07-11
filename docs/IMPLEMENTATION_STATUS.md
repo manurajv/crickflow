@@ -17,13 +17,14 @@
 
 | Item | Status |
 |------|--------|
-| **Match scorecard live stream player** — pinned below app bar; **Live on / Live off** toggle; multi-session **stream dropdown** with streamer name `(CrickFlow user)`; **Add stream link** manual only (studio **Link** button + OBS card — no auto sheet on go-live or stop) | Done — `StreamPlaybackMerger.appendSession` |
+| **Match scorecard live stream player** — pinned below app bar; **Live on / Live off** toggle; multi-session **stream picker** (bottom sheet when 2+ sessions; unique `sessionKey` per row); labels `Live · YouTube · 8:29 AM` / `Replay · YouTube · 8:29 AM – 9:15 AM` from each entry's `addedAt`/`endedAt` only; per-session `playbackEntries` + `sessionId`; go-live always opens a new session (pending URL until YouTube sync); ending live never mutates prior replays; match hub merges fullest `playbackEntries` from Firestore vs local cache | Done — `stream_playback_merger.dart`, `match_stream_playback.dart`, `match_stream_watch_section.dart`, `match_repository.dart` |
 | **Saved stream keys** — recent-key list shows last 8 digits (not "YouTube"/"Facebook"), tap to apply, per-entry delete with confirmation (YT manual + FB/custom manual) | Done — `SavedStreamKey.keyPreview`, `_SavedStreamKeyTile` |
 | **Realtime health pill** — speed (kbps) · fps · connection quality shown outside the title bar on the preview, updates live | Done — `StreamLiveStatsPill` |
-| **Battery-saver dim screen** — full-screen black overlay after live (auto ~60s or manual "Dim" button), shows LIVE time + connection quality + speed/fps, tap to wake; stream/burn-in unaffected. Also **natively dims the backlight** to 0 via `screen_brightness` (app-scoped, restored on wake/dispose) for real power savings on LCD + OLED | Done — `StreamBatterySaverOverlay` + `screen_brightness` |
-| **RTMP go-live / end stability** — single connect attempt; 4s go-live settling; never stop RTMP after successful connect (metadata persist best-effort); **end stream** captures user ref before teardown (fixes Riverpod assert + stuck processing spinner); `_endStream` try/catch resets `_endingStream` | Done — `stream_service.dart`, `broadcast_session_controller.dart`, `streaming_dashboard_screen.dart` |
+| **Battery-saver dim screen** — full-screen black overlay after **1 min of screen inactivity** (resets on every touch; paused while finger is down) or manual **Dim** button; shows LIVE time + connection quality + speed/fps, tap to wake; stream/burn-in unaffected. Also **natively dims the backlight** to 0 via `screen_brightness` (app-scoped, restored on wake/dispose) for real power savings on LCD + OLED | Done — `StreamBatterySaverOverlay` + `streaming_dashboard_screen.dart` |
+| **RTMP go-live / end stability** — single connect attempt; **2 min** go-live connect/publish deadline; 4s post-publish settling; never stop RTMP after successful connect; end stream captures user ref before teardown; **YouTube automatic** syncs `watch?v=` URL to `playbackEntries` on go-live + after API publish (`syncLiveWatchUrl`) | Done — `stream_service.dart`, `broadcast_session_controller.dart`, `streaming_dashboard_screen.dart`, `youtubeLive.js` |
 | **Go-live / stop feedback** — "Go Live" → "Connecting…" while establishing RTMP; Stop → "Ending live…" spinner while tearing down | Done — `StreamStudioOverlay` |
 | **Replay marker pre-roll** — auto AND manual markers roll back 10s so the replay opens on the build-up (e.g. boundary at 03:20 → marker at 03:10); clamped to ≥0 | Done — `_kReplayPreRollMs` in `streaming_dashboard_screen.dart` |
+| **Stream player highlight timeline** — collapsible **Special moments** bar (default collapsed); commentary chips (`6, Anderson to Kohli`, `out caught, Anderson to Kohli`, milestone text); multi-live session switch + seek; live dropdown uses start time not "Latest live" | Done — `stream_replay_marker_bar.dart`, `replay_marker_commentary.dart`, `match_stream_watch_section.dart` |
 | **Record-locally → gallery export** — MP4 writes to a persistent app dir and exports to the device gallery (album "CrickFlow") on stop via `gal`; temp copy deleted after save | Built, **hidden for now** — UI toggle removed and go-live forces recordPath null; re-enable later (see `broadcast_session_controller.dart`) |
 | **OBS / external-encoder screen redesign** — full-screen professional setup (own header, no studio chrome/hide button/black screen/title-bar overlap); shows the live overlay browser-source URL + RTMP server URLs for YouTube/Facebook/Twitch (copy-tap); no stream key, no QR. Overlays reach OBS via the browser source. External-encoder go-live no longer requires a stream key and skips the camera foreground service | Done — `ObsBroadcastScreen`; old `ObsSetupSection` removed |
 | **Streaming Dashboard** — `/match/:id/stream` pre-live setup (camera, match info, platform, quality, audio, overlays, health) | Done |
@@ -33,7 +34,7 @@
 | **Event overlays** — wicket, four, six; new batter/bowler = 5s side career cards | Done |
 | Platform UI — YouTube + custom RTMP (Facebook/Twitch hidden until OAuth ships) | Done |
 | **StreamPermissionService** — organizer, assigned streamer, scorer, creator | Done |
-| **Replay markers** — `matches/{id}/replayMarkers` + in-studio flag button | Done |
+| **Replay markers** — per live session at `matches/{id}/streamSessions/{sessionId}/replayMarkers` with `streamSessionId`, `playbackUrl`, `streamSessionStartedAt`, `streamOffsetMs`; auto (wicket/4/6/milestone) + manual; multi-live seek via `replay_marker_session_utils.dart` | Done |
 | Cloud Functions — `onStreamStatusChanged`, `createYouTubeLiveStream` stub | Done — deploy + YouTube OAuth |
 | RTMP overlay burn-in (native compositing for YouTube viewers) | Done — Flutter PNG → `SafeOpenGlView` + `glInterface.setFilter` (Android). **Fix:** `LightOpenGlView.setFilter()` is a no-op in pedro 1.9.6 — overlays never reached RTMP |
 | Facebook/Twitch OAuth + auto RTMP | Deferred — manual RTMP keys work |
@@ -497,6 +498,8 @@
 | Match start validation — exact `playersPerTeam` per team | Done |
 | Firestore rules — match setup snapshots + `playersPerTeam` | Done |
 | Team add notification (`team_member_added`) + report to admin | Done |
+| Toss step — auto-save setup to Firestore when online (coin + winner + bat/bowl complete); offline waits for "Let's play" | Done |
+| Toss complete — match moves to Live (not Upcoming); status `tossCompleted` + first innings in Firestore | Done |
 
 ---
 

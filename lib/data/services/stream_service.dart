@@ -19,6 +19,9 @@ import '../../features/streaming/domain/streaming_enums.dart';
 
 export '../../features/streaming/data/models/camera_lens_info.dart';
 
+/// Max wait for first RTMP publish during go-live.
+const _kGoLiveConnectDeadline = Duration(minutes: 2);
+
 /// Exponential backoff delays for RTMP transport reconnect (ms).
 const _kReconnectBackoffMs = [1000, 2000, 4000, 8000, 15000];
 
@@ -726,7 +729,7 @@ class StreamService extends ChangeNotifier {
 
     try {
       final connected = await _pendingConnectCompleter!.future.timeout(
-        const Duration(seconds: 45),
+        _kGoLiveConnectDeadline,
         onTimeout: () => false,
       );
       if (!connected) {
@@ -811,7 +814,7 @@ class StreamService extends ChangeNotifier {
     _emitHealth(reconnecting: true);
     notifyListeners();
     // During the very first go-live connect, do not spin up the persistent
-    // reconnect loop on a transient drop — let the 45s connect window finish.
+    // reconnect loop on a transient drop — let the 2 min connect window finish.
     if (_initialConnectInProgress && !_rtmpPublishConfirmed) {
       if (reason != null &&
           reason.isNotEmpty &&
@@ -839,8 +842,8 @@ class StreamService extends ChangeNotifier {
     try {
       final reconnectAttempt = _reconnectAttempt > 0 || _reconnectInFlight;
       _baselineSentVideoFrames = await _readSentVideoFrames();
-
-      for (var i = 0; i < 40; i++) {
+      final deadline = DateTime.now().add(_kGoLiveConnectDeadline);
+      while (DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(milliseconds: 500));
         if (_controller == null) break;
 
@@ -848,7 +851,7 @@ class StreamService extends ChangeNotifier {
         final bitrate = await _readBitrateKbps();
         final publishing = sent > _baselineSentVideoFrames ||
             (sent >= 3 && bitrate > 0) ||
-            (reconnectAttempt && bitrate > 0 && i >= 2);
+            (reconnectAttempt && bitrate > 0);
 
         if (publishing) {
           _markRtmpPublishConfirmed(wasReconnecting: reconnectAttempt);

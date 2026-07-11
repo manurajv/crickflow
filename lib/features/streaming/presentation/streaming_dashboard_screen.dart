@@ -14,6 +14,9 @@ import '../../../data/services/stream_service.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/match_stream_watch_section.dart';
 import '../../../domain/streaming/match_stream_playback.dart';
+import '../../../domain/streaming/replay_marker_session_utils.dart';
+import '../../../domain/streaming/replay_marker_commentary.dart';
+import '../data/models/replay_marker_model.dart';
 import '../data/models/stream_overlay_theme.dart';
 import '../data/models/stream_studio_config.dart';
 import '../data/active_stream_session.dart';
@@ -67,11 +70,12 @@ class _StreamingDashboardScreenState
   int _previewSession = 0;
 
   // Battery-saver ("dim screen") state.
-  static const Duration _batterySaverAutoDelay = Duration(seconds: 60);
+  static const Duration _batterySaverAutoDelay = Duration(minutes: 1);
   bool _batterySaverActive = false;
   bool _sawLiveForSaver = false;
   DateTime? _liveStartedAtForSaver;
   Timer? _batterySaverAutoTimer;
+  int _activeStudioPointers = 0;
 
   @override
   void initState() {
@@ -428,7 +432,13 @@ class _StreamingDashboardScreenState
     if (!config.autoReplayMarkers) return;
 
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
-    final started = match?.stream.startedAt;
+    final session = ReplayMarkerSessionUtils.liveSessionContext(
+      youtubeWatchUrl: match?.stream.youtubeWatchUrl,
+      playbackEntries: match?.stream.playbackEntries ?? const [],
+      streamStartedAt: match?.stream.startedAt,
+    );
+    if (!session.isValid) return;
+    final started = session.sessionStartedAt;
     final rawOffsetMs = started == null
         ? 0
         : DateTime.now().difference(started).inMilliseconds;
@@ -450,9 +460,24 @@ class _StreamingDashboardScreenState
       ref: ref,
       matchId: widget.matchId,
       kind: kind,
-      label: graphic.subtitle.isNotEmpty ? graphic.subtitle : graphic.title,
+      label: ReplayMarkerCommentary.format(
+        ReplayMarkerModel(
+          id: '',
+          matchId: widget.matchId,
+          kind: kind,
+          label: graphic.subtitle.isNotEmpty ? graphic.subtitle : graphic.title,
+          streamOffsetMs: offsetMs,
+          createdBy: '',
+          ballEventId: event.id,
+        ),
+        ball: event,
+      ),
       streamOffsetMs: offsetMs,
       ballEventId: event.id,
+      streamSessionId: session.sessionId,
+      playbackUrl: session.playbackUrl,
+      streamSessionStartedAt: session.sessionStartedAt,
+      streamSessionEndedAt: session.sessionEndedAt,
     );
   }
 
@@ -604,6 +629,10 @@ class _StreamingDashboardScreenState
             (c) => config,
           );
 
+      if (config.platform == StreamPlatform.youtube) {
+        await _syncYouTubeWatchUrlToMatch(config);
+      }
+
       if (config.usesManualBroadcastSetup) {
         await rememberStreamKeyForConfig(
           ref.read(streamStudioRepositoryProvider),
@@ -654,6 +683,7 @@ class _StreamingDashboardScreenState
             broadcastId: config.youtubeBroadcastId,
             streamId: config.youtubeStreamId,
           );
+      await _syncYouTubeWatchUrlToMatch(config);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -670,6 +700,31 @@ class _StreamingDashboardScreenState
             duration: const Duration(seconds: 8),
           ),
         );
+      }
+    }
+  }
+
+  /// Pushes YouTube automatic watch URL into match playback history (retries once).
+  Future<void> _syncYouTubeWatchUrlToMatch(StreamStudioConfig config) async {
+    final hasUrl = config.youtubeWatchUrl.trim().isNotEmpty ||
+        config.youtubeBroadcastId.trim().isNotEmpty;
+    if (!hasUrl) return;
+    final controller = ref.read(broadcastSessionControllerProvider);
+    try {
+      await controller.syncLiveWatchUrl(
+        matchId: widget.matchId,
+        config: config,
+      );
+    } catch (e) {
+      debugPrint('[CrickFlowStream] watch URL sync failed: $e');
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      try {
+        await controller.syncLiveWatchUrl(
+          matchId: widget.matchId,
+          config: config,
+        );
+      } catch (retryError) {
+        debugPrint('[CrickFlowStream] watch URL sync retry failed: $retryError');
       }
     }
   }
@@ -843,9 +898,10 @@ class _StreamingDashboardScreenState
     _sawLiveForSaver = live;
     if (live) {
       _liveStartedAtForSaver = DateTime.now();
-      _scheduleBatterySaverAuto();
+      _resetBatterySaverInactivity();
     } else {
       _batterySaverAutoTimer?.cancel();
+      _activeStudioPointers = 0;
       _liveStartedAtForSaver = null;
       if (_batterySaverActive) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -856,12 +912,45 @@ class _StreamingDashboardScreenState
   }
 
   void _scheduleBatterySaverAuto() {
+    if (_batterySaverActive || _activeStudioPointers > 0) return;
     _batterySaverAutoTimer?.cancel();
     _batterySaverAutoTimer = Timer(_batterySaverAutoDelay, () {
       if (mounted && _isLive && !_batterySaverActive) {
         setState(() => _batterySaverActive = true);
       }
     });
+  }
+
+  bool _batterySaverEligible() {
+    final config = ref.read(streamStudioConfigProvider(widget.matchId));
+    return _isLive && config.streamingMode != StreamingMode.externalEncoder;
+  }
+
+  void _onStudioPointerDown(PointerDownEvent event) {
+    if (!_batterySaverEligible() || _batterySaverActive) return;
+    _activeStudioPointers++;
+    _batterySaverAutoTimer?.cancel();
+  }
+
+  void _onStudioPointerUp(PointerEvent event) {
+    if (!_batterySaverEligible() || _batterySaverActive) return;
+    if (_activeStudioPointers > 0) {
+      _activeStudioPointers--;
+    }
+    if (_activeStudioPointers == 0) {
+      _scheduleBatterySaverAuto();
+    }
+  }
+
+  void _onStudioPointerCancel(PointerCancelEvent event) {
+    _onStudioPointerUp(event);
+  }
+
+  void _resetBatterySaverInactivity() {
+    _activeStudioPointers = 0;
+    if (_batterySaverEligible() && !_batterySaverActive) {
+      _scheduleBatterySaverAuto();
+    }
   }
 
   void _activateBatterySaver() {
@@ -873,8 +962,8 @@ class _StreamingDashboardScreenState
   void _dismissBatterySaver() {
     if (!_batterySaverActive) return;
     setState(() => _batterySaverActive = false);
-    // Re-arm auto-dim after the user wakes the screen.
-    if (_isLive) _scheduleBatterySaverAuto();
+    // Re-arm auto-dim 1 min after the wake tap.
+    _resetBatterySaverInactivity();
   }
 
   @override
@@ -998,7 +1087,12 @@ class _StreamingDashboardScreenState
           backgroundColor: Colors.black,
           extendBody: true,
           extendBodyBehindAppBar: true,
-          body: Stack(
+          body: Listener(
+            onPointerDown: _onStudioPointerDown,
+            onPointerUp: _onStudioPointerUp,
+            onPointerCancel: _onStudioPointerCancel,
+            behavior: HitTestBehavior.translucent,
+            child: Stack(
             fit: StackFit.expand,
             children: [
               if (_isLive && service.isReconnecting && !service.reconnectExhausted && !isObs)
@@ -1084,6 +1178,7 @@ class _StreamingDashboardScreenState
                   ),
               ],
             ],
+            ),
           ),
         ),
         );
@@ -1095,7 +1190,20 @@ class _StreamingDashboardScreenState
   }
 
   Future<void> _markReplay(MatchModel match) async {
-    final started = match.stream.startedAt;
+    final session = ReplayMarkerSessionUtils.liveSessionContext(
+      youtubeWatchUrl: match.stream.youtubeWatchUrl,
+      playbackEntries: match.stream.playbackEntries,
+      streamStartedAt: match.stream.startedAt,
+    );
+    if (!session.isValid) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No active live stream session')),
+        );
+      }
+      return;
+    }
+    final started = session.sessionStartedAt;
     final rawOffsetMs = started == null
         ? 0
         : DateTime.now().difference(started).inMilliseconds;
@@ -1108,6 +1216,10 @@ class _StreamingDashboardScreenState
       kind: ReplayMarkerKind.custom,
       label: 'Manual marker',
       streamOffsetMs: offsetMs,
+      streamSessionId: session.sessionId,
+      playbackUrl: session.playbackUrl,
+      streamSessionStartedAt: session.sessionStartedAt,
+      streamSessionEndedAt: session.sessionEndedAt,
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

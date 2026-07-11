@@ -12,6 +12,10 @@ class ReplayMarkerModel extends Equatable {
     required this.createdBy,
     this.ballEventId,
     this.createdAt,
+    this.streamSessionId = '',
+    this.playbackUrl,
+    this.streamSessionStartedAt,
+    this.streamSessionEndedAt,
   });
 
   final String id;
@@ -22,6 +26,11 @@ class ReplayMarkerModel extends Equatable {
   final String createdBy;
   final String? ballEventId;
   final DateTime? createdAt;
+  /// Stable id for the live session (`playbackEntries.sessionId` or fallback key).
+  final String streamSessionId;
+  final String? playbackUrl;
+  final DateTime? streamSessionStartedAt;
+  final DateTime? streamSessionEndedAt;
 
   factory ReplayMarkerModel.fromMap(String id, Map<String, dynamic> map) {
     return ReplayMarkerModel(
@@ -36,6 +45,12 @@ class ReplayMarkerModel extends Equatable {
       createdBy: map['createdBy'] as String? ?? '',
       ballEventId: map['ballEventId'] as String?,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
+      streamSessionId: map['streamSessionId'] as String? ?? '',
+      playbackUrl: map['playbackUrl'] as String?,
+      streamSessionStartedAt:
+          DateTime.tryParse(map['streamSessionStartedAt']?.toString() ?? ''),
+      streamSessionEndedAt:
+          DateTime.tryParse(map['streamSessionEndedAt']?.toString() ?? ''),
     );
   }
 
@@ -47,8 +62,16 @@ class ReplayMarkerModel extends Equatable {
         'createdBy': createdBy,
         if (ballEventId != null) 'ballEventId': ballEventId,
         'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
+        if (streamSessionId.isNotEmpty) 'streamSessionId': streamSessionId,
+        if (playbackUrl != null && playbackUrl!.isNotEmpty)
+          'playbackUrl': playbackUrl,
+        if (streamSessionStartedAt != null)
+          'streamSessionStartedAt': streamSessionStartedAt!.toIso8601String(),
+        if (streamSessionEndedAt != null)
+          'streamSessionEndedAt': streamSessionEndedAt!.toIso8601String(),
       };
 
   @override
-  List<Object?> get props => [id, matchId, streamOffsetMs];
+  List<Object?> get props =>
+      [id, matchId, streamSessionId, streamOffsetMs, createdAt];
 }

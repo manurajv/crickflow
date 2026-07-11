@@ -33,7 +33,11 @@ class YoutubeUtils {
     return null;
   }
 
-  static String embedUrl(String videoId, {bool fullControls = false}) {
+  static String embedUrl(
+    String videoId, {
+    bool fullControls = false,
+    int? startSeconds,
+  }) {
     final params = <String, String>{
       'playsinline': '1',
       'rel': '0',
@@ -46,6 +50,7 @@ class YoutubeUtils {
         'color': 'white',
         'enablejsapi': '1',
       },
+      if (startSeconds != null && startSeconds > 0) 'start': '$startSeconds',
     };
     final query = params.entries
         .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
@@ -63,8 +68,16 @@ class YoutubeUtils {
       '(KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36';
 
   /// HTML wrapper for WebView — fixes YouTube error 153 (missing Referer).
-  static String embedHtml(String videoId, {bool fullControls = true}) {
-    final src = embedUrl(videoId, fullControls: fullControls);
+  static String embedHtml(
+    String videoId, {
+    bool fullControls = true,
+    int? startSeconds,
+  }) {
+    final src = embedUrl(
+      videoId,
+      fullControls: fullControls,
+      startSeconds: startSeconds,
+    );
     return '''
 <!DOCTYPE html>
 <html>
@@ -141,6 +154,19 @@ class YoutubeUtils {
     if (ms == null || ms < 0) return null;
     return Duration(milliseconds: ms);
   }
+
+  /// Seek an embedded YouTube iframe via postMessage (requires enablejsapi=1).
+  static String seekIframeJs(int seconds) => '''
+(function() {
+  var frame = document.querySelector('iframe');
+  if (!frame || !frame.contentWindow) return;
+  frame.contentWindow.postMessage(JSON.stringify({
+    event: 'command',
+    func: 'seekTo',
+    args: [$seconds, true]
+  }), '*');
+})();
+''';
 
   /// YouTube watch URL with `t=` seconds for replay seek.
   static String? watchUrlAtOffset(String? watchUrl, Duration? offset) {

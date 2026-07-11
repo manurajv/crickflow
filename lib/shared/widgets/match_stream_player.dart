@@ -17,21 +17,26 @@ class MatchStreamPlayer extends StatefulWidget {
     super.key,
     required this.source,
     this.edgeToEdge = false,
+    this.pendingSeek,
+    this.onPendingSeekApplied,
   });
 
   final MatchStreamSource source;
   final bool edgeToEdge;
+  final Duration? pendingSeek;
+  final VoidCallback? onPendingSeekApplied;
 
   @override
-  State<MatchStreamPlayer> createState() => _MatchStreamPlayerState();
+  State<MatchStreamPlayer> createState() => MatchStreamPlayerState();
 }
 
-class _MatchStreamPlayerState extends State<MatchStreamPlayer> {
+class MatchStreamPlayerState extends State<MatchStreamPlayer> {
   WebViewController? _controller;
   bool _loading = true;
   String? _error;
   bool _usingWatchPageFallback = false;
   bool _usingFacebookPluginFallback = false;
+  bool _usingFacebookWatchFallback = false;
   String? _youtubeVideoId;
   String? _facebookWatchUrl;
 
@@ -47,11 +52,26 @@ class _MatchStreamPlayerState extends State<MatchStreamPlayer> {
     if (oldWidget.source.url != widget.source.url) {
       _usingWatchPageFallback = false;
       _usingFacebookPluginFallback = false;
+      _usingFacebookWatchFallback = false;
       _initPlayer();
+      return;
+    }
+    if (widget.pendingSeek != null &&
+        widget.pendingSeek != oldWidget.pendingSeek) {
+      unawaited(_seekToOffset(widget.pendingSeek!));
     }
   }
 
   Future<void> _initPlayer() async {
+    if (MatchStreamPlayback.isPendingWatchUrl(widget.source.url)) {
+      setState(() {
+        _controller = null;
+        _loading = widget.source.isLive;
+        _error = null;
+      });
+      return;
+    }
+
     final payload = _resolveEmbedPayload(widget.source);
     _error = payload == null ? 'Could not play this link in-app' : null;
     _youtubeVideoId = payload is _YoutubeEmbed ? payload.videoId : null;
@@ -81,8 +101,12 @@ class _MatchStreamPlayerState extends State<MatchStreamPlayer> {
               unawaited(_loadWatchPageFallback(controller, payload.videoId));
               return;
             }
-            if (payload is _FacebookEmbed && !_usingFacebookPluginFallback) {
-              unawaited(_loadFacebookPluginFallback(controller, payload.watchUrl));
+            if (payload is _FacebookEmbed && !_usingFacebookWatchFallback) {
+              if (!_usingFacebookPluginFallback) {
+                unawaited(_loadFacebookPluginFallback(controller, payload.watchUrl));
+              } else {
+                unawaited(_loadFacebookWatchFallback(controller, payload.watchUrl));
+              }
               return;
             }
             setState(() {
@@ -108,7 +132,9 @@ class _MatchStreamPlayerState extends State<MatchStreamPlayer> {
           );
         }
       case _FacebookEmbed(:final watchUrl):
-        if (_usingFacebookPluginFallback) {
+        if (_usingFacebookWatchFallback) {
+          await _loadFacebookWatchFallback(controller, watchUrl);
+        } else if (_usingFacebookPluginFallback) {
           await _loadFacebookPluginFallback(controller, watchUrl);
         } else {
           await controller.loadHtmlString(
@@ -148,7 +174,121 @@ class _MatchStreamPlayerState extends State<MatchStreamPlayer> {
         await controller.runJavaScript(YoutubeUtils.minimizeMobileWatchPageJs);
       } catch (_) {}
     }
+    final platform = widget.source.platform;
+    if (platform == StreamPlaybackPlatform.facebook &&
+        !_usingFacebookWatchFallback) {
+      final unavailable = await _facebookEmbedShowsUnavailable(controller);
+      if (!mounted) return;
+      if (unavailable) {
+        final watchUrl = _facebookWatchUrl ?? widget.source.url;
+        if (!_usingFacebookPluginFallback) {
+          unawaited(_loadFacebookPluginFallback(controller, watchUrl));
+          return;
+        }
+        if (!_usingFacebookWatchFallback) {
+          unawaited(_loadFacebookWatchFallback(controller, watchUrl));
+          return;
+        }
+      }
+    }
     if (mounted) setState(() => _loading = false);
+    await _applyPendingSeekIfNeeded();
+  }
+
+  Future<void> _applyPendingSeekIfNeeded() async {
+    final pending = widget.pendingSeek;
+    if (pending == null) return;
+    await _seekToOffset(pending);
+    widget.onPendingSeekApplied?.call();
+  }
+
+  /// Seek the in-app player to [offset] (YouTube iframe API or `t=` fallback).
+  Future<void> seekToOffset(
+    Duration offset, {
+    String? seekLabel,
+  }) async {
+    await _seekToOffset(offset, seekLabel: seekLabel);
+  }
+
+  Future<void> _seekToOffset(
+    Duration offset, {
+    String? seekLabel,
+  }) async {
+    final controller = _controller;
+    if (controller == null) return;
+
+    if (widget.source.platform == StreamPlaybackPlatform.youtube) {
+      final seconds = offset.inSeconds;
+      if (_usingWatchPageFallback) {
+        final id = _youtubeVideoId;
+        if (id != null) {
+          final at = YoutubeUtils.watchUrlAtOffset(
+            'https://www.youtube.com/watch?v=$id',
+            offset,
+          );
+          if (at != null) {
+            await controller.loadRequest(
+              Uri.parse(at),
+              headers: const {
+                'Referer': '${YoutubeUtils.embedRefererOrigin}/',
+              },
+            );
+            if (mounted) setState(() => _loading = true);
+          }
+        }
+      } else {
+        try {
+          await controller.runJavaScript(YoutubeUtils.seekIframeJs(seconds));
+        } catch (_) {
+          final id = _youtubeVideoId;
+          if (id != null) {
+            await controller.loadHtmlString(
+              YoutubeUtils.embedHtml(
+                id,
+                fullControls: true,
+                startSeconds: seconds,
+              ),
+              baseUrl: YoutubeUtils.embedRefererOrigin,
+            );
+            if (mounted) setState(() => _loading = true);
+          }
+        }
+      }
+      if (mounted && seekLabel != null && seekLabel.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Jumped to $seekLabel'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (widget.source.platform == StreamPlaybackPlatform.facebook) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Facebook in-app seek is limited — opening externally'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      await _openExternal(atOffset: offset);
+    }
+  }
+
+  Future<bool> _facebookEmbedShowsUnavailable(WebViewController controller) async {
+    try {
+      final result = await controller.runJavaScriptReturningResult(
+        FacebookUtils.embedUnavailableProbeJs,
+      );
+      return result == true || result.toString() == 'true';
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _loadWatchPageFallback(
@@ -171,6 +311,25 @@ class _MatchStreamPlayerState extends State<MatchStreamPlayer> {
     _usingFacebookPluginFallback = true;
     await controller.loadRequest(
       Uri.parse(FacebookUtils.pluginEmbedUrl(watchUrl)),
+      headers: const {
+        'Referer': '${FacebookUtils.embedRefererOrigin}/',
+      },
+    );
+  }
+
+  Future<void> _loadFacebookWatchFallback(
+    WebViewController controller,
+    String watchUrl,
+  ) async {
+    final fallback = FacebookUtils.inAppFallbackUrl(watchUrl);
+    if (fallback == null) return;
+    _usingFacebookWatchFallback = true;
+    final native = controller.platform;
+    if (native is AndroidWebViewController) {
+      await native.setUserAgent(FacebookUtils.mobileChromeUserAgent);
+    }
+    await controller.loadRequest(
+      Uri.parse(fallback),
       headers: const {
         'Referer': '${FacebookUtils.embedRefererOrigin}/',
       },
@@ -241,11 +400,24 @@ class _MatchStreamPlayerState extends State<MatchStreamPlayer> {
     }
   }
 
-  Future<void> _openExternal() async {
+  Future<void> _openExternal({Duration? atOffset}) async {
     final url = widget.source.url;
     if (widget.source.platform == StreamPlaybackPlatform.youtube) {
       final id = YoutubeUtils.videoIdFromUrl(url) ?? _youtubeVideoId;
       if (id != null) {
+        if (atOffset != null && atOffset.inSeconds > 0) {
+          final at = YoutubeUtils.watchUrlAtOffset(
+            'https://www.youtube.com/watch?v=$id',
+            atOffset,
+          );
+          if (at != null &&
+              await launchUrl(
+                Uri.parse(at),
+                mode: LaunchMode.externalApplication,
+              )) {
+            return;
+          }
+        }
         final appUri = Uri.parse('vnd.youtube:$id');
         if (await canLaunchUrl(appUri)) {
           await launchUrl(appUri);
@@ -296,6 +468,27 @@ class _MatchStreamPlayerState extends State<MatchStreamPlayer> {
   }
 
   Widget _buildPlayerBody(CfColors cf, String openLabel) {
+    if (_controller == null &&
+        MatchStreamPlayback.isPendingWatchUrl(widget.source.url) &&
+        widget.source.isLive) {
+      return ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_loading) const CircularProgressIndicator(),
+              if (_loading) const SizedBox(height: 12),
+              Text(
+                'Stream link loading…',
+                style: TextStyle(color: cf.textSecondary, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_error != null && _controller == null) {
       return Container(
         color: Colors.black,
