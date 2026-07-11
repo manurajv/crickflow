@@ -128,6 +128,22 @@ class MatchStreamPlayback {
     return status == StreamStatus.live || status == StreamStatus.connecting;
   }
 
+  /// True when a playback row is still marked live (not just stale stream metadata).
+  static bool hasActiveLiveBroadcast(MatchModel match) {
+    return StreamPlaybackMerger.collect(match.stream).any((e) => e.isLive);
+  }
+
+  /// Highlights can seek/share only during an active broadcast, or after the
+  /// match finishes (VOD replay). Not while scoring between ended sessions.
+  static bool highlightPlaybackEnabled(MatchModel match) {
+    if (hasActiveLiveBroadcast(match)) {
+      return match.stream.status == StreamStatus.live ||
+          match.stream.status == StreamStatus.connecting;
+    }
+    return match.status == MatchStatus.completed ||
+        match.status == MatchStatus.abandoned;
+  }
+
   /// Sources with a real public URL — used for the stream selector.
   static List<MatchStreamSource> playableSourcesFor(MatchModel match) =>
       sourcesFor(match).where((s) => s.hasPlayableUrl).toList(growable: false);
@@ -380,6 +396,7 @@ class MatchStreamPlayback {
     bool fromReplayMarker = false,
   }) {
     if (streamOffsetMs == null || streamOffsetMs <= 0) return false;
+    if (!highlightPlaybackEnabled(match)) return false;
 
     if (fromReplayMarker) {
       final session = resolveSessionForHighlight(

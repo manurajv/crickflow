@@ -11,6 +11,7 @@ class MvpLeaderboardRow extends StatelessWidget {
     required this.entry,
     required this.cf,
     this.showBreakdown = true,
+    this.showPotmBadge = true,
     this.expanded = false,
     this.onToggle,
   });
@@ -18,6 +19,7 @@ class MvpLeaderboardRow extends StatelessWidget {
   final MvpLeaderboardEntry entry;
   final CfColors cf;
   final bool showBreakdown;
+  final bool showPotmBadge;
   final bool expanded;
   final VoidCallback? onToggle;
 
@@ -70,7 +72,7 @@ class MvpLeaderboardRow extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (player.isPlayerOfTheMatch)
+                            if (showPotmBadge && player.isPlayerOfTheMatch)
                               _Badge(
                                 label: 'Player Of The Match',
                                 emoji: '🏆',

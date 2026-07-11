@@ -48,6 +48,7 @@ class MatchHighlightsList extends ConsumerWidget {
 
     bool isStreamable(MatchHighlightItem item) {
       if (match == null) return false;
+      if (!MatchStreamPlayback.highlightPlaybackEnabled(match)) return false;
       return MatchStreamPlayback.highlightIsStreamable(
         match,
         streamOffsetMs: item.streamOffsetMs,

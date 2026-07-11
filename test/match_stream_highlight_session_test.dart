@@ -169,4 +169,107 @@ void main() {
 
     expect(streamable, isFalse);
   });
+
+  test('highlightIsStreamable is false for ended session while match still live', () {
+    final sessionStart = DateTime(2026, 3, 9, 8);
+    final eventTime = sessionStart.add(const Duration(minutes: 30));
+    final match = MatchModel(
+      id: 'm1',
+      title: 'Test',
+      teamAName: 'A',
+      teamBName: 'B',
+      status: MatchStatus.live,
+      stream: StreamMetadataModel(
+        status: StreamStatus.ended,
+        playbackEntries: [
+          StreamPlaybackEntryModel(
+            sessionId: 'sess-1',
+            url: 'https://www.youtube.com/watch?v=abc',
+            addedAt: sessionStart,
+            endedAt: sessionStart.add(const Duration(hours: 1)),
+            isLive: false,
+          ),
+        ],
+      ),
+    );
+
+    final streamable = MatchStreamPlayback.highlightIsStreamable(
+      match,
+      streamOffsetMs: 60_000,
+      streamSessionId: 'sess-1',
+      eventTime: eventTime,
+      fromReplayMarker: true,
+    );
+
+    expect(streamable, isFalse);
+  });
+
+  test('highlightIsStreamable is false when metadata live but all sessions ended', () {
+    final sessionStart = DateTime(2026, 3, 9, 8);
+    final eventTime = sessionStart.add(const Duration(minutes: 30));
+    final match = MatchModel(
+      id: 'm1',
+      title: 'Test',
+      teamAName: 'A',
+      teamBName: 'B',
+      status: MatchStatus.live,
+      stream: StreamMetadataModel(
+        status: StreamStatus.live,
+        playbackEntries: [
+          StreamPlaybackEntryModel(
+            sessionId: 'sess-1',
+            url: 'https://www.youtube.com/watch?v=abc',
+            addedAt: sessionStart,
+            endedAt: sessionStart.add(const Duration(hours: 1)),
+            isLive: false,
+          ),
+        ],
+      ),
+    );
+
+    final streamable = MatchStreamPlayback.highlightIsStreamable(
+      match,
+      streamOffsetMs: 60_000,
+      streamSessionId: 'sess-1',
+      eventTime: eventTime,
+      fromReplayMarker: true,
+    );
+
+    expect(streamable, isFalse);
+    expect(MatchStreamPlayback.highlightPlaybackEnabled(match), isFalse);
+  });
+
+  test('highlightIsStreamable is true for ended session when match is completed', () {
+    final sessionStart = DateTime(2026, 3, 9, 8);
+    final eventTime = sessionStart.add(const Duration(minutes: 30));
+    final match = MatchModel(
+      id: 'm1',
+      title: 'Test',
+      teamAName: 'A',
+      teamBName: 'B',
+      status: MatchStatus.completed,
+      stream: StreamMetadataModel(
+        status: StreamStatus.ended,
+        playbackEntries: [
+          StreamPlaybackEntryModel(
+            sessionId: 'sess-1',
+            url: 'https://www.youtube.com/watch?v=abc',
+            addedAt: sessionStart,
+            endedAt: sessionStart.add(const Duration(hours: 1)),
+            isLive: false,
+          ),
+        ],
+      ),
+    );
+
+    final streamable = MatchStreamPlayback.highlightIsStreamable(
+      match,
+      streamOffsetMs: 60_000,
+      streamSessionId: 'sess-1',
+      eventTime: eventTime,
+      fromReplayMarker: true,
+    );
+
+    expect(streamable, isTrue);
+  });
 }

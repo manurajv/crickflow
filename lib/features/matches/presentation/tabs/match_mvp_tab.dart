@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../domain/services/match_mvp_models.dart';
@@ -32,6 +33,9 @@ class _MatchMvpTabState extends ConsumerState<MatchMvpTab> {
     final showBreakdown = _filter == MvpLeaderboardFilter.all ||
         _filter == MvpLeaderboardFilter.teamA ||
         _filter == MvpLeaderboardFilter.teamB;
+    final matchComplete = match != null &&
+        (match.status == MatchStatus.completed ||
+            match.status == MatchStatus.abandoned);
 
     if (!snapshot.hasData) {
       return ListView(
@@ -78,7 +82,7 @@ class _MatchMvpTabState extends ConsumerState<MatchMvpTab> {
           const SizedBox(height: AppDimens.spaceXs),
           _LiveChip(cf: cf),
         ],
-        if (snapshot.playerOfTheMatch != null) ...[
+        if (matchComplete && snapshot.playerOfTheMatch != null) ...[
           const SizedBox(height: AppDimens.spaceMd),
           _AwardBanner(
             emoji: '🏆',
@@ -120,6 +124,7 @@ class _MatchMvpTabState extends ConsumerState<MatchMvpTab> {
               entry: entry,
               cf: cf,
               showBreakdown: showBreakdown,
+              showPotmBadge: matchComplete,
               expanded: _expandedIds.contains(entry.player.playerId),
               onToggle: showBreakdown
                   ? () {
