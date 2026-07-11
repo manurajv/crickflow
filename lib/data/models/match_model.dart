@@ -60,6 +60,7 @@ class StreamMetadataModel extends Equatable {
     this.cameraALabel = 'Main camera',
     this.cameraBLabel = 'Camera 2',
     this.webrtcEnabled = false,
+    this.broadcastOrientation,
   });
 
   final StreamStatus status;
@@ -79,6 +80,8 @@ class StreamMetadataModel extends Equatable {
   final String cameraBLabel;
   /// Experimental low-latency WebRTC room (Phase 3.3).
   final bool webrtcEnabled;
+  /// `portrait` or `landscape` — set when the streamer goes live.
+  final String? broadcastOrientation;
 
   factory StreamMetadataModel.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const StreamMetadataModel();
@@ -103,6 +106,7 @@ class StreamMetadataModel extends Equatable {
       cameraALabel: map['cameraALabel'] as String? ?? 'Main camera',
       cameraBLabel: map['cameraBLabel'] as String? ?? 'Camera 2',
       webrtcEnabled: map['webrtcEnabled'] as bool? ?? false,
+      broadcastOrientation: map['broadcastOrientation'] as String?,
     );
   }
 
@@ -123,6 +127,8 @@ class StreamMetadataModel extends Equatable {
         'cameraALabel': cameraALabel,
         'cameraBLabel': cameraBLabel,
         'webrtcEnabled': webrtcEnabled,
+        if (broadcastOrientation != null)
+          'broadcastOrientation': broadcastOrientation,
       };
 
   StreamMetadataModel copyWith({
@@ -139,6 +145,7 @@ class StreamMetadataModel extends Equatable {
     String? cameraALabel,
     String? cameraBLabel,
     bool? webrtcEnabled,
+    String? broadcastOrientation,
   }) {
     return StreamMetadataModel(
       status: status ?? this.status,
@@ -155,6 +162,8 @@ class StreamMetadataModel extends Equatable {
       cameraALabel: cameraALabel ?? this.cameraALabel,
       cameraBLabel: cameraBLabel ?? this.cameraBLabel,
       webrtcEnabled: webrtcEnabled ?? this.webrtcEnabled,
+      broadcastOrientation:
+          broadcastOrientation ?? this.broadcastOrientation,
     );
   }
 

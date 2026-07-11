@@ -6,6 +6,7 @@ import '../../core/utils/facebook_utils.dart';
 import '../../core/utils/youtube_utils.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/stream_playback_entry_model.dart';
+import '../../features/streaming/domain/streaming_enums.dart';
 import 'stream_playback_merger.dart';
 
 /// A single watchable stream angle (YouTube, Facebook, etc.).
@@ -317,6 +318,21 @@ class MatchStreamPlayback {
 
   static bool shouldShowStreamByDefault(MatchModel match) {
     return hasWatchablePlayback(match);
+  }
+
+  /// True when the live broadcast was started in landscape (for fullscreen UX).
+  static bool isLandscapeBroadcast(
+    MatchModel match, {
+    StreamOrientationMode? studioOrientation,
+  }) {
+    final stored = match.stream.broadcastOrientation?.trim();
+    if (stored != null && stored.isNotEmpty) {
+      return parseStreamOrientation(stored) == StreamOrientationMode.landscape;
+    }
+    if (studioOrientation != null) {
+      return studioOrientation == StreamOrientationMode.landscape;
+    }
+    return false;
   }
 
   /// Picks the playback session a highlight belongs to (by marker session id or

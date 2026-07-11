@@ -559,6 +559,7 @@ class BroadcastSessionController {
         baseStream: base.stream,
       ),
       playbackEntries: playbackEntries,
+      broadcastOrientation: config.orientation.name,
     );
 
     await _matchRepository.updateStreamMetadata(matchId, stream);

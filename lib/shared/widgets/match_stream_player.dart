@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -20,6 +21,7 @@ class MatchStreamPlayer extends StatefulWidget {
     this.pendingSeek,
     this.onPendingSeekApplied,
     this.awaitingWatchUrl = false,
+    this.landscapeFullscreen = false,
   });
 
   final MatchStreamSource source;
@@ -28,6 +30,8 @@ class MatchStreamPlayer extends StatefulWidget {
   final VoidCallback? onPendingSeekApplied;
   /// Show the go-live placeholder only while an active broadcast awaits a URL.
   final bool awaitingWatchUrl;
+  /// When true, entering fullscreen locks the device to landscape.
+  final bool landscapeFullscreen;
 
   @override
   State<MatchStreamPlayer> createState() => MatchStreamPlayerState();
@@ -42,6 +46,8 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
   bool _usingFacebookWatchFallback = false;
   String? _youtubeVideoId;
   String? _facebookWatchUrl;
+  OverlayEntry? _fullscreenEntry;
+  bool _isFullscreen = false;
 
   @override
   void initState() {
@@ -55,6 +61,7 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
     if (oldWidget.source.url != widget.source.url ||
         oldWidget.source.sessionKey != widget.source.sessionKey ||
         oldWidget.awaitingWatchUrl != widget.awaitingWatchUrl) {
+      unawaited(_exitFullscreen(restoreOrientation: true));
       _usingWatchPageFallback = false;
       _usingFacebookPluginFallback = false;
       _usingFacebookWatchFallback = false;
@@ -65,6 +72,51 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
         widget.pendingSeek != oldWidget.pendingSeek) {
       unawaited(_seekWhenReady(widget.pendingSeek!));
     }
+  }
+
+  @override
+  void dispose() {
+    _exitFullscreen(restoreOrientation: true);
+    super.dispose();
+  }
+
+  Future<void> _enterFullscreen() async {
+    if (_isFullscreen || _controller == null || !mounted) return;
+    final overlay = Overlay.of(context);
+    final controller = _controller!;
+
+    if (widget.landscapeFullscreen) {
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (!mounted) return;
+
+    _fullscreenEntry = OverlayEntry(
+      builder: (ctx) => _StreamFullscreenOverlay(
+        openLabel: MatchStreamPlayback.openInLabel(widget.source.platform),
+        onClose: _exitFullscreen,
+        onOpenExternal: _openExternal,
+        showLoading: _loading,
+        child: WebViewWidget(controller: controller),
+      ),
+    );
+    overlay.insert(_fullscreenEntry!);
+    if (mounted) setState(() => _isFullscreen = true);
+  }
+
+  Future<void> _exitFullscreen({bool restoreOrientation = false}) async {
+    _fullscreenEntry?.remove();
+    _fullscreenEntry = null;
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    if (widget.landscapeFullscreen || restoreOrientation) {
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.portraitUp,
+      ]);
+    }
+    if (mounted) setState(() => _isFullscreen = false);
   }
 
   Future<void> _seekWhenReady(Duration offset) async {
@@ -171,6 +223,7 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
       _loading = true;
       _error = null;
     });
+    _syncFullscreenOverlay();
   }
 
   String _playbackErrorMessage(StreamPlaybackPlatform platform) {
@@ -211,7 +264,12 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
       }
     }
     if (mounted) setState(() => _loading = false);
+    _syncFullscreenOverlay();
     await _applyPendingSeekIfNeeded();
+  }
+
+  void _syncFullscreenOverlay() {
+    _fullscreenEntry?.markNeedsBuild();
   }
 
   Future<void> _applyPendingSeekIfNeeded() async {
@@ -539,8 +597,16 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (_controller != null) WebViewWidget(controller: _controller!),
-        if (_loading)
+        if (_controller != null && !_isFullscreen)
+          WebViewWidget(controller: _controller!),
+        if (_isFullscreen)
+          const ColoredBox(
+            color: Colors.black,
+            child: Center(
+              child: Icon(Icons.fullscreen, color: Colors.white38, size: 40),
+            ),
+          ),
+        if (_loading && !_isFullscreen)
           const ColoredBox(
             color: Colors.black,
             child: Center(child: CircularProgressIndicator()),
@@ -548,31 +614,51 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
         Positioned(
           top: 6,
           right: 6,
-          child: Material(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(6),
-            child: InkWell(
-              onTap: _openExternal,
-              borderRadius: BorderRadius.circular(6),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.open_in_new, color: Colors.white, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      openLabel,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_controller != null && _error == null && !_isFullscreen)
+                Material(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(6),
+                  child: InkWell(
+                    onTap: _enterFullscreen,
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Icon(Icons.fullscreen, color: Colors.white, size: 14),
                     ),
-                  ],
+                  ),
+                ),
+              if (_controller != null && _error == null && !_isFullscreen)
+                const SizedBox(width: 6),
+              Material(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(6),
+                child: InkWell(
+                  onTap: _openExternal,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.open_in_new, color: Colors.white, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          openLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ],
@@ -596,4 +682,109 @@ class _DirectUrlEmbed implements _EmbedPayload {
   const _DirectUrlEmbed({required this.url, required this.headers});
   final String url;
   final Map<String, String> headers;
+}
+
+class _StreamFullscreenOverlay extends StatelessWidget {
+  const _StreamFullscreenOverlay({
+    required this.child,
+    required this.onClose,
+    required this.onOpenExternal,
+    required this.openLabel,
+    required this.showLoading,
+  });
+
+  final Widget child;
+  final VoidCallback onClose;
+  final VoidCallback onOpenExternal;
+  final String openLabel;
+  final bool showLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) onClose();
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            SafeArea(child: child),
+            if (showLoading)
+              const ColoredBox(
+                color: Colors.black54,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Material(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(6),
+                    child: InkWell(
+                      onTap: onClose,
+                      borderRadius: BorderRadius.circular(6),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.fullscreen_exit,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Material(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(6),
+                    child: InkWell(
+                      onTap: onOpenExternal,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.open_in_new,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              openLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

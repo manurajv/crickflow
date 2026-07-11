@@ -334,6 +334,11 @@ class _MatchStreamWatchSectionState extends ConsumerState<MatchStreamWatchSectio
     final current = sources[selectedIndex];
     final playableSources = MatchStreamPlayback.playableSourcesFor(match);
     final cf = context.cf;
+    final studioConfig = ref.watch(streamStudioConfigProvider(widget.match.id));
+    final landscapeFullscreen = MatchStreamPlayback.isLandscapeBroadcast(
+      match,
+      studioOrientation: studioConfig.orientation,
+    );
     final horizontalPad = widget.edgeToEdge ? 0.0 : 16.0;
     final showPicker = playableSources.length > 1;
     final showSessionBar = sources.isNotEmpty;
@@ -400,6 +405,7 @@ class _MatchStreamWatchSectionState extends ConsumerState<MatchStreamWatchSectio
           source: current,
           edgeToEdge: widget.edgeToEdge,
           awaitingWatchUrl: _awaitingWatchUrl(current, match),
+          landscapeFullscreen: landscapeFullscreen,
           pendingSeek: _pendingSeekAfterSwitch,
           onPendingSeekApplied: () {
             final label = _pendingSeekLabel;

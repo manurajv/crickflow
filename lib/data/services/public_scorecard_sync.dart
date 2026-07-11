@@ -40,6 +40,8 @@ class PublicScorecardSync {
         if (match.stream.startedAt != null)
           'startedAt': match.stream.startedAt!.toIso8601String(),
         'webrtcEnabled': match.stream.webrtcEnabled,
+        if (match.stream.broadcastOrientation != null)
+          'broadcastOrientation': match.stream.broadcastOrientation,
       },
       'resultSummary': match.resultSummary,
       'updatedAt': FieldValue.serverTimestamp(),
