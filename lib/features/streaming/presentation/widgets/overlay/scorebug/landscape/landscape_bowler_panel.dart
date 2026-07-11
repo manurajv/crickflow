@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../../../data/models/overlay_state_model.dart';
 import '../scorebug_helpers.dart';
 import '../scorebug_tokens.dart';
+import '../portrait/portrait_scorebug_layout.dart';
 import 'landscape_scorebug_layout.dart';
 import 'landscape_team_logo.dart';
 import 'landscape_this_over_widget.dart';
@@ -18,6 +19,7 @@ class LandscapeBowlerPanel extends StatelessWidget {
     this.bowlingTeamLogoUrl,
     this.thisOverLabels = const [],
     this.inlineThisOver = false,
+    this.portrait = false,
   });
 
   final OverlayStateModel overlay;
@@ -27,12 +29,22 @@ class LandscapeBowlerPanel extends StatelessWidget {
   final String? bowlingTeamLogoUrl;
   final List<String> thisOverLabels;
   final bool inlineThisOver;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
     final logoSize = LandscapeScorebugLayout.barHeight(scale);
-    final name = ScorebugHelpers.bowlerName(overlay);
+    final name = ScorebugHelpers.bowlerName(
+      overlay,
+      max: portrait ? PortraitScorebugLayout.bowlerNameMaxLength : 14,
+    );
     final figures = ScorebugHelpers.bowlerFigures(overlay);
+    final nameStyle = portrait
+        ? PortraitScorebugLayout.bowlerNameStyle(tokens, scale)
+        : LandscapeScorebugLayout.bowlerNameStyle(tokens, scale);
+    final figuresStyle = portrait
+        ? PortraitScorebugLayout.bowlerFiguresStyle(tokens, scale)
+        : LandscapeScorebugLayout.bowlerFiguresStyle(tokens, scale);
 
     final details = Container(
       color: tokens.panelBg,
@@ -53,19 +65,13 @@ class LandscapeBowlerPanel extends StatelessWidget {
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: LandscapeScorebugLayout.bowlerNameStyle(
-                          tokens,
-                          scale,
-                        ),
+                        style: nameStyle,
                       ),
                     ),
                     SizedBox(width: 6 * scale),
                     Text(
                       figures,
-                      style: LandscapeScorebugLayout.bowlerFiguresStyle(
-                        tokens,
-                        scale,
-                      ),
+                      style: figuresStyle,
                     ),
                   ],
                 ),
@@ -75,6 +81,7 @@ class LandscapeBowlerPanel extends StatelessWidget {
                     labels: thisOverLabels,
                     tokens: tokens,
                     scale: scale,
+                    portrait: portrait,
                   ),
                 ],
               ],
@@ -86,13 +93,13 @@ class LandscapeBowlerPanel extends StatelessWidget {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: LandscapeScorebugLayout.bowlerNameStyle(tokens, scale),
+                    style: nameStyle,
                   ),
                 ),
                 SizedBox(width: 6 * scale),
                 Text(
                   figures,
-                  style: LandscapeScorebugLayout.bowlerFiguresStyle(tokens, scale),
+                  style: figuresStyle,
                 ),
               ],
             ),

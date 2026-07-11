@@ -126,6 +126,7 @@ class _PortraitBroadcastScorebugState extends State<PortraitBroadcastScorebug> {
                     ballsRemaining: ctx.ballsRemaining!,
                     tokens: tokens,
                     scale: scale,
+                    portrait: true,
                   )
                 : null);
         final topBannerWidth = activeBanner?.kind ==
@@ -134,6 +135,7 @@ class _PortraitBroadcastScorebugState extends State<PortraitBroadcastScorebug> {
             : LandscapeBattingPanel.widthThroughScore(
                 scale: scale,
                 scoreDisplay: overlay.scoreDisplay,
+                portrait: true,
               );
         final secondaryRowH = topBanner != null
             ? secondaryHeight
@@ -159,6 +161,7 @@ class _PortraitBroadcastScorebugState extends State<PortraitBroadcastScorebug> {
                 centerTitle: beforeBall ? ctx.preBallCenterTitle : null,
                 showTarget: ctx.isChase,
                 compact: true,
+                portrait: true,
               );
 
         return DecoratedBox(
@@ -215,6 +218,7 @@ class _PortraitBroadcastScorebugState extends State<PortraitBroadcastScorebug> {
                     teamAbbr: teamAbbr,
                     teamLogoUrl: ctx.battingTeamLogoUrl,
                     powerplayBadge: ctx.powerplayBadge,
+                    portrait: true,
                   ),
                 ),
               ),
@@ -249,6 +253,7 @@ class _PortraitBroadcastScorebugState extends State<PortraitBroadcastScorebug> {
                 bowlingTeamLogoUrl: ctx.bowlingTeamLogoUrl,
                 thisOverLabels: ctx.thisOverLabels,
                 inlineThisOver: true,
+                portrait: true,
               ),
             ],
           ),
@@ -270,17 +275,20 @@ class _PortraitBroadcastScorebugState extends State<PortraitBroadcastScorebug> {
           balls: ctx.partnershipBalls,
           tokens: tokens,
           scale: scale,
+          portrait: true,
         ),
       LandscapeTopBannerKind.toWin => LandscapeToWinBanner(
           runsNeeded: ctx.runsNeeded ?? 0,
           ballsRemaining: ctx.ballsRemaining ?? 0,
           tokens: tokens,
           scale: scale,
+          portrait: true,
         ),
       LandscapeTopBannerKind.currentRunRate => LandscapeRunRateBanner(
           runRate: overlay.runRate,
           tokens: tokens,
           scale: scale,
+          portrait: true,
         ),
       LandscapeTopBannerKind.projectedScore => LandscapeProjectionBanner(
           projections: ScorebugHelpers.projectedScores(
@@ -292,11 +300,13 @@ class _PortraitBroadcastScorebugState extends State<PortraitBroadcastScorebug> {
           ),
           tokens: tokens,
           scale: scale,
+          portrait: true,
         ),
       LandscapeTopBannerKind.requiredRunRate => LandscapeRequiredRrBanner(
           requiredRunRate: overlay.requiredRunRate ?? 0,
           tokens: tokens,
           scale: scale,
+          portrait: true,
         ),
     };
   }

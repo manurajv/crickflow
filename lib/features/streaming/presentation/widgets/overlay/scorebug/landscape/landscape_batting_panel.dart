@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../../../data/models/overlay_state_model.dart';
 import '../scorebug_tokens.dart';
+import '../portrait/portrait_scorebug_layout.dart';
 import 'landscape_powerplay_badge.dart';
 import 'landscape_scorebug_layout.dart';
 import 'landscape_team_logo.dart';
@@ -18,6 +19,7 @@ class LandscapeBattingPanel extends StatelessWidget {
     required this.teamAbbr,
     this.teamLogoUrl,
     this.powerplayBadge,
+    this.portrait = false,
   });
 
   final OverlayStateModel overlay;
@@ -26,16 +28,20 @@ class LandscapeBattingPanel extends StatelessWidget {
   final String teamAbbr;
   final String? teamLogoUrl;
   final String? powerplayBadge;
+  final bool portrait;
 
   /// Width of logo + abbreviation + score blocks (excludes overs / powerplay).
   static double widthThroughScore({
     required double scale,
     required String scoreDisplay,
+    bool portrait = false,
   }) {
     final logoSize = LandscapeScorebugLayout.barHeight(scale);
     final abbrWidth = 46 * scale;
     final scoreStyle = TextStyle(
-      fontSize: LandscapeScorebugLayout.totalScoreFontSize(scale),
+      fontSize: portrait
+          ? PortraitScorebugLayout.totalScoreFontSize(scale)
+          : LandscapeScorebugLayout.totalScoreFontSize(scale),
       fontWeight: FontWeight.w900,
       height: 1,
     );
@@ -87,7 +93,9 @@ class LandscapeBattingPanel extends StatelessWidget {
             overlay.scoreDisplay,
             style: TextStyle(
               color: tokens.onScore,
-              fontSize: LandscapeScorebugLayout.totalScoreFontSize(scale),
+              fontSize: portrait
+                  ? PortraitScorebugLayout.totalScoreFontSize(scale)
+                  : LandscapeScorebugLayout.totalScoreFontSize(scale),
               fontWeight: FontWeight.w900,
               height: 1,
             ),
@@ -101,7 +109,9 @@ class LandscapeBattingPanel extends StatelessWidget {
             overlay.oversDisplay,
             style: TextStyle(
               color: tokens.white,
-              fontSize: 17 * scale,
+              fontSize: portrait
+                  ? PortraitScorebugLayout.oversFontSize(scale)
+                  : 17 * scale,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -111,6 +121,7 @@ class LandscapeBattingPanel extends StatelessWidget {
             label: powerplayBadge!,
             tokens: tokens,
             scale: scale,
+            portrait: portrait,
           ),
       ],
     );

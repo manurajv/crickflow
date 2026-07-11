@@ -34,8 +34,8 @@ class ScorebugHelpers {
     return '${bowlerName(overlay)} ${bowlerFigures(overlay)}';
   }
 
-  static String bowlerName(OverlayStateModel overlay) =>
-      shortName(overlay.bowlerName, max: 14);
+  static String bowlerName(OverlayStateModel overlay, {int max = 14}) =>
+      shortName(overlay.bowlerName, max: max);
 
   static String bowlerFigures(OverlayStateModel overlay) {
     final overs =

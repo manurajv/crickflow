@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../../../data/models/overlay_state_model.dart';
 import '../scorebug_helpers.dart';
 import '../scorebug_tokens.dart';
+import '../portrait/portrait_scorebug_layout.dart';
 import 'landscape_scorebug_layout.dart';
 
 /// Center panel — fixed left/right batter slots with on-strike indicator only.
@@ -15,6 +16,7 @@ class LandscapeBatsmenPanel extends StatefulWidget {
     this.centerTitle,
     this.showTarget = true,
     this.compact = false,
+    this.portrait = false,
   });
 
   final OverlayStateModel overlay;
@@ -23,6 +25,7 @@ class LandscapeBatsmenPanel extends StatefulWidget {
   final String? centerTitle;
   final bool showTarget;
   final bool compact;
+  final bool portrait;
 
   @override
   State<LandscapeBatsmenPanel> createState() => _LandscapeBatsmenPanelState();
@@ -80,6 +83,7 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
                             balls: slots[0].balls,
                             onStrike: slots[0].onStrike,
                             compact: widget.compact,
+                            portrait: widget.portrait,
                           ),
                         ),
                         if (slots.length > 1) ...[
@@ -93,6 +97,7 @@ class _LandscapeBatsmenPanelState extends State<LandscapeBatsmenPanel> {
                               balls: slots[1].balls,
                               onStrike: slots[1].onStrike,
                               compact: widget.compact,
+                              portrait: widget.portrait,
                             ),
                           ),
                         ],
@@ -149,6 +154,7 @@ class _BatterRow extends StatelessWidget {
     required this.balls,
     required this.onStrike,
     this.compact = false,
+    this.portrait = false,
   });
 
   final ScorebugTokens tokens;
@@ -158,41 +164,62 @@ class _BatterRow extends StatelessWidget {
   final int balls;
   final bool onStrike;
   final bool compact;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
     final displayName = ScorebugHelpers.batterName(name);
-    final nameStyle = compact
-        ? TextStyle(
-            color: onStrike
-                ? tokens.white
-                : tokens.white.withValues(alpha: 0.88),
-            fontSize: (onStrike ? 13.5 : 12.5) * scale,
-            fontWeight: onStrike ? FontWeight.w800 : FontWeight.w600,
-            letterSpacing: 0.3,
-            height: 1.1,
-          )
-        : LandscapeScorebugLayout.playerNameStyle(
+    final nameStyle = portrait
+        ? PortraitScorebugLayout.playerNameStyle(
             tokens,
             scale,
             onStrike: onStrike,
-          );
-    final runsStyle = compact
+          )
+        : compact
+            ? TextStyle(
+                color: onStrike
+                    ? tokens.white
+                    : tokens.white.withValues(alpha: 0.88),
+                fontSize: (onStrike ? 13.5 : 12.5) * scale,
+                fontWeight: onStrike ? FontWeight.w800 : FontWeight.w600,
+                letterSpacing: 0.3,
+                height: 1.1,
+              )
+            : LandscapeScorebugLayout.playerNameStyle(
+                tokens,
+                scale,
+                onStrike: onStrike,
+              );
+    final runsStyle = portrait
         ? TextStyle(
             color: tokens.white,
-            fontSize: 14 * scale,
+            fontSize: PortraitScorebugLayout.playerRunsFontSize(scale),
             fontWeight: FontWeight.w900,
             height: 1.1,
           )
-        : LandscapeScorebugLayout.playerRunsStyle(tokens, scale);
-    final ballsStyle = compact
+        : compact
+            ? TextStyle(
+                color: tokens.white,
+                fontSize: 14 * scale,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+              )
+            : LandscapeScorebugLayout.playerRunsStyle(tokens, scale);
+    final ballsStyle = portrait
         ? TextStyle(
             color: tokens.white.withValues(alpha: 0.65),
-            fontSize: 11 * scale,
+            fontSize: PortraitScorebugLayout.playerBallsFontSize(scale),
             fontWeight: FontWeight.w500,
             height: 1.1,
           )
-        : LandscapeScorebugLayout.playerBallsStyle(tokens, scale);
+        : compact
+            ? TextStyle(
+                color: tokens.white.withValues(alpha: 0.65),
+                fontSize: 11 * scale,
+                fontWeight: FontWeight.w500,
+                height: 1.1,
+              )
+            : LandscapeScorebugLayout.playerBallsStyle(tokens, scale);
 
     final nameStatsGap = (compact ? 10 : 12) * scale;
 

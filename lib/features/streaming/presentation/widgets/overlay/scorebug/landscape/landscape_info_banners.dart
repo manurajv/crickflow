@@ -1,7 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../scorebug_tokens.dart';
+import '../portrait/portrait_scorebug_layout.dart';
 import 'landscape_scorebug_layout.dart';
+
+TextStyle _bannerLabelStyle(
+  ScorebugTokens tokens,
+  double scale, {
+  bool portrait = false,
+}) =>
+    portrait
+        ? PortraitScorebugLayout.chipLabelStyle(tokens, scale)
+        : LandscapeScorebugLayout.labelStyle(tokens, scale);
+
+TextStyle _bannerValueStyle(
+  ScorebugTokens tokens,
+  double scale, {
+  bool portrait = false,
+}) =>
+    portrait
+        ? PortraitScorebugLayout.chipValueStyle(tokens, scale)
+        : LandscapeScorebugLayout.valueStyle(tokens, scale);
 
 /// Floating banner — current run rate at the start of each over.
 class LandscapeRunRateBanner extends StatelessWidget {
@@ -10,11 +29,13 @@ class LandscapeRunRateBanner extends StatelessWidget {
     required this.runRate,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final double runRate;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
@@ -27,12 +48,12 @@ class LandscapeRunRateBanner extends StatelessWidget {
         children: [
           Text(
             'CURRENT RUN RATE',
-            style: LandscapeScorebugLayout.labelStyle(tokens, scale),
+            style: _bannerLabelStyle(tokens, scale, portrait: portrait),
           ),
           SizedBox(width: 10 * scale),
           Text(
             runRate.toStringAsFixed(2),
-            style: LandscapeScorebugLayout.valueStyle(tokens, scale).copyWith(
+            style: _bannerValueStyle(tokens, scale, portrait: portrait).copyWith(
               color: tokens.blue,
             ),
           ),
@@ -50,12 +71,14 @@ class LandscapePartnershipBanner extends StatelessWidget {
     required this.balls,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final int runs;
   final int balls;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
@@ -68,16 +91,16 @@ class LandscapePartnershipBanner extends StatelessWidget {
         children: [
           Text(
             'PARTNERSHIP',
-            style: LandscapeScorebugLayout.labelStyle(tokens, scale),
+            style: _bannerLabelStyle(tokens, scale, portrait: portrait),
           ),
           SizedBox(width: 10 * scale),
           Text(
             '$runs',
-            style: LandscapeScorebugLayout.valueStyle(tokens, scale),
+            style: _bannerValueStyle(tokens, scale, portrait: portrait),
           ),
           Text(
             ' ($balls)',
-            style: LandscapeScorebugLayout.labelStyle(tokens, scale).copyWith(
+            style: _bannerLabelStyle(tokens, scale, portrait: portrait).copyWith(
               fontWeight: FontWeight.w600,
               color: tokens.onScore.withValues(alpha: 0.65),
             ),
@@ -95,18 +118,22 @@ class LandscapeProjectionBanner extends StatelessWidget {
     required this.projections,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final List<({double rr, int score, bool isCurrent})> projections;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = LandscapeScorebugLayout.labelStyle(tokens, scale);
-    final rrLabelStyle = labelStyle.copyWith(fontSize: 10 * scale);
-    final valueStyle = LandscapeScorebugLayout.valueStyle(tokens, scale).copyWith(
-      fontSize: 13 * scale,
+    final labelStyle = _bannerLabelStyle(tokens, scale, portrait: portrait);
+    final rrLabelStyle = labelStyle.copyWith(
+      fontSize: (portrait ? 12 : 10) * scale,
+    );
+    final valueStyle = _bannerValueStyle(tokens, scale, portrait: portrait).copyWith(
+      fontSize: (portrait ? 15 : 13) * scale,
     );
 
     return _TopBannerShell(
@@ -158,12 +185,14 @@ class LandscapeToWinBanner extends StatelessWidget {
     required this.ballsRemaining,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final int runsNeeded;
   final int ballsRemaining;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
@@ -176,16 +205,23 @@ class LandscapeToWinBanner extends StatelessWidget {
         children: [
           Text(
             'TO WIN',
-            style: LandscapeScorebugLayout.labelStyle(tokens, scale),
+            style: _bannerLabelStyle(tokens, scale, portrait: portrait),
           ),
           SizedBox(width: 8 * scale),
-          _ValueBox(value: '$runsNeeded', label: 'RUNS', tokens: tokens, scale: scale),
+          _ValueBox(
+            value: '$runsNeeded',
+            label: 'RUNS',
+            tokens: tokens,
+            scale: scale,
+            portrait: portrait,
+          ),
           SizedBox(width: 8 * scale),
           _ValueBox(
             value: '$ballsRemaining',
             label: 'BALLS',
             tokens: tokens,
             scale: scale,
+            portrait: portrait,
           ),
         ],
       ),
@@ -200,11 +236,13 @@ class LandscapeRequiredRrBanner extends StatelessWidget {
     required this.requiredRunRate,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final double requiredRunRate;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
@@ -217,12 +255,12 @@ class LandscapeRequiredRrBanner extends StatelessWidget {
         children: [
           Text(
             'REQUIRED RR',
-            style: LandscapeScorebugLayout.labelStyle(tokens, scale),
+            style: _bannerLabelStyle(tokens, scale, portrait: portrait),
           ),
           SizedBox(width: 10 * scale),
           Text(
             requiredRunRate.toStringAsFixed(2),
-            style: LandscapeScorebugLayout.valueStyle(tokens, scale).copyWith(
+            style: _bannerValueStyle(tokens, scale, portrait: portrait).copyWith(
               color: tokens.blue,
             ),
           ),
@@ -240,19 +278,23 @@ class LandscapeChaseNeedChip extends StatelessWidget {
     required this.ballsRemaining,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final int runsNeeded;
   final int ballsRemaining;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
-    final scoreSize = LandscapeScorebugLayout.totalScoreFontSize(scale);
+    final scoreSize = portrait
+        ? PortraitScorebugLayout.totalScoreFontSize(scale)
+        : LandscapeScorebugLayout.totalScoreFontSize(scale);
     final barHeight = LandscapeScorebugLayout.barHeight(scale);
-    final labelStyle = LandscapeScorebugLayout.labelStyle(tokens, scale).copyWith(
-      fontSize: 11 * scale,
+    final labelStyle = _bannerLabelStyle(tokens, scale, portrait: portrait).copyWith(
+      fontSize: (portrait ? 12 : 11) * scale,
       letterSpacing: 0.8,
       color: tokens.onScore.withValues(alpha: 0.72),
     );
@@ -322,12 +364,14 @@ class _ValueBox extends StatelessWidget {
     required this.label,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final String value;
   final String label;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
@@ -341,7 +385,7 @@ class _ValueBox extends StatelessWidget {
             value,
             style: TextStyle(
               color: tokens.white,
-              fontSize: 10 * scale,
+              fontSize: (portrait ? 12 : 10) * scale,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -349,8 +393,8 @@ class _ValueBox extends StatelessWidget {
         SizedBox(width: 4 * scale),
         Text(
           label,
-          style: LandscapeScorebugLayout.labelStyle(tokens, scale).copyWith(
-            fontSize: 8 * scale,
+          style: _bannerLabelStyle(tokens, scale, portrait: portrait).copyWith(
+            fontSize: (portrait ? 10 : 8) * scale,
           ),
         ),
       ],

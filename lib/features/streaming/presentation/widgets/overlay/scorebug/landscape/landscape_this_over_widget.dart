@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../portrait/portrait_scorebug_layout.dart';
 import '../scorebug_tokens.dart';
 import 'landscape_scorebug_layout.dart';
 
@@ -10,11 +11,13 @@ class ThisOverBallStrip extends StatelessWidget {
     required this.labels,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final List<String> labels;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +26,12 @@ class ThisOverBallStrip extends StatelessWidget {
     final cells = <Widget>[];
     for (var i = 0; i < labels.length; i++) {
       if (i > 0) cells.add(SizedBox(width: 3 * scale));
-      cells.add(_BallCell(label: labels[i], tokens: tokens, scale: scale));
+      cells.add(_BallCell(
+        label: labels[i],
+        tokens: tokens,
+        scale: scale,
+        portrait: portrait,
+      ));
     }
 
     return Align(
@@ -80,11 +88,13 @@ class _BallCell extends StatelessWidget {
     required this.label,
     required this.tokens,
     required this.scale,
+    this.portrait = false,
   });
 
   final String label;
   final ScorebugTokens tokens;
   final double scale;
+  final bool portrait;
 
   bool get _isBoundary => label == '4' || label == '6';
   bool get _isWicket => label == 'W' || label.contains('W');
@@ -100,6 +110,9 @@ class _BallCell extends StatelessWidget {
     final fg = _isBoundary ? tokens.onScore : tokens.white;
     final display = _isDot ? '•' : label;
     final compact = label.length > 2;
+    final fontSize = portrait
+        ? PortraitScorebugLayout.ballCellFontSize(scale, compact: compact)
+        : (compact ? 7.5 : 10) * scale;
 
     return Container(
       width: (compact ? 22 : 20) * scale,
@@ -110,7 +123,7 @@ class _BallCell extends StatelessWidget {
         display,
         style: TextStyle(
           color: fg,
-          fontSize: (compact ? 7.5 : 10) * scale,
+          fontSize: fontSize,
           fontWeight: FontWeight.w900,
           height: 1,
         ),
