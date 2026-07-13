@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Tournament format drives fixture generation; qualification → knockout seeding  
+**Last updated:** My Cricket guest sign-in gates; nearby All tab for guests; Your = team matches  
 
 **Firebase project:** `crickflow-b06bc`  
 
@@ -33,7 +33,7 @@
 | **Broadcast scoreboard overlay** — full/compact/minimal layouts on camera preview | Done |
 | **Event overlays** — wicket, four, six; new batter/bowler = 5s side career cards | Done |
 | Platform UI — YouTube + custom RTMP (Facebook/Twitch hidden until OAuth ships) | Done |
-| **StreamPermissionService** — organizer, assigned streamer, scorer, creator | Done |
+| **StreamPermissionService** — any signed-in CrickFlow user (guests blocked) | Done |
 | **Replay markers** — per live session at `matches/{id}/streamSessions/{sessionId}/replayMarkers`; auto (wicket/4/6/milestone) + manual; viewed/seeked from Highlights tab | Done |
 | **Manual stream sessions + replay markers** — each Go Live = unique `sessionId`; manual URL attaches to current session only (re-go-live stays **pending** until paste — no instant duplicate of prior URL); YouTube automatic may attach API watch URL on go-live; session-scoped `finalizeEndedSessionUrls`; hub labels with platform + status + **start time**; session info bar always visible; dedupe by session+ball+kind; **Add stream link** hidden for YouTube automatic while live | Done — `stream_playback_merger.dart`, `match_stream_playback.dart`, `broadcast_session_controller.dart`, `streaming_dashboard_screen.dart` |
 | Cloud Functions — `onStreamStatusChanged`, `createYouTubeLiveStream` stub | Done — deploy + YouTube OAuth |
@@ -609,6 +609,7 @@
 | Item | Status |
 |------|--------|
 | Guest browse — app opens to Home without login | Done |
+| **My Cricket guest UX** — Teams/Stats/Highlights sign-in gate; Matches/Tournaments **All** = nearby via device location; **Your** = team participation only (signed-in); no create FAB/banners for guests | Done — `my_cricket_*_tab.dart`, `my_cricket_guest_sign_in_prompt.dart` |
 | Public Firestore read rules (matches, teams, players, …) | Done — deploy rules |
 | Login gate dialog for protected actions | Done — `auth_gate.dart` |
 | Resume action after login (`PendingAuthAction`) | Done |
@@ -659,6 +660,7 @@
 | Scorecard / live score / player stats use `OversFormatter` + per-innings `effectiveRules.ballsPerOver` | Done |
 | Run-out flow — full sheet (fielders, delivery type, runs) + “Who will face the next ball?” picker; `nextStrikerId`/`nextStrikerName` on event; wide/NB from match rules | Done |
 | Run-out next-ball striker fix — picker before wicket record; `runOutSurvivorId`; explicit lineup is final; `preserveCreaseOnEndOver` on end-over after run-out; `run_out_next_striker_test.dart` | Done |
+| Multi-device scoring sync — `mergeEventLogs` unions local+remote by event id; `recordBall` persists full merged log to Hive; `watchBallEvents` always merges (not local-only while pending); live UI replays crease from events | Done |
 | BallEvent wicket metadata (fielders, dismissed name, FOW context) persisted in Firestore | Done |
 | Scorecard dismissal from event metadata — `run out Fielder` / `F1 / F2`, pro formats | Done |
 | Scorecard stumped display — `st b Bowler` only (keeper stored, not shown) | Done |

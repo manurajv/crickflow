@@ -85,10 +85,13 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
     }
 
     final cf = context.cf;
-    final canCreate = canCreateMatches(
-      ref.watch(currentUserProfileProvider).valueOrNull?.role ??
-          UserRole.organizer,
-    );
+    final uid = ref.watch(authStateProvider).value?.uid;
+    final isGuest = uid == null;
+    final canCreate = !isGuest &&
+        canCreateMatches(
+          ref.watch(currentUserProfileProvider).valueOrNull?.role ??
+              UserRole.organizer,
+        );
 
     return ShellTabScaffold(
       title: const Text('My Cricket'),
@@ -119,30 +122,32 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
           ],
         ),
       ),
-      floatingActionButton: switch (_tabs.index) {
-        0 when canCreate => FloatingActionButton.extended(
-            heroTag: 'my_cricket_start_match_fab',
-            onPressed: () => context.push('/match/create'),
-            backgroundColor: cf.fabBackground,
-            foregroundColor: cf.fabForeground,
-            icon: const Icon(Icons.sports_cricket),
-            label: const Text('Start match'),
-          ),
-        1 => FloatingActionButton.extended(
-            heroTag: 'my_cricket_create_tournament_fab',
-            onPressed: () => requireAuthVoid(
-              context: context,
-              ref: ref,
-              returnPath: '/matches',
-              action: () => context.push('/tournaments/create'),
-            ),
-            backgroundColor: cf.fabBackground,
-            foregroundColor: cf.fabForeground,
-            icon: const Icon(Icons.app_registration_outlined),
-            label: const Text('Register'),
-          ),
-        _ => null,
-      },
+      floatingActionButton: isGuest
+          ? null
+          : switch (_tabs.index) {
+              0 when canCreate => FloatingActionButton.extended(
+                  heroTag: 'my_cricket_start_match_fab',
+                  onPressed: () => context.push('/match/create'),
+                  backgroundColor: cf.fabBackground,
+                  foregroundColor: cf.fabForeground,
+                  icon: const Icon(Icons.sports_cricket),
+                  label: const Text('Start match'),
+                ),
+              1 => FloatingActionButton.extended(
+                  heroTag: 'my_cricket_create_tournament_fab',
+                  onPressed: () => requireAuthVoid(
+                    context: context,
+                    ref: ref,
+                    returnPath: '/matches',
+                    action: () => context.push('/tournaments/create'),
+                  ),
+                  backgroundColor: cf.fabBackground,
+                  foregroundColor: cf.fabForeground,
+                  icon: const Icon(Icons.app_registration_outlined),
+                  label: const Text('Register'),
+                ),
+              _ => null,
+            },
       body: TabBarView(
         controller: _tabs,
         children: const [

@@ -20,6 +20,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
 import '../widgets/my_cricket_action_banner.dart';
+import '../widgets/my_cricket_guest_sign_in_prompt.dart';
 
 class MyCricketStatsTab extends ConsumerStatefulWidget {
   const MyCricketStatsTab({super.key});
@@ -33,11 +34,20 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = ref.watch(authStateProvider).value?.uid;
+    if (uid == null) {
+      return const MyCricketGuestSignInPrompt(
+        title: 'Sign in to view your stats',
+        subtitle:
+            'Sign in with a CrickFlow account to track batting, bowling, '
+            'fielding, and captain stats from your matches.',
+      );
+    }
+
     final playerAsync = ref.watch(myPlayerProvider);
     final matchesAsync = ref.watch(matchesProvider);
     final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
     final userTeamIds = userTeams.map((t) => t.id).toSet();
-    final uid = ref.watch(authStateProvider).value?.uid;
 
     return playerAsync.when(
       data: (player) {

@@ -30,6 +30,52 @@ class BallEventAggregator {
       ..sort((a, b) => a.sequence.compareTo(b.sequence));
   }
 
+  /// Merges local and remote ball logs by event id (union). Local entries win on
+  /// duplicate ids so unsynced scoring is preserved while remote-only events
+  /// from other devices are not dropped.
+  static List<BallEventModel> mergeEventLogs(
+    List<BallEventModel> local,
+    List<BallEventModel> remote,
+  ) {
+    if (remote.isEmpty) return List<BallEventModel>.from(local);
+    if (local.isEmpty) return List<BallEventModel>.from(remote);
+
+    final byId = <String, BallEventModel>{};
+    for (final e in remote) {
+      byId[e.id] = e;
+    }
+    for (final e in local) {
+      byId[e.id] = e;
+    }
+    return byId.values.toList()
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+  }
+
+  /// Replays all innings in [match] from [events] (projection cache repair).
+  static MatchModel reprojectMatchFromEvents(
+    MatchModel match,
+    List<BallEventModel> events, {
+    ScoringEngine? engine,
+  }) {
+    if (events.isEmpty) return match;
+
+    final scorer = engine ?? ScoringEngine();
+    final aggregator = BallEventAggregator(engine: scorer);
+    final innings = match.innings.map((lineupInnings) {
+      final innEvents = eventsForInnings(events, lineupInnings.inningsNumber);
+      if (innEvents.isEmpty) return lineupInnings;
+      return aggregator
+          .projectInnings(
+            match: match,
+            lineupInnings: lineupInnings,
+            allEvents: events,
+          )
+          .innings;
+    }).toList();
+
+    return match.copyWith(innings: innings);
+  }
+
   /// Full derived projection for scorecard, insights, and analytics.
   InningsDerivedProjection projectInnings({
     required MatchModel match,

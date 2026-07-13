@@ -148,6 +148,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!isLoggedIn) {
         if (path == '/login') return null;
         if (GuestRoutes.isPublicRoute(path)) return null;
+        // Score, stream, create match, and other write actions need an account.
+        if (GuestRoutes.isProtectedRoute(path)) return '/login';
         return '/home';
       }
 

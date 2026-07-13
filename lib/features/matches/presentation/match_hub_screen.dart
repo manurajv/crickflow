@@ -302,7 +302,19 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
               IconButton(
                 icon: const Icon(Icons.videocam_outlined),
                 tooltip: 'Go Live',
-                onPressed: () => context.push('/match/${widget.matchId}/stream'),
+                onPressed: () {
+                  final uid = ref.read(authStateProvider).value?.uid;
+                  if (uid == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sign in to go live'),
+                      ),
+                    );
+                    context.push('/login');
+                    return;
+                  }
+                  context.push('/match/${widget.matchId}/stream');
+                },
               ),
             if (hasStream)
               StreamLiveToggleAction(

@@ -156,7 +156,7 @@ class _StreamSettingsSheet extends ConsumerWidget {
                         style: TextStyle(color: cf.textPrimary, fontSize: 13),
                       ),
                       subtitle: Text(
-                        'Only organizers, streamers, or scorers can go live.',
+                        'Sign in with a CrickFlow account to go live.',
                         style: TextStyle(
                           color: cf.textSecondary,
                           fontSize: 11,

@@ -662,7 +662,7 @@ class _StreamingDashboardScreenState
     if (!canStart) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You are not authorized to start this stream'),
+          content: Text('Sign in with a CrickFlow account to go live'),
         ),
       );
       return;

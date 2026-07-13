@@ -234,10 +234,9 @@ service cloud.firestore {
         || diff.affectedKeys().hasOnly(['stream', 'updatedAt']);
     }
 
+    /// Any signed-in CrickFlow user may update stream metadata (go live).
     function canUpdateStreamMetadata(matchId) {
-      return isMatchCreator(matchId)
-        || isMatchScorer(matchId)
-        || isAssignedMatchScorer(matchId);
+      return isSignedIn();
     }
 
     function isValidScorerTakeover() {
@@ -829,17 +828,17 @@ service cloud.firestore {
 
       match /replayMarkers/{markerId} {
         allow read: if isSignedIn();
-        allow create: if isMatchScorer(matchId) || isMatchCreator(matchId);
+        allow create: if isSignedIn();
         allow update, delete: if false;
       }
 
       match /streamSessions/{sessionId} {
         allow read: if isSignedIn();
-        allow write: if isMatchScorer(matchId) || isMatchCreator(matchId);
+        allow write: if isSignedIn();
 
         match /replayMarkers/{markerId} {
           allow read: if isSignedIn();
-          allow create: if isMatchScorer(matchId) || isMatchCreator(matchId);
+          allow create: if isSignedIn();
           allow update, delete: if false;
         }
       }

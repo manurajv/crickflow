@@ -131,7 +131,7 @@ Functions exported:
 
 Deploy includes rules for:
 
-- `matches/{id}/replayMarkers` — scorers create replay flags
+- `matches/{id}/replayMarkers` — signed-in users create replay flags while streaming
 - `streaming_credentials/{uid}` — **Admin SDK only** (OAuth tokens)
 
 If stream writes fail with `PERMISSION_DENIED`, redeploy rules:

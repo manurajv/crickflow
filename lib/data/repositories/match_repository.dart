@@ -27,6 +27,7 @@ import '../../domain/services/scoring_engine.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../../domain/scoring/match_completion_policy.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
+import '../../domain/scoring/ball_event_aggregator.dart';
 import '../../domain/scoring/scoring_integrity_check.dart';
 import '../../domain/scoring/toss_team_policy.dart';
 import '../../domain/streaming/match_stream_playback.dart';
@@ -161,19 +162,11 @@ class MatchRepository {
     return remote.version >= local.version ? remote : local;
   }
 
-  List<BallEventModel> _pickNewerBallEvents(
+  List<BallEventModel> _mergeBallEvents(
     List<BallEventModel> local,
     List<BallEventModel> remote,
-  ) {
-    if (remote.isEmpty) return local;
-    if (local.isEmpty) return remote;
-    final remoteMax = remote.last.sequence;
-    final localMax = local.last.sequence;
-    if (remoteMax != localMax) {
-      return remoteMax > localMax ? remote : local;
-    }
-    return remote.length >= local.length ? remote : local;
-  }
+  ) =>
+      BallEventAggregator.mergeEventLogs(local, remote);
 
   Future<MatchModel?> _getMatchFromFirestore(String id) async {
     try {
@@ -669,10 +662,20 @@ class MatchRepository {
 
   Future<List<BallEventModel>> fetchBallEvents(String matchId) async {
     final local = _localStore;
+    var localEvents = const <BallEventModel>[];
     if (local != null && local.hasLocalSnapshot(matchId)) {
-      return local.getBallEvents(matchId);
+      localEvents = await local.getBallEvents(matchId);
     }
-    return _fetchBallEventsFromFirestore(matchId);
+
+    try {
+      final remoteEvents = await _fetchBallEventsFromFirestore(matchId);
+      return _mergeBallEvents(localEvents, remoteEvents);
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable' && localEvents.isNotEmpty) {
+        return localEvents;
+      }
+      rethrow;
+    }
   }
 
   Future<int> lastBallSequence(String matchId) async {
@@ -691,10 +694,20 @@ class MatchRepository {
     var latest = await getMatch(match.id) ?? match;
     latest = _withChaseTargetBackfill(latest);
 
+    final existingEvents = await fetchBallEvents(match.id);
+    latest = BallEventAggregator.reprojectMatchFromEvents(latest, existingEvents);
+
+    final resolvedSequence = existingEvents.isEmpty
+        ? sequence
+        : existingEvents
+                .map((e) => e.sequence)
+                .reduce((a, b) => a > b ? a : b) +
+            1;
+
     final result = _scoringEngine.recordBall(
       match: latest,
       input: input,
-      sequence: sequence,
+      sequence: resolvedSequence,
     );
 
     final eventId = _uuid.v4();
@@ -707,7 +720,7 @@ class MatchRepository {
     final event = built.copyWith(
       id: eventId,
       commentary: commentary,
-      sequence: sequence,
+      sequence: resolvedSequence,
       timestamp: DateTime.now(),
       isHighlight: highlight.isHighlight,
       highlightTag: highlight.tag,
@@ -715,37 +728,45 @@ class MatchRepository {
       undoGroupId: input.undoGroupId ?? built.undoGroupId,
     );
 
+    var allEvents = [...existingEvents, event]
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+
+    final projectedMatch =
+        BallEventAggregator.reprojectMatchFromEvents(latest, allEvents);
+    final overlay = _scoringEngine.buildOverlayForMatch(projectedMatch);
+
+    ScoringIntegrityCheck.assertProjectionMatchesEvents(
+      match: projectedMatch,
+      allEvents: allEvents,
+      context: 'recordBall',
+    );
+
     await _ensureLocalSnapshot(match.id);
 
     await _commitMatchState(
       matchId: match.id,
       matchData: _matchDataWithOverLifecycle(
-        result.match,
+        projectedMatch,
         overNote: overNote,
         overMetadata: result.overMetadata,
         ballEventId: eventId,
       ),
       event: event,
-      overlay: result.overlay,
-    );
-
-    var allEvents = await fetchBallEvents(match.id);
-    if (!allEvents.any((e) => e.id == event.id)) {
-      allEvents = [...allEvents, event]
-        ..sort((a, b) => a.sequence.compareTo(b.sequence));
-    }
-    ScoringIntegrityCheck.assertProjectionMatchesEvents(
-      match: result.match,
+      overlay: overlay,
       allEvents: allEvents,
-      context: 'recordBall',
     );
 
     // Fire-and-forget: surface four/six/wicket graphics on the web / OBS overlay.
     unawaited(_publishBroadcastEvent(match.id, event));
     // Fire-and-forget: this-over strip + team logos + title for the web overlay.
-    unawaited(_publishOverlayExtras(result.match, allEvents));
+    unawaited(_publishOverlayExtras(projectedMatch, allEvents));
 
-    return ScoringInput(match: result.match, event: event, overlay: result.overlay);
+    return ScoringInput(
+      match: projectedMatch,
+      event: event,
+      overlay: overlay,
+      overMetadata: result.overMetadata,
+    );
   }
 
   /// Publishes scorebug extras the realtime overlay can't carry: current-over
@@ -1344,13 +1365,14 @@ class MatchRepository {
     required Map<String, dynamic> matchData,
     required BallEventModel event,
     required OverlayStateModel overlay,
+    required List<BallEventModel> allEvents,
   }) async {
     final existing = await getMatch(matchId);
     final mergedData = existing != null
         ? MatchUpdateMerge.mergeMap(existing, matchData)
         : matchData;
     final match = MatchModel.fromMap(matchId, mergedData);
-    await _localStore?.appendBallEvent(matchId, event);
+    await _localStore?.setBallEvents(matchId, allEvents);
     await _persistMatchLocally(match, overlay: overlay);
 
     final sync = _syncService;
@@ -1442,11 +1464,7 @@ class MatchRepository {
     List<BallEventModel> remoteEvents = [];
 
     void emit() {
-      if (_localStore!.hasPendingSync(matchId)) {
-        controller.add(localEvents);
-        return;
-      }
-      controller.add(_pickNewerBallEvents(localEvents, remoteEvents));
+      controller.add(_mergeBallEvents(localEvents, remoteEvents));
     }
 
     final localSub = _localStore!.watchBallEvents(matchId).listen((events) {

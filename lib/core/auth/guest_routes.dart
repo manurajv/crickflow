@@ -52,6 +52,9 @@ class GuestRoutes {
     if (path == '/match/create' || path.startsWith('/match/create/')) {
       return true;
     }
+    if (path == '/teams/create') {
+      return true;
+    }
     if (path == '/notifications' ||
         path == '/player-onboarding' ||
         path == '/profile/edit') {

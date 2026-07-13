@@ -6,7 +6,6 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../data/services/stream_service.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/providers/tournament_providers.dart';
 import '../../data/models/replay_marker_model.dart';
 import '../../data/models/saved_rtmp_server.dart';
 import '../../data/models/saved_stream_key.dart';
@@ -166,28 +165,10 @@ final replayMarkersProvider =
 });
 
 final streamCanStartProvider =
-    Provider.family<bool, String>((ref, matchId) {
-  final match = ref.watch(matchProvider(matchId)).valueOrNull;
+    Provider.family<bool, String>((ref, _) {
+  // Any signed-in CrickFlow user may go live on any match (guests cannot).
   final uid = ref.watch(authStateProvider).value?.uid;
-  final role = ref.watch(currentUserProfileProvider).valueOrNull?.role;
-  if (match == null || uid == null) return false;
-
-  var isOrganizer = false;
-  final tournamentId = match.tournamentId;
-  if (tournamentId != null && tournamentId.isNotEmpty) {
-    final tRole = ref.watch(
-      tournamentMemberRoleProvider((tournamentId, uid)),
-    );
-    isOrganizer =
-        tRole == TournamentRole.owner || tRole == TournamentRole.admin;
-  }
-
-  return ref.watch(streamPermissionServiceProvider).canStartStream(
-        match: match,
-        userId: uid,
-        role: role ?? UserRole.viewer,
-        isTournamentOrganizer: isOrganizer,
-      );
+  return ref.watch(streamPermissionServiceProvider).canStartStream(userId: uid);
 });
 
 class StreamStudioNotifier extends StateNotifier<StreamStudioConfig> {

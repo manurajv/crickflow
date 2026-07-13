@@ -8,9 +8,11 @@ import '../../../data/models/tournament/tournament_official_model.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../core/utils/tournament_match_permissions.dart';
 import '../../../shared/providers/tournament_providers.dart';
+import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/over_note_model.dart';
+import '../../../domain/scoring/ball_event_aggregator.dart';
 import '../../../domain/services/commentary_service.dart';
 import '../../../domain/services/dismissal_formatter.dart';
 import '../../../domain/services/scoring_engine.dart';
@@ -280,7 +282,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             input: fullInput,
             sequence: sequence,
           );
-      setState(() => _ballSequence = sequence);
+      setState(() => _ballSequence = result.event.sequence);
       HapticFeedback.lightImpact();
 
       final updated = result.match;
@@ -337,7 +339,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final sequence = _ballSequence + 1;
     final scorerUid = ref.read(authStateProvider).valueOrNull?.uid;
     try {
-      await ref.read(matchRepositoryProvider).recordBall(
+      final result = await ref.read(matchRepositoryProvider).recordBall(
             match: matchForWrite,
             input: BallEventInput(
               type: BallEventType.lineupChange,
@@ -357,7 +359,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             ),
             sequence: sequence,
           );
-      setState(() => _ballSequence = sequence);
+      setState(() => _ballSequence = result.event.sequence);
       HapticFeedback.lightImpact();
       if (previousBowlerId != null) {
         debugPrint('Bowler change completed');
@@ -455,7 +457,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
 
     try {
-      await ref.read(matchRepositoryProvider).recordBall(
+      final result = await ref.read(matchRepositoryProvider).recordBall(
             match: match,
             input: BallEventInput(
               type: BallEventType.endOver,
@@ -466,7 +468,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             sequence: sequence,
             overNote: overNote,
           );
-      setState(() => _ballSequence = sequence);
+      setState(() => _ballSequence = result.event.sequence);
       setState(() => _overContinuationActive = false);
       final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
       final freshInn = fresh.currentInnings;
@@ -1589,7 +1591,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final sequence = _ballSequence + 1;
     final scorerUid = ref.read(authStateProvider).valueOrNull?.uid;
     try {
-      await ref.read(matchRepositoryProvider).recordBall(
+      final result = await ref.read(matchRepositoryProvider).recordBall(
             match: match,
             input: BallEventInput(
               type: BallEventType.wicketKeeperChange,
@@ -1603,7 +1605,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             ),
             sequence: sequence,
           );
-      setState(() => _ballSequence = sequence);
+      setState(() => _ballSequence = result.event.sequence);
       HapticFeedback.lightImpact();
     } catch (e) {
       if (mounted) {
@@ -1804,6 +1806,18 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       });
     });
 
+    ref.listen<AsyncValue<List<BallEventModel>>>(
+      ballEventsProvider(widget.matchId),
+      (prev, next) {
+        final events = next.valueOrNull;
+        if (events == null || events.isEmpty || !_sequenceLoaded) return;
+        final seq = events.last.sequence;
+        if (mounted && seq != _ballSequence) {
+          setState(() => _ballSequence = seq);
+        }
+      },
+    );
+
     final cf = context.cf;
 
     return Scaffold(
@@ -1892,17 +1906,23 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             return const Center(child: Text('No active innings'));
           }
 
+          final events = eventsAsync.valueOrNull ?? [];
+          final displayMatch = events.isEmpty
+              ? match
+              : BallEventAggregator.reprojectMatchFromEvents(match, events);
+          final displayInn = displayMatch.currentInnings ?? inn;
+
           final canScore = _canScoreThisMatch(match);
           final onBreak = match.isMatchBreakActive;
           final canRecord = canScore && !onBreak;
           final needsLineup =
               canRecord &&
-              (inn.strikerId == null || inn.currentBowlerId == null);
+              (displayInn.strikerId == null ||
+                  displayInn.currentBowlerId == null);
 
-          final events = eventsAsync.valueOrNull ?? [];
           final overEvents = ScoringDisplayUtils.currentOverEvents(
             events: events,
-            inn: inn,
+            inn: displayInn,
             ballsPerOver: match.rules.ballsPerOver,
           );
 
@@ -1941,8 +1961,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                 flex: 30,
                 fit: FlexFit.tight,
                 child: LiveScoringHeader(
-                  match: match,
-                  innings: inn,
+                  match: displayMatch,
+                  innings: displayInn,
                   rules: match.rules,
                 ),
               ),
@@ -1959,7 +1979,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                   ],
                 ),
               LiveScoringPlayersStrip(
-                innings: inn,
+                innings: displayInn,
                 rules: match.rules,
                 overEvents: overEvents,
                 bowlingSide: _bowlingSide,

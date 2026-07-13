@@ -116,7 +116,7 @@ Configure in **Stream setup → Broadcast mode**.
 | `ball_events` / scoring | Overlay updates, replay markers |
 | `overlay/current` Firestore | Scorebug state |
 | `match.stream` metadata | Live status, RTMP, YouTube URL |
-| `StreamPermissionService` | Who can go live |
+| `StreamPermissionService` | Who can go live (any signed-in user) |
 | `onStreamStatusChanged` CF | Follower notifications |
 | Tournament sponsors / officials | Overlay branding |
 

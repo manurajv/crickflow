@@ -12,6 +12,7 @@ import '../../../teams/presentation/widgets/team_list_scope.dart';
 import '../../../teams/presentation/widgets/team_list_tile.dart';
 import '../../../teams/presentation/widgets/teams_list_toolbar.dart';
 import '../widgets/my_cricket_action_banner.dart';
+import '../widgets/my_cricket_guest_sign_in_prompt.dart';
 
 class MyCricketTeamsTab extends ConsumerStatefulWidget {
   const MyCricketTeamsTab({super.key});
@@ -48,9 +49,18 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
       }
     });
 
+    final uid = ref.watch(authStateProvider).value?.uid;
+    if (uid == null) {
+      return const MyCricketGuestSignInPrompt(
+        title: 'Sign in to view your teams',
+        subtitle:
+            'Sign in with a CrickFlow account to see teams you belong to '
+            'and opponents you have played.',
+      );
+    }
+
     final teamsAsync = ref.watch(allTeamsProvider);
     final matchesAsync = ref.watch(matchesProvider);
-    final uid = ref.watch(authStateProvider).value?.uid;
     final player = ref.watch(myPlayerProvider).valueOrNull;
 
     return Column(

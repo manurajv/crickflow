@@ -14,6 +14,19 @@ bool userOwnsOrScoresMatch(MatchModel m, String? uid) {
   return m.createdBy == uid || m.scorerIds.contains(uid);
 }
 
+bool userTeamParticipatedInMatch(
+  MatchModel m, {
+  PlayerModel? player,
+  Set<String> userTeamIds = const {},
+}) {
+  for (final teamId in player?.effectiveTeamIds ?? const <String>[]) {
+    if (m.teamAId == teamId || m.teamBId == teamId) return true;
+  }
+  if (m.teamAId != null && userTeamIds.contains(m.teamAId)) return true;
+  if (m.teamBId != null && userTeamIds.contains(m.teamBId)) return true;
+  return false;
+}
+
 bool userParticipatedInMatch(
   MatchModel m, {
   String? uid,
@@ -21,12 +34,27 @@ bool userParticipatedInMatch(
   Set<String> userTeamIds = const {},
 }) {
   if (userOwnsOrScoresMatch(m, uid)) return true;
-  for (final teamId in player?.effectiveTeamIds ?? const <String>[]) {
-    if (m.teamAId == teamId || m.teamBId == teamId) return true;
-  }
-  if (m.teamAId != null && userTeamIds.contains(m.teamAId)) return true;
-  if (m.teamBId != null && userTeamIds.contains(m.teamBId)) return true;
-  return false;
+  return userTeamParticipatedInMatch(
+    m,
+    player: player,
+    userTeamIds: userTeamIds,
+  );
+}
+
+bool userTeamParticipatedInTournament(
+  TournamentModel t, {
+  Set<String> userTeamIds = const {},
+}) {
+  return t.teamIds.any(userTeamIds.contains);
+}
+
+bool userParticipatedInTournament(
+  TournamentModel t, {
+  String? uid,
+  Set<String> userTeamIds = const {},
+}) {
+  if (userHostsTournament(t, uid)) return true;
+  return userTeamParticipatedInTournament(t, userTeamIds: userTeamIds);
 }
 
 /// Firebase uids / player doc ids and CF player ids for people you follow.
@@ -145,9 +173,8 @@ bool filterMatchByScope(
     case MyCricketListScope.all:
       return true;
     case MyCricketListScope.yours:
-      return userParticipatedInMatch(
+      return userTeamParticipatedInMatch(
         m,
-        uid: uid,
         player: player,
         userTeamIds: userTeamIds,
       );
@@ -176,15 +203,6 @@ bool userHostsTournament(TournamentModel t, String? uid) {
   return uid != null && t.effectiveOrganizerId == uid;
 }
 
-bool userParticipatedInTournament(
-  TournamentModel t, {
-  String? uid,
-  Set<String> userTeamIds = const {},
-}) {
-  if (userHostsTournament(t, uid)) return true;
-  return t.teamIds.any(userTeamIds.contains);
-}
-
 bool tournamentInvolvesFollowedUser(
   TournamentModel t,
   FollowedPlayerRefs refs,
@@ -204,7 +222,7 @@ bool filterTournamentByScope(
     case MyCricketListScope.all:
       return true;
     case MyCricketListScope.yours:
-      return userParticipatedInTournament(t, uid: uid, userTeamIds: userTeamIds);
+      return userTeamParticipatedInTournament(t, userTeamIds: userTeamIds);
     case MyCricketListScope.played:
       return t.status == TournamentStatus.completed &&
           userParticipatedInTournament(t, uid: uid, userTeamIds: userTeamIds);

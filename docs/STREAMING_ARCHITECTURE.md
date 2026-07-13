@@ -49,7 +49,7 @@ lib/features/streaming/
 1. **Streaming Dashboard** — pre-live setup: camera, platform, quality, audio, overlays, health.
 2. **StreamService** — enhanced RTMP publisher with lens catalog, orientation lock, local record+stream, auto-reconnect on `rtmp_retry`.
 3. **Broadcast overlays** — `BroadcastScoreboardOverlay` + `StreamEventOverlayWidget` composited on preview.
-4. **Permissions** — `StreamPermissionService` (organizer, assigned streamer, scorer, creator).
+4. **Permissions** — `StreamPermissionService` (any signed-in CrickFlow user; guests cannot go live).
 5. **Replay markers** — `matches/{id}/replayMarkers` for highlight generation.
 6. **Cloud Functions** — `onStreamStatusChanged`, `createYouTubeLiveStream` (OAuth wiring pending).
 
