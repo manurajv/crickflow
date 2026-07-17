@@ -1345,7 +1345,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         .read(tournamentRepositoryProvider)
         .advanceKnockoutFromMatch(completed);
     await syncTournamentAnalyticsAfterMatch(ref, completed);
-    if (mounted) context.go('/match/${widget.matchId}');
+    if (mounted) {
+      // For tournament matches, go to tournament dashboard (points table).
+      if (completed.tournamentId != null &&
+          completed.tournamentId!.isNotEmpty) {
+        context.go('/tournaments/${completed.tournamentId}?tab=points-table');
+      } else {
+        context.go('/match/${widget.matchId}');
+      }
+    }
     return true;
   }
 
@@ -1358,7 +1366,23 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           .advanceKnockoutFromMatch(completed);
       await syncTournamentAnalyticsAfterMatch(ref, completed);
     }
-    if (mounted) context.go('/match/${widget.matchId}');
+    if (mounted) {
+      // For tournament matches, go to tournament dashboard (points table).
+      final match = completed ??
+          ref.read(matchProvider(widget.matchId)).valueOrNull;
+      _navigateAfterCompletion(match);
+    }
+  }
+
+  void _navigateAfterCompletion(MatchModel? match) {
+    if (!mounted) return;
+    if (match != null &&
+        match.tournamentId != null &&
+        match.tournamentId!.isNotEmpty) {
+      context.go('/tournaments/${match.tournamentId}?tab=points-table');
+    } else {
+      context.go('/match/${widget.matchId}');
+    }
   }
 
   Future<void> _showMatchResultDialog(
@@ -1382,7 +1406,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             considerAllOversForNrr: input.considerAllOversForNrr,
             userId: uid,
           );
-          if (mounted) context.go('/match/${widget.matchId}');
+          if (mounted) _navigateAfterCompletion(match);
           return;
         }
 
@@ -1393,7 +1417,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             considerAllOversForNrr: input.considerAllOversForNrr,
             userId: uid,
           );
-          if (mounted) context.go('/match/${widget.matchId}');
+          if (mounted) _navigateAfterCompletion(match);
           return;
         }
 
