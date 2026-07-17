@@ -13,24 +13,6 @@ class PointsTableEngineService {
     return completed + rem / ballsPerOver;
   }
 
-  double _matchNrrDelta(MatchModel match, String teamId, int ballsPerOver) {
-    final innings = match.innings;
-    final batting = innings.where((i) => i.battingTeamId == teamId).firstOrNull;
-    final bowling = innings.where((i) => i.bowlingTeamId == teamId).firstOrNull;
-    if (batting == null || bowling == null) return 0;
-
-    final oversFaced = _oversFromBalls(batting.legalBalls, ballsPerOver);
-    final oversBowled = _oversFromBalls(bowling.legalBalls, ballsPerOver);
-    final runsScored = batting.totalRuns;
-    final runsConceded = bowling.totalRuns;
-
-    final rpoScored = oversFaced > 0 ? runsScored / oversFaced : runsScored.toDouble();
-    final rpoConceded =
-        oversBowled > 0 ? runsConceded / oversBowled : runsConceded.toDouble();
-
-    return rpoScored - rpoConceded;
-  }
-
   List<PointsTableEntry> applyMatchResult({
     required List<PointsTableEntry> table,
     required MatchModel match,
@@ -75,17 +57,37 @@ class PointsTableEngineService {
       var points = row.points;
 
       final batting = match.innings
-          .where((i) => i.battingTeamId == teamId)
+          .where((i) => i.battingTeamId == teamId && !i.isSuperOver)
           .fold<int>(0, (s, i) => s + i.totalRuns);
       final bowlingAgainst = match.innings
-          .where((i) => i.bowlingTeamId == teamId)
+          .where((i) => i.bowlingTeamId == teamId && !i.isSuperOver)
           .fold<int>(0, (s, i) => s + i.totalRuns);
-      final ballsFaced = match.innings
-          .where((i) => i.battingTeamId == teamId)
-          .fold<int>(0, (s, i) => s + i.legalBalls);
-      final ballsBowled = match.innings
-          .where((i) => i.bowlingTeamId == teamId)
-          .fold<int>(0, (s, i) => s + i.legalBalls);
+
+      // ICC rule: if a team is all out, use full overs for NRR denominator.
+      final maxWickets = match.rules.maxWickets;
+      final fullOvers = match.rules.totalOvers.toDouble();
+
+      final battingInnings = match.innings
+          .where((i) => i.battingTeamId == teamId && !i.isSuperOver);
+      final bowlingInnings = match.innings
+          .where((i) => i.bowlingTeamId == teamId && !i.isSuperOver);
+
+      var oversFacedVal = 0.0;
+      for (final inn in battingInnings) {
+        final allOut = inn.totalWickets >= maxWickets;
+        oversFacedVal += allOut
+            ? fullOvers
+            : _oversFromBalls(inn.legalBalls, ballsPerOver);
+      }
+
+      var oversBowledVal = 0.0;
+      for (final inn in bowlingInnings) {
+        // Bowling team — the opposition was all out; use full overs.
+        final oppositionAllOut = inn.totalWickets >= maxWickets;
+        oversBowledVal += oppositionAllOut
+            ? fullOvers
+            : _oversFromBalls(inn.legalBalls, ballsPerOver);
+      }
 
       if (noResult) {
         nrCount += 1;
@@ -101,7 +103,17 @@ class PointsTableEngineService {
         points += lossPts;
       }
 
-      final nrr = row.netRunRate + _matchNrrDelta(match, teamId, ballsPerOver);
+      final newRunsFor = row.runsFor + batting;
+      final newRunsAgainst = row.runsAgainst + bowlingAgainst;
+      final newOversFaced = row.oversFaced + oversFacedVal;
+      final newOversBowled = row.oversBowled + oversBowledVal;
+
+      // Proper cumulative NRR: (runsFor/oversFaced) - (runsAgainst/oversBowled)
+      final rpoFor = newOversFaced > 0 ? newRunsFor / newOversFaced : 0.0;
+      final rpoAgainst =
+          newOversBowled > 0 ? newRunsAgainst / newOversBowled : 0.0;
+      final nrr = rpoFor - rpoAgainst;
+
       final idx = rows.indexOf(row);
       rows[idx] = row.copyWith(
         teamName: teamName.isNotEmpty ? teamName : row.teamName,
@@ -112,10 +124,10 @@ class PointsTableEngineService {
         noResult: nrCount,
         points: points,
         netRunRate: double.parse(nrr.toStringAsFixed(3)),
-        runsFor: row.runsFor + batting,
-        runsAgainst: row.runsAgainst + bowlingAgainst,
-        oversFaced: row.oversFaced + _oversFromBalls(ballsFaced, ballsPerOver),
-        oversBowled: row.oversBowled + _oversFromBalls(ballsBowled, ballsPerOver),
+        runsFor: newRunsFor,
+        runsAgainst: newRunsAgainst,
+        oversFaced: newOversFaced,
+        oversBowled: newOversBowled,
       );
     }
 

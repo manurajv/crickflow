@@ -57,6 +57,7 @@ class _CfMarqueeTextState extends State<CfMarqueeText>
   }
 
   void _onTick() {
+    if (!mounted) return;
     final controller = _controller;
     final scrollController = _scrollController;
     if (controller == null || scrollController == null || !scrollController.hasClients) {

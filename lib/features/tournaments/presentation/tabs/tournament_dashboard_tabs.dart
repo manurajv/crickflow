@@ -8,6 +8,7 @@ import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/venue_maps_utils.dart';
 import '../../../../data/models/tournament/tournament_rules_model.dart';
 import '../../../../data/models/tournament/tournament_sponsor_model.dart';
+import '../../../../data/models/tournament/tournament_points_table_model.dart';
 import '../../../../data/models/tournament_model.dart';
 import '../../../../domain/services/tournament/tournament_hero_ranking_engine.dart';
 import '../../../../shared/providers/tournament_analytics_providers.dart';
@@ -36,10 +37,38 @@ class TournamentPointsTab extends ConsumerWidget {
 
     return tablesAsync.when(
       data: (groupTables) {
+        final matches = matchesAsync.valueOrNull ?? [];
+
         if (groupTables.isNotEmpty) {
+          // Rebuild group tables from match data so NRR, RF, OF, RA, OB are
+          // always correctly calculated (Firestore may have stale values).
+          final rebuiltTables = groupTables.map((table) {
+            if (table.entries.isEmpty || matches.isEmpty) return table;
+            final groupMatches = table.groupId != null
+                ? matches.where((m) => m.groupId == table.groupId).toList()
+                : matches;
+            if (groupMatches.isEmpty) return table;
+            final rebuilt = engine.rebuildFromMatches(
+              seed: table.entries,
+              matches: groupMatches,
+              winPts: tournament.defaultRules.pointsPerWin,
+              tiePts: tournament.defaultRules.pointsPerTie,
+              lossPts: tournament.defaultRules.pointsPerLoss,
+              noResultPts: tournament.defaultRules.pointsPerNoResult,
+            );
+            return TournamentPointsTableModel(
+              id: table.id,
+              tournamentId: table.tournamentId,
+              groupId: table.groupId,
+              groupName: table.groupName,
+              entries: rebuilt,
+              updatedAt: table.updatedAt,
+            );
+          }).toList();
+
           return ListView(
             padding: AppDimens.screenPadding,
-            children: groupTables
+            children: rebuiltTables
                 .map(
                   (table) => TournamentPointsTableView(
                     title: table.groupName.isEmpty
@@ -53,10 +82,37 @@ class TournamentPointsTab extends ConsumerWidget {
         }
 
         var entries = tournament.pointsTable;
-        final matches = matchesAsync.valueOrNull ?? [];
         if (entries.isNotEmpty && matches.isNotEmpty) {
           entries = engine.rebuildFromMatches(
             seed: entries,
+            matches: matches,
+            winPts: tournament.defaultRules.pointsPerWin,
+            tiePts: tournament.defaultRules.pointsPerTie,
+            lossPts: tournament.defaultRules.pointsPerLoss,
+            noResultPts: tournament.defaultRules.pointsPerNoResult,
+          );
+        } else if (entries.isEmpty && matches.isNotEmpty) {
+          // No seeded table — build entirely from match data.
+          final teamIds = <String>{};
+          final teamNames = <String, String>{};
+          for (final m in matches) {
+            if (m.teamAId != null) {
+              teamIds.add(m.teamAId!);
+              teamNames[m.teamAId!] = m.teamAName;
+            }
+            if (m.teamBId != null) {
+              teamIds.add(m.teamBId!);
+              teamNames[m.teamBId!] = m.teamBName;
+            }
+          }
+          final seed = teamIds
+              .map((id) => PointsTableEntry(
+                    teamId: id,
+                    teamName: teamNames[id] ?? id,
+                  ))
+              .toList();
+          entries = engine.rebuildFromMatches(
+            seed: seed,
             matches: matches,
             winPts: tournament.defaultRules.pointsPerWin,
             tiePts: tournament.defaultRules.pointsPerTie,

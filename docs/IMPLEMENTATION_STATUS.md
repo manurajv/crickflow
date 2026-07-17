@@ -93,6 +93,9 @@
 
 | Item | Status |
 |------|--------|
+| **Tournament Lifecycle Management** — auto-status transitions (upcoming → live → completed) based on match progress; `TournamentLifecycleService` + `tournamentLifecycleAutoSyncProvider` | Done |
+| **Tournament Summary tab** — premium completed-tournament report (champions, awards, batting/bowling/fielding leaders, team stats, records, numbers, timeline); only visible for completed tournaments | Done |
+| **Points Table NRR fix** — proper cumulative NRR formula (RF/OF − RA/OB), ICC all-out rule, group tables rebuilt client-side from match data, CF stores runsFor/oversFaced/runsAgainst/oversBowled | Done |
 | **Tournament Leaderboard tab** — live stats from ball events; batting/bowling/fielding/team categories; group & round filters | Done |
 | **Tournament Heroes tab** — Orange/Purple cap, POT, MVP, best batter/bowler/fielder/all-rounder; hero ranking engine | Done |
 | **Tournament Stats tab** — analytics dashboard (15 sections); reuses ball-event engines; Firestore cache; auto-sync on match complete | Done |
@@ -108,7 +111,7 @@
 | Points table engine (client) + Cloud Function standings (existing) | Done |
 | RBAC — `TournamentPermissionService` + `tournament_members` | Done |
 | Discovery screen — 6 tabs + join-by-code | Done |
-| Tournament dashboard — 13 tabs (overview, matches, leaderboard, points table, stats, teams, groups, fixtures, officials, sponsors, heroes, rules, settings) | Done |
+| Tournament dashboard — 14 tabs (overview, matches, leaderboard, points table, stats, teams, groups, fixtures, officials, sponsors, heroes, rules, settings + summary for completed) | Done |
 | Dashboard section routes — `/tournaments/:id/{section}` + `?tab=` query | Done |
 | **Tournament Overview screen** — header, stats grid, organizer, info cards, QR/sharing, activity timeline, quick actions | Done |
 | Overview providers — `tournamentOverviewStatsProvider`, `tournamentRecentActivityProvider`, `userProfileByIdProvider` | Done |

@@ -224,7 +224,17 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
     if (context.canPop()) {
       context.pop();
     } else {
-      context.go('/home');
+      // For tournament matches, navigate back to the tournament dashboard.
+      final match =
+          ref.read(matchProvider(widget.matchId)).valueOrNull ?? widget.match;
+      if (match.tournamentId != null && match.tournamentId!.isNotEmpty) {
+        final section = match.status == MatchStatus.completed
+            ? '?tab=points-table'
+            : '';
+        context.go('/tournaments/${match.tournamentId}$section');
+      } else {
+        context.go('/home');
+      }
     }
   }
 
@@ -279,7 +289,7 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
       canPop: context.canPop(),
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && context.mounted) {
-          context.go('/home');
+          _exit(context);
         }
       },
       child: Scaffold(

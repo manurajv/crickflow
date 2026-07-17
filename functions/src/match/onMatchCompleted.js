@@ -95,7 +95,7 @@ exports.onMatchCompleted = onDocumentUpdated(
     await applyPlayerHighScores(db, playerAgg, ballType);
 
     if (after.tournamentId) {
-      await updateTournamentStandings(db, after.tournamentId, after);
+      await updateTournamentStandings(db, after.tournamentId, matchWithInnings);
     }
 
     const built = buildMatchResultNotification(after);

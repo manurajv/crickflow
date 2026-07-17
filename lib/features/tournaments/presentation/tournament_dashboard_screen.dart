@@ -11,6 +11,7 @@ import '../../../core/navigation/tournament_join_navigation.dart';
 import '../../../data/models/tournament_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
+import '../../../shared/providers/tournament_lifecycle_provider.dart';
 import 'tournament_teams_screen.dart';
 import 'tournament_matches_screen.dart';
 import 'tournament_groups_screen.dart';
@@ -19,6 +20,7 @@ import 'tabs/tournament_officials_tab.dart';
 import 'tabs/tournament_stats_tab.dart';
 import 'tabs/tournament_heroes_tab.dart';
 import 'tabs/tournament_leaderboard_tab.dart';
+import 'tabs/tournament_summary_tab.dart';
 import 'tournament_dashboard_sections.dart';
 import 'tournament_overview_screen.dart';
 import 'widgets/tournament_share_sheet.dart';
@@ -45,10 +47,15 @@ class _TournamentDashboardScreenState
   late ScrollController _scrollController;
   bool _showAppBarTitle = false;
   double _titleThreshold = 0;
+  bool _isCompleted = false;
 
   static const _coverHeight = 168.0;
 
-  static final _labels = TournamentDashboardSection.labels;
+  List<String> get _labels =>
+      TournamentDashboardSection.labelsForStatus(_isCompleted);
+
+  List<TournamentDashboardSection> get _sections =>
+      TournamentDashboardSection.tabOrderForStatus(_isCompleted);
 
   @override
   void initState() {
@@ -94,12 +101,31 @@ class _TournamentDashboardScreenState
       tournamentMemberRoleProvider((widget.tournamentId, uid)),
     );
 
+    // Trigger automatic lifecycle status sync.
+    ref.watch(tournamentLifecycleAutoSyncProvider(widget.tournamentId));
+
     return tournamentAsync.when(
       data: (tournament) {
         if (tournament == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Tournament')),
             body: const Center(child: Text('Tournament not found')),
+          );
+        }
+
+        // Rebuild tab controller if completed state changes.
+        final nowCompleted =
+            tournament.status == TournamentStatus.completed;
+        if (nowCompleted != _isCompleted) {
+          _isCompleted = nowCompleted;
+          final prevIndex = _tabs.index;
+          _tabs.dispose();
+          final newLabels =
+              TournamentDashboardSection.labelsForStatus(_isCompleted);
+          _tabs = TabController(
+            length: newLabels.length,
+            vsync: this,
+            initialIndex: prevIndex.clamp(0, newLabels.length - 1),
           );
         }
 
@@ -211,8 +237,7 @@ class _TournamentDashboardScreenState
                     tournament: tournament,
                     role: role,
                     onNavigateToSection: (TournamentDashboardSection section) {
-                      final index =
-                          TournamentDashboardSection.tabOrder.indexOf(section);
+                      final index = _sections.indexOf(section);
                       if (index >= 0) _tabs.animateTo(index);
                     },
                   ),
@@ -240,6 +265,11 @@ class _TournamentDashboardScreenState
                     role: role,
                   ),
                   TournamentSettingsTab(tournament: tournament, role: role),
+                  if (_isCompleted)
+                    TournamentSummaryTab(
+                      tournamentId: widget.tournamentId,
+                      tournament: tournament,
+                    ),
                 ],
               ),
             ),
