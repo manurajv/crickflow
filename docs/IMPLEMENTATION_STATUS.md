@@ -382,6 +382,7 @@
 | Team avatars on cards (`MatchTeamAvatar` — logo or initials) | Done |
 | Matches tab — Start banner, Your/Played/Network/All chips, empty state | Done |
 | Home, Discover, Highlights use same `MatchListCard` | Done |
+| **Venue country flag** — Unicode flag emoji from `LocationModel.country` shown inline before match type label in top section; zero-dependency via `CountryFlagUtils`; covers all ICC members + associates | Done |
 
 ---
 

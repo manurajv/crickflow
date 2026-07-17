@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
+import '../../core/utils/country_flag_utils.dart';
 import '../../core/utils/date_utils.dart';
 import '../../data/models/tournament_model.dart';
 
@@ -39,7 +40,18 @@ class TournamentListCard extends StatelessWidget {
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: _StatusBadge(label: status.label, color: status.color),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _VenueCountryFlag(
+                        country: tournament.location.country,
+                      ),
+                      _StatusBadge(
+                        label: status.label,
+                        color: status.color,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -200,6 +212,26 @@ class _StatusBadge extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.bold,
         ),
+      ),
+    );
+  }
+}
+
+class _VenueCountryFlag extends StatelessWidget {
+  const _VenueCountryFlag({required this.country});
+
+  final String country;
+
+  @override
+  Widget build(BuildContext context) {
+    final flag = CountryFlagUtils.flagForCountry(country);
+    if (flag.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Text(
+        flag,
+        style: const TextStyle(fontSize: 13),
       ),
     );
   }

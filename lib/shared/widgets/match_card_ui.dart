@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
+import '../../core/utils/country_flag_utils.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/match_score_display.dart';
@@ -103,7 +104,7 @@ class MatchCardContent extends StatelessWidget {
           const SizedBox(height: 4),
         ],
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: Text(
@@ -117,6 +118,7 @@ class MatchCardContent extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppDimens.spaceSm),
+            _VenueCountryFlag(match: match, isHero: _isHero),
             MatchStatusChip(
               label: status.label,
               color: status.color,
@@ -383,6 +385,33 @@ class _TeamScoreRow extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Shows a country flag emoji derived from the match venue/location country.
+/// Renders nothing if no country can be resolved.
+class _VenueCountryFlag extends StatelessWidget {
+  const _VenueCountryFlag({
+    required this.match,
+    required this.isHero,
+  });
+
+  final MatchModel match;
+  final bool isHero;
+
+  @override
+  Widget build(BuildContext context) {
+    final country = match.location.country;
+    final flag = CountryFlagUtils.flagForCountry(country);
+    if (flag.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Text(
+        flag,
+        style: const TextStyle(fontSize: 16),
+      ),
     );
   }
 }
