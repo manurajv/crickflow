@@ -3,13 +3,47 @@
 
 
 
-**Last updated:** My Cricket guest sign-in gates; nearby All tab for guests; Your = team matches  
+**Last updated:** Settings polish (routing, confirmations, privacy, Mavixas)  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Settings polish)
+
+| Item | Status |
+|------|--------|
+| Settings routing — Profile uses shell `go('/profile')`; notifications gated via `requireAuth` | Done |
+| Sign-out confirmation dialog; account actions only when signed in | Done |
+| Analytics tile removed from Settings | Done |
+| Privacy / Terms open **in-app** themed screens with back button (light/dark via `context.cf`) | Done |
+| Hosted `privacy.html` / `terms.html` also support `prefers-color-scheme` light/dark | Done — redeploy hosting |
+| Delete account — recent-login check before wipe; cleans follows/prefs; loading dialog | Done |
+| Footer — app version + “Powered by Mavixas” | Done |
+
+---
+
+## Latest (Professional notifications)
+
+| Item | Status |
+|------|--------|
+| **Match title header** on every match notification (`matchTitle` + event title + details) | Done — `notificationBuilder.js`, inbox UI |
+| **Boundary push removed** — fours/sixes still write highlights, no inbox/FCM spam | Done — `onBallEventCreated.js` |
+| **Wickets / hat-trick / team milestones (50–200)** | Done |
+| **Player milestones** (30/50/100/150/200 + 3/4/5 wickets) — self + followed only; self wins over network in same match | Done — `fanOut.js` + `notificationPersonalize.js` |
+| **Match started / innings break / result** personalized for playing user vs followed network | Done — `onMatchLive.js`, `onMatchCompleted.js` |
+| **Post-match performance summary** on result when user played | Done |
+| **Hero of the Match + badge unlock** separate notifications | Done — `onMatchCompleted.js` |
+| **Compact inbox cards** — thin rows, read/unread accent, no Update chip; mark read on tap | Done — `notifications_screen.dart` |
+| **Action status chips** (Accepted/Rejected) after invite response | Done — `actionStatus` field |
+| **Deep links** — match tabs (live/summary), badges → cricket profile, fallback to inbox | Done — `notification_navigation.dart` |
+| **Pagination** — append-only load-more (scroll position preserved) | Done — `notificationsFeedProvider` |
+| **Duplicate FCM fix** — `pushSent` + type skip in `onNotificationCreated` | Done — deploy functions |
+| Deploy Cloud Functions for live match alerts | Pending — `.\scripts\deploy-firebase.ps1` |
 
 ---
 

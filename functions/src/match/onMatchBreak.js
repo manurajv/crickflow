@@ -31,6 +31,8 @@ exports.onMatchBreak = onDocumentUpdated('matches/{matchId}', async (event) => {
       after,
       built,
       'match_break_started',
+      {},
+      { category: 'match', tab: 'live' },
     );
     return;
   }
@@ -48,6 +50,8 @@ exports.onMatchBreak = onDocumentUpdated('matches/{matchId}', async (event) => {
       after,
       built,
       'match_break_ended',
+      {},
+      { category: 'match', tab: 'live' },
     );
   }
 });

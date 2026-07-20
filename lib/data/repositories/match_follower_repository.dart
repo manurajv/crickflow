@@ -50,6 +50,21 @@ class MatchFollowerRepository {
     if (userId.isEmpty) return;
     await _followers.doc(docId(matchId, userId)).delete();
   }
+
+  /// Removes all match follows for [userId] (account deletion).
+  Future<void> deleteAllForUser(String userId) async {
+    if (userId.isEmpty) return;
+    while (true) {
+      final snap =
+          await _followers.where('userId', isEqualTo: userId).limit(100).get();
+      if (snap.docs.isEmpty) break;
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
 }
 
 /// User-level notification preferences (team + follower toggles).
@@ -64,6 +79,20 @@ class NotificationPreferencesRepository {
 
   CollectionReference<Map<String, dynamic>> _teamPrefs(String userId) =>
       _userRef(userId).collection('teamNotificationPrefs');
+
+  /// Deletes per-team notification prefs under the user (account deletion).
+  Future<void> deleteTeamPrefsForUser(String userId) async {
+    if (userId.isEmpty) return;
+    while (true) {
+      final snap = await _teamPrefs(userId).limit(100).get();
+      if (snap.docs.isEmpty) break;
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
 
   Stream<NotificationPreferences> watchPreferences(String userId) {
     if (userId.isEmpty) {

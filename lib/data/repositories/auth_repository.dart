@@ -2,7 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/constants/enums.dart';
 import '../models/user_model.dart';
+import 'match_follower_repository.dart';
 import 'notification_repository.dart';
+import 'player_follow_repository.dart';
 import 'player_repository.dart';
 import 'user_repository.dart';
 
@@ -130,14 +132,33 @@ class AuthRepository {
 
   /// Deletes Firestore profile data and the Firebase Auth account.
   /// Throws [FirebaseAuthException] with code `requires-recent-login` when re-auth is needed.
+  ///
+  /// Checks recent login **before** deleting Firestore data so a failed Auth
+  /// delete does not leave a signed-in user without a profile.
   Future<void> deleteAccount() async {
     final user = currentUser;
     if (user == null) {
       throw Exception('Not signed in');
     }
 
+    // Sensitive Auth ops require a recent sign-in; fail early before data wipe.
+    final token = await user.getIdTokenResult(true);
+    final authTime = token.authTime;
+    if (authTime != null &&
+        DateTime.now().toUtc().difference(authTime.toUtc()) >
+            const Duration(minutes: 5)) {
+      throw FirebaseAuthException(
+        code: 'requires-recent-login',
+        message:
+            'For security, sign out, sign in again, then retry delete.',
+      );
+    }
+
     final uid = user.uid;
     await NotificationRepository().deleteAllForUser(uid);
+    await MatchFollowerRepository().deleteAllForUser(uid);
+    await PlayerFollowRepository().deleteAllFollowsByUser(uid);
+    await NotificationPreferencesRepository().deleteTeamPrefsForUser(uid);
 
     final player = await PlayerRepository().getPlayerByUserId(uid);
     if (player != null) {
@@ -147,5 +168,6 @@ class AuthRepository {
     await _userRepository.deleteUser(uid);
     await user.delete();
     await _googleSignIn.signOut();
+    await _userRepository.clearLocalCache();
   }
 }

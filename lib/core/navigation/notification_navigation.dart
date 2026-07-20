@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
+
 import '../../core/constants/tournament_notification_types.dart';
 import '../../core/constants/team_notification_types.dart';
 import '../../data/models/notification_model.dart';
@@ -13,7 +15,17 @@ class NotificationNavigation {
     String? teamId,
     String? matchId,
     String? tournamentId,
+    String? playerId,
+    String? tab,
   }) {
+    if (type == 'badge_unlock' && playerId != null && playerId.isNotEmpty) {
+      return '/player/$playerId/cricket';
+    }
+    if (type == 'player_follow' || type == 'follower_milestone') {
+      if (playerId != null && playerId.isNotEmpty) {
+        return '/player/$playerId';
+      }
+    }
     if (tournamentId != null &&
         tournamentId.isNotEmpty &&
         (type == TournamentNotificationTypes.joinRequest ||
@@ -21,7 +33,14 @@ class NotificationNavigation {
             type == TournamentNotificationTypes.joinApproved ||
             type == TournamentNotificationTypes.joinRejected ||
             type == TournamentNotificationTypes.invitationAccepted ||
-            type == TournamentNotificationTypes.invitationRejected)) {
+            type == TournamentNotificationTypes.invitationRejected ||
+            type == TournamentNotificationTypes.officialInvitation ||
+            type == TournamentNotificationTypes.officialInvitationAccepted ||
+            type == TournamentNotificationTypes.officialInvitationRejected ||
+            type == 'tournament_completed')) {
+      if (type == 'tournament_completed') {
+        return '/tournaments/$tournamentId';
+      }
       return '/tournaments/$tournamentId/teams';
     }
     if (teamId != null &&
@@ -37,33 +56,57 @@ class NotificationNavigation {
       return '/teams/$teamId';
     }
     if (matchId != null && matchId.isNotEmpty) {
+      final resolvedTab = tab ?? _defaultMatchTab(type);
+      if (resolvedTab != null && resolvedTab.isNotEmpty) {
+        return '/match/$matchId?tab=$resolvedTab';
+      }
       return '/match/$matchId';
     }
     if (teamId != null && teamId.isNotEmpty) {
       return '/teams/$teamId';
     }
+    if (tournamentId != null && tournamentId.isNotEmpty) {
+      return '/tournaments/$tournamentId';
+    }
     return null;
   }
 
+  static String? _defaultMatchTab(String? type) => switch (type) {
+        'wicket' ||
+        'hat_trick' ||
+        'team_milestone' ||
+        'player_milestone' ||
+        'bowling_milestone' ||
+        'match_started' ||
+        'first_innings_complete' ||
+        'second_innings_started' ||
+        'match_break_started' ||
+        'match_break_ended' ||
+        'stream_started' =>
+          'live',
+        'match_result' ||
+        'match_drawn' ||
+        'match_abandoned' ||
+        'hero_of_match' ||
+        'stream_ended' =>
+          'summary',
+        _ => null,
+      };
+
   static String? routeForNotification(NotificationModel notification) {
-    if (notification.type == 'player_follow' ||
-        notification.type == 'follower_milestone') {
-      final playerId = notification.playerId;
-      if (playerId != null && playerId.isNotEmpty) {
-        return '/player/$playerId';
-      }
-    }
-    // Tournament invitations are handled with Accept/Reject on the notifications
-    // screen — do not route team leadership to the organiser dashboard.
     if (notification.type == TournamentNotificationTypes.invitation ||
-        notification.type == TeamNotificationTypes.invitation) {
-      return null;
+        notification.type == TeamNotificationTypes.invitation ||
+        notification.type == TournamentNotificationTypes.officialInvitation) {
+      // Stay on notifications when actions are still pending.
+      if (!notification.hasActionStatus) return null;
     }
     return routeFor(
       type: notification.type,
       teamId: notification.teamId,
       matchId: notification.matchId,
       tournamentId: notification.tournamentId,
+      playerId: notification.playerId,
+      tab: notification.tab,
     );
   }
 
@@ -76,6 +119,8 @@ class NotificationNavigation {
       if (raw['tournamentId'] != null)
         'tournamentId': raw['tournamentId'].toString(),
       if (raw['requestId'] != null) 'requestId': raw['requestId'].toString(),
+      if (raw['category'] != null) 'category': raw['category'].toString(),
+      if (raw['tab'] != null) 'tab': raw['tab'].toString(),
     };
   }
 
@@ -91,7 +136,6 @@ class NotificationNavigation {
         );
       }
     } catch (_) {
-      // Legacy payloads stored only teamId.
       return {'teamId': raw, 'type': 'team_join_request'};
     }
     return {};
@@ -99,6 +143,70 @@ class NotificationNavigation {
 }
 
 extension NotificationPresentation on NotificationModel {
+  String get categoryKey {
+    if (category != null && category!.isNotEmpty) return category!;
+    return switch (type) {
+      TeamNotificationTypes.joinRequest ||
+      TeamNotificationTypes.joinAccepted ||
+      TeamNotificationTypes.joinRejected ||
+      TeamNotificationTypes.invitation ||
+      TeamNotificationTypes.invitationAccepted ||
+      TeamNotificationTypes.invitationRejected ||
+      TeamNotificationTypes.memberAdded ||
+      TeamNotificationTypes.memberRemoved =>
+        'team',
+      TournamentNotificationTypes.invitation ||
+      TournamentNotificationTypes.invitationAccepted ||
+      TournamentNotificationTypes.invitationRejected ||
+      TournamentNotificationTypes.joinRequest ||
+      TournamentNotificationTypes.joinApproved ||
+      TournamentNotificationTypes.joinRejected ||
+      TournamentNotificationTypes.officialInvitation ||
+      TournamentNotificationTypes.officialInvitationAccepted ||
+      TournamentNotificationTypes.officialInvitationRejected ||
+      'tournament_completed' =>
+        'tournament',
+      'player_follow' || 'follower_milestone' => 'social',
+      'badge_unlock' => 'badge',
+      'hero_of_match' => 'achievement',
+      'wicket' ||
+      'hat_trick' ||
+      'team_milestone' ||
+      'player_milestone' ||
+      'bowling_milestone' =>
+        'live_match',
+      'stream_started' || 'stream_ended' => 'streaming',
+      'match_started' ||
+      'first_innings_complete' ||
+      'second_innings_started' ||
+      'match_result' ||
+      'match_drawn' ||
+      'match_abandoned' ||
+      'match_break_started' ||
+      'match_break_ended' ||
+      'dls_applied' ||
+      'target_revised' ||
+      'penalty_runs' =>
+        'match',
+      'admin_roster_report' => 'system',
+      _ => matchId != null ? 'match' : 'system',
+    };
+  }
+
+  IconData get categoryIcon => switch (categoryKey) {
+        'match' => Icons.sports_cricket,
+        'live_match' => Icons.flash_on_rounded,
+        'tournament' => Icons.emoji_events_outlined,
+        'team' => Icons.groups_outlined,
+        'friend' || 'social' => Icons.person_add_alt_1_outlined,
+        'achievement' => Icons.star_outline_rounded,
+        'badge' => Icons.military_tech_outlined,
+        'streaming' => Icons.videocam_outlined,
+        'invitation' => Icons.mail_outline,
+        'system' => Icons.info_outline,
+        _ => Icons.notifications_outlined,
+      };
+
   String get typeLabel => switch (type) {
         TeamNotificationTypes.joinRequest => 'Join request',
         TeamNotificationTypes.joinAccepted => 'Accepted',
@@ -112,37 +220,74 @@ extension NotificationPresentation on NotificationModel {
         TournamentNotificationTypes.joinRequest => 'Tournament request',
         TournamentNotificationTypes.joinApproved => 'Join approved',
         TournamentNotificationTypes.joinRejected => 'Join declined',
+        TournamentNotificationTypes.officialInvitation => 'Official invite',
         TeamNotificationTypes.memberRemoved => 'Team update',
         TeamNotificationTypes.memberAdded => 'Added to team',
         'player_follow' => 'New follower',
         'follower_milestone' => 'Milestone',
         'admin_roster_report' => 'Admin alert',
-        _ => 'Update',
+        'match_started' => 'Match started',
+        'first_innings_complete' => 'Innings break',
+        'second_innings_started' => 'Second innings',
+        'wicket' => 'Wicket',
+        'hat_trick' => 'Hat-trick',
+        'team_milestone' => 'Team milestone',
+        'player_milestone' => 'Milestone',
+        'bowling_milestone' => 'Bowling',
+        'match_result' || 'match_drawn' || 'match_abandoned' => 'Result',
+        'hero_of_match' => 'Hero',
+        'badge_unlock' => 'Badge',
+        'stream_started' || 'stream_ended' => 'Stream',
+        'tournament_completed' => 'Tournament',
+        _ => categoryKey.replaceAll('_', ' '),
+      };
+
+  String? get actionStatusLabel => switch (actionStatus) {
+        'accepted' => 'Accepted',
+        'rejected' || 'declined' => 'Rejected',
+        'joined' => 'Joined',
+        'expired' => 'Expired',
+        'cancelled' => 'Cancelled',
+        _ => actionStatus,
       };
 
   bool get isJoinRequest => type == TeamNotificationTypes.joinRequest;
 
-  bool get isTeamActionable => type == TeamNotificationTypes.invitation;
+  bool get isTeamActionable =>
+      type == TeamNotificationTypes.invitation && !hasActionStatus;
 
   bool get isTournamentActionable =>
-      type == TournamentNotificationTypes.invitation ||
-      type == TournamentNotificationTypes.joinRequest ||
-      type == TournamentNotificationTypes.officialInvitation;
+      (type == TournamentNotificationTypes.invitation ||
+          type == TournamentNotificationTypes.joinRequest ||
+          type == TournamentNotificationTypes.officialInvitation) &&
+      !hasActionStatus;
 
   bool get isActionable => isTournamentActionable || isTeamActionable;
 
-  bool get canReportUnauthorizedAdd => type == TeamNotificationTypes.memberAdded;
+  bool get canReportUnauthorizedAdd =>
+      type == TeamNotificationTypes.memberAdded;
+
+  /// Display header — match title when available.
+  String? get displayMatchHeader {
+    if (matchTitle != null && matchTitle!.trim().isNotEmpty) {
+      return matchTitle!.trim();
+    }
+    return null;
+  }
 
   String? get actionLabel => switch (type) {
         TeamNotificationTypes.joinRequest => 'Review request',
         TeamNotificationTypes.joinAccepted ||
         TeamNotificationTypes.joinRejected =>
           'View team',
-        TeamNotificationTypes.invitation => 'Respond to invite',
+        TeamNotificationTypes.invitation =>
+          hasActionStatus ? 'View team' : 'Respond to invite',
         TeamNotificationTypes.memberAdded => 'View team',
-        TournamentNotificationTypes.invitation => 'Respond to invite',
+        TournamentNotificationTypes.invitation =>
+          hasActionStatus ? 'View tournament' : 'Respond to invite',
         TournamentNotificationTypes.joinRequest => 'Review request',
-        TournamentNotificationTypes.officialInvitation => 'Respond to invite',
+        TournamentNotificationTypes.officialInvitation =>
+          hasActionStatus ? 'View tournament' : 'Respond to invite',
         TournamentNotificationTypes.joinApproved ||
         TournamentNotificationTypes.joinRejected ||
         TournamentNotificationTypes.invitationAccepted ||

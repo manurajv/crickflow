@@ -10,7 +10,7 @@ Use this when submitting **CrickFlow** v1.0.0.
 | Marketing site | https://crickflow-b06bc.web.app |
 | GitHub | https://github.com/manurajv/crickflow |
 
-Update `public/privacy.html` contact email before submission.
+Privacy / terms live at Firebase Hosting (`public/privacy.html`, `public/terms.html`). Redeploy hosting after content edits.
 
 **Account deletion:** In-app at Settings → Delete Account (required by Google Play).
 

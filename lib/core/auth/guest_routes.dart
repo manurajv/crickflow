@@ -18,6 +18,8 @@ class GuestRoutes {
     '/fantasy',
     '/store',
     '/settings',
+    '/legal/privacy',
+    '/legal/terms',
   };
 
   static bool isPublicRoute(String path) {

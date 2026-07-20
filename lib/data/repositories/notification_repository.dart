@@ -16,27 +16,48 @@ class NotificationRepository {
   final FirebaseFirestore _firestore;
   final _uuid = const Uuid();
 
+  static const int pageSize = 30;
+
   CollectionReference<Map<String, dynamic>> get _col =>
       _firestore.collection(AppConstants.notificationsCollection);
 
   CollectionReference<Map<String, dynamic>> get _players =>
       _firestore.collection(AppConstants.playersCollection);
 
-  Stream<List<NotificationModel>> watchForUser(String userId) {
-    return _col
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(50)
+  Query<Map<String, dynamic>> _userQuery(String userId) => _col
+      .where('userId', isEqualTo: userId)
+      .orderBy('createdAt', descending: true);
+
+  Stream<List<NotificationModel>> watchForUser(String userId, {int limit = pageSize}) {
+    return _userQuery(userId)
+        .limit(limit)
         .snapshots()
         .map((snap) => snap.docs
             .map((d) => NotificationModel.fromMap(d.id, d.data()))
             .toList());
   }
 
+  /// One-shot page fetch for lazy loading (cursor = last createdAt ISO string).
+  Future<List<NotificationModel>> fetchPage({
+    required String userId,
+    int limit = pageSize,
+    String? startAfterCreatedAt,
+  }) async {
+    Query<Map<String, dynamic>> q = _userQuery(userId).limit(limit);
+    if (startAfterCreatedAt != null && startAfterCreatedAt.isNotEmpty) {
+      q = q.startAfter([startAfterCreatedAt]);
+    }
+    final snap = await q.get();
+    return snap.docs
+        .map((d) => NotificationModel.fromMap(d.id, d.data()))
+        .toList();
+  }
+
   Stream<int> watchUnreadCount(String userId) {
     return _col
         .where('userId', isEqualTo: userId)
         .where('read', isEqualTo: false)
+        .limit(100)
         .snapshots()
         .map((snap) => snap.docs.length);
   }
@@ -45,18 +66,33 @@ class NotificationRepository {
     await _col.doc(notificationId).update({'read': true, 'isRead': true});
   }
 
+  Future<void> setActionStatus(
+    String notificationId,
+    String status,
+  ) async {
+    await _col.doc(notificationId).update({
+      'actionStatus': status,
+      'read': true,
+      'isRead': true,
+    });
+  }
+
   Future<void> createNotification({
     required String userId,
     required String title,
     required String body,
     String? matchId,
+    String? matchTitle,
     String? teamId,
     String? playerId,
     String? type,
+    String? category,
+    String? tab,
     String? addedByUserId,
     String? reportId,
     String? tournamentId,
     String? requestId,
+    String? actionStatus,
   }) async {
     if (userId.isEmpty) return;
 
@@ -65,14 +101,18 @@ class NotificationRepository {
       'title': title,
       'body': body,
       'message': body,
-      if (matchId != null) 'matchId': matchId,
-      if (teamId != null) 'teamId': teamId,
-      if (playerId != null) 'playerId': playerId,
-      if (type != null) 'type': type,
-      if (addedByUserId != null) 'addedByUserId': addedByUserId,
-      if (reportId != null) 'reportId': reportId,
-      if (tournamentId != null) 'tournamentId': tournamentId,
-      if (requestId != null) 'requestId': requestId,
+      'matchId': ?matchId,
+      'matchTitle': ?matchTitle,
+      'teamId': ?teamId,
+      'playerId': ?playerId,
+      'type': ?type,
+      'category': ?category,
+      'tab': ?tab,
+      'addedByUserId': ?addedByUserId,
+      'reportId': ?reportId,
+      'tournamentId': ?tournamentId,
+      'requestId': ?requestId,
+      'actionStatus': ?actionStatus,
       'read': false,
       'isRead': false,
       'createdAt': DateTime.now().toIso8601String(),
@@ -89,6 +129,7 @@ class NotificationRepository {
     String? excludeUserId,
     String? tournamentId,
     String? requestId,
+    String? category,
   }) async {
     final recipients = await _leadershipAuthUserIds(team);
     for (final uid in recipients) {
@@ -102,6 +143,7 @@ class NotificationRepository {
         type: type,
         tournamentId: tournamentId,
         requestId: requestId,
+        category: category ?? 'team',
       );
     }
   }
@@ -115,12 +157,15 @@ class NotificationRepository {
     Iterable<TournamentMemberModel> members = const [],
     Iterable<TournamentOfficialModel> officials = const [],
   }) async {
-    final title = '${tournament.name} completed';
-    final bodyParts = <String>['Champion: $championTeamName'];
+    final title = 'Tournament Complete';
+    final bodyParts = <String>[
+      tournament.name,
+      'Champion: $championTeamName',
+    ];
     if (runnerUpTeamName != null && runnerUpTeamName.isNotEmpty) {
       bodyParts.add('Runner-up: $runnerUpTeamName');
     }
-    final body = bodyParts.join('. ');
+    final body = bodyParts.join('\n');
     const type = 'tournament_completed';
     final notified = <String>{};
 
@@ -133,6 +178,7 @@ class NotificationRepository {
             title: title,
             body: body,
             type: type,
+            category: 'tournament',
             tournamentId: tournament.id,
             teamId: team.id,
           );
@@ -152,6 +198,7 @@ class NotificationRepository {
           title: title,
           body: body,
           type: type,
+          category: 'tournament',
           tournamentId: tournament.id,
         );
       }
@@ -165,6 +212,7 @@ class NotificationRepository {
           title: title,
           body: body,
           type: type,
+          category: 'tournament',
           tournamentId: tournament.id,
         );
       }
@@ -177,6 +225,7 @@ class NotificationRepository {
         title: title,
         body: body,
         type: type,
+        category: 'tournament',
         tournamentId: tournament.id,
       );
     }
@@ -210,16 +259,20 @@ class NotificationRepository {
   }
 
   Future<void> markAllRead(String userId) async {
-    final snap = await _col
-        .where('userId', isEqualTo: userId)
-        .where('read', isEqualTo: false)
-        .get();
-    if (snap.docs.isEmpty) return;
-    final batch = _firestore.batch();
-    for (final doc in snap.docs) {
-      batch.update(doc.reference, {'read': true, 'isRead': true});
+    while (true) {
+      final snap = await _col
+          .where('userId', isEqualTo: userId)
+          .where('read', isEqualTo: false)
+          .limit(200)
+          .get();
+      if (snap.docs.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.update(doc.reference, {'read': true, 'isRead': true});
+      }
+      await batch.commit();
+      if (snap.docs.length < 200) return;
     }
-    await batch.commit();
   }
 
   Future<void> deleteNotificationsForTeam(String teamId) async {

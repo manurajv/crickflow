@@ -94,10 +94,11 @@ class PlayerFollowRepository {
 
     await _notifications?.createNotification(
       userId: followedUserId,
-      title: 'New follower',
+      title: 'New Follower',
       body: '$followerName started following you.',
       playerId: followedPlayerId,
       type: 'player_follow',
+      category: 'social',
       addedByUserId: followerUserId,
     );
 
@@ -105,10 +106,11 @@ class PlayerFollowRepository {
       if (followersCount == milestone) {
         await _notifications?.createNotification(
           userId: followedUserId,
-          title: 'Follower milestone',
+          title: 'Follower Milestone',
           body: 'You reached $milestone followers.',
           playerId: followedPlayerId,
           type: 'follower_milestone',
+          category: 'social',
         );
       }
     }
@@ -132,6 +134,23 @@ class PlayerFollowRepository {
 
       tx.delete(followRef);
     });
+  }
+
+  /// Removes follows where this user is the follower (account deletion).
+  Future<void> deleteAllFollowsByUser(String followerUserId) async {
+    if (followerUserId.isEmpty) return;
+    while (true) {
+      final snap = await _follows
+          .where('followerUserId', isEqualTo: followerUserId)
+          .limit(100)
+          .get();
+      if (snap.docs.isEmpty) break;
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
   }
 
   /// One view per viewer per 24 hours; skips self views.

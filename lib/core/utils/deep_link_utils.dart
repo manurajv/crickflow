@@ -82,6 +82,9 @@ class DeepLinkUtils {
   static Uri privacyPolicyUri({bool useCustomDomain = false}) =>
       hostedUri('/privacy.html', useCustomDomain: useCustomDomain);
 
+  static Uri termsOfServiceUri({bool useCustomDomain = false}) =>
+      hostedUri('/terms.html', useCustomDomain: useCustomDomain);
+
   /// HTTPS link that opens the app when App Links are verified (Firebase Hosting).
   static Uri httpsScorecardUri(String matchId, {bool useCustomDomain = false}) =>
       Uri(
@@ -97,6 +100,20 @@ class DeepLinkUtils {
   static Uri httpsTeamUri(String teamId, {bool useCustomDomain = false}) =>
       hostedUri(teamPath(teamId), useCustomDomain: useCustomDomain);
 
+  /// Maps hosted privacy/terms URLs to in-app legal routes.
+  static String? legalAppPath(String path) {
+    switch (path) {
+      case '/privacy.html':
+      case '/privacy':
+        return '/legal/privacy';
+      case '/terms.html':
+      case '/terms':
+        return '/legal/terms';
+      default:
+        return null;
+    }
+  }
+
   /// Normalizes `crickflow://`, `https://…`, or raw location strings to a GoRouter path.
   static String? pathFromUri(Uri uri) {
     if (uri.scheme == customScheme) {
@@ -107,7 +124,8 @@ class DeepLinkUtils {
         (uri.host == httpsHost || uri.host == firebaseHostingHost)) {
       final path = uri.path;
       if (path.isEmpty) return null;
-      return path.startsWith('/') ? path : '/$path';
+      final normalized = path.startsWith('/') ? path : '/$path';
+      return legalAppPath(normalized) ?? normalized;
     }
 
     return null;
@@ -126,7 +144,9 @@ class DeepLinkUtils {
       return pathFromUri(Uri.parse(trimmed));
     }
 
-    if (trimmed.startsWith('/')) return trimmed;
+    if (trimmed.startsWith('/')) {
+      return legalAppPath(trimmed) ?? trimmed;
+    }
     return null;
   }
 

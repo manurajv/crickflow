@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/auth_gate.dart';
 import '../../core/constants/app_constants.dart';
@@ -27,6 +28,7 @@ class CfAppDrawer extends ConsumerWidget {
     final showOrganizerActions = isGuest || role != UserRole.viewer;
 
     return Drawer(
+      width: 260,
       backgroundColor: context.cf.surface,
       child: SafeArea(
         child: Column(
@@ -194,12 +196,52 @@ class CfAppDrawer extends ConsumerWidget {
             ),
             Padding(
               padding: AppDimens.cardPadding,
-              child: Text(
-                '${AppConstants.appName} v${AppConstants.appVersion}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.cf.textMuted,
-                    ),
-                textAlign: TextAlign.center,
+              child: Column(
+                children: [
+                  Text(
+                    '${AppConstants.appName} v${AppConstants.appVersion}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: context.cf.textMuted,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppDimens.spaceXs),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Powered by ',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: context.cf.textMuted,
+                            ),
+                      ),
+                      InkWell(
+                        onTap: () async {
+                          final uri = Uri.parse('https://mavixas.com');
+                          if (!await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          )) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Could not open $uri')),
+                              );
+                            }
+                          }
+                        },
+                        child: Text(
+                          'Mavixas',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: context.cf.link,
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: context.cf.link,
+                                  ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],

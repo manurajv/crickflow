@@ -123,13 +123,13 @@ class TournamentTeamRequestRepository {
 
     await _notifications.notifyTeamLeadership(
       team: team,
-      title: 'Tournament invitation',
-      body:
-          '${tournament.name} has invited your team to participate.',
+      title: 'Tournament Invitation',
+      body: 'You have been invited to ${tournament.name}.',
       type: TournamentNotificationTypes.invitation,
       excludeUserId: organizerUserId,
       tournamentId: tournament.id,
       requestId: request.id,
+      category: 'tournament',
     );
 
     return request;

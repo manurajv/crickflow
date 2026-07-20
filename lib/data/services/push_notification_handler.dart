@@ -97,7 +97,8 @@ class PushNotificationHandler {
   void navigateFromData(Map<String, String> data) {
     final type = data['type'] ?? '';
     if (type == TournamentNotificationTypes.invitation ||
-        type == TeamNotificationTypes.invitation) {
+        type == TeamNotificationTypes.invitation ||
+        type == TournamentNotificationTypes.officialInvitation) {
       _router?.push('/notifications');
       return;
     }
@@ -106,8 +107,13 @@ class PushNotificationHandler {
       teamId: data['teamId'],
       matchId: data['matchId'],
       tournamentId: data['tournamentId'],
+      playerId: data['playerId'],
+      tab: data['tab'],
     );
-    if (route == null) return;
+    if (route == null) {
+      _router?.push('/notifications');
+      return;
+    }
     _router?.push(route);
   }
 

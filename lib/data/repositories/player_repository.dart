@@ -211,11 +211,12 @@ class PlayerRepository {
 
     await _notificationRepository?.createNotification(
       userId: targetUid,
-      title: 'Added to team',
-      body: 'You were added to $teamName.',
+      title: 'Added to Team',
+      body: 'You have been added to Team $teamName.',
       teamId: teamId,
       playerId: playerId,
       type: 'team_member_added',
+      category: 'team',
       addedByUserId: addedByUserId,
     );
   }
@@ -384,10 +385,11 @@ class PlayerRepository {
     final name = teamName ?? 'your team';
     await _notificationRepository?.createNotification(
       userId: targetUserId,
-      title: 'Removed from team',
-      body: 'You have been removed from $name.',
+      title: 'Removed from Team',
+      body: 'You have been removed from Team $name.',
       teamId: teamId,
       type: 'team_member_removed',
+      category: 'team',
     );
   }
 

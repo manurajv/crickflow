@@ -3,45 +3,103 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
   <title>Privacy Policy — CrickFlow</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #0a1628; color: #e8e8e8; max-width: 720px; margin: 0 auto; padding: 32px 20px; line-height: 1.6; }
-    h1 { color: #d4af37; }
-    h2 { color: #d4af37; font-size: 1.1rem; margin-top: 28px; }
-    a { color: #d4af37; }
+    :root {
+      --bg: #f5f7fa;
+      --text: #1a2332;
+      --accent: #b8860b;
+      --link: #8a6a08;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a1628;
+        --text: #e8e8e8;
+        --accent: #d4af37;
+        --link: #d4af37;
+      }
+    }
+    body {
+      font-family: system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px;
+      line-height: 1.6;
+    }
+    h1, h2 { color: var(--accent); }
+    h2 { font-size: 1.1rem; margin-top: 28px; }
+    a { color: var(--link); }
   </style>
 </head>
 <body>
   <h1>Privacy Policy</h1>
-  <p><em>Last updated: June 2026</em></p>
-  <p>CrickFlow (“we”, “the app”) provides cricket scoring and live streaming. This policy describes how we handle information when you use our mobile application and related services.</p>
+  <p><em>Last updated: July 2026</em></p>
+  <p>
+    CrickFlow is operated by <strong>Mavixas</strong> (“we”, “us”).
+    This policy explains how we collect, use, store, and share information when you use the CrickFlow
+    mobile app, websites, and related services (together, the “Service”).
+  </p>
 
   <h2>Information we collect</h2>
   <ul>
     <li><strong>Account:</strong> Email, display name, phone number (if you use phone sign-in), and profile photo from Google Sign-In.</li>
-    <li><strong>Cricket data:</strong> Teams, players, match scores, tournaments, and stream settings you enter.</li>
-    <li><strong>Device:</strong> FCM token for match notifications; camera/microphone only when you start a live stream.</li>
+    <li><strong>Profile &amp; cricket data:</strong> Cricket ID, location (country/city), teams, players, squads, match scores, ball-by-ball events, tournaments, follows, and notification preferences you set.</li>
+    <li><strong>Device &amp; notifications:</strong> Firebase Cloud Messaging (FCM) token so we can send match and follow alerts you opt into.</li>
+    <li><strong>Streaming:</strong> Camera and microphone are accessed only when you start a live stream. Stream destination settings (e.g. YouTube / custom RTMP) that you enter are stored to provide broadcasting features.</li>
+    <li><strong>Offline data:</strong> Scoring actions may be stored temporarily on your device before syncing to our servers when you are online.</li>
   </ul>
 
   <h2>How we use data</h2>
-  <p>To provide scoring, live overlays, tournaments, notifications, and optional YouTube/custom RTMP streaming. We do not sell your personal data.</p>
+  <p>
+    We use this information to provide scoring, scorecards, tournaments, community features,
+    notifications, live overlays, and optional streaming. We do not sell your personal data.
+  </p>
 
-  <h2>Storage & security</h2>
-  <p>Data is stored in Google Firebase (project <code>crickflow-b06bc</code>) with authentication and security rules. You are responsible for keeping your login credentials secure.</p>
+  <h2>Storage &amp; security</h2>
+  <p>
+    Data is stored in Google Firebase (project <code>crickflow-b06bc</code>) with authentication
+    and security rules. You are responsible for keeping your login credentials secure.
+  </p>
 
   <h2>Third parties</h2>
   <ul>
-    <li>Google (Authentication, Firebase)</li>
+    <li>Google (Authentication, Firebase, and Google Sign-In)</li>
     <li>YouTube / RTMP providers when you choose to broadcast</li>
   </ul>
+  <p>
+    Their processing is governed by their own policies. We only share what is needed to operate
+    the features you use.
+  </p>
 
   <h2>Your choices</h2>
-  <p>You can delete your account in the app: <strong>Settings → Delete Account</strong>. This removes your profile, linked player record, notifications, and Firebase sign-in. Matches and teams you created may remain visible to other users until an organizer removes them.</p>
-  <p>You may also contact us to request deletion of additional data.</p>
+  <ul>
+    <li>Control team and follow notification preferences in <strong>Settings → Notification Settings</strong>.</li>
+    <li>Delete your account in the app: <strong>Settings → Delete Account</strong>. This removes your profile, linked player record, notifications, and Firebase sign-in. Matches and teams you created may remain visible to other users until an organizer removes them.</li>
+    <li>You may contact us to request access, correction, or deletion of additional personal data where applicable.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>
+    CrickFlow is not directed at children under 13. If you believe a child has provided personal
+    data, contact us and we will take appropriate steps to remove it.
+  </p>
+
+  <h2>Changes</h2>
+  <p>
+    We may update this policy from time to time. The “Last updated” date at the top reflects the
+    latest revision. Continued use of the Service after changes are posted constitutes acceptance
+    of the updated policy.
+  </p>
 
   <h2>Contact</h2>
-  <p>Email: <a href="mailto:mavixas.ceo@gmail.com">mavixas.ceo@gmail.com</a></p>
+  <p>
+    Mavixas — CrickFlow support<br />
+    Email: <a href="mailto:mavixas.ceo@gmail.com">mavixas.ceo@gmail.com</a>
+  </p>
 
-  <p><a href="/">← Back to CrickFlow</a></p>
+  <p><a href="/terms.html">Terms of Service</a> · <a href="/">← Back to CrickFlow</a></p>
 </body>
 </html>

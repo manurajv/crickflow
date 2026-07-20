@@ -4,37 +4,67 @@ const { fanOutMatchNotification } = require('../utils/fanOut');
 const { refreshFantasyForMatch } = require('../fantasy/refreshFantasyForMatch');
 const {
   buildWicketNotification,
-  buildBoundaryNotification,
+  buildHatTrickNotification,
   buildTeamMilestoneNotification,
   buildPlayerMilestoneNotification,
+  buildBowlingMilestoneNotification,
 } = require('../utils/notificationBuilder');
-const { currentInnings, ballsPerOver } = require('../utils/matchFormat');
+const { currentInnings } = require('../utils/matchFormat');
 
 const db = getFirestore();
 
-const TEAM_MILESTONES = [50, 100, 150, 200, 250, 300];
+const TEAM_MILESTONES = [50, 100, 150, 200];
+const BATTING_MILESTONES = [30, 50, 100, 150, 200];
+const BOWLING_MILESTONES = [3, 4, 5];
 
 async function fetchMatch(matchId) {
   const snap = await db.collection('matches').doc(matchId).get();
   return snap.exists ? snap.data() : null;
 }
 
-function detectTeamMilestone(prevRuns, newRuns) {
-  for (const m of TEAM_MILESTONES) {
-    if (prevRuns < m && newRuns >= m) return m;
-  }
-  return null;
-}
-
-function detectPlayerMilestone(prevRuns, newRuns) {
-  for (const m of [50, 100, 150, 200]) {
-    if (prevRuns < m && newRuns >= m) return m;
+function detectMilestone(prev, next, thresholds) {
+  for (const m of thresholds) {
+    if (prev < m && next >= m) return m;
   }
   return null;
 }
 
 /**
- * Push enriched notifications for wickets, boundaries, and milestones.
+ * Hat-trick: same bowler took wickets on the last 3 consecutive legal balls.
+ */
+async function detectHatTrick(matchId, event) {
+  const bowlerId = event.bowlerId;
+  if (!bowlerId || event.eventType !== 'wicket') return false;
+
+  const snap = await db
+    .collection('matches')
+    .doc(matchId)
+    .collection('ball_events')
+    .orderBy('sequence', 'desc')
+    .limit(24)
+    .get();
+
+  const legal = [];
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    if (d.isWide || d.isNoBall || d.extrasType === 'wide' || d.extrasType === 'noBall') {
+      continue;
+    }
+    // Count legal deliveries only.
+    if (d.isLegal === false) continue;
+    legal.push(d);
+    if (legal.length >= 3) break;
+  }
+
+  if (legal.length < 3) return false;
+  return legal
+    .slice(0, 3)
+    .every((d) => d.eventType === 'wicket' && d.bowlerId === bowlerId);
+}
+
+/**
+ * Push enriched notifications for wickets and milestones.
+ * Boundaries (four/six) are intentionally not notified.
  */
 exports.onBallEventCreated = onDocumentCreated(
   'matches/{matchId}/ball_events/{eventId}',
@@ -50,33 +80,17 @@ exports.onBallEventCreated = onDocumentCreated(
     const match = await fetchMatch(matchId);
     if (!match) return;
 
-    let title = null;
+    // Highlights for wickets / boundaries (no push for boundaries).
     let highlightTag = null;
-    let body = data.commentary || '';
-    let notifType = null;
-    let built = null;
-
     if (type === 'wicket') {
       highlightTag = 'wicket';
-      built = buildWicketNotification(match, data);
-      title = built.title;
-      body = built.body;
-      notifType = 'wicket';
-    } else if (runs >= 6) {
+    } else if (data.boundaryType === 'six' || runs >= 6) {
       highlightTag = 'six';
-      built = buildBoundaryNotification(match, data, 'six');
-      title = built.title;
-      body = built.body;
-      notifType = 'six';
-    } else if (runs === 4) {
+    } else if (data.boundaryType === 'four' || runs === 4) {
       highlightTag = 'four';
-      built = buildBoundaryNotification(match, data, 'four');
-      title = built.title;
-      body = built.body;
-      notifType = 'four';
     }
 
-    if (title) {
+    if (highlightTag) {
       await db
         .collection('matches')
         .doc(matchId)
@@ -88,7 +102,7 @@ exports.onBallEventCreated = onDocumentCreated(
           highlightTag,
           eventType: type,
           runs,
-          commentary: body,
+          commentary: data.commentary || '',
           inningsNumber: data.inningsNumber || 1,
           overNumber: data.overNumber || 0,
           ballInOver: data.ballInOver || 0,
@@ -96,18 +110,46 @@ exports.onBallEventCreated = onDocumentCreated(
           timestamp: data.timestamp || new Date().toISOString(),
           createdAt: FieldValue.serverTimestamp(),
         });
+    }
 
-      await fanOutMatchNotification(db, matchId, match, built, notifType, {
+    if (type === 'wicket') {
+      const built = buildWicketNotification(match, data);
+      await fanOutMatchNotification(db, matchId, match, built, 'wicket', {
         eventType: type,
         sequence: String(data.sequence || ''),
-      });
+      }, { category: 'live_match', tab: 'live' });
+
+      try {
+        const isHatTrick = await detectHatTrick(matchId, data);
+        if (isHatTrick) {
+          const bowlerName =
+            data.lineupBowlerName ||
+            data.bowlerName ||
+            'Bowler';
+          const hatBuilt = buildHatTrickNotification(match, bowlerName);
+          await fanOutMatchNotification(
+            db,
+            matchId,
+            match,
+            hatBuilt,
+            'hat_trick',
+            { eventType: type, sequence: String(data.sequence || '') },
+            {
+              category: 'live_match',
+              tab: 'live',
+            },
+          );
+        }
+      } catch (err) {
+        console.warn('hat-trick detect failed', err.message);
+      }
     }
 
     const inn = currentInnings(match);
     if (inn) {
       const teamRuns = inn.totalRuns || 0;
       const prevTeamRuns = Math.max(0, teamRuns - runs);
-      const milestone = detectTeamMilestone(prevTeamRuns, teamRuns);
+      const milestone = detectMilestone(prevTeamRuns, teamRuns, TEAM_MILESTONES);
       if (milestone) {
         const mBuilt = buildTeamMilestoneNotification(match, milestone, inn);
         await fanOutMatchNotification(
@@ -116,6 +158,8 @@ exports.onBallEventCreated = onDocumentCreated(
           match,
           mBuilt,
           'team_milestone',
+          {},
+          { category: 'live_match', tab: 'live' },
         );
       }
 
@@ -126,27 +170,94 @@ exports.onBallEventCreated = onDocumentCreated(
         if (batsman) {
           const currentRuns = batsman.runs || 0;
           const prevRuns = Math.max(0, currentRuns - (data.batsmanRuns || 0));
-          const playerMilestone = detectPlayerMilestone(prevRuns, currentRuns);
+          const playerMilestone = detectMilestone(
+            prevRuns,
+            currentRuns,
+            BATTING_MILESTONES,
+          );
           if (playerMilestone) {
             const name =
               data.lineupStrikerName ||
               batsman.playerName ||
               data.strikerAfterBall ||
               'Batsman';
-            const balls = batsman.ballsFaced || 0;
-            const pBuilt = buildPlayerMilestoneNotification(
-              match,
-              name,
-              playerMilestone,
-              balls,
-              inn,
-            );
+            const balls = batsman.ballsFaced || batsman.balls || 0;
             await fanOutMatchNotification(
               db,
               matchId,
               match,
-              pBuilt,
+              buildPlayerMilestoneNotification(
+                match,
+                name,
+                playerMilestone,
+                balls,
+              ),
               'player_milestone',
+              {},
+              {
+                mode: 'subject',
+                subjectPlayerIds: [data.strikerId],
+                category: 'live_match',
+                tab: 'live',
+                personalize: (ctx, chosen) =>
+                  buildPlayerMilestoneNotification(
+                    match,
+                    name,
+                    playerMilestone,
+                    balls,
+                    chosen.perspective,
+                  ),
+              },
+            );
+          }
+        }
+      }
+
+      if (type === 'wicket' && data.bowlerId) {
+        const bowler = (inn.bowlers || []).find(
+          (b) => b.playerId === data.bowlerId,
+        );
+        if (bowler) {
+          const currentWkts = bowler.wickets || 0;
+          const prevWkts = Math.max(0, currentWkts - 1);
+          const bowlMilestone = detectMilestone(
+            prevWkts,
+            currentWkts,
+            BOWLING_MILESTONES,
+          );
+          if (bowlMilestone) {
+            const name =
+              data.lineupBowlerName ||
+              bowler.playerName ||
+              data.bowlerName ||
+              'Bowler';
+            const conceded = bowler.runsConceded || bowler.runs || 0;
+            await fanOutMatchNotification(
+              db,
+              matchId,
+              match,
+              buildBowlingMilestoneNotification(
+                match,
+                name,
+                bowlMilestone,
+                conceded,
+              ),
+              'bowling_milestone',
+              {},
+              {
+                mode: 'subject',
+                subjectPlayerIds: [data.bowlerId],
+                category: 'live_match',
+                tab: 'live',
+                personalize: (ctx, chosen) =>
+                  buildBowlingMilestoneNotification(
+                    match,
+                    name,
+                    bowlMilestone,
+                    conceded,
+                    chosen.perspective,
+                  ),
+              },
             );
           }
         }

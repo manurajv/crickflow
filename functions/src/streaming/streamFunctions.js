@@ -58,28 +58,30 @@ exports.onStreamStatusChanged = onDocumentUpdated(
 
     const matchId = event.params.matchId;
     if (nextStatus === 'live') {
+      const {
+        buildStreamStartedNotification,
+      } = require('../utils/notificationBuilder');
       await fanOutMatchNotification(
         db,
         matchId,
         after,
-        {
-          title: 'Live stream started',
-          body: `${after.title || 'Match'} is streaming now on CrickFlow`,
-          type: 'stream_started',
-        },
+        buildStreamStartedNotification(after),
         'stream_started',
+        {},
+        { category: 'streaming', tab: 'live' },
       );
     } else if (nextStatus === 'ended' && prevStatus === 'live') {
+      const {
+        buildStreamEndedNotification,
+      } = require('../utils/notificationBuilder');
       await fanOutMatchNotification(
         db,
         matchId,
         after,
-        {
-          title: 'Stream ended',
-          body: `Live stream for ${after.title || 'match'} has ended`,
-          type: 'stream_ended',
-        },
+        buildStreamEndedNotification(after),
         'stream_ended',
+        {},
+        { category: 'streaming', tab: 'summary' },
       );
     }
   },

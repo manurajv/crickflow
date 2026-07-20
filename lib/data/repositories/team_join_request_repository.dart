@@ -173,14 +173,15 @@ class TeamJoinRequestRepository {
 
     await ref.set(request.toMap());
 
-    final message = '${request.displayName} requested to join ${team.name}';
+    final message = '${request.displayName} requested to join ${team.name}.';
     await _notificationRepository.notifyTeamLeadership(
       team: team,
-      title: 'Join request',
+      title: 'Join Request',
       body: message,
       type: TeamNotificationTypes.joinRequest,
       playerId: userId,
       excludeUserId: userId,
+      category: 'team',
     );
 
     return request;
@@ -237,16 +238,17 @@ class TeamJoinRequestRepository {
     await ref.set(request.toMap());
 
     final body = inviter != null && inviter.isNotEmpty
-        ? '$inviter invited you to join ${team.name}'
-        : 'You were invited to join ${team.name}';
+        ? '$inviter invited you to Team ${team.name}.'
+        : 'You have been invited to Team ${team.name}.';
 
     await _notificationRepository.createNotification(
       userId: userId,
-      title: 'Team invitation',
+      title: 'Team Invitation',
       body: body,
       teamId: team.id,
       playerId: player.id,
       type: TeamNotificationTypes.invitation,
+      category: 'invitation',
       addedByUserId: invitedByUserId,
       requestId: userId,
     );
@@ -278,10 +280,11 @@ class TeamJoinRequestRepository {
 
     await _notificationRepository.createNotification(
       userId: request.userId,
-      title: 'Join request accepted',
-      body: 'You are now on ${team.name}',
+      title: 'Request Accepted',
+      body: 'You are now a member of Team ${team.name}.',
       teamId: team.id,
       type: TeamNotificationTypes.joinAccepted,
+      category: 'team',
     );
   }
 
@@ -302,10 +305,11 @@ class TeamJoinRequestRepository {
 
     await _notificationRepository.createNotification(
       userId: request.userId,
-      title: 'Join request declined',
-      body: 'Your request to join ${team.name} was declined',
+      title: 'Request Declined',
+      body: 'Your request to join Team ${team.name} was declined.',
       teamId: team.id,
       type: TeamNotificationTypes.joinRejected,
+      category: 'team',
     );
   }
 
@@ -338,19 +342,21 @@ class TeamJoinRequestRepository {
 
     await _notificationRepository.notifyTeamLeadership(
       team: team,
-      title: 'Invitation accepted',
-      body: '${request.displayName} joined ${team.name}',
+      title: 'Invitation Accepted',
+      body: '${request.displayName} joined Team ${team.name}.',
       type: TeamNotificationTypes.invitationAccepted,
       playerId: playerUid,
       excludeUserId: playerUid,
+      category: 'team',
     );
 
     await _notificationRepository.createNotification(
       userId: playerUid,
-      title: 'Welcome to the team',
-      body: 'You joined ${team.name}',
+      title: 'Welcome',
+      body: 'You joined Team ${team.name}.',
       teamId: team.id,
       type: TeamNotificationTypes.joinAccepted,
+      category: 'team',
     );
   }
 
@@ -376,11 +382,12 @@ class TeamJoinRequestRepository {
 
     await _notificationRepository.notifyTeamLeadership(
       team: team,
-      title: 'Invitation declined',
-      body: '${request.displayName} declined to join ${team.name}',
+      title: 'Invitation Declined',
+      body: '${request.displayName} declined to join Team ${team.name}.',
       type: TeamNotificationTypes.invitationRejected,
       playerId: playerUid,
       excludeUserId: playerUid,
+      category: 'team',
     );
   }
 }

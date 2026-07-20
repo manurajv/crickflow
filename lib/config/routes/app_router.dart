@@ -47,6 +47,7 @@ import '../../features/scoring/presentation/live_scoring_screen.dart';
 import '../../features/scoring/presentation/scorer_takeover_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/notification_settings_screen.dart';
+import '../../features/settings/presentation/legal_document_screen.dart';
 import '../../features/shell/presentation/main_shell_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/streaming/presentation/streaming_dashboard_screen.dart';
@@ -601,6 +602,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/notifications',
         builder: (_, __) => const NotificationSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/legal/privacy',
+        builder: (_, __) => const LegalDocumentScreen(
+          kind: LegalDocumentKind.privacyPolicy,
+        ),
+      ),
+      GoRoute(
+        path: '/legal/terms',
+        builder: (_, __) => const LegalDocumentScreen(
+          kind: LegalDocumentKind.termsOfService,
+        ),
       ),
       GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
       GoRoute(

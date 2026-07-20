@@ -36,6 +36,9 @@ exports.onMatchRevisionCreated = onDocumentCreated(
       return;
     }
 
-    await fanOutMatchNotification(db, matchId, match, built, notifType);
+    await fanOutMatchNotification(db, matchId, match, built, notifType, {}, {
+      category: 'match',
+      tab: 'live',
+    });
   },
 );
