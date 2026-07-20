@@ -192,9 +192,17 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
       );
       return;
     }
+    final coords = GeoCoords(latitude: _pinLat, longitude: _pinLng);
     Navigator.pop(
       context,
-      GroundPickResult(groundName: name, location: _resolvedLocation),
+      GroundPickResult(
+        groundName: name,
+        location: _resolvedLocation.copyWith(
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        ),
+        coords: coords,
+      ),
     );
   }
 

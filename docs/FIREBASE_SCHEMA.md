@@ -10,7 +10,7 @@
 | phoneNumber | string? | |
 | photoUrl | string? | |
 | role | string | player, scorer, umpire, organizer, viewer |
-| location | map | country, stateProvince, city |
+| location | map | country, stateProvince, district?, city, latitude?, longitude? |
 | stats | map | matchesPlayed, matchesScored, tournamentsOrganized |
 | badgeIds | array | |
 | achievementIds | array | |
@@ -181,6 +181,23 @@ Real-time overlay payload for stream graphics.
 | body | string |
 | matchId | string? |
 | read | boolean |
+
+### `home_promotions/{promoId}`
+Admin-managed Home carousel creatives (ads + announcements). Public read; platform-admin write.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| kind | string | `advertisement` \| `announcement` |
+| title | string | |
+| description | string | |
+| imageUrl | string | Storage download URL |
+| buttonText | string | CTA label |
+| redirectAction | string | `url` \| `route` \| `none` |
+| redirectUrl | string | https URL or in-app path |
+| priority | number | Higher sorts first |
+| active | boolean | |
+| expiresAt | timestamp? | |
+| createdAt | timestamp? | |
 
 ## Indexes (recommended)
 

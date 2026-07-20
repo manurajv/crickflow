@@ -749,6 +749,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    /// Home carousel: admin ads + announcements. Public read; admin write.
+    match /home_promotions/{promoId} {
+      allow read: if true;
+      allow create, update, delete: if isPlatformAdmin();
+    }
+
     match /teams/{teamId} {
       allow read: if true;
       allow create: if isSignedIn()

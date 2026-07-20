@@ -10,6 +10,8 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
 import '../../../shared/widgets/location_filter_bar.dart';
 import '../../../shared/widgets/match_list_card.dart';
+import '../../../shared/widgets/ads/cf_banner_ad.dart';
+import '../../../config/admob_config.dart';
 import '../../community/community_post_ui.dart';
 
 /// Location-aware discovery: matches, tournaments, teams, recruitment.
@@ -224,6 +226,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               label: const Text('All players'),
             ),
           ),
+          const CfBannerAd(placement: AdPlacement.matchList),
         ],
       ),
     );

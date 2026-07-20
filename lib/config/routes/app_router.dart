@@ -9,6 +9,8 @@ import '../../features/fantasy/presentation/fantasy_league_screen.dart';
 import '../../features/fantasy/presentation/fantasy_screen.dart';
 import '../../features/fantasy/presentation/fantasy_squad_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/search/presentation/search_screen.dart';
+import '../../features/search/presentation/search_results_screen.dart';
 import '../../features/matches/presentation/add_match_official_screen.dart';
 import '../../features/matches/presentation/match_officials_screen.dart';
 import '../../features/matches/presentation/match_team_roles_screen.dart';
@@ -216,6 +218,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/player-onboarding',
         builder: (_, __) => const PlayerOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/search',
+        builder: (_, __) => const SearchScreen(),
+        routes: [
+          GoRoute(
+            path: 'results',
+            builder: (_, __) => const SearchResultsScreen(),
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

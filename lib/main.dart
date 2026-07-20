@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,7 @@ import 'app.dart';
 import 'config/firebase_options.dart';
 import 'core/firebase/firebase_bootstrap.dart';
 import 'data/local/match_local_store.dart';
+import 'data/services/admob_service.dart';
 import 'data/services/connectivity_service.dart';
 import 'data/services/theme_service.dart';
 import 'shared/providers/offline_sync_provider.dart';
@@ -17,6 +20,8 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirebaseBootstrap.configure();
+  // Non-blocking — ads must never delay app start.
+  unawaited(AdMobService.initialize());
 
   final matchLocalStore = MatchLocalStore();
   await matchLocalStore.init();

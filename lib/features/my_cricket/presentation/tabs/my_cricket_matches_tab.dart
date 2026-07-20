@@ -119,7 +119,16 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 16),
                   itemCount: list.length,
-                  itemBuilder: (_, i) => MatchListCard(match: list[i]),
+                  itemBuilder: (_, i) {
+                    final match = list[i];
+                    final attribution = _scope == MyCricketListScope.network
+                        ? networkMatchAttribution(match, following)
+                        : null;
+                    return MatchListCard(
+                      match: match,
+                      attributionLabel: attribution,
+                    );
+                  },
                 );
               },
               loading: () =>

@@ -21,17 +21,25 @@ class MatchListCard extends ConsumerWidget {
     required this.match,
     this.tournamentLabel,
     this.matchTypeLabel,
+    this.attributionLabel,
     this.showQuickLinks = true,
     this.showTournamentHeader = true,
     this.showRoundBadge = true,
+    this.margin = const EdgeInsets.symmetric(
+      horizontal: AppDimens.spaceMd,
+      vertical: AppDimens.spaceXs,
+    ),
   });
 
   final MatchModel match;
   final String? tournamentLabel;
   final String? matchTypeLabel;
+  /// e.g. Network feed: "Alex's match"
+  final String? attributionLabel;
   final bool showQuickLinks;
   final bool showTournamentHeader;
   final bool showRoundBadge;
+  final EdgeInsetsGeometry margin;
 
   bool get _isUpcoming => MatchLifecycle.isUpcoming(match);
 
@@ -57,12 +65,10 @@ class MatchListCard extends ConsumerWidget {
     final effectiveMatchTypeLabel = matchTypeLabel ?? stageLabel;
 
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spaceMd,
-        vertical: AppDimens.spaceXs,
-      ),
+      margin: margin,
       decoration: matchListCardDecoration(match, context),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Material(
@@ -85,6 +91,7 @@ class MatchListCard extends ConsumerWidget {
                   tournamentLabel: tournamentHeader,
                   matchTypeLabel: effectiveMatchTypeLabel,
                   roundLabel: roundLabel,
+                  attributionLabel: attributionLabel,
                   teamALogoUrl: teamA?.profileImageUrl,
                   teamBLogoUrl: teamB?.profileImageUrl,
                 ),
@@ -210,10 +217,6 @@ class MatchListCard extends ConsumerWidget {
           label: 'Scorecard',
           onTap: () => context.push('/match/${match.id}?tab=scorecard'),
         ),
-        _LinkButton(
-          label: 'Insights',
-          onTap: () => context.push('/match/${match.id}?tab=insights'),
-        ),
       ];
     }
     if (_isCompleted) {
@@ -221,10 +224,6 @@ class MatchListCard extends ConsumerWidget {
         _LinkButton(
           label: 'Scorecard',
           onTap: () => context.push('/match/${match.id}?tab=scorecard'),
-        ),
-        _LinkButton(
-          label: 'Insights',
-          onTap: () => context.push('/match/${match.id}?tab=insights'),
         ),
         _LinkButton(
           label: 'Leaderboard',

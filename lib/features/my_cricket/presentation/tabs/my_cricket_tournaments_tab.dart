@@ -137,8 +137,12 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
                   itemCount: list.length,
                   itemBuilder: (_, i) {
                     final t = list[i];
+                    final attribution = _scope == MyCricketListScope.network
+                        ? networkTournamentAttribution(t, following)
+                        : null;
                     return TournamentListCard(
                       tournament: t,
+                      attributionLabel: attribution,
                       onTap: () => _openTournament(t),
                       trailing: t.tournamentCode != null
                           ? Text(

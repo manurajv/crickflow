@@ -109,7 +109,13 @@ class GoogleMapsLocationService {
     final components =
         first['address_components'] as List<dynamic>? ?? const [];
     final location = _parseAddressComponents(components);
-    return ResolvedPlace(location: location, coords: coords);
+    return ResolvedPlace(
+      location: location.copyWith(
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      ),
+      coords: coords,
+    );
   }
 
   Future<ResolvedPlace> _reverseGeocodeDevice(GeoCoords coords) async {
@@ -128,6 +134,8 @@ class GoogleMapsLocationService {
         city: p.locality?.isNotEmpty == true
             ? p.locality!
             : (p.subAdministrativeArea ?? p.subLocality ?? ''),
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       ),
       coords: coords,
     );
@@ -197,7 +205,10 @@ class GoogleMapsLocationService {
       longitude: (loc?['lng'] as num?)?.toDouble() ?? _defaultCoords.longitude,
     );
     return ResolvedPlace(
-      location: _parseAddressComponents(components),
+      location: _parseAddressComponents(components).copyWith(
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      ),
       coords: coords,
     );
   }

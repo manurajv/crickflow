@@ -54,7 +54,9 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>CrickFlow saves your live-stream recordings to your photo library.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>CrickFlow uses your location to set your country, province, and city on your player profile.</string>
+	<string>CrickFlow uses your location to show matches near you and to set your country, province, and city on your player profile.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

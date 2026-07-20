@@ -77,6 +77,11 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="team_join_requests" />
+        <!-- AdMob app ID — use Google test ID until production units are created.
+             Production: replace with ca-app-pub-XXXX~YYYY from AdMob console. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -3,13 +3,28 @@
 
 
 
-**Last updated:** Settings polish (routing, confirmations, privacy, Mavixas)  
+**Last updated:** Home discovery redesign (nearby matches, promotions, AdMob, unified search)  
 
 **Firebase project:** `crickflow-b06bc`  
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Home discovery redesign)
+
+| Item | Status |
+|------|--------|
+| **Matches Near You** — GPS (~30 km) horizontal cards; city/state fallback when permission denied or no geo-tagged matches | Done — `MatchesNearYouSection`, `nearbyMatchesProvider` |
+| **Optional match geo** — `LocationModel.latitude` / `longitude` persisted from ground picker / Places | Done — backward compatible |
+| **Promotions carousel** — admin ads + announcements + AdMob native slot | Done — `home_promotions` collection, `HomePromotionsCarousel` |
+| **AdMob** — `google_mobile_ads`, test/prod switch (`AdMobConfig.forceTestAds`), banners on Home/Discover/Search; blocked on scoring/streaming/auth/create | Done — init in `main.dart`; Android/iOS app IDs (test) |
+| **Unified search** — AppBar search → autofocus screen, recent chips (SharedPreferences), category suggestions, filter tabs, ranked results | Done — `/search`, `/search/results` |
+| **Home layout** — Nearby → Promotions → Live / Upcoming / Recent → Tournaments → banner | Done — existing auth/nav/FAB preserved |
+| Deploy Firestore rules for `home_promotions` | Pending — `.\scripts\deploy-firebase.ps1` |
+| Replace AdMob test IDs with production units | Pending — set `AdMobConfig.forceTestAds = false` + real IDs |
 
 ---
 

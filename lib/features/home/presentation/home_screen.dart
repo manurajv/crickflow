@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../config/admob_config.dart';
 import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/enums.dart';
-import '../../../domain/scoring/match_lifecycle.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/user_model.dart';
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/widgets/location_filter_bar.dart';
-import '../../../shared/widgets/match_list_card.dart';
+import '../../../shared/widgets/ads/cf_banner_ad.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
+import 'widgets/home_promotions_carousel.dart';
+import 'widgets/matches_near_you_section.dart';
+import 'widgets/nearby_tournaments_section.dart';
+import '../providers/nearby_matches_provider.dart';
+import '../providers/nearby_tournaments_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,9 +25,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  String _filterCountry = '';
-  String _filterCity = '';
-
   @override
   void initState() {
     super.initState();
@@ -40,7 +41,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    final matchesAsync = ref.watch(matchesProvider);
     final uid = ref.watch(authStateProvider).value?.uid;
     final isGuest = uid == null;
     final profileAsync = ref.watch(currentUserProfileProvider);
@@ -48,7 +48,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final role = profile?.role ?? UserRole.organizer;
     final isViewer = !isGuest && role == UserRole.viewer;
     final showCreateUi = isGuest || !isViewer;
-    final unreadCount = ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
+    final unreadCount =
+        ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
 
     Future<void> openCreateMatch() async {
       await requireAuthVoid(
@@ -74,6 +75,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             )
           : null,
       actions: [
+        IconButton(
+          tooltip: 'Search',
+          icon: const Icon(Icons.search),
+          onPressed: () => context.push('/search'),
+        ),
         IconButton(
           onPressed: () {
             requireAuthVoid(
@@ -103,97 +109,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ],
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(matchesProvider),
+        onRefresh: () async {
+          ref.invalidate(matchesProvider);
+          ref.invalidate(tournamentsProvider);
+          ref.invalidate(nearbyMatchesProvider);
+          ref.invalidate(nearbyTournamentsProvider);
+          ref.invalidate(homePromotionsProvider);
+        },
         child: ListView(
           padding: const EdgeInsets.only(bottom: 88),
           children: [
             _WelcomeHeader(profileAsync: profileAsync, isGuest: isGuest),
             if (isViewer) _viewerBanner(context),
-            LocationFilterBar(
-              onFilterChanged: (country, city) {
-                setState(() {
-                  _filterCountry = country;
-                  _filterCity = city;
-                });
-              },
-            ),
-            matchesAsync.when(
-              data: (matches) {
-                final filtered = matches
-                    .where(
-                      (m) => locationMatchesFilter(
-                        m.location,
-                        _filterCountry,
-                        _filterCity,
-                      ),
-                    )
-                    .toList();
-
-                if (filtered.isEmpty) {
-                  return _emptyState(
-                    context,
-                    showCreateUi
-                        ? 'No matches here yet. Start your first match.'
-                        : 'No matches match your filters.',
-                    action: showCreateUi
-                        ? FilledButton(
-                            onPressed: openCreateMatch,
-                            child: const Text('Start match'),
-                          )
-                        : null,
-                  );
-                }
-
-                final live = filtered
-                    .where(MatchLifecycle.isEffectivelyLive)
-                    .toList();
-                final rest = filtered
-                    .where((m) => !MatchLifecycle.isEffectivelyLive(m))
-                    .take(10)
-                    .toList();
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (live.isNotEmpty) ...[
-                      _SectionHeader(
-                        title: 'Live now',
-                        trailing: live.length > 3
-                            ? Text(
-                                '${live.length} matches',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: cf.statusLive),
-                              )
-                            : null,
-                      ),
-                      ...live.take(5).map(
-                            (m) => MatchListCard(match: m),
-                          ),
-                    ],
-                    _SectionHeader(
-                      title: live.isEmpty ? 'Matches' : 'Recent',
-                      trailing: TextButton(
-                        onPressed: () => context.go('/matches'),
-                        child: const Text('My Cricket'),
-                      ),
-                    ),
-                    ...rest.map(
-                      (m) => MatchListCard(match: m),
-                    ),
-                  ],
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.all(AppDimens.spaceXl),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, _) => Padding(
-                padding: const EdgeInsets.all(AppDimens.spaceMd),
-                child: Text('Error loading matches: $e'),
-              ),
-            ),
+            const MatchesNearYouSection(),
+            const HomePromotionsCarousel(),
+            const NearbyTournamentsSection(),
+            const CfBannerAd(placement: AdPlacement.home),
           ],
         ),
       ),
@@ -219,37 +150,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: const Text('Profile'),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _emptyState(
-    BuildContext context,
-    String message, {
-    Widget? action,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(AppDimens.spaceXl),
-      child: Column(
-        children: [
-          Icon(
-            Icons.sports_cricket,
-            size: 48,
-            color: context.cf.textMuted.withValues(alpha: 0.6),
-          ),
-          const SizedBox(height: AppDimens.spaceMd),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: context.cf.textSecondary,
-                ),
-          ),
-          if (action != null) ...[
-            const SizedBox(height: AppDimens.spaceLg),
-            action,
-          ],
-        ],
       ),
     );
   }
@@ -307,7 +207,7 @@ class _WelcomeHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Score live, follow matches, stream to fans.',
+                  'Discover nearby matches, live scores, and tournaments.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white70,
                       ),
@@ -328,32 +228,6 @@ class _WelcomeHeader extends StatelessWidget {
               size: 28,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.trailing});
-
-  final String title;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppDimens.spaceMd,
-        AppDimens.spaceMd,
-        AppDimens.spaceMd,
-        AppDimens.spaceXs,
-      ),
-      child: Row(
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const Spacer(),
-          ?trailing,
         ],
       ),
     );

@@ -13,30 +13,39 @@ class TournamentListCard extends StatelessWidget {
     required this.tournament,
     this.onTap,
     this.trailing,
+    this.attributionLabel,
+    this.margin = const EdgeInsets.symmetric(
+      horizontal: AppDimens.spaceMd,
+      vertical: AppDimens.spaceXs,
+    ),
   });
 
   final TournamentModel tournament;
   final VoidCallback? onTap;
   final Widget? trailing;
+  /// e.g. Network feed: "Alex's tournament"
+  final String? attributionLabel;
+  final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
     final status = _statusLabel(tournament.status);
 
     return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spaceMd,
-        vertical: AppDimens.spaceXs,
-      ),
+      margin: margin,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Stack(
               children: [
-                _Banner(tournament: tournament),
+                _Banner(
+                  tournament: tournament,
+                  attributionLabel: attributionLabel,
+                ),
                 Positioned(
                   top: 8,
                   right: 8,
@@ -133,12 +142,17 @@ class TournamentListCard extends StatelessWidget {
 }
 
 class _Banner extends StatelessWidget {
-  const _Banner({required this.tournament});
+  const _Banner({
+    required this.tournament,
+    this.attributionLabel,
+  });
 
   final TournamentModel tournament;
+  final String? attributionLabel;
 
   @override
   Widget build(BuildContext context) {
+    final attribution = attributionLabel?.trim();
     return SizedBox(
       height: 120,
       child: Stack(
@@ -171,6 +185,21 @@ class _Banner extends StatelessWidget {
               ),
             ),
           ),
+          if (attribution != null && attribution.isNotEmpty)
+            Positioned(
+              left: 12,
+              top: 10,
+              right: 100,
+              child: Text(
+                attribution,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.gold,
+                      fontWeight: FontWeight.w700,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           Positioned(
             left: 12,
             right: 12,

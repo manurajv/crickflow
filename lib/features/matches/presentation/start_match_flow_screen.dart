@@ -159,15 +159,16 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
       _cityController.text = result.location.city;
     }
     final notifier = ref.read(startMatchDraftProvider.notifier);
+    final picked = result.location.copyWith(
+      city: result.location.city.isNotEmpty
+          ? result.location.city
+          : draft.location.city,
+      latitude: result.coords?.latitude ?? result.location.latitude,
+      longitude: result.coords?.longitude ?? result.location.longitude,
+    );
     notifier
       ..updateVenue(result.groundName)
-      ..updateLocation(
-        result.location.copyWith(
-          city: result.location.city.isNotEmpty
-              ? result.location.city
-              : draft.location.city,
-        ),
-      );
+      ..updateLocation(picked);
   }
 
   void _applyGroundLocation(LocationModel location) {

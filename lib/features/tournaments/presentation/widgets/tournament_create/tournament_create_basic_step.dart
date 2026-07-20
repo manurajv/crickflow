@@ -132,7 +132,11 @@ class _TournamentCreateBasicStepState
       },
     );
     if (result == null || !mounted) return;
-    _addGround(result.groundName, location: result.location);
+    final loc = result.location.copyWith(
+      latitude: result.coords?.latitude ?? result.location.latitude,
+      longitude: result.coords?.longitude ?? result.location.longitude,
+    );
+    _addGround(result.groundName, location: loc);
   }
 
   @override

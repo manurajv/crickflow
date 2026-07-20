@@ -8,6 +8,7 @@ import '../../domain/scoring/match_lifecycle.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/match_score_display.dart';
 import '../../core/utils/overs_formatter.dart';
+import '../../core/utils/venue_maps_utils.dart';
 import '../../data/models/match_model.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
@@ -30,6 +31,7 @@ class MatchCardContent extends StatelessWidget {
     this.tournamentLabel,
     this.matchTypeLabel,
     this.roundLabel,
+    this.attributionLabel,
     this.showFooterHint = true,
     this.showChaseDetails = true,
     this.showTossLine = false,
@@ -42,6 +44,8 @@ class MatchCardContent extends StatelessWidget {
   final String? tournamentLabel;
   final String? matchTypeLabel;
   final String? roundLabel;
+  /// Shown at top (e.g. Network: "Alex's match").
+  final String? attributionLabel;
   final bool showFooterHint;
   final bool showChaseDetails;
   final bool showTossLine;
@@ -92,6 +96,19 @@ class MatchCardContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (attributionLabel != null &&
+            attributionLabel!.trim().isNotEmpty) ...[
+          Text(
+            attributionLabel!.trim(),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: _isHero ? Colors.white.withValues(alpha: 0.9) : cf.accent,
+                  fontWeight: FontWeight.w700,
+                ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+        ],
         if (tournamentLabel != null && tournamentLabel!.trim().isNotEmpty ||
             (_isUpcoming &&
                 roundLabel != null &&
@@ -127,13 +144,10 @@ class MatchCardContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        Text(
-          matchCardMetaLine(match),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: mutedColor,
-              ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        _MatchCardMetaLine(
+          match: match,
+          mutedColor: mutedColor,
+          isHero: _isHero,
         ),
         const SizedBox(height: AppDimens.spaceMd),
         if (_isUpcoming) ...[
@@ -608,6 +622,96 @@ String matchTypeDisplayLabel(MatchModel match) {
   if (lower.contains('friendly')) return 'Friendly Match';
   if (lower.contains('league')) return 'League Match';
   return 'Individual Match';
+}
+
+/// Date · overs · tappable venue (opens Google Maps).
+class _MatchCardMetaLine extends StatelessWidget {
+  const _MatchCardMetaLine({
+    required this.match,
+    required this.mutedColor,
+    required this.isHero,
+  });
+
+  final MatchModel match;
+  final Color mutedColor;
+  final bool isHero;
+
+  String? get _venueQuery {
+    if (match.venue.trim().isNotEmpty) return match.venue.trim();
+    if (match.location.displayLabel.isNotEmpty) {
+      return match.location.displayLabel;
+    }
+    return null;
+  }
+
+  Future<void> _openMaps(BuildContext context) async {
+    final query = _venueQuery;
+    if (query == null) return;
+    final ok = await openVenueInGoogleMaps(query: query);
+    if (!context.mounted || ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open Google Maps')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: mutedColor,
+        );
+    final parts = <InlineSpan>[];
+    final date = match.scheduledAt ?? match.startedAt ?? match.completedAt;
+    if (date != null) {
+      parts.add(TextSpan(text: AppDateUtils.formatCardDate(date)));
+    }
+    if (parts.isNotEmpty) {
+      parts.add(TextSpan(text: ' | ', style: style));
+    }
+    parts.add(TextSpan(text: '${match.rules.totalOvers} Ov.'));
+
+    final venue = _venueQuery;
+    if (venue != null) {
+      parts.add(TextSpan(text: ' | ', style: style));
+      parts.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: GestureDetector(
+            onTap: () => _openMaps(context),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.location_on_outlined,
+                  size: 14,
+                  color: isHero ? Colors.white70 : mutedColor,
+                ),
+                const SizedBox(width: 2),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: Text(
+                    venue,
+                    style: style?.copyWith(
+                      decoration: TextDecoration.underline,
+                      decorationColor: mutedColor.withValues(alpha: 0.6),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Text.rich(
+      TextSpan(style: style, children: parts),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
 }
 
 String matchCardMetaLine(MatchModel match) {

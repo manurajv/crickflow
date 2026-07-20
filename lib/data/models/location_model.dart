@@ -6,6 +6,8 @@ class LocationModel extends Equatable {
     this.stateProvince = '',
     this.district = '',
     this.city = '',
+    this.latitude,
+    this.longitude,
   });
 
   final String country;
@@ -13,11 +15,22 @@ class LocationModel extends Equatable {
   final String district;
   final String city;
 
+  /// Optional GPS from ground picker / reverse geocode. Null for legacy docs.
+  final double? latitude;
+  final double? longitude;
+
   bool get isEmpty =>
       country.isEmpty &&
       stateProvince.isEmpty &&
       district.isEmpty &&
-      city.isEmpty;
+      city.isEmpty &&
+      !hasCoordinates;
+
+  bool get hasCoordinates =>
+      latitude != null &&
+      longitude != null &&
+      latitude!.isFinite &&
+      longitude!.isFinite;
 
   String get displayLabel {
     final parts =
@@ -32,6 +45,10 @@ class LocationModel extends Equatable {
       stateProvince: map['stateProvince'] as String? ?? '',
       district: map['district'] as String? ?? '',
       city: map['city'] as String? ?? '',
+      latitude: (map['latitude'] as num?)?.toDouble() ??
+          (map['lat'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble() ??
+          (map['lng'] as num?)?.toDouble(),
     );
   }
 
@@ -40,6 +57,8 @@ class LocationModel extends Equatable {
         'stateProvince': stateProvince,
         'district': district,
         'city': city,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
       };
 
   LocationModel copyWith({
@@ -47,15 +66,21 @@ class LocationModel extends Equatable {
     String? stateProvince,
     String? district,
     String? city,
+    double? latitude,
+    double? longitude,
+    bool clearCoordinates = false,
   }) {
     return LocationModel(
       country: country ?? this.country,
       stateProvince: stateProvince ?? this.stateProvince,
       district: district ?? this.district,
       city: city ?? this.city,
+      latitude: clearCoordinates ? null : (latitude ?? this.latitude),
+      longitude: clearCoordinates ? null : (longitude ?? this.longitude),
     );
   }
 
   @override
-  List<Object?> get props => [country, stateProvince, district, city];
+  List<Object?> get props =>
+      [country, stateProvince, district, city, latitude, longitude];
 }
