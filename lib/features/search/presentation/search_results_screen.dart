@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/admob_config.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
-import '../../../shared/widgets/ads/cf_banner_ad.dart';
+import '../../../shared/widgets/ads/cf_sticky_banner_ad.dart';
 import '../domain/search_models.dart';
 import '../providers/search_providers.dart';
 import 'widgets/search_result_cards.dart';
@@ -61,6 +61,10 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
           },
         ),
       ),
+      // Same sticky banner as Home / Discover — native ads often fail/clip here.
+      bottomNavigationBar: const CfStickyBannerAd(
+        placement: AdPlacement.searchResults,
+      ),
       body: Column(
         children: [
           SizedBox(
@@ -113,13 +117,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: result.hits.length + 1,
+                  itemCount: result.hits.length,
                   itemBuilder: (context, index) {
-                    if (index == result.hits.length) {
-                      return const CfBannerAd(
-                        placement: AdPlacement.searchResults,
-                      );
-                    }
                     return SearchResultCard(hit: result.hits[index]);
                   },
                 );

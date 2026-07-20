@@ -18,6 +18,7 @@
         android:label="CrickFlow"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:hardwareAccelerated="true"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         tools:replace="android:appComponentFactory">
         <activity
@@ -77,11 +78,11 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="team_join_requests" />
-        <!-- AdMob app ID — use Google test ID until production units are created.
-             Production: replace with ca-app-pub-XXXX~YYYY from AdMob console. -->
+        <!-- AdMob App ID (required). android:name must stay APPLICATION_ID.
+             Use your AdMob app ID here; keep test ad *unit* IDs in AdMobConfig until release. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="ca-app-pub-7062464075957292~8431810313"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

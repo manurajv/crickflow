@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../config/admob_config.dart';
 import '../../../core/utils/match_share_utils.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -16,6 +17,7 @@ import '../../../shared/providers/match_live_provider.dart';
 import '../../../shared/providers/match_summary_provider.dart';
 import '../../../shared/providers/match_upcoming_provider.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/ads/cf_sticky_banner_ad.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../../shared/widgets/cf_marquee_text.dart';
 import '../../../shared/widgets/match_stream_watch_section.dart';
@@ -342,6 +344,10 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
               ),
             ),
           ],
+        ),
+        // Shared across Info / Live / Summary / Scorecard / … — does not scroll.
+        bottomNavigationBar: const CfStickyBannerAd(
+          placement: AdPlacement.matchHub,
         ),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

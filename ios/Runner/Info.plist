@@ -56,7 +56,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CrickFlow uses your location to show matches near you and to set your country, province, and city on your player profile.</string>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-7062464075957292~9925569399</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

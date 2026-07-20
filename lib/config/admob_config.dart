@@ -10,8 +10,8 @@ abstract final class AdMobConfig {
   static const iosTestAppId = 'ca-app-pub-3940256099942544~1458002511';
 
   /// Production app IDs — set before release. Until then, test IDs are used.
-  static const androidProdAppId = 'ca-app-pub-3940256099942544~3347511713';
-  static const iosProdAppId = 'ca-app-pub-3940256099942544~1458002511';
+  static const androidProdAppId = 'ca-app-pub-7062464075957292~8431810313';
+  static const iosProdAppId = 'ca-app-pub-7062464075957292~9925569399';
 
   static const androidTestBanner = 'ca-app-pub-3940256099942544/6300978111';
   static const iosTestBanner = 'ca-app-pub-3940256099942544/2934735716';
@@ -19,10 +19,10 @@ abstract final class AdMobConfig {
   static const iosTestNative = 'ca-app-pub-3940256099942544/3986624511';
 
   /// Production unit IDs — replace with real AdMob units before release.
-  static const androidProdBanner = 'ca-app-pub-3940256099942544/6300978111';
-  static const iosProdBanner = 'ca-app-pub-3940256099942544/2934735716';
-  static const androidProdNative = 'ca-app-pub-3940256099942544/2247696110';
-  static const iosProdNative = 'ca-app-pub-3940256099942544/3986624511';
+  static const androidProdBanner = 'ca-app-pub-7062464075957292/6280169559';
+  static const iosProdBanner = 'ca-app-pub-7062464075957292/6860688280';
+  static const androidProdNative = 'ca-app-pub-7062464075957292/7930227377';
+  static const iosProdNative = 'ca-app-pub-7062464075957292/2921443271';
 
   /// When true, always use Google test units (also forced in [kDebugMode]).
   static const forceTestAds = true;
@@ -48,6 +48,7 @@ abstract final class AdMobConfig {
 enum AdPlacement {
   home,
   matchList,
+  matchHub,
   tournamentList,
   teamList,
   profile,

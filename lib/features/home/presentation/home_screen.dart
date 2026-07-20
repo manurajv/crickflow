@@ -9,7 +9,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/user_model.dart';
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/widgets/ads/cf_banner_ad.dart';
+import '../../../shared/widgets/ads/cf_sticky_banner_ad.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
 import 'widgets/home_promotions_carousel.dart';
 import 'widgets/matches_near_you_section.dart';
@@ -47,33 +47,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final profile = profileAsync.valueOrNull;
     final role = profile?.role ?? UserRole.organizer;
     final isViewer = !isGuest && role == UserRole.viewer;
-    final showCreateUi = isGuest || !isViewer;
     final unreadCount =
         ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
 
-    Future<void> openCreateMatch() async {
-      await requireAuthVoid(
-        context: context,
-        ref: ref,
-        returnPath: '/match/create',
-        action: () async {
-          if (context.mounted) context.push('/match/create');
-        },
-      );
-    }
-
     return ShellTabScaffold(
       title: const Text('CrickFlow'),
-      floatingActionButton: showCreateUi
-          ? FloatingActionButton.extended(
-              heroTag: 'home_new_match_fab',
-              onPressed: openCreateMatch,
-              backgroundColor: cf.fabBackground,
-              foregroundColor: cf.fabForeground,
-              icon: const Icon(Icons.add),
-              label: const Text('New Match'),
-            )
-          : null,
       actions: [
         IconButton(
           tooltip: 'Search',
@@ -108,6 +86,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onPressed: () => context.push('/settings'),
         ),
       ],
+      // Pinned above the shell NavigationBar; does not scroll with content.
+      bottomNavigationBar: const CfStickyBannerAd(
+        placement: AdPlacement.home,
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(matchesProvider);
@@ -117,14 +99,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ref.invalidate(homePromotionsProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.only(bottom: 88),
+          padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
           children: [
             _WelcomeHeader(profileAsync: profileAsync, isGuest: isGuest),
             if (isViewer) _viewerBanner(context),
             const MatchesNearYouSection(),
             const HomePromotionsCarousel(),
             const NearbyTournamentsSection(),
-            const CfBannerAd(placement: AdPlacement.home),
           ],
         ),
       ),

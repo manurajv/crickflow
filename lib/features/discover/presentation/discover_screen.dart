@@ -10,7 +10,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
 import '../../../shared/widgets/location_filter_bar.dart';
 import '../../../shared/widgets/match_list_card.dart';
-import '../../../shared/widgets/ads/cf_banner_ad.dart';
+import '../../../shared/widgets/ads/cf_sticky_banner_ad.dart';
 import '../../../config/admob_config.dart';
 import '../../community/community_post_ui.dart';
 
@@ -60,6 +60,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
 
     return ShellTabScaffold(
       title: const Text('Discover'),
+      bottomNavigationBar: const CfStickyBannerAd(
+        placement: AdPlacement.matchList,
+      ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
         children: [
@@ -226,7 +229,6 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               label: const Text('All players'),
             ),
           ),
-          const CfBannerAd(placement: AdPlacement.matchList),
         ],
       ),
     );

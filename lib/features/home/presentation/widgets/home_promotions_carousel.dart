@@ -8,7 +8,6 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/home_promotion_model.dart';
 import '../../../../data/repositories/home_promotion_repository.dart';
-import '../../../../shared/widgets/ads/cf_native_ad.dart';
 
 final homePromotionRepositoryProvider = Provider(
   (ref) => HomePromotionRepository(),
@@ -21,7 +20,7 @@ final homePromotionsProvider =
   return ref.watch(homePromotionRepositoryProvider).watchActivePromotions();
 });
 
-/// Mixed carousel: admin ads/announcements + optional AdMob native slot.
+/// Admin ads / announcements carousel (no AdMob native slot — banners stay sticky).
 class HomePromotionsCarousel extends ConsumerStatefulWidget {
   const HomePromotionsCarousel({super.key});
 
@@ -47,32 +46,9 @@ class _HomePromotionsCarouselState
 
     return async.when(
       loading: () => const _PromoSkeleton(),
-      error: (_, _) => const Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: AppDimens.spaceMd,
-          vertical: AppDimens.spaceSm,
-        ),
-        child: CfNativeAdCard(width: double.infinity, height: 148),
-      ),
+      error: (_, _) => const SizedBox.shrink(),
       data: (promos) {
-        final pages = <Widget>[
-          ...promos.map((p) => _PromotionSlide(promo: p)),
-          const Padding(
-            padding: EdgeInsets.only(right: AppDimens.spaceSm),
-            child: CfNativeAdCard(width: double.infinity, height: 148),
-          ),
-        ];
-
-        if (promos.isEmpty) {
-          // Native ad only — no chrome when admin carousel is empty.
-          return const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppDimens.spaceMd,
-              vertical: AppDimens.spaceSm,
-            ),
-            child: CfNativeAdCard(width: double.infinity, height: 148),
-          );
-        }
+        if (promos.isEmpty) return const SizedBox.shrink();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,17 +69,17 @@ class _HomePromotionsCarouselState
               height: 156,
               child: PageView.builder(
                 controller: _controller,
-                itemCount: pages.length,
+                itemCount: promos.length,
                 onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (_, i) => pages[i],
+                itemBuilder: (_, i) => _PromotionSlide(promo: promos[i]),
               ),
             ),
-            if (pages.length > 1)
+            if (promos.length > 1)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(pages.length, (i) {
+                  children: List.generate(promos.length, (i) {
                     final active = i == _page;
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 200),

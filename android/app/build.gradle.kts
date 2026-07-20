@@ -81,6 +81,8 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Helps GMA obtain a JS engine on newer Android / Samsung WebView builds.
+    implementation("androidx.javascriptengine:javascriptengine:1.0.0")
 }
 
 // rtmp_broadcaster pulls legacy support libraries; keep AndroidX-only classpath.
