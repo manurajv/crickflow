@@ -14,18 +14,22 @@ class FielderPickerSheet extends StatefulWidget {
     required this.players,
     required this.scrollController,
     this.excludeIds = const {},
+    this.currentWicketKeeperId,
   });
 
   final String title;
   final List<LineupPlayer> players;
   final ScrollController scrollController;
   final Set<String> excludeIds;
+  /// When set, this player shows a gloves badge (current keeper).
+  final String? currentWicketKeeperId;
 
   static Future<LineupPlayer?> show(
     BuildContext context, {
     required String title,
     required List<LineupPlayer> players,
     Set<String> excludeIds = const {},
+    String? currentWicketKeeperId,
     double initialChildSize = 0.6,
   }) {
     return ScoringUiKit.showDraggableSheet<LineupPlayer>(
@@ -37,6 +41,7 @@ class FielderPickerSheet extends StatefulWidget {
         players: players,
         scrollController: controller,
         excludeIds: excludeIds,
+        currentWicketKeeperId: currentWicketKeeperId,
       ),
     );
   }
@@ -120,6 +125,10 @@ class _FielderPickerSheetState extends State<FielderPickerSheet> {
                     ),
                     itemBuilder: (_, i) {
                       final p = _eligible[i];
+                      final isCurrentKeeper =
+                          widget.currentWicketKeeperId != null &&
+                              widget.currentWicketKeeperId!.isNotEmpty &&
+                              p.id == widget.currentWicketKeeperId;
                       return ListTile(
                         leading: LineupPlayerAvatar(
                           name: p.name,
@@ -130,6 +139,22 @@ class _FielderPickerSheetState extends State<FielderPickerSheet> {
                           p.name,
                           style: TextStyle(color: cf.textPrimary),
                         ),
+                        subtitle: isCurrentKeeper
+                            ? Text(
+                                'Current wicketkeeper',
+                                style: TextStyle(
+                                  color: cf.accent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )
+                            : null,
+                        trailing: isCurrentKeeper
+                            ? Icon(
+                                Icons.sports_handball_outlined,
+                                color: cf.accent,
+                              )
+                            : null,
                         onTap: () => Navigator.pop(context, p),
                       );
                     },

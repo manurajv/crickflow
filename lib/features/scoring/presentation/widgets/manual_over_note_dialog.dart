@@ -29,8 +29,8 @@ class ManualOverNoteDialog extends StatefulWidget {
   }) {
     return ScoringUiKit.showSheet<String>(
       context,
-      isDismissible: false,
-      enableDrag: false,
+      isDismissible: true,
+      enableDrag: true,
       isScrollControlled: true,
       builder: (ctx) => ManualOverNoteDialog(
         expectedBalls: expectedBalls,

@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../core/utils/date_utils.dart';
+
 /// Active in-match break (drinks, rain, lunch, etc.).
 class ActiveMatchBreakModel extends Equatable {
   const ActiveMatchBreakModel({
@@ -86,6 +88,14 @@ class MatchBreakHistoryEntry extends Equatable {
   String get displayLabel {
     final mins = (durationSeconds / 60).round();
     return '$breakType – $mins min${mins == 1 ? '' : 's'}';
+  }
+
+  /// e.g. `11:30 AM – 11:45 AM` (or start only if end missing).
+  String get timeRangeLabel {
+    final start = AppDateUtils.formatTime(startTime.toLocal());
+    if (endTime == null) return 'Started $start';
+    final end = AppDateUtils.formatTime(endTime!.toLocal());
+    return '$start – $end';
   }
 
   @override

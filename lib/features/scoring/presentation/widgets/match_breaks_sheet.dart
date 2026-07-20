@@ -115,93 +115,114 @@ class _MatchBreaksSheetState extends ConsumerState<MatchBreaksSheet> {
   Widget build(BuildContext context) {
     final cf = context.cf;
     final history = widget.match.matchBreakHistory;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.75;
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const ScoringSheetHeader(title: 'Match Breaks'),
-            if (widget.match.isMatchBreakActive)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spaceMd,
-                  vertical: AppDimens.spaceSm,
-                ),
-                child: Text(
-                  '${widget.match.activeMatchBreak!.breakType} break in progress — use the banner to resume.',
-                  style: TextStyle(
-                    color: cf.accent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.95,
-                ),
-                itemCount: _types.length,
-                itemBuilder: (context, i) {
-                  final t = _types[i];
-                  return Material(
-                    color: cf.surfaceElevated,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: _starting || widget.match.isMatchBreakActive
-                          ? null
-                          : () => _startBreak(t.label),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(t.icon, color: cf.accent, size: 28),
-                          const SizedBox(height: 8),
-                          Text(
-                            t.label,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (widget.match.isMatchBreakActive)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimens.spaceMd,
+                          vertical: AppDimens.spaceSm,
+                        ),
+                        child: Text(
+                          '${widget.match.activeMatchBreak!.breakType} break in progress — use the banner to resume.',
+                          style: TextStyle(
+                            color: cf.accent,
+                            fontWeight: FontWeight.w600,
                           ),
-                        ],
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimens.spaceMd,
+                      ),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 0.95,
+                        ),
+                        itemCount: _types.length,
+                        itemBuilder: (context, i) {
+                          final t = _types[i];
+                          return Material(
+                            color: cf.surfaceElevated,
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: _starting ||
+                                      widget.match.isMatchBreakActive
+                                  ? null
+                                  : () => _startBreak(t.label),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(t.icon, color: cf.accent, size: 28),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    t.label,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  );
-                },
+                    if (history.isNotEmpty) ...[
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          AppDimens.spaceMd,
+                          AppDimens.spaceMd,
+                          AppDimens.spaceMd,
+                          AppDimens.spaceSm,
+                        ),
+                        child: Text(
+                          'Break History',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      ...history.reversed.take(10).map(
+                            (e) => ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.history, size: 20),
+                              title: Text(e.displayLabel),
+                              subtitle: Text(
+                                [
+                                  e.timeRangeLabel,
+                                  if (e.reason.trim().isNotEmpty) e.reason,
+                                ].join('\n'),
+                              ),
+                              isThreeLine: e.reason.trim().isNotEmpty,
+                            ),
+                          ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            if (history.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppDimens.spaceMd,
-                  AppDimens.spaceMd,
-                  AppDimens.spaceMd,
-                  AppDimens.spaceSm,
-                ),
-                child: Text(
-                  'Break History',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              ...history.reversed.take(5).map(
-                    (e) => ListTile(
-                      dense: true,
-                      leading: const Icon(Icons.history, size: 20),
-                      title: Text(e.breakType),
-                      subtitle: Text(e.displayLabel),
-                    ),
-                  ),
-            ],
           ],
         ),
       ),

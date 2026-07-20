@@ -227,6 +227,8 @@ Future<String?> showStrikeDecisionPicker(
 }
 
 /// New batter to fill vacant crease after wicket.
+///
+/// Not dismissible — scorer must confirm an incoming batter.
 Future<CreaseBatterOption?> showNewBatterPicker(
   BuildContext context, {
   required String title,
@@ -237,12 +239,17 @@ Future<CreaseBatterOption?> showNewBatterPicker(
   return ScoringUiKit.showSheet<CreaseBatterOption>(
     context,
     isScrollControlled: true,
-    builder: (ctx) => _CreasePickerBody(
-      title: title,
-      subtitle: subtitle,
-      options: options,
-      confirmLabel: 'Confirm batter',
-      returnFullOption: true,
+    isDismissible: false,
+    enableDrag: false,
+    builder: (ctx) => PopScope(
+      canPop: false,
+      child: _CreasePickerBody(
+        title: title,
+        subtitle: subtitle,
+        options: options,
+        confirmLabel: 'Confirm batter',
+        returnFullOption: true,
+      ),
     ),
   );
 }

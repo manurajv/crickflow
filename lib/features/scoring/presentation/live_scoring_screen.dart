@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,7 @@ import '../../../core/constants/enums.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/tournament/tournament_official_model.dart';
 import '../../../core/utils/match_permissions.dart';
+import '../../../core/utils/match_share_utils.dart';
 import '../../../core/utils/tournament_match_permissions.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../data/models/ball_event_model.dart';
@@ -159,7 +162,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
-  Future<void> _record(
+  Future<MatchModel?> _record(
     BallEventInput input, {
     String? undoGroupId,
     MatchModel? matchOverride,
@@ -175,9 +178,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           ),
         );
       }
-      return;
+      return null;
     }
-    if (!_guardActiveScorer(match)) return;
+    if (!_guardActiveScorer(match)) return null;
 
     final inn = match.currentInnings;
     if (inn?.currentBowlerId == null) {
@@ -187,19 +190,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         );
         _openLineupSheet(match);
       }
-      return;
+      return null;
     }
     if (inn?.strikerId == null || inn?.nonStrikerId == null) {
       if (mounted) {
         await _fillVacantCrease(match, inn!);
       }
-      return;
+      return null;
     }
 
     if (_inningsBreakDialogOpen ||
         ScoringDisplayUtils.isInningsComplete(match, inn!) ||
         match.status == MatchStatus.inningsBreak) {
-      return;
+      return null;
     }
 
     final events =
@@ -217,7 +220,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         );
         await _pickBowlerForNextOver(fresh, overNum);
       }
-      return;
+      return null;
     }
 
     WagonWheelData? wagonWheel;
@@ -227,7 +230,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         context,
         batsmanRuns: batsmanRuns,
       );
-      if (wagonWheel == null) return;
+      if (wagonWheel == null) return null;
     }
 
     setState(() => _isRecording = true);
@@ -304,19 +307,21 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           }
         }
       }
+      return updated;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Scoring error: $e')),
         );
       }
+      return null;
     } finally {
       if (mounted) setState(() => _isRecording = false);
     }
   }
 
   /// Persists crease/bowler changes as ball events (replay-safe).
-  Future<void> _recordLineupChange({
+  Future<MatchModel?> _recordLineupChange({
     required MatchModel match,
     required String strikerId,
     required String strikerName,
@@ -333,7 +338,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         ref.read(matchProvider(widget.matchId)).valueOrNull ??
             matchOverride ??
             match;
-    if (!_guardActiveScorer(matchForWrite)) return;
+    if (!_guardActiveScorer(matchForWrite)) return null;
 
     setState(() => _isRecording = true);
     final sequence = _ballSequence + 1;
@@ -364,6 +369,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       if (previousBowlerId != null) {
         debugPrint('Bowler change completed');
       }
+      return result.match;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -376,6 +382,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           ),
         );
       }
+      return null;
     } finally {
       if (mounted) setState(() => _isRecording = false);
     }
@@ -863,7 +870,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     final isRunOut = wicketType == WicketType.runOut;
 
-    await _record(
+    final recorded = await _record(
       BallEventInput(
         type: BallEventType.wicket,
         runs: runsBeforeDismissal,
@@ -897,11 +904,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       ),
       undoGroupId: undoGroupId,
       matchOverride: match,
-      deferOverCompletionPrompt: isRunOut,
+      deferOverCompletionPrompt: true,
     );
-    if (!mounted) return;
-    final updated =
-        ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+    if (!mounted || recorded == null) return;
+    final updated = recorded;
     final updatedInn = updated.currentInnings;
     if (updatedInn != null &&
         !ScoringDisplayUtils.isInningsComplete(updated, updatedInn)) {
@@ -938,7 +944,23 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           );
         }
       } else if (!isRunOut) {
-        await _fillVacantCrease(updated, updatedInn, undoGroupId: undoGroupId);
+        final afterCrease = await _fillVacantCrease(
+          updated,
+          updatedInn,
+          undoGroupId: undoGroupId,
+        );
+        if (!mounted) return;
+        // Legal-ball count comes from the wicket; crease comes from lineup.
+        // Do not preserve crease — end-over must rotate strike normally.
+        final forOverPrompt = afterCrease ?? updated;
+        final forOverInn = forOverPrompt.currentInnings ?? updatedInn;
+        if (!_overContinuationActive &&
+            ScoringDisplayUtils.shouldPromptOverCompletion(
+              updatedInn,
+              updated.rules.ballsPerOver,
+            )) {
+          await _promptOverCompletion(forOverPrompt, forOverInn);
+        }
       }
     }
   }
@@ -1005,20 +1027,21 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
   }
 
-  Future<void> _fillVacantCrease(
+  Future<MatchModel?> _fillVacantCrease(
     MatchModel match,
     InningsModel inn, {
     String? undoGroupId,
   }) async {
-    if (inn.strikerId != null && inn.nonStrikerId != null) return;
+    if (inn.strikerId != null && inn.nonStrikerId != null) return match;
 
     if (ScoringDisplayUtils.isInningsComplete(match, inn)) {
       await _showInningsCompleteIfNeeded(match, inn);
-      return;
+      return match;
     }
 
     final needStriker = inn.strikerId == null;
-    await _pickBatsman(
+    final bothEndsVacant = inn.strikerId == null && inn.nonStrikerId == null;
+    var latestMatch = await _pickBatsman(
       match,
       inn,
       forStriker: needStriker,
@@ -1026,36 +1049,43 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       undoGroupId: undoGroupId,
     );
 
-    if (!mounted) return;
-    final after = ref.read(matchProvider(widget.matchId)).valueOrNull;
-    final afterInn = after?.currentInnings;
-    if (after != null &&
-        afterInn != null &&
-        (afterInn.strikerId == null || afterInn.nonStrikerId == null)) {
-      if (ScoringDisplayUtils.isInningsComplete(after, afterInn)) {
-        await _showInningsCompleteIfNeeded(after, afterInn);
-        return;
+    // Only when both crease ends were empty (rare) do we need a second pick.
+    // After a normal wicket, one pick fills the vacant end — re-reading the
+    // provider here is often stale and would open the sheet twice.
+    if (bothEndsVacant && mounted) {
+      final after = latestMatch ??
+          ref.read(matchProvider(widget.matchId)).valueOrNull;
+      final afterInn = after?.currentInnings;
+      if (after != null &&
+          afterInn != null &&
+          (afterInn.strikerId == null || afterInn.nonStrikerId == null)) {
+        if (ScoringDisplayUtils.isInningsComplete(after, afterInn)) {
+          await _showInningsCompleteIfNeeded(after, afterInn);
+          return after;
+        }
+        latestMatch = await _pickBatsman(
+          after,
+          afterInn,
+          forStriker: afterInn.strikerId == null,
+          title: afterInn.strikerId == null
+              ? 'Select striker'
+              : 'Select non-striker',
+          undoGroupId: undoGroupId,
+        );
       }
-      await _pickBatsman(
-        after,
-        afterInn,
-        forStriker: afterInn.strikerId == null,
-        title: afterInn.strikerId == null
-            ? 'Select striker'
-            : 'Select non-striker',
-        undoGroupId: undoGroupId,
-      );
     }
 
-    if (!mounted) return;
-    final latest = ref.read(matchProvider(widget.matchId)).valueOrNull;
+    if (!mounted) return latestMatch ?? match;
+    final latest = latestMatch ??
+        ref.read(matchProvider(widget.matchId)).valueOrNull;
     final latestInn = latest?.currentInnings;
     if (latest != null && latestInn != null) {
       await _showInningsCompleteIfNeeded(latest, latestInn);
     }
+    return latestMatch ?? match;
   }
 
-  Future<void> _pickBatsman(
+  Future<MatchModel?> _pickBatsman(
     MatchModel match,
     InningsModel inn, {
     required bool forStriker,
@@ -1064,7 +1094,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }) async {
     final squads =
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
-    if (squads == null) return;
+    if (squads == null) return null;
 
     final otherId = forStriker ? inn.nonStrikerId : inn.strikerId;
     final eligible = ScoringDisplayUtils.eligibleBatters(
@@ -1076,7 +1106,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     if (eligible.isEmpty) {
       await _showInningsCompleteIfNeeded(match, inn);
-      return;
+      return null;
     }
 
     final cardOptions = eligible
@@ -1094,46 +1124,44 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         )
         .toList();
 
-    final picked = await showNewBatterPicker(
-      context,
-      title: title,
-      subtitle: 'Select the incoming batter',
-      options: cardOptions,
-    );
+    CreaseBatterOption? picked;
+    while (picked == null && mounted) {
+      picked = await showNewBatterPicker(
+        context,
+        title: title,
+        subtitle: 'Select the incoming batter',
+        options: cardOptions,
+      );
+    }
+    if (picked == null || !mounted) return null;
 
-    if (picked == null || !mounted) return;
-
-    final latest = ref.read(matchProvider(widget.matchId)).valueOrNull;
-    final latestInn = latest?.currentInnings;
-    if (latest == null || latestInn == null) return;
+    final bowlerId = inn.currentBowlerId;
+    if (bowlerId == null) return null;
 
     try {
-      await _recordLineupChange(
-            match: latest,
+      return await _recordLineupChange(
+            match: match,
             strikerId: forStriker
                 ? picked.playerId
-                : (latestInn.strikerId ?? picked.playerId),
+                : (inn.strikerId ?? picked.playerId),
             strikerName: forStriker
                 ? picked.name
-                : ScoringDisplayUtils.batsman(latestInn, latestInn.strikerId)
+                : ScoringDisplayUtils.batsman(inn, inn.strikerId)
                         ?.playerName ??
                     picked.name,
             nonStrikerId: forStriker
-                ? (latestInn.nonStrikerId ?? picked.playerId)
+                ? (inn.nonStrikerId ?? picked.playerId)
                 : picked.playerId,
             nonStrikerName: forStriker
-                ? ScoringDisplayUtils.batsman(
-                        latestInn, latestInn.nonStrikerId)
-                    ?.playerName ??
+                ? ScoringDisplayUtils.batsman(inn, inn.nonStrikerId)
+                        ?.playerName ??
                     picked.name
                 : picked.name,
-            bowlerId: latestInn.currentBowlerId!,
-            bowlerName: ScoringDisplayUtils.bowler(
-                  latestInn,
-                  latestInn.currentBowlerId,
-                )?.playerName ??
+            bowlerId: bowlerId,
+            bowlerName: ScoringDisplayUtils.bowler(inn, bowlerId)?.playerName ??
                 '',
             undoGroupId: undoGroupId,
+            matchOverride: match,
           );
     } catch (e) {
       if (mounted) {
@@ -1141,6 +1169,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           SnackBar(content: Text('$e')),
         );
       }
+      return null;
     }
   }
 
@@ -1595,13 +1624,6 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
     if (squads == null || squads.bowling.isEmpty) return;
 
-    final picked = await FielderPickerSheet.show(
-      context,
-      title: 'Select wicketkeeper',
-      players: squads.bowling,
-    );
-    if (picked == null || !mounted) return;
-
     final events =
         ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
     final activeKeeper = ScoringDisplayUtils.activeWicketKeeper(
@@ -1609,6 +1631,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       inn: inn,
       events: events,
     );
+
+    final picked = await FielderPickerSheet.show(
+      context,
+      title: 'Select wicketkeeper',
+      players: squads.bowling,
+      currentWicketKeeperId: activeKeeper.id,
+    );
+    if (picked == null || !mounted) return;
+
     if (picked.id == activeKeeper.id) return;
 
     setState(() => _isRecording = true);
@@ -1736,6 +1767,35 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         }
       },
     );
+  }
+
+  Future<void> _shareLiveScore(MatchModel match) async {
+    final events =
+        ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
+    final displayMatch = events.isEmpty
+        ? match
+        : BallEventAggregator.reprojectMatchFromEvents(match, events);
+    final inn = displayMatch.currentInnings;
+    final teamName = inn != null
+        ? ScoringDisplayUtils.battingTeamName(displayMatch, inn)
+        : displayMatch.title;
+    final scoreLine = inn == null
+        ? '${displayMatch.teamAName} vs ${displayMatch.teamBName}'
+        : '$teamName ${inn.totalRuns}/${inn.totalWickets} '
+            '(${ScoringDisplayUtils.inningsOversDisplay(inn, displayMatch.rules)} Ov)';
+    try {
+      await shareLiveScore(
+        matchId: displayMatch.id,
+        title: displayMatch.title,
+        scoreLine: scoreLine,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not share: $e')),
+        );
+      }
+    }
   }
 
   void _openQuickOptions(MatchModel match) {
@@ -1893,9 +1953,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             ),
             tooltip: 'Share',
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Share scorecard — coming soon')),
-              );
+              final m = matchAsync.valueOrNull;
+              if (m != null) {
+                unawaited(_shareLiveScore(m));
+              }
             },
           ),
           IconButton(
@@ -2119,32 +2180,43 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
   Widget _breakKeypadPlaceholder(BuildContext context) {
     final cf = context.cf;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.pause_circle_outline,
-                size: 40, color: cf.accent),
-            const SizedBox(height: 12),
-            const Text(
-              'Match on break',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.pause_circle_outline,
+                      size: 36, color: cf.accent),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Match on break',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Scoring is paused. Slide to resume on the banner above.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: cf.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Scoring is paused. Slide to resume on the banner above.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: cf.textSecondary),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

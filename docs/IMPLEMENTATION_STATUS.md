@@ -665,6 +665,8 @@
 | Run-out flow — full sheet (fielders, delivery type, runs) + “Who will face the next ball?” picker; `nextStrikerId`/`nextStrikerName` on event; wide/NB from match rules | Done |
 | Run-out next-ball striker fix — picker before wicket record; `runOutSurvivorId`; explicit lineup is final; `preserveCreaseOnEndOver` on end-over after run-out; `run_out_next_striker_test.dart` | Done |
 | Multi-device scoring sync — `mergeEventLogs` unions local+remote by event id; `recordBall` persists full merged log to Hive; `watchBallEvents` always merges (not local-only while pending); live UI replays crease from events | Done |
+| Post-wicket next batter — non-run-out wickets open unskippable new-batter sheet immediately after record (uses recorded match, not stale provider); over-completion deferred until crease filled; last-ball non-run-out wickets prompt end-over and rotate strike normally | Done |
+| Scoring shortcuts — End Over note sheet dismissible (back + swipe); Change Keeper shows current WK with gloves icon; Power Play uses same over-grid as match-start setup | Done |
 | BallEvent wicket metadata (fielders, dismissed name, FOW context) persisted in Firestore | Done |
 | Scorecard dismissal from event metadata — `run out Fielder` / `F1 / F2`, pro formats | Done |
 | Scorecard stumped display — `st b Bowler` only (keeper stored, not shown) | Done |
