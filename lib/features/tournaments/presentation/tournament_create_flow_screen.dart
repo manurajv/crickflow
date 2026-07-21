@@ -87,8 +87,11 @@ class _TournamentCreateFlowScreenState
     if (steps[_stepIndex] == TournamentCreateFlowStep.basic &&
         !draft.canProceedFromBasic) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fill all required fields on this step'),
+        SnackBar(
+          content: Text(
+            draft.basicStepMissingHint ??
+                'Fill all required fields on this step',
+          ),
         ),
       );
       return;
@@ -111,7 +114,11 @@ class _TournamentCreateFlowScreenState
 
     if (!draft.canProceedFromBasic) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Complete tournament details first')),
+        SnackBar(
+          content: Text(
+            draft.basicStepMissingHint ?? 'Complete tournament details first',
+          ),
+        ),
       );
       setState(() => _stepIndex = 0);
       return;

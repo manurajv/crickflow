@@ -7,6 +7,9 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/deep_link_utils.dart';
 import '../../../../data/models/user_model.dart';
+import '../../../../shared/providers/chat_provider.dart';
+import '../../../../shared/providers/community_provider.dart';
+import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import 'player_follow_button.dart';
 
@@ -79,20 +82,90 @@ class ProfileActionsBar extends ConsumerWidget {
               label: 'Message',
               compact: true,
               isOutlined: true,
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Messaging coming soon')),
-                );
+              onPressed: () async {
+                final me = ref.read(currentUserProfileProvider).valueOrNull;
+                if (me == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Sign in to message')),
+                  );
+                  return;
+                }
+                try {
+                  final chatId =
+                      await ref.read(chatRepositoryProvider).openOrCreateChat(
+                            me: me,
+                            other: user,
+                          );
+                  if (context.mounted) {
+                    context.push('/community/chats/$chatId');
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$e')),
+                    );
+                  }
+                }
               },
             ),
             CfButton(
               label: 'Report Player',
               compact: true,
               isOutlined: true,
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Report player coming soon')),
+              onPressed: () async {
+                final me = ref.read(authStateProvider).valueOrNull?.uid;
+                if (me == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Sign in to report')),
+                  );
+                  return;
+                }
+                final reasonController = TextEditingController();
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Report player'),
+                    content: TextField(
+                      controller: reasonController,
+                      decoration: const InputDecoration(
+                        labelText: 'Reason',
+                        hintText: 'Spam, harassment, fake profile…',
+                      ),
+                      maxLines: 3,
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Report'),
+                      ),
+                    ],
+                  ),
                 );
+                final reason = reasonController.text.trim();
+                reasonController.dispose();
+                if (ok != true || reason.isEmpty) return;
+                try {
+                  await ref.read(communityRepositoryProvider).reportUser(
+                        reportedUserId: user.id,
+                        reporterUserId: me,
+                        reason: reason,
+                      );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Report submitted')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Could not report: $e')),
+                    );
+                  }
+                }
               },
             ),
           ],

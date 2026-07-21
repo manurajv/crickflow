@@ -39,7 +39,8 @@ android {
 
     defaultConfig {
         applicationId = "com.mavixas.crickflow"
-        minSdk = maxOf(flutter.minSdkVersion, 21)
+        // androidx.javascriptengine (AdMob/GMA helper) requires API 26+.
+        minSdk = maxOf(flutter.minSdkVersion, 26)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

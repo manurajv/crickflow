@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../shared/providers/community_provider.dart';
 import '../../../shared/providers/player_social_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../data/recent_search_store.dart';
@@ -54,6 +55,7 @@ final unifiedSearchServiceProvider = Provider((ref) {
   return UnifiedSearchService(
     playerDiscovery: ref.watch(playerDiscoveryRepositoryProvider),
     userRepository: ref.watch(userRepositoryProvider),
+    communityRepository: ref.watch(communityRepositoryProvider),
   );
 });
 

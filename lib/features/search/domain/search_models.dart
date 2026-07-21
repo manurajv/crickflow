@@ -7,6 +7,7 @@ enum SearchCategory {
   grounds,
   clubs,
   users,
+  posts,
 }
 
 extension SearchCategoryX on SearchCategory {
@@ -19,6 +20,7 @@ extension SearchCategoryX on SearchCategory {
         SearchCategory.grounds => 'Grounds',
         SearchCategory.clubs => 'Clubs',
         SearchCategory.users => 'Users',
+        SearchCategory.posts => 'Posts',
       };
 
   String get suggestionNoun => switch (this) {
@@ -30,6 +32,7 @@ extension SearchCategoryX on SearchCategory {
         SearchCategory.grounds => 'Grounds',
         SearchCategory.clubs => 'Clubs',
         SearchCategory.users => 'Users',
+        SearchCategory.posts => 'Community posts',
       };
 }
 

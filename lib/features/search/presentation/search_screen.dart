@@ -162,6 +162,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     SearchCategory.grounds => Icons.stadium_outlined,
                     SearchCategory.clubs => Icons.home_work_outlined,
                     SearchCategory.users => Icons.people_outline,
+                    SearchCategory.posts => Icons.forum_outlined,
                   },
                   color: cf.accent,
                 ),

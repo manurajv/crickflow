@@ -31,6 +31,9 @@ class AppConstants {
   static const String fantasyLeaguesCollection = 'fantasy_leagues';
   static const String fantasyEntriesCollection = 'entries';
   static const String communityPostsCollection = 'community_posts';
+  static const String communityPostReportsCollection = 'community_post_reports';
+  static const String chatsCollection = 'chats';
+  static const String chatBlocksCollection = 'chat_blocks';
   static const String teamRosterReportsCollection = 'team_roster_reports';
 
   // Match defaults (standard cricket)

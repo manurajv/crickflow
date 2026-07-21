@@ -3,13 +3,34 @@
 
 
 
-**Last updated:** Home discovery redesign (nearby matches, promotions, AdMob, unified search)  
+**Last updated:** Community polish — blocked authors filtered, report player, dead code removed
 
-**Firebase project:** `crickflow-b06bc`  
+**Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
-> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Scoring engine:** [SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md) · **Ball events:** [BALL_EVENT_ARCHITECTURE.md](BALL_EVENT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Community social platform)
+
+| Item | Status |
+|------|--------|
+| Social feed cards, media crop, location multi-filter, create post kinds | Done |
+| Likes / comments (nested + like/report) / share / save | Done |
+| Chat FAB, list, requests, conversation, profile Message | Done |
+| Search Posts category + AppBar search | Done |
+| Ranking: pinned → sponsored → following → nearby → popular | Done |
+| Deep link `/community?postId=` (highlight + pin missing posts) | Done |
+| Block user from post menu (uses chat_blocks) | Done |
+| Media double-tap zoom | Done |
+| Tournament Community thumbnail required + hint snackbar | Done |
+| Like/comment notifications | Done |
+| Feed hides blocked authors; chat routes auth-gated | Done |
+| Profile Report Player → `community_post_reports` (`type: user`) | Done |
+| Removed dead `watchFeed` / `communityPostsProvider` | Done |
+| Deploy Firestore/Storage rules + chat indexes | Done — redeploy if you change rules again |
 
 ---
 

@@ -168,6 +168,35 @@ enum OfficialContactMethod {
   inAppMessage,
   whatsApp,
   phoneCall,
+  email,
+  hide,
+}
+
+/// How tournament contact details appear on Community tournament cards.
+enum CommunityContactVisibility {
+  hide,
+  phone,
+  whatsapp,
+  email,
+}
+
+/// Aspect ratio chosen when cropping community / tournament media.
+enum CommunityMediaAspect {
+  square,
+  landscape16x9,
+  portrait9x16,
+  free,
+}
+
+/// High-level post kind for create-post UX (maps onto [CommunityPostCategory]).
+enum CommunityPostKind {
+  general,
+  tournament,
+  team,
+  achievement,
+  match,
+  image,
+  video,
 }
 
 enum BallEventType {
@@ -302,4 +331,7 @@ enum CommunityPostCategory {
   groundAvailable,
   tournamentNeed,
   general,
+  team,
+  achievement,
+  match,
 }

@@ -8,4 +8,6 @@ class PrefsKeys {
   static const String themeMode = 'theme_mode';
   static const String pendingProfileUpdate = 'pending_profile_update';
   static const String activeLiveStreamMatchId = 'active_live_stream_match_id';
+  static const String communityLocationFilter = 'community_location_filter_v1';
+  static const String communityHiddenPosts = 'community_hidden_posts_v1';
 }

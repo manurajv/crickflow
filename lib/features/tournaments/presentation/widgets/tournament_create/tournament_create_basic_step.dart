@@ -220,8 +220,11 @@ class _TournamentCreateBasicStepState
         TournamentMediaPicker(
           bannerFile: d.bannerLocalFile,
           logoFile: d.logoLocalFile,
+          thumbnailFile: d.thumbnailLocalFile,
           onBannerPicked: (f) => _patch((x) => x.copyWith(bannerLocalFile: f)),
           onLogoPicked: (f) => _patch((x) => x.copyWith(logoLocalFile: f)),
+          onThumbnailPicked: (f) =>
+              _patch((x) => x.copyWith(thumbnailLocalFile: f)),
         ),
         const SizedBox(height: AppDimens.spaceXl + 16),
         CfUnderlinedField(

@@ -216,6 +216,23 @@ class PlayerFollowRepository {
     });
   }
 
+  /// Lightweight id set for feed ranking (no full user docs).
+  Future<Set<String>> followingUserIds(
+    String userId, {
+    int limit = 200,
+  }) async {
+    if (userId.isEmpty) return {};
+    final snap = await _follows
+        .where('followerUserId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs
+        .map((d) => d.data()['followedUserId'] as String? ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
   Future<List<UserModel>> fetchFollowersPage({
     required String userId,
     DocumentSnapshot<Map<String, dynamic>>? startAfter,

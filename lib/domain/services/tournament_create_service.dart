@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
+import '../../data/models/community_post_model.dart';
 import '../../data/models/tournament/tournament_create_draft.dart';
 import '../../data/models/tournament/tournament_setup_meta.dart';
 import '../../data/repositories/community_repository.dart';
@@ -30,6 +31,7 @@ class TournamentCreateService {
   }) async {
     var bannerUrl = draft.bannerUrl;
     var logoUrl = draft.logoUrl;
+    var thumbnailUrl = draft.thumbnailUrl;
 
     if (draft.bannerLocalFile != null) {
       bannerUrl = await _storage.uploadTournamentBanner(
@@ -43,11 +45,19 @@ class TournamentCreateService {
         draft.logoLocalFile!,
       );
     }
+    if (draft.thumbnailLocalFile != null) {
+      thumbnailUrl = await _storage.uploadTournamentThumbnail(
+        draft.tournamentId,
+        draft.thumbnailLocalFile!,
+      );
+    }
+    thumbnailUrl ??= bannerUrl;
 
     final tournament = draft.toTournamentModel(
       uid: uid,
       bannerUrl: bannerUrl,
       logoUrl: logoUrl,
+      thumbnailUrl: thumbnailUrl,
     );
 
     final id = await _tournaments.createTournament(
@@ -57,6 +67,13 @@ class TournamentCreateService {
 
     final meta = draft.mergedSetup();
     final location = draft.location.copyWith(city: draft.city);
+    final snapshot = _buildSnapshot(
+      tournamentId: id,
+      draft: draft,
+      meta: meta,
+      ownerDisplayName: ownerDisplayName,
+      thumbnailUrl: thumbnailUrl,
+    );
 
     if (postOfficialsRequest && draft.needOfficials) {
       await _community.createPost(
@@ -66,8 +83,10 @@ class TournamentCreateService {
         title: 'Officials needed — ${draft.name.trim()}',
         body: _officialsPostBody(draft.name, meta),
         category: CommunityPostCategory.tournamentNeed,
+        postKind: CommunityPostKind.tournament,
         location: location,
         tournamentId: id,
+        tournamentSnapshot: snapshot,
       );
     }
 
@@ -79,12 +98,66 @@ class TournamentCreateService {
         title: 'Teams wanted — ${draft.name.trim()}',
         body: _teamsPostBody(draft.name, draft, meta),
         category: CommunityPostCategory.tournamentNeed,
+        postKind: CommunityPostKind.tournament,
         location: location,
         tournamentId: id,
+        tournamentSnapshot: snapshot,
       );
     }
 
     return id;
+  }
+
+  CommunityTournamentSnapshot _buildSnapshot({
+    required String tournamentId,
+    required TournamentCreateDraft draft,
+    required TournamentSetupMeta meta,
+    required String ownerDisplayName,
+    String? thumbnailUrl,
+  }) {
+    final visibility = _contactVisibility(meta.officialContactMethod);
+    final phone = meta.organizerPhone.isNotEmpty
+        ? meta.organizerPhone
+        : draft.organizerPhone;
+    final email = meta.organizerEmail.isNotEmpty
+        ? meta.organizerEmail
+        : draft.organizerEmail;
+
+    return CommunityTournamentSnapshot(
+      tournamentId: tournamentId,
+      name: draft.name.trim(),
+      organizer: meta.organizerName.isNotEmpty
+          ? meta.organizerName
+          : (draft.organizerName.isNotEmpty
+              ? draft.organizerName
+              : ownerDisplayName),
+      thumbnailUrl: thumbnailUrl,
+      locationLabel: draft.location
+          .copyWith(city: draft.city)
+          .displayLabel,
+      startDate: draft.startDate,
+      endDate: draft.endDate,
+      entryFee: draft.entryFeeText.isNotEmpty ? draft.entryFeeText : null,
+      ballType: draft.ballTypeOther ? 'Other' : draft.ballType.name,
+      matchFormat: tournamentMatchFormatLabel(meta.matchFormat),
+      teamCount: meta.totalTeams,
+      registrationStatus: draft.needMoreTeams ? 'Open' : 'Closed',
+      contactVisibility: visibility,
+      contactPhone: visibility == CommunityContactVisibility.phone ? phone : '',
+      contactWhatsApp:
+          visibility == CommunityContactVisibility.whatsapp ? phone : '',
+      contactEmail: visibility == CommunityContactVisibility.email ? email : '',
+    );
+  }
+
+  CommunityContactVisibility _contactVisibility(OfficialContactMethod m) {
+    return switch (m) {
+      OfficialContactMethod.phoneCall => CommunityContactVisibility.phone,
+      OfficialContactMethod.whatsApp => CommunityContactVisibility.whatsapp,
+      OfficialContactMethod.email => CommunityContactVisibility.email,
+      OfficialContactMethod.hide => CommunityContactVisibility.hide,
+      OfficialContactMethod.inAppMessage => CommunityContactVisibility.hide,
+    };
   }
 
   String _officialsPostBody(String name, TournamentSetupMeta meta) {

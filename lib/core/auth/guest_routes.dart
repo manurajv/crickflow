@@ -59,7 +59,8 @@ class GuestRoutes {
     }
     if (path == '/notifications' ||
         path == '/player-onboarding' ||
-        path == '/profile/edit') {
+        path == '/profile/edit' ||
+        path.startsWith('/community/chats')) {
       return true;
     }
     if (path.contains('/add-players')) return true;

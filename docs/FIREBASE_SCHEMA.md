@@ -161,17 +161,31 @@ Real-time overlay payload for stream graphics.
 | totalPoints | number |
 
 ### `community_posts/{postId}`
+Social feed posts (backward-compatible extensions). See [COMMUNITY.md](COMMUNITY.md).
+
 | Field | Type |
 |-------|------|
 | authorId | string |
 | authorName | string |
 | authorRole | string? |
+| authorPhotoUrl | string? |
+| authorPlayerId | string? |
+| authorVerified | boolean |
 | category | string |
+| postKind | string? |
 | title | string |
 | body | string |
 | location | map |
+| tournamentId | string? |
+| media | list? |
+| tournamentSnapshot | map? |
+| likeCount / commentCount / shareCount / saveCount | number |
+| isPinned / isSponsored / isAdminPost | boolean |
 | createdAt | string |
 | updatedAt | string |
+
+Subcollections: `likes/{userId}`, `saves/{userId}`, `comments/{commentId}`.
+Reports: `community_post_reports/{id}`.
 
 ### `notifications/{notificationId}`
 | Field | Type |

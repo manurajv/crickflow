@@ -188,7 +188,7 @@ class _WelcomeHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Discover nearby matches, live scores, and tournaments.',
+                  'Score. Stream. Connect.\nYour Complete Cricket Platform.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white70,
                       ),

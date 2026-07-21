@@ -7,10 +7,12 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/date_utils.dart';
 import '../../../../core/utils/match_card_navigation.dart';
+import '../../../../data/models/community_post_model.dart';
 import '../../../../data/models/team_model.dart';
 import '../../../../data/models/tournament_model.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../domain/scoring/match_lifecycle.dart';
+import '../../../../features/community/community_post_ui.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/match_card_ui.dart';
@@ -37,6 +39,7 @@ class SearchResultCard extends ConsumerWidget {
           city: hit.groundCity ?? '',
           matchCount: hit.matchCount ?? 0,
         ),
+      SearchCategory.posts => _PostCard(post: hit.post!),
       SearchCategory.all => const SizedBox.shrink(),
     };
   }
@@ -489,6 +492,56 @@ class _Avatar extends StatelessWidget {
       radius: 22,
       backgroundColor: cf.surface,
       child: Text(initial, style: TextStyle(color: cf.textPrimary)),
+    );
+  }
+}
+
+class _PostCard extends StatelessWidget {
+  const _PostCard({required this.post});
+
+  final CommunityPostModel post;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return _CardShell(
+      onTap: () => context.push('/community?postId=${post.id}'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(communityCategoryIcon(post.category), color: cf.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  post.title.isNotEmpty ? post.title : post.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    post.authorName,
+                    communityCategoryLabel(post.category),
+                    if (post.createdAt != null)
+                      AppDateUtils.timeAgo(post.createdAt!),
+                  ].where((e) => e.isNotEmpty).join(' · '),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cf.textMuted,
+                      ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

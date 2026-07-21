@@ -12,18 +12,28 @@ class TournamentMediaPicker extends StatelessWidget {
     required this.logoFile,
     required this.onBannerPicked,
     required this.onLogoPicked,
+    this.thumbnailFile,
+    this.onThumbnailPicked,
     this.existingBannerUrl,
     this.existingLogoUrl,
+    this.existingThumbnailUrl,
   });
 
   final File? bannerFile;
   final File? logoFile;
+  final File? thumbnailFile;
   final ValueChanged<File?> onBannerPicked;
   final ValueChanged<File?> onLogoPicked;
+  final ValueChanged<File?>? onThumbnailPicked;
   final String? existingBannerUrl;
   final String? existingLogoUrl;
+  final String? existingThumbnailUrl;
 
-  Future<void> _pickImage(BuildContext context, {required bool isLogo}) async {
+  Future<void> _pickImage(
+    BuildContext context, {
+    required bool isLogo,
+    bool isThumbnail = false,
+  }) async {
     await showTeamImageSourceSheet(
       context,
       onSelected: (source) async {
@@ -33,7 +43,9 @@ class TournamentMediaPicker extends StatelessWidget {
           source: source,
         );
         if (file == null) return;
-        if (isLogo) {
+        if (isThumbnail) {
+          onThumbnailPicked?.call(file);
+        } else if (isLogo) {
           onLogoPicked(file);
         } else {
           onBannerPicked(file);
@@ -56,73 +68,138 @@ class TournamentMediaPicker extends StatelessWidget {
     final hasBanner = bannerImage != null;
     final hasLogo = logoFile != null ||
         (existingLogoUrl != null && existingLogoUrl!.isNotEmpty);
+    final thumbImage = thumbnailFile != null
+        ? DecorationImage(image: FileImage(thumbnailFile!), fit: BoxFit.cover)
+        : (existingThumbnailUrl != null && existingThumbnailUrl!.isNotEmpty)
+            ? DecorationImage(
+                image: CachedNetworkImageProvider(existingThumbnailUrl!),
+                fit: BoxFit.cover,
+              )
+            : null;
+    final hasThumb = thumbImage != null;
 
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GestureDetector(
-          onTap: () => _pickImage(context, isLogo: false),
-          child: Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: cf.sectionBackground,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cf.border),
-              image: bannerImage,
-            ),
-            child: hasBanner
-                ? null
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.image_outlined, color: cf.textMuted, size: 36),
-                      const SizedBox(height: 6),
-                      Text('Add banner', style: TextStyle(color: cf.textMuted)),
-                    ],
-                  ),
-          ),
-        ),
-        Positioned(
-          left: AppDimens.spaceMd,
-          bottom: -36,
-          child: GestureDetector(
-            onTap: () => _pickImage(context, isLogo: true),
-            child: Column(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: cf.surfaceElevated,
-                      backgroundImage: logoFile != null
-                          ? FileImage(logoFile!)
-                          : (existingLogoUrl != null &&
-                                  existingLogoUrl!.isNotEmpty)
-                              ? CachedNetworkImageProvider(existingLogoUrl!)
-                              : null,
-                      child: !hasLogo
-                          ? Icon(Icons.emoji_events, color: cf.accent, size: 32)
-                          : null,
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: cf.accent,
-                        child: Icon(Icons.camera_alt, size: 14, color: cf.onAccent),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            GestureDetector(
+              onTap: () => _pickImage(context, isLogo: false),
+              child: Container(
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: cf.sectionBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cf.border),
+                  image: bannerImage,
+                ),
+                child: hasBanner
+                    ? null
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image_outlined,
+                              color: cf.textMuted, size: 36),
+                          const SizedBox(height: 6),
+                          Text('Add banner',
+                              style: TextStyle(color: cf.textMuted)),
+                        ],
                       ),
+              ),
+            ),
+            Positioned(
+              left: AppDimens.spaceMd,
+              bottom: -36,
+              child: GestureDetector(
+                onTap: () => _pickImage(context, isLogo: true),
+                child: Column(
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: cf.surfaceElevated,
+                          backgroundImage: logoFile != null
+                              ? FileImage(logoFile!)
+                              : (existingLogoUrl != null &&
+                                      existingLogoUrl!.isNotEmpty)
+                                  ? CachedNetworkImageProvider(
+                                      existingLogoUrl!,
+                                    )
+                                  : null,
+                          child: !hasLogo
+                              ? Icon(Icons.emoji_events,
+                                  color: cf.accent, size: 32)
+                              : null,
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: cf.accent,
+                            child: Icon(Icons.camera_alt,
+                                size: 14, color: cf.onAccent),
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 4),
+                    Text('Add logo',
+                        style: TextStyle(fontSize: 11, color: cf.textMuted)),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text('Add logo', style: TextStyle(fontSize: 11, color: cf.textMuted)),
-              ],
+              ),
+            ),
+          ],
+        ),
+        if (onThumbnailPicked != null) ...[
+          const SizedBox(height: 48),
+          Text(
+            'Community thumbnail *',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Shown on Community tournament posts. 16:9 recommended.',
+            style: TextStyle(fontSize: 12, color: cf.textMuted),
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () =>
+                _pickImage(context, isLogo: false, isThumbnail: true),
+            child: Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: cf.sectionBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: hasThumb ? cf.border : cf.accent.withValues(alpha: 0.5),
+                ),
+                image: thumbImage,
+              ),
+              child: hasThumb
+                  ? null
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.crop_original,
+                            color: cf.textMuted, size: 32),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Add tournament thumbnail',
+                          style: TextStyle(color: cf.textMuted),
+                        ),
+                      ],
+                    ),
             ),
           ),
-        ),
+        ] else
+          const SizedBox(height: 40),
       ],
     );
   }

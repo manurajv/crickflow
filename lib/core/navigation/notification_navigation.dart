@@ -17,6 +17,7 @@ class NotificationNavigation {
     String? tournamentId,
     String? playerId,
     String? tab,
+    String? requestId,
   }) {
     if (type == 'badge_unlock' && playerId != null && playerId.isNotEmpty) {
       return '/player/$playerId/cricket';
@@ -25,6 +26,14 @@ class NotificationNavigation {
       if (playerId != null && playerId.isNotEmpty) {
         return '/player/$playerId';
       }
+    }
+    if (type == 'community_like' ||
+        type == 'community_comment' ||
+        type == 'community_mention') {
+      if (requestId != null && requestId.isNotEmpty) {
+        return '/community?postId=$requestId';
+      }
+      return '/community';
     }
     if (tournamentId != null &&
         tournamentId.isNotEmpty &&
@@ -107,6 +116,7 @@ class NotificationNavigation {
       tournamentId: notification.tournamentId,
       playerId: notification.playerId,
       tab: notification.tab,
+      requestId: notification.requestId,
     );
   }
 
@@ -167,6 +177,8 @@ extension NotificationPresentation on NotificationModel {
       'tournament_completed' =>
         'tournament',
       'player_follow' || 'follower_milestone' => 'social',
+      'community_like' || 'community_comment' || 'community_mention' =>
+        'community',
       'badge_unlock' => 'badge',
       'hero_of_match' => 'achievement',
       'wicket' ||
@@ -199,6 +211,7 @@ extension NotificationPresentation on NotificationModel {
         'tournament' => Icons.emoji_events_outlined,
         'team' => Icons.groups_outlined,
         'friend' || 'social' => Icons.person_add_alt_1_outlined,
+        'community' => Icons.forum_outlined,
         'achievement' => Icons.star_outline_rounded,
         'badge' => Icons.military_tech_outlined,
         'streaming' => Icons.videocam_outlined,
@@ -225,6 +238,9 @@ extension NotificationPresentation on NotificationModel {
         TeamNotificationTypes.memberAdded => 'Added to team',
         'player_follow' => 'New follower',
         'follower_milestone' => 'Milestone',
+        'community_like' => 'Post liked',
+        'community_comment' => 'New comment',
+        'community_mention' => 'Mention',
         'admin_roster_report' => 'Admin alert',
         'match_started' => 'Match started',
         'first_innings_complete' => 'Innings break',

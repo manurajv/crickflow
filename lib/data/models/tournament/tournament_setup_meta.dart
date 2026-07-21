@@ -283,4 +283,6 @@ String officialContactLabel(OfficialContactMethod m) => switch (m) {
       OfficialContactMethod.inAppMessage => 'CrickFlow DM',
       OfficialContactMethod.whatsApp => 'WhatsApp',
       OfficialContactMethod.phoneCall => 'Call',
+      OfficialContactMethod.email => 'Email',
+      OfficialContactMethod.hide => 'Hide contact',
     };

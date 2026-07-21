@@ -136,6 +136,7 @@ class TournamentModel extends Equatable {
     this.location = const LocationModel(),
     this.bannerUrl,
     this.logoUrl,
+    this.thumbnailUrl,
     this.grounds = const [],
     this.startDate,
     this.endDate,
@@ -171,6 +172,8 @@ class TournamentModel extends Equatable {
   final LocationModel location;
   final String? bannerUrl;
   final String? logoUrl;
+  /// Dedicated Community / feed thumbnail (falls back to [bannerUrl] in UI).
+  final String? thumbnailUrl;
   final List<String> grounds;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -221,6 +224,7 @@ class TournamentModel extends Equatable {
       location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
       bannerUrl: map['bannerUrl'] as String?,
       logoUrl: map['logoUrl'] as String?,
+      thumbnailUrl: map['thumbnailUrl'] as String? ?? map['bannerUrl'] as String?,
       grounds: List<String>.from(map['grounds'] as List? ?? []),
       startDate: DateTime.tryParse(map['startDate']?.toString() ?? ''),
       endDate: DateTime.tryParse(map['endDate']?.toString() ?? ''),
@@ -271,6 +275,7 @@ class TournamentModel extends Equatable {
         'location': location.toMap(),
         if (bannerUrl != null) 'bannerUrl': bannerUrl,
         if (logoUrl != null) 'logoUrl': logoUrl,
+        if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
         'grounds': grounds,
         if (startDate != null) 'startDate': startDate!.toIso8601String(),
         if (endDate != null) 'endDate': endDate!.toIso8601String(),
@@ -306,6 +311,7 @@ class TournamentModel extends Equatable {
     LocationModel? location,
     String? bannerUrl,
     String? logoUrl,
+    String? thumbnailUrl,
     List<String>? grounds,
     DateTime? startDate,
     DateTime? endDate,
@@ -337,6 +343,7 @@ class TournamentModel extends Equatable {
       location: location ?? this.location,
       bannerUrl: bannerUrl ?? this.bannerUrl,
       logoUrl: logoUrl ?? this.logoUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       grounds: grounds ?? this.grounds,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,

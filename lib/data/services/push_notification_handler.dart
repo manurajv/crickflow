@@ -109,6 +109,7 @@ class PushNotificationHandler {
       tournamentId: data['tournamentId'],
       playerId: data['playerId'],
       tab: data['tab'],
+      requestId: data['requestId'],
     );
     if (route == null) {
       _router?.push('/notifications');

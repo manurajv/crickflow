@@ -37,8 +37,10 @@ class TournamentCreateDraft extends Equatable {
     this.teamsRequiredText = '',
     this.bannerLocalFile,
     this.logoLocalFile,
+    this.thumbnailLocalFile,
     this.bannerUrl,
     this.logoUrl,
+    this.thumbnailUrl,
   });
 
   final String tournamentId;
@@ -65,8 +67,10 @@ class TournamentCreateDraft extends Equatable {
   final String teamsRequiredText;
   final File? bannerLocalFile;
   final File? logoLocalFile;
+  final File? thumbnailLocalFile;
   final String? bannerUrl;
   final String? logoUrl;
+  final String? thumbnailUrl;
 
   List<TournamentCreateFlowStep> get activeSteps {
     final steps = [TournamentCreateFlowStep.basic];
@@ -92,7 +96,23 @@ class TournamentCreateDraft extends Equatable {
       organizerName.trim().isNotEmpty &&
       organizerPhone.trim().isNotEmpty &&
       startDate != null &&
-      endDate != null;
+      endDate != null &&
+      (thumbnailLocalFile != null ||
+          (thumbnailUrl != null && thumbnailUrl!.isNotEmpty));
+
+  String? get basicStepMissingHint {
+    if (name.trim().isEmpty) return 'Enter a tournament name';
+    if (city.trim().isEmpty) return 'Enter a city';
+    if (!grounds.any((g) => g.trim().isNotEmpty)) return 'Add at least one ground';
+    if (organizerName.trim().isEmpty) return 'Enter organiser name';
+    if (organizerPhone.trim().isEmpty) return 'Enter organiser phone';
+    if (startDate == null || endDate == null) return 'Select start and end dates';
+    if (thumbnailLocalFile == null &&
+        (thumbnailUrl == null || thumbnailUrl!.isEmpty)) {
+      return 'Add a Community thumbnail (required)';
+    }
+    return null;
+  }
 
   TournamentCreateDraft copyWith({
     String? name,
@@ -118,10 +138,13 @@ class TournamentCreateDraft extends Equatable {
     String? teamsRequiredText,
     File? bannerLocalFile,
     File? logoLocalFile,
+    File? thumbnailLocalFile,
     String? bannerUrl,
     String? logoUrl,
+    String? thumbnailUrl,
     bool clearBannerLocal = false,
     bool clearLogoLocal = false,
+    bool clearThumbnailLocal = false,
   }) {
     return TournamentCreateDraft(
       tournamentId: tournamentId,
@@ -149,8 +172,12 @@ class TournamentCreateDraft extends Equatable {
       bannerLocalFile:
           clearBannerLocal ? null : bannerLocalFile ?? this.bannerLocalFile,
       logoLocalFile: clearLogoLocal ? null : logoLocalFile ?? this.logoLocalFile,
+      thumbnailLocalFile: clearThumbnailLocal
+          ? null
+          : thumbnailLocalFile ?? this.thumbnailLocalFile,
       bannerUrl: bannerUrl ?? this.bannerUrl,
       logoUrl: logoUrl ?? this.logoUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
     );
   }
 
@@ -177,6 +204,7 @@ class TournamentCreateDraft extends Equatable {
     required String uid,
     String? bannerUrl,
     String? logoUrl,
+    String? thumbnailUrl,
   }) {
     final meta = mergedSetup();
     final entryFee = double.tryParse(entryFeeText.replaceAll(',', ''));
@@ -186,6 +214,8 @@ class TournamentCreateDraft extends Equatable {
       ballType: ballTypeOther ? CricketBallType.indoor : ballType,
       pitchType: pitchType,
     ).toMatchRules();
+    final resolvedThumb =
+        thumbnailUrl ?? this.thumbnailUrl ?? bannerUrl ?? this.bannerUrl;
 
     return TournamentModel(
       id: tournamentId,
@@ -211,6 +241,7 @@ class TournamentCreateDraft extends Equatable {
       ),
       bannerUrl: bannerUrl ?? this.bannerUrl,
       logoUrl: logoUrl ?? this.logoUrl,
+      thumbnailUrl: resolvedThumb,
       setupMeta: meta,
     );
   }

@@ -105,7 +105,7 @@ class MatchesNearYouSection extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(
-                  height: 165,
+                  height: 190,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(

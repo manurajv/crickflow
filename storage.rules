@@ -139,7 +139,15 @@ service firebase.storage {
     match /tournaments/{tournamentId}/{fileName} {
       allow read: if true;
       allow write: if isSignedIn()
-        && fileName.matches('(banner|logo)_.*\\.jpg')
+        && fileName.matches('(banner|logo|thumbnail)_.*\\.jpg')
+        && isImageJpeg()
+        && under5Mb();
+    }
+
+    match /community/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
         && isImageJpeg()
         && under5Mb();
     }

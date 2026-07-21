@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../features/analytics/presentation/analytics_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/community/presentation/community_screen.dart';
+import '../../features/community/presentation/chat/chat_list_screen.dart';
+import '../../features/community/presentation/chat/chat_conversation_screen.dart';
+import '../../features/community/presentation/chat/message_requests_screen.dart';
 import '../../features/discover/presentation/discover_screen.dart';
 import '../../features/fantasy/presentation/fantasy_league_screen.dart';
 import '../../features/fantasy/presentation/fantasy_screen.dart';
@@ -590,6 +593,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notifications',
         builder: (_, __) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/community/chats',
+        builder: (_, __) => const ChatListScreen(),
+        routes: [
+          GoRoute(
+            path: 'requests',
+            builder: (_, __) => const MessageRequestsScreen(),
+          ),
+          GoRoute(
+            path: ':chatId',
+            builder: (_, state) => ChatConversationScreen(
+              chatId: state.pathParameters['chatId']!,
+            ),
+          ),
+        ],
       ),
       GoRoute(path: '/players', builder: (_, __) => const PlayerScreen()),
       GoRoute(
