@@ -10,6 +10,7 @@ import '../../../core/constants/enums.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/repositories/match_audience_repository.dart';
+import '../../../domain/scoring/match_lifecycle.dart';
 import '../../../domain/streaming/match_stream_playback.dart';
 import '../../../features/streaming/presentation/providers/match_stream_seek_provider.dart';
 import '../../../shared/providers/match_audience_provider.dart';
@@ -163,9 +164,7 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
     }
   }
 
-  bool _isLiveMatch(MatchModel match) =>
-      match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak;
+  bool _isLiveMatch(MatchModel match) => MatchLifecycle.isActivelyLive(match);
 
   void _syncTabs(
     MatchModel match, {

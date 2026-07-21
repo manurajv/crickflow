@@ -127,4 +127,49 @@ void main() {
     expect(merged.stream.youtubeWatchUrl, 'https://www.youtube.com/watch?v=abc');
     expect(merged.stream.status, StreamStatus.live);
   });
+
+  test('merge blocks live → tossCompleted status regression', () {
+    final scoredInnings = InningsModel(
+      inningsNumber: 1,
+      battingTeamId: 'a',
+      bowlingTeamId: 'b',
+      status: InningsStatus.inProgress,
+      legalBalls: 4,
+      totalRuns: 8,
+    );
+    final existing = tournamentMatch(innings: [scoredInnings]).copyWith(
+      status: MatchStatus.live,
+    );
+    final incoming = existing.copyWith(status: MatchStatus.tossCompleted);
+
+    final merged = MatchUpdateMerge.merge(existing, incoming);
+    expect(merged.status, MatchStatus.live);
+    expect(merged.innings.first.legalBalls, 4);
+  });
+
+  test('merge blocks inProgress zero-ball wipe of scored innings', () {
+    final scoredInnings = InningsModel(
+      inningsNumber: 1,
+      battingTeamId: 'a',
+      bowlingTeamId: 'b',
+      status: InningsStatus.inProgress,
+      legalBalls: 4,
+      totalRuns: 8,
+    );
+    final existing = tournamentMatch(innings: [scoredInnings]);
+    final incoming = existing.copyWith(
+      innings: [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.inProgress,
+        ),
+      ],
+    );
+
+    final merged = MatchUpdateMerge.merge(existing, incoming);
+    expect(merged.innings.first.legalBalls, 4);
+    expect(merged.innings.first.totalRuns, 8);
+  });
 }

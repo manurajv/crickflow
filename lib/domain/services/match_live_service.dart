@@ -2,6 +2,7 @@ import '../../core/constants/enums.dart';
 import '../../core/utils/cricket_math.dart';
 import '../../data/models/innings_model.dart';import '../../data/models/match_model.dart';
 import '../../data/models/match_revision_model.dart';import '../../data/models/match_target_state_model.dart';
+import '../../domain/scoring/match_lifecycle.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import 'commentary_feed_models.dart';
 import 'commentary_feed_service.dart';
@@ -24,8 +25,8 @@ class MatchLiveService {
     int totalViews = 0,
     int liveViewers = 0,
   }) {
-    final isLive = match.status == MatchStatus.live;
     final isBreak = match.status == MatchStatus.inningsBreak;
+    final isLive = MatchLifecycle.isActivelyLive(match) && !isBreak;
     if (!isLive && !isBreak) return MatchLiveSnapshot.empty;
 
     final innings = match.currentInnings;

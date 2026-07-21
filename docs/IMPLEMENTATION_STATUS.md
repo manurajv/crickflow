@@ -3,13 +3,26 @@
 
 
 
-**Last updated:** Community polish — blocked authors filtered, report player, dead code removed
+**Last updated:** Tournament live scoring / hub Live tab — status lag fix
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Tournament live scoring status lag)
+
+| Item | Status |
+|------|--------|
+| **Root cause** — toss re-save could leave `tossCompleted` while innings already had balls; Start Innings + Live tab gated only on `live`/`inningsBreak` | Fixed |
+| **`MatchLifecycle.hasScoringStarted` / `isActivelyLive` / `canOpenScoringScreen`** — shared detection for scored progress | Done |
+| **Routing** — `openMatchScoring` / setup flow → `/score` when scoring started; repair `tossCompleted` → `live` | Done |
+| **`buildMatchAfterToss` / merge** — never regress live status; block inProgress zero-ball innings wipe | Done |
+| **Start Innings redirect + `startMatch`** — skip wipe when scores exist; auto-go to scoring | Done |
+| **Match hub Live tab / `MatchLiveService`** — show feed when actively live (incl. lagging status) | Done |
 
 ---
 

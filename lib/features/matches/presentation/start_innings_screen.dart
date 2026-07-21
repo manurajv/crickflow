@@ -7,6 +7,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/innings_model.dart';
 import '../../../data/models/lineup_player.dart';
 import '../../../data/models/match_model.dart';
+import '../../../domain/scoring/match_lifecycle.dart';
 import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/providers.dart';
 import '../../scoring/presentation/utils/scoring_display_utils.dart';
@@ -136,7 +137,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
         await ref.read(matchRepositoryProvider).startMatch(
               widget.matchId,
               InningsModel(
-                inningsNumber: inn!.inningsNumber,
+                inningsNumber: inn.inningsNumber,
                 battingTeamId: inn.battingTeamId,
                 bowlingTeamId: inn.bowlingTeamId,
                 status: InningsStatus.inProgress,
@@ -211,14 +212,27 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
           }
 
           final inn = match.currentInnings ?? match.innings.firstOrNull;
-          if (inn != null &&
-              match.status == MatchStatus.live &&
-              inn.status == InningsStatus.inProgress &&
-              inn.strikerId != null &&
-              inn.nonStrikerId != null &&
-              inn.currentBowlerId != null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) context.go('/match/${widget.matchId}/score');
+          final alreadyScoring = MatchLifecycle.canOpenScoringScreen(match) &&
+              inn != null &&
+              (MatchLifecycle.hasScoringStarted(match) ||
+                  (inn.status == InningsStatus.inProgress &&
+                      inn.strikerId != null &&
+                      inn.nonStrikerId != null &&
+                      inn.currentBowlerId != null));
+          if (alreadyScoring) {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted) return;
+              final nav = GoRouter.of(context);
+              if (match.status == MatchStatus.tossCompleted &&
+                  MatchLifecycle.hasScoringStarted(match)) {
+                try {
+                  await ref
+                      .read(matchRepositoryProvider)
+                      .repairLiveStatusIfScoringStarted(widget.matchId);
+                } catch (_) {}
+              }
+              if (!mounted) return;
+              nav.go('/match/${widget.matchId}/score');
             });
             return const Center(child: CircularProgressIndicator());
           }

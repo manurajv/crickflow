@@ -109,7 +109,24 @@ Future<void> openMatchScoring(
     return;
   }
 
-  if (match.status == MatchStatus.tossCompleted) {
+  if (MatchLifecycle.canOpenScoringScreen(match)) {
+    if (MatchLifecycle.hasScoringStarted(match) &&
+        match.status == MatchStatus.tossCompleted) {
+      try {
+        await ref
+            .read(matchRepositoryProvider)
+            .repairLiveStatusIfScoringStarted(match.id);
+      } catch (_) {
+        // Non-blocking — scoring screen still opens from innings progress.
+      }
+    }
+    if (context.mounted) {
+      context.push('/match/${match.id}/score');
+    }
+    return;
+  }
+
+  if (MatchLifecycle.needsStartInnings(match)) {
     if (context.mounted) {
       context.push('/match/${match.id}/start-innings');
     }

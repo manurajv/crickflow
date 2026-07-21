@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/constants/enums.dart';
-
 import '../../../../core/theme/app_dimens.dart';
 
 import '../../../../core/theme/cf_colors.dart';
+
+import '../../../../domain/scoring/match_lifecycle.dart';
 
 import '../../../../shared/providers/match_live_provider.dart';
 
@@ -74,11 +74,7 @@ class _MatchLiveTabState extends ConsumerState<MatchLiveTab>
 
 
 
-        final isLive = match.status == MatchStatus.live ||
-
-            match.status == MatchStatus.inningsBreak;
-
-
+        final isLive = MatchLifecycle.isActivelyLive(match);
 
         if (!isLive) {
 

@@ -21,11 +21,49 @@ abstract final class MatchUpdateMerge {
     _preserveTournamentFields(existing, patch);
     _preserveAuditFields(existing, patch);
     _preserveStreamFields(existing, patch);
+    _preserveMatchStatus(existing, patch);
     if (_isInningsRegression(existing.innings, patch['innings'])) {
       patch['innings'] = existing.innings.map((i) => i.toMap()).toList();
       patch['currentInningsIndex'] = existing.currentInningsIndex;
     }
     return patch;
+  }
+
+  /// Blocks live/break/completed → tossCompleted (or earlier) downgrades.
+  static void _preserveMatchStatus(
+    MatchModel existing,
+    Map<String, dynamic> patch,
+  ) {
+    final incomingRaw = patch['status'];
+    if (incomingRaw is! String) return;
+
+    MatchStatus? incoming;
+    for (final s in MatchStatus.values) {
+      if (s.name == incomingRaw) {
+        incoming = s;
+        break;
+      }
+    }
+    if (incoming == null) return;
+
+    final current = existing.status;
+    final advanced = current == MatchStatus.live ||
+        current == MatchStatus.inningsBreak ||
+        current == MatchStatus.completed ||
+        current == MatchStatus.abandoned;
+    if (!advanced) return;
+
+    final isDowngrade = incoming == MatchStatus.draft ||
+        incoming == MatchStatus.scheduled ||
+        incoming == MatchStatus.tossCompleted ||
+        (current == MatchStatus.completed && incoming == MatchStatus.live) ||
+        (current == MatchStatus.completed &&
+            incoming == MatchStatus.inningsBreak) ||
+        (current == MatchStatus.abandoned &&
+            incoming != MatchStatus.abandoned);
+    if (isDowngrade) {
+      patch['status'] = current.name;
+    }
   }
 
   static MatchModel mergeTournamentLink(
@@ -161,11 +199,14 @@ abstract final class MatchUpdateMerge {
     if (incoming.length < existing.length) return true;
 
     if (incoming.length == 1 &&
-        incoming.first.status == InningsStatus.notStarted &&
         incoming.first.legalBalls == 0 &&
+        (incoming.first.status == InningsStatus.notStarted ||
+            incoming.first.status == InningsStatus.inProgress) &&
         existing.any(
           (i) =>
-              i.legalBalls > 0 || i.status == InningsStatus.completed,
+              i.legalBalls > 0 ||
+              i.totalRuns > 0 ||
+              i.status == InningsStatus.completed,
         )) {
       return true;
     }

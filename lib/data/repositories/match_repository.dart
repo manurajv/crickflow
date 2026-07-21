@@ -1492,6 +1492,22 @@ class MatchRepository {
     return fetchBallEvents(matchId);
   }
 
+  /// Promotes `tossCompleted` → `live` when innings already have progress.
+  Future<void> repairLiveStatusIfScoringStarted(String matchId) async {
+    final match = await getMatch(matchId);
+    if (match == null) return;
+    if (match.status != MatchStatus.tossCompleted) return;
+    if (!MatchLifecycle.hasScoringStarted(match)) return;
+
+    final data = <String, dynamic>{
+      'status': MatchStatus.live.name,
+    };
+    if (match.startedAt == null) {
+      data['startedAt'] = DateTime.now().toIso8601String();
+    }
+    await _enqueueMatchPatch(matchId, data);
+  }
+
   Future<void> startMatch(
     String matchId,
     InningsModel firstInnings, {
@@ -1508,11 +1524,18 @@ class MatchRepository {
       );
     }
 
+    // Status lag (e.g. toss re-save): promote to live without wiping scores.
+    final preserveScoredInnings =
+        existing != null && MatchLifecycle.hasScoringStarted(existing);
+
     final data = <String, dynamic>{
       'status': MatchStatus.live.name,
-      'startedAt': DateTime.now().toIso8601String(),
-      'innings': [firstInnings.toMap()],
-      'currentInningsIndex': 0,
+      'startedAt': existing?.startedAt?.toIso8601String() ??
+          DateTime.now().toIso8601String(),
+      if (!preserveScoredInnings) ...{
+        'innings': [firstInnings.toMap()],
+        'currentInningsIndex': 0,
+      },
     };
     if (existing == null ||
         existing.publicMatchId == null ||

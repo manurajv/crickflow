@@ -106,14 +106,24 @@ List<InningsModel> inningsAfterToss(
   InningsModel firstInnings,
 ) {
   if (existing == null || existing.innings.isEmpty) return [firstInnings];
-  final hasScoring = existing.innings.any(
-    (i) =>
-        i.legalBalls > 0 ||
-        i.status == InningsStatus.inProgress ||
-        i.status == InningsStatus.completed,
-  );
-  if (hasScoring) return existing.innings;
+  if (MatchLifecycle.hasScoringStarted(existing)) return existing.innings;
   return [firstInnings];
+}
+
+/// Never downgrade a live/break/completed match back to tossCompleted.
+MatchStatus statusAfterToss(MatchModel? existing) {
+  if (existing == null) return MatchStatus.tossCompleted;
+  final status = existing.status;
+  if (status == MatchStatus.live ||
+      status == MatchStatus.inningsBreak ||
+      status == MatchStatus.completed ||
+      status == MatchStatus.abandoned) {
+    return status;
+  }
+  if (MatchLifecycle.hasScoringStarted(existing)) {
+    return MatchStatus.live;
+  }
+  return MatchStatus.tossCompleted;
 }
 
 InningsModel _firstInningsAfterToss(StartMatchDraft draft, MatchSetupData setup) {
@@ -166,9 +176,10 @@ MatchModel buildMatchAfterToss({
         scorerIds: scorerIds,
         setup: setup,
       );
+  final innings = inningsAfterToss(existing, firstInnings);
   return baseMatch.copyWith(
     title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-    status: MatchStatus.tossCompleted,
+    status: statusAfterToss(existing),
     teamAId: draft.teamA?.id,
     teamBId: draft.teamB?.id,
     teamAName: draft.resolvedTeamAName,
@@ -177,8 +188,11 @@ MatchModel buildMatchAfterToss({
     location: draft.location.copyWith(city: city),
     venue: ground,
     setup: setup,
-    innings: inningsAfterToss(existing, firstInnings),
-    currentInningsIndex: 0,
+    innings: innings,
+    currentInningsIndex: existing != null &&
+            MatchLifecycle.hasScoringStarted(existing)
+        ? existing.currentInningsIndex
+        : 0,
   );
 }
 
@@ -323,7 +337,11 @@ String resolveMatchSetupRoute(
   final setup = match.setup ?? const MatchSetupData();
   final playersPerTeam = match.rules.playersPerTeam;
 
-  if (match.status == MatchStatus.tossCompleted) {
+  if (MatchLifecycle.canOpenScoringScreen(match)) {
+    return '/match/${match.id}/score';
+  }
+
+  if (MatchLifecycle.needsStartInnings(match)) {
     return '/match/${match.id}/start-innings';
   }
 
@@ -365,17 +383,26 @@ Future<void> openMatchSetupFlow(
   required MatchModel match,
   bool forceSetupStep = false,
 }) async {
-  if (match.status == MatchStatus.tossCompleted) {
+  if (MatchLifecycle.canOpenScoringScreen(match)) {
+    if (MatchLifecycle.hasScoringStarted(match) &&
+        match.status == MatchStatus.tossCompleted) {
+      try {
+        await ref
+            .read(matchRepositoryProvider)
+            .repairLiveStatusIfScoringStarted(match.id);
+      } catch (_) {
+        // Non-blocking — scoring screen still opens from innings progress.
+      }
+    }
     if (context.mounted) {
-      context.push('/match/${match.id}/start-innings');
+      context.push('/match/${match.id}/score');
     }
     return;
   }
 
-  if (match.status == MatchStatus.live ||
-      match.status == MatchStatus.inningsBreak) {
+  if (MatchLifecycle.needsStartInnings(match)) {
     if (context.mounted) {
-      context.push('/match/${match.id}/score');
+      context.push('/match/${match.id}/start-innings');
     }
     return;
   }
