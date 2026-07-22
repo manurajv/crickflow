@@ -8,7 +8,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/location_filter_bar.dart';
 import '../domain/nearby_match_item.dart';
 
-const double kNearbyMatchRadiusKm = 30;
+const double kNearbyMatchRadiusKm = kNearbyRadiusKm;
 
 /// Cached nearby matches for the home "Matches Near You" section.
 final nearbyMatchesProvider =

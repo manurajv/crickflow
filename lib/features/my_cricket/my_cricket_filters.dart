@@ -335,7 +335,11 @@ bool filterTournamentByScope(
     case MyCricketListScope.all:
       return true;
     case MyCricketListScope.yours:
-      return userTeamParticipatedInTournament(t, userTeamIds: userTeamIds);
+      return userParticipatedInTournament(
+        t,
+        uid: uid,
+        userTeamIds: userTeamIds,
+      );
     case MyCricketListScope.played:
       return t.status == TournamentStatus.completed &&
           userParticipatedInTournament(t, uid: uid, userTeamIds: userTeamIds);

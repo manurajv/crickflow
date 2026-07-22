@@ -384,14 +384,31 @@ class GoogleMapsLocationService {
       'postal_town',
       'administrative_area_level_3',
     };
-    if (placeName.isNotEmpty &&
+    final isCountryPlace = placeTypes.contains('country');
+    final isBroadAdminPlace = placeTypes.any(
+          (t) =>
+              t == 'administrative_area_level_1' ||
+              t == 'administrative_area_level_2' ||
+              t == 'country',
+        ) &&
+        !placeTypes.any(settlementTypes.contains);
+
+    // Country / province / district picks must not invent a city name.
+    if (isCountryPlace) {
+      city = '';
+      district = '';
+      province = '';
+    } else if (!isBroadAdminPlace &&
+        placeName.isNotEmpty &&
         placeTypes.any(settlementTypes.contains) &&
         !_sameName(placeName, country) &&
         !_sameName(placeName, province)) {
       city = placeName;
     }
 
-    if (city.isEmpty && fallbackDescription.isNotEmpty) {
+    if (city.isEmpty &&
+        !isBroadAdminPlace &&
+        fallbackDescription.isNotEmpty) {
       city = _cityFromDescription(
         fallbackDescription,
         country: country,
@@ -400,13 +417,24 @@ class GoogleMapsLocationService {
       );
     }
 
-    if (city.isEmpty && district.isNotEmpty) {
+    if (city.isEmpty &&
+        district.isNotEmpty &&
+        !placeTypes.contains('administrative_area_level_2') &&
+        !isCountryPlace) {
       city = district;
       district = '';
     }
 
     if (_sameName(district, city)) {
       district = '';
+    }
+    // Never mirror country (or province-only picks) into the city field.
+    if (_sameName(city, country)) {
+      city = '';
+    }
+    if (isBroadAdminPlace &&
+        (_sameName(city, province) || _sameName(city, district))) {
+      city = '';
     }
 
     return LocationModel(
@@ -442,7 +470,8 @@ class GoogleMapsLocationService {
       if (RegExp(r'\d').hasMatch(part) && part.length > 24) continue;
       return part;
     }
-    return parts.first;
+    // All tokens were country/province/district — no city in the description.
+    return '';
   }
 
   bool _sameName(String a, String b) =>

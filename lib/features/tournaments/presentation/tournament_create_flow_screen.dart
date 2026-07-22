@@ -134,6 +134,9 @@ class _TournamentCreateFlowScreenState
             ownerDisplayName: organizerName.isNotEmpty
                 ? organizerName
                 : (profile?.effectiveName ?? ''),
+            authorPhotoUrl: profile?.photoUrl,
+            authorPlayerId: profile?.playerId,
+            authorVerified: profile?.badgeIds.isNotEmpty == true,
           );
       ref.read(tournamentCreateDraftProvider.notifier).reset();
       if (mounted) context.go('/tournaments/$id');

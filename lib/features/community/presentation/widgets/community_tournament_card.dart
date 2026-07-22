@@ -13,38 +13,69 @@ import '../../../../data/models/community_post_model.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/providers.dart';
-
+import '../../../../shared/providers/tournament_providers.dart';
+import 'community_media_viewer.dart';
+/// Tournament embed: name → organizer → thumbnail → details.
 class CommunityTournamentCard extends ConsumerWidget {
   const CommunityTournamentCard({
     super.key,
     required this.snapshot,
-    this.onShare,
     this.fallbackOrganizerUserId = '',
     this.fallbackOrganizerPlayerId,
     this.fallbackOrganizerPhotoUrl,
   });
 
   final CommunityTournamentSnapshot snapshot;
-  final VoidCallback? onShare;
-
-  /// Post author uid when snapshot predates [organizerUserId].
   final String fallbackOrganizerUserId;
   final String? fallbackOrganizerPlayerId;
   final String? fallbackOrganizerPhotoUrl;
 
-  String get _organizerUserId =>
-      snapshot.organizerUserId.isNotEmpty
-          ? snapshot.organizerUserId
-          : fallbackOrganizerUserId;
+  String get _organizerUserId => snapshot.organizerUserId.isNotEmpty
+      ? snapshot.organizerUserId
+      : fallbackOrganizerUserId;
+
+  List<String> get _grounds {
+    if (snapshot.grounds.isNotEmpty) {
+      return snapshot.grounds
+          .map((g) => g.trim())
+          .where((g) => g.isNotEmpty)
+          .toList();
+    }
+    final raw = snapshot.groundsLabel.trim();
+    if (raw.isEmpty) return const [];
+    if (raw.contains(' · ')) {
+      return raw
+          .split(' · ')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return [raw];
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
     final theme = Theme.of(context);
     final thumb = snapshot.thumbnailUrl;
-    final showContact = _hasContact(snapshot, _organizerUserId);
     final isDm =
         snapshot.contactVisibility == CommunityContactVisibility.crickflowDm;
+    final showExternalContact = _hasExternalContact(snapshot);
+    var grounds = _grounds;
+    if (grounds.isEmpty && snapshot.tournamentId.isNotEmpty) {
+      final tournament =
+          ref.watch(tournamentProvider(snapshot.tournamentId)).valueOrNull;
+      grounds = [
+        ...?tournament?.grounds
+            .map((g) => g.trim())
+            .where((g) => g.isNotEmpty),
+      ];
+      final primary = tournament?.setupMeta.primaryGround.trim() ?? '';
+      if (primary.isNotEmpty &&
+          !grounds.any((g) => g.toLowerCase() == primary.toLowerCase())) {
+        grounds = [primary, ...grounds];
+      }
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -56,19 +87,13 @@ class CommunityTournamentCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AspectRatio(
-            aspectRatio: snapshot.thumbnailAspect.displayRatio,
-            child: thumb != null && thumb.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: thumb,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) => ColoredBox(color: cf.card),
-                    errorWidget: (_, _, _) => _thumbFallback(cf),
-                  )
-                : _thumbFallback(cf),
-          ),
           Padding(
-            padding: const EdgeInsets.all(AppDimens.spaceMd),
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+              0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -77,36 +102,102 @@ class CommunityTournamentCard extends ConsumerWidget {
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 if (snapshot.organizer.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Organizer · ${snapshot.organizer}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cf.textMuted,
+                    'Organizer: ${snapshot.organizer}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cf.textSecondary,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
-                const SizedBox(height: AppDimens.spaceSm),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          AspectRatio(
+            aspectRatio: snapshot.thumbnailAspect.displayRatio,
+            child: thumb != null && thumb.isNotEmpty
+                ? GestureDetector(
+                    onTap: () => openCommunityMediaViewer(
+                      context,
+                      media: [
+                        CommunityMediaItem(
+                          url: thumb,
+                          aspect: snapshot.thumbnailAspect,
+                        ),
+                      ],
+                    ),
+                    child: CachedNetworkImage(
+                      imageUrl: thumb,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) => ColoredBox(color: cf.card),
+                      errorWidget: (_, _, _) => _thumbFallback(cf),
+                    ),
+                  )
+                : _thumbFallback(cf),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppDimens.spaceMd),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (grounds.isNotEmpty) ...[
+                  Text(
+                    grounds.length == 1 ? 'Ground location' : 'Ground locations',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: cf.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ...grounds.map(
+                    (g) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: cf.accent,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              g,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimens.spaceSm),
+                ],
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    if (snapshot.locationLabel.isNotEmpty)
-                      _chip(
-                        cf,
-                        Icons.location_on_outlined,
-                        snapshot.locationLabel,
-                      ),
                     if (snapshot.startDate != null)
                       _chip(
                         cf,
                         Icons.event_outlined,
                         _dateRange(snapshot.startDate, snapshot.endDate),
                       ),
-                    if (snapshot.entryFee != null &&
-                        snapshot.entryFee!.isNotEmpty)
-                      _chip(cf, Icons.payments_outlined, snapshot.entryFee!),
+                    if (_dayCount(snapshot.startDate, snapshot.endDate)
+                        case final days?)
+                      _chip(
+                        cf,
+                        Icons.schedule_outlined,
+                        days == 1 ? '1 day' : '$days days',
+                      ),
                     if (snapshot.ballType.isNotEmpty)
                       _chip(
                         cf,
@@ -119,12 +210,6 @@ class CommunityTournamentCard extends ConsumerWidget {
                         Icons.grid_view_outlined,
                         snapshot.matchFormat,
                       ),
-                    if (snapshot.teamCount != null)
-                      _chip(
-                        cf,
-                        Icons.groups_outlined,
-                        '${snapshot.teamCount} teams',
-                      ),
                     if (snapshot.registrationStatus.isNotEmpty)
                       _chip(
                         cf,
@@ -133,7 +218,7 @@ class CommunityTournamentCard extends ConsumerWidget {
                       ),
                   ],
                 ),
-                if (showContact && !isDm) ...[
+                if (showExternalContact) ...[
                   const SizedBox(height: AppDimens.spaceSm),
                   _ExternalContactRow(snapshot: snapshot),
                 ],
@@ -147,25 +232,16 @@ class CommunityTournamentCard extends ConsumerWidget {
                             : () => context.push(
                                   '/tournaments/${snapshot.tournamentId}',
                                 ),
-                        child: const Text('Join'),
+                        child: const Text('View tournament'),
                       ),
                     ),
                     if (isDm && _organizerUserId.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      Tooltip(
-                        message: 'Message organizer',
-                        child: OutlinedButton(
-                          onPressed: () => _openOrganizerChat(context, ref),
-                          child:
-                              const Icon(Icons.chat_bubble_outline, size: 18),
-                        ),
+                      OutlinedButton(
+                        onPressed: () => _openOrganizerChat(context, ref),
+                        child: const Text('Chat'),
                       ),
                     ],
-                    const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: onShare,
-                      child: const Icon(Icons.share_outlined, size: 18),
-                    ),
                   ],
                 ),
               ],
@@ -266,13 +342,14 @@ class CommunityTournamentCard extends ConsumerWidget {
     );
   }
 
-  bool _hasContact(CommunityTournamentSnapshot s, String organizerUserId) {
+  bool _hasExternalContact(CommunityTournamentSnapshot s) {
     return switch (s.contactVisibility) {
-      CommunityContactVisibility.hide => false,
       CommunityContactVisibility.phone => s.contactPhone.isNotEmpty,
       CommunityContactVisibility.whatsapp => s.contactWhatsApp.isNotEmpty,
       CommunityContactVisibility.email => s.contactEmail.isNotEmpty,
-      CommunityContactVisibility.crickflowDm => organizerUserId.isNotEmpty,
+      CommunityContactVisibility.hide ||
+      CommunityContactVisibility.crickflowDm =>
+        false,
     };
   }
 
@@ -281,6 +358,17 @@ class CommunityTournamentCard extends ConsumerWidget {
     final a = AppDateUtils.formatShort(start);
     if (end == null) return a;
     return '$a – ${AppDateUtils.formatShort(end)}';
+  }
+
+  /// Inclusive calendar-day span (same start/end → 1 day).
+  int? _dayCount(DateTime? start, DateTime? end) {
+    if (start == null) return null;
+    final s = DateTime(start.year, start.month, start.day);
+    final e = end == null
+        ? s
+        : DateTime(end.year, end.month, end.day);
+    final days = e.difference(s).inDays + 1;
+    return days < 1 ? 1 : days;
   }
 }
 

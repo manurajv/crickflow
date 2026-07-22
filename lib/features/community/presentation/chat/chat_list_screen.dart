@@ -114,7 +114,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search users…',
+                hintText: 'Search by name or player ID…',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(

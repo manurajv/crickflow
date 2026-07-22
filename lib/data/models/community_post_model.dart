@@ -46,11 +46,16 @@ class CommunityTournamentSnapshot extends Equatable {
     this.thumbnailUrl,
     this.thumbnailAspect = CommunityMediaAspect.landscape16x9,
     this.locationLabel = '',
+    this.groundsLabel = '',
+    this.grounds = const [],
     this.startDate,
     this.endDate,
     this.entryFee,
+    this.budgetPerDayLabel = '',
+    this.budgetPerMatchLabel = '',
     this.ballType = '',
     this.matchFormat = '',
+    this.formatLabel = '',
     this.teamCount,
     this.registrationStatus = '',
     this.contactVisibility = CommunityContactVisibility.hide,
@@ -67,12 +72,20 @@ class CommunityTournamentSnapshot extends Equatable {
   final String organizer;
   final String? thumbnailUrl;
   final CommunityMediaAspect thumbnailAspect;
+  /// City / region (legacy + filter context). Prefer [groundsLabel] in UI.
   final String locationLabel;
+  /// Ground name(s) for display on the tournament card.
+  final String groundsLabel;
+  final List<String> grounds;
   final DateTime? startDate;
   final DateTime? endDate;
   final String? entryFee;
+  final String budgetPerDayLabel;
+  final String budgetPerMatchLabel;
   final String ballType;
   final String matchFormat;
+  /// Human-readable tournament type (e.g. League Knockout).
+  final String formatLabel;
   final int? teamCount;
   final String registrationStatus;
   final CommunityContactVisibility contactVisibility;
@@ -95,11 +108,35 @@ class CommunityTournamentSnapshot extends Equatable {
         map['thumbnailAspect'] as String?,
       ),
       locationLabel: map['locationLabel'] as String? ?? '',
+      groundsLabel: map['groundsLabel'] as String? ?? '',
+      grounds: () {
+        final raw = map['grounds'];
+        if (raw is List) {
+          return raw
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+        final label = (map['groundsLabel'] as String? ?? '').trim();
+        if (label.isEmpty) return const <String>[];
+        // Prefer middle-dot join; avoid splitting commas inside ground names.
+        if (label.contains(' · ')) {
+          return label
+              .split(' · ')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+        return [label];
+      }(),
       startDate: DateTime.tryParse(map['startDate']?.toString() ?? ''),
       endDate: DateTime.tryParse(map['endDate']?.toString() ?? ''),
       entryFee: map['entryFee']?.toString(),
+      budgetPerDayLabel: map['budgetPerDayLabel'] as String? ?? '',
+      budgetPerMatchLabel: map['budgetPerMatchLabel'] as String? ?? '',
       ballType: map['ballType'] as String? ?? '',
       matchFormat: map['matchFormat'] as String? ?? '',
+      formatLabel: map['formatLabel'] as String? ?? '',
       teamCount: map['teamCount'] as int?,
       registrationStatus: map['registrationStatus'] as String? ?? '',
       contactVisibility: CommunityContactVisibility.values.firstWhere(
@@ -122,11 +159,18 @@ class CommunityTournamentSnapshot extends Equatable {
         if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
         'thumbnailAspect': thumbnailAspect.name,
         'locationLabel': locationLabel,
+        if (groundsLabel.isNotEmpty) 'groundsLabel': groundsLabel,
+        if (grounds.isNotEmpty) 'grounds': grounds,
         if (startDate != null) 'startDate': startDate!.toIso8601String(),
         if (endDate != null) 'endDate': endDate!.toIso8601String(),
         if (entryFee != null) 'entryFee': entryFee,
+        if (budgetPerDayLabel.isNotEmpty)
+          'budgetPerDayLabel': budgetPerDayLabel,
+        if (budgetPerMatchLabel.isNotEmpty)
+          'budgetPerMatchLabel': budgetPerMatchLabel,
         'ballType': ballType,
         'matchFormat': matchFormat,
+        if (formatLabel.isNotEmpty) 'formatLabel': formatLabel,
         if (teamCount != null) 'teamCount': teamCount,
         'registrationStatus': registrationStatus,
         'contactVisibility': contactVisibility.name,

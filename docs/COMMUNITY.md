@@ -45,6 +45,7 @@ Cricket community social feed — recruitment, tournament announcements, media p
 - Feed head: `orderBy createdAt desc` (page size 20) + load-more
 - By category: `where category == … orderBy createdAt desc`
 - Location multi-filter: client-side match against persisted selections (SharedPreferences)
+- Near filter: posts within ~30 km of profile GPS (or device GPS); city/region fallback if origin unavailable
 - Blocked-author filter: client-side via `blockedUserIdsProvider`
 
 Indexes: `firestore.indexes.json`
@@ -77,7 +78,7 @@ Indexes: `firestore.indexes.json`
 
 - Online presence indicators in chat
 - @mention picker polish
-- GPS-radius ranking beyond city/country
+- GPS-radius ranking beyond city/country (Near filter uses 30 km hard filter)
 - Native video post upload (schema ready)
 
 ## Search

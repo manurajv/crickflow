@@ -26,6 +26,9 @@ class TournamentCreateService {
     required TournamentCreateDraft draft,
     required String uid,
     required String ownerDisplayName,
+    String? authorPhotoUrl,
+    String? authorPlayerId,
+    bool authorVerified = false,
     bool postOfficialsRequest = true,
     bool postTeamsRequest = true,
   }) async {
@@ -82,8 +85,11 @@ class TournamentCreateService {
         authorId: uid,
         authorName: ownerDisplayName,
         authorRole: 'organizer',
-        title: 'Officials needed — ${draft.name.trim()}',
-        body: _officialsPostBody(draft.name, meta),
+        authorPhotoUrl: authorPhotoUrl,
+        authorPlayerId: authorPlayerId,
+        authorVerified: authorVerified,
+        title: 'Officials needed',
+        body: _officialsPostBody(meta),
         category: CommunityPostCategory.tournamentNeed,
         postKind: CommunityPostKind.tournament,
         location: location,
@@ -97,8 +103,11 @@ class TournamentCreateService {
         authorId: uid,
         authorName: ownerDisplayName,
         authorRole: 'organizer',
-        title: 'Teams wanted — ${draft.name.trim()}',
-        body: _teamsPostBody(draft.name, draft, meta),
+        authorPhotoUrl: authorPhotoUrl,
+        authorPlayerId: authorPlayerId,
+        authorVerified: authorVerified,
+        title: 'Teams wanted',
+        body: _teamsPostBody(draft, meta),
         category: CommunityPostCategory.tournamentNeed,
         postKind: CommunityPostKind.tournament,
         location: location,
@@ -126,6 +135,17 @@ class TournamentCreateService {
         ? meta.organizerEmail
         : draft.organizerEmail;
 
+    final grounds = <String>[
+      ...draft.grounds.map((g) => g.trim()).where((g) => g.isNotEmpty),
+    ];
+    final primary = meta.primaryGround.trim();
+    if (primary.isNotEmpty &&
+        !grounds.any((g) => g.toLowerCase() == primary.toLowerCase())) {
+      grounds.insert(0, primary);
+    }
+    final groundsLabel = grounds.join(' · ');
+    final cityLabel = draft.location.copyWith(city: draft.city).displayLabel;
+
     return CommunityTournamentSnapshot(
       tournamentId: tournamentId,
       name: draft.name.trim(),
@@ -136,16 +156,23 @@ class TournamentCreateService {
               : ownerDisplayName),
       thumbnailUrl: thumbnailUrl,
       thumbnailAspect: draft.thumbnailAspect,
-      locationLabel: draft.location
-          .copyWith(city: draft.city)
-          .displayLabel,
+      locationLabel: cityLabel,
+      groundsLabel: groundsLabel,
+      grounds: grounds,
       startDate: draft.startDate,
       endDate: draft.endDate,
       entryFee: draft.entryFeeText.isNotEmpty ? draft.entryFeeText : null,
+      budgetPerDayLabel: meta.budgetPerDay != null
+          ? officialBudgetLabel(meta.budgetPerDay!)
+          : '',
+      budgetPerMatchLabel: meta.budgetPerMatch != null
+          ? officialBudgetLabel(meta.budgetPerMatch!)
+          : '',
       ballType: draft.ballTypeOther ? 'Other' : draft.ballType.name,
       matchFormat: tournamentMatchFormatLabel(meta.matchFormat),
-      teamCount: meta.totalTeams,
-      registrationStatus: draft.needMoreTeams ? 'Open' : 'Closed',
+      formatLabel: _tournamentTypeLabel(draft.format),
+      teamCount: meta.totalTeams ?? meta.teamsRequired,
+      registrationStatus: draft.needMoreTeams ? 'Open' : '',
       contactVisibility: visibility,
       contactPhone: visibility == CommunityContactVisibility.phone ? phone : '',
       contactWhatsApp:
@@ -166,42 +193,34 @@ class TournamentCreateService {
     };
   }
 
-  String _officialsPostBody(String name, TournamentSetupMeta meta) {
+  String _tournamentTypeLabel(TournamentFormat format) => switch (format) {
+        TournamentFormat.league => 'League',
+        TournamentFormat.knockout => 'Knockout',
+        TournamentFormat.leagueKnockout => 'League Knockout',
+        TournamentFormat.custom => 'Custom',
+      };
+
+  /// One short line — details live on the tournament card.
+  String _officialsPostBody(TournamentSetupMeta meta) {
     final roles = meta.requiredOfficialRoles.map((r) => r.name).join(', ');
-    return [
-      'Tournament: $name',
-      if (roles.isNotEmpty) 'Roles: $roles',
-      if (meta.officialDays != null) 'Days: ${meta.officialDays}',
-      if (meta.matchesPerDay != null) 'Matches/day: ${meta.matchesPerDay}',
-      if (meta.budgetPerDay != null)
-        'Budget/day: ${officialBudgetLabel(meta.budgetPerDay!)}',
-      if (meta.budgetPerMatch != null)
-        'Budget/match: ${officialBudgetLabel(meta.budgetPerMatch!)}',
-      'Contact via: ${officialContactLabel(meta.officialContactMethod)}',
-    ].join('\n');
+    if (roles.isNotEmpty) return 'Looking for: $roles';
+    return '';
   }
 
   String _teamsPostBody(
-    String name,
     TournamentCreateDraft draft,
     TournamentSetupMeta meta,
   ) {
-    return [
-      'Tournament: $name',
-      if (meta.totalTeams != null) 'Total teams: ${meta.totalTeams}',
-      if (meta.teamsRequired != null) 'Teams needed: ${meta.teamsRequired}',
-      if (draft.entryFeeText.isNotEmpty) 'Entry fee: ${draft.entryFeeText}',
-      'Format: ${draft.format.name}',
-      'Prize: ${_prizeLabel(meta.winningPrizeType)}',
-      if (meta.additionalDetails.isNotEmpty) meta.additionalDetails,
-    ].join('\n');
+    final needed = meta.teamsRequired;
+    if (needed != null && needed > 0) {
+      return 'Need $needed more team${needed == 1 ? '' : 's'}';
+    }
+    if (meta.additionalDetails.trim().isNotEmpty) {
+      final t = meta.additionalDetails.trim();
+      return t.length > 120 ? '${t.substring(0, 117)}…' : t;
+    }
+    return '';
   }
-
-  String _prizeLabel(WinningPrizeType type) => switch (type) {
-        WinningPrizeType.cash => 'Cash',
-        WinningPrizeType.trophies => 'Trophies',
-        WinningPrizeType.both => 'Cash & Trophies',
-      };
 }
 
 final tournamentCreateServiceProvider = Provider((ref) {

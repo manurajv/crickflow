@@ -3,13 +3,21 @@
 
 
 
-**Last updated:** Delete tournament → My Cricket redirect
+**Last updated:** My Cricket Tournaments · Your includes organized
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (My Cricket Tournaments · Your scope)
+
+| Item | Status |
+|------|--------|
+| **Your** tournaments = teams you play on **or** tournaments you organize | Done — `filterTournamentByScope` / `userParticipatedInTournament` |
 
 ---
 
@@ -86,6 +94,7 @@
 | Post header line 3 = location address; Places city parse keeps nearest town (not parent district) | Done |
 | Tournament Community thumbnail uses 1:1 / 16:9 / 9:16 / free crop; feed card respects aspect | Done |
 | Tournament posts: CrickFlow DM → chat icon; phone/WhatsApp/email shown when selected | Done |
+| Tournament Community posts polished — grounds, short copy, View tournament / Chat, single share, Chats FAB | Done |
 
 ---
 
@@ -738,7 +747,7 @@
 | Item | Status |
 |------|--------|
 | Guest browse — app opens to Home without login | Done |
-| **My Cricket guest UX** — Teams/Stats/Highlights sign-in gate; Matches/Tournaments **All** = nearby via device location; **Your** = team participation only (signed-in); no create FAB/banners for guests | Done — `my_cricket_*_tab.dart`, `my_cricket_guest_sign_in_prompt.dart` |
+| **My Cricket guest UX** — Teams/Stats/Highlights sign-in gate; Matches/Tournaments **All** = nearby via device location; **Your** matches = team participation; **Your** tournaments = team participation or organizer (signed-in); no create FAB/banners for guests | Done — `my_cricket_*_tab.dart`, `my_cricket_guest_sign_in_prompt.dart` |
 | Public Firestore read rules (matches, teams, players, …) | Done — deploy rules |
 | Login gate dialog for protected actions | Done — `auth_gate.dart` |
 | Resume action after login (`PendingAuthAction`) | Done |
@@ -859,6 +868,7 @@
 | Match MVP tab (format-aware bat/bowl/field scoring, POTM, Fighter, filters) | Done |
 | Match squads — side-by-side playing XI + substitutes from match setup snapshots, C/VC/WK badges | Done |
 | Community posts (`community_posts`, feed, create, filters) | Done |
+| Community Near filter — ~30 km radius around profile/device GPS | Done |
 | Discover → Community category deep links | Done |
 | Unified app bar + bottom nav colors (gold selected, surface chrome) | Done |
 | Compact design tokens (`app_dimens.dart`) | Done |

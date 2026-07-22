@@ -5,14 +5,17 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/auth/auth_gate.dart';
+import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/date_utils.dart';
 import '../../../../core/utils/deep_link_utils.dart';
 import '../../../../data/models/community_post_model.dart';
+import '../../../../data/models/tournament/tournament_setup_meta.dart';
 import '../../../../shared/providers/community_provider.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../shared/providers/tournament_providers.dart';
 import '../../community_post_ui.dart';
 import 'community_comments_sheet.dart';
 import 'community_media_viewer.dart';
@@ -63,7 +66,18 @@ class CommunityPostCard extends ConsumerWidget {
             false);
 
     final isSponsored = post.isSponsored || post.isAdminPost;
-    final loc = post.location.displayLabel;
+    final isTournamentEmbed = post.hasTournamentEmbed;
+    final loc = isTournamentEmbed && post.authorId.isNotEmpty
+        ? (ref
+                .watch(userProfileByIdProvider(post.authorId))
+                .valueOrNull
+                ?.location
+                .displayLabel ??
+            '')
+        : post.location.displayLabel;
+    final showTitle = post.title.trim().isNotEmpty;
+    final showBody = post.body.trim().isNotEmpty &&
+        (!isTournamentEmbed || !_isLegacyTournamentBody(post.body));
 
     return Container(
       decoration: BoxDecoration(
@@ -107,13 +121,13 @@ class CommunityPostCard extends ConsumerWidget {
             onEdit: onEdit,
             onBlock: onBlock,
           ),
-          if (post.title.trim().isNotEmpty || post.createdAt != null) ...[
+          if (showTitle || post.createdAt != null) ...[
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                if (post.title.trim().isNotEmpty)
+                if (showTitle)
                   Expanded(
                     child: Text(
                       post.title,
@@ -125,7 +139,7 @@ class CommunityPostCard extends ConsumerWidget {
                 else
                   const Spacer(),
                 if (post.createdAt != null) ...[
-                  if (post.title.trim().isNotEmpty) const SizedBox(width: 8),
+                  if (showTitle) const SizedBox(width: 8),
                   Text(
                     AppDateUtils.timeAgo(post.createdAt!),
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -136,7 +150,19 @@ class CommunityPostCard extends ConsumerWidget {
               ],
             ),
           ],
-          if (post.body.trim().isNotEmpty) ...[
+          if (isTournamentEmbed) ...[
+            Builder(
+              builder: (context) {
+                final summary = _tournamentMetaUnderTitle(ref, post);
+                if (summary == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(summary, style: theme.textTheme.bodyMedium),
+                );
+              },
+            ),
+          ],
+          if (showBody) ...[
             const SizedBox(height: 6),
             Text(post.body, style: theme.textTheme.bodyMedium),
           ],
@@ -151,11 +177,10 @@ class CommunityPostCard extends ConsumerWidget {
             const SizedBox(height: 12),
             _MediaBlock(media: post.media),
           ],
-          if (post.hasTournamentEmbed) ...[
+          if (isTournamentEmbed) ...[
             const SizedBox(height: 12),
             CommunityTournamentCard(
               snapshot: post.tournamentSnapshot!,
-              onShare: () => _share(ref),
               fallbackOrganizerUserId: post.authorId,
               fallbackOrganizerPlayerId: post.authorPlayerId,
               fallbackOrganizerPhotoUrl: post.authorPhotoUrl,
@@ -230,12 +255,86 @@ class CommunityPostCard extends ConsumerWidget {
 
   Future<void> _share(WidgetRef ref) async {
     final url = DeepLinkUtils.hostedCommunityPostUri(post.id).toString();
-    final text = post.title.isNotEmpty
-        ? '${post.title}\n$url'
-        : '${post.body}\n$url';
+    final snapName = post.tournamentSnapshot?.name.trim() ?? '';
+    final text = snapName.isNotEmpty
+        ? '$snapName\n$url'
+        : (post.title.isNotEmpty
+            ? '${post.title}\n$url'
+            : '${post.body}\n$url');
     await Share.share(text.trim());
     await ref.read(communityRepositoryProvider).incrementShareCount(post.id);
   }
+}
+
+bool _isLegacyTournamentBody(String body) {
+  final t = body.trim();
+  if (t.startsWith('Tournament:')) return true;
+  return t.contains('\n') &&
+      (t.contains('Roles:') ||
+          t.contains('Entry fee:') ||
+          t.contains('Contact via:') ||
+          t.contains('Total teams:'));
+}
+
+String? _tournamentMetaUnderTitle(WidgetRef ref, CommunityPostModel post) {
+  final snap = post.tournamentSnapshot;
+  if (snap == null) return null;
+
+  final isOfficials = post.title.toLowerCase().contains('official');
+
+  var format = snap.formatLabel.trim();
+  var teams = snap.teamCount;
+  var fee = snap.entryFee?.trim() ?? '';
+  var budgetDay = snap.budgetPerDayLabel.trim();
+  var budgetMatch = snap.budgetPerMatchLabel.trim();
+
+  if ((format.isEmpty ||
+          teams == null ||
+          (isOfficials
+              ? (budgetDay.isEmpty && budgetMatch.isEmpty)
+              : fee.isEmpty)) &&
+      snap.tournamentId.isNotEmpty) {
+    final tournament =
+        ref.watch(tournamentProvider(snap.tournamentId)).valueOrNull;
+    if (tournament != null) {
+      if (format.isEmpty) {
+        format = switch (tournament.format) {
+          TournamentFormat.league => 'League',
+          TournamentFormat.knockout => 'Knockout',
+          TournamentFormat.leagueKnockout => 'League Knockout',
+          TournamentFormat.custom => 'Custom',
+        };
+      }
+      teams ??= tournament.setupMeta.totalTeams ??
+          (tournament.teamIds.isNotEmpty ? tournament.teamIds.length : null);
+      if (!isOfficials && fee.isEmpty && tournament.entryFee != null) {
+        final v = tournament.entryFee!;
+        fee = v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(0);
+      }
+      if (isOfficials) {
+        final day = tournament.setupMeta.budgetPerDay;
+        final match = tournament.setupMeta.budgetPerMatch;
+        if (budgetDay.isEmpty && day != null) {
+          budgetDay = officialBudgetLabel(day);
+        }
+        if (budgetMatch.isEmpty && match != null) {
+          budgetMatch = officialBudgetLabel(match);
+        }
+      }
+    }
+  }
+
+  final lines = <String>[
+    if (format.isNotEmpty) format,
+    if (teams != null) '$teams teams',
+    if (isOfficials) ...[
+      if (budgetDay.isNotEmpty) 'Budget/day: $budgetDay',
+      if (budgetMatch.isNotEmpty) 'Budget/match: $budgetMatch',
+    ] else if (fee.isNotEmpty)
+      'Entry fee: $fee',
+  ];
+  if (lines.isEmpty) return null;
+  return lines.join('\n');
 }
 
 class _Header extends ConsumerWidget {
@@ -269,6 +368,16 @@ class _Header extends ConsumerWidget {
         currentUserId != post.authorId &&
         post.authorId.isNotEmpty;
 
+    final storedPhoto = post.authorPhotoUrl?.trim() ?? '';
+    final livePhoto = storedPhoto.isEmpty && post.authorId.isNotEmpty
+        ? (ref.watch(userProfileByIdProvider(post.authorId)).valueOrNull
+                ?.photoUrl
+                ?.trim() ??
+            '')
+        : '';
+    final photoUrl = storedPhoto.isNotEmpty ? storedPhoto : livePhoto;
+    final hasPhoto = photoUrl.isNotEmpty;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -282,16 +391,15 @@ class _Header extends ConsumerWidget {
           child: CircleAvatar(
             radius: 22,
             backgroundColor: cf.sectionBackground,
-            backgroundImage: post.authorPhotoUrl != null
-                ? CachedNetworkImageProvider(post.authorPhotoUrl!)
-                : null,
-            child: post.authorPhotoUrl == null
-                ? Text(
+            backgroundImage:
+                hasPhoto ? CachedNetworkImageProvider(photoUrl) : null,
+            child: hasPhoto
+                ? null
+                : Text(
                     post.authorName.isNotEmpty
                         ? post.authorName[0].toUpperCase()
                         : '?',
-                  )
-                : null,
+                  ),
           ),
         ),
         const SizedBox(width: 10),

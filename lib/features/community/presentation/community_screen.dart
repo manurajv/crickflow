@@ -355,7 +355,6 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   Widget build(BuildContext context) {
     final feed = ref.watch(communityFeedControllerProvider);
     final filter = ref.watch(communityFeedFilterProvider);
-    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final userId = ref.watch(authStateProvider).valueOrNull?.uid;
     final cf = context.cf;
     final unreadChats =
@@ -385,7 +384,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 
     return ShellTabScaffold(
       title: const Text('Community'),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         tooltip: 'Chats',
         onPressed: () {
           requireAuthVoid(
@@ -396,11 +395,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             },
           );
         },
-        child: Badge(
+        icon: Badge(
           isLabelVisible: fabBadge > 0,
           label: Text(fabBadge > 99 ? '99+' : '$fabBadge'),
-          child: const Icon(Icons.chat_bubble_outline),
+          child: const Icon(Icons.chat_bubble_outline, size: 20),
         ),
+        label: const Text('Chats'),
       ),
       actions: [
         IconButton(
@@ -455,8 +455,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        FilterChip(
-                          label: const Text('All'),
+                        _CommunityFilterChip(
+                          label: 'All',
                           selected: filter.isDefault,
                           onSelected: (_) {
                             ref
@@ -468,12 +468,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                           },
                         ),
                         const SizedBox(width: AppDimens.spaceXs),
-                        FilterChip(
-                          label: Text(
-                            profile?.location.city.isNotEmpty == true
-                                ? 'Near ${profile!.location.city}'
-                                : 'Near me',
-                          ),
+                        _CommunityFilterChip(
+                          label: 'Near you',
                           selected: filter.nearMeOnly,
                           onSelected: (on) async {
                             if (on) {
@@ -497,12 +493,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         ),
                         if (filter.locations.isNotEmpty) ...[
                           const SizedBox(width: AppDimens.spaceXs),
-                          FilterChip(
-                            label: Text(
-                              filter.locations.length == 1
-                                  ? filter.locations.first.label
-                                  : '${filter.locations.length} locations',
-                            ),
+                          _CommunityFilterChip(
+                            label: filter.locations.length == 1
+                                ? filter.locations.first.label
+                                : '${filter.locations.length} locations',
                             selected: true,
                             onSelected: (_) => _openLocationFilter(),
                             onDeleted: () async {
@@ -519,10 +513,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         ],
                         if (filter.category != null) ...[
                           const SizedBox(width: AppDimens.spaceXs),
-                          FilterChip(
-                            label: Text(
-                              communityCategoryLabel(filter.category!),
-                            ),
+                          _CommunityFilterChip(
+                            label: communityCategoryLabel(filter.category!),
                             selected: true,
                             onSelected: (_) {},
                             onDeleted: () {
@@ -539,14 +531,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 ),
                 if (showSavedChip) ...[
                   const SizedBox(width: AppDimens.spaceXs),
-                  FilterChip(
-                    label: const Text('Saved'),
+                  _CommunityFilterChip(
+                    label: 'Saved',
                     selected: filter.savedOnly,
                     avatar: Icon(
                       filter.savedOnly
                           ? Icons.bookmark
                           : Icons.bookmark_border,
                       size: 18,
+                      color: filter.savedOnly ? cf.accent : cf.textSecondary,
                     ),
                     onSelected: (on) {
                       if (!on) {
@@ -656,6 +649,51 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Theme-aware filter chip for All / Near / Saved (and related chips).
+class _CommunityFilterChip extends StatelessWidget {
+  const _CommunityFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    this.onDeleted,
+    this.avatar,
+  });
+
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+  final VoidCallback? onDeleted;
+  final Widget? avatar;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return FilterChip(
+      label: Text(label),
+      avatar: avatar,
+      selected: selected,
+      showCheckmark: avatar == null,
+      checkmarkColor: cf.accent,
+      onSelected: onSelected,
+      onDeleted: onDeleted,
+      deleteIconColor: cf.textMuted,
+      selectedColor: cf.accent.withValues(alpha: cf.isLight ? 0.14 : 0.22),
+      backgroundColor: cf.sectionBackground,
+      labelStyle: TextStyle(
+        color: selected ? cf.accent : cf.textSecondary,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        fontSize: 12,
+      ),
+      side: BorderSide(
+        color: selected ? cf.accent : cf.border,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
       ),
     );
   }

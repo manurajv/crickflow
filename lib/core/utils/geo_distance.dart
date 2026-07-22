@@ -5,6 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import '../../data/models/location_model.dart';
 import '../../data/services/google_maps_location_service.dart';
 
+/// Shared "near you" radius (Home nearby sections + Community Near filter).
+const double kNearbyRadiusKm = 30;
+
 /// Earth-surface distance in kilometres between two coordinates.
 double distanceKmBetween(GeoCoords a, GeoCoords b) {
   return Geolocator.distanceBetween(

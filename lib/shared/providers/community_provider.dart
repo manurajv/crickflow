@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/enums.dart';
+import '../../core/utils/geo_distance.dart';
 import '../../data/models/community_comment_model.dart';
 import '../../data/models/community_post_model.dart';
+import '../../data/models/user_model.dart';
 import '../../data/repositories/community_repository.dart';
+import '../../data/services/google_maps_location_service.dart';
 import '../../features/community/data/community_location_filter_store.dart';
 import 'chat_provider.dart';
 import 'player_social_provider.dart';
@@ -150,8 +153,36 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
   var _loadMoreLocked = false;
   Set<String> _followingIds = {};
   Set<String> _savedIds = {};
+  GeoCoords? _nearMeOrigin;
+  var _nearMeResolveGen = 0;
 
   CommunityRepository get _repo => _ref.read(communityRepositoryProvider);
+
+  /// Resolve origin for Near filter: profile GPS, else device GPS.
+  Future<void> resolveNearMeOrigin() async {
+    final filter = _ref.read(communityFeedFilterProvider);
+    if (!filter.nearMeOnly) {
+      _nearMeOrigin = null;
+      return;
+    }
+
+    final gen = ++_nearMeResolveGen;
+    final profile = _ref.read(currentUserProfileProvider).valueOrNull;
+    if (profile != null && profile.location.hasCoordinates) {
+      _nearMeOrigin = GeoCoords(
+        latitude: profile.location.latitude!,
+        longitude: profile.location.longitude!,
+      );
+      reapplyFilters();
+      return;
+    }
+
+    final coords =
+        await _ref.read(googleMapsLocationServiceProvider).getCurrentCoords();
+    if (gen != _nearMeResolveGen) return;
+    _nearMeOrigin = coords;
+    reapplyFilters();
+  }
 
   Future<void> _loadFollowing() async {
     final uid = _ref.read(authStateProvider).valueOrNull?.uid;
@@ -326,21 +357,48 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
 
       if (!filter.hasLocationFilter) return true;
 
-      final selections = <CommunityLocationSelection>[
-        ...filter.locations,
-        if (filter.nearMeOnly &&
-            profile != null &&
-            profile.location.city.isNotEmpty)
-          CommunityLocationSelection(
-            country: profile.location.country,
-            stateProvince: profile.location.stateProvince,
-            district: profile.location.district,
-            city: profile.location.city,
-          ),
-      ];
-      if (selections.isEmpty) return true;
-      return selections.any((s) => s.matches(p.location));
+      if (filter.nearMeOnly) {
+        final nearOk = _matchesNearMe(p, profile);
+        if (filter.locations.isEmpty) return nearOk;
+        if (nearOk) return true;
+        return filter.locations.any((s) => s.matches(p.location));
+      }
+
+      if (filter.locations.isEmpty) return true;
+      return filter.locations.any((s) => s.matches(p.location));
     }).toList();
+  }
+
+  /// Within [kNearbyRadiusKm] of [_nearMeOrigin], else same-city fallback.
+  bool _matchesNearMe(CommunityPostModel p, UserModel? profile) {
+    final origin = _nearMeOrigin;
+    if (origin != null) {
+      if (!p.location.hasCoordinates) return false;
+      final lat = p.location.latitude!;
+      final lng = p.location.longitude!;
+      if (!withinApproxBoundingBox(
+        origin: origin,
+        lat: lat,
+        lng: lng,
+        radiusKm: kNearbyRadiusKm,
+      )) {
+        return false;
+      }
+      return distanceKmBetween(
+            origin,
+            GeoCoords(latitude: lat, longitude: lng),
+          ) <=
+          kNearbyRadiusKm;
+    }
+
+    // No origin GPS yet — fall back to profile city / region labels.
+    if (profile == null || profile.location.city.isEmpty) return false;
+    return CommunityLocationSelection(
+      country: profile.location.country,
+      stateProvince: profile.location.stateProvince,
+      district: profile.location.district,
+      city: profile.location.city,
+    ).matches(p.location);
   }
 
   Future<void> loadMore() async {
@@ -422,10 +480,27 @@ final communityFeedControllerProvider =
     final savedToggled = prev?.savedOnly != next.savedOnly;
     final categoryChanged =
         prev?.category != next.category && !next.savedOnly;
+    final nearToggled = prev?.nearMeOnly != next.nearMeOnly;
     if (savedToggled || categoryChanged) {
       controller.resubscribe();
     } else {
       controller.reapplyFilters();
+    }
+    if (nearToggled) {
+      controller.resolveNearMeOrigin();
+    }
+  });
+  ref.listen(currentUserProfileProvider, (prev, next) {
+    final filter = ref.read(communityFeedFilterProvider);
+    if (!filter.nearMeOnly) return;
+    final prevCoords = prev?.valueOrNull?.location.hasCoordinates == true;
+    final nextCoords = next.valueOrNull?.location.hasCoordinates == true;
+    if (prevCoords != nextCoords ||
+        prev?.valueOrNull?.location.latitude !=
+            next.valueOrNull?.location.latitude ||
+        prev?.valueOrNull?.location.longitude !=
+            next.valueOrNull?.location.longitude) {
+      controller.resolveNearMeOrigin();
     }
   });
   ref.listen<Set<String>>(communityHiddenPostIdsProvider, (_, _) {

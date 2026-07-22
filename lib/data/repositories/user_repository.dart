@@ -243,19 +243,40 @@ class UserRepository {
     return results;
   }
 
-  /// Search users by display name substring (client-side filter on recent users).
+  /// Search users by display/legal name or public player ID (e.g. CF000042).
   Future<List<UserModel>> searchUsersByName(String query) async {
-    final q = query.trim().toLowerCase();
-    if (q.length < 2) return [];
+    final trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+
+    final results = <UserModel>[];
+    final seen = <String>{};
+
+    void add(UserModel u) {
+      if (seen.add(u.id)) results.add(u);
+    }
+
+    // Exact player-ID hit first (CF000042, cf000042, …).
+    if (CfPlayerIdFormat.looksLikeCfPlayerId(trimmed)) {
+      final byId = await getUserByPlayerId(trimmed);
+      if (byId != null) add(byId);
+    }
+
+    final q = trimmed.toLowerCase();
+    final idUpper = CfPlayerIdFormat.normalize(trimmed);
     final snap = await _col.orderBy('displayName').limit(200).get();
-    return snap.docs
-        .map((d) => UserModel.fromMap(d.id, d.data()))
-        .where((u) {
-          final name = u.effectiveName.toLowerCase();
-          final display = u.displayName.toLowerCase();
-          return name.contains(q) || display.contains(q);
-        })
-        .toList();
+    for (final d in snap.docs) {
+      final u = UserModel.fromMap(d.id, d.data());
+      final name = u.effectiveName.toLowerCase();
+      final display = u.displayName.toLowerCase();
+      final playerId = (u.playerId ?? '').toUpperCase();
+      if (name.contains(q) ||
+          display.contains(q) ||
+          (playerId.isNotEmpty && playerId.contains(idUpper))) {
+        add(u);
+      }
+    }
+
+    return results;
   }
 
   /// @deprecated Use [searchScorers].
