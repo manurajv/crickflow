@@ -11,6 +11,7 @@ import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/community_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
+import '../../../../shared/widgets/report_reason_dialog.dart';
 import 'player_follow_button.dart';
 
 class ProfileActionsBar extends ConsumerWidget {
@@ -120,34 +121,19 @@ class ProfileActionsBar extends ConsumerWidget {
                   );
                   return;
                 }
-                final reasonController = TextEditingController();
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Report player'),
-                    content: TextField(
-                      controller: reasonController,
-                      decoration: const InputDecoration(
-                        labelText: 'Reason',
-                        hintText: 'Spam, harassment, fake profile…',
-                      ),
-                      maxLines: 3,
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Report'),
-                      ),
-                    ],
-                  ),
+                final reason = await showReportReasonDialog(
+                  context,
+                  title: 'Report player',
+                  hint: 'Spam, harassment, fake profile…',
                 );
-                final reason = reasonController.text.trim();
-                reasonController.dispose();
-                if (ok != true || reason.isEmpty) return;
+                if (!context.mounted) return;
+                if (reason == null) return;
+                if (reason.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a reason')),
+                  );
+                  return;
+                }
                 try {
                   await ref.read(communityRepositoryProvider).reportUser(
                         reportedUserId: user.id,

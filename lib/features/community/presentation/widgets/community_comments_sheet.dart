@@ -10,6 +10,7 @@ import '../../../../core/utils/date_utils.dart';
 import '../../../../data/models/community_comment_model.dart';
 import '../../../../shared/providers/community_provider.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../shared/widgets/report_reason_dialog.dart';
 
 Future<void> showCommunityCommentsSheet(
   BuildContext context, {
@@ -87,36 +88,132 @@ class _CommunityCommentsSheetState
     );
   }
 
-  Future<void> _reportComment(CommunityCommentModel comment) async {
-    final reasonController = TextEditingController();
-    final messenger = ScaffoldMessenger.of(context);
+  Future<void> _editComment(CommunityCommentModel comment) async {
+    final controller = TextEditingController(text: comment.text);
+    final focusNode = FocusNode();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Edit comment'),
+          content: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            autofocus: true,
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Comment',
+              alignLabelWithHint: true,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                focusNode.unfocus();
+                Navigator.pop(ctx);
+              },
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                focusNode.unfocus();
+                Navigator.pop(ctx, controller.text.trim());
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    // Dispose after the dialog route has torn down.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+      focusNode.dispose();
+    });
+    if (result == null || !mounted) return;
+    if (result.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Comment cannot be empty')),
+      );
+      return;
+    }
+    if (result == comment.text.trim()) return;
+    try {
+      await ref.read(communityRepositoryProvider).updateComment(
+            postId: widget.postId,
+            commentId: comment.id,
+            text: result,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Comment updated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteComment(String commentId) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Report comment'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(
-            labelText: 'Reason',
-            hintText: 'Spam, harassment…',
-          ),
-          maxLines: 3,
-        ),
+        title: const Text('Delete comment?'),
+        content: const Text('This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Report'),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
-    final reason = reasonController.text.trim();
-    reasonController.dispose();
-    if (ok != true || reason.isEmpty || !mounted) return;
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(communityRepositoryProvider).deleteComment(
+            postId: widget.postId,
+            commentId: commentId,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Comment deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not delete: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _reportComment(CommunityCommentModel comment) async {
+    final reason = await showReportReasonDialog(
+      context,
+      title: 'Report comment',
+      hint: 'Spam, harassment…',
+    );
+    if (!mounted) return;
+    if (reason == null) return;
+    if (reason.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a reason')),
+      );
+      return;
+    }
 
     requireAuthVoid(
       context: context,
@@ -124,17 +221,26 @@ class _CommunityCommentsSheetState
       action: () async {
         final uid = ref.read(authStateProvider).valueOrNull?.uid;
         if (uid == null) return;
-        await ref.read(communityRepositoryProvider).reportPost(
-              postId: widget.postId,
-              reporterUserId: uid,
-              reason: reason,
-              authorId: comment.authorId,
-              commentId: comment.id,
+        try {
+          await ref.read(communityRepositoryProvider).reportPost(
+                postId: widget.postId,
+                reporterUserId: uid,
+                reason: reason,
+                authorId: comment.authorId,
+                commentId: comment.id,
+              );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Comment reported')),
             );
-        if (!mounted) return;
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Comment reported')),
-        );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not report: $e')),
+            );
+          }
+        }
       },
     );
   }
@@ -201,12 +307,8 @@ class _CommunityCommentsSheetState
                               _replyToId = root.id;
                               _replyToName = root.authorName;
                             }),
-                            onDelete: () => ref
-                                .read(communityRepositoryProvider)
-                                .deleteComment(
-                                  postId: widget.postId,
-                                  commentId: root.id,
-                                ),
+                            onDelete: () => _confirmDeleteComment(root.id),
+                            onEdit: () => _editComment(root),
                             onCopy: () async {
                               await Clipboard.setData(
                                 ClipboardData(text: root.text),
@@ -234,16 +336,19 @@ class _CommunityCommentsSheetState
                                   _replyToId = root.id;
                                   _replyToName = r.authorName;
                                 }),
-                                onDelete: () => ref
-                                    .read(communityRepositoryProvider)
-                                    .deleteComment(
-                                      postId: widget.postId,
-                                      commentId: r.id,
-                                    ),
+                                onDelete: () => _confirmDeleteComment(r.id),
+                                onEdit: () => _editComment(r),
                                 onCopy: () async {
                                   await Clipboard.setData(
                                     ClipboardData(text: r.text),
                                   );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Comment copied'),
+                                      ),
+                                    );
+                                  }
                                 },
                                 onReport: () => _reportComment(r),
                               ),
@@ -332,6 +437,7 @@ class _CommentTile extends ConsumerWidget {
     required this.isOwner,
     required this.onReply,
     required this.onDelete,
+    required this.onEdit,
     required this.onCopy,
     required this.onReport,
     this.currentUserId,
@@ -345,6 +451,7 @@ class _CommentTile extends ConsumerWidget {
   final bool isReply;
   final VoidCallback onReply;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
   final VoidCallback onCopy;
   final VoidCallback onReport;
 
@@ -413,6 +520,7 @@ class _CommentTile extends ConsumerWidget {
                       onSelected: (v) {
                         if (v == 'reply') onReply();
                         if (v == 'copy') onCopy();
+                        if (v == 'edit') onEdit();
                         if (v == 'delete') onDelete();
                         if (v == 'report') onReport();
                       },
@@ -430,16 +538,28 @@ class _CommentTile extends ConsumerWidget {
                             value: 'report',
                             child: Text('Report'),
                           ),
-                        if (isOwner)
+                        if (isOwner) ...[
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Edit'),
+                          ),
                           const PopupMenuItem(
                             value: 'delete',
                             child: Text('Delete'),
                           ),
+                        ],
                       ],
                     ),
                   ],
                 ),
                 Text(comment.text, style: theme.textTheme.bodyMedium),
+                if (comment.isEdited)
+                  Text(
+                    'Edited',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cf.textMuted,
+                    ),
+                  ),
                 Row(
                   children: [
                     TextButton(

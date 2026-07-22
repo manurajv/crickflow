@@ -58,6 +58,7 @@ class TournamentCreateService {
       bannerUrl: bannerUrl,
       logoUrl: logoUrl,
       thumbnailUrl: thumbnailUrl,
+      thumbnailAspect: draft.thumbnailAspect,
     );
 
     final id = await _tournaments.createTournament(
@@ -73,6 +74,7 @@ class TournamentCreateService {
       meta: meta,
       ownerDisplayName: ownerDisplayName,
       thumbnailUrl: thumbnailUrl,
+      organizerUserId: uid,
     );
 
     if (postOfficialsRequest && draft.needOfficials) {
@@ -114,6 +116,7 @@ class TournamentCreateService {
     required TournamentSetupMeta meta,
     required String ownerDisplayName,
     String? thumbnailUrl,
+    required String organizerUserId,
   }) {
     final visibility = _contactVisibility(meta.officialContactMethod);
     final phone = meta.organizerPhone.isNotEmpty
@@ -132,6 +135,7 @@ class TournamentCreateService {
               ? draft.organizerName
               : ownerDisplayName),
       thumbnailUrl: thumbnailUrl,
+      thumbnailAspect: draft.thumbnailAspect,
       locationLabel: draft.location
           .copyWith(city: draft.city)
           .displayLabel,
@@ -147,6 +151,7 @@ class TournamentCreateService {
       contactWhatsApp:
           visibility == CommunityContactVisibility.whatsapp ? phone : '',
       contactEmail: visibility == CommunityContactVisibility.email ? email : '',
+      organizerUserId: organizerUserId,
     );
   }
 
@@ -156,7 +161,8 @@ class TournamentCreateService {
       OfficialContactMethod.whatsApp => CommunityContactVisibility.whatsapp,
       OfficialContactMethod.email => CommunityContactVisibility.email,
       OfficialContactMethod.hide => CommunityContactVisibility.hide,
-      OfficialContactMethod.inAppMessage => CommunityContactVisibility.hide,
+      OfficialContactMethod.inAppMessage =>
+        CommunityContactVisibility.crickflowDm,
     };
   }
 

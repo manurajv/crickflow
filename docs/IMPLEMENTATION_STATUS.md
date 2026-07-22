@@ -3,13 +3,52 @@
 
 
 
-**Last updated:** Tournament live scoring / hub Live tab — status lag fix
+**Last updated:** Delete tournament → My Cricket redirect
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Delete tournament redirect)
+
+| Item | Status |
+|------|--------|
+| After delete → dismiss sheet and `go('/matches?tab=1')` (My Cricket · Tournaments) | Done |
+
+---
+
+## Latest (Finish tournament podium)
+
+| Item | Status |
+|------|--------|
+| Finish sheet crash (Expanded in dropdown selected row) | Done — selected item is plain Text |
+| Award 1–5 places via chip selector; prefill from standings | Done |
+| Persist `podiumPlaces` (+ legacy champion/runner/third) | Done |
+| Summary Champions shows full podium with names | Done |
+
+---
+
+## Latest (Tournament delete / finish)
+
+| Item | Status |
+|------|--------|
+| Delete tournament → navigate to My Cricket (Tournaments tab) without stuck dashboard | Done — navigate before sheet dispose |
+| Finish tournament team pickers ordered by points + NRR; podium prefilled from standings | Done |
+
+---
+
+## Latest (Cricket match filters in app bar)
+
+| Item | Status |
+|------|--------|
+| Filter control on Matches + Stats tabs only (app bar) | Done |
+| Team category removed from filter screen | Done |
+| Tab-local filter buttons removed from Matches/Stats | Done |
+| Captain stats respect the same match filters | Done |
 
 ---
 
@@ -44,6 +83,9 @@
 | Profile Report Player → `community_post_reports` (`type: user`) | Done |
 | Removed dead `watchFeed` / `communityPostsProvider` | Done |
 | Deploy Firestore/Storage rules + chat indexes | Done — redeploy if you change rules again |
+| Post header line 3 = location address; Places city parse keeps nearest town (not parent district) | Done |
+| Tournament Community thumbnail uses 1:1 / 16:9 / 9:16 / free crop; feed card respects aspect | Done |
+| Tournament posts: CrickFlow DM → chat icon; phone/WhatsApp/email shown when selected | Done |
 
 ---
 

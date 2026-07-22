@@ -18,9 +18,9 @@ class CommunityMediaItem extends Equatable {
     return CommunityMediaItem(
       url: map['url'] as String? ?? '',
       type: map['type'] as String? ?? 'image',
-      aspect: CommunityMediaAspect.values.firstWhere(
-        (e) => e.name == map['aspect'],
-        orElse: () => CommunityMediaAspect.square,
+      aspect: CommunityMediaAspectX.parse(
+        map['aspect'] as String?,
+        fallback: CommunityMediaAspect.square,
       ),
     );
   }
@@ -31,12 +31,7 @@ class CommunityMediaItem extends Equatable {
         'aspect': aspect.name,
       };
 
-  double get aspectRatio => switch (aspect) {
-        CommunityMediaAspect.square => 1,
-        CommunityMediaAspect.landscape16x9 => 16 / 9,
-        CommunityMediaAspect.portrait9x16 => 9 / 16,
-        CommunityMediaAspect.free => 4 / 3,
-      };
+  double get aspectRatio => aspect.displayRatio;
 
   @override
   List<Object?> get props => [url, type, aspect];
@@ -49,6 +44,7 @@ class CommunityTournamentSnapshot extends Equatable {
     this.name = '',
     this.organizer = '',
     this.thumbnailUrl,
+    this.thumbnailAspect = CommunityMediaAspect.landscape16x9,
     this.locationLabel = '',
     this.startDate,
     this.endDate,
@@ -61,12 +57,16 @@ class CommunityTournamentSnapshot extends Equatable {
     this.contactPhone = '',
     this.contactWhatsApp = '',
     this.contactEmail = '',
+    this.organizerUserId = '',
+    this.organizerPlayerId = '',
+    this.organizerPhotoUrl,
   });
 
   final String tournamentId;
   final String name;
   final String organizer;
   final String? thumbnailUrl;
+  final CommunityMediaAspect thumbnailAspect;
   final String locationLabel;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -79,6 +79,10 @@ class CommunityTournamentSnapshot extends Equatable {
   final String contactPhone;
   final String contactWhatsApp;
   final String contactEmail;
+  /// Firebase uid of the organizer (for CrickFlow DM).
+  final String organizerUserId;
+  final String organizerPlayerId;
+  final String? organizerPhotoUrl;
 
   factory CommunityTournamentSnapshot.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const CommunityTournamentSnapshot();
@@ -87,6 +91,9 @@ class CommunityTournamentSnapshot extends Equatable {
       name: map['name'] as String? ?? '',
       organizer: map['organizer'] as String? ?? '',
       thumbnailUrl: map['thumbnailUrl'] as String?,
+      thumbnailAspect: CommunityMediaAspectX.parse(
+        map['thumbnailAspect'] as String?,
+      ),
       locationLabel: map['locationLabel'] as String? ?? '',
       startDate: DateTime.tryParse(map['startDate']?.toString() ?? ''),
       endDate: DateTime.tryParse(map['endDate']?.toString() ?? ''),
@@ -102,6 +109,9 @@ class CommunityTournamentSnapshot extends Equatable {
       contactPhone: map['contactPhone'] as String? ?? '',
       contactWhatsApp: map['contactWhatsApp'] as String? ?? '',
       contactEmail: map['contactEmail'] as String? ?? '',
+      organizerUserId: map['organizerUserId'] as String? ?? '',
+      organizerPlayerId: map['organizerPlayerId'] as String? ?? '',
+      organizerPhotoUrl: map['organizerPhotoUrl'] as String?,
     );
   }
 
@@ -110,6 +120,7 @@ class CommunityTournamentSnapshot extends Equatable {
         'name': name,
         'organizer': organizer,
         if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+        'thumbnailAspect': thumbnailAspect.name,
         'locationLabel': locationLabel,
         if (startDate != null) 'startDate': startDate!.toIso8601String(),
         if (endDate != null) 'endDate': endDate!.toIso8601String(),
@@ -122,10 +133,16 @@ class CommunityTournamentSnapshot extends Equatable {
         if (contactPhone.isNotEmpty) 'contactPhone': contactPhone,
         if (contactWhatsApp.isNotEmpty) 'contactWhatsApp': contactWhatsApp,
         if (contactEmail.isNotEmpty) 'contactEmail': contactEmail,
+        if (organizerUserId.isNotEmpty) 'organizerUserId': organizerUserId,
+        if (organizerPlayerId.isNotEmpty)
+          'organizerPlayerId': organizerPlayerId,
+        if (organizerPhotoUrl != null && organizerPhotoUrl!.isNotEmpty)
+          'organizerPhotoUrl': organizerPhotoUrl,
       };
 
   @override
-  List<Object?> get props => [tournamentId, name, thumbnailUrl];
+  List<Object?> get props =>
+      [tournamentId, name, thumbnailUrl, thumbnailAspect, contactVisibility];
 }
 
 class CommunityPostModel extends Equatable {
@@ -156,6 +173,7 @@ class CommunityPostModel extends Equatable {
     this.isAdminPost = false,
     this.createdAt,
     this.updatedAt,
+    this.editedAt,
   });
 
   final String id;
@@ -184,6 +202,9 @@ class CommunityPostModel extends Equatable {
   final bool isAdminPost;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final DateTime? editedAt;
+
+  bool get isEdited => editedAt != null;
 
   bool get hasTournamentEmbed =>
       tournamentSnapshot != null &&
@@ -237,6 +258,7 @@ class CommunityPostModel extends Equatable {
       isAdminPost: map['isAdminPost'] as bool? ?? false,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
       updatedAt: DateTime.tryParse(map['updatedAt']?.toString() ?? ''),
+      editedAt: DateTime.tryParse(map['editedAt']?.toString() ?? ''),
     );
   }
 
@@ -268,6 +290,7 @@ class CommunityPostModel extends Equatable {
         'isAdminPost': isAdminPost,
         'createdAt': createdAt?.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
+        if (editedAt != null) 'editedAt': editedAt!.toIso8601String(),
       };
 
   static CommunityPostCategory _categoryFromString(String? raw) {
@@ -296,5 +319,6 @@ class CommunityPostModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, authorId, title, category, likeCount, createdAt];
+  List<Object?> get props =>
+      [id, authorId, title, body, category, likeCount, editedAt, createdAt];
 }

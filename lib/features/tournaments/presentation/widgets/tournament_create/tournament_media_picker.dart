@@ -1,8 +1,12 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import '../../../../../core/constants/enums.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
+import '../../../../community/presentation/utils/community_image_crop.dart';
 import '../../../../teams/presentation/utils/team_image_upload.dart';
 
 class TournamentMediaPicker extends StatelessWidget {
@@ -13,6 +17,7 @@ class TournamentMediaPicker extends StatelessWidget {
     required this.onBannerPicked,
     required this.onLogoPicked,
     this.thumbnailFile,
+    this.thumbnailAspect = CommunityMediaAspect.landscape16x9,
     this.onThumbnailPicked,
     this.existingBannerUrl,
     this.existingLogoUrl,
@@ -22,17 +27,17 @@ class TournamentMediaPicker extends StatelessWidget {
   final File? bannerFile;
   final File? logoFile;
   final File? thumbnailFile;
+  final CommunityMediaAspect thumbnailAspect;
   final ValueChanged<File?> onBannerPicked;
   final ValueChanged<File?> onLogoPicked;
-  final ValueChanged<File?>? onThumbnailPicked;
+  final void Function(File file, CommunityMediaAspect aspect)? onThumbnailPicked;
   final String? existingBannerUrl;
   final String? existingLogoUrl;
   final String? existingThumbnailUrl;
 
-  Future<void> _pickImage(
+  Future<void> _pickBranding(
     BuildContext context, {
     required bool isLogo,
-    bool isThumbnail = false,
   }) async {
     await showTeamImageSourceSheet(
       context,
@@ -43,15 +48,19 @@ class TournamentMediaPicker extends StatelessWidget {
           source: source,
         );
         if (file == null) return;
-        if (isThumbnail) {
-          onThumbnailPicked?.call(file);
-        } else if (isLogo) {
+        if (isLogo) {
           onLogoPicked(file);
         } else {
           onBannerPicked(file);
         }
       },
     );
+  }
+
+  Future<void> _pickThumbnail(BuildContext context) async {
+    final result = await pickAndCropCommunityImage(context);
+    if (result == null) return;
+    onThumbnailPicked?.call(result.file, result.aspect);
   }
 
   @override
@@ -68,15 +77,8 @@ class TournamentMediaPicker extends StatelessWidget {
     final hasBanner = bannerImage != null;
     final hasLogo = logoFile != null ||
         (existingLogoUrl != null && existingLogoUrl!.isNotEmpty);
-    final thumbImage = thumbnailFile != null
-        ? DecorationImage(image: FileImage(thumbnailFile!), fit: BoxFit.cover)
-        : (existingThumbnailUrl != null && existingThumbnailUrl!.isNotEmpty)
-            ? DecorationImage(
-                image: CachedNetworkImageProvider(existingThumbnailUrl!),
-                fit: BoxFit.cover,
-              )
-            : null;
-    final hasThumb = thumbImage != null;
+    final hasThumb = thumbnailFile != null ||
+        (existingThumbnailUrl != null && existingThumbnailUrl!.isNotEmpty);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -85,7 +87,7 @@ class TournamentMediaPicker extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             GestureDetector(
-              onTap: () => _pickImage(context, isLogo: false),
+              onTap: () => _pickBranding(context, isLogo: false),
               child: Container(
                 height: 140,
                 width: double.infinity,
@@ -113,7 +115,7 @@ class TournamentMediaPicker extends StatelessWidget {
               left: AppDimens.spaceMd,
               bottom: -36,
               child: GestureDetector(
-                onTap: () => _pickImage(context, isLogo: true),
+                onTap: () => _pickBranding(context, isLogo: true),
                 child: Column(
                   children: [
                     Stack(
@@ -164,38 +166,95 @@ class TournamentMediaPicker extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Shown on Community tournament posts. 16:9 recommended.',
+            'Shown on Community tournament posts. Choose 1:1, 16:9, 9:16, or free crop — same as posts.',
             style: TextStyle(fontSize: 12, color: cf.textMuted),
           ),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: () =>
-                _pickImage(context, isLogo: false, isThumbnail: true),
-            child: Container(
-              height: 120,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: cf.sectionBackground,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: hasThumb ? cf.border : cf.accent.withValues(alpha: 0.5),
+            onTap: () => _pickThumbnail(context),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width,
+                  maxHeight: thumbnailAspect == CommunityMediaAspect.portrait9x16
+                      ? 280
+                      : 200,
                 ),
-                image: thumbImage,
-              ),
-              child: hasThumb
-                  ? null
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.crop_original,
-                            color: cf.textMuted, size: 32),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Add tournament thumbnail',
-                          style: TextStyle(color: cf.textMuted),
-                        ),
-                      ],
+                child: AspectRatio(
+                  aspectRatio: thumbnailAspect.displayRatio,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: cf.sectionBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: hasThumb
+                            ? cf.border
+                            : cf.accent.withValues(alpha: 0.5),
+                      ),
+                      image: thumbnailFile != null
+                          ? DecorationImage(
+                              image: FileImage(thumbnailFile!),
+                              fit: BoxFit.cover,
+                            )
+                          : (existingThumbnailUrl != null &&
+                                  existingThumbnailUrl!.isNotEmpty)
+                              ? DecorationImage(
+                                  image: CachedNetworkImageProvider(
+                                    existingThumbnailUrl!,
+                                  ),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
                     ),
+                    child: hasThumb
+                        ? Align(
+                            alignment: Alignment.bottomRight,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  thumbnailAspect.label,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.crop_original,
+                                  color: cf.textMuted, size: 32),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Add tournament thumbnail',
+                                style: TextStyle(color: cf.textMuted),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '1:1 · 16:9 · 9:16 · Free',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: cf.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
             ),
           ),
         ] else

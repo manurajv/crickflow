@@ -226,36 +226,24 @@ class _ChampionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final podium = tournament.effectivePodiumPlaces;
+    if (podium.isEmpty) return const SizedBox.shrink();
+
     return _SummarySection(
       title: 'Champions',
       icon: Icons.military_tech,
       child: Column(
         children: [
-          if (tournament.championTeamName != null)
+          for (var i = 0; i < podium.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppDimens.spaceSm),
             _PodiumCard(
               cf: cf,
-              rank: '🏆',
-              label: 'Champion',
-              teamName: tournament.championTeamName!,
-              gradient: CfColors.goldGradient,
-            ),
-          if (tournament.runnerUpTeamName != null) ...[
-            const SizedBox(height: AppDimens.spaceSm),
-            _PodiumCard(
-              cf: cf,
-              rank: '🥈',
-              label: 'Runner-up',
-              teamName: tournament.runnerUpTeamName!,
-            ),
-          ],
-          if (tournament.thirdPlaceTeamId != null &&
-              tournament.thirdPlaceTeamId!.isNotEmpty) ...[
-            const SizedBox(height: AppDimens.spaceSm),
-            _PodiumCard(
-              cf: cf,
-              rank: '🥉',
-              label: 'Third Place',
-              teamName: tournament.thirdPlaceTeamId!,
+              rank: TournamentPodiumPlace.emojiFor(podium[i].place),
+              label: TournamentPodiumPlace.labelFor(podium[i].place),
+              teamName: podium[i].teamName.isNotEmpty
+                  ? podium[i].teamName
+                  : podium[i].teamId,
+              gradient: podium[i].place == 1 ? CfColors.goldGradient : null,
             ),
           ],
         ],

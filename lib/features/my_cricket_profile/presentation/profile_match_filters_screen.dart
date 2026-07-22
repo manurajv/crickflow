@@ -9,7 +9,7 @@ import '../../../domain/services/profile_match_filter_service.dart';
 import '../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 
-enum _ProfileMatchFilterCategory { overs, ball, type, year, team }
+enum _ProfileMatchFilterCategory { overs, ball, type, year }
 
 class ProfileMatchFiltersScreen extends ConsumerStatefulWidget {
   const ProfileMatchFiltersScreen({
@@ -32,11 +32,14 @@ class _ProfileMatchFiltersScreenState
   @override
   void initState() {
     super.initState();
-    _draft = ref.read(profileMatchFiltersProvider);
+    // Drop legacy team filter — Team is no longer offered in the UI.
+    final current = ref.read(profileMatchFiltersProvider);
+    _draft = current.copyWith(teamId: () => null);
   }
 
   void _apply() {
-    ref.read(profileMatchFiltersProvider.notifier).state = _draft;
+    ref.read(profileMatchFiltersProvider.notifier).state =
+        _draft.copyWith(teamId: () => null);
     Navigator.pop(context);
   }
 
@@ -46,8 +49,6 @@ class _ProfileMatchFiltersScreenState
         _ProfileMatchFilterCategory.ball => _draft.ballType != null,
         _ProfileMatchFilterCategory.type => _draft.matchType != null,
         _ProfileMatchFilterCategory.year => _draft.year != null,
-        _ProfileMatchFilterCategory.team =>
-          _draft.teamId != null && _draft.teamId!.isNotEmpty,
       };
 
   Future<void> _pickCustomOvers() async {
@@ -119,7 +120,6 @@ class _ProfileMatchFiltersScreenState
       _ProfileMatchFilterCategory.ball => _buildBallOptions(cf),
       _ProfileMatchFilterCategory.type => _buildTypeOptions(cf),
       _ProfileMatchFilterCategory.year => _buildYearOptions(cf),
-      _ProfileMatchFilterCategory.team => _buildTeamOptions(cf),
     };
   }
 
@@ -228,31 +228,6 @@ class _ProfileMatchFiltersScreenState
     );
   }
 
-  Widget _buildTeamOptions(CfColors cf) {
-    if (widget.options.teamIds.isEmpty) {
-      return _emptyOptions(cf, 'No teams available');
-    }
-    final teams = widget.options.teamIds.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: AppDimens.spaceSm),
-      children: teams
-          .map(
-            (entry) => _optionTile(
-              cf: cf,
-              label: entry.value,
-              selected: _draft.teamId == entry.key,
-              onTap: () => setState(
-                () => _draft = _draft.copyWith(
-                  teamId: () => _draft.teamId == entry.key ? null : entry.key,
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
   Widget _emptyOptions(CfColors cf, String message) {
     return Center(
       child: Padding(
@@ -302,7 +277,6 @@ class _CategoryPanel extends StatelessWidget {
     _ProfileMatchFilterCategory.ball: 'Ball',
     _ProfileMatchFilterCategory.type: 'Type',
     _ProfileMatchFilterCategory.year: 'Year',
-    _ProfileMatchFilterCategory.team: 'Team',
   };
 
   @override

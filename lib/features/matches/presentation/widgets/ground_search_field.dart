@@ -77,7 +77,10 @@ class _GroundSearchFieldState extends ConsumerState<GroundSearchField> {
       _suggestions = [];
     });
     try {
-      final resolved = await _service.resolvePlace(suggestion.placeId);
+      final resolved = await _service.resolvePlace(
+        suggestion.placeId,
+        fallbackDescription: suggestion.description,
+      );
       if (!mounted) return;
       final name = groundNameFromPlaceDescription(suggestion.description);
       widget.controller.text = name.isNotEmpty ? name : suggestion.description;

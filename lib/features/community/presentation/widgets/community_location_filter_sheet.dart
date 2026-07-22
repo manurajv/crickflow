@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
-import '../../../../shared/widgets/cf_underlined_field.dart';
-import '../../../player_onboarding/presentation/widgets/country_picker_sheet.dart';
+import '../../../../data/models/location_model.dart';
+import '../../../../shared/providers/providers.dart';
+import '../../../player_onboarding/presentation/widgets/onboarding_location_section.dart';
 import '../../data/community_location_filter_store.dart';
 
 Future<List<CommunityLocationSelection>?> showCommunityLocationFilterSheet(
@@ -19,23 +21,21 @@ Future<List<CommunityLocationSelection>?> showCommunityLocationFilterSheet(
   );
 }
 
-class CommunityLocationFilterSheet extends StatefulWidget {
+class CommunityLocationFilterSheet extends ConsumerStatefulWidget {
   const CommunityLocationFilterSheet({super.key, required this.initial});
 
   final List<CommunityLocationSelection> initial;
 
   @override
-  State<CommunityLocationFilterSheet> createState() =>
+  ConsumerState<CommunityLocationFilterSheet> createState() =>
       _CommunityLocationFilterSheetState();
 }
 
 class _CommunityLocationFilterSheetState
-    extends State<CommunityLocationFilterSheet> {
+    extends ConsumerState<CommunityLocationFilterSheet> {
   late List<CommunityLocationSelection> _selected;
-  String _country = '';
-  final _stateController = TextEditingController();
-  final _districtController = TextEditingController();
-  final _cityController = TextEditingController();
+  LocationModel _draft = const LocationModel();
+  int _pickerKey = 0;
 
   @override
   void initState() {
@@ -43,30 +43,20 @@ class _CommunityLocationFilterSheetState
     _selected = List.of(widget.initial);
   }
 
-  @override
-  void dispose() {
-    _stateController.dispose();
-    _districtController.dispose();
-    _cityController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickCountry() async {
-    final picked = await showCountryPickerSheet(context);
-    if (picked == null) return;
-    setState(() => _country = picked.name);
-  }
-
   void _addCurrent() {
     final entry = CommunityLocationSelection(
-      country: _country.trim(),
-      stateProvince: _stateController.text.trim(),
-      district: _districtController.text.trim(),
-      city: _cityController.text.trim(),
+      country: _draft.country.trim(),
+      stateProvince: _draft.stateProvince.trim(),
+      district: _draft.district.trim(),
+      city: _draft.city.trim(),
     );
     if (entry.isEmpty) return;
     if (_selected.contains(entry)) return;
-    setState(() => _selected = [..._selected, entry]);
+    setState(() {
+      _selected = [..._selected, entry];
+      _draft = const LocationModel();
+      _pickerKey++;
+    });
   }
 
   @override
@@ -92,45 +82,22 @@ class _CommunityLocationFilterSheetState
             ),
             const SizedBox(height: 4),
             Text(
-              'Add countries, provinces, districts, or cities. Posts matching any selection are shown.',
+              'Search or use GPS, then add locations. Posts matching any selection are shown. Clear city/province fields to broaden a filter.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: cf.textMuted,
                   ),
             ),
             const SizedBox(height: AppDimens.spaceMd),
-            InkWell(
-              onTap: _pickCountry,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Country',
-                  border: OutlineInputBorder(),
-                ),
-                child: Text(
-                  _country.isEmpty ? 'Select country' : _country,
-                  style: TextStyle(
-                    color: _country.isEmpty ? cf.textMuted : null,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppDimens.spaceSm),
-            CfUnderlinedField(
-              controller: _stateController,
-              label: 'State / Province',
-            ),
-            const SizedBox(height: AppDimens.spaceSm),
-            CfUnderlinedField(
-              controller: _districtController,
-              label: 'District',
-            ),
-            const SizedBox(height: AppDimens.spaceSm),
-            CfUnderlinedField(
-              controller: _cityController,
-              label: 'City / Location',
+            OnboardingLocationSection(
+              key: ValueKey(_pickerKey),
+              initialLocation: _draft,
+              autoDetectOnInit: _draft.isEmpty,
+              onLocationChanged: (loc) => setState(() => _draft = loc),
+              locationService: ref.read(googleMapsLocationServiceProvider),
             ),
             const SizedBox(height: AppDimens.spaceSm),
             OutlinedButton.icon(
-              onPressed: _addCurrent,
+              onPressed: _draft.isEmpty ? null : _addCurrent,
               icon: const Icon(Icons.add),
               label: const Text('Add to filter'),
             ),

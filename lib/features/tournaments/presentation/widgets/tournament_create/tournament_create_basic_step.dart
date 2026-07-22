@@ -221,10 +221,15 @@ class _TournamentCreateBasicStepState
           bannerFile: d.bannerLocalFile,
           logoFile: d.logoLocalFile,
           thumbnailFile: d.thumbnailLocalFile,
+          thumbnailAspect: d.thumbnailAspect,
           onBannerPicked: (f) => _patch((x) => x.copyWith(bannerLocalFile: f)),
           onLogoPicked: (f) => _patch((x) => x.copyWith(logoLocalFile: f)),
-          onThumbnailPicked: (f) =>
-              _patch((x) => x.copyWith(thumbnailLocalFile: f)),
+          onThumbnailPicked: (file, aspect) => _patch(
+            (x) => x.copyWith(
+              thumbnailLocalFile: file,
+              thumbnailAspect: aspect,
+            ),
+          ),
         ),
         const SizedBox(height: AppDimens.spaceXl + 16),
         CfUnderlinedField(

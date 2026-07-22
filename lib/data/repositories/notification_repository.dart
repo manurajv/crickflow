@@ -288,6 +288,44 @@ class NotificationRepository {
     }
   }
 
+  /// Removes community engagement notifications created by [addedByUserId].
+  ///
+  /// For likes: [requestId] = postId.
+  /// For comments: [requestId] = postId and optional [reportId] = commentId.
+  /// Best-effort: failures are swallowed so unlike/delete-comment UX never fails.
+  Future<void> deleteCommunityEngagementNotifications({
+    required String type,
+    required String requestId,
+    required String addedByUserId,
+    String? reportId,
+  }) async {
+    if (type.isEmpty || requestId.isEmpty || addedByUserId.isEmpty) return;
+
+    try {
+      // Scope by addedByUserId so the query satisfies notification read rules.
+      final snap = await _col
+          .where('addedByUserId', isEqualTo: addedByUserId)
+          .where('type', isEqualTo: type)
+          .where('requestId', isEqualTo: requestId)
+          .limit(50)
+          .get();
+      final matches = snap.docs.where((d) {
+        if (reportId == null || reportId.isEmpty) return true;
+        final stored = d.data()['reportId'] as String?;
+        // Exact match for new notifications; also clear legacy rows without reportId.
+        return stored == reportId || stored == null || stored.isEmpty;
+      });
+      if (matches.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final doc in matches) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (_) {
+      // Comment/like already removed; inbox cleanup is secondary.
+    }
+  }
+
   Future<void> deleteAllForUser(String userId) async {
     while (true) {
       final snap =

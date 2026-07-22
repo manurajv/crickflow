@@ -167,7 +167,10 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
       _searchController.text = suggestion.description;
     });
     try {
-      final resolved = await _service.resolvePlace(suggestion.placeId);
+      final resolved = await _service.resolvePlace(
+        suggestion.placeId,
+        fallbackDescription: suggestion.description,
+      );
       if (!mounted) return;
       _applyCoords(resolved.coords, resolved.location);
       final suggestedName =

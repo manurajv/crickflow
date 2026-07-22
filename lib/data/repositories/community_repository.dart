@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
 import '../models/community_comment_model.dart';
@@ -128,6 +130,26 @@ class CommunityRepository {
       'updatedAt': now,
     });
     return doc.id;
+  }
+
+  Future<void> updatePost({
+    required String postId,
+    required String title,
+    required String body,
+    required CommunityPostCategory category,
+    required CommunityPostKind postKind,
+    required LocationModel location,
+  }) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await _col.doc(postId).update({
+      'title': title.trim(),
+      'body': body.trim(),
+      'category': category.name,
+      'postKind': postKind.name,
+      'location': location.toMap(),
+      'updatedAt': now,
+      'editedAt': now,
+    });
   }
 
   Future<List<CommunityPostModel>> searchPosts(String query, {int limit = 40}) async {
@@ -264,10 +286,26 @@ class CommunityRepository {
           requestId: postId,
         );
       }
+    } else if (!liked &&
+        authorId != null &&
+        authorId!.isNotEmpty &&
+        authorId != userId) {
+      // Unlike — remove the like notification from the author's inbox.
+      await _notifications?.deleteCommunityEngagementNotifications(
+        type: 'community_like',
+        requestId: postId,
+        addedByUserId: userId,
+      );
     }
   }
 
   // ── Saves ──────────────────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _userSavedPosts(String userId) =>
+      _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .collection('saved_community_posts');
 
   Stream<bool> watchSaved({required String postId, required String userId}) {
     return _col
@@ -278,31 +316,87 @@ class CommunityRepository {
         .map((d) => d.exists);
   }
 
+  /// Post IDs the user has saved — user subcollection (realtime, rules-safe).
+  Stream<List<String>> watchSavedPostIds(String userId) {
+    if (userId.isEmpty) return Stream.value(const []);
+    return _userSavedPosts(userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => d.id).toList())
+        .transform(
+          StreamTransformer<List<String>, List<String>>.fromHandlers(
+            handleData: (data, sink) => sink.add(data),
+            handleError: (Object _, StackTrace __, EventSink<List<String>> sink) {
+              sink.add(const []);
+            },
+          ),
+        );
+  }
+
+  Future<List<CommunityPostModel>> fetchPostsByIds(List<String> ids) async {
+    if (ids.isEmpty) return const [];
+    final posts = <CommunityPostModel>[];
+    for (var i = 0; i < ids.length; i += 10) {
+      final chunk = ids.sublist(i, i + 10 > ids.length ? ids.length : i + 10);
+      final snaps = await Future.wait(chunk.map((id) => _col.doc(id).get()));
+      for (final snap in snaps) {
+        if (!snap.exists || snap.data() == null) continue;
+        posts.add(CommunityPostModel.fromMap(snap.id, snap.data()!));
+      }
+    }
+    // Preserve saved order when ids are already newest-first.
+    final byId = {for (final p in posts) p.id: p};
+    return [
+      for (final id in ids)
+        if (byId[id] != null) byId[id]!,
+    ];
+  }
+
   Future<void> toggleSave({
     required String postId,
     required String userId,
   }) async {
     final saveRef = _col.doc(postId).collection('saves').doc(userId);
     final postRef = _col.doc(postId);
+    final userSaveRef = _userSavedPosts(userId).doc(postId);
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    var nowSaved = false;
     await _firestore.runTransaction((tx) async {
       final saveSnap = await tx.get(saveRef);
       if (saveSnap.exists) {
         tx.delete(saveRef);
         tx.update(postRef, {
           'saveCount': FieldValue.increment(-1),
-          'updatedAt': DateTime.now().toUtc().toIso8601String(),
+          'updatedAt': now,
         });
+        nowSaved = false;
       } else {
         tx.set(saveRef, {
           'userId': userId,
-          'createdAt': DateTime.now().toUtc().toIso8601String(),
+          'createdAt': now,
         });
         tx.update(postRef, {
           'saveCount': FieldValue.increment(1),
-          'updatedAt': DateTime.now().toUtc().toIso8601String(),
+          'updatedAt': now,
         });
+        nowSaved = true;
       }
     });
+
+    // Keep Saved-filter index in sync outside the post transaction so a
+    // missing/denied user-index rule cannot block bookmarking.
+    try {
+      if (nowSaved) {
+        await userSaveRef.set({
+          'userId': userId,
+          'postId': postId,
+          'createdAt': now,
+        });
+      } else {
+        await userSaveRef.delete();
+      }
+    } catch (_) {}
   }
 
   // ── Comments ───────────────────────────────────────────────────────────
@@ -374,6 +468,8 @@ class CommunityRepository {
           category: 'community',
           addedByUserId: authorId,
           requestId: postId,
+          // Reuse reportId to store commentId for revocation on delete.
+          reportId: ref.id,
         );
       }
     }
@@ -383,14 +479,46 @@ class CommunityRepository {
   Future<void> deleteComment({
     required String postId,
     required String commentId,
+    String? authorId,
   }) async {
     final now = DateTime.now().toUtc().toIso8601String();
+    String? resolvedAuthorId = authorId;
     await _firestore.runTransaction((tx) async {
-      tx.delete(_col.doc(postId).collection('comments').doc(commentId));
+      final commentRef =
+          _col.doc(postId).collection('comments').doc(commentId);
+      if (resolvedAuthorId == null || resolvedAuthorId!.isEmpty) {
+        final snap = await tx.get(commentRef);
+        resolvedAuthorId = snap.data()?['authorId'] as String?;
+      }
+      tx.delete(commentRef);
       tx.update(_col.doc(postId), {
         'commentCount': FieldValue.increment(-1),
         'updatedAt': now,
       });
+    });
+    if (resolvedAuthorId != null && resolvedAuthorId!.isNotEmpty) {
+      await _notifications?.deleteCommunityEngagementNotifications(
+        type: 'community_comment',
+        requestId: postId,
+        addedByUserId: resolvedAuthorId!,
+        reportId: commentId,
+      );
+    }
+  }
+
+  Future<void> updateComment({
+    required String postId,
+    required String commentId,
+    required String text,
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Comment cannot be empty');
+    }
+    final now = DateTime.now().toUtc().toIso8601String();
+    await _col.doc(postId).collection('comments').doc(commentId).update({
+      'text': trimmed,
+      'editedAt': now,
     });
   }
 

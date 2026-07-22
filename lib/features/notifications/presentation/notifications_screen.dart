@@ -159,7 +159,11 @@ class _NotificationCard extends ConsumerWidget {
 
     final route = NotificationNavigation.routeForNotification(notification);
     if (route != null) {
-      context.push(route);
+      if (NotificationNavigation.isShellTabLocation(route)) {
+        context.go(route);
+      } else {
+        context.push(route);
+      }
     } else if (notification.matchId != null &&
         notification.matchId!.isNotEmpty) {
       context.push('/match/${notification.matchId}');

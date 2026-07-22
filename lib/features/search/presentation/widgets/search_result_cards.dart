@@ -505,7 +505,7 @@ class _PostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cf = context.cf;
     return _CardShell(
-      onTap: () => context.push('/community?postId=${post.id}'),
+      onTap: () => context.go('/community?postId=${post.id}'),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

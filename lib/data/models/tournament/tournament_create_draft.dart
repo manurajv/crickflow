@@ -41,6 +41,7 @@ class TournamentCreateDraft extends Equatable {
     this.bannerUrl,
     this.logoUrl,
     this.thumbnailUrl,
+    this.thumbnailAspect = CommunityMediaAspect.landscape16x9,
   });
 
   final String tournamentId;
@@ -71,6 +72,7 @@ class TournamentCreateDraft extends Equatable {
   final String? bannerUrl;
   final String? logoUrl;
   final String? thumbnailUrl;
+  final CommunityMediaAspect thumbnailAspect;
 
   List<TournamentCreateFlowStep> get activeSteps {
     final steps = [TournamentCreateFlowStep.basic];
@@ -142,6 +144,7 @@ class TournamentCreateDraft extends Equatable {
     String? bannerUrl,
     String? logoUrl,
     String? thumbnailUrl,
+    CommunityMediaAspect? thumbnailAspect,
     bool clearBannerLocal = false,
     bool clearLogoLocal = false,
     bool clearThumbnailLocal = false,
@@ -178,6 +181,7 @@ class TournamentCreateDraft extends Equatable {
       bannerUrl: bannerUrl ?? this.bannerUrl,
       logoUrl: logoUrl ?? this.logoUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      thumbnailAspect: thumbnailAspect ?? this.thumbnailAspect,
     );
   }
 
@@ -205,6 +209,7 @@ class TournamentCreateDraft extends Equatable {
     String? bannerUrl,
     String? logoUrl,
     String? thumbnailUrl,
+    CommunityMediaAspect? thumbnailAspect,
   }) {
     final meta = mergedSetup();
     final entryFee = double.tryParse(entryFeeText.replaceAll(',', ''));
@@ -242,6 +247,7 @@ class TournamentCreateDraft extends Equatable {
       bannerUrl: bannerUrl ?? this.bannerUrl,
       logoUrl: logoUrl ?? this.logoUrl,
       thumbnailUrl: resolvedThumb,
+      thumbnailAspect: thumbnailAspect ?? this.thumbnailAspect,
       setupMeta: meta,
     );
   }

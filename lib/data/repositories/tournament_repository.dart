@@ -959,15 +959,32 @@ class TournamentRepository {
   }
 
   /// Marks tournament completed, locks editing, stores podium + awards.
+  ///
+  /// [podium] is ordered finishing places (1st first). At least one entry
+  /// (champion) is required. Up to five places are stored.
   Future<void> completeTournament({
     required String tournamentId,
-    required String championTeamId,
-    required String championTeamName,
-    String? runnerUpTeamId,
-    String? runnerUpTeamName,
-    String? thirdPlaceTeamId,
+    required List<TournamentPodiumPlace> podium,
     Map<String, String> awards = const {},
   }) async {
+    if (podium.isEmpty) {
+      throw ArgumentError('At least one podium place (champion) is required');
+    }
+    final sorted = [...podium]..sort((a, b) => a.place.compareTo(b.place));
+    final champion = sorted.firstWhere(
+      (p) => p.place == 1,
+      orElse: () => sorted.first,
+    );
+    TournamentPodiumPlace? placeAt(int n) {
+      for (final p in sorted) {
+        if (p.place == n) return p;
+      }
+      return null;
+    }
+
+    final runner = placeAt(2);
+    final third = placeAt(3);
+
     final tournament = await getTournament(tournamentId);
     if (tournament == null) throw StateError('Tournament not found');
 
@@ -975,11 +992,13 @@ class TournamentRepository {
       tournament.copyWith(
         status: TournamentStatus.completed,
         isLocked: true,
-        championTeamId: championTeamId,
-        championTeamName: championTeamName,
-        runnerUpTeamId: runnerUpTeamId,
-        runnerUpTeamName: runnerUpTeamName,
-        thirdPlaceTeamId: thirdPlaceTeamId,
+        championTeamId: champion.teamId,
+        championTeamName: champion.teamName,
+        runnerUpTeamId: runner?.teamId,
+        runnerUpTeamName: runner?.teamName,
+        thirdPlaceTeamId: third?.teamId,
+        thirdPlaceTeamName: third?.teamName,
+        podiumPlaces: sorted,
         awards: awards,
         endDate: DateTime.now(),
       ),
@@ -996,13 +1015,16 @@ class TournamentRepository {
       await _notificationRepository.notifyTournamentCompleted(
         tournament: tournament.copyWith(
           status: TournamentStatus.completed,
-          championTeamId: championTeamId,
-          championTeamName: championTeamName,
-          runnerUpTeamId: runnerUpTeamId,
-          runnerUpTeamName: runnerUpTeamName,
+          championTeamId: champion.teamId,
+          championTeamName: champion.teamName,
+          runnerUpTeamId: runner?.teamId,
+          runnerUpTeamName: runner?.teamName,
+          thirdPlaceTeamId: third?.teamId,
+          thirdPlaceTeamName: third?.teamName,
+          podiumPlaces: sorted,
         ),
-        championTeamName: championTeamName,
-        runnerUpTeamName: runnerUpTeamName,
+        championTeamName: champion.teamName,
+        runnerUpTeamName: runner?.teamName,
         teams: teams,
         members: members,
         officials: officials,

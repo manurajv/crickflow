@@ -1,29 +1,50 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/date_utils.dart';
 import '../../../../data/models/community_post_model.dart';
+import '../../../../data/models/user_model.dart';
+import '../../../../shared/providers/chat_provider.dart';
+import '../../../../shared/providers/providers.dart';
 
-class CommunityTournamentCard extends StatelessWidget {
+class CommunityTournamentCard extends ConsumerWidget {
   const CommunityTournamentCard({
     super.key,
     required this.snapshot,
     this.onShare,
+    this.fallbackOrganizerUserId = '',
+    this.fallbackOrganizerPlayerId,
+    this.fallbackOrganizerPhotoUrl,
   });
 
   final CommunityTournamentSnapshot snapshot;
   final VoidCallback? onShare;
 
+  /// Post author uid when snapshot predates [organizerUserId].
+  final String fallbackOrganizerUserId;
+  final String? fallbackOrganizerPlayerId;
+  final String? fallbackOrganizerPhotoUrl;
+
+  String get _organizerUserId =>
+      snapshot.organizerUserId.isNotEmpty
+          ? snapshot.organizerUserId
+          : fallbackOrganizerUserId;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
     final theme = Theme.of(context);
     final thumb = snapshot.thumbnailUrl;
+    final showContact = _hasContact(snapshot, _organizerUserId);
+    final isDm =
+        snapshot.contactVisibility == CommunityContactVisibility.crickflowDm;
 
     return Container(
       decoration: BoxDecoration(
@@ -36,7 +57,7 @@ class CommunityTournamentCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AspectRatio(
-            aspectRatio: 16 / 9,
+            aspectRatio: snapshot.thumbnailAspect.displayRatio,
             child: thumb != null && thumb.isNotEmpty
                 ? CachedNetworkImage(
                     imageUrl: thumb,
@@ -72,7 +93,11 @@ class CommunityTournamentCard extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     if (snapshot.locationLabel.isNotEmpty)
-                      _chip(cf, Icons.location_on_outlined, snapshot.locationLabel),
+                      _chip(
+                        cf,
+                        Icons.location_on_outlined,
+                        snapshot.locationLabel,
+                      ),
                     if (snapshot.startDate != null)
                       _chip(
                         cf,
@@ -83,9 +108,17 @@ class CommunityTournamentCard extends StatelessWidget {
                         snapshot.entryFee!.isNotEmpty)
                       _chip(cf, Icons.payments_outlined, snapshot.entryFee!),
                     if (snapshot.ballType.isNotEmpty)
-                      _chip(cf, Icons.sports_baseball_outlined, snapshot.ballType),
+                      _chip(
+                        cf,
+                        Icons.sports_baseball_outlined,
+                        snapshot.ballType,
+                      ),
                     if (snapshot.matchFormat.isNotEmpty)
-                      _chip(cf, Icons.grid_view_outlined, snapshot.matchFormat),
+                      _chip(
+                        cf,
+                        Icons.grid_view_outlined,
+                        snapshot.matchFormat,
+                      ),
                     if (snapshot.teamCount != null)
                       _chip(
                         cf,
@@ -100,9 +133,9 @@ class CommunityTournamentCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                if (_hasContact(snapshot)) ...[
+                if (showContact && !isDm) ...[
                   const SizedBox(height: AppDimens.spaceSm),
-                  _ContactRow(snapshot: snapshot),
+                  _ExternalContactRow(snapshot: snapshot),
                 ],
                 const SizedBox(height: AppDimens.spaceSm),
                 Row(
@@ -117,6 +150,17 @@ class CommunityTournamentCard extends StatelessWidget {
                         child: const Text('Join'),
                       ),
                     ),
+                    if (isDm && _organizerUserId.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'Message organizer',
+                        child: OutlinedButton(
+                          onPressed: () => _openOrganizerChat(context, ref),
+                          child:
+                              const Icon(Icons.chat_bubble_outline, size: 18),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     OutlinedButton(
                       onPressed: onShare,
@@ -129,6 +173,62 @@ class CommunityTournamentCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openOrganizerChat(BuildContext context, WidgetRef ref) async {
+    final organizerId = _organizerUserId;
+    if (organizerId.isEmpty) return;
+
+    requireAuthVoid(
+      context: context,
+      ref: ref,
+      action: () async {
+        final me = ref.read(currentUserProfileProvider).valueOrNull;
+        if (me == null) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Sign in to message')),
+            );
+          }
+          return;
+        }
+        if (me.id == organizerId) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('This is your tournament')),
+            );
+          }
+          return;
+        }
+
+        final other = UserModel(
+          id: organizerId,
+          email: '',
+          name: snapshot.organizer,
+          photoUrl: snapshot.organizerPhotoUrl ?? fallbackOrganizerPhotoUrl,
+          playerId: snapshot.organizerPlayerId.isNotEmpty
+              ? snapshot.organizerPlayerId
+              : fallbackOrganizerPlayerId,
+        );
+
+        try {
+          final chatId =
+              await ref.read(chatRepositoryProvider).openOrCreateChat(
+                    me: me,
+                    other: other,
+                  );
+          if (context.mounted) {
+            context.push('/community/chats/$chatId');
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$e')),
+            );
+          }
+        }
+      },
     );
   }
 
@@ -166,12 +266,13 @@ class CommunityTournamentCard extends StatelessWidget {
     );
   }
 
-  bool _hasContact(CommunityTournamentSnapshot s) {
+  bool _hasContact(CommunityTournamentSnapshot s, String organizerUserId) {
     return switch (s.contactVisibility) {
       CommunityContactVisibility.hide => false,
       CommunityContactVisibility.phone => s.contactPhone.isNotEmpty,
       CommunityContactVisibility.whatsapp => s.contactWhatsApp.isNotEmpty,
       CommunityContactVisibility.email => s.contactEmail.isNotEmpty,
+      CommunityContactVisibility.crickflowDm => organizerUserId.isNotEmpty,
     };
   }
 
@@ -183,8 +284,8 @@ class CommunityTournamentCard extends StatelessWidget {
   }
 }
 
-class _ContactRow extends StatelessWidget {
-  const _ContactRow({required this.snapshot});
+class _ExternalContactRow extends StatelessWidget {
+  const _ExternalContactRow({required this.snapshot});
 
   final CommunityTournamentSnapshot snapshot;
 
@@ -201,7 +302,8 @@ class _ContactRow extends StatelessWidget {
           Icons.chat_outlined,
           snapshot.contactWhatsApp,
           () {
-            final phone = snapshot.contactWhatsApp.replaceAll(RegExp(r'\D'), '');
+            final phone =
+                snapshot.contactWhatsApp.replaceAll(RegExp(r'\D'), '');
             launchUrl(
               Uri.parse('https://wa.me/$phone'),
               mode: LaunchMode.externalApplication,
@@ -218,7 +320,8 @@ class _ContactRow extends StatelessWidget {
                 ),
               ),
         ),
-      CommunityContactVisibility.hide => (
+      CommunityContactVisibility.hide ||
+      CommunityContactVisibility.crickflowDm => (
           Icons.visibility_off_outlined,
           '',
           null,
@@ -251,4 +354,3 @@ class _ContactRow extends StatelessWidget {
     );
   }
 }
-

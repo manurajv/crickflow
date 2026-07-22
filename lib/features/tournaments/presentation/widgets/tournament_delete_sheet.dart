@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/navigation/tournament_join_navigation.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/tournament_model.dart';
+import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 
+/// Shows delete confirmation. On success, goes straight to My Cricket.
 Future<bool> showTournamentDeleteSheet({
   required BuildContext context,
   required WidgetRef ref,
   required TournamentModel tournament,
 }) async {
-  final result = await showModalBottomSheet<bool>(
+  final deleted = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -25,7 +28,16 @@ Future<bool> showTournamentDeleteSheet({
       ref: ref,
     ),
   );
-  return result ?? false;
+
+  if (deleted == true && context.mounted) {
+    // Safety net if sheet navigation did not run (e.g. unmounted mid-pop).
+    goToMyCricketTournamentsTab(ref, context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tournament deleted')),
+    );
+  }
+
+  return deleted ?? false;
 }
 
 class _TournamentDeleteSheet extends ConsumerStatefulWidget {
@@ -66,21 +78,24 @@ class _TournamentDeleteSheetState extends ConsumerState<_TournamentDeleteSheet> 
             requestingUserId: uid,
           );
       widget.ref.invalidate(tournamentsProvider);
+      widget.ref.invalidate(tournamentProvider(widget.tournament.id));
+
       if (!mounted) return;
-      Navigator.pop(context, true);
-      if (!context.mounted) return;
-      goToMyCricketTournamentsTab(widget.ref, context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tournament deleted')),
-      );
+
+      // Capture router before popping the sheet overlay, then leave the
+      // tournament route immediately so we never flash a missing-doc error.
+      final router = GoRouter.of(context);
+      widget.ref.read(myCricketInitialTabProvider.notifier).state =
+          myCricketTournamentsTabIndex;
+      Navigator.of(context).pop(true);
+      router.go('/matches?tab=$myCricketTournamentsTabIndex');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$e')),
         );
+        setState(() => _busy = false);
       }
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 

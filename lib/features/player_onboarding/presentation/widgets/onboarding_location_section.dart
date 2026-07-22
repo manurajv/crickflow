@@ -43,6 +43,10 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
   String? _statusMessage;
   List<PlaceSuggestion> _suggestions = [];
   Timer? _debounce;
+  double? _latitude;
+  double? _longitude;
+  String _district = '';
+  GeoCoords? _searchBias;
 
   @override
   void initState() {
@@ -54,6 +58,12 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
     _provinceController =
         TextEditingController(text: widget.initialLocation.stateProvince);
     _cityController = TextEditingController(text: widget.initialLocation.city);
+    _district = widget.initialLocation.district;
+    _latitude = widget.initialLocation.latitude;
+    _longitude = widget.initialLocation.longitude;
+    if (_latitude != null && _longitude != null) {
+      _searchBias = GeoCoords(latitude: _latitude!, longitude: _longitude!);
+    }
     _userHasSetLocation = !widget.initialLocation.isEmpty;
 
     if (widget.autoDetectOnInit && widget.initialLocation.isEmpty) {
@@ -76,7 +86,10 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
   LocationModel get _currentLocation => LocationModel(
         country: _countryController.text.trim(),
         stateProvince: _provinceController.text.trim(),
+        district: _district.trim(),
         city: _cityController.text.trim(),
+        latitude: _latitude,
+        longitude: _longitude,
       );
 
   void _markUserEdited() {
@@ -92,6 +105,12 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
     _emitLocation();
   }
 
+  void _onCityChanged(String _) {
+    _markUserEdited();
+    _district = '';
+    _emitLocation();
+  }
+
   void _applyResolvedPlace(
     ResolvedPlace resolved, {
     required bool userRequested,
@@ -101,7 +120,14 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
     setState(() {
       _countryController.text = resolved.location.country;
       _provinceController.text = resolved.location.stateProvince;
+      _district = resolved.location.district;
       _cityController.text = resolved.location.city;
+      _latitude = resolved.location.latitude ?? resolved.coords.latitude;
+      _longitude = resolved.location.longitude ?? resolved.coords.longitude;
+      _searchBias = GeoCoords(
+        latitude: _latitude!,
+        longitude: _longitude!,
+      );
       _suggestions = [];
       _searchController.clear();
       _statusMessage = null;
@@ -135,6 +161,7 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
         _showStatus('Could not read GPS position. Try again or search manually.');
         return;
       }
+      _searchBias = coords;
 
       final resolved = await _service.reverseGeocode(coords);
       if (!mounted) return;
@@ -152,7 +179,16 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       try {
-        final results = await _service.searchPlaces(value);
+        // Bias toward GPS / last picked pin so nearby towns rank above
+        // same-named places in other regions.
+        var bias = _searchBias;
+        if (bias == null) {
+          try {
+            bias = await _service.getCurrentCoords();
+            if (bias != null) _searchBias = bias;
+          } catch (_) {}
+        }
+        final results = await _service.searchPlaces(value, bias: bias);
         if (mounted) {
           setState(() {
             _suggestions = results;
@@ -177,7 +213,10 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
       _searchController.text = suggestion.description;
     });
     try {
-      final resolved = await _service.resolvePlace(suggestion.placeId);
+      final resolved = await _service.resolvePlace(
+        suggestion.placeId,
+        fallbackDescription: suggestion.description,
+      );
       if (!mounted) return;
       _applyResolvedPlace(resolved, userRequested: true);
     } catch (e) {
@@ -281,7 +320,7 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _suggestions.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (_, i) {
                 final s = _suggestions[i];
                 return ListTile(
@@ -322,7 +361,7 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
             prefixIcon: Icon(Icons.location_city_outlined),
           ),
           textCapitalization: TextCapitalization.words,
-          onChanged: (_) => _onManualFieldChanged(),
+          onChanged: _onCityChanged,
         ),
       ],
     );

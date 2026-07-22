@@ -7,9 +7,12 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/match_permissions.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
+import '../../../../domain/services/player_cricket_profile_models.dart';
+import '../../../../domain/services/profile_match_filter_service.dart';
 import '../../../../shared/providers/guest_device_location_provider.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/my_player_provider.dart';
+import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/location_filter_bar.dart';
@@ -54,6 +57,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
 
     final matchesAsync = ref.watch(matchesProvider);
     final search = ref.watch(myCricketSearchProvider);
+    final matchFilters = ref.watch(profileMatchFiltersProvider);
     final player = ref.watch(myPlayerProvider).valueOrNull;
     final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
     final userTeamIds = userTeams.map((t) => t.id).toSet();
@@ -87,6 +91,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                   userTeamIds: userTeamIds,
                   followedPlayers: followedPlayers,
                 );
+                list = filterProfileMatches(list, matchFilters);
                 if (search.isNotEmpty) {
                   final q = search.toLowerCase();
                   list = list
@@ -103,12 +108,24 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
                       MatchListEmptyState(
-                        message: 'No matches found',
-                        onClearFilters: search.isNotEmpty
+                        message: matchFilters.hasActiveFilters
+                            ? 'No matches match your filters'
+                            : 'No matches found',
+                        onClearFilters: search.isNotEmpty ||
+                                matchFilters.hasActiveFilters
                             ? () {
-                                ref
-                                    .read(myCricketSearchProvider.notifier)
-                                    .state = '';
+                                if (search.isNotEmpty) {
+                                  ref
+                                      .read(myCricketSearchProvider.notifier)
+                                      .state = '';
+                                }
+                                if (matchFilters.hasActiveFilters) {
+                                  ref
+                                      .read(
+                                        profileMatchFiltersProvider.notifier,
+                                      )
+                                      .state = const ProfileMatchFilters();
+                                }
                               }
                             : null,
                       ),

@@ -33,8 +33,15 @@ class LocationModel extends Equatable {
       longitude!.isFinite;
 
   String get displayLabel {
-    final parts =
-        [city, district, stateProvince, country].where((p) => p.isNotEmpty);
+    final parts = <String>[];
+    for (final p in [city, district, stateProvince, country]) {
+      if (p.isEmpty) continue;
+      if (parts.isNotEmpty &&
+          parts.last.toLowerCase() == p.toLowerCase()) {
+        continue;
+      }
+      parts.add(p);
+    }
     return parts.join(', ');
   }
 

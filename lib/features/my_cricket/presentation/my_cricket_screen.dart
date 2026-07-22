@@ -5,10 +5,14 @@ import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/match_permissions.dart';
+import '../../../data/models/match_model.dart';
+import '../../../shared/providers/my_player_provider.dart';
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
+import '../../my_cricket_profile/presentation/widgets/profile_match_filter_button.dart';
+import '../my_cricket_filters.dart';
 import 'tabs/my_cricket_highlights_tab.dart';
 import 'tabs/my_cricket_matches_tab.dart';
 import 'tabs/my_cricket_stats_tab.dart';
@@ -93,9 +97,31 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
               UserRole.organizer,
         );
 
+    final player = ref.watch(myPlayerProvider).valueOrNull;
+    final matches = ref.watch(matchesProvider).valueOrNull ?? [];
+    final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
+    final userTeamIds = userTeams.map((t) => t.id).toSet();
+    final participated = uid == null
+        ? const <MatchModel>[]
+        : matches
+            .where(
+              (m) => userParticipatedInMatch(
+                m,
+                uid: uid,
+                player: player,
+                userTeamIds: userTeamIds,
+              ),
+            )
+            .toList();
+
     return ShellTabScaffold(
       title: const Text('My Cricket'),
       actions: [
+        if (!isGuest && (_tabs.index == 0 || _tabs.index == 3))
+          ProfileMatchFilterButton(
+            matches: participated,
+            iconOnly: true,
+          ),
         if (_tabs.index == 0 || _tabs.index == 1)
           IconButton(
             icon: const Icon(Icons.search),

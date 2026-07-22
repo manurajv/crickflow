@@ -10,7 +10,9 @@ const myCricketTournamentsTabIndex = 1;
 void goToMyCricketTournamentsTab(WidgetRef ref, BuildContext context) {
   ref.read(myCricketInitialTabProvider.notifier).state =
       myCricketTournamentsTabIndex;
-  context.go('/matches');
+  // Prefer go over pop — clears tournament routes after delete/leave.
+  // Include ?tab= so My Cricket applies Tournaments even on a cold open.
+  context.go('/matches?tab=$myCricketTournamentsTabIndex');
 }
 
 bool isTournamentJoinPath(String path) {

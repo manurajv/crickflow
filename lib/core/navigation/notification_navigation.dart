@@ -150,6 +150,16 @@ class NotificationNavigation {
     }
     return {};
   }
+
+  /// Shell tab paths live in [StatefulShellRoute] — [push] duplicates page keys.
+  static bool isShellTabLocation(String location) {
+    final path = Uri.tryParse(location)?.path ?? location;
+    return path == '/home' ||
+        path == '/discover' ||
+        path == '/matches' ||
+        path == '/community' ||
+        path == '/profile';
+  }
 }
 
 extension NotificationPresentation on NotificationModel {

@@ -178,6 +178,8 @@ enum CommunityContactVisibility {
   phone,
   whatsapp,
   email,
+  /// Message organizer via in-app CrickFlow chat.
+  crickflowDm,
 }
 
 /// Aspect ratio chosen when cropping community / tournament media.
@@ -186,6 +188,33 @@ enum CommunityMediaAspect {
   landscape16x9,
   portrait9x16,
   free,
+}
+
+extension CommunityMediaAspectX on CommunityMediaAspect {
+  double get displayRatio => switch (this) {
+        CommunityMediaAspect.square => 1,
+        CommunityMediaAspect.landscape16x9 => 16 / 9,
+        CommunityMediaAspect.portrait9x16 => 9 / 16,
+        CommunityMediaAspect.free => 4 / 3,
+      };
+
+  String get label => switch (this) {
+        CommunityMediaAspect.square => '1:1 Square',
+        CommunityMediaAspect.landscape16x9 => '16:9 Landscape',
+        CommunityMediaAspect.portrait9x16 => '9:16 Portrait',
+        CommunityMediaAspect.free => 'Free crop',
+      };
+
+  static CommunityMediaAspect parse(
+    String? name, {
+    CommunityMediaAspect fallback = CommunityMediaAspect.landscape16x9,
+  }) {
+    if (name == null || name.isEmpty) return fallback;
+    return CommunityMediaAspect.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => fallback,
+    );
+  }
 }
 
 /// High-level post kind for create-post UX (maps onto [CommunityPostCategory]).

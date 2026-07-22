@@ -26,6 +26,7 @@ class CommunityPostCard extends ConsumerWidget {
     required this.onDelete,
     required this.onHide,
     required this.onReport,
+    this.onEdit,
     this.onBlock,
     this.highlighted = false,
   });
@@ -35,6 +36,7 @@ class CommunityPostCard extends ConsumerWidget {
   final VoidCallback onDelete;
   final VoidCallback onHide;
   final VoidCallback onReport;
+  final VoidCallback? onEdit;
   final VoidCallback? onBlock;
   final bool highlighted;
 
@@ -102,20 +104,48 @@ class CommunityPostCard extends ConsumerWidget {
             onDelete: onDelete,
             onHide: onHide,
             onReport: onReport,
+            onEdit: onEdit,
             onBlock: onBlock,
           ),
-          if (post.title.trim().isNotEmpty) ...[
+          if (post.title.trim().isNotEmpty || post.createdAt != null) ...[
             const SizedBox(height: 10),
-            Text(
-              post.title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                if (post.title.trim().isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      post.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else
+                  const Spacer(),
+                if (post.createdAt != null) ...[
+                  if (post.title.trim().isNotEmpty) const SizedBox(width: 8),
+                  Text(
+                    AppDateUtils.timeAgo(post.createdAt!),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cf.textMuted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
           if (post.body.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(post.body, style: theme.textTheme.bodyMedium),
+          ],
+          if (post.isEdited) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Edited',
+              style: theme.textTheme.labelSmall?.copyWith(color: cf.textMuted),
+            ),
           ],
           if (post.media.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -126,6 +156,9 @@ class CommunityPostCard extends ConsumerWidget {
             CommunityTournamentCard(
               snapshot: post.tournamentSnapshot!,
               onShare: () => _share(ref),
+              fallbackOrganizerUserId: post.authorId,
+              fallbackOrganizerPlayerId: post.authorPlayerId,
+              fallbackOrganizerPhotoUrl: post.authorPhotoUrl,
             ),
           ],
           const SizedBox(height: 4),
@@ -175,10 +208,18 @@ class CommunityPostCard extends ConsumerWidget {
               action: () async {
                 final id = ref.read(authStateProvider).valueOrNull?.uid;
                 if (id == null) return;
-                await ref.read(communityRepositoryProvider).toggleSave(
-                      postId: post.id,
-                      userId: id,
+                try {
+                  await ref.read(communityRepositoryProvider).toggleSave(
+                        postId: post.id,
+                        userId: id,
+                      );
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Could not save: $e')),
                     );
+                  }
+                }
               },
             ),
           ),
@@ -206,6 +247,7 @@ class _Header extends ConsumerWidget {
     required this.onDelete,
     required this.onHide,
     required this.onReport,
+    this.onEdit,
     this.onBlock,
   });
 
@@ -216,6 +258,7 @@ class _Header extends ConsumerWidget {
   final VoidCallback onDelete;
   final VoidCallback onHide;
   final VoidCallback onReport;
+  final VoidCallback? onEdit;
   final VoidCallback? onBlock;
 
   @override
@@ -259,10 +302,26 @@ class _Header extends ConsumerWidget {
               Row(
                 children: [
                   Flexible(
-                    child: Text(
-                      post.authorName,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: post.authorName,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cf.textPrimary,
+                            ),
+                          ),
+                          if (post.authorPlayerId != null &&
+                              post.authorPlayerId!.isNotEmpty)
+                            TextSpan(
+                              text: '  ${post.authorPlayerId}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cf.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -274,20 +333,17 @@ class _Header extends ConsumerWidget {
                   ],
                 ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                [
-                  if (post.authorPlayerId != null &&
-                      post.authorPlayerId!.isNotEmpty)
-                    post.authorPlayerId!,
-                  if (post.createdAt != null)
-                    AppDateUtils.timeAgo(post.createdAt!),
-                  if (locationLabel.isNotEmpty) locationLabel,
-                ].join(' · '),
-                style: theme.textTheme.bodySmall?.copyWith(color: cf.textMuted),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              if (locationLabel.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  locationLabel,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cf.textMuted,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
           ),
         ),
@@ -299,6 +355,7 @@ class _Header extends ConsumerWidget {
             followerUserId: currentUserId!,
           ),
         PopupMenuButton<String>(
+          tooltip: 'Post options',
           onSelected: (v) {
             switch (v) {
               case 'hide':
@@ -307,19 +364,63 @@ class _Header extends ConsumerWidget {
                 onReport();
               case 'block':
                 onBlock?.call();
+              case 'edit':
+                onEdit?.call();
               case 'delete':
                 onDelete();
             }
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(value: 'hide', child: Text('Hide post')),
+            const PopupMenuItem(
+              value: 'hide',
+              child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.visibility_off_outlined),
+                title: Text('Hide post'),
+              ),
+            ),
             if (!isOwner) ...[
-              const PopupMenuItem(value: 'report', child: Text('Report')),
+              const PopupMenuItem(
+                value: 'report',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.flag_outlined),
+                  title: Text('Report'),
+                ),
+              ),
               if (onBlock != null)
-                const PopupMenuItem(value: 'block', child: Text('Block user')),
+                const PopupMenuItem(
+                  value: 'block',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.block),
+                    title: Text('Block user'),
+                  ),
+                ),
             ],
-            if (isOwner)
-              const PopupMenuItem(value: 'delete', child: Text('Delete')),
+            if (isOwner) ...[
+              const PopupMenuItem(
+                value: 'edit',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.edit_outlined),
+                  title: Text('Edit'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.delete_outline, color: cf.error),
+                  title: Text('Delete', style: TextStyle(color: cf.error)),
+                ),
+              ),
+            ],
           ],
         ),
       ],

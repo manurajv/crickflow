@@ -510,7 +510,6 @@ class ProfileMatchFilters {
       ballType != null ||
       matchType != null ||
       year != null ||
-      (teamId != null && teamId!.isNotEmpty) ||
       (tournamentId != null && tournamentId!.isNotEmpty);
 
   int get activeFilterCount =>
@@ -518,7 +517,6 @@ class ProfileMatchFilters {
       (ballType != null ? 1 : 0) +
       (matchType != null ? 1 : 0) +
       (year != null ? 1 : 0) +
-      (teamId != null && teamId!.isNotEmpty ? 1 : 0) +
       (tournamentId != null && tournamentId!.isNotEmpty ? 1 : 0);
 }
 

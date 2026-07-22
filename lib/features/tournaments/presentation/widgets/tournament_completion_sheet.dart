@@ -45,17 +45,59 @@ class _TournamentCompletionSheet extends ConsumerStatefulWidget {
 
 class _TournamentCompletionSheetState
     extends ConsumerState<_TournamentCompletionSheet> {
-  String? _championId;
-  String? _runnerUpId;
-  String? _thirdPlaceId;
+  /// Selected team id per place index (0 = champion).
+  List<String?> _placeTeamIds = [null];
+  var _placeCount = 1;
   var _saving = false;
   List<TeamModel> _teams = const [];
+  Map<String, PointsTableEntry> _standingsByTeam = const {};
   var _teamsLoaded = false;
+
+  int get _maxPlaces => _teams.isEmpty ? 1 : _teams.length.clamp(1, 5);
 
   @override
   void initState() {
     super.initState();
     _loadTeams();
+  }
+
+  List<PointsTableEntry> _resolveStandings() {
+    final byTeam = <String, PointsTableEntry>{};
+
+    void consider(PointsTableEntry entry) {
+      if (entry.teamId.isEmpty) return;
+      final existing = byTeam[entry.teamId];
+      if (existing == null) {
+        byTeam[entry.teamId] = entry;
+        return;
+      }
+      if (_compareStandings(entry, existing) < 0) {
+        byTeam[entry.teamId] = entry;
+      }
+    }
+
+    for (final entry in widget.tournament.pointsTable) {
+      consider(entry);
+    }
+
+    final groupTables = widget.ref
+            .read(tournamentPointsTablesProvider(widget.tournament.id))
+            .valueOrNull ??
+        const [];
+    for (final table in groupTables) {
+      for (final entry in table.entries) {
+        consider(entry);
+      }
+    }
+
+    final ranked = byTeam.values.toList()..sort(_compareStandings);
+    return ranked;
+  }
+
+  static int _compareStandings(PointsTableEntry a, PointsTableEntry b) {
+    final byPts = b.points.compareTo(a.points);
+    if (byPts != 0) return byPts;
+    return b.netRunRate.compareTo(a.netRunRate);
   }
 
   Future<void> _loadTeams() async {
@@ -65,13 +107,68 @@ class _TournamentCompletionSheetState
       final team = await repo.getTeam(id);
       if (team != null) loaded.add(team);
     }
-    loaded.sort((a, b) => a.name.compareTo(b.name));
-    if (mounted) {
-      setState(() {
-        _teams = loaded;
-        _teamsLoaded = true;
-      });
-    }
+
+    final standings = _resolveStandings();
+    final standingsByTeam = {
+      for (final e in standings) e.teamId: e,
+    };
+    final rankIndex = {
+      for (var i = 0; i < standings.length; i++) standings[i].teamId: i,
+    };
+
+    loaded.sort((a, b) {
+      final ai = rankIndex[a.id];
+      final bi = rankIndex[b.id];
+      if (ai == null && bi == null) return a.name.compareTo(b.name);
+      if (ai == null) return 1;
+      if (bi == null) return -1;
+      return ai.compareTo(bi);
+    });
+
+    if (!mounted) return;
+
+    final maxPlaces = loaded.isEmpty ? 1 : loaded.length.clamp(1, 5);
+    // Default: show top 3 when enough teams, else all teams.
+    final initialCount = maxPlaces.clamp(1, 3);
+    final ids = List<String?>.generate(
+      initialCount,
+      (i) => i < loaded.length ? loaded[i].id : null,
+    );
+
+    setState(() {
+      _teams = loaded;
+      _standingsByTeam = standingsByTeam;
+      _teamsLoaded = true;
+      _placeCount = initialCount;
+      _placeTeamIds = ids;
+    });
+  }
+
+  void _setPlaceCount(int count) {
+    final next = count.clamp(1, _maxPlaces);
+    setState(() {
+      _placeCount = next;
+      if (_placeTeamIds.length < next) {
+        _placeTeamIds = [
+          ..._placeTeamIds,
+          ...List<String?>.filled(next - _placeTeamIds.length, null),
+        ];
+        // Prefill empty slots from standings order when unused.
+        final used = _placeTeamIds.whereType<String>().toSet();
+        for (var i = 0; i < next; i++) {
+          if (_placeTeamIds[i] != null) continue;
+          for (final team in _teams) {
+            if (!used.contains(team.id)) {
+              _placeTeamIds[i] = team.id;
+              used.add(team.id);
+              break;
+            }
+          }
+        }
+      } else if (_placeTeamIds.length > next) {
+        _placeTeamIds = _placeTeamIds.sublist(0, next);
+      }
+    });
   }
 
   TeamModel? _teamById(String? id) {
@@ -84,12 +181,23 @@ class _TournamentCompletionSheetState
 
   String _teamName(String? id) => _teamById(id)?.name ?? 'Unknown team';
 
-  List<TeamModel> _eligibleTeams({String? excludeA, String? excludeB}) {
-    return _teams
-        .where(
-          (t) => t.id != excludeA && t.id != excludeB,
-        )
-        .toList();
+  List<TeamModel> _eligibleForSlot(int slotIndex) {
+    final taken = <String>{};
+    for (var i = 0; i < _placeTeamIds.length; i++) {
+      if (i == slotIndex) continue;
+      final id = _placeTeamIds[i];
+      if (id != null) taken.add(id);
+    }
+    return _teams.where((t) => !taken.contains(t.id)).toList();
+  }
+
+  bool get _canFinish {
+    if (_saving || _teams.isEmpty) return false;
+    if (_placeTeamIds.isEmpty || _placeTeamIds.first == null) return false;
+    for (var i = 0; i < _placeCount; i++) {
+      if (_placeTeamIds[i] == null) return false;
+    }
+    return true;
   }
 
   @override
@@ -104,99 +212,101 @@ class _TournamentCompletionSheetState
         right: AppDimens.spaceMd,
         bottom: MediaQuery.viewInsetsOf(context).bottom + AppDimens.spaceMd,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Finish tournament',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Confirm the podium and lock further edits.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: cf.textSecondary,
-                ),
-          ),
-          const SizedBox(height: AppDimens.spaceMd),
-          if (!_teamsLoaded)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_teams.isEmpty)
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Text(
-              'Add teams to the tournament before finishing.',
-              style: TextStyle(color: cf.textSecondary),
-            )
-          else ...[
-            _TeamPodiumPicker(
-              label: 'Champion',
-              required: true,
-              value: _championId,
-              teams: _teams,
-              onChanged: (v) => setState(() {
-                _championId = v;
-                if (_runnerUpId == v) _runnerUpId = null;
-                if (_thirdPlaceId == v) _thirdPlaceId = null;
-              }),
-            ),
-            const SizedBox(height: AppDimens.spaceMd),
-            _TeamPodiumPicker(
-              label: 'Runner-up',
-              teams: _eligibleTeams(excludeA: _championId),
-              value: _runnerUpId,
-              onChanged: (v) => setState(() {
-                _runnerUpId = v;
-                if (_thirdPlaceId == v) _thirdPlaceId = null;
-              }),
-            ),
-            const SizedBox(height: AppDimens.spaceMd),
-            _TeamPodiumPicker(
-              label: 'Third place (optional)',
-              teams: _eligibleTeams(
-                excludeA: _championId,
-                excludeB: _runnerUpId,
-              ),
-              value: _thirdPlaceId,
-              onChanged: (v) => setState(() => _thirdPlaceId = v),
-            ),
-          ],
-          if (heroes != null && heroes.hasData) ...[
-            const SizedBox(height: AppDimens.spaceSm),
-            Container(
-              padding: const EdgeInsets.all(AppDimens.spaceSm),
-              decoration: BoxDecoration(
-                color: cf.accent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.auto_awesome, size: 18, color: cf.accent),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Player awards will be filled from the Heroes tab.',
-                      style: TextStyle(color: cf.textSecondary, fontSize: 12),
-                    ),
+              'Finish tournament',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _standingsByTeam.isNotEmpty
+                  ? 'Teams are ordered by points table. Choose how many places to award, then confirm.'
+                  : 'Choose how many places to award, then confirm and lock further edits.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: cf.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: AppDimens.spaceMd),
+            if (!_teamsLoaded)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_teams.isEmpty)
+              Text(
+                'Add teams to the tournament before finishing.',
+                style: TextStyle(color: cf.textSecondary),
+              )
+            else ...[
+              Text(
+                'Places to award',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (var n = 1; n <= _maxPlaces; n++)
+                    ChoiceChip(
+                      label: Text(n == 1 ? '1 team' : '$n teams'),
+                      selected: _placeCount == n,
+                      onSelected: (_) => _setPlaceCount(n),
+                    ),
                 ],
               ),
+              const SizedBox(height: AppDimens.spaceMd),
+              for (var i = 0; i < _placeCount; i++) ...[
+                if (i > 0) const SizedBox(height: AppDimens.spaceMd),
+                _TeamPodiumPicker(
+                  label: TournamentPodiumPlace.labelFor(i + 1),
+                  required: true,
+                  value: _placeTeamIds[i],
+                  teams: _eligibleForSlot(i),
+                  standingsByTeam: _standingsByTeam,
+                  onChanged: (v) => setState(() => _placeTeamIds[i] = v),
+                ),
+              ],
+            ],
+            if (heroes != null && heroes.hasData) ...[
+              const SizedBox(height: AppDimens.spaceSm),
+              Container(
+                padding: const EdgeInsets.all(AppDimens.spaceSm),
+                decoration: BoxDecoration(
+                  color: cf.accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_awesome, size: 18, color: cf.accent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Player awards will be filled from the Heroes tab.',
+                        style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: AppDimens.spaceMd),
+            CfButton(
+              label: 'Complete tournament',
+              isGold: true,
+              isLoading: _saving,
+              onPressed: _canFinish ? _finish : null,
             ),
           ],
-          const SizedBox(height: AppDimens.spaceMd),
-          CfButton(
-            label: 'Complete tournament',
-            isGold: true,
-            isLoading: _saving,
-            onPressed: _championId == null || _saving || _teams.isEmpty
-                ? null
-                : _finish,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -211,14 +321,22 @@ class _TournamentCompletionSheetState
         awards[h.award.name] = h.playerId;
       }
 
+      final podium = <TournamentPodiumPlace>[];
+      for (var i = 0; i < _placeCount; i++) {
+        final id = _placeTeamIds[i];
+        if (id == null) continue;
+        podium.add(
+          TournamentPodiumPlace(
+            place: i + 1,
+            teamId: id,
+            teamName: _teamName(id),
+          ),
+        );
+      }
+
       await widget.ref.read(tournamentRepositoryProvider).completeTournament(
             tournamentId: widget.tournament.id,
-            championTeamId: _championId!,
-            championTeamName: _teamName(_championId),
-            runnerUpTeamId: _runnerUpId,
-            runnerUpTeamName:
-                _runnerUpId != null ? _teamName(_runnerUpId) : null,
-            thirdPlaceTeamId: _thirdPlaceId,
+            podium: podium,
             awards: awards,
           );
       widget.ref.invalidate(tournamentProvider(widget.tournament.id));
@@ -247,12 +365,14 @@ class _TeamPodiumPicker extends StatelessWidget {
     required this.label,
     required this.teams,
     required this.onChanged,
+    required this.standingsByTeam,
     this.value,
     this.required = false,
   });
 
   final String label;
   final List<TeamModel> teams;
+  final Map<String, PointsTableEntry> standingsByTeam;
   final String? value;
   final ValueChanged<String?> onChanged;
   final bool required;
@@ -260,7 +380,7 @@ class _TeamPodiumPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    final selected = teams.where((t) => t.id == value).firstOrNull;
+    final options = List<TeamModel>.from(teams);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,6 +394,7 @@ class _TeamPodiumPicker extends StatelessWidget {
         const SizedBox(height: 8),
         DropdownButtonFormField<String?>(
           initialValue: value,
+          isExpanded: true,
           decoration: InputDecoration(
             hintText: required ? 'Select team' : 'Optional',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -288,23 +409,40 @@ class _TeamPodiumPicker extends StatelessWidget {
                 value: null,
                 child: Text('Not set'),
               ),
-            ...teams.map(
+            ...options.map(
               (team) => DropdownMenuItem<String?>(
                 value: team.id,
-                child: _TeamPickerRow(team: team),
+                child: _TeamPickerRow(
+                  team: team,
+                  standing: standingsByTeam[team.id],
+                ),
               ),
             ),
           ],
+          // Selected row must not use Expanded/Flexible — dropdown width is unbounded.
           selectedItemBuilder: (_) {
-            if (selected == null) {
-              return [
+            final widgets = <Widget>[
+              if (!required)
                 Text(
-                  required ? 'Select team' : 'Not set',
+                  'Not set',
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: cf.textMuted),
                 ),
-              ];
-            }
-            return [_TeamPickerRow(team: selected)];
+              ...options.map((team) {
+                final standing = standingsByTeam[team.id];
+                final subtitle = standing == null
+                    ? null
+                    : '${standing.points} pts';
+                return Text(
+                  subtitle == null
+                      ? team.name
+                      : '${team.name} · $subtitle',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                );
+              }),
+            ];
+            return widgets;
           },
           onChanged: onChanged,
         ),
@@ -314,12 +452,22 @@ class _TeamPodiumPicker extends StatelessWidget {
 }
 
 class _TeamPickerRow extends StatelessWidget {
-  const _TeamPickerRow({required this.team});
+  const _TeamPickerRow({
+    required this.team,
+    this.standing,
+  });
 
   final TeamModel team;
+  final PointsTableEntry? standing;
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+    final ptsLabel = standing == null
+        ? null
+        : '${standing!.points} pts · NRR ${standing!.netRunRate.toStringAsFixed(3)}';
+
+    // Menu items are laid out with a finite width; Expanded is safe here.
     return Row(
       children: [
         MatchTeamAvatar(
@@ -329,22 +477,29 @@ class _TeamPickerRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            team.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                team.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              if (ptsLabel != null)
+                Text(
+                  ptsLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cf.textSecondary,
+                      ),
+                ),
+            ],
           ),
         ),
       ],
     );
-  }
-}
-
-extension _FirstOrNull<E> on Iterable<E> {
-  E? get firstOrNull {
-    final it = iterator;
-    if (!it.moveNext()) return null;
-    return it.current;
   }
 }

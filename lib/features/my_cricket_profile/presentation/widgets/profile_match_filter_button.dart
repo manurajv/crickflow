@@ -14,10 +14,25 @@ class ProfileMatchFilterButton extends ConsumerWidget {
     super.key,
     required this.matches,
     this.compact = false,
+    this.iconOnly = false,
+    this.iconColor,
   });
 
   final List<MatchModel> matches;
   final bool compact;
+
+  /// App-bar style: icon (+ badge) only, optional clear as a second icon.
+  final bool iconOnly;
+  final Color? iconColor;
+
+  void _openFilters(BuildContext context, WidgetRef ref) {
+    final options = ProfileMatchFilterOptions.fromMatches(matches);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ProfileMatchFiltersScreen(options: options),
+      ),
+    );
+  }
 
   void _clearFilters(WidgetRef ref) {
     ref.read(profileMatchFiltersProvider.notifier).state =
@@ -28,17 +43,35 @@ class ProfileMatchFilterButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
     final filters = ref.watch(profileMatchFiltersProvider);
-    final options = ProfileMatchFilterOptions.fromMatches(matches);
     final activeCount = filters.activeFilterCount;
+    final color = iconColor ?? cf.textPrimary;
+
+    if (iconOnly) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: activeCount > 0 ? 'Filters ($activeCount)' : 'Filters',
+            onPressed: () => _openFilters(context, ref),
+            icon: Badge(
+              isLabelVisible: activeCount > 0,
+              label: Text('$activeCount'),
+              backgroundColor: cf.accent,
+              child: Icon(Icons.filter_list, color: color),
+            ),
+          ),
+          if (filters.hasActiveFilters)
+            IconButton(
+              tooltip: 'Clear filters',
+              onPressed: () => _clearFilters(ref),
+              icon: Icon(Icons.filter_list_off, color: color),
+            ),
+        ],
+      );
+    }
 
     final filterButton = OutlinedButton.icon(
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ProfileMatchFiltersScreen(options: options),
-          ),
-        );
-      },
+      onPressed: () => _openFilters(context, ref),
       icon: Badge(
         isLabelVisible: activeCount > 0,
         label: Text('$activeCount'),

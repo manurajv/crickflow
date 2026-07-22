@@ -2,30 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
-import '../../../../domain/services/player_cricket_profile_models.dart';
+import '../../../../domain/services/captain_stats_service.dart';
+import '../../../../domain/services/profile_match_filter_service.dart';
 import '../../../../shared/providers/my_player_stats_breakdown_provider.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
 import '../../../my_cricket/presentation/widgets/my_cricket_action_banner.dart';
 import '../widgets/captain_stats_section.dart';
-import '../widgets/profile_match_filter_button.dart';
 
 class ProfileStatsTab extends ConsumerStatefulWidget {
   const ProfileStatsTab({
     super.key,
     required this.player,
     required this.matches,
-    required this.captainStats,
   });
 
   final PlayerModel player;
   final List<MatchModel> matches;
-  final CaptainStatsSnapshot captainStats;
 
   @override
   ConsumerState<ProfileStatsTab> createState() => _ProfileStatsTabState();
@@ -44,6 +43,13 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
       participatedMatches: widget.matches,
       filters: filters,
       service: service,
+    );
+    final filteredMatches = filterProfileMatches(widget.matches, filters);
+    final captainStats = const CaptainStatsService().compute(
+      playerId: widget.player.id,
+      completedMatches: filteredMatches
+          .where((m) => m.status == MatchStatus.completed)
+          .toList(),
     );
 
     return RefreshIndicator(
@@ -65,7 +71,7 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
           _modeChips(context, cf),
           const SizedBox(height: AppDimens.spaceMd),
           if (_mode == _StatsMode.captain)
-            CaptainStatsSection(stats: widget.captainStats)
+            CaptainStatsSection(stats: captainStats)
           else ...[
             _overallHeader(context),
             StatGrid(
@@ -97,19 +103,9 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
   Widget _overallHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Overall',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          ProfileMatchFilterButton(
-            matches: widget.matches,
-            compact: true,
-          ),
-        ],
+      child: Text(
+        'Overall',
+        style: Theme.of(context).textTheme.titleLarge,
       ),
     );
   }

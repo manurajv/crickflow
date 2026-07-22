@@ -115,7 +115,11 @@ class PushNotificationHandler {
       _router?.push('/notifications');
       return;
     }
-    _router?.push(route);
+    if (NotificationNavigation.isShellTabLocation(route)) {
+      _router?.go(route);
+    } else {
+      _router?.push(route);
+    }
   }
 
   void _onLocalNotificationTapped(NotificationResponse response) {

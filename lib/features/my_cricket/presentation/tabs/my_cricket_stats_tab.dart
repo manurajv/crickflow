@@ -7,12 +7,11 @@ import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
-import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../domain/services/captain_stats_service.dart';
+import '../../../../domain/services/profile_match_filter_service.dart';
 import '../../../../features/my_cricket/my_cricket_filters.dart';
 import '../../../../features/my_cricket_profile/presentation/widgets/captain_stats_section.dart';
-import '../../../../features/my_cricket_profile/presentation/widgets/profile_match_filter_button.dart';
 import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/my_player_stats_breakdown_provider.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
@@ -75,9 +74,11 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
               filters: filters,
               service: service,
             );
+            final filteredMatches =
+                filterProfileMatches(participated, filters);
             final captainStats = const CaptainStatsService().compute(
               playerId: player.id,
-              completedMatches: participated
+              completedMatches: filteredMatches
                   .where((m) => m.status == MatchStatus.completed)
                   .toList(),
             );
@@ -106,7 +107,7 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
                   if (_mode == _StatsMode.captain)
                     CaptainStatsSection(stats: captainStats)
                   else ...[
-                    _overallHeader(context, participated),
+                    _overallHeader(context),
                     StatGrid(
                       cells: playerStatCells(
                         breakdown.overall,
@@ -147,22 +148,12 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
     );
   }
 
-  Widget _overallHeader(BuildContext context, List<MatchModel> participated) {
+  Widget _overallHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Overall',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          ProfileMatchFilterButton(
-            matches: participated,
-            compact: true,
-          ),
-        ],
+      child: Text(
+        'Overall',
+        style: Theme.of(context).textTheme.titleLarge,
       ),
     );
   }

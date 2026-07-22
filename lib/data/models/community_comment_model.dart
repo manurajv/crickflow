@@ -11,6 +11,7 @@ class CommunityCommentModel extends Equatable {
     this.parentId,
     this.likeCount = 0,
     this.createdAt,
+    this.editedAt,
   });
 
   final String id;
@@ -22,6 +23,9 @@ class CommunityCommentModel extends Equatable {
   final String? parentId;
   final int likeCount;
   final DateTime? createdAt;
+  final DateTime? editedAt;
+
+  bool get isEdited => editedAt != null;
 
   factory CommunityCommentModel.fromMap(
     String id,
@@ -38,6 +42,7 @@ class CommunityCommentModel extends Equatable {
       parentId: map['parentId'] as String?,
       likeCount: (map['likeCount'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
+      editedAt: DateTime.tryParse(map['editedAt']?.toString() ?? ''),
     );
   }
 
@@ -49,8 +54,10 @@ class CommunityCommentModel extends Equatable {
         if (parentId != null) 'parentId': parentId,
         'likeCount': likeCount,
         'createdAt': createdAt?.toIso8601String(),
+        if (editedAt != null) 'editedAt': editedAt!.toIso8601String(),
       };
 
   @override
-  List<Object?> get props => [id, postId, authorId, text, parentId];
+  List<Object?> get props =>
+      [id, postId, authorId, text, parentId, editedAt];
 }

@@ -123,6 +123,66 @@ class PointsTableEntry extends Equatable {
   List<Object?> get props => [teamId, points, netRunRate, position];
 }
 
+/// Ordered finishing place (1st, 2nd, …) for a completed tournament.
+class TournamentPodiumPlace extends Equatable {
+  const TournamentPodiumPlace({
+    required this.place,
+    required this.teamId,
+    required this.teamName,
+  });
+
+  final int place;
+  final String teamId;
+  final String teamName;
+
+  factory TournamentPodiumPlace.fromMap(Map<String, dynamic> map) {
+    return TournamentPodiumPlace(
+      place: map['place'] as int? ?? 0,
+      teamId: map['teamId'] as String? ?? '',
+      teamName: map['teamName'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'place': place,
+        'teamId': teamId,
+        'teamName': teamName,
+      };
+
+  static String labelFor(int place) {
+    switch (place) {
+      case 1:
+        return 'Champion';
+      case 2:
+        return 'Runner-up';
+      case 3:
+        return 'Third place';
+      case 4:
+        return 'Fourth place';
+      case 5:
+        return 'Fifth place';
+      default:
+        return '${place}th place';
+    }
+  }
+
+  static String emojiFor(int place) {
+    switch (place) {
+      case 1:
+        return '🏆';
+      case 2:
+        return '🥈';
+      case 3:
+        return '🥉';
+      default:
+        return '#$place';
+    }
+  }
+
+  @override
+  List<Object?> get props => [place, teamId, teamName];
+}
+
 class TournamentModel extends Equatable {
   const TournamentModel({
     required this.id,
@@ -137,6 +197,7 @@ class TournamentModel extends Equatable {
     this.bannerUrl,
     this.logoUrl,
     this.thumbnailUrl,
+    this.thumbnailAspect = CommunityMediaAspect.landscape16x9,
     this.grounds = const [],
     this.startDate,
     this.endDate,
@@ -157,6 +218,8 @@ class TournamentModel extends Equatable {
     this.runnerUpTeamId,
     this.runnerUpTeamName,
     this.thirdPlaceTeamId,
+    this.thirdPlaceTeamName,
+    this.podiumPlaces = const [],
     this.isLocked = false,
     this.awards = const {},
   });
@@ -174,6 +237,7 @@ class TournamentModel extends Equatable {
   final String? logoUrl;
   /// Dedicated Community / feed thumbnail (falls back to [bannerUrl] in UI).
   final String? thumbnailUrl;
+  final CommunityMediaAspect thumbnailAspect;
   final List<String> grounds;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -196,12 +260,52 @@ class TournamentModel extends Equatable {
   final String? runnerUpTeamId;
   final String? runnerUpTeamName;
   final String? thirdPlaceTeamId;
+  final String? thirdPlaceTeamName;
+  /// Preferred ordered podium (1–5). Falls back to legacy champion fields when empty.
+  final List<TournamentPodiumPlace> podiumPlaces;
   final bool isLocked;
   final Map<String, String> awards;
 
   String get effectiveOrganizerId => organizerId ?? createdBy ?? '';
 
   String get city => location.city;
+
+  /// Podium for UI: [podiumPlaces] or synthesized from legacy champion fields.
+  List<TournamentPodiumPlace> get effectivePodiumPlaces {
+    if (podiumPlaces.isNotEmpty) {
+      final sorted = [...podiumPlaces]..sort((a, b) => a.place.compareTo(b.place));
+      return sorted;
+    }
+    final legacy = <TournamentPodiumPlace>[];
+    if (championTeamId != null && championTeamId!.isNotEmpty) {
+      legacy.add(
+        TournamentPodiumPlace(
+          place: 1,
+          teamId: championTeamId!,
+          teamName: championTeamName ?? '',
+        ),
+      );
+    }
+    if (runnerUpTeamId != null && runnerUpTeamId!.isNotEmpty) {
+      legacy.add(
+        TournamentPodiumPlace(
+          place: 2,
+          teamId: runnerUpTeamId!,
+          teamName: runnerUpTeamName ?? '',
+        ),
+      );
+    }
+    if (thirdPlaceTeamId != null && thirdPlaceTeamId!.isNotEmpty) {
+      legacy.add(
+        TournamentPodiumPlace(
+          place: 3,
+          teamId: thirdPlaceTeamId!,
+          teamName: thirdPlaceTeamName ?? '',
+        ),
+      );
+    }
+    return legacy;
+  }
 
   factory TournamentModel.fromMap(String id, Map<String, dynamic> map) {
     return TournamentModel(
@@ -225,6 +329,9 @@ class TournamentModel extends Equatable {
       bannerUrl: map['bannerUrl'] as String?,
       logoUrl: map['logoUrl'] as String?,
       thumbnailUrl: map['thumbnailUrl'] as String? ?? map['bannerUrl'] as String?,
+      thumbnailAspect: CommunityMediaAspectX.parse(
+        map['thumbnailAspect'] as String?,
+      ),
       grounds: List<String>.from(map['grounds'] as List? ?? []),
       startDate: DateTime.tryParse(map['startDate']?.toString() ?? ''),
       endDate: DateTime.tryParse(map['endDate']?.toString() ?? ''),
@@ -259,9 +366,28 @@ class TournamentModel extends Equatable {
       runnerUpTeamId: map['runnerUpTeamId'] as String?,
       runnerUpTeamName: map['runnerUpTeamName'] as String?,
       thirdPlaceTeamId: map['thirdPlaceTeamId'] as String?,
+      thirdPlaceTeamName: map['thirdPlaceTeamName'] as String?,
+      podiumPlaces: _podiumPlacesFromMap(map),
       isLocked: map['isLocked'] as bool? ?? false,
       awards: Map<String, String>.from(map['awards'] as Map? ?? {}),
     );
+  }
+
+  static List<TournamentPodiumPlace> _podiumPlacesFromMap(
+    Map<String, dynamic> map,
+  ) {
+    final raw = map['podiumPlaces'] as List?;
+    if (raw == null || raw.isEmpty) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => TournamentPodiumPlace.fromMap(
+            Map<String, dynamic>.from(e),
+          ),
+        )
+        .where((p) => p.teamId.isNotEmpty && p.place > 0)
+        .toList()
+      ..sort((a, b) => a.place.compareTo(b.place));
   }
 
   Map<String, dynamic> toMap() => {
@@ -276,6 +402,7 @@ class TournamentModel extends Equatable {
         if (bannerUrl != null) 'bannerUrl': bannerUrl,
         if (logoUrl != null) 'logoUrl': logoUrl,
         if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+        'thumbnailAspect': thumbnailAspect.name,
         'grounds': grounds,
         if (startDate != null) 'startDate': startDate!.toIso8601String(),
         if (endDate != null) 'endDate': endDate!.toIso8601String(),
@@ -296,6 +423,9 @@ class TournamentModel extends Equatable {
         if (runnerUpTeamId != null) 'runnerUpTeamId': runnerUpTeamId,
         if (runnerUpTeamName != null) 'runnerUpTeamName': runnerUpTeamName,
         if (thirdPlaceTeamId != null) 'thirdPlaceTeamId': thirdPlaceTeamId,
+        if (thirdPlaceTeamName != null) 'thirdPlaceTeamName': thirdPlaceTeamName,
+        if (podiumPlaces.isNotEmpty)
+          'podiumPlaces': podiumPlaces.map((e) => e.toMap()).toList(),
         'isLocked': isLocked,
         if (awards.isNotEmpty) 'awards': awards,
       };
@@ -312,6 +442,7 @@ class TournamentModel extends Equatable {
     String? bannerUrl,
     String? logoUrl,
     String? thumbnailUrl,
+    CommunityMediaAspect? thumbnailAspect,
     List<String>? grounds,
     DateTime? startDate,
     DateTime? endDate,
@@ -328,6 +459,8 @@ class TournamentModel extends Equatable {
     String? runnerUpTeamId,
     String? runnerUpTeamName,
     String? thirdPlaceTeamId,
+    String? thirdPlaceTeamName,
+    List<TournamentPodiumPlace>? podiumPlaces,
     bool? isLocked,
     Map<String, String>? awards,
   }) {
@@ -344,6 +477,7 @@ class TournamentModel extends Equatable {
       bannerUrl: bannerUrl ?? this.bannerUrl,
       logoUrl: logoUrl ?? this.logoUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      thumbnailAspect: thumbnailAspect ?? this.thumbnailAspect,
       grounds: grounds ?? this.grounds,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
@@ -364,6 +498,8 @@ class TournamentModel extends Equatable {
       runnerUpTeamId: runnerUpTeamId ?? this.runnerUpTeamId,
       runnerUpTeamName: runnerUpTeamName ?? this.runnerUpTeamName,
       thirdPlaceTeamId: thirdPlaceTeamId ?? this.thirdPlaceTeamId,
+      thirdPlaceTeamName: thirdPlaceTeamName ?? this.thirdPlaceTeamName,
+      podiumPlaces: podiumPlaces ?? this.podiumPlaces,
       isLocked: isLocked ?? this.isLocked,
       awards: awards ?? this.awards,
     );

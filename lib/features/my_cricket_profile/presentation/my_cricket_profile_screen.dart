@@ -15,6 +15,7 @@ import 'tabs/profile_stats_tab.dart';
 import 'tabs/profile_teams_tab.dart';
 import 'tabs/profile_trophies_tab.dart';
 import 'widgets/cricket_profile_header.dart';
+import 'widgets/profile_match_filter_button.dart';
 
 /// CricHeroes-style cricket profile hub: Matches · Stats · Trophies · Badges · Teams · Connections.
 class MyCricketProfileScreen extends ConsumerStatefulWidget {
@@ -61,6 +62,7 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
 
   void _onTabChanged() {
     if (_tabs.indexIsChanging) return;
+    setState(() {});
     _syncTitleVisibility();
   }
 
@@ -202,6 +204,14 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
                               ),
                         )
                       : null,
+                  actions: [
+                    if (_tabs.index == 0 || _tabs.index == 1)
+                      ProfileMatchFilterButton(
+                        matches: snap.participatedMatches,
+                        iconOnly: true,
+                        iconColor: Colors.white,
+                      ),
+                  ],
                   flexibleSpace: FlexibleSpaceBar(
                     collapseMode: CollapseMode.parallax,
                     background: Stack(
@@ -258,7 +268,6 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
                     ProfileStatsTab(
                       player: snap.player,
                       matches: snap.participatedMatches,
-                      captainStats: snap.captainStats,
                     ),
                     ProfileTrophiesTab(trophies: snap.trophies),
                     ProfileBadgesTab(badges: snap.badges),

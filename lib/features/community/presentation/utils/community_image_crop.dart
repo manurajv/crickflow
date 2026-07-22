@@ -103,14 +103,8 @@ Future<CommunityMediaAspect?> showCommunityAspectPicker(
             ),
             const SizedBox(height: AppDimens.spaceSm),
             ...CommunityMediaAspect.values.map((a) {
-              final label = switch (a) {
-                CommunityMediaAspect.square => '1:1 Square',
-                CommunityMediaAspect.landscape16x9 => '16:9 Landscape',
-                CommunityMediaAspect.portrait9x16 => '9:16 Portrait',
-                CommunityMediaAspect.free => 'Free crop',
-              };
               return ListTile(
-                title: Text(label),
+                title: Text(a.label),
                 onTap: () => Navigator.pop(ctx, a),
               );
             }),

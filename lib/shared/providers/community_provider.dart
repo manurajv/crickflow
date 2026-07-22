@@ -34,24 +34,34 @@ class CommunityFeedFilter {
   const CommunityFeedFilter({
     this.category,
     this.nearMeOnly = false,
+    this.savedOnly = false,
     this.locations = const [],
   });
 
   final CommunityPostCategory? category;
   final bool nearMeOnly;
+  final bool savedOnly;
   final List<CommunityLocationSelection> locations;
 
   bool get hasLocationFilter => nearMeOnly || locations.isNotEmpty;
+
+  bool get isDefault =>
+      category == null &&
+      !nearMeOnly &&
+      !savedOnly &&
+      locations.isEmpty;
 
   CommunityFeedFilter copyWith({
     CommunityPostCategory? category,
     bool? clearCategory,
     bool? nearMeOnly,
+    bool? savedOnly,
     List<CommunityLocationSelection>? locations,
   }) {
     return CommunityFeedFilter(
       category: clearCategory == true ? null : (category ?? this.category),
       nearMeOnly: nearMeOnly ?? this.nearMeOnly,
+      savedOnly: savedOnly ?? this.savedOnly,
       locations: locations ?? this.locations,
     );
   }
@@ -61,10 +71,16 @@ class CommunityFeedFilter {
       other is CommunityFeedFilter &&
       other.category == category &&
       other.nearMeOnly == nearMeOnly &&
+      other.savedOnly == savedOnly &&
       _listEq(other.locations, locations);
 
   @override
-  int get hashCode => Object.hash(category, nearMeOnly, Object.hashAll(locations));
+  int get hashCode => Object.hash(
+        category,
+        nearMeOnly,
+        savedOnly,
+        Object.hashAll(locations),
+      );
 
   static bool _listEq(
     List<CommunityLocationSelection> a,
@@ -117,7 +133,7 @@ class CommunityFeedState {
   }
 }
 
-/// Live head + append-only older pages; location filters applied client-side.
+/// Live head + append-only older pages; location / saved filters applied client-side.
 class CommunityFeedController extends StateNotifier<CommunityFeedState> {
   CommunityFeedController(this._ref)
       : super(const CommunityFeedState()) {
@@ -127,10 +143,13 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
 
   final Ref _ref;
   StreamSubscription<List<CommunityPostModel>>? _headSub;
+  StreamSubscription<List<String>>? _savedIdsSub;
   List<CommunityPostModel> _head = const [];
   List<CommunityPostModel> _older = const [];
+  List<CommunityPostModel> _saved = const [];
   var _loadMoreLocked = false;
   Set<String> _followingIds = {};
+  Set<String> _savedIds = {};
 
   CommunityRepository get _repo => _ref.read(communityRepositoryProvider);
 
@@ -146,8 +165,14 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
   }
 
   void _subscribe() {
+    _savedIdsSub?.cancel();
+    _savedIdsSub = null;
     _headSub?.cancel();
     final filter = _ref.read(communityFeedFilterProvider);
+    if (filter.savedOnly) {
+      _subscribeSaved();
+      return;
+    }
     _headSub = _repo
         .watchFeedHead(category: filter.category)
         .listen(
@@ -173,20 +198,86 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
     );
   }
 
+  void _subscribeSaved() {
+    final uid = _ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null || uid.isEmpty) {
+      _saved = const [];
+      _savedIds = {};
+      state = state.copyWith(
+        items: const [],
+        loading: false,
+        hasMore: false,
+        clearError: true,
+      );
+      return;
+    }
+    state = state.copyWith(loading: true, hasMore: false, clearError: true);
+    _savedIdsSub = _repo.watchSavedPostIds(uid).listen(
+      (ids) async {
+        _savedIds = ids.toSet();
+        if (ids.isEmpty) {
+          _saved = const [];
+          if (!_ref.read(communityFeedFilterProvider).savedOnly) return;
+          state = state.copyWith(
+            items: const [],
+            loading: false,
+            hasMore: false,
+            clearError: true,
+          );
+          return;
+        }
+        try {
+          final posts = await _repo.fetchPostsByIds(ids);
+          if (!_ref.read(communityFeedFilterProvider).savedOnly) return;
+          _saved = posts;
+          state = state.copyWith(
+            items: _visible(_saved),
+            loading: false,
+            hasMore: false,
+            clearError: true,
+          );
+        } catch (_) {
+          // Prefer empty Saved UI over a permission / network error snackbar.
+          if (!_ref.read(communityFeedFilterProvider).savedOnly) return;
+          _saved = const [];
+          state = state.copyWith(
+            items: const [],
+            loading: false,
+            hasMore: false,
+            clearError: true,
+          );
+        }
+      },
+      onError: (_) {
+        _saved = const [];
+        _savedIds = {};
+        state = state.copyWith(
+          items: const [],
+          loading: false,
+          hasMore: false,
+          clearError: true,
+        );
+      },
+    );
+  }
+
   void resubscribe() {
     _older = const [];
+    _saved = const [];
     state = const CommunityFeedState();
     _subscribe();
   }
 
   List<CommunityPostModel> _merged() {
+    final filter = _ref.read(communityFeedFilterProvider);
+    if (filter.savedOnly) return _saved;
+
     final byId = <String, CommunityPostModel>{};
     for (final p in [..._head, ..._older]) {
       byId.putIfAbsent(p.id, () => p);
     }
     final list = byId.values.toList()
       ..sort((a, b) {
-        // Pinned / admin / sponsored first, then recency.
         final scoreA = _rankScore(a);
         final scoreB = _rankScore(b);
         if (scoreA != scoreB) return scoreB.compareTo(scoreA);
@@ -213,7 +304,6 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
         postCity != myCity) {
       s += 40;
     }
-    // Mild popularity bump without drowning recent posts.
     s += (p.likeCount + p.commentCount).clamp(0, 80);
     return s;
   }
@@ -228,6 +318,11 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
     return posts.where((p) {
       if (hidden.contains(p.id)) return false;
       if (blocked.contains(p.authorId)) return false;
+      if (filter.category != null &&
+          filter.savedOnly &&
+          p.category != filter.category) {
+        return false;
+      }
 
       if (!filter.hasLocationFilter) return true;
 
@@ -249,6 +344,7 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
   }
 
   Future<void> loadMore() async {
+    if (_ref.read(communityFeedFilterProvider).savedOnly) return;
     if (_loadMoreLocked || state.loadingMore || !state.hasMore) return;
     if (state.items.isEmpty && _head.isEmpty) return;
 
@@ -291,6 +387,22 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
     resubscribe();
   }
 
+  /// Drop a post from local head/older caches (e.g. after delete or hide).
+  void removePost(String postId) {
+    _head = _head.where((p) => p.id != postId).toList();
+    _older = _older.where((p) => p.id != postId).toList();
+    _saved = _saved.where((p) => p.id != postId).toList();
+    _savedIds.remove(postId);
+    state = state.copyWith(items: _visible(_merged()));
+  }
+
+  void removePostsByAuthor(String authorId) {
+    _head = _head.where((p) => p.authorId != authorId).toList();
+    _older = _older.where((p) => p.authorId != authorId).toList();
+    _saved = _saved.where((p) => p.authorId != authorId).toList();
+    state = state.copyWith(items: _visible(_merged()));
+  }
+
   void reapplyFilters() {
     state = state.copyWith(items: _visible(_merged()));
   }
@@ -298,6 +410,7 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
   @override
   void dispose() {
     _headSub?.cancel();
+    _savedIdsSub?.cancel();
     super.dispose();
   }
 }
@@ -306,7 +419,10 @@ final communityFeedControllerProvider =
     StateNotifierProvider<CommunityFeedController, CommunityFeedState>((ref) {
   final controller = CommunityFeedController(ref);
   ref.listen<CommunityFeedFilter>(communityFeedFilterProvider, (prev, next) {
-    if (prev?.category != next.category) {
+    final savedToggled = prev?.savedOnly != next.savedOnly;
+    final categoryChanged =
+        prev?.category != next.category && !next.savedOnly;
+    if (savedToggled || categoryChanged) {
       controller.resubscribe();
     } else {
       controller.reapplyFilters();
@@ -335,6 +451,13 @@ final communityPostSavedProvider =
         postId: ids.postId,
         userId: ids.userId,
       );
+});
+
+/// Live list of post IDs the signed-in user has bookmarked.
+final communitySavedPostIdsProvider = StreamProvider<List<String>>((ref) {
+  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+  if (uid == null || uid.isEmpty) return Stream.value(const []);
+  return ref.watch(communityRepositoryProvider).watchSavedPostIds(uid);
 });
 
 final communityCommentsProvider =

@@ -10,6 +10,7 @@ import '../../../shared/providers/chat_provider.dart';
 import '../../../shared/providers/community_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../data/models/community_post_model.dart';
+import '../../../shared/widgets/report_reason_dialog.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
 import '../community_post_ui.dart';
 import 'create_community_post_sheet.dart';
@@ -84,12 +85,243 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     if (!mounted) return;
     if (locations.isNotEmpty) {
       final current = ref.read(communityFeedFilterProvider);
+      // Merge so we don't wipe filters set before hydrate finishes.
+      // Custom locations clear Near (mutually exclusive).
+      final merged = [
+        ...locations,
+        ...current.locations.where((l) => !locations.contains(l)),
+      ];
       ref.read(communityFeedFilterProvider.notifier).state =
-          current.copyWith(locations: locations);
+          current.copyWith(locations: merged, nearMeOnly: false);
     }
-    if (hidden.isNotEmpty) {
-      ref.read(communityHiddenPostIdsProvider.notifier).state = hidden;
+    // Merge so a hide that raced hydrate is not overwritten.
+    final currentHidden = ref.read(communityHiddenPostIdsProvider);
+    ref.read(communityHiddenPostIdsProvider.notifier).state = {
+      ...hidden,
+      ...currentHidden,
+    };
+  }
+
+  void _clearFocusIfNeeded(String postId) {
+    if (_focusPostId != postId && _focusPost?.id != postId) return;
+    setState(() {
+      _focusPostId = null;
+      _focusPost = null;
+    });
+  }
+
+  Future<void> _blockUser(String authorId, String authorName) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Block user?'),
+        content: Text(
+          'Block $authorName? They will not be able to message you, '
+          'and their posts will be hidden from your feed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    requireAuthVoid(
+      context: context,
+      ref: ref,
+      action: () async {
+        final uid = ref.read(authStateProvider).valueOrNull?.uid;
+        if (uid == null) return;
+        try {
+          await ref.read(chatRepositoryProvider).blockUser(
+                blockerId: uid,
+                blockedId: authorId,
+              );
+          ref
+              .read(communityFeedControllerProvider.notifier)
+              .removePostsByAuthor(authorId);
+          if (_focusPost?.authorId == authorId) {
+            _clearFocusIfNeeded(_focusPost!.id);
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Blocked $authorName')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not block: $e')),
+            );
+          }
+        }
+      },
+    );
+  }
+
+  Future<void> _openLocationFilter() async {
+    final filter = ref.read(communityFeedFilterProvider);
+    final result = await showCommunityLocationFilterSheet(
+      context,
+      initial: filter.locations,
+    );
+    if (result == null || !mounted) return;
+    // Location filter clears Near (and vice versa). Keep Saved if on.
+    ref.read(communityFeedFilterProvider.notifier).state = filter.copyWith(
+      locations: result,
+      nearMeOnly: false,
+    );
+    final store =
+        await ref.read(communityLocationFilterStoreProvider.future);
+    if (result.isEmpty) {
+      await store.clear();
+    } else {
+      await store.write(result);
     }
+  }
+
+  Future<void> _deletePost(String postId) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete post?'),
+        content: const Text(
+          'This permanently deletes the post and its comments. '
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      await ref.read(communityRepositoryProvider).deletePost(postId);
+      ref.read(communityFeedControllerProvider.notifier).removePost(postId);
+      _clearFocusIfNeeded(postId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not delete: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _hidePost(String postId) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hide post?'),
+        content: const Text(
+          'This post will be hidden from your Community feed on this device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hide'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      final next = {...ref.read(communityHiddenPostIdsProvider), postId};
+      ref.read(communityHiddenPostIdsProvider.notifier).state = next;
+      ref.read(communityFeedControllerProvider.notifier).removePost(postId);
+      _clearFocusIfNeeded(postId);
+      final store = await ref.read(communityHiddenPostsStoreProvider.future);
+      await store.hide(postId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post hidden')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not hide: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _reportPost(String postId, String? authorId) async {
+    final reason = await showReportReasonDialog(
+      context,
+      title: 'Report post',
+    );
+    if (!mounted) return;
+    if (reason == null) return;
+    if (reason.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a reason')),
+      );
+      return;
+    }
+
+    requireAuthVoid(
+      context: context,
+      ref: ref,
+      action: () async {
+        final uid = ref.read(authStateProvider).valueOrNull?.uid;
+        if (uid == null) return;
+        try {
+          await ref.read(communityRepositoryProvider).reportPost(
+                postId: postId,
+                reporterUserId: uid,
+                reason: reason,
+                authorId: authorId,
+              );
+          // Hide without a second confirm — report already asked for intent.
+          final next = {...ref.read(communityHiddenPostIdsProvider), postId};
+          ref.read(communityHiddenPostIdsProvider.notifier).state = next;
+          ref.read(communityFeedControllerProvider.notifier).removePost(postId);
+          _clearFocusIfNeeded(postId);
+          final store =
+              await ref.read(communityHiddenPostsStoreProvider.future);
+          await store.hide(postId);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Report submitted — post hidden')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not report: $e')),
+            );
+          }
+        }
+      },
+    );
   }
 
   void _applyRouteCategory() {
@@ -119,148 +351,6 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     }
   }
 
-  Future<void> _blockUser(String authorId, String authorName) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Block user?'),
-        content: Text(
-          'Block $authorName? They will not be able to message you, and their posts will be hidden.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Block'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    requireAuthVoid(
-      context: context,
-      ref: ref,
-      action: () async {
-        final uid = ref.read(authStateProvider).valueOrNull?.uid;
-        if (uid == null) return;
-        await ref.read(chatRepositoryProvider).blockUser(
-              blockerId: uid,
-              blockedId: authorId,
-            );
-        // Hide all currently loaded posts from this author.
-        final feed = ref.read(communityFeedControllerProvider);
-        for (final p in feed.items) {
-          if (p.authorId == authorId) {
-            await _hidePost(p.id);
-          }
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Blocked $authorName')),
-          );
-        }
-      },
-    );
-  }
-
-  Future<void> _openLocationFilter() async {
-    final filter = ref.read(communityFeedFilterProvider);
-    final result = await showCommunityLocationFilterSheet(
-      context,
-      initial: filter.locations,
-    );
-    if (result == null || !mounted) return;
-    ref.read(communityFeedFilterProvider.notifier).state =
-        filter.copyWith(locations: result, nearMeOnly: false);
-    final store =
-        await ref.read(communityLocationFilterStoreProvider.future);
-    await store.write(result);
-  }
-
-  Future<void> _deletePost(String postId) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete post?'),
-        content: const Text('This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    await ref.read(communityRepositoryProvider).deletePost(postId);
-  }
-
-  Future<void> _hidePost(String postId) async {
-    final next = {...ref.read(communityHiddenPostIdsProvider), postId};
-    ref.read(communityHiddenPostIdsProvider.notifier).state = next;
-    final store = await ref.read(communityHiddenPostsStoreProvider.future);
-    await store.hide(postId);
-  }
-
-  Future<void> _reportPost(String postId, String? authorId) async {
-    final reasonController = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Report post'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(
-            labelText: 'Reason',
-            hintText: 'Spam, harassment, misleading…',
-          ),
-          maxLines: 3,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Report'),
-          ),
-        ],
-      ),
-    );
-    final reason = reasonController.text.trim();
-    reasonController.dispose();
-    if (ok != true || reason.isEmpty || !mounted) return;
-
-    requireAuthVoid(
-      context: context,
-      ref: ref,
-      action: () async {
-        final uid = ref.read(authStateProvider).valueOrNull?.uid;
-        if (uid == null) return;
-        await ref.read(communityRepositoryProvider).reportPost(
-              postId: postId,
-              reporterUserId: uid,
-              reason: reason,
-              authorId: authorId,
-            );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Report submitted')),
-          );
-        }
-        await _hidePost(postId);
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(communityFeedControllerProvider);
@@ -273,6 +363,25 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     final requestCount =
         ref.watch(messageRequestCountProvider).valueOrNull ?? 0;
     final fabBadge = unreadChats + requestCount;
+    final savedIds =
+        ref.watch(communitySavedPostIdsProvider).valueOrNull ?? const [];
+    final hasSavedPosts = savedIds.isNotEmpty;
+    // Keep chip while Saved is active so the user can turn it off if empties.
+    final showSavedChip = hasSavedPosts || filter.savedOnly;
+
+    // Leave Saved mode if the user has no bookmarks left.
+    ref.listen<AsyncValue<List<String>>>(communitySavedPostIdsProvider, (
+      _,
+      next,
+    ) {
+      final ids = next.valueOrNull;
+      if (ids != null &&
+          ids.isEmpty &&
+          ref.read(communityFeedFilterProvider).savedOnly) {
+        ref.read(communityFeedFilterProvider.notifier).state =
+            ref.read(communityFeedFilterProvider).copyWith(savedOnly: false);
+      }
+    });
 
     return ShellTabScaffold(
       title: const Text('Community'),
@@ -332,8 +441,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          Padding(
             padding: const EdgeInsets.fromLTRB(
               AppDimens.spaceMd,
               AppDimens.spaceSm,
@@ -342,56 +450,120 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             ),
             child: Row(
               children: [
-                FilterChip(
-                  label: const Text('All'),
-                  selected: filter.category == null &&
-                      !filter.nearMeOnly &&
-                      filter.locations.isEmpty,
-                  onSelected: (_) {
-                    ref.read(communityFeedFilterProvider.notifier).state =
-                        const CommunityFeedFilter();
-                    ref.read(communityLocationFilterStoreProvider).whenData(
-                          (s) => s.clear(),
-                        );
-                  },
-                ),
-                const SizedBox(width: AppDimens.spaceXs),
-                FilterChip(
-                  label: Text(
-                    profile?.location.city.isNotEmpty == true
-                        ? 'Near ${profile!.location.city}'
-                        : 'Near me',
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          label: const Text('All'),
+                          selected: filter.isDefault,
+                          onSelected: (_) {
+                            ref
+                                .read(communityFeedFilterProvider.notifier)
+                                .state = const CommunityFeedFilter();
+                            ref
+                                .read(communityLocationFilterStoreProvider)
+                                .whenData((s) => s.clear());
+                          },
+                        ),
+                        const SizedBox(width: AppDimens.spaceXs),
+                        FilterChip(
+                          label: Text(
+                            profile?.location.city.isNotEmpty == true
+                                ? 'Near ${profile!.location.city}'
+                                : 'Near me',
+                          ),
+                          selected: filter.nearMeOnly,
+                          onSelected: (on) async {
+                            if (on) {
+                              ref
+                                  .read(communityFeedFilterProvider.notifier)
+                                  .state = filter.copyWith(
+                                nearMeOnly: true,
+                                locations: const [],
+                              );
+                              final store = await ref.read(
+                                communityLocationFilterStoreProvider.future,
+                              );
+                              await store.clear();
+                            } else {
+                              ref
+                                  .read(communityFeedFilterProvider.notifier)
+                                  .state =
+                                  filter.copyWith(nearMeOnly: false);
+                            }
+                          },
+                        ),
+                        if (filter.locations.isNotEmpty) ...[
+                          const SizedBox(width: AppDimens.spaceXs),
+                          FilterChip(
+                            label: Text(
+                              filter.locations.length == 1
+                                  ? filter.locations.first.label
+                                  : '${filter.locations.length} locations',
+                            ),
+                            selected: true,
+                            onSelected: (_) => _openLocationFilter(),
+                            onDeleted: () async {
+                              ref
+                                  .read(communityFeedFilterProvider.notifier)
+                                  .state =
+                                  filter.copyWith(locations: const []);
+                              final store = await ref.read(
+                                communityLocationFilterStoreProvider.future,
+                              );
+                              await store.clear();
+                            },
+                          ),
+                        ],
+                        if (filter.category != null) ...[
+                          const SizedBox(width: AppDimens.spaceXs),
+                          FilterChip(
+                            label: Text(
+                              communityCategoryLabel(filter.category!),
+                            ),
+                            selected: true,
+                            onSelected: (_) {},
+                            onDeleted: () {
+                              ref
+                                  .read(communityFeedFilterProvider.notifier)
+                                  .state =
+                                  filter.copyWith(clearCategory: true);
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  selected: filter.nearMeOnly,
-                  onSelected: (on) {
-                    ref.read(communityFeedFilterProvider.notifier).state =
-                        filter.copyWith(nearMeOnly: on);
-                  },
                 ),
-                if (filter.locations.isNotEmpty) ...[
+                if (showSavedChip) ...[
                   const SizedBox(width: AppDimens.spaceXs),
                   FilterChip(
-                    label: Text('${filter.locations.length} locations'),
-                    selected: true,
-                    onSelected: (_) => _openLocationFilter(),
-                    onDeleted: () async {
-                      ref.read(communityFeedFilterProvider.notifier).state =
-                          filter.copyWith(locations: const []);
-                      final store = await ref
-                          .read(communityLocationFilterStoreProvider.future);
-                      await store.clear();
-                    },
-                  ),
-                ],
-                if (filter.category != null) ...[
-                  const SizedBox(width: AppDimens.spaceXs),
-                  FilterChip(
-                    label: Text(communityCategoryLabel(filter.category!)),
-                    selected: true,
-                    onSelected: (_) {},
-                    onDeleted: () {
-                      ref.read(communityFeedFilterProvider.notifier).state =
-                          filter.copyWith(clearCategory: true);
+                    label: const Text('Saved'),
+                    selected: filter.savedOnly,
+                    avatar: Icon(
+                      filter.savedOnly
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
+                      size: 18,
+                    ),
+                    onSelected: (on) {
+                      if (!on) {
+                        ref
+                            .read(communityFeedFilterProvider.notifier)
+                            .state = filter.copyWith(savedOnly: false);
+                        return;
+                      }
+                      requireAuthVoid(
+                        context: context,
+                        ref: ref,
+                        action: () async {
+                          ref
+                              .read(communityFeedFilterProvider.notifier)
+                              .state = filter.copyWith(savedOnly: true);
+                        },
+                      );
                     },
                   ),
                 ],
@@ -405,6 +577,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   return const CommunityFeedSkeleton();
                 }
                 if (feed.error != null && feed.items.isEmpty) {
+                  if (filter.savedOnly) {
+                    return _EmptyFeed(
+                      onPost: () {},
+                      filtered: true,
+                      savedOnly: true,
+                    );
+                  }
                   return Center(
                     child: Padding(
                       padding: AppDimens.listPadding,
@@ -415,7 +594,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 if (feed.items.isEmpty && _focusPost == null) {
                   return _EmptyFeed(
                     onPost: () => showCreateCommunityPostSheet(context),
-                    filtered: filter.hasLocationFilter || filter.category != null,
+                    filtered: !filter.isDefault,
+                    savedOnly: filter.savedOnly,
                   );
                 }
                 final items = <CommunityPostModel>[
@@ -459,6 +639,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         onHide: () => _hidePost(post.id),
                         onReport: () =>
                             _reportPost(post.id, post.authorId),
+                        onEdit: userId == post.authorId
+                            ? () => showCreateCommunityPostSheet(
+                                  context,
+                                  existingPost: post,
+                                )
+                            : null,
                         onBlock: userId != null && userId != post.authorId
                             ? () => _blockUser(post.authorId, post.authorName)
                             : null,
@@ -476,14 +662,29 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 }
 
 class _EmptyFeed extends StatelessWidget {
-  const _EmptyFeed({required this.onPost, this.filtered = false});
+  const _EmptyFeed({
+    required this.onPost,
+    this.filtered = false,
+    this.savedOnly = false,
+  });
 
   final VoidCallback onPost;
   final bool filtered;
+  final bool savedOnly;
 
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final title = savedOnly
+        ? 'No saved posts'
+        : filtered
+            ? 'No posts match your filters'
+            : 'No posts yet';
+    final body = savedOnly
+        ? 'Bookmark posts you want to revisit — they will show up here.'
+        : filtered
+            ? 'Try clearing location or category filters.'
+            : 'Share match moments, recruit teammates, or announce a tournament.';
     return Center(
       child: Padding(
         padding: AppDimens.listPadding,
@@ -491,20 +692,18 @@ class _EmptyFeed extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.forum_outlined,
+              savedOnly ? Icons.bookmark_border : Icons.forum_outlined,
               size: 56,
               color: cf.accent.withValues(alpha: 0.45),
             ),
             const SizedBox(height: AppDimens.spaceMd),
             Text(
-              filtered ? 'No posts match your filters' : 'No posts yet',
+              title,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: AppDimens.spaceSm),
             Text(
-              filtered
-                  ? 'Try clearing location or category filters.'
-                  : 'Share match moments, recruit teammates, or announce a tournament.',
+              body,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: cf.textMuted,
