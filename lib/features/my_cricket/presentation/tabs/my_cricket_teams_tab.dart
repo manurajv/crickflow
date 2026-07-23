@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../data/models/location_filter_selection.dart';
 import '../../../../shared/providers/notification_provider.dart';
 import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/providers.dart';
@@ -24,8 +25,7 @@ class MyCricketTeamsTab extends ConsumerStatefulWidget {
 class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
   TeamListScope _scope = TeamListScope.yours;
   String _search = '';
-  String _country = '';
-  String _city = '';
+  List<LocationFilterSelection> _locations = const [];
 
   @override
   void initState() {
@@ -35,8 +35,7 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
 
   void _resetLocationFilters() {
     setState(() {
-      _country = '';
-      _city = '';
+      _locations = const [];
       _scope = TeamListScope.yours;
     });
   }
@@ -73,13 +72,9 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
         ),
         TeamsScopeFilterBar(
           scope: _scope,
-          country: _country,
-          city: _city,
+          locations: _locations,
           onScopeChanged: (s) => setState(() => _scope = s),
-          onLocationChanged: (c, city) => setState(() {
-            _country = c;
-            _city = city;
-          }),
+          onLocationsChanged: (locs) => setState(() => _locations = locs),
         ),
         TeamsSearchBar(
           query: _search,
@@ -104,8 +99,7 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
                   teams: allTeams,
                   scope: _scope,
                   query: _search,
-                  country: _country,
-                  city: _city,
+                  locations: _locations,
                   memberTeamIds: memberIds,
                   opponentTeamIds: opponentIds,
                 );
@@ -116,9 +110,7 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
                     children: [
                       _EmptyTeamsState(
                         scope: _scope,
-                        hasFilters: _search.isNotEmpty ||
-                            _country.isNotEmpty ||
-                            _city.isNotEmpty,
+                        hasFilters: _search.isNotEmpty || _locations.isNotEmpty,
                         onCreate: _openCreateTeam,
                       ),
                     ],

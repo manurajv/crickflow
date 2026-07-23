@@ -152,6 +152,14 @@ service firebase.storage {
         && under5Mb();
     }
 
+    match /opportunities/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
+        && isImageJpeg()
+        && under5Mb();
+    }
+
     match /matches/{matchId}/media/{fileName} {
       allow read: if true;
       allow write: if isSignedIn()

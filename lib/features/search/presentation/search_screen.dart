@@ -41,7 +41,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (q.isEmpty) return;
     ref.read(recentSearchesProvider.notifier).add(q);
     ref.read(searchQueryProvider.notifier).applySuggestion(q, category);
-    context.push('/search/results');
+    context.push(
+      '/search/results?q=${Uri.encodeComponent(q)}&cat=${category.name}',
+    );
   }
 
   @override
@@ -160,8 +162,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     SearchCategory.matches => Icons.sports_cricket_outlined,
                     SearchCategory.tournaments => Icons.emoji_events_outlined,
                     SearchCategory.grounds => Icons.stadium_outlined,
-                    SearchCategory.clubs => Icons.home_work_outlined,
-                    SearchCategory.users => Icons.people_outline,
                     SearchCategory.posts => Icons.forum_outlined,
                   },
                   color: cf.accent,

@@ -122,12 +122,11 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
             matches: participated,
             iconOnly: true,
           ),
-        if (_tabs.index == 0 || _tabs.index == 1)
-          IconButton(
-            icon: const Icon(Icons.search),
-            tooltip: 'Search',
-            onPressed: () => _showSearch(context),
-          ),
+        IconButton(
+          tooltip: 'Search',
+          icon: const Icon(Icons.search),
+          onPressed: () => context.push('/search'),
+        ),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(48),
@@ -185,44 +184,5 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
         ],
       ),
     );
-  }
-
-  Future<void> _showSearch(BuildContext context) async {
-    final current = ref.read(myCricketSearchProvider);
-    final controller = TextEditingController(text: current);
-    final hints = [
-      'Team or match name',
-      'Tournament name',
-      'Team name',
-      'Your stats',
-      'Completed matches',
-    ];
-    final hint = hints[_tabs.index.clamp(0, hints.length - 1)];
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Search'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: hint),
-          onSubmitted: (v) => Navigator.pop(ctx, v),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('Clear'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Apply'),
-          ),
-        ],
-      ),
-    );
-    if (result != null) {
-      ref.read(myCricketSearchProvider.notifier).state = result.trim();
-    }
   }
 }

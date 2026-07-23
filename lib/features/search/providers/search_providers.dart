@@ -54,7 +54,6 @@ class RecentSearchesNotifier extends StateNotifier<List<String>> {
 final unifiedSearchServiceProvider = Provider((ref) {
   return UnifiedSearchService(
     playerDiscovery: ref.watch(playerDiscoveryRepositoryProvider),
-    userRepository: ref.watch(userRepositoryProvider),
     communityRepository: ref.watch(communityRepositoryProvider),
   );
 });
@@ -84,7 +83,7 @@ class SearchQueryState {
 }
 
 final searchQueryProvider =
-    StateNotifierProvider.autoDispose<SearchQueryNotifier, SearchQueryState>(
+    StateNotifierProvider<SearchQueryNotifier, SearchQueryState>(
   (ref) => SearchQueryNotifier(),
 );
 
@@ -129,9 +128,10 @@ final searchResultsProvider =
     return UnifiedSearchResult(query: q, category: query.category);
   }
 
-  final matches = ref.watch(matchesProvider).valueOrNull ?? [];
-  final teams = ref.watch(allTeamsProvider).valueOrNull ?? [];
-  final tournaments = ref.watch(tournamentsProvider).valueOrNull ?? [];
+  // Wait for list streams so we don't search empty caches mid-load.
+  final matches = await _awaitStreamList(ref, matchesProvider);
+  final teams = await _awaitStreamList(ref, allTeamsProvider);
+  final tournaments = await _awaitStreamList(ref, tournamentsProvider);
   final uid = ref.watch(authStateProvider).value?.uid;
   final profile = ref.watch(currentUserProfileProvider).valueOrNull;
 
@@ -145,3 +145,18 @@ final searchResultsProvider =
         currentUser: profile,
       );
 });
+
+Future<List<T>> _awaitStreamList<T>(
+  Ref ref,
+  StreamProvider<List<T>> provider,
+) async {
+  final async = ref.watch(provider);
+  if (async.hasValue) return async.requireValue;
+  if (async.hasError) return <T>[];
+  try {
+    return await ref.watch(provider.future);
+  } catch (_) {
+    return <T>[];
+  }
+}
+

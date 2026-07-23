@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../config/admob_config.dart';
 import '../../../core/theme/app_dimens.dart';
@@ -19,12 +20,39 @@ class SearchResultsScreen extends ConsumerStatefulWidget {
 
 class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
   late final TextEditingController _controller;
+  var _routeSeeded = false;
 
   @override
   void initState() {
     super.initState();
-    final initial = ref.read(searchQueryProvider).text;
-    _controller = TextEditingController(text: initial);
+    _controller = TextEditingController(
+      text: ref.read(searchQueryProvider).text,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeSeeded) return;
+    _routeSeeded = true;
+
+    final fromRoute = GoRouterState.of(context).uri.queryParameters;
+    final qParam = fromRoute['q']?.trim() ?? '';
+    final catParam = fromRoute['cat'];
+    final category = SearchCategory.values.asNameMap()[catParam] ??
+        ref.read(searchQueryProvider).category;
+
+    if (qParam.isEmpty) return;
+
+    if (_controller.text != qParam) {
+      _controller.text = qParam;
+    }
+
+    // Provider writes are not allowed during didChangeDependencies.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(searchQueryProvider.notifier).applySuggestion(qParam, category);
+    });
   }
 
   @override

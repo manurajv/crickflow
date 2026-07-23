@@ -1,8 +1,8 @@
 import '../../../../core/utils/cf_team_id_format.dart';
+import '../../../../data/models/location_filter_selection.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../data/models/team_model.dart';
-import '../../../../shared/widgets/location_filter_bar.dart';
 import '../widgets/team_list_scope.dart';
 
 /// Client-side team list filtering (search + location + scope).
@@ -57,8 +57,7 @@ class TeamsListFilter {
     required List<TeamModel> teams,
     required TeamListScope scope,
     String query = '',
-    String country = '',
-    String city = '',
+    List<LocationFilterSelection> locations = const [],
     Set<String> memberTeamIds = const {},
     Set<String> opponentTeamIds = const {},
   }) {
@@ -71,7 +70,7 @@ class TeamsListFilter {
         case TeamListScope.all:
           break;
       }
-      if (!locationMatchesFilter(t.location, country, city)) return false;
+      if (!locationMatchesAnySelection(t.location, locations)) return false;
       return true;
     }).toList();
 

@@ -12,11 +12,13 @@ import '../../../../data/models/team_model.dart';
 import '../../../../data/models/tournament_model.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../domain/scoring/match_lifecycle.dart';
+import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../features/community/community_post_ui.dart';
-import '../../../../shared/providers/player_social_provider.dart';
+import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/match_card_ui.dart';
 import '../../../../shared/widgets/match_team_avatar.dart';
+import '../../../../shared/widgets/player_cluster_text.dart';
 import '../../data/unified_search_service.dart';
 import '../../domain/search_models.dart';
 
@@ -29,8 +31,7 @@ class SearchResultCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return switch (hit.category) {
       SearchCategory.players => _PlayerCard(user: hit.player!),
-      SearchCategory.users => _UserCard(user: hit.user!),
-      SearchCategory.teams || SearchCategory.clubs => _TeamCard(team: hit.team!),
+      SearchCategory.teams => _TeamCard(team: hit.team!),
       SearchCategory.matches => _MatchCard(hit: hit),
       SearchCategory.tournaments =>
         _TournamentCard(tournament: hit.tournament!),
@@ -45,108 +46,34 @@ class SearchResultCard extends ConsumerWidget {
   }
 }
 
-class _PlayerCard extends StatelessWidget {
+class _PlayerCard extends ConsumerWidget {
   const _PlayerCard({required this.user});
-
-  final UserModel user;
-
-  @override
-  Widget build(BuildContext context) {
-    final cf = context.cf;
-    final role = [
-      if (user.playerRole != null) user.playerRole!.name,
-      if (user.battingStyle != null) user.battingStyle!.name,
-      if (user.bowlingStyle != null) user.bowlingStyle!.name,
-    ].join(' · ');
-
-    return _CardShell(
-      onTap: () {
-        final pid = user.playerId;
-        if (pid != null && pid.isNotEmpty) {
-          context.push('/player/$pid');
-        } else {
-          context.push('/players/${user.id}');
-        }
-      },
-      child: Row(
-        children: [
-          _Avatar(url: user.photoUrl, name: user.effectiveName),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.effectiveName,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                if (user.country.isNotEmpty || user.location.city.isNotEmpty)
-                  Text(
-                    [
-                      if (user.country.isNotEmpty) user.country,
-                      if (user.location.city.isNotEmpty) user.location.city,
-                    ].join(' · '),
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: cf.textSecondary),
-                  ),
-                if (role.isNotEmpty)
-                  Text(
-                    role,
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelSmall
-                        ?.copyWith(color: cf.textMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
-          ),
-          Text(
-            '${user.socialStats.followersCount}',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: cf.textMuted,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _UserCard extends ConsumerWidget {
-  const _UserCard({required this.user});
 
   final UserModel user;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
-    final me = ref.watch(authStateProvider).value?.uid;
-    final following = me == null
-        ? null
-        : ref
-            .watch(
-              isFollowingPlayerProvider((
-                followerId: me,
-                followedId: user.id,
-              )),
-            )
-            .valueOrNull;
+    final theme = Theme.of(context);
+    final playerId = (user.playerId ?? '').trim();
+    final clustersAsync = ref.watch(playerCricketProfileByIdProvider(user.id));
+    final clusters =
+        clustersAsync.valueOrNull?.clusters ?? const PlayerClusters();
+    final locationLabel = [
+      if (user.country.isNotEmpty) user.country,
+      if (user.location.city.isNotEmpty) user.location.city,
+    ].join(' · ');
 
     return _CardShell(
       onTap: () {
-        final pid = user.playerId;
-        if (pid != null && pid.isNotEmpty) {
-          context.push('/player/$pid');
+        if (playerId.isNotEmpty) {
+          context.push('/player/$playerId');
+        } else {
+          context.push('/players/${user.id}');
         }
       },
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Avatar(url: user.photoUrl, name: user.effectiveName),
           const SizedBox(width: 12),
@@ -154,48 +81,62 @@ class _UserCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  user.effectiveName,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        user.effectiveName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (playerId.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        playerId,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: cf.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if ((user.playerId ?? '').isNotEmpty)
+                if (locationLabel.isNotEmpty) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    user.playerId!,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: cf.textSecondary),
+                    locationLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cf.textSecondary,
+                    ),
                   ),
+                ],
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: clustersAsync.when(
+                    data: (_) => PlayerClusterText(
+                      clusters: clusters,
+                      showNewPlayerForMissing: true,
+                      fontSize: 11,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const PlayerClusterText(
+                      clusters: PlayerClusters(),
+                      showNewPlayerForMissing: true,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          if (me != null && me != user.id)
-            TextButton(
-              onPressed: () async {
-                final profile =
-                    ref.read(currentUserProfileProvider).valueOrNull;
-                if (profile == null) return;
-                final repo = ref.read(playerFollowRepositoryProvider);
-                if (following == true) {
-                  await repo.unfollowPlayer(
-                    followerUserId: me,
-                    followedUserId: user.id,
-                  );
-                } else {
-                  await repo.followPlayer(
-                    followerUserId: me,
-                    followedUserId: user.id,
-                    followerPlayerId: profile.playerId ?? '',
-                    followedPlayerId: user.playerId ?? '',
-                    followerName: profile.effectiveName,
-                  );
-                }
-              },
-              child: Text(following == true ? 'Following' : 'Follow'),
-            ),
         ],
       ),
     );

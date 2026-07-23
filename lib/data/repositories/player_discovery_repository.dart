@@ -4,6 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/utils/cf_player_id_format.dart';
 import '../models/user_model.dart';
 import 'player_follow_repository.dart';
+import 'user_repository.dart';
 
 enum FindCricketersFilter {
   all,
@@ -23,11 +24,14 @@ class PlayerDiscoveryRepository {
   PlayerDiscoveryRepository({
     FirebaseFirestore? firestore,
     PlayerFollowRepository? followRepository,
+    UserRepository? userRepository,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _followRepository = followRepository ?? PlayerFollowRepository();
+        _followRepository = followRepository ?? PlayerFollowRepository(),
+        _userRepository = userRepository ?? UserRepository();
 
   final FirebaseFirestore _firestore;
   final PlayerFollowRepository _followRepository;
+  final UserRepository _userRepository;
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection(AppConstants.usersCollection);
@@ -54,6 +58,15 @@ class PlayerDiscoveryRepository {
       return [user];
     }
 
+    // Text queries use prefix name search (users + players collections).
+    if (trimmed.isNotEmpty && filter == FindCricketersFilter.all) {
+      return _searchByName(
+        trimmed,
+        currentUserId: currentUserId,
+        limit: limit,
+      );
+    }
+
     final base = await _fetchByFilter(
       filter: filter,
       currentUserId: currentUserId,
@@ -70,13 +83,112 @@ class PlayerDiscoveryRepository {
         .where((user) {
           final name = user.effectiveName.toLowerCase();
           final display = user.displayName.toLowerCase();
+          final legal = user.name.toLowerCase();
           final id = (user.playerId ?? '').toLowerCase();
           return name.contains(q) ||
               display.contains(q) ||
+              legal.contains(q) ||
               id.contains(q);
         })
         .take(limit)
         .toList();
+  }
+
+  Future<List<UserModel>> _searchByName(
+    String query, {
+    required String? currentUserId,
+    required int limit,
+  }) async {
+    final q = query.toLowerCase();
+    final idUpper = CfPlayerIdFormat.normalize(query);
+    final results = <UserModel>[];
+    final seen = <String>{};
+
+    void add(UserModel u) {
+      if (u.id == currentUserId) return;
+      if (!seen.add(u.id)) return;
+      results.add(u);
+    }
+
+    // 1) Players collection — same approach as squad / directory search.
+    try {
+      QuerySnapshot<Map<String, dynamic>> snap;
+      try {
+        snap = await _players.orderBy('name').limit(500).get();
+      } on FirebaseException {
+        snap = await _players.limit(500).get();
+      }
+      for (final d in snap.docs) {
+        if (results.length >= limit) break;
+        final data = d.data();
+        final name = (data['name'] as String? ?? '').toLowerCase();
+        final full = (data['fullName'] as String? ?? '').toLowerCase();
+        final playerId = (data['playerId'] as String? ?? '').toUpperCase();
+        final matchesName =
+            name.contains(q) || full.contains(q) || name.split(' ').any((t) => t.startsWith(q));
+        final matchesId =
+            playerId.isNotEmpty && playerId.contains(idUpper);
+        if (!matchesName && !matchesId) continue;
+
+        final uid = (data['userId'] as String?)?.trim();
+        final resolveId =
+            (uid != null && uid.isNotEmpty) ? uid : d.id;
+
+        UserModel? user;
+        try {
+          user = await _userRepository.getUser(resolveId);
+        } catch (_) {
+          user = null;
+        }
+        add(
+          user ??
+              UserModel(
+                id: resolveId,
+                email: '',
+                name: (data['fullName'] as String? ?? '').trim().isNotEmpty
+                    ? (data['fullName'] as String).trim()
+                    : (data['name'] as String? ?? ''),
+                displayName: data['name'] as String? ?? '',
+                photoUrl: data['photoUrl'] as String?,
+                playerId: data['playerId'] as String?,
+                onboardingCompleted: true,
+              ),
+        );
+      }
+    } on FirebaseException {
+      // Fall through to users scan.
+    }
+
+    // 2) Users collection — contains match on name fields.
+    if (results.length < limit) {
+      try {
+        QuerySnapshot<Map<String, dynamic>> snap;
+        try {
+          snap = await _users.orderBy('name').limit(500).get();
+        } on FirebaseException {
+          snap = await _users.limit(500).get();
+        }
+        for (final d in snap.docs) {
+          if (results.length >= limit) break;
+          final u = UserModel.fromMap(d.id, d.data());
+          final name = u.effectiveName.toLowerCase();
+          final display = u.displayName.toLowerCase();
+          final legal = u.name.toLowerCase();
+          final playerId = (u.playerId ?? '').toUpperCase();
+          final hit = name.contains(q) ||
+              display.contains(q) ||
+              legal.contains(q) ||
+              name.split(RegExp(r'\s+')).any((t) => t.startsWith(q)) ||
+              (playerId.isNotEmpty && playerId.contains(idUpper));
+          if (!hit) continue;
+          add(u);
+        }
+      } on FirebaseException {
+        // Ignore.
+      }
+    }
+
+    return results.take(limit).toList();
   }
 
   Future<List<UserModel>> _fetchByFilter({

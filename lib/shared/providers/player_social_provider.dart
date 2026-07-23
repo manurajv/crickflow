@@ -16,6 +16,7 @@ final playerDiscoveryRepositoryProvider =
     Provider<PlayerDiscoveryRepository>((ref) {
   return PlayerDiscoveryRepository(
     followRepository: ref.watch(playerFollowRepositoryProvider),
+    userRepository: ref.watch(userRepositoryProvider),
   );
 });
 

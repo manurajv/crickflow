@@ -8,6 +8,7 @@ import '../../features/community/presentation/chat/chat_list_screen.dart';
 import '../../features/community/presentation/chat/chat_conversation_screen.dart';
 import '../../features/community/presentation/chat/message_requests_screen.dart';
 import '../../features/discover/presentation/discover_screen.dart';
+import '../../features/discover/presentation/saved_opportunities_screen.dart';
 import '../../features/fantasy/presentation/fantasy_league_screen.dart';
 import '../../features/fantasy/presentation/fantasy_screen.dart';
 import '../../features/fantasy/presentation/fantasy_squad_screen.dart';
@@ -247,6 +248,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/discover',
                 builder: (_, __) => const DiscoverScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'saved',
+                    builder: (_, __) => const SavedOpportunitiesScreen(),
+                  ),
+                ],
               ),
             ],
           ),

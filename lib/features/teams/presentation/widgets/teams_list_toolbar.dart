@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../data/models/location_filter_selection.dart';
+import '../../../../shared/widgets/location_filter_sheet.dart';
 import 'team_list_scope.dart';
-import 'teams_location_filter_sheet.dart';
 
 /// Inline search field for team lists (My Cricket tab + `/teams`).
 class TeamsSearchBar extends StatefulWidget {
@@ -138,19 +139,29 @@ class TeamsScopeFilterBar extends StatelessWidget {
   const TeamsScopeFilterBar({
     super.key,
     required this.scope,
-    required this.country,
-    required this.city,
+    required this.locations,
     required this.onScopeChanged,
-    required this.onLocationChanged,
+    required this.onLocationsChanged,
   });
 
   final TeamListScope scope;
-  final String country;
-  final String city;
+  final List<LocationFilterSelection> locations;
   final ValueChanged<TeamListScope> onScopeChanged;
-  final void Function(String country, String city) onLocationChanged;
+  final ValueChanged<List<LocationFilterSelection>> onLocationsChanged;
 
-  bool get _locationActive => country.isNotEmpty || city.isNotEmpty;
+  bool get _locationActive => locations.isNotEmpty;
+
+  Future<void> _openLocationFilter(BuildContext context) async {
+    final result = await showLocationFilterSheet(
+      context,
+      initial: locations,
+      subtitle:
+          'Search or use GPS, then add locations. Teams matching any selection '
+          'are shown. Clear city/province fields to broaden a filter.',
+    );
+    if (result == null) return;
+    onLocationsChanged(result);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -182,12 +193,7 @@ class TeamsScopeFilterBar extends StatelessWidget {
                   label: 'Location',
                   selected: _locationActive,
                   icon: Icons.place_outlined,
-                  onTap: () => showTeamsLocationFilterSheet(
-                    context,
-                    country: country,
-                    city: city,
-                    onApply: onLocationChanged,
-                  ),
+                  onTap: () => _openLocationFilter(context),
                 ),
               ],
             ),
@@ -199,10 +205,9 @@ class TeamsScopeFilterBar extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      [
-                        if (country.isNotEmpty) country,
-                        if (city.isNotEmpty) city,
-                      ].join(' · '),
+                      locations.length == 1
+                          ? locations.first.label
+                          : '${locations.length} locations',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -211,7 +216,7 @@ class TeamsScopeFilterBar extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => onLocationChanged('', ''),
+                    onPressed: () => onLocationsChanged(const []),
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.symmetric(horizontal: 8),

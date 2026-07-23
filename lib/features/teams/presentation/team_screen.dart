@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../data/models/location_filter_selection.dart';
 import '../../../shared/providers/my_player_provider.dart';
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
@@ -28,8 +29,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen>
   late TabController _tabs;
   TeamListScope _scope = TeamListScope.yours;
   String _query = '';
-  String _filterCountry = '';
-  String _filterCity = '';
+  List<LocationFilterSelection> _locations = const [];
 
   @override
   void initState() {
@@ -53,8 +53,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen>
   void _resetFilters() {
     _scope = TeamListScope.yours;
     _query = '';
-    _filterCountry = '';
-    _filterCity = '';
+    _locations = const [];
   }
 
   /// tab=1 create, tab=2 legacy create alias.
@@ -96,14 +95,10 @@ class _TeamScreenState extends ConsumerState<TeamScreen>
           _TeamsBrowseTab(
             scope: _scope,
             query: _query,
-            filterCountry: _filterCountry,
-            filterCity: _filterCity,
+            locations: _locations,
             onScopeChanged: (s) => setState(() => _scope = s),
             onSearchChanged: (v) => setState(() => _query = v),
-            onFilterChanged: (c, city) => setState(() {
-              _filterCountry = c;
-              _filterCity = city;
-            }),
+            onLocationsChanged: (locs) => setState(() => _locations = locs),
           ),
           CreateTeamForm(onCreated: (_) => _tabs.animateTo(0)),
         ],
@@ -116,20 +111,18 @@ class _TeamsBrowseTab extends ConsumerWidget {
   const _TeamsBrowseTab({
     required this.scope,
     required this.query,
-    required this.filterCountry,
-    required this.filterCity,
+    required this.locations,
     required this.onScopeChanged,
     required this.onSearchChanged,
-    required this.onFilterChanged,
+    required this.onLocationsChanged,
   });
 
   final TeamListScope scope;
   final String query;
-  final String filterCountry;
-  final String filterCity;
+  final List<LocationFilterSelection> locations;
   final ValueChanged<TeamListScope> onScopeChanged;
   final ValueChanged<String> onSearchChanged;
-  final void Function(String country, String city) onFilterChanged;
+  final ValueChanged<List<LocationFilterSelection>> onLocationsChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -153,8 +146,7 @@ class _TeamsBrowseTab extends ConsumerWidget {
           teams: teams,
           scope: scope,
           query: query,
-          country: filterCountry,
-          city: filterCity,
+          locations: locations,
           memberTeamIds: memberIds,
           opponentTeamIds: opponentIds,
         );
@@ -164,10 +156,9 @@ class _TeamsBrowseTab extends ConsumerWidget {
           children: [
             TeamsScopeFilterBar(
               scope: scope,
-              country: filterCountry,
-              city: filterCity,
+              locations: locations,
               onScopeChanged: onScopeChanged,
-              onLocationChanged: onFilterChanged,
+              onLocationsChanged: onLocationsChanged,
             ),
             TeamsSearchBar(query: query, onChanged: onSearchChanged),
             Expanded(
@@ -180,9 +171,7 @@ class _TeamsBrowseTab extends ConsumerWidget {
                           _EmptyList(
                             scope: scope,
                             hasFilters:
-                                query.isNotEmpty ||
-                                filterCountry.isNotEmpty ||
-                                filterCity.isNotEmpty,
+                                query.isNotEmpty || locations.isNotEmpty,
                           ),
                         ],
                       )

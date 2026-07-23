@@ -5,7 +5,6 @@ import '../../../data/models/tournament_model.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/community_repository.dart';
 import '../../../data/repositories/player_discovery_repository.dart';
-import '../../../data/repositories/user_repository.dart';
 import '../domain/search_models.dart';
 
 class UnifiedSearchHit {
@@ -16,7 +15,6 @@ class UnifiedSearchHit {
     this.team,
     this.match,
     this.tournament,
-    this.user,
     this.post,
     this.groundName,
     this.groundCity,
@@ -29,7 +27,6 @@ class UnifiedSearchHit {
   final TeamModel? team;
   final MatchModel? match;
   final TournamentModel? tournament;
-  final UserModel? user;
   final CommunityPostModel? post;
   final String? groundName;
   final String? groundCity;
@@ -51,14 +48,11 @@ class UnifiedSearchResult {
 class UnifiedSearchService {
   UnifiedSearchService({
     required PlayerDiscoveryRepository playerDiscovery,
-    required UserRepository userRepository,
     required CommunityRepository communityRepository,
   })  : _playerDiscovery = playerDiscovery,
-        _userRepository = userRepository,
         _community = communityRepository;
 
   final PlayerDiscoveryRepository _playerDiscovery;
-  final UserRepository _userRepository;
   final CommunityRepository _community;
 
   Future<UnifiedSearchResult> search({
@@ -92,39 +86,20 @@ class UnifiedSearchService {
           searchRelevanceScore(p.displayName, q),
           searchRelevanceScore(p.playerId ?? '', q),
         ]);
-        // Popularity bump
+        // Always include discovery hits — they already matched by name.
         final followers = p.socialStats.followersCount;
         hits.add(
           UnifiedSearchHit(
             category: SearchCategory.players,
-            score: score + (followers.clamp(0, 500) * 0.05),
+            score: (score > 0 ? score : 500) +
+                (followers.clamp(0, 500) * 0.05),
             player: p,
           ),
         );
       }
     }
 
-    Future<void> addUsers() async {
-      final users = await _userRepository.searchUsersByName(q);
-      for (final u in users) {
-        if (u.id == currentUserId) continue;
-        final score = _maxScore([
-          searchRelevanceScore(u.effectiveName, q),
-          searchRelevanceScore(u.name, q),
-          searchRelevanceScore(u.displayName, q),
-          searchRelevanceScore(u.playerId ?? '', q),
-        ]);
-        hits.add(
-          UnifiedSearchHit(
-            category: SearchCategory.users,
-            score: score,
-            user: u,
-          ),
-        );
-      }
-    }
-
-    void addTeams({required bool clubsOnly}) {
+    void addTeams() {
       for (final t in teams) {
         final score = _maxScore([
           searchRelevanceScore(t.name, q),
@@ -132,11 +107,9 @@ class UnifiedSearchService {
           searchRelevanceScore(t.location.city, q),
         ]);
         if (score <= 0) continue;
-        // Clubs: prefer larger / named club-like teams (no separate collection).
-        if (clubsOnly && t.memberCount < 5 && score < 500) continue;
         hits.add(
           UnifiedSearchHit(
-            category: clubsOnly ? SearchCategory.clubs : SearchCategory.teams,
+            category: SearchCategory.teams,
             score: score + t.memberCount.clamp(0, 200) * 0.02,
             team: t,
           ),
@@ -168,6 +141,7 @@ class UnifiedSearchService {
       for (final t in tournaments) {
         final score = _maxScore([
           searchRelevanceScore(t.name, q),
+          searchRelevanceScore(t.tournamentCode ?? '', q),
           searchRelevanceScore(t.location.city, q),
           searchRelevanceScore(t.location.displayLabel, q),
         ]);
@@ -217,6 +191,7 @@ class UnifiedSearchService {
           searchRelevanceScore(p.authorName, q),
           if (q.startsWith('#')) searchRelevanceScore(p.body, q) * 1.2,
         ]);
+        if (score <= 0) continue;
         hits.add(
           UnifiedSearchHit(
             category: SearchCategory.posts,
@@ -230,26 +205,21 @@ class UnifiedSearchService {
     switch (category) {
       case SearchCategory.all:
         await addPlayers();
-        addTeams(clubsOnly: false);
+        addTeams();
         addMatches();
         addTournaments();
         addGrounds();
-        await addUsers();
         await addPosts();
       case SearchCategory.players:
         await addPlayers();
       case SearchCategory.teams:
-        addTeams(clubsOnly: false);
+        addTeams();
       case SearchCategory.matches:
         addMatches();
       case SearchCategory.tournaments:
         addTournaments();
       case SearchCategory.grounds:
         addGrounds();
-      case SearchCategory.clubs:
-        addTeams(clubsOnly: true);
-      case SearchCategory.users:
-        await addUsers();
       case SearchCategory.posts:
         await addPosts();
     }

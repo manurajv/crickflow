@@ -5,8 +5,6 @@ enum SearchCategory {
   matches,
   tournaments,
   grounds,
-  clubs,
-  users,
   posts,
 }
 
@@ -18,8 +16,6 @@ extension SearchCategoryX on SearchCategory {
         SearchCategory.matches => 'Matches',
         SearchCategory.tournaments => 'Tournaments',
         SearchCategory.grounds => 'Grounds',
-        SearchCategory.clubs => 'Clubs',
-        SearchCategory.users => 'Users',
         SearchCategory.posts => 'Posts',
       };
 
@@ -30,8 +26,6 @@ extension SearchCategoryX on SearchCategory {
         SearchCategory.matches => 'Matches',
         SearchCategory.tournaments => 'Tournaments',
         SearchCategory.grounds => 'Grounds',
-        SearchCategory.clubs => 'Clubs',
-        SearchCategory.users => 'Users',
         SearchCategory.posts => 'Community posts',
       };
 }

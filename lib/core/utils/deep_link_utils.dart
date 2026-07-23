@@ -29,6 +29,15 @@ class DeepLinkUtils {
   }) =>
       hostedUri(communityPostPath(postId), useCustomDomain: useCustomDomain);
 
+  static String opportunityPostPath(String postId) =>
+      '/discover?postId=$postId';
+
+  static Uri hostedOpportunityPostUri(
+    String postId, {
+    bool useCustomDomain = false,
+  }) =>
+      hostedUri(opportunityPostPath(postId), useCustomDomain: useCustomDomain);
+
   static String tournamentJoinPath(String tournamentId, {bool fromQr = true}) {
     final path = '/tournaments/$tournamentId/join';
     return fromQr ? '$path?from=qr' : path;

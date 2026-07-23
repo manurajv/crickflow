@@ -4,14 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_dimens.dart';
+import '../../../data/models/location_filter_selection.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/my_player_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../shared/widgets/location_filter_sheet.dart';
 import '../../teams/presentation/utils/teams_list_filter.dart';
 import '../../teams/presentation/widgets/team_list_scope.dart';
 import '../../teams/presentation/widgets/teams_list_toolbar.dart';
-import '../../teams/presentation/widgets/teams_location_filter_sheet.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../core/theme/cf_colors.dart';
 
@@ -38,8 +39,7 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
   String _query = '';
-  String _filterCountry = '';
-  String _filterCity = '';
+  List<LocationFilterSelection> _locations = const [];
 
   @override
   void initState() {
@@ -50,12 +50,11 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
 
   void _resetFilters() {
     _query = '';
-    _filterCountry = '';
-    _filterCity = '';
+    _locations = const [];
   }
 
   bool get _hasActiveFilters =>
-      _query.isNotEmpty || _filterCountry.isNotEmpty || _filterCity.isNotEmpty;
+      _query.isNotEmpty || _locations.isNotEmpty;
 
   void _clearFilters() => setState(_resetFilters);
 
@@ -97,20 +96,15 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
             onChanged: (v) => setState(() => _query = v),
           ),
           _SelectTeamLocationFilterBar(
-            country: _filterCountry,
-            city: _filterCity,
-            onLocationChanged: (country, city) => setState(() {
-              _filterCountry = country;
-              _filterCity = city;
-            }),
+            locations: _locations,
+            onLocationsChanged: (locs) => setState(() => _locations = locs),
           ),
           Expanded(
             child: widget.opponentsOnly
                 ? _TeamList(
                     scope: _TeamListScope.all,
                     query: _query,
-                    country: _filterCountry,
-                    city: _filterCity,
+                    locations: _locations,
                     blockedTeamId: blockedTeam?.id,
                     blockedSlotLabel: blockedSlotLabel,
                     hasActiveFilters: _hasActiveFilters,
@@ -123,8 +117,7 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
                       _TeamList(
                         scope: _TeamListScope.yours,
                         query: _query,
-                        country: _filterCountry,
-                        city: _filterCity,
+                        locations: _locations,
                         blockedTeamId: blockedTeam?.id,
                         blockedSlotLabel: blockedSlotLabel,
                         hasActiveFilters: _hasActiveFilters,
@@ -134,8 +127,7 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
                       _TeamList(
                         scope: _TeamListScope.all,
                         query: _query,
-                        country: _filterCountry,
-                        city: _filterCity,
+                        locations: _locations,
                         blockedTeamId: blockedTeam?.id,
                         blockedSlotLabel: blockedSlotLabel,
                         hasActiveFilters: _hasActiveFilters,
@@ -152,19 +144,29 @@ class _SelectTeamForMatchScreenState extends ConsumerState<SelectTeamForMatchScr
   }
 }
 
-/// Location chip row — same sheet + logic as Teams tab.
+/// Location chip row — same shared sheet as Teams / Community.
 class _SelectTeamLocationFilterBar extends StatelessWidget {
   const _SelectTeamLocationFilterBar({
-    required this.country,
-    required this.city,
-    required this.onLocationChanged,
+    required this.locations,
+    required this.onLocationsChanged,
   });
 
-  final String country;
-  final String city;
-  final void Function(String country, String city) onLocationChanged;
+  final List<LocationFilterSelection> locations;
+  final ValueChanged<List<LocationFilterSelection>> onLocationsChanged;
 
-  bool get _locationActive => country.isNotEmpty || city.isNotEmpty;
+  bool get _locationActive => locations.isNotEmpty;
+
+  Future<void> _open(BuildContext context) async {
+    final result = await showLocationFilterSheet(
+      context,
+      initial: locations,
+      subtitle:
+          'Search or use GPS, then add locations. Teams matching any selection '
+          'are shown. Clear city/province fields to broaden a filter.',
+    );
+    if (result == null) return;
+    onLocationsChanged(result);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -193,12 +195,7 @@ class _SelectTeamLocationFilterBar extends StatelessWidget {
                   ),
                   label: const Text('Location'),
                   selected: _locationActive,
-                  onSelected: (_) => showTeamsLocationFilterSheet(
-                    context,
-                    country: country,
-                    city: city,
-                    onApply: onLocationChanged,
-                  ),
+                  onSelected: (_) => _open(context),
                   selectedColor: cf.accent.withValues(alpha: 0.35),
                   checkmarkColor: cf.accent,
                   showCheckmark: false,
@@ -220,10 +217,9 @@ class _SelectTeamLocationFilterBar extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      [
-                        if (country.isNotEmpty) country,
-                        if (city.isNotEmpty) city,
-                      ].join(' · '),
+                      locations.length == 1
+                          ? locations.first.label
+                          : '${locations.length} locations',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -232,7 +228,7 @@ class _SelectTeamLocationFilterBar extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => onLocationChanged('', ''),
+                    onPressed: () => onLocationsChanged(const []),
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -255,8 +251,7 @@ class _TeamList extends ConsumerWidget {
   const _TeamList({
     required this.scope,
     required this.query,
-    required this.country,
-    required this.city,
+    required this.locations,
     required this.blockedTeamId,
     required this.blockedSlotLabel,
     required this.hasActiveFilters,
@@ -266,8 +261,7 @@ class _TeamList extends ConsumerWidget {
 
   final _TeamListScope scope;
   final String query;
-  final String country;
-  final String city;
+  final List<LocationFilterSelection> locations;
   final String? blockedTeamId;
   final String blockedSlotLabel;
   final bool hasActiveFilters;
@@ -299,8 +293,7 @@ class _TeamList extends ConsumerWidget {
           teams: pool,
           scope: TeamListScope.all,
           query: query,
-          country: country,
-          city: city,
+          locations: locations,
         );
 
         if (list.isEmpty) {

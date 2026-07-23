@@ -39,6 +39,13 @@ class ProfileHubSection extends StatelessWidget {
         ),
         const SizedBox(height: AppDimens.spaceSm),
         _HubTile(
+          icon: Icons.bookmark_outline,
+          title: 'Saved Opportunities',
+          subtitle: 'Bookmarks from Discover marketplace',
+          onTap: () => context.push('/discover/saved'),
+        ),
+        const SizedBox(height: AppDimens.spaceSm),
+        _HubTile(
           icon: Icons.person_search_outlined,
           title: 'Find Cricketers',
           subtitle: 'Discover players near you',

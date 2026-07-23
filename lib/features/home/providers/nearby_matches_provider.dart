@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/geo_distance.dart';
+import '../../../data/models/location_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/services/google_maps_location_service.dart';
 import '../../../domain/scoring/match_lifecycle.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/widgets/location_filter_bar.dart';
 import '../domain/nearby_match_item.dart';
 
 const double kNearbyMatchRadiusKm = kNearbyRadiusKm;
@@ -52,28 +52,29 @@ final nearbyMatchesProvider =
 
   if (access == LocationAccessStatus.denied ||
       access == LocationAccessStatus.deniedForever) {
-    return _regionFallback(
-      ref: ref,
-      candidates: candidates,
-      permissionDenied: true,
-    );
+    return _permissionDeniedFallback(ref: ref, candidates: candidates);
   }
 
   final coords = await locationService.getCurrentCoords();
   if (coords == null) {
-    return _regionFallback(
-      ref: ref,
-      candidates: candidates,
-      permissionDenied: true,
-    );
+    return _permissionDeniedFallback(ref: ref, candidates: candidates);
   }
 
-  String regionLabel = '';
+  var regionLabel = '';
+  var country = '';
+  var city = '';
   try {
     final resolved = await locationService.reverseGeocode(coords);
     regionLabel = resolved.location.displayLabel;
+    country = resolved.location.country;
+    city = resolved.location.city.isNotEmpty
+        ? resolved.location.city
+        : (resolved.location.district.isNotEmpty
+            ? resolved.location.district
+            : resolved.location.stateProvince);
   } catch (_) {}
 
+  // Primary: GPS distance only — never mix in far-away matches.
   final withDistance = <NearbyMatchItem>[];
   for (final match in candidates) {
     final loc = match.location;
@@ -112,16 +113,30 @@ final nearbyMatchesProvider =
     );
   }
 
-  // No geo-tagged matches in radius — fall back to city/state region.
-  final fallback = await _regionFallback(
-    ref: ref,
-    candidates: candidates,
-    permissionDenied: false,
-    userCoords: coords,
-    regionLabel: regionLabel,
-  );
-  if (fallback.items.isNotEmpty) {
-    return fallback;
+  // No geo-tagged hits in radius — include untagged matches only if they
+  // match the *current* city/district (never country-wide).
+  if (city.isNotEmpty) {
+    final localOnly = candidates
+        .where((m) => !m.location.hasCoordinates)
+        .where(
+          (m) => _matchesCurrentLocality(
+            m.location,
+            country: country,
+            locality: city,
+          ),
+        )
+        .map((m) => NearbyMatchItem(match: m, regionFallback: true))
+        .take(20)
+        .toList();
+    if (localOnly.isNotEmpty) {
+      return NearbyMatchesState(
+        status: NearbyMatchesStatus.ready,
+        items: localOnly,
+        userCoords: coords,
+        regionLabel: regionLabel,
+        message: 'Showing matches in $city',
+      );
+    }
   }
 
   return NearbyMatchesState(
@@ -132,65 +147,49 @@ final nearbyMatchesProvider =
   );
 });
 
-Future<NearbyMatchesState> _regionFallback({
+/// When GPS is unavailable, only show matches in the profile city — never
+/// an entire country (that looked like "random" far-away matches).
+Future<NearbyMatchesState> _permissionDeniedFallback({
   required Ref ref,
   required List<MatchModel> candidates,
-  required bool permissionDenied,
-  GeoCoords? userCoords,
-  String regionLabel = '',
 }) async {
-  // Prefer signed-in profile location, else reverse-geocode if we have coords.
-  var country = '';
-  var city = '';
   final profile = ref.read(currentUserProfileProvider).valueOrNull;
-  if (profile != null && !profile.location.isEmpty) {
-    country = profile.location.country;
-    city = profile.location.city.isNotEmpty
-        ? profile.location.city
-        : profile.location.stateProvince;
-    regionLabel = regionLabel.isNotEmpty
-        ? regionLabel
-        : profile.location.displayLabel;
-  } else if (userCoords != null && regionLabel.isEmpty) {
-    try {
-      final resolved = await ref
-          .read(googleMapsLocationServiceProvider)
-          .reverseGeocode(userCoords);
-      country = resolved.location.country;
-      city = resolved.location.city.isNotEmpty
-          ? resolved.location.city
-          : resolved.location.stateProvince;
-      regionLabel = resolved.location.displayLabel;
-    } catch (_) {}
-  }
+  final loc = profile?.location;
+  final country = loc?.country ?? '';
+  final city = (loc == null || loc.isEmpty)
+      ? ''
+      : (loc.city.isNotEmpty
+          ? loc.city
+          : (loc.district.isNotEmpty ? loc.district : loc.stateProvince));
+  final regionLabel = loc?.displayLabel ?? '';
 
-  if (country.isEmpty && city.isEmpty) {
+  if (city.isEmpty) {
     return NearbyMatchesState(
-      status: permissionDenied
-          ? NearbyMatchesStatus.permissionDenied
-          : NearbyMatchesStatus.empty,
-      message: permissionDenied
-          ? 'Location permission denied. Enable location to discover nearby matches.'
-          : 'No matches are currently scheduled near you.',
+      status: NearbyMatchesStatus.permissionDenied,
+      message:
+          'Location permission denied. Enable location to discover nearby matches.',
       regionLabel: regionLabel,
-      userCoords: userCoords,
     );
   }
 
   final filtered = candidates
-      .where((m) => locationMatchesFilter(m.location, country, city))
-      .map(
-        (m) => NearbyMatchItem(match: m, regionFallback: true),
+      .where(
+        (m) => _matchesCurrentLocality(
+          m.location,
+          country: country,
+          locality: city,
+        ),
       )
+      .map((m) => NearbyMatchItem(match: m, regionFallback: true))
       .take(20)
       .toList();
 
   if (filtered.isEmpty) {
     return NearbyMatchesState(
-      status: NearbyMatchesStatus.empty,
-      message: 'No matches are currently scheduled near you.',
+      status: NearbyMatchesStatus.permissionDenied,
+      message:
+          'Location permission denied. Enable location to discover nearby matches.',
       regionLabel: regionLabel,
-      userCoords: userCoords,
     );
   }
 
@@ -198,9 +197,39 @@ Future<NearbyMatchesState> _regionFallback({
     status: NearbyMatchesStatus.ready,
     items: filtered,
     regionLabel: regionLabel,
-    userCoords: userCoords,
-    message: permissionDenied
-        ? 'Showing matches in $regionLabel (precise location unavailable).'
-        : '',
+    message: 'Showing matches in $city (precise location unavailable).',
   );
+}
+
+/// Strict locality match — city/district must align; country alone is not enough.
+bool _matchesCurrentLocality(
+  LocationModel location, {
+  required String country,
+  required String locality,
+}) {
+  final q = locality.trim().toLowerCase();
+  if (q.isEmpty) return false;
+
+  final city = location.city.toLowerCase();
+  final district = location.district.toLowerCase();
+  final state = location.stateProvince.toLowerCase();
+  final localityHit = city == q ||
+      district == q ||
+      city.contains(q) ||
+      district.contains(q) ||
+      (city.isEmpty && district.isEmpty && state == q);
+
+  if (!localityHit) return false;
+
+  if (country.trim().isNotEmpty) {
+    final c = country.trim().toLowerCase();
+    final matchCountry = location.country.toLowerCase();
+    if (matchCountry.isNotEmpty &&
+        matchCountry != c &&
+        !matchCountry.contains(c) &&
+        !c.contains(matchCountry)) {
+      return false;
+    }
+  }
+  return true;
 }

@@ -187,6 +187,32 @@ Social feed posts (backward-compatible extensions). See [COMMUNITY.md](COMMUNITY
 Subcollections: `likes/{userId}`, `saves/{userId}`, `comments/{commentId}`.
 Reports: `community_post_reports/{id}`.
 
+### `opportunity_posts/{postId}`
+Discover marketplace listings. See [DISCOVER.md](DISCOVER.md).
+
+| Field | Type |
+|-------|------|
+| authorId / authorName / authorPhotoUrl / authorPlayerId | string |
+| authorVerified | boolean |
+| category | string (`findPlayer`, …) |
+| title / description | string |
+| location | map |
+| fields | map (category-specific) |
+| tags | list |
+| searchText | string |
+| contactMethods | list (`chat` / `phone` / `whatsapp`) |
+| contactPhone / contactWhatsApp | string |
+| mediaUrls | list |
+| status | `active` / `expired` / `removed` |
+| expiryDays / expiresAt | number / string |
+| viewCount / shareCount / saveCount / applicationCount | number |
+| isPinned / isFeatured / isPremium | boolean |
+| createdAt / updatedAt | string |
+
+Subcollections: `saves/{userId}`, `applications/{userId}`.
+User index: `users/{uid}/saved_opportunity_posts/{postId}`.
+Reports: `opportunity_post_reports/{id}`.
+
 ### `notifications/{notificationId}`
 | Field | Type |
 |-------|------|

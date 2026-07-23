@@ -109,6 +109,16 @@ class StorageService {
     return ref.getDownloadURL();
   }
 
+  Future<String> uploadOpportunityImage({
+    required String userId,
+    required File file,
+  }) async {
+    final id = DateTime.now().millisecondsSinceEpoch;
+    final ref = _storage.ref().child('opportunities/$userId/$id.jpg');
+    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    return ref.getDownloadURL();
+  }
+
   /// Team invite QR — `teams/{teamId}/invite_qr.png`
   Future<String> uploadTeamQr(String teamId, Uint8List pngBytes) async {
     final ref = _storage.ref().child('teams/$teamId/invite_qr.png');

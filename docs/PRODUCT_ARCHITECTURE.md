@@ -22,7 +22,8 @@ CrickFlow is a **cricket ecosystem**, not only a scorer:
 | Fantasy MVP (MVP) | ✅ MVP |
 | Multi-tab match hub | ✅ Shell |
 | AI highlights / insights | Client insights ✅ · ML 🔜 |
-| Community marketplace | ✅ Posts MVP |
+| Community social feed | ✅ Posts MVP |
+| Discover marketplace | ✅ Opportunity listings |
 | Store / PRO | ✅ Roadmap screen · IAP 🔜 |
 
 **Audience:** Sri Lankan tennis-ball, indoor, school, club cricket — organizers, scorers, streamers, fans.
@@ -36,7 +37,7 @@ CrickFlow is a **cricket ecosystem**, not only a scorer:
 | Tab | Route | Screen |
 |-----|-------|--------|
 | Home | `/home` | Feed, welcome, quick actions |
-| Discover | `/discover` | Geo matches, tournaments, teams + recruitment |
+| Discover | `/discover` | Cricket opportunity marketplace |
 | Matches | `/matches` | Filtered match list |
 | Community | `/community` | Recruitment posts feed |
 | Profile | `/profile` | Account, Member/Viewer mode |
@@ -142,11 +143,10 @@ Full schema: [FIREBASE_SCHEMA.md](FIREBASE_SCHEMA.md)
 
 ### Next (recommended order)
 
-1. **Discover** — geo queries on matches, tournaments, grounds
-2. **WebRTC media** — `flutter_webrtc` ([WEBRTC.md](WEBRTC.md))
-3. **AI insights** — ML performance cards (beyond client aggregates)
-4. **AI highlights** — clip markers, thumbnails
-5. **Play Store** — when ready ([PLAY_STORE_READINESS.md](PLAY_STORE_READINESS.md))
+1. **WebRTC media** — `flutter_webrtc` ([WEBRTC.md](WEBRTC.md))
+2. **AI insights** — ML performance cards (beyond client aggregates)
+3. **AI highlights** — clip markers, thumbnails
+4. **Play Store** — when ready ([PLAY_STORE_READINESS.md](PLAY_STORE_READINESS.md))
 
 Track detail: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
 
@@ -162,6 +162,8 @@ Track detail: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Tokens & components |
 | [MVP_ROADMAP.md](MVP_ROADMAP.md) | Phase 1–2 |
 | [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md) | Phase 3 |
+| [COMMUNITY.md](COMMUNITY.md) | Community social feed |
+| [DISCOVER.md](DISCOVER.md) | Opportunity marketplace |
 | [FIREBASE_SCHEMA.md](FIREBASE_SCHEMA.md) | Collections |
 | Release / ops | `RELEASE_CHECKLIST`, `DEVICE_QA`, `ANDROID_RELEASE_SIGNING` |
 

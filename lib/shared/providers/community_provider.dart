@@ -7,6 +7,7 @@ import '../../core/constants/enums.dart';
 import '../../core/utils/geo_distance.dart';
 import '../../data/models/community_comment_model.dart';
 import '../../data/models/community_post_model.dart';
+import '../../data/models/location_filter_selection.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/community_repository.dart';
 import '../../data/services/google_maps_location_service.dart';
@@ -44,7 +45,7 @@ class CommunityFeedFilter {
   final CommunityPostCategory? category;
   final bool nearMeOnly;
   final bool savedOnly;
-  final List<CommunityLocationSelection> locations;
+  final List<LocationFilterSelection> locations;
 
   bool get hasLocationFilter => nearMeOnly || locations.isNotEmpty;
 
@@ -59,7 +60,7 @@ class CommunityFeedFilter {
     bool? clearCategory,
     bool? nearMeOnly,
     bool? savedOnly,
-    List<CommunityLocationSelection>? locations,
+    List<LocationFilterSelection>? locations,
   }) {
     return CommunityFeedFilter(
       category: clearCategory == true ? null : (category ?? this.category),
@@ -86,8 +87,8 @@ class CommunityFeedFilter {
       );
 
   static bool _listEq(
-    List<CommunityLocationSelection> a,
-    List<CommunityLocationSelection> b,
+    List<LocationFilterSelection> a,
+    List<LocationFilterSelection> b,
   ) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
@@ -393,7 +394,7 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
 
     // No origin GPS yet — fall back to profile city / region labels.
     if (profile == null || profile.location.city.isEmpty) return false;
-    return CommunityLocationSelection(
+    return LocationFilterSelection(
       country: profile.location.country,
       stateProvince: profile.location.stateProvince,
       district: profile.location.district,

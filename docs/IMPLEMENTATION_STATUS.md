@@ -3,13 +3,68 @@
 
 
 
-**Last updated:** My Cricket Tournaments · Your includes organized
+**Last updated:** Discover rebuilt as Cricket Opportunity Marketplace
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Discover · Opportunity Marketplace)
+
+| Item | Status |
+|------|--------|
+| Replaced geo hub Discover with opportunity marketplace feed | Done |
+| Config-driven categories + dynamic create forms (12 types) | Done |
+| Firestore `opportunity_posts` + saves + reports + indexes/rules | Done |
+| Feed: category chips, quick filters, search, pagination | Done |
+| Post card: badge, chips, share / chat / call / WhatsApp / bookmark | Done |
+| Create flow: category → form → preview → publish + expiry | Done |
+| Bookmarks in Profile → `/discover/saved` | Done |
+| Admin pin / feature / remove / block (platform_admins) | Done |
+| Report reasons: Spam, Fake, Offensive, Duplicate, Other | Done |
+| Deploy Firestore + Storage rules + indexes | Pending — `.\scripts\deploy-firebase.ps1` |
+
+---
+
+## Latest (Home Matches Near You)
+
+| Item | Status |
+|------|--------|
+| Nearby matches use GPS radius only; no country-wide fallback | Done |
+| Untagged matches only if same current city/district | Done |
+| Permission denied → profile city only (not entire country) | Done |
+
+---
+
+## Latest (Unified search fix)
+
+| Item | Status |
+|------|--------|
+| Search query persisted across `/search` → results (no autoDispose wipe) | Done |
+| Results wait for matches/teams/tournaments streams before querying | Done |
+| Player search scans `players` + `users` by name contains (squad-style) | Done |
+| Removed Users and Clubs search categories (for now) | Done |
+| Query + category passed via route params as backup | Done |
+
+---
+
+## Latest (App-bar search parity)
+
+| Item | Status |
+|------|--------|
+| Discover + My Cricket app bar Search → same `/search` as Home / Community | Done |
+
+---
+
+## Latest (Teams location filter)
+
+| Item | Status |
+|------|--------|
+| My Cricket / Teams / Select Team use shared multi-location filter (GPS + search), same as Community | Done — `LocationFilterSheet` / `LocationFilterSelection` |
 
 ---
 
@@ -679,7 +734,7 @@
 | Item | Status |
 |------|--------|
 | Select Team — removed inline country/city filters + AppBar search icon | Done |
-| Select Team — Teams tab location filter sheet + inline search bar | Done |
+| Select Team — Teams tab location filter sheet + inline search bar | Done — shared `LocationFilterSheet` |
 | Select Team — `TeamsListFilter` search (name, code, location, ID) | Done |
 | Select Team — location filters cleared on screen open | Done |
 | Select Team — block duplicate Team A/B selection with visual state | Done |
