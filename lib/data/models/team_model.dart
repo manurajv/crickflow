@@ -75,6 +75,7 @@ class TeamModel extends Equatable {
     this.badgeIds = const [],
     this.createdBy,
     this.createdAt,
+    this.profileViewsCount = 0,
   });
 
   final String id;
@@ -97,6 +98,9 @@ class TeamModel extends Equatable {
   final List<String> badgeIds;
   final String? createdBy;
   final DateTime? createdAt;
+
+  /// Unique viewer-day count; maintained by Cloud Functions.
+  final int profileViewsCount;
 
   String? get profileImageUrl =>
       _nonEmpty(teamProfileImageUrl) ?? _nonEmpty(logoUrl);
@@ -131,6 +135,7 @@ class TeamModel extends Equatable {
       badgeIds: List<String>.from(map['badgeIds'] as List? ?? []),
       createdBy: map['createdBy'] as String?,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
+      profileViewsCount: (map['profileViewsCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -155,6 +160,7 @@ class TeamModel extends Equatable {
     if (createdBy != null) 'createdBy': createdBy,
     'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
     'updatedAt': DateTime.now().toIso8601String(),
+    // profileViewsCount is maintained by Cloud Functions — omit from client writes.
   };
 
   TeamModel copyWith({
@@ -177,6 +183,7 @@ class TeamModel extends Equatable {
     List<String>? badgeIds,
     String? createdBy,
     DateTime? createdAt,
+    int? profileViewsCount,
   }) {
     return TeamModel(
       id: id,
@@ -200,6 +207,7 @@ class TeamModel extends Equatable {
       badgeIds: badgeIds ?? this.badgeIds,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
+      profileViewsCount: profileViewsCount ?? this.profileViewsCount,
     );
   }
 

@@ -29,7 +29,7 @@ Broadcast-style wagon wheel for CrickFlow: scorers mark shot direction on a top-
 | 10 | View modes: lines / scatter / heatmap | ✅ Done | `WagonWheelViewScreen` |
 | 11 | Filters (batter, bowler, team, match, innings, runs) | ✅ Done | `WagonWheelFilter` + provider |
 | 12 | Match insights embed + quick filters | ✅ Done | `WagonWheelEmbeddedSection` |
-| 13 | Player career embed (bat + bowl) | ✅ Done | `PlayerDetailScreen` |
+| 13 | Player career embed (bat + bowl) | ✅ Done | Cricket profile (`/player/:id/cricket`) |
 | 13b | Team wagon wheel embed | ✅ Done | `TeamDetailScreen` |
 | 13c | Full view filter panel | ✅ Done | Batter, bowler, team, innings, runs, date, view mode |
 | 13d | Performer tap → filtered full view | ✅ Done | Match Insights top bat/bowl tiles |

@@ -10,7 +10,6 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/deep_link_utils.dart';
-import '../../../core/utils/venue_maps_utils.dart';
 import '../../../data/models/tournament/tournament_activity_model.dart';
 import '../../../data/models/tournament/tournament_setup_meta.dart';
 import '../../../data/models/tournament_model.dart';
@@ -18,6 +17,7 @@ import '../../../data/models/user_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/widgets/cf_button.dart';
+import '../../../shared/widgets/venue_location_sheet.dart';
 import 'tournament_dashboard_sections.dart';
 import 'utils/tournament_display_utils.dart';
 import 'widgets/overview/tournament_overview_widgets.dart';
@@ -352,16 +352,6 @@ class _GroundsRows extends StatelessWidget {
     return city.isEmpty ? ground : '$ground, $city';
   }
 
-  Future<void> _openMaps(BuildContext context, String query) async {
-    final ok = await openVenueInGoogleMaps(query: query);
-    if (!context.mounted) return;
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open Google Maps')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
@@ -389,7 +379,11 @@ class _GroundsRows extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
                     child: InkWell(
-                      onTap: () => _openMaps(context, _queryFor(grounds[i])),
+                      onTap: () => showVenueLocationSheet(
+                        context,
+                        title: grounds[i],
+                        directionsQuery: _queryFor(grounds[i]),
+                      ),
                       child: Text(
                         grounds[i],
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(

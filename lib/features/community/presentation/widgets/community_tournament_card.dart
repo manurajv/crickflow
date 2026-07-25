@@ -14,6 +14,7 @@ import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
+import '../../../../shared/widgets/venue_location_sheet.dart';
 import 'community_media_viewer.dart';
 /// Tournament embed: name → organizer → thumbnail → details.
 class CommunityTournamentCard extends ConsumerWidget {
@@ -158,24 +159,17 @@ class CommunityTournamentCard extends ConsumerWidget {
                   ...grounds.map(
                     (g) => Padding(
                       padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            size: 16,
-                            color: cf.accent,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              g,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: TappableVenueLocation(
+                        label: g,
+                        directionsQuery: snapshot.locationLabel.trim().isEmpty
+                            ? g
+                            : '$g, ${snapshot.locationLabel.trim()}',
+                        underline: false,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: cf.textPrimary,
+                        ),
+                        maxLines: 2,
                       ),
                     ),
                   ),

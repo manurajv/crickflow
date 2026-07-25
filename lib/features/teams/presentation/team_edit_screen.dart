@@ -2,14 +2,20 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/player_profile_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
+import '../../../data/models/location_model.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_underlined_field.dart';
+import '../../discover/presentation/widgets/opportunity_location_field.dart';
+import '../../player_onboarding/presentation/widgets/onboarding_location_section.dart';
 import 'utils/team_image_upload.dart';
+import 'utils/team_location_parts.dart';
 import 'utils/team_squad_utils.dart';
 import 'widgets/team_detail_banner.dart';
 
@@ -24,24 +30,91 @@ class TeamEditScreen extends ConsumerStatefulWidget {
 
 class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   File? _profileFile;
   File? _coverFile;
   String? _profileUrl;
   String? _coverUrl;
+  LocationModel _teamLocation = const LocationModel();
+  LocationModel _homeGround = const LocationModel();
+  String _dialCode = '+94';
+  var _bound = false;
   var _saving = false;
 
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
   void _bindTeam(TeamModel team) {
-    if (_nameController.text.isEmpty) {
-      _nameController.text = team.name;
-      _profileUrl = team.profileImageUrl;
-      _coverUrl = team.coverImageUrl;
+    if (_bound) return;
+    _bound = true;
+    _nameController.text = team.name;
+    _profileUrl = team.profileImageUrl;
+    _coverUrl = team.coverImageUrl;
+    final parts = TeamLocationParts.fromStored(team.location);
+    _teamLocation = parts.teamLocation;
+    _homeGround = parts.homeGround;
+    _syncDialCodeFromCountry(_teamLocation.country);
+    _applyContactNumber(team.contactNumber);
+  }
+
+  void _applyContactNumber(String? raw) {
+    final mobile = raw?.trim() ?? '';
+    if (mobile.isEmpty) {
+      _phoneController.clear();
+      return;
     }
+    final dial = CricketCountry.all
+        .map((c) => c.dialCode)
+        .where(mobile.startsWith)
+        .fold<String?>(
+          null,
+          (prev, code) =>
+              prev == null || code.length > prev.length ? code : prev,
+        );
+    if (dial != null) {
+      _dialCode = dial;
+      _phoneController.text = mobile.substring(dial.length);
+    } else {
+      _phoneController.text = mobile.replaceFirst(RegExp(r'^\+\d+\s*'), '');
+    }
+  }
+
+  void _syncDialCodeFromCountry(String countryName) {
+    final match = CricketCountry.byName(countryName);
+    if (match != null) {
+      _dialCode = match.dialCode;
+    }
+  }
+
+  void _onTeamLocationChanged(LocationModel location) {
+    setState(() {
+      _teamLocation = location.copyWith(clearPlaceName: true);
+      _syncDialCodeFromCountry(location.country);
+    });
+  }
+
+  void _onHomeGroundChanged(LocationModel ground) {
+    setState(() => _homeGround = ground);
+  }
+
+  String get _phoneNumberHint {
+    return switch (_dialCode) {
+      '+94' => '771234567',
+      '+91' => '9876543210',
+      '+92' => '3001234567',
+      '+880' => '1712345678',
+      '+44' => '7911123456',
+      '+61' => '412345678',
+      '+64' => '211234567',
+      '+27' => '821234567',
+      '+1' => '2025551234',
+      '+971' => '501234567',
+      _ => '771234567',
+    };
   }
 
   Future<void> _pickImage(TeamImageKind kind) async {
@@ -75,6 +148,16 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
       ).showSnackBar(const SnackBar(content: Text('Team name is required')));
       return;
     }
+    if (_teamLocation.city.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'City is required — search or enter your team location',
+          ),
+        ),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
     try {
@@ -92,11 +175,20 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
         coverUrl = await storage.uploadTeamCoverImage(team.id, _coverFile!);
       }
 
+      final phoneRaw = _phoneController.text.trim();
+      final contactNumber = phoneRaw.isEmpty ? '' : '$_dialCode$phoneRaw';
+      final location = TeamLocationParts(
+        teamLocation: _teamLocation,
+        homeGround: _homeGround,
+      ).merge();
+
       final updated = team.copyWith(
         name: name,
         teamProfileImageUrl: profileUrl,
         teamCoverImageUrl: coverUrl,
         logoUrl: profileUrl,
+        location: location,
+        contactNumber: contactNumber,
       );
       await ref.read(teamRepositoryProvider).updateTeam(updated);
 
@@ -172,21 +264,21 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
                     child: _coverFile != null
                         ? Image.file(_coverFile!, fit: BoxFit.cover)
                         : _coverUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: _coverUrl!,
-                            fit: BoxFit.cover,
-                          )
-                        : const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: AppColors.heroGradient,
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.add_photo_alternate_outlined,
-                                color: AppColors.textSecondary,
+                            ? CachedNetworkImage(
+                                imageUrl: _coverUrl!,
+                                fit: BoxFit.cover,
+                              )
+                            : const DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.heroGradient,
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
                   ),
                 ),
               ),
@@ -205,8 +297,8 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
                     backgroundImage: _profileFile != null
                         ? FileImage(_profileFile!)
                         : _profileUrl != null
-                        ? CachedNetworkImageProvider(_profileUrl!)
-                        : null,
+                            ? CachedNetworkImageProvider(_profileUrl!)
+                            : null,
                     child: _profileFile == null && _profileUrl == null
                         ? const Icon(Icons.add_a_photo_outlined, size: 32)
                         : null,
@@ -219,6 +311,112 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
                 label: 'Team name',
                 required: true,
               ),
+              const SizedBox(height: AppDimens.spaceLg),
+              Text(
+                'Home ground',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: AppDimens.spaceSm),
+              OpportunityLocationField(
+                location: _homeGround,
+                onLocationChanged: _onHomeGroundChanged,
+                helperText:
+                    'Search Google Places or pin your home ground on the map',
+                hintText: 'Home ground / venue',
+              ),
+              const SizedBox(height: AppDimens.spaceLg),
+              Text(
+                'Team location',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: AppDimens.spaceXs),
+              Text(
+                'City / region for the team (separate from home ground)',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+              ),
+              const SizedBox(height: AppDimens.spaceSm),
+              OnboardingLocationSection(
+                key: ValueKey('edit-loc-${team.id}'),
+                initialLocation: _teamLocation,
+                onLocationChanged: _onTeamLocationChanged,
+                autoDetectOnInit: false,
+                locationService: ref.read(googleMapsLocationServiceProvider),
+              ),
+              const SizedBox(height: AppDimens.spaceLg),
+              Text(
+                'Contact number',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: AppDimens.spaceSm),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 108,
+                    child: Builder(
+                      builder: (context) {
+                        final dialCodes = [
+                          ...CricketCountry.phoneDialCodes,
+                        ];
+                        if (!dialCodes.contains(_dialCode)) {
+                          dialCodes.insert(0, _dialCode);
+                        }
+                        return DropdownButtonFormField<String>(
+                          key: ValueKey(_dialCode),
+                          initialValue: _dialCode,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Code',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 16,
+                            ),
+                          ),
+                          items: dialCodes
+                              .map(
+                                (c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(c),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: _saving
+                              ? null
+                              : (v) {
+                                  if (v != null) {
+                                    setState(() => _dialCode = v);
+                                  }
+                                },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: AppDimens.spaceSm),
+                  Expanded(
+                    child: TextField(
+                      controller: _phoneController,
+                      decoration: InputDecoration(
+                        labelText: 'Contact number',
+                        hintText: _phoneNumberHint,
+                        helperText: 'Optional — digits only',
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppDimens.spaceXl),
             ],
           ),
         );

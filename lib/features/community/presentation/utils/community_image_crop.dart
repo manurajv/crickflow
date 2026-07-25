@@ -9,10 +9,14 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../teams/presentation/utils/team_image_upload.dart';
 
-/// Pick image, let user choose aspect ratio, crop, return file + aspect.
+/// Pick image, crop, return file + aspect.
+///
+/// When [fixedAspect] is set, skips the aspect-ratio sheet and locks crop to
+/// that ratio (used for Discover ground photos → 16:9 only).
 Future<({File file, CommunityMediaAspect aspect})?> pickAndCropCommunityImage(
   BuildContext context, {
   ImageSource? source,
+  CommunityMediaAspect? fixedAspect,
 }) async {
   ImageSource? resolved = source;
   if (resolved == null) {
@@ -24,7 +28,7 @@ Future<({File file, CommunityMediaAspect aspect})?> pickAndCropCommunityImage(
   }
   if (!context.mounted) return null;
 
-  final aspect = await showCommunityAspectPicker(context);
+  final aspect = fixedAspect ?? await showCommunityAspectPicker(context);
   if (aspect == null || !context.mounted) return null;
 
   final picker = ImagePicker();

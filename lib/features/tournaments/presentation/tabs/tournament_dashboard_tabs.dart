@@ -5,7 +5,6 @@ import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
-import '../../../../core/utils/venue_maps_utils.dart';
 import '../../../../data/models/tournament/tournament_rules_model.dart';
 import '../../../../data/models/tournament/tournament_sponsor_model.dart';
 import '../../../../data/models/tournament/tournament_points_table_model.dart';
@@ -16,6 +15,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/match_scoring_rules_form.dart';
+import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../widgets/points/tournament_points_table_view.dart';
 import '../utils/tournament_display_utils.dart';
 import '../widgets/tournament_completion_sheet.dart';
@@ -786,17 +786,15 @@ class _DetailRow extends StatelessWidget {
   final String value;
   final String? mapsQuery;
 
-  Future<void> _openMaps(BuildContext context) async {
+  Future<void> _openVenueActions(BuildContext context) async {
     final query = mapsQuery?.trim();
     if (query == null || query.isEmpty) return;
 
-    final ok = await openVenueInGoogleMaps(query: query);
-    if (!context.mounted) return;
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open Google Maps')),
-      );
-    }
+    await showVenueLocationSheet(
+      context,
+      title: value,
+      directionsQuery: query,
+    );
   }
 
   @override
@@ -812,7 +810,7 @@ class _DetailRow extends StatelessWidget {
 
     final valueWidget = canOpenMaps
         ? InkWell(
-            onTap: () => _openMaps(context),
+            onTap: () => _openVenueActions(context),
             child: Text(value, style: valueStyle),
           )
         : Text(value, style: TextStyle(color: cf.textPrimary));

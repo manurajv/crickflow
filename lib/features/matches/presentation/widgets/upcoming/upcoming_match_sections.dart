@@ -8,7 +8,6 @@ import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../core/utils/calendar_utils.dart';
 import '../../../../../core/utils/match_share_utils.dart';
-import '../../../../../core/utils/venue_maps_utils.dart';
 import '../../../../../data/models/match_model.dart';
 import '../../../../../domain/services/match_info_models.dart';
 import '../../../../../domain/services/match_upcoming_models.dart';
@@ -16,6 +15,7 @@ import '../../../../../shared/widgets/cf_button.dart';
 import '../../../../../shared/widgets/match_follow_button.dart';
 import '../../../../../shared/widgets/match_quick_action_button.dart';
 import '../../../../../shared/widgets/match_team_avatar.dart';
+import '../../../../../shared/widgets/venue_location_sheet.dart';
 import '../../tabs/match_info_tab.dart';
 import '../summary/match_summary_sections.dart';
 
@@ -645,18 +645,18 @@ class UpcomingQuickActions extends StatelessWidget {
                     child: MatchQuickActionButton(
                       icon: Icons.place_outlined,
                       label: 'View Venue',
-                      onPressed: () async {
-                        final ok = await openVenueDirections(
-                          destination: match.venue,
-                        );
-                        if (context.mounted && !ok) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Could not open maps'),
-                            ),
-                          );
-                        }
-                      },
+                      onPressed: () => showVenueLocationSheet(
+                        context,
+                        title: match.venue.trim().isNotEmpty
+                            ? match.venue.trim()
+                            : match.location.displayLabel,
+                        directionsQuery: match.venue.trim().isNotEmpty
+                            ? match.venue.trim()
+                            : match.location.displayLabel,
+                        location: match.location.isEmpty
+                            ? null
+                            : match.location,
+                      ),
                     ),
                   ),
                   const SizedBox(width: AppDimens.spaceSm),

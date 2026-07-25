@@ -42,6 +42,7 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
   late ScrollController _scrollController;
   bool _showAppBarTitle = false;
   double _titleThreshold = 0;
+  var _recordedView = false;
 
   void _syncTitleVisibility() {
     if (_tabs.indexIsChanging || !_scrollController.hasClients) return;
@@ -88,6 +89,30 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
     _scrollController.dispose();
     _tabs.dispose();
     super.dispose();
+  }
+
+  Future<void> _trackProfileView({
+    required UserModel? profileUser,
+    required String? viewerId,
+    required bool isOwn,
+  }) async {
+    if (_recordedView || isOwn) return;
+    final profileUserId = profileUser?.id;
+    if (profileUserId == null ||
+        profileUserId.isEmpty ||
+        viewerId == null ||
+        viewerId.isEmpty) {
+      return;
+    }
+    _recordedView = true;
+    try {
+      await ref.read(playerFollowRepositoryProvider).recordProfileView(
+            profileUserId: profileUserId,
+            viewerUserId: viewerId,
+          );
+    } catch (_) {
+      _recordedView = false;
+    }
   }
 
   @override
@@ -171,6 +196,14 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
                 MediaQuery.paddingOf(context).top + kToolbarHeight;
             // Title appears once the flexible profile card has fully collapsed.
             _titleThreshold = expandedHeight - topInset - 1;
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _trackProfileView(
+                profileUser: user,
+                viewerId: viewerId,
+                isOwn: isOwn,
+              );
+            });
 
             return NestedScrollView(
               controller: _scrollController,

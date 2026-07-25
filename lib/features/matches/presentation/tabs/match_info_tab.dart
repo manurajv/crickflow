@@ -5,12 +5,12 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
-import '../../../../core/utils/venue_maps_utils.dart';
 import '../../../../domain/services/match_info_models.dart';
 import '../../../../shared/providers/match_info_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_match_repair.dart';
 import '../../../../shared/widgets/lineup_player_avatar.dart';
+import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../widgets/info/match_tournament_info_card.dart';
 import '../widgets/summary/match_summary_sections.dart';
 
@@ -163,14 +163,12 @@ class _InfoRow extends StatelessWidget {
   final MatchInfoRow row;
   final CfColors cf;
 
-  Future<void> _openMaps(BuildContext context) async {
-    final ok = await openVenueDirections(destination: row.value);
-    if (!context.mounted) return;
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open Google Maps')),
-      );
-    }
+  Future<void> _openVenueActions(BuildContext context) async {
+    await showVenueLocationSheet(
+      context,
+      title: row.value,
+      directionsQuery: row.value,
+    );
   }
 
   @override
@@ -189,7 +187,7 @@ class _InfoRow extends StatelessWidget {
       valueWidget = InkWell(
         onTap: () {
           if (row.openDirectionsInMaps) {
-            _openMaps(context);
+            _openVenueActions(context);
           } else if (row.route != null && row.route!.isNotEmpty) {
             context.push(row.route!);
           }

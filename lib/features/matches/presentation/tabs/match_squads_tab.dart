@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
@@ -97,6 +98,26 @@ class MatchSquadsTab extends ConsumerWidget {
   }
 }
 
+void _openTeamProfile(BuildContext context, MatchSquadSide side) {
+  final id = side.teamId?.trim() ?? '';
+  if (id.isEmpty) return;
+  context.push('/teams/$id');
+}
+
+bool _canOpenCricketProfile(MatchPlayerSnapshot player) {
+  if (player.isMatchOnlyPlayer) return false;
+  if (player.id.startsWith('guest_')) return false;
+  if (!player.isRegisteredUser) return false;
+  final publicId = player.playerId?.trim() ?? '';
+  return publicId.isNotEmpty;
+}
+
+void _openCricketProfile(BuildContext context, MatchPlayerSnapshot player) {
+  if (!_canOpenCricketProfile(player)) return;
+  final publicId = player.playerId!.trim();
+  context.push('/player/$publicId/cricket');
+}
+
 class _TeamHeaderRow extends StatelessWidget {
   const _TeamHeaderRow({
     required this.teamA,
@@ -144,6 +165,7 @@ class _TeamHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canOpen = side.teamId?.trim().isNotEmpty ?? false;
     final avatar = MatchTeamAvatar(
       name: side.teamName,
       logoUrl: side.teamLogoUrl,
@@ -162,13 +184,27 @@ class _TeamHeader extends StatelessWidget {
       textAlign: alignEnd ? TextAlign.end : TextAlign.start,
     );
 
-    return Row(
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment:
           alignEnd ? MainAxisAlignment.end : MainAxisAlignment.start,
       children: alignEnd
           ? [Flexible(child: label), const SizedBox(width: 8), avatar]
           : [avatar, const SizedBox(width: 8), Flexible(child: label)],
+    );
+
+    if (!canOpen) return row;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openTeamProfile(context, side),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: row,
+        ),
+      ),
     );
   }
 }
@@ -277,6 +313,7 @@ class _PlayerRow extends ConsumerWidget {
     final isViceCaptain = side.viceCaptainId == player.id;
     final isWicketKeeper = side.wicketKeeperId == player.id;
     final clustersAsync = ref.watch(playerCricketProfileByIdProvider(player.id));
+    final canOpen = _canOpenCricketProfile(player);
 
     final avatar = _SquadPlayerAvatar(
       player: player,
@@ -323,7 +360,7 @@ class _PlayerRow extends ConsumerWidget {
               textAlign: alignEnd ? TextAlign.end : TextAlign.start,
             ),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => PlayerClusterText(
+            error: (_, _) => PlayerClusterText(
               clusters: const PlayerClusters(),
               showNewPlayerForMissing: true,
               fontSize: 8,
@@ -338,13 +375,23 @@ class _PlayerRow extends ConsumerWidget {
       ),
     );
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: alignEnd
             ? [text, const SizedBox(width: 8), avatar]
             : [avatar, const SizedBox(width: 8), text],
+      ),
+    );
+
+    if (!canOpen) return row;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openCricketProfile(context, player),
+        child: row,
       ),
     );
   }

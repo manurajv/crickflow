@@ -16,7 +16,9 @@ import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/opportunity_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/report_reason_dialog.dart';
+import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../../domain/opportunity_category.dart';
+import '../create_opportunity_flow.dart';
 import 'opportunity_author_sheet.dart';
 
 /// Compact marketplace card for an opportunity listing.
@@ -46,8 +48,8 @@ class OpportunityPostCard extends ConsumerWidget {
     final saved =
         ref.watch(opportunityPostSavedProvider(post.id)).valueOrNull ?? false;
     final category = post.category;
-    final chips = post.cardChips.take(4).toList();
-    final eventDate = post.eventDate;
+    final chips = post.cardChips;
+    final eventDateLabel = post.eventDateLabel;
     final location = post.locationLabel;
 
     return Material(
@@ -102,7 +104,7 @@ class OpportunityPostCard extends ConsumerWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: AppDimens.spaceSm),
+              const SizedBox(height: 4),
               _AuthorRow(
                 post: post,
                 onAuthorTap: previewMode
@@ -124,25 +126,17 @@ class OpportunityPostCard extends ConsumerWidget {
               ),
               if (location.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.location_on_outlined,
-                        size: 14, color: cf.textMuted),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        location,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cf.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                TappableVenueLocation(
+                  label: location,
+                  location: post.location,
+                  maxLines: 2,
+                  underline: false,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cf.textSecondary,
+                  ),
                 ),
               ],
-              if (eventDate != null) ...[
+              if (eventDateLabel != null) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -150,7 +144,7 @@ class OpportunityPostCard extends ConsumerWidget {
                         size: 13, color: cf.textMuted),
                     const SizedBox(width: 4),
                     Text(
-                      AppDateUtils.formatShort(eventDate),
+                      eventDateLabel,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cf.textSecondary,
                       ),
@@ -158,24 +152,53 @@ class OpportunityPostCard extends ConsumerWidget {
                   ],
                 ),
               ],
+              if (post.portfolioUrl != null) ...[
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: previewMode
+                      ? null
+                      : () => launchUrl(
+                            Uri.parse(post.portfolioUrl!),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.link, size: 14, color: cf.accent),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Portfolio reference',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cf.accent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (chips.isNotEmpty) ...[
                 const SizedBox(height: AppDimens.spaceSm),
                 Wrap(
                   spacing: 6,
-                  runSpacing: 4,
+                  runSpacing: 6,
                   children: chips
                       .map(
                         (c) => Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
-                            vertical: 3,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
                             color: cf.sectionBackground,
                             borderRadius:
                                 BorderRadius.circular(AppDimens.radiusSm),
                             border: Border.all(
-                              color: cf.border.withValues(alpha: 0.7),
+                              color: cf.border.withValues(alpha: 0.55),
                             ),
                           ),
                           child: Text(
@@ -183,6 +206,8 @@ class OpportunityPostCard extends ConsumerWidget {
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: cf.textSecondary,
                               fontWeight: FontWeight.w600,
+                              height: 1.15,
+                              letterSpacing: 0.1,
                             ),
                           ),
                         ),
@@ -192,25 +217,7 @@ class OpportunityPostCard extends ConsumerWidget {
               ],
               if (post.mediaUrls.isNotEmpty) ...[
                 const SizedBox(height: AppDimens.spaceSm),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: CachedNetworkImage(
-                      imageUrl: post.mediaUrls.first,
-                      fit: BoxFit.cover,
-                      placeholder: (_, _) => Container(
-                        color: cf.sectionBackground,
-                      ),
-                      errorWidget: (_, _, _) => Container(
-                        color: cf.sectionBackground,
-                        alignment: Alignment.center,
-                        child: Icon(Icons.broken_image_outlined,
-                            color: cf.textMuted),
-                      ),
-                    ),
-                  ),
-                ),
+                _MediaSlideshow(urls: post.mediaUrls),
               ],
               if (post.description.trim().isNotEmpty) ...[
                 const SizedBox(height: AppDimens.spaceSm),
@@ -220,14 +227,141 @@ class OpportunityPostCard extends ConsumerWidget {
                   onReadMore: onTap,
                 ),
               ],
-              const SizedBox(height: AppDimens.spaceSm),
-              _Footer(
-                post: post,
-                saved: saved,
-                previewMode: previewMode,
-              ),
+              if (post.brandingOfferText != null) ...[
+                const SizedBox(height: AppDimens.spaceSm),
+                _ExpandableDescription(
+                  text: post.brandingOfferText!,
+                  previewMode: previewMode,
+                  onReadMore: onTap,
+                  bold: true,
+                ),
+              ],
+              if (!previewMode) ...[
+                const SizedBox(height: AppDimens.spaceSm),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: cf.border.withValues(alpha: 0.55),
+                ),
+                _Footer(
+                  post: post,
+                  saved: saved,
+                ),
+              ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 16:9 ground photo gallery — swipe when more than one image.
+class _MediaSlideshow extends StatefulWidget {
+  const _MediaSlideshow({required this.urls});
+
+  final List<String> urls;
+
+  @override
+  State<_MediaSlideshow> createState() => _MediaSlideshowState();
+}
+
+class _MediaSlideshowState extends State<_MediaSlideshow> {
+  late final PageController _controller;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    final urls = widget.urls;
+    final multi = urls.length > 1;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _controller,
+              physics: multi
+                  ? const PageScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              itemCount: urls.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (context, i) {
+                return CachedNetworkImage(
+                  imageUrl: urls[i],
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => Container(color: cf.sectionBackground),
+                  errorWidget: (_, _, _) => Container(
+                    color: cf.sectionBackground,
+                    alignment: Alignment.center,
+                    child: Icon(Icons.broken_image_outlined,
+                        color: cf.textMuted),
+                  ),
+                );
+              },
+            ),
+            if (multi) ...[
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_index + 1}/${urls.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 8,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(urls.length, (i) {
+                    final active = i == _index;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: active ? 14 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: active
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -305,49 +439,80 @@ class _AuthorRow extends StatelessWidget {
     final theme = Theme.of(context);
     final photo = post.authorPhotoUrl?.trim() ?? '';
     final hasPhoto = photo.isNotEmpty;
+    final time = post.createdAt != null
+        ? AppDateUtils.timeAgo(post.createdAt!)
+        : '';
 
-    return InkWell(
-      onTap: onAuthorTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: cf.sectionBackground,
-            backgroundImage:
-                hasPhoto ? CachedNetworkImageProvider(photo) : null,
-            child: hasPhoto
-                ? null
-                : Text(
-                    post.authorName.isNotEmpty
-                        ? post.authorName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: onAuthorTap,
+            borderRadius: BorderRadius.circular(8),
             child: Row(
               children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: cf.sectionBackground,
+                  backgroundImage:
+                      hasPhoto ? CachedNetworkImageProvider(photo) : null,
+                  child: hasPhoto
+                      ? null
+                      : Text(
+                          post.authorName.isNotEmpty
+                              ? post.authorName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                ),
+                const SizedBox(width: 8),
                 Flexible(
-                  child: Text(
-                    post.authorName.isNotEmpty ? post.authorName : 'Cricketer',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          post.authorName.isNotEmpty
+                              ? post.authorName
+                              : 'Cricketer',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (post.authorVerified) ...[
+                        const SizedBox(width: 4),
+                        Icon(Icons.verified, size: 14, color: cf.accent),
+                      ],
+                    ],
                   ),
                 ),
-                if (post.authorVerified) ...[
-                  const SizedBox(width: 4),
-                  Icon(Icons.verified, size: 14, color: cf.accent),
-                ],
               ],
             ),
           ),
+        ),
+        const SizedBox(width: 8),
+        Icon(Icons.visibility_outlined, size: 13, color: cf.textMuted),
+        const SizedBox(width: 3),
+        Text(
+          '${post.viewCount}',
+          style: theme.textTheme.labelSmall?.copyWith(color: cf.textMuted),
+        ),
+        if (time.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            child: Text(
+              '·',
+              style: theme.textTheme.labelSmall?.copyWith(color: cf.textMuted),
+            ),
+          ),
+          Text(
+            time,
+            style: theme.textTheme.labelSmall?.copyWith(color: cf.textMuted),
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -357,11 +522,13 @@ class _ExpandableDescription extends StatefulWidget {
     required this.text,
     required this.previewMode,
     this.onReadMore,
+    this.bold = false,
   });
 
   final String text;
   final bool previewMode;
   final VoidCallback? onReadMore;
+  final bool bold;
 
   @override
   State<_ExpandableDescription> createState() => _ExpandableDescriptionState();
@@ -381,7 +548,8 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
         Text(
           widget.text,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: cf.textSecondary,
+            color: widget.bold ? cf.textPrimary : cf.textSecondary,
+            fontWeight: widget.bold ? FontWeight.w700 : FontWeight.w400,
             height: 1.35,
           ),
           maxLines: _expanded ? null : 3,
@@ -429,20 +597,14 @@ class _Footer extends ConsumerWidget {
   const _Footer({
     required this.post,
     required this.saved,
-    required this.previewMode,
   });
 
   final OpportunityPostModel post;
   final bool saved;
-  final bool previewMode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
-    final theme = Theme.of(context);
-    final time = post.createdAt != null
-        ? AppDateUtils.timeAgo(post.createdAt!)
-        : '';
     final showChat =
         post.contactMethods.contains(OpportunityContactMethod.chat);
     final showPhone =
@@ -451,82 +613,90 @@ class _Footer extends ConsumerWidget {
     final showWa =
         post.contactMethods.contains(OpportunityContactMethod.whatsapp) &&
             post.contactWhatsApp.trim().isNotEmpty;
+    final hasContact = showChat || showPhone || showWa;
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.visibility_outlined, size: 14, color: cf.textMuted),
-        const SizedBox(width: 3),
-        Text(
-          '${post.viewCount}',
-          style: theme.textTheme.labelSmall?.copyWith(color: cf.textMuted),
-        ),
-        if (time.isNotEmpty) ...[
-          const SizedBox(width: 8),
-          Text(
-            time,
-            style: theme.textTheme.labelSmall?.copyWith(color: cf.textMuted),
-          ),
-        ],
-        const Spacer(),
-        if (!previewMode) ...[
-          if (showPhone)
-            _IconAction(
-              icon: Icons.call_outlined,
-              tooltip: 'Call',
-              onTap: () => launchUrl(
-                Uri(scheme: 'tel', path: post.contactPhone.trim()),
-              ),
-            ),
-          if (showWa)
-            _IconAction(
-              icon: Icons.message_outlined,
-              tooltip: 'WhatsApp',
-              onTap: () {
-                final phone =
-                    post.contactWhatsApp.replaceAll(RegExp(r'\D'), '');
-                launchUrl(
-                  Uri.parse('https://wa.me/$phone'),
-                  mode: LaunchMode.externalApplication,
-                );
-              },
-            ),
-          _IconAction(
-            icon: Icons.share_outlined,
-            tooltip: 'Share',
-            onTap: () => _share(ref),
-          ),
-          if (showChat)
-            _IconAction(
-              icon: Icons.chat_bubble_outline,
-              tooltip: 'Chat',
-              onTap: () => _openChat(context, ref),
-            ),
-          _IconAction(
-            icon: saved ? Icons.bookmark : Icons.bookmark_border,
-            tooltip: saved ? 'Saved' : 'Save',
-            color: saved ? cf.accent : null,
-            onTap: () => requireAuthVoid(
-              context: context,
-              ref: ref,
-              action: () async {
-                final uid = ref.read(authStateProvider).valueOrNull?.uid;
-                if (uid == null) return;
-                try {
-                  await ref.read(opportunityRepositoryProvider).toggleSave(
-                        postId: post.id,
-                        userId: uid,
-                      );
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Could not save: $e')),
+        if (hasContact) ...[
+          const SizedBox(height: AppDimens.spaceSm),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (showPhone)
+                _ContactButton(
+                  icon: Icons.phone_outlined,
+                  label: 'Call',
+                  onTap: () => launchUrl(
+                    Uri(scheme: 'tel', path: post.contactPhone.trim()),
+                  ),
+                ),
+              if (showWa)
+                _ContactButton(
+                  icon: Icons.chat_outlined,
+                  label: 'WhatsApp',
+                  onTap: () {
+                    final phone =
+                        post.contactWhatsApp.replaceAll(RegExp(r'\D'), '');
+                    launchUrl(
+                      Uri.parse('https://wa.me/$phone'),
+                      mode: LaunchMode.externalApplication,
                     );
-                  }
-                }
-              },
-            ),
+                  },
+                ),
+              if (showChat)
+                OutlinedButton(
+                  onPressed: () => _openChat(context, ref),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    minimumSize: const Size(0, 34),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Chat'),
+                ),
+            ],
           ),
         ],
+        Row(
+          children: [
+            _FooterAction(
+              icon: Icons.share_outlined,
+              label: post.shareCount > 0 ? '${post.shareCount}' : '',
+              onTap: () => _share(ref),
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: () => requireAuthVoid(
+                context: context,
+                ref: ref,
+                action: () async {
+                  final uid = ref.read(authStateProvider).valueOrNull?.uid;
+                  if (uid == null) return;
+                  try {
+                    await ref.read(opportunityRepositoryProvider).toggleSave(
+                          postId: post.id,
+                          userId: uid,
+                        );
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Could not save: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+              icon: Icon(
+                saved ? Icons.bookmark : Icons.bookmark_border,
+                color: saved ? cf.accent : null,
+              ),
+              tooltip: saved ? 'Saved' : 'Save',
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -608,29 +778,62 @@ class _Footer extends ConsumerWidget {
   }
 }
 
-class _IconAction extends StatelessWidget {
-  const _IconAction({
+/// Community-style labeled icon action (share / counts).
+class _FooterAction extends StatelessWidget {
+  const _FooterAction({
     required this.icon,
-    required this.tooltip,
     required this.onTap,
-    this.color,
+    this.label = '',
   });
 
   final IconData icon;
-  final String tooltip;
+  final String label;
   final VoidCallback onTap;
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
-    return IconButton(
-      tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      icon: Icon(icon, size: AppDimens.iconSm, color: color ?? cf.textMuted),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 20),
+            if (label.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Text(label, style: Theme.of(context).textTheme.labelMedium),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactButton extends StatelessWidget {
+  const _ContactButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
       onPressed: onTap,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        minimumSize: const Size(0, 34),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
     );
   }
 }
@@ -652,6 +855,8 @@ class _OverflowMenu extends ConsumerWidget {
     return PopupMenuButton<String>(
       tooltip: 'Post options',
       padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      iconSize: 20,
       onSelected: (v) => _onSelected(context, ref, v),
       itemBuilder: (_) => [
         const PopupMenuItem(
@@ -705,7 +910,16 @@ class _OverflowMenu extends ConsumerWidget {
             ),
           ),
         ],
-        if (isOwner)
+        if (isOwner) ...[
+          const PopupMenuItem(
+            value: 'edit',
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.edit_outlined),
+              title: Text('Edit'),
+            ),
+          ),
           PopupMenuItem(
             value: 'delete',
             child: ListTile(
@@ -715,6 +929,7 @@ class _OverflowMenu extends ConsumerWidget {
               title: Text('Delete', style: TextStyle(color: cf.error)),
             ),
           ),
+        ],
       ],
     );
   }
@@ -728,6 +943,12 @@ class _OverflowMenu extends ConsumerWidget {
     switch (value) {
       case 'report':
         await _report(context, ref);
+      case 'edit':
+        await requireAuthVoid(
+          context: context,
+          ref: ref,
+          action: () => showEditOpportunityFlow(context, post),
+        );
       case 'pin':
         await requireAuthVoid(
           context: context,

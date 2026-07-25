@@ -15,9 +15,16 @@ class ProfileMatchFiltersScreen extends ConsumerStatefulWidget {
   const ProfileMatchFiltersScreen({
     super.key,
     required this.options,
+    this.filtersProvider,
   });
 
   final ProfileMatchFilterOptions options;
+
+  /// Defaults to [profileMatchFiltersProvider] when null.
+  final StateProvider<ProfileMatchFilters>? filtersProvider;
+
+  StateProvider<ProfileMatchFilters> get resolvedFiltersProvider =>
+      filtersProvider ?? profileMatchFiltersProvider;
 
   @override
   ConsumerState<ProfileMatchFiltersScreen> createState() =>
@@ -33,12 +40,12 @@ class _ProfileMatchFiltersScreenState
   void initState() {
     super.initState();
     // Drop legacy team filter — Team is no longer offered in the UI.
-    final current = ref.read(profileMatchFiltersProvider);
+    final current = ref.read(widget.resolvedFiltersProvider);
     _draft = current.copyWith(teamId: () => null);
   }
 
   void _apply() {
-    ref.read(profileMatchFiltersProvider.notifier).state =
+    ref.read(widget.resolvedFiltersProvider.notifier).state =
         _draft.copyWith(teamId: () => null);
     Navigator.pop(context);
   }

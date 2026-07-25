@@ -231,12 +231,13 @@ class OpportunityFeedController extends StateNotifier<OpportunityFeedState> {
           }).toList();
         }
       } else if (quick.fieldKey != null && quick.matchValue != null) {
+        final targets = _fieldMatchTargets(quick);
         items = items.where((p) {
           final v = p.fields[quick.fieldKey];
           if (v is List) {
-            return v.map((e) => e.toString()).contains(quick.matchValue);
+            return v.map((e) => e.toString()).any(targets.contains);
           }
-          return v?.toString() == quick.matchValue;
+          return targets.contains(v?.toString());
         }).toList();
       }
     }
@@ -370,3 +371,80 @@ final authorOpportunityPostsProvider =
       .read(opportunityRepositoryProvider)
       .fetchByAuthor(authorId, limit: 10);
 });
+
+/// Field filter values with aliases across categories / legacy posts.
+Set<String> _fieldMatchTargets(OpportunityQuickFilter quick) {
+  final primary = quick.matchValue;
+  if (primary == null) return const {};
+
+  if (quick.fieldKey == 'payment') {
+    return switch (quick.id) {
+      'paid' => {
+          'Paid',
+          'We pay',
+          'I get paid',
+          'Get paid',
+          'Players get paid',
+        },
+      'payToPlay' => {
+          'Player pays',
+          'I pay to join',
+          'Pay to play',
+          'Players pay',
+        },
+      'free' => {'Free'},
+      _ => {primary},
+    };
+  }
+
+  if (quick.fieldKey == 'matchType') {
+    return switch (quick.id) {
+      'leather' => {'Leather Ball', 'Either'},
+      'tennis' => {'Tennis Ball', 'Either'},
+      _ => {primary},
+    };
+  }
+
+  if (quick.fieldKey == 'experience' && quick.id == 'experienced') {
+    return {'Experienced', 'Professional'};
+  }
+
+  if (quick.fieldKey == 'format') {
+    return switch (quick.id) {
+      'league' => {'League', 'League + Knockout'},
+      'knockout' => {'Knockout', 'League + Knockout'},
+      _ => {primary},
+    };
+  }
+
+  if (quick.fieldKey == 'pitchType') {
+    return switch (quick.id) {
+      'turf' => {'Turf'},
+      'matting' => {'Matting'},
+      'astro' => {'Astro'},
+      _ => {primary},
+    };
+  }
+
+  if (quick.fieldKey == 'battingHand') {
+    return switch (quick.id) {
+      'rightHand' => {'Right-hand', 'Right'},
+      'leftHand' => {'Left-hand', 'Left'},
+      _ => {primary},
+    };
+  }
+
+  if (quick.fieldKey == 'platformsUsed') {
+    return switch (quick.id) {
+      'crickflow' => {'CrickFlow', 'Any'},
+      _ => {primary},
+    };
+  }
+
+  if (quick.fieldKey == 'teamType') {
+    // "Any" preferred team matches every team-type chip.
+    return {primary, 'Any'};
+  }
+
+  return {primary};
+}

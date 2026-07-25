@@ -19,6 +19,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/match_card_ui.dart';
 import '../../../../shared/widgets/match_team_avatar.dart';
 import '../../../../shared/widgets/player_cluster_text.dart';
+import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../../data/unified_search_service.dart';
 import '../../domain/search_models.dart';
 
@@ -65,13 +66,9 @@ class _PlayerCard extends ConsumerWidget {
     ].join(' · ');
 
     return _CardShell(
-      onTap: () {
-        if (playerId.isNotEmpty) {
-          context.push('/player/$playerId');
-        } else {
-          context.push('/players/${user.id}');
-        }
-      },
+      onTap: playerId.isEmpty
+          ? null
+          : () => context.push('/player/$playerId/cricket'),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -257,17 +254,38 @@ class _MatchCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            [
-              if (match.venue.isNotEmpty) match.venue,
-              if (match.scheduledAt != null)
-                AppDateUtils.formatCardSchedule(match.scheduledAt!),
-            ].join(' · '),
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: cf.textSecondary),
-          ),
+          if (match.venue.isNotEmpty || match.scheduledAt != null)
+            Row(
+              children: [
+                if (match.venue.isNotEmpty)
+                  Flexible(
+                    child: TappableVenueLocation(
+                      label: match.venue,
+                      directionsQuery: match.venue,
+                      location:
+                          match.location.isEmpty ? null : match.location,
+                      underline: false,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: cf.textSecondary,
+                          ),
+                    ),
+                  ),
+                if (match.venue.isNotEmpty && match.scheduledAt != null)
+                  Text(
+                    ' · ',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cf.textSecondary,
+                        ),
+                  ),
+                if (match.scheduledAt != null)
+                  Text(
+                    AppDateUtils.formatCardSchedule(match.scheduledAt!),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cf.textSecondary,
+                        ),
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -369,8 +387,18 @@ class _GroundCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final query = [
+      if (name.trim().isNotEmpty) name.trim(),
+      if (city.trim().isNotEmpty) city.trim(),
+    ].join(', ');
     return _CardShell(
-      onTap: null,
+      onTap: query.isEmpty
+          ? null
+          : () => showVenueLocationSheet(
+                context,
+                title: name.trim().isNotEmpty ? name.trim() : query,
+                directionsQuery: query,
+              ),
       child: Row(
         children: [
           Container(

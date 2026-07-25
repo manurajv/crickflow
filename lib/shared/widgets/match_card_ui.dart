@@ -8,11 +8,11 @@ import '../../domain/scoring/match_lifecycle.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/match_score_display.dart';
 import '../../core/utils/overs_formatter.dart';
-import '../../core/utils/venue_maps_utils.dart';
 import '../../data/models/match_model.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import 'match_team_avatar.dart';
+import 'venue_location_sheet.dart';
 
 enum MatchCardStyle {
   /// Surface card for feeds and lists.
@@ -624,7 +624,7 @@ String matchTypeDisplayLabel(MatchModel match) {
   return 'Individual Match';
 }
 
-/// Date · overs · tappable venue (opens Google Maps).
+/// Date · overs · tappable venue (Directions / Ground profile).
 class _MatchCardMetaLine extends StatelessWidget {
   const _MatchCardMetaLine({
     required this.match,
@@ -642,16 +642,6 @@ class _MatchCardMetaLine extends StatelessWidget {
       return match.location.displayLabel;
     }
     return null;
-  }
-
-  Future<void> _openMaps(BuildContext context) async {
-    final query = _venueQuery;
-    if (query == null) return;
-    final ok = await openVenueInGoogleMaps(query: query);
-    if (!context.mounted || ok) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not open Google Maps')),
-    );
   }
 
   @override
@@ -676,7 +666,12 @@ class _MatchCardMetaLine extends StatelessWidget {
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: GestureDetector(
-            onTap: () => _openMaps(context),
+            onTap: () => showVenueLocationSheet(
+              context,
+              title: venue,
+              directionsQuery: venue,
+              location: match.location.isEmpty ? null : match.location,
+            ),
             behavior: HitTestBehavior.opaque,
             child: Row(
               mainAxisSize: MainAxisSize.min,

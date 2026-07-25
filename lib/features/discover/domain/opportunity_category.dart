@@ -25,7 +25,7 @@ extension OpportunityCategoryX on OpportunityCategory {
         OpportunityCategory.findUmpire => 'Find Umpire',
         OpportunityCategory.findScorer => 'Find Scorer',
         OpportunityCategory.findCoach => 'Find Coach',
-        OpportunityCategory.findGround => 'Find Ground',
+        OpportunityCategory.findGround => 'Grounds',
         OpportunityCategory.findTournament => 'Find Tournament',
         OpportunityCategory.findSponsor => 'Find Sponsor',
         OpportunityCategory.findCommentator => 'Find Commentator',
@@ -36,6 +36,142 @@ extension OpportunityCategoryX on OpportunityCategory {
 
   /// Compact badge text for cards (e.g. FIND PLAYER).
   String get badgeLabel => chipLabel.toUpperCase();
+
+  /// Categories available when creating a new post.
+  /// Tournaments are listed in Community, not Discover.
+  static List<OpportunityCategory> get creatableCategories =>
+      OpportunityCategory.values
+          .where((c) => c != OpportunityCategory.findTournament)
+          .toList(growable: false);
+
+  /// Categories shown as feed filter chips.
+  static List<OpportunityCategory> get feedCategories => creatableCategories;
+
+  /// Whether this category can be created from Discover.
+  bool get isCreatable => this != OpportunityCategory.findTournament;
+
+  /// Locked create-post title — not user-editable.
+  String get fixedTitle => switch (this) {
+        OpportunityCategory.findPlayer => "I'm looking for a player",
+        OpportunityCategory.findTeam => "I'm looking for a team",
+        OpportunityCategory.findUmpire => "I'm looking for an umpire",
+        OpportunityCategory.findScorer => "I'm looking for a scorer",
+        OpportunityCategory.findCoach => "I'm looking for a coach",
+        OpportunityCategory.findGround => 'Ground available',
+        OpportunityCategory.findTournament => "I'm looking for a tournament",
+        OpportunityCategory.findSponsor => "I'm looking for a sponsor",
+        OpportunityCategory.findCommentator => "I'm looking for a commentator",
+        OpportunityCategory.findStreamingCrew =>
+          "I'm looking for a streaming crew",
+        OpportunityCategory.findPhotographer =>
+          "I'm looking for a photographer",
+        OpportunityCategory.findVideographer =>
+          "I'm looking for a videographer",
+      };
+
+  /// Who should post this category (shown as "Posting as").
+  String get posterRole => switch (this) {
+        OpportunityCategory.findPlayer => 'Team / captain / organizer',
+        OpportunityCategory.findTeam => 'Player',
+        OpportunityCategory.findUmpire => 'Organizer / match manager',
+        OpportunityCategory.findScorer => 'Organizer / match manager',
+        OpportunityCategory.findCoach => 'Player / team / academy',
+        OpportunityCategory.findGround => 'Ground owner / manager',
+        OpportunityCategory.findTournament => 'Player / team',
+        OpportunityCategory.findSponsor => 'Organizer / tournament',
+        OpportunityCategory.findCommentator => 'Organizer / streamer',
+        OpportunityCategory.findStreamingCrew => 'Organizer / tournament',
+        OpportunityCategory.findPhotographer => 'Organizer / team',
+        OpportunityCategory.findVideographer => 'Organizer / team',
+      };
+
+  /// Subtitle on the category picker.
+  String get createSubtitle => switch (this) {
+        OpportunityCategory.findPlayer =>
+          'Post when you need players for a match or squad',
+        OpportunityCategory.findTeam =>
+          'Post when you want to join a team — use this if you are the player',
+        OpportunityCategory.findUmpire =>
+          'Post when your match or tournament needs an umpire',
+        OpportunityCategory.findScorer =>
+          'Post when you need someone to score the match',
+        OpportunityCategory.findCoach =>
+          'Post when you need coaching for batting, bowling, or fitness',
+        OpportunityCategory.findGround =>
+          'List your ground so teams, players, and tournaments can book it',
+        OpportunityCategory.findTournament =>
+          'Use Community to post tournaments — not available here',
+        OpportunityCategory.findSponsor =>
+          'Post when your event needs sponsorship support',
+        OpportunityCategory.findCommentator =>
+          'Post when you need live or recorded commentary',
+        OpportunityCategory.findStreamingCrew =>
+          'Post when you need cameras and live production',
+        OpportunityCategory.findPhotographer =>
+          'Post when you need match-day photography',
+        OpportunityCategory.findVideographer =>
+          'Post when you need highlights or live video',
+      };
+
+  /// Hint for the free-text description field.
+  String get descriptionHint => switch (this) {
+        OpportunityCategory.findPlayer =>
+          'Role needed, match day, and what you offer…',
+        OpportunityCategory.findTeam =>
+          'Your role, level, availability, and what you are looking for…',
+        OpportunityCategory.findUmpire =>
+          'Match format, date, and what you expect from the umpire…',
+        OpportunityCategory.findScorer =>
+          'Match format, scoring app preference, and schedule…',
+        OpportunityCategory.findCoach =>
+          'Goals, age group, and preferred session times…',
+        OpportunityCategory.findGround =>
+          'Facilities, rates, availability, and how to book…',
+        OpportunityCategory.findTournament =>
+          'Preferred dates, format, and what kind of event you want…',
+        OpportunityCategory.findSponsor =>
+          'Event size, audience, and what you can offer the brand…',
+        OpportunityCategory.findCommentator =>
+          'Match type, languages, and broadcast setup…',
+        OpportunityCategory.findStreamingCrew =>
+          'Coverage needed, platforms, and match schedule…',
+        OpportunityCategory.findPhotographer =>
+          'Match day, deliverables, and style you want…',
+        OpportunityCategory.findVideographer =>
+          'Highlights, live production needs, and timeline…',
+      };
+
+  /// Heading above category-specific detail fields.
+  String get detailsSectionTitle => switch (this) {
+        OpportunityCategory.findPlayer => 'Who you need',
+        OpportunityCategory.findTeam => 'About you',
+        OpportunityCategory.findUmpire => 'Match needs',
+        OpportunityCategory.findScorer => 'Match needs',
+        OpportunityCategory.findCoach => 'What you need',
+        OpportunityCategory.findGround => 'About your ground',
+        OpportunityCategory.findTournament => 'Tournament preferences',
+        OpportunityCategory.findSponsor => 'Sponsorship needs',
+        OpportunityCategory.findCommentator => 'What you need',
+        OpportunityCategory.findStreamingCrew => 'What you need',
+        OpportunityCategory.findPhotographer => 'What you need',
+        OpportunityCategory.findVideographer => 'What you need',
+      };
+
+  /// Short picker title (without "I'm looking for").
+  String get lookingForLabel => switch (this) {
+        OpportunityCategory.findPlayer => 'Looking for a player',
+        OpportunityCategory.findTeam => 'Looking for a team',
+        OpportunityCategory.findUmpire => 'Looking for an umpire',
+        OpportunityCategory.findScorer => 'Looking for a scorer',
+        OpportunityCategory.findCoach => 'Looking for a coach',
+        OpportunityCategory.findGround => 'Offer a ground',
+        OpportunityCategory.findTournament => 'Looking for a tournament',
+        OpportunityCategory.findSponsor => 'Looking for a sponsor',
+        OpportunityCategory.findCommentator => 'Looking for a commentator',
+        OpportunityCategory.findStreamingCrew => 'Looking for a streaming crew',
+        OpportunityCategory.findPhotographer => 'Looking for a photographer',
+        OpportunityCategory.findVideographer => 'Looking for a videographer',
+      };
 
   IconData get icon => switch (this) {
         OpportunityCategory.findPlayer => Icons.person_search_outlined,
@@ -95,7 +231,20 @@ extension OpportunityCategoryX on OpportunityCategory {
               fieldKey: 'playerType',
               matchValue: 'Wicket Keeper',
             ),
-            OpportunityQuickFilter.paid,
+            OpportunityQuickFilter(
+              id: 'rightHand',
+              label: 'Right-hand',
+              fieldKey: 'battingHand',
+              matchValue: 'Right-hand',
+            ),
+            OpportunityQuickFilter(
+              id: 'leftHand',
+              label: 'Left-hand',
+              fieldKey: 'battingHand',
+              matchValue: 'Left-hand',
+            ),
+            OpportunityQuickFilter.wePay,
+            OpportunityQuickFilter.playerPays,
             OpportunityQuickFilter.free,
             OpportunityQuickFilter.leather,
             OpportunityQuickFilter.tennis,
@@ -105,16 +254,34 @@ extension OpportunityCategoryX on OpportunityCategory {
         OpportunityCategory.findTeam => const [
             OpportunityQuickFilter.all,
             OpportunityQuickFilter(
+              id: 'batsman',
+              label: 'Batsman',
+              fieldKey: 'playerType',
+              matchValue: 'Batsman',
+            ),
+            OpportunityQuickFilter(
+              id: 'bowler',
+              label: 'Bowler',
+              fieldKey: 'playerType',
+              matchValue: 'Bowler',
+            ),
+            OpportunityQuickFilter(
+              id: 'allRounder',
+              label: 'All-rounder',
+              fieldKey: 'playerType',
+              matchValue: 'All-rounder',
+            ),
+            OpportunityQuickFilter(
+              id: 'keeper',
+              label: 'Keeper',
+              fieldKey: 'playerType',
+              matchValue: 'Wicket Keeper',
+            ),
+            OpportunityQuickFilter(
               id: 'club',
               label: 'Club',
               fieldKey: 'teamType',
               matchValue: 'Club',
-            ),
-            OpportunityQuickFilter(
-              id: 'corporate',
-              label: 'Corporate',
-              fieldKey: 'teamType',
-              matchValue: 'Corporate',
             ),
             OpportunityQuickFilter(
               id: 'school',
@@ -128,8 +295,17 @@ extension OpportunityCategoryX on OpportunityCategory {
               fieldKey: 'teamType',
               matchValue: 'Academy',
             ),
-            OpportunityQuickFilter.paid,
+            OpportunityQuickFilter(
+              id: 'casual',
+              label: 'Casual',
+              fieldKey: 'teamType',
+              matchValue: 'Casual',
+            ),
+            OpportunityQuickFilter.iGetPaid,
+            OpportunityQuickFilter.iPayToJoin,
             OpportunityQuickFilter.free,
+            OpportunityQuickFilter.leather,
+            OpportunityQuickFilter.tennis,
             OpportunityQuickFilter.nearby,
             OpportunityQuickFilter.newest,
           ],
@@ -137,16 +313,80 @@ extension OpportunityCategoryX on OpportunityCategory {
             OpportunityQuickFilter.all,
             OpportunityQuickFilter.certified,
             OpportunityQuickFilter.experienced,
+            OpportunityQuickFilter(
+              id: 'openMatch',
+              label: 'Open',
+              fieldKey: 'matchCategory',
+              matchValue: 'Open',
+            ),
+            OpportunityQuickFilter(
+              id: 'clubMatch',
+              label: 'Club',
+              fieldKey: 'matchCategory',
+              matchValue: 'Club',
+            ),
+            OpportunityQuickFilter(
+              id: 'schoolMatch',
+              label: 'School',
+              fieldKey: 'matchCategory',
+              matchValue: 'School',
+            ),
+            OpportunityQuickFilter(
+              id: 'companyMatch',
+              label: 'Company',
+              fieldKey: 'matchCategory',
+              matchValue: 'Company',
+            ),
             OpportunityQuickFilter.paid,
             OpportunityQuickFilter.free,
+            OpportunityQuickFilter.leather,
+            OpportunityQuickFilter.tennis,
             OpportunityQuickFilter.nearby,
             OpportunityQuickFilter.newest,
           ],
         OpportunityCategory.findScorer => const [
             OpportunityQuickFilter.all,
+            OpportunityQuickFilter(
+              id: 'digital',
+              label: 'Digital',
+              fieldKey: 'digitalExperience',
+              matchValue: 'Yes',
+            ),
+            OpportunityQuickFilter(
+              id: 'crickflow',
+              label: 'CrickFlow',
+              fieldKey: 'platformsUsed',
+              matchValue: 'CrickFlow',
+            ),
             OpportunityQuickFilter.experienced,
+            OpportunityQuickFilter(
+              id: 'openMatch',
+              label: 'Open',
+              fieldKey: 'matchCategory',
+              matchValue: 'Open',
+            ),
+            OpportunityQuickFilter(
+              id: 'clubMatch',
+              label: 'Club',
+              fieldKey: 'matchCategory',
+              matchValue: 'Club',
+            ),
+            OpportunityQuickFilter(
+              id: 'schoolMatch',
+              label: 'School',
+              fieldKey: 'matchCategory',
+              matchValue: 'School',
+            ),
+            OpportunityQuickFilter(
+              id: 'companyMatch',
+              label: 'Company',
+              fieldKey: 'matchCategory',
+              matchValue: 'Company',
+            ),
             OpportunityQuickFilter.paid,
             OpportunityQuickFilter.free,
+            OpportunityQuickFilter.leather,
+            OpportunityQuickFilter.tennis,
             OpportunityQuickFilter.nearby,
             OpportunityQuickFilter.newest,
           ],
@@ -176,7 +416,12 @@ extension OpportunityCategoryX on OpportunityCategory {
               fieldKey: 'coachingType',
               matchValue: 'Fielding',
             ),
-            OpportunityQuickFilter.certified,
+            OpportunityQuickFilter(
+              id: 'allRound',
+              label: 'All-round',
+              fieldKey: 'coachingType',
+              matchValue: 'All-round',
+            ),
             OpportunityQuickFilter.nearby,
             OpportunityQuickFilter.newest,
           ],
@@ -188,13 +433,32 @@ extension OpportunityCategoryX on OpportunityCategory {
               fieldKey: 'bookingAvailable',
               matchValue: 'Yes',
             ),
+            OpportunityQuickFilter(
+              id: 'turf',
+              label: 'Turf',
+              fieldKey: 'pitchType',
+              matchValue: 'Turf',
+            ),
+            OpportunityQuickFilter(
+              id: 'matting',
+              label: 'Matting',
+              fieldKey: 'pitchType',
+              matchValue: 'Matting',
+            ),
+            OpportunityQuickFilter(
+              id: 'astro',
+              label: 'Astro',
+              fieldKey: 'pitchType',
+              matchValue: 'Astro',
+            ),
+            OpportunityQuickFilter.leather,
+            OpportunityQuickFilter.tennis,
             OpportunityQuickFilter.nearby,
             OpportunityQuickFilter.newest,
           ],
+        // Legacy only — not creatable; prefer Community tournaments.
         OpportunityCategory.findTournament => const [
             OpportunityQuickFilter.all,
-            OpportunityQuickFilter.leather,
-            OpportunityQuickFilter.tennis,
             OpportunityQuickFilter.nearby,
             OpportunityQuickFilter.newest,
           ],
@@ -205,6 +469,24 @@ extension OpportunityCategoryX on OpportunityCategory {
           ],
         OpportunityCategory.findCommentator => const [
             OpportunityQuickFilter.all,
+            OpportunityQuickFilter(
+              id: 'english',
+              label: 'English',
+              fieldKey: 'languages',
+              matchValue: 'English',
+            ),
+            OpportunityQuickFilter(
+              id: 'sinhala',
+              label: 'Sinhala',
+              fieldKey: 'languages',
+              matchValue: 'Sinhala',
+            ),
+            OpportunityQuickFilter(
+              id: 'tamil',
+              label: 'Tamil',
+              fieldKey: 'languages',
+              matchValue: 'Tamil',
+            ),
             OpportunityQuickFilter.experienced,
             OpportunityQuickFilter.nearby,
             OpportunityQuickFilter.newest,
@@ -221,6 +503,12 @@ extension OpportunityCategoryX on OpportunityCategory {
               id: 'graphics',
               label: 'Live Graphics',
               fieldKey: 'liveGraphics',
+              matchValue: 'Yes',
+            ),
+            OpportunityQuickFilter(
+              id: 'commentary',
+              label: 'Commentary',
+              fieldKey: 'commentary',
               matchValue: 'Yes',
             ),
             OpportunityQuickFilter.nearby,
@@ -244,6 +532,12 @@ extension OpportunityCategoryX on OpportunityCategory {
               id: 'live',
               label: 'Live Production',
               fieldKey: 'liveProduction',
+              matchValue: 'Yes',
+            ),
+            OpportunityQuickFilter(
+              id: 'highlights',
+              label: 'Highlights',
+              fieldKey: 'highlightPackages',
               matchValue: 'Yes',
             ),
             OpportunityQuickFilter.nearby,
@@ -280,11 +574,52 @@ class OpportunityQuickFilter {
 
   static const all = OpportunityQuickFilter(id: 'all', label: 'All');
 
+  /// Staff / generic paid (umpire, scorer) + aliases for We pay / I get paid.
   static const paid = OpportunityQuickFilter(
     id: 'paid',
     label: 'Paid',
     fieldKey: 'payment',
     matchValue: 'Paid',
+  );
+
+  /// Find Player — organizer pays the player.
+  static const wePay = OpportunityQuickFilter(
+    id: 'paid',
+    label: 'We pay',
+    fieldKey: 'payment',
+    matchValue: 'We pay',
+  );
+
+  /// Find Team — player expects to get paid.
+  static const iGetPaid = OpportunityQuickFilter(
+    id: 'paid',
+    label: 'I get paid',
+    fieldKey: 'payment',
+    matchValue: 'I get paid',
+  );
+
+  /// Find Player — player pays to join.
+  static const playerPays = OpportunityQuickFilter(
+    id: 'payToPlay',
+    label: 'Player pays',
+    fieldKey: 'payment',
+    matchValue: 'Player pays',
+  );
+
+  /// Find Team — player pays to join.
+  static const iPayToJoin = OpportunityQuickFilter(
+    id: 'payToPlay',
+    label: 'I pay to join',
+    fieldKey: 'payment',
+    matchValue: 'I pay to join',
+  );
+
+  /// Global / legacy “pay to play” chip.
+  static const payToPlay = OpportunityQuickFilter(
+    id: 'payToPlay',
+    label: 'Pay to join',
+    fieldKey: 'payment',
+    matchValue: 'Player pays',
   );
 
   static const free = OpportunityQuickFilter(
@@ -337,8 +672,8 @@ class OpportunityQuickFilter {
   /// Default filters when category is "All".
   static const globalDefaults = [
     all,
-    paid,
-    free,
+    leather,
+    tennis,
     nearby,
     newest,
   ];

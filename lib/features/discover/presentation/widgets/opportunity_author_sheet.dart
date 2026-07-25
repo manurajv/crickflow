@@ -12,6 +12,7 @@ import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/opportunity_provider.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../../domain/opportunity_category.dart';
 
 Future<void> showOpportunityAuthorSheet(
@@ -348,11 +349,11 @@ class _MiniPostTile extends StatelessWidget {
           ),
           if (post.locationLabel.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(
-              post.locationLabel,
+            TappableVenueLocation(
+              label: post.locationLabel,
+              location: post.location,
+              underline: false,
               style: theme.textTheme.bodySmall?.copyWith(color: cf.textMuted),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ],

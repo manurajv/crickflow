@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>202403125129-710maflgfdh2hgdbuh6hqq2hfddr0m6f.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.202403125129-710maflgfdh2hgdbuh6hqq2hfddr0m6f</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>202403125129-5idec9nhg8e9rhrs75167jraes16d4us.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBem5ugk3fGc7HiaHO9pCbqxt43fCuoe7Q</string>
+	<key>GCM_SENDER_ID</key>
+	<string>202403125129</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.mavixas.crickflow</string>
+	<key>PROJECT_ID</key>
+	<string>crickflow-b06bc</string>
+	<key>STORAGE_BUCKET</key>
+	<string>crickflow-b06bc.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:202403125129:ios:031dba2e4db98d7237b358</string>
+</dict>
+</plist>

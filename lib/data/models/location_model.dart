@@ -6,6 +6,7 @@ class LocationModel extends Equatable {
     this.stateProvince = '',
     this.district = '',
     this.city = '',
+    this.placeName = '',
     this.latitude,
     this.longitude,
   });
@@ -14,6 +15,9 @@ class LocationModel extends Equatable {
   final String stateProvince;
   final String district;
   final String city;
+
+  /// Exact venue / ground name from Places or map pin (optional).
+  final String placeName;
 
   /// Optional GPS from ground picker / reverse geocode. Null for legacy docs.
   final double? latitude;
@@ -24,6 +28,7 @@ class LocationModel extends Equatable {
       stateProvince.isEmpty &&
       district.isEmpty &&
       city.isEmpty &&
+      placeName.isEmpty &&
       !hasCoordinates;
 
   bool get hasCoordinates =>
@@ -34,7 +39,7 @@ class LocationModel extends Equatable {
 
   String get displayLabel {
     final parts = <String>[];
-    for (final p in [city, district, stateProvince, country]) {
+    for (final p in [placeName, city, district, stateProvince, country]) {
       if (p.isEmpty) continue;
       if (parts.isNotEmpty &&
           parts.last.toLowerCase() == p.toLowerCase()) {
@@ -52,6 +57,10 @@ class LocationModel extends Equatable {
       stateProvince: map['stateProvince'] as String? ?? '',
       district: map['district'] as String? ?? '',
       city: map['city'] as String? ?? '',
+      placeName: map['placeName'] as String? ??
+          map['venue'] as String? ??
+          map['groundName'] as String? ??
+          '',
       latitude: (map['latitude'] as num?)?.toDouble() ??
           (map['lat'] as num?)?.toDouble(),
       longitude: (map['longitude'] as num?)?.toDouble() ??
@@ -64,6 +73,7 @@ class LocationModel extends Equatable {
         'stateProvince': stateProvince,
         'district': district,
         'city': city,
+        if (placeName.isNotEmpty) 'placeName': placeName,
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
       };
@@ -73,21 +83,31 @@ class LocationModel extends Equatable {
     String? stateProvince,
     String? district,
     String? city,
+    String? placeName,
     double? latitude,
     double? longitude,
     bool clearCoordinates = false,
+    bool clearPlaceName = false,
   }) {
     return LocationModel(
       country: country ?? this.country,
       stateProvince: stateProvince ?? this.stateProvince,
       district: district ?? this.district,
       city: city ?? this.city,
+      placeName: clearPlaceName ? '' : (placeName ?? this.placeName),
       latitude: clearCoordinates ? null : (latitude ?? this.latitude),
       longitude: clearCoordinates ? null : (longitude ?? this.longitude),
     );
   }
 
   @override
-  List<Object?> get props =>
-      [country, stateProvince, district, city, latitude, longitude];
+  List<Object?> get props => [
+        country,
+        stateProvince,
+        district,
+        city,
+        placeName,
+        latitude,
+        longitude,
+      ];
 }

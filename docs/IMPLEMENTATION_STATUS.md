@@ -3,13 +3,32 @@
 
 
 
-**Last updated:** Discover rebuilt as Cricket Opportunity Marketplace
+**Last updated:** Team Profile hub (Matches · Leaderboard · Stats · Members · Trophies · Profile)
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Team Profile hub)
+
+| Item | Status |
+|------|--------|
+| New Team Profile screen (CricHeroes-style hub) | Done — `/teams/:id/profile` |
+| Header: logo, code, location, captain, social + match stats, Follow/Share/More | Done |
+| Tabs: Matches · Leaderboard · Stats · Members · Trophies · Profile | Done |
+| Matches tab: existing `MatchListCard` list (no filters) | Done |
+| Leaderboard: ball-event fielding / partnerships / dots + maidens | Done |
+| Stats: `StatGrid` tiles from team + match aggregates | Done |
+| Members: cards (no sort filter); coach only (no manager contact) | Done |
+| Trophies: from tournament podium / champion / final wins | Done |
+| Profile/info tab: about, ground, leadership, contact | Done |
+| Team Follow (`teamFollowers` collection) + optimistic UI | Done — deploy rules |
+| Team profile views (`teams/.../profileViews` + `profileViewsCount`) | Done — deploy rules + `onTeamProfileViewWritten` |
+| Team Details bottom **Profile** opens new hub (not sheet) | Done |
 
 ---
 
@@ -22,7 +41,16 @@
 | Firestore `opportunity_posts` + saves + reports + indexes/rules | Done |
 | Feed: category chips, quick filters, search, pagination | Done |
 | Post card: badge, chips, share / chat / call / WhatsApp / bookmark | Done |
+| Post card: all filled fields as compact badges (dates on calendar row) | Done |
+| Ground photos: 16:9 crop only · multi-image swipe gallery on card | Done |
+| Venue taps: shared sheet (Directions / Ground profile coming soon) | Done |
 | Create flow: category → form → preview → publish + expiry | Done |
+| Edit own posts from card overflow (⋯ → Edit) | Done |
+| Create post: exact ground/place location (search + map pin) | Done |
+| Payment options: Free / Get paid / Pay to play (+ amount) | Done |
+| Fixed titles + poster role (I'm looking for a…) | Done |
+| Find Team = player seeking; Find Player = team seeking | Done |
+| Find Umpire / Scorer / media roles: one day or date range for When needed | Done |
 | Bookmarks in Profile → `/discover/saved` | Done |
 | Admin pin / feature / remove / block (platform_admins) | Done |
 | Report reasons: Spam, Fake, Offensive, Duplicate, Other | Done |
@@ -815,7 +843,7 @@
 | Country picker — pinned cricket nations + alphabetical | Done |
 | Onboarding location — Google Maps detect, search, edit | Done |
 | Auto phone dial code from country selection | Done |
-| Create team form — logo crop, searchable location, intl contact | Done |
+| Create / edit team — Google home ground + separate team location, intl contact | Done |
 | Team ID (`TM00001`) + invite QR saved to Firestore/Storage on create | Done |
 | Storage rules — team logo/QR, player photos, size & type limits | Done — deploy storage |
 | Teams tab — scope/location chips, inline search, QR share rows, pull-to-refresh | Done |

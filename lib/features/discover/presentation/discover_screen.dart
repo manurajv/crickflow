@@ -251,7 +251,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                         onSelected: (_) => _setCategory(null),
                       ),
                     ),
-                    for (final c in OpportunityCategory.values)
+                    for (final c in OpportunityCategoryX.feedCategories)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: FilterChip(

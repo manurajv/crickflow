@@ -185,4 +185,19 @@ class TeamSquadUtils {
     }
     return null;
   }
+
+  /// Registered CrickFlow players with a public cricket ID only.
+  /// Walk-in / guest / match-only players are not tappable.
+  static bool canOpenCricketProfile(PlayerModel player) {
+    final publicId = player.playerId?.trim() ?? '';
+    if (publicId.isEmpty) return false;
+    final userId = player.userId?.trim() ?? '';
+    if (userId.isEmpty) return false;
+    return true;
+  }
+
+  static String? cricketProfilePath(PlayerModel player) {
+    if (!canOpenCricketProfile(player)) return null;
+    return '/player/${player.playerId!.trim()}/cricket';
+  }
 }

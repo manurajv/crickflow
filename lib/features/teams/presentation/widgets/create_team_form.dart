@@ -18,6 +18,8 @@ import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../player_onboarding/presentation/widgets/onboarding_location_section.dart';
+import '../../../discover/presentation/widgets/opportunity_location_field.dart';
+import '../utils/team_location_parts.dart';
 import 'team_logo_picker.dart';
 
 /// Create team form inside the Teams → Add tab.
@@ -47,7 +49,8 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
   File? _logoFile;
   String? _logoUrl;
   String _dialCode = '+94';
-  LocationModel _location = const LocationModel();
+  LocationModel _teamLocation = const LocationModel();
+  LocationModel _homeGround = const LocationModel();
 
   @override
   void initState() {
@@ -70,8 +73,8 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
     if (!mounted) return;
 
     setState(() {
-      _location = profile.location;
-      _syncDialCodeFromCountry(_location.country);
+      _teamLocation = profile.location.copyWith(clearPlaceName: true);
+      _syncDialCodeFromCountry(_teamLocation.country);
       if (profile.effectiveMobile.isNotEmpty) {
         final mobile = profile.effectiveMobile;
         final dial = CricketCountry.all
@@ -123,9 +126,15 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
     }
   }
 
-  void _onLocationChanged(LocationModel location) {
-    setState(() => _location = location);
-    _syncDialCodeFromCountry(location.country);
+  void _onTeamLocationChanged(LocationModel location) {
+    setState(() {
+      _teamLocation = location.copyWith(clearPlaceName: true);
+      _syncDialCodeFromCountry(location.country);
+    });
+  }
+
+  void _onHomeGroundChanged(LocationModel ground) {
+    setState(() => _homeGround = ground);
   }
 
   Future<void> _pickLogo(ImageSource source) async {
@@ -186,7 +195,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
       _showValidationError('Team name is required');
       return;
     }
-    if (_location.city.trim().isEmpty) {
+    if (_teamLocation.city.trim().isEmpty) {
       _showValidationError(
         'City is required — search or enter your team location',
       );
@@ -207,7 +216,10 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
         id: _teamId,
         name: name,
         contactNumber: contactNumber,
-        location: _location,
+        location: TeamLocationParts(
+          teamLocation: _teamLocation,
+          homeGround: _homeGround,
+        ).merge(),
         createdBy: uid,
       );
       var saved = await ref.read(teamRepositoryProvider).createTeam(draft);
@@ -373,12 +385,61 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
                         onChanged: (_) => setState(() {}),
                       ),
                       const SizedBox(height: AppDimens.spaceMd),
-                      OnboardingLocationSection(
-                        initialLocation: _location,
-                        onLocationChanged: _onLocationChanged,
-                        locationService: ref.read(
-                          googleMapsLocationServiceProvider,
+                      Text(
+                        'Team location',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppDimens.spaceXs),
+                      Text(
+                        'City / region for the team (separate from home ground)',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: context.cf.textSecondary,
+                            ),
+                      ),
+                      const SizedBox(height: AppDimens.spaceSm),
+                      if (_locationReady)
+                        OnboardingLocationSection(
+                          key: ValueKey(
+                            'create-loc-${_teamLocation.city}-'
+                            '${_teamLocation.country}',
+                          ),
+                          initialLocation: _teamLocation,
+                          onLocationChanged: _onTeamLocationChanged,
+                          autoDetectOnInit: false,
+                          locationService: ref.read(
+                            googleMapsLocationServiceProvider,
+                          ),
+                        )
+                      else
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
                         ),
+                      const SizedBox(height: AppDimens.spaceMd),
+                      Text(
+                        'Home ground',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppDimens.spaceXs),
+                      Text(
+                        'Optional. Pick from Google Places so matches can open Maps.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: context.cf.textSecondary,
+                            ),
+                      ),
+                      const SizedBox(height: AppDimens.spaceSm),
+                      OpportunityLocationField(
+                        location: _homeGround,
+                        onLocationChanged: _onHomeGroundChanged,
+                        helperText:
+                            'Search Google Places or pin your home ground on the map',
+                        hintText: 'Home ground / venue',
                       ),
                       const SizedBox(height: AppDimens.spaceMd),
                       Row(

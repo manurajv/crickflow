@@ -31,6 +31,9 @@ const {
   onProfileViewWritten,
 } = require('./social/onPlayerFollowWritten');
 const {
+  onTeamProfileViewWritten,
+} = require('./social/onTeamProfileViewWritten');
+const {
   onStreamStatusChanged,
   linkYouTubeAccount,
   storeStreamingOAuthToken,
@@ -61,6 +64,7 @@ exports.onTeamJoinRequestCreated = onTeamJoinRequestCreated;
 exports.onTeamRosterReportCreated = onTeamRosterReportCreated;
 exports.onPlayerFollowWritten = onPlayerFollowWritten;
 exports.onProfileViewWritten = onProfileViewWritten;
+exports.onTeamProfileViewWritten = onTeamProfileViewWritten;
 exports.onStreamStatusChanged = onStreamStatusChanged;
 exports.linkYouTubeAccount = linkYouTubeAccount;
 exports.storeStreamingOAuthToken = storeStreamingOAuthToken;

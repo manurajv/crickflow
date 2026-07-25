@@ -12,6 +12,7 @@ import 'providers.dart';
 class MatchSquadSide {
   const MatchSquadSide({
     required this.teamName,
+    this.teamId,
     this.teamLogoUrl,
     this.playing = const [],
     this.substitutes = const [],
@@ -22,6 +23,7 @@ class MatchSquadSide {
   });
 
   final String teamName;
+  final String? teamId;
   final String? teamLogoUrl;
   final List<MatchPlayerSnapshot> playing;
   final List<MatchPlayerSnapshot> substitutes;
@@ -98,10 +100,12 @@ final matchDualSquadsProvider =
   if (setup == null) {
     sideA = MatchSquadSide(
       teamName: match.teamAName,
+      teamId: match.teamAId,
       teamLogoUrl: teamA?.profileImageUrl,
     );
     sideB = MatchSquadSide(
       teamName: match.teamBName,
+      teamId: match.teamBId,
       teamLogoUrl: teamB?.profileImageUrl,
     );
   } else {
@@ -156,6 +160,7 @@ Future<MatchSquadSide> _applyUpcomingRosterFallback({
 
   return MatchSquadSide(
     teamName: side.teamName,
+    teamId: side.teamId ?? teamId,
     teamLogoUrl: side.teamLogoUrl,
     playing: roster.map(MatchPlayerSnapshot.fromPlayer).toList(),
     captainId: team?.captainId,
@@ -182,6 +187,7 @@ Future<MatchSquadSide> _sideFromSetup({
 
   return MatchSquadSide(
     teamName: teamName,
+    teamId: teamId,
     teamLogoUrl: teamLogoUrl,
     playing: playing,
     substitutes: substitutes,

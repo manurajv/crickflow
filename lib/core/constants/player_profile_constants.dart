@@ -135,6 +135,43 @@ extension PlayerBowlingStyleLabels on PlayerBowlingStyle {
         PlayerBowlingStyle.doNotBowl => 'Do Not Bowl',
       };
 
+  /// Compact badge label (Discover cards, dense UI).
+  String get shortLabel => switch (this) {
+        PlayerBowlingStyle.rightArmFast => 'RA Fast',
+        PlayerBowlingStyle.leftArmFast => 'LA Fast',
+        PlayerBowlingStyle.rightArmMediumFast => 'RA Med-F',
+        PlayerBowlingStyle.leftArmMediumFast => 'LA Med-F',
+        PlayerBowlingStyle.rightArmMedium => 'RA Med',
+        PlayerBowlingStyle.leftArmMedium => 'LA Med',
+        PlayerBowlingStyle.rightArmOffSpin => 'Off spin',
+        PlayerBowlingStyle.rightArmLegSpin => 'Leg spin',
+        PlayerBowlingStyle.rightArmLegBreak => 'Leg break',
+        PlayerBowlingStyle.rightArmGoogly => 'Googly',
+        PlayerBowlingStyle.leftArmOrthodoxSpin => 'Orthodox',
+        PlayerBowlingStyle.leftArmChinaman => 'Chinaman',
+        PlayerBowlingStyle.leftArmWristSpin => 'LA Wrist',
+        PlayerBowlingStyle.doNotBowl => 'No bowl',
+      };
+
+  /// Onboarding bowling styles for Discover Find Player / Find Team
+  /// (excludes Do Not Bowl; includes N/A for optional skip).
+  static const List<String> opportunityOptions = [
+    'Right Arm Fast',
+    'Left Arm Fast',
+    'Right Arm Medium Fast',
+    'Left Arm Medium Fast',
+    'Right Arm Medium',
+    'Left Arm Medium',
+    'Right Arm Off Spin',
+    'Right Arm Leg Spin',
+    'Right Arm Leg Break',
+    'Right Arm Googly',
+    'Left Arm Orthodox Spin',
+    'Left Arm Chinaman',
+    'Left Arm Wrist Spin',
+    'N/A',
+  ];
+
   static PlayerBowlingStyle? fromCategoryAndArm({
     required PlayerBowlingCategory category,
     required PlayerBowlingArm arm,

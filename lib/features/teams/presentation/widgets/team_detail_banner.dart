@@ -69,7 +69,10 @@ class TeamDetailBanner extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                TeamLogoAvatar(team: team, size: 64, borderWidth: 2.5),
+                Hero(
+                  tag: 'team-logo-${team.id}',
+                  child: TeamLogoAvatar(team: team, size: 64, borderWidth: 2.5),
+                ),
                 const SizedBox(width: AppDimens.spaceMd),
                 Expanded(
                   child: Column(

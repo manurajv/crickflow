@@ -6,6 +6,7 @@ import '../../core/theme/app_dimens.dart';
 import '../../core/utils/country_flag_utils.dart';
 import '../../core/utils/date_utils.dart';
 import '../../data/models/tournament_model.dart';
+import 'venue_location_sheet.dart';
 
 class TournamentListCard extends StatelessWidget {
   const TournamentListCard({
@@ -79,8 +80,11 @@ class TournamentListCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         if (tournament.location.displayLabel.isNotEmpty)
-                          Text(
-                            tournament.location.displayLabel,
+                          TappableVenueLocation(
+                            label: tournament.location.displayLabel,
+                            location: tournament.location,
+                            underline: false,
+                            iconSize: 13,
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         Text(

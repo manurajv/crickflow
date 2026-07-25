@@ -1,3 +1,4 @@
+import '../../../core/constants/player_profile_constants.dart';
 import 'opportunity_category.dart';
 
 /// How a dynamic form field is rendered / stored.
@@ -9,6 +10,10 @@ enum OpportunityFieldType {
   multiSelect,
   yesNo,
   date,
+  /// Single day or start–end range (`key` + `${key}End`).
+  dateOrRange,
+  /// Optional/required http(s) URL.
+  url,
 }
 
 /// Declarative field definition — drives create form + validation.
@@ -32,7 +37,8 @@ class OpportunityFieldDef {
   final String? hint;
   final int maxLines;
 
-  /// When true, non-empty values appear as chips on the feed card.
+  /// When true, non-empty values are prioritized earlier among card badges.
+  /// All filled fields appear on the card; dates use the calendar row.
   final bool showOnCard;
 }
 
@@ -58,10 +64,91 @@ class OpportunityFieldSchema {
     };
   }
 
+  /// Team / organizer seeking players.
   static const _findPlayer = [
     OpportunityFieldDef(
       key: 'playerType',
-      label: 'Player Type',
+      label: 'Role needed',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: ['Batsman', 'Bowler', 'All-rounder', 'Wicket Keeper'],
+    ),
+    OpportunityFieldDef(
+      key: 'requiredPlayers',
+      label: 'How many players',
+      type: OpportunityFieldType.number,
+      required: true,
+      hint: 'e.g. 2',
+      showOnCard: true,
+    ),
+    OpportunityFieldDef(
+      key: 'matchType',
+      label: 'Ball type',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: ['Leather Ball', 'Tennis Ball'],
+    ),
+    OpportunityFieldDef(
+      key: 'ageRange',
+      label: 'Age range',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['U13', 'U15', 'U17', 'U19', 'Open', 'Veterans'],
+    ),
+    OpportunityFieldDef(
+      key: 'experience',
+      label: 'Experience needed',
+      type: OpportunityFieldType.singleSelect,
+      options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
+    ),
+    OpportunityFieldDef(
+      key: 'battingHand',
+      label: 'Batting style',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['Right-hand', 'Left-hand'],
+    ),
+    OpportunityFieldDef(
+      key: 'bowlingStyle',
+      label: 'Bowling style (if bowler)',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: PlayerBowlingStyleLabels.opportunityOptions,
+    ),
+    OpportunityFieldDef(
+      key: 'matchDate',
+      label: 'Match date',
+      type: OpportunityFieldType.date,
+    ),
+    OpportunityFieldDef(
+      key: 'tournamentName',
+      label: 'Tournament / series (optional)',
+      type: OpportunityFieldType.text,
+    ),
+    OpportunityFieldDef(
+      key: 'payment',
+      label: 'Payment',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: ['Free', 'We pay', 'Player pays'],
+    ),
+    OpportunityFieldDef(
+      key: 'paymentAmount',
+      label: 'Amount',
+      type: OpportunityFieldType.text,
+      hint: 'e.g. LKR 2000 / match (optional)',
+      showOnCard: true,
+    ),
+  ];
+
+  /// Player seeking a team to join.
+  static const _findTeam = [
+    OpportunityFieldDef(
+      key: 'playerType',
+      label: 'My role',
       type: OpportunityFieldType.singleSelect,
       required: true,
       showOnCard: true,
@@ -69,58 +156,129 @@ class OpportunityFieldSchema {
     ),
     OpportunityFieldDef(
       key: 'bowlingStyle',
-      label: 'Bowling Style',
+      label: 'Bowling style',
       type: OpportunityFieldType.singleSelect,
       showOnCard: true,
-      options: [
-        'Right Arm Fast',
-        'Right Arm Medium',
-        'Left Arm Fast',
-        'Left Arm Spin',
-        'Right Arm Off Spin',
-        'Leg Spinner',
-        'N/A',
-      ],
+      options: PlayerBowlingStyleLabels.opportunityOptions,
     ),
     OpportunityFieldDef(
       key: 'battingHand',
-      label: 'Batting Hand',
-      type: OpportunityFieldType.singleSelect,
-      options: ['Right', 'Left'],
-    ),
-    OpportunityFieldDef(
-      key: 'ageRange',
-      label: 'Age Range',
+      label: 'Batting style',
       type: OpportunityFieldType.singleSelect,
       showOnCard: true,
+      options: ['Right-hand', 'Left-hand'],
+    ),
+    OpportunityFieldDef(
+      key: 'ageCategory',
+      label: 'Age category',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      required: true,
       options: ['U13', 'U15', 'U17', 'U19', 'Open', 'Veterans'],
     ),
     OpportunityFieldDef(
       key: 'experience',
-      label: 'Experience',
+      label: 'My experience',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
+    ),
+    OpportunityFieldDef(
+      key: 'matchType',
+      label: 'Preferred ball type',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: ['Leather Ball', 'Tennis Ball', 'Either'],
+    ),
+    OpportunityFieldDef(
+      key: 'teamType',
+      label: 'Preferred team type',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: ['Club', 'Corporate', 'School', 'Academy', 'Casual', 'Any'],
+    ),
+    OpportunityFieldDef(
+      key: 'playingLevel',
+      label: 'Preferred level',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['Beginner', 'Intermediate', 'Competitive', 'Elite'],
+    ),
+    OpportunityFieldDef(
+      key: 'payment',
+      label: 'Payment',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: ['Free', 'I get paid', 'I pay to join'],
+    ),
+    OpportunityFieldDef(
+      key: 'paymentAmount',
+      label: 'Amount',
+      type: OpportunityFieldType.text,
+      hint: 'e.g. LKR 2000 / match (optional)',
+      showOnCard: true,
+    ),
+  ];
+
+  static const _matchCategoryOptions = [
+    'Open',
+    'Club',
+    'School',
+    'Company',
+    'Corporate',
+    'Academy',
+    'Friendly',
+    'Tournament',
+  ];
+
+  /// Organizer seeking umpire(s).
+  static const _findUmpire = [
+    OpportunityFieldDef(
+      key: 'numberRequired',
+      label: 'Umpires needed',
+      type: OpportunityFieldType.number,
+      required: true,
+      hint: 'e.g. 2',
+    ),
+    OpportunityFieldDef(
+      key: 'matchCategory',
+      label: 'Match type',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: _matchCategoryOptions,
+    ),
+    OpportunityFieldDef(
+      key: 'certified',
+      label: 'Certification required',
+      type: OpportunityFieldType.yesNo,
+      required: true,
+      showOnCard: true,
+    ),
+    OpportunityFieldDef(
+      key: 'experience',
+      label: 'Experience preferred',
       type: OpportunityFieldType.singleSelect,
       options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
     ),
     OpportunityFieldDef(
-      key: 'tournamentName',
-      label: 'Tournament Name',
-      type: OpportunityFieldType.text,
-    ),
-    OpportunityFieldDef(
       key: 'matchDate',
-      label: 'Match Date',
-      type: OpportunityFieldType.date,
+      label: 'When needed',
+      type: OpportunityFieldType.dateOrRange,
     ),
     OpportunityFieldDef(
-      key: 'ground',
-      label: 'Ground',
+      key: 'tournamentName',
+      label: 'Tournament / series (optional)',
       type: OpportunityFieldType.text,
     ),
     OpportunityFieldDef(
       key: 'matchType',
-      label: 'Match Type',
+      label: 'Ball type',
       type: OpportunityFieldType.singleSelect,
-      required: true,
       showOnCard: true,
       options: ['Leather Ball', 'Tennis Ball'],
     ),
@@ -133,138 +291,53 @@ class OpportunityFieldSchema {
       options: ['Free', 'Paid'],
     ),
     OpportunityFieldDef(
-      key: 'requiredPlayers',
-      label: 'Required Players',
-      type: OpportunityFieldType.number,
-      required: true,
-      hint: 'e.g. 2',
+      key: 'paymentAmount',
+      label: 'Amount',
+      type: OpportunityFieldType.text,
+      hint: 'e.g. LKR 3000 / day (optional)',
+      showOnCard: true,
     ),
   ];
 
-  static const _findTeam = [
-    OpportunityFieldDef(
-      key: 'teamType',
-      label: 'Team Type',
-      type: OpportunityFieldType.singleSelect,
-      required: true,
-      showOnCard: true,
-      options: ['Club', 'Corporate', 'School', 'Academy', 'Casual'],
-    ),
-    OpportunityFieldDef(
-      key: 'needPlayersFor',
-      label: 'Need Players For',
-      type: OpportunityFieldType.text,
-      hint: 'Tournament / series / practice',
-    ),
-    OpportunityFieldDef(
-      key: 'tournamentName',
-      label: 'Tournament',
-      type: OpportunityFieldType.text,
-    ),
-    OpportunityFieldDef(
-      key: 'playingLevel',
-      label: 'Playing Level',
-      type: OpportunityFieldType.singleSelect,
-      showOnCard: true,
-      options: ['Beginner', 'Intermediate', 'Competitive', 'Elite'],
-    ),
-    OpportunityFieldDef(
-      key: 'ageCategory',
-      label: 'Age Category',
-      type: OpportunityFieldType.singleSelect,
-      showOnCard: true,
-      options: ['U13', 'U15', 'U17', 'U19', 'Open', 'Veterans'],
-    ),
-    OpportunityFieldDef(
-      key: 'payment',
-      label: 'Payment',
-      type: OpportunityFieldType.singleSelect,
-      required: true,
-      showOnCard: true,
-      options: ['Free', 'Paid'],
-    ),
-  ];
-
-  static const _findUmpire = [
-    OpportunityFieldDef(
-      key: 'certified',
-      label: 'Certified',
-      type: OpportunityFieldType.yesNo,
-      required: true,
-      showOnCard: true,
-    ),
-    OpportunityFieldDef(
-      key: 'experience',
-      label: 'Experience',
-      type: OpportunityFieldType.singleSelect,
-      options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
-    ),
-    OpportunityFieldDef(
-      key: 'level',
-      label: 'Level',
-      type: OpportunityFieldType.singleSelect,
-      showOnCard: true,
-      options: ['Club', 'District', 'Provincial', 'National'],
-    ),
-    OpportunityFieldDef(
-      key: 'tournamentName',
-      label: 'Tournament',
-      type: OpportunityFieldType.text,
-    ),
-    OpportunityFieldDef(
-      key: 'ground',
-      label: 'Ground',
-      type: OpportunityFieldType.text,
-    ),
-    OpportunityFieldDef(
-      key: 'matchDate',
-      label: 'Date',
-      type: OpportunityFieldType.date,
-    ),
-    OpportunityFieldDef(
-      key: 'payment',
-      label: 'Payment',
-      type: OpportunityFieldType.singleSelect,
-      required: true,
-      showOnCard: true,
-      options: ['Free', 'Paid'],
-    ),
-    OpportunityFieldDef(
-      key: 'numberRequired',
-      label: 'Number Required',
-      type: OpportunityFieldType.number,
-      required: true,
-    ),
-  ];
-
+  /// Organizer seeking scorer.
   static const _findScorer = [
     OpportunityFieldDef(
+      key: 'matchCategory',
+      label: 'Match type',
+      type: OpportunityFieldType.singleSelect,
+      required: true,
+      showOnCard: true,
+      options: _matchCategoryOptions,
+    ),
+    OpportunityFieldDef(
       key: 'digitalExperience',
-      label: 'Digital Scorekeeping Experience',
+      label: 'Digital scoring required',
       type: OpportunityFieldType.yesNo,
       showOnCard: true,
     ),
     OpportunityFieldDef(
       key: 'platformsUsed',
-      label: 'Platforms Used',
+      label: 'Preferred platforms',
       type: OpportunityFieldType.multiSelect,
-      options: ['CrickFlow', 'CricHeroes', 'CricClubs', 'Manual', 'Other'],
+      options: ['CrickFlow', 'Manual', 'Any'],
     ),
     OpportunityFieldDef(
       key: 'experience',
-      label: 'Experience',
+      label: 'Experience preferred',
       type: OpportunityFieldType.singleSelect,
       options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
     ),
     OpportunityFieldDef(
-      key: 'ground',
-      label: 'Ground',
-      type: OpportunityFieldType.text,
+      key: 'matchDate',
+      label: 'When needed',
+      type: OpportunityFieldType.dateOrRange,
     ),
     OpportunityFieldDef(
-      key: 'matchDate',
-      label: 'Date',
-      type: OpportunityFieldType.date,
+      key: 'matchType',
+      label: 'Ball type',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['Leather Ball', 'Tennis Ball'],
     ),
     OpportunityFieldDef(
       key: 'payment',
@@ -274,277 +347,342 @@ class OpportunityFieldSchema {
       showOnCard: true,
       options: ['Free', 'Paid'],
     ),
+    OpportunityFieldDef(
+      key: 'paymentAmount',
+      label: 'Amount',
+      type: OpportunityFieldType.text,
+      hint: 'e.g. LKR 2500 / match (optional)',
+      showOnCard: true,
+    ),
   ];
 
+  /// Seeking a coach.
   static const _findCoach = [
     OpportunityFieldDef(
       key: 'coachingType',
-      label: 'Coaching Type',
+      label: 'Coaching focus',
       type: OpportunityFieldType.singleSelect,
       required: true,
       showOnCard: true,
-      options: ['Batting', 'Bowling', 'Fitness', 'Fielding'],
+      options: ['Batting', 'Bowling', 'Fitness', 'Fielding', 'All-round'],
+    ),
+    OpportunityFieldDef(
+      key: 'ageRange',
+      label: 'Age group',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['U13', 'U15', 'U17', 'U19', 'Open', 'Veterans'],
     ),
     OpportunityFieldDef(
       key: 'experience',
-      label: 'Experience',
+      label: 'Coach experience preferred',
       type: OpportunityFieldType.singleSelect,
       options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
     ),
     OpportunityFieldDef(
       key: 'certification',
-      label: 'Certification',
+      label: 'Certification preferred',
       type: OpportunityFieldType.text,
       showOnCard: true,
+      hint: 'e.g. Level 1, any, none',
     ),
     OpportunityFieldDef(
       key: 'fees',
-      label: 'Fees',
+      label: 'Budget / session rate',
       type: OpportunityFieldType.text,
       hint: 'e.g. LKR 5000 / session',
       showOnCard: true,
     ),
   ];
 
+  /// Ground owner listing a venue (not seeking one).
   static const _findGround = [
     OpportunityFieldDef(
       key: 'groundName',
-      label: 'Ground Name',
+      label: 'Ground name',
       type: OpportunityFieldType.text,
       required: true,
       showOnCard: true,
     ),
     OpportunityFieldDef(
       key: 'pitchType',
-      label: 'Pitch Type',
+      label: 'Pitch type',
       type: OpportunityFieldType.singleSelect,
+      required: true,
       showOnCard: true,
       options: ['Turf', 'Matting', 'Concrete', 'Astro', 'Other'],
     ),
     OpportunityFieldDef(
       key: 'bookingAvailable',
-      label: 'Booking Available',
+      label: 'Booking available',
       type: OpportunityFieldType.yesNo,
       required: true,
       showOnCard: true,
     ),
     OpportunityFieldDef(
-      key: 'contact',
-      label: 'Contact',
+      key: 'matchType',
+      label: 'Ball types allowed',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['Leather Ball', 'Tennis Ball', 'Either'],
+    ),
+    OpportunityFieldDef(
+      key: 'fees',
+      label: 'Rates / hire fee',
       type: OpportunityFieldType.text,
-      hint: 'Phone or email for bookings',
+      showOnCard: true,
+      hint: 'e.g. LKR 15000 / day',
+    ),
+    OpportunityFieldDef(
+      key: 'facilities',
+      label: 'Facilities (optional)',
+      type: OpportunityFieldType.multiline,
+      maxLines: 3,
+      hint: 'Pavilion, nets, lighting, parking…',
     ),
   ];
 
+  /// Legacy seeking schema — category is no longer creatable in Discover.
   static const _findTournament = [
     OpportunityFieldDef(
-      key: 'entryFee',
-      label: 'Entry Fee',
-      type: OpportunityFieldType.text,
-      showOnCard: true,
-    ),
-    OpportunityFieldDef(
-      key: 'format',
-      label: 'Format',
-      type: OpportunityFieldType.singleSelect,
-      showOnCard: true,
-      options: ['League', 'Knockout', 'League + Knockout', 'Friendly Series'],
-    ),
-    OpportunityFieldDef(
-      key: 'overs',
-      label: 'Overs',
-      type: OpportunityFieldType.singleSelect,
-      options: ['5', '8', '10', '15', '20', '25', '30', '40', '50'],
-    ),
-    OpportunityFieldDef(
       key: 'matchType',
-      label: 'Ball Type',
+      label: 'Ball type',
       type: OpportunityFieldType.singleSelect,
       required: true,
       showOnCard: true,
-      options: ['Leather Ball', 'Tennis Ball'],
+      options: ['Leather Ball', 'Tennis Ball', 'Either'],
     ),
     OpportunityFieldDef(
-      key: 'prizeMoney',
-      label: 'Prize Money',
+      key: 'format',
+      label: 'Preferred format',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['League', 'Knockout', 'League + Knockout', 'Friendly Series', 'Any'],
+    ),
+    OpportunityFieldDef(
+      key: 'overs',
+      label: 'Preferred overs',
+      type: OpportunityFieldType.singleSelect,
+      options: ['5', '8', '10', '15', '20', '25', '30', '40', '50', 'Any'],
+    ),
+    OpportunityFieldDef(
+      key: 'ageCategory',
+      label: 'Age category',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['U13', 'U15', 'U17', 'U19', 'Open', 'Veterans'],
+    ),
+    OpportunityFieldDef(
+      key: 'entryFee',
+      label: 'Max entry fee (optional)',
       type: OpportunityFieldType.text,
       showOnCard: true,
-    ),
-    OpportunityFieldDef(
-      key: 'organizer',
-      label: 'Organizer',
-      type: OpportunityFieldType.text,
-    ),
-    OpportunityFieldDef(
-      key: 'contact',
-      label: 'Contact',
-      type: OpportunityFieldType.text,
+      hint: 'e.g. LKR 10000 / team',
     ),
     OpportunityFieldDef(
       key: 'registrationDeadline',
-      label: 'Registration Deadline',
+      label: 'Need to register by (optional)',
       type: OpportunityFieldType.date,
     ),
   ];
 
+  /// Looking for a sponsor.
   static const _findSponsor = [
     OpportunityFieldDef(
-      key: 'business',
-      label: 'Business',
+      key: 'tournamentName',
+      label: 'Event / tournament',
       type: OpportunityFieldType.text,
       required: true,
       showOnCard: true,
     ),
     OpportunityFieldDef(
-      key: 'budget',
-      label: 'Budget',
+      key: 'business',
+      label: 'Industry preference (optional)',
       type: OpportunityFieldType.text,
       showOnCard: true,
+      hint: 'e.g. Sports, FMCG, Local business',
     ),
     OpportunityFieldDef(
-      key: 'tournamentName',
-      label: 'Tournament',
+      key: 'budget',
+      label: 'Sponsorship amount needed',
       type: OpportunityFieldType.text,
+      showOnCard: true,
+      hint: 'e.g. LKR 50,000',
     ),
     OpportunityFieldDef(
       key: 'expectations',
-      label: 'Expectations',
+      label: 'What you need from the sponsor',
       type: OpportunityFieldType.multiline,
       maxLines: 3,
     ),
     OpportunityFieldDef(
       key: 'brandingRequirements',
-      label: 'Branding Requirements',
+      label: 'What you can offer the brand',
       type: OpportunityFieldType.multiline,
       maxLines: 3,
     ),
   ];
 
+  /// Looking for a commentator.
   static const _findCommentator = [
     OpportunityFieldDef(
+      key: 'languages',
+      label: 'Languages needed',
+      type: OpportunityFieldType.multiSelect,
+      required: true,
+      showOnCard: true,
+      options: ['English', 'Sinhala', 'Tamil', 'Hindi', 'Other'],
+    ),
+    OpportunityFieldDef(
       key: 'experience',
-      label: 'Experience',
+      label: 'Experience preferred',
       type: OpportunityFieldType.singleSelect,
       showOnCard: true,
       options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
     ),
     OpportunityFieldDef(
-      key: 'languages',
-      label: 'Languages',
-      type: OpportunityFieldType.multiSelect,
-      showOnCard: true,
-      options: ['English', 'Sinhala', 'Tamil', 'Hindi', 'Other'],
+      key: 'matchDate',
+      label: 'When needed',
+      type: OpportunityFieldType.dateOrRange,
     ),
     OpportunityFieldDef(
       key: 'fees',
-      label: 'Fees',
+      label: 'Budget / rate',
       type: OpportunityFieldType.text,
       showOnCard: true,
+      hint: 'e.g. LKR 5000 / match',
     ),
   ];
 
+  /// Looking for streaming crew.
   static const _findStreamingCrew = [
     OpportunityFieldDef(
       key: 'cameras',
-      label: 'Cameras',
+      label: 'Cameras needed',
       type: OpportunityFieldType.text,
       hint: 'e.g. 3 cameras',
       showOnCard: true,
     ),
     OpportunityFieldDef(
       key: 'drone',
-      label: 'Drone',
+      label: 'Need drone',
       type: OpportunityFieldType.yesNo,
       showOnCard: true,
     ),
     OpportunityFieldDef(
       key: 'commentary',
-      label: 'Commentary',
+      label: 'Need commentary',
       type: OpportunityFieldType.yesNo,
     ),
     OpportunityFieldDef(
       key: 'liveGraphics',
-      label: 'Live Graphics',
+      label: 'Need live graphics',
       type: OpportunityFieldType.yesNo,
       showOnCard: true,
     ),
     OpportunityFieldDef(
       key: 'replay',
-      label: 'Replay',
+      label: 'Need replay',
       type: OpportunityFieldType.yesNo,
     ),
     OpportunityFieldDef(
       key: 'streamingPlatform',
-      label: 'Streaming Platform',
+      label: 'Streaming platform',
       type: OpportunityFieldType.multiSelect,
       options: ['YouTube', 'Facebook', 'Instagram', 'Twitch', 'Other'],
     ),
     OpportunityFieldDef(
+      key: 'matchDate',
+      label: 'When needed',
+      type: OpportunityFieldType.dateOrRange,
+    ),
+    OpportunityFieldDef(
       key: 'price',
-      label: 'Price',
+      label: 'Budget',
       type: OpportunityFieldType.text,
       showOnCard: true,
+      hint: 'e.g. LKR 25000 / match',
     ),
   ];
 
+  /// Looking for a photographer.
   static const _findPhotographer = [
     OpportunityFieldDef(
       key: 'experience',
-      label: 'Experience',
+      label: 'Experience preferred',
       type: OpportunityFieldType.singleSelect,
       showOnCard: true,
       options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
     ),
     OpportunityFieldDef(
-      key: 'portfolio',
-      label: 'Portfolio URL',
+      key: 'matchDate',
+      label: 'When needed',
+      type: OpportunityFieldType.dateOrRange,
+    ),
+    OpportunityFieldDef(
+      key: 'equipment',
+      label: 'Equipment notes (optional)',
       type: OpportunityFieldType.text,
+    ),
+    OpportunityFieldDef(
+      key: 'portfolio',
+      label: 'Portfolio reference (optional)',
+      type: OpportunityFieldType.url,
       hint: 'https://…',
     ),
     OpportunityFieldDef(
       key: 'price',
-      label: 'Price',
+      label: 'Budget',
       type: OpportunityFieldType.text,
       showOnCard: true,
-    ),
-    OpportunityFieldDef(
-      key: 'equipment',
-      label: 'Equipment',
-      type: OpportunityFieldType.text,
+      hint: 'e.g. LKR 8000 / match',
     ),
   ];
 
+  /// Looking for a videographer.
   static const _findVideographer = [
     OpportunityFieldDef(
-      key: 'experience',
-      label: 'Experience',
-      type: OpportunityFieldType.singleSelect,
-      showOnCard: true,
-      options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
-    ),
-    OpportunityFieldDef(
       key: 'highlightPackages',
-      label: 'Highlight Packages',
+      label: 'Need highlight packages',
       type: OpportunityFieldType.yesNo,
       showOnCard: true,
     ),
     OpportunityFieldDef(
       key: 'liveProduction',
-      label: 'Live Production',
+      label: 'Need live production',
       type: OpportunityFieldType.yesNo,
       showOnCard: true,
     ),
     OpportunityFieldDef(
       key: 'drone',
-      label: 'Drone',
+      label: 'Need drone',
       type: OpportunityFieldType.yesNo,
       showOnCard: true,
     ),
     OpportunityFieldDef(
+      key: 'experience',
+      label: 'Experience preferred',
+      type: OpportunityFieldType.singleSelect,
+      showOnCard: true,
+      options: ['Beginner', 'Intermediate', 'Experienced', 'Professional'],
+    ),
+    OpportunityFieldDef(
+      key: 'matchDate',
+      label: 'When needed',
+      type: OpportunityFieldType.dateOrRange,
+    ),
+    OpportunityFieldDef(
+      key: 'portfolio',
+      label: 'Portfolio reference (optional)',
+      type: OpportunityFieldType.url,
+      hint: 'https://…',
+    ),
+    OpportunityFieldDef(
       key: 'price',
-      label: 'Price',
+      label: 'Budget',
       type: OpportunityFieldType.text,
       showOnCard: true,
+      hint: 'e.g. LKR 15000 / match',
     ),
   ];
 }

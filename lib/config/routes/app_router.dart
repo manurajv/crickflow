@@ -37,7 +37,7 @@ import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/player_onboarding/presentation/player_onboarding_screen.dart';
 import '../../features/overlay/presentation/live_overlay_screen.dart';
-import '../../features/players/presentation/player_detail_screen.dart';
+import '../../features/players/presentation/player_cricket_profile_redirect.dart';
 import '../../features/players/presentation/player_screen.dart';
 import '../../features/store/presentation/store_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
@@ -64,6 +64,7 @@ import '../../features/teams/presentation/team_add_players_screen.dart';
 import '../../features/teams/presentation/team_add_walk_in_player_screen.dart';
 import '../../features/teams/presentation/team_detail_screen.dart';
 import '../../features/teams/presentation/team_edit_screen.dart';
+import '../../features/teams/presentation/team_profile/team_profile_screen.dart';
 import '../../features/teams/presentation/create_team_screen.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_dashboard_screen.dart';
@@ -566,6 +567,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             TeamDetailScreen(teamId: state.pathParameters['id']!),
         routes: [
           GoRoute(
+            path: 'profile',
+            builder: (_, state) =>
+                TeamProfileScreen(teamId: state.pathParameters['id']!),
+          ),
+          GoRoute(
             path: 'edit',
             builder: (_, state) =>
                 TeamEditScreen(teamId: state.pathParameters['id']!),
@@ -620,8 +626,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/players', builder: (_, __) => const PlayerScreen()),
       GoRoute(
         path: '/players/:id',
-        builder: (_, state) =>
-            PlayerDetailScreen(playerId: state.pathParameters['id']!),
+        builder: (_, state) => PlayerCricketProfileRedirect(
+          playerDocId: state.pathParameters['id']!,
+        ),
         routes: [
           GoRoute(
             path: 'analysis',

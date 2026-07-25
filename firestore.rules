@@ -563,6 +563,21 @@ service cloud.firestore {
         || request.resource.data.playerId == resource.data.playerId;
     }
 
+    function validTeamFollowCreate(followerId) {
+      let d = request.resource.data;
+      return isSignedIn()
+        && d.keys().hasAll(['teamId', 'userId', 'createdAt'])
+        && d.userId == request.auth.uid
+        && d.teamId is string
+        && d.teamId.size() > 0
+        && followerId == d.teamId + '_' + d.userId;
+    }
+
+    function canDeleteTeamFollow() {
+      return isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
     function validPlayerFollowCreate(followId) {
       let d = request.resource.data;
       return d.keys().hasAll(['followerUserId', 'followedUserId', 'createdAt'])
@@ -597,7 +612,10 @@ service cloud.firestore {
       }
 
       match /profileViews/{viewerId} {
-        allow read: if isOwner(userId);
+        // Owner can list views; each viewer must read their own doc for the
+        // recordProfileView transaction.
+        allow read: if isSignedIn()
+          && (isOwner(userId) || request.auth.uid == viewerId);
         allow create, update: if isSignedIn()
           && request.auth.uid == viewerId
           && userId != request.auth.uid
@@ -790,6 +808,14 @@ service cloud.firestore {
       allow delete: if isSignedIn()
         && resource.data.createdBy == request.auth.uid
         && teamPublicCodeImmutable();
+
+      match /profileViews/{viewerId} {
+        allow read: if isSignedIn() && request.auth.uid == viewerId;
+        allow create, update: if isSignedIn()
+          && request.auth.uid == viewerId
+          && request.resource.data.keys().hasOnly(['lastViewedAt']);
+        allow delete: if false;
+      }
 
       match /join_requests/{requestId} {
         allow read: if isSignedIn() && (
@@ -1197,6 +1223,14 @@ service cloud.firestore {
         && request.resource.data.matchId.size() > 0;
       allow delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /teamFollowers/{followerId} {
+      // Public read so team profile follower counts work for guests.
+      allow read: if true;
+      allow create: if validTeamFollowCreate(followerId);
+      allow delete: if canDeleteTeamFollow();
       allow update: if false;
     }
 

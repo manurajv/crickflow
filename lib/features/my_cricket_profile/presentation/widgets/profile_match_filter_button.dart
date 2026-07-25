@@ -16,6 +16,7 @@ class ProfileMatchFilterButton extends ConsumerWidget {
     this.compact = false,
     this.iconOnly = false,
     this.iconColor,
+    this.filtersProvider,
   });
 
   final List<MatchModel> matches;
@@ -25,24 +26,32 @@ class ProfileMatchFilterButton extends ConsumerWidget {
   final bool iconOnly;
   final Color? iconColor;
 
+  /// Defaults to [profileMatchFiltersProvider] when null.
+  final StateProvider<ProfileMatchFilters>? filtersProvider;
+
+  StateProvider<ProfileMatchFilters> get _filtersProvider =>
+      filtersProvider ?? profileMatchFiltersProvider;
+
   void _openFilters(BuildContext context, WidgetRef ref) {
     final options = ProfileMatchFilterOptions.fromMatches(matches);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ProfileMatchFiltersScreen(options: options),
+        builder: (_) => ProfileMatchFiltersScreen(
+          options: options,
+          filtersProvider: _filtersProvider,
+        ),
       ),
     );
   }
 
   void _clearFilters(WidgetRef ref) {
-    ref.read(profileMatchFiltersProvider.notifier).state =
-        const ProfileMatchFilters();
+    ref.read(_filtersProvider.notifier).state = const ProfileMatchFilters();
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
-    final filters = ref.watch(profileMatchFiltersProvider);
+    final filters = ref.watch(_filtersProvider);
     final activeCount = filters.activeFilterCount;
     final color = iconColor ?? cf.textPrimary;
 

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../data/models/team_model.dart';
+import '../utils/team_squad_utils.dart';
 
 class TeamPlayerTile extends StatelessWidget {
   const TeamPlayerTile({
@@ -27,6 +28,7 @@ class TeamPlayerTile extends StatelessWidget {
       if (player.role.isNotEmpty) player.role,
       if (player.battingStyle.isNotEmpty) player.battingStyle,
     ];
+    final canOpen = TeamSquadUtils.canOpenCricketProfile(player);
 
     return Card(
       margin: const EdgeInsets.symmetric(
@@ -34,7 +36,9 @@ class TeamPlayerTile extends StatelessWidget {
         vertical: AppDimens.spaceXs,
       ),
       child: InkWell(
-        onTap: () => context.push('/players/${player.id}'),
+        onTap: canOpen
+            ? () => context.push(TeamSquadUtils.cricketProfilePath(player)!)
+            : null,
         borderRadius: AppDimens.cardRadius,
         child: Padding(
           padding: const EdgeInsets.all(AppDimens.spaceMd),

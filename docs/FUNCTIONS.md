@@ -22,6 +22,8 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 | `adminReprocessMatchStats` | Callable | Apply stats from events when `statsProcessed` is false (or `force:true`) |
 | `syncPublicScorecard` | `matches/{id}` written | Public `public/scorecard` (no stream keys) |
 | `syncPublicOverlay` | `matches/{id}/overlay/{docId}` written | Merges live overlay into public scorecard |
+| `onProfileViewWritten` | `users/{id}/profileViews/{viewerId}` written | Increments `socialStats.profileViewsCount` |
+| `onTeamProfileViewWritten` | `teams/{id}/profileViews/{viewerId}` written | Increments `teams.profileViewsCount` |
 | `onStreamStatusChanged` | `matches/{id}` updated | Stream live/ended fan-out |
 | `linkYouTubeAccount` | Callable | OAuth server auth code → refresh token |
 | `createYouTubeLiveStream` | Callable | YouTube broadcast + RTMP credentials |

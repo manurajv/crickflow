@@ -13,9 +13,21 @@ Future<bool> openVenueInGoogleMaps({required String query}) async {
   return launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
-/// Opens Google Maps directions to [destination] from the user's current location.
-Future<bool> openVenueDirections({required String destination}) async {
-  final query = destination.trim();
+/// Opens Google Maps directions to a destination.
+///
+/// Prefers [latitude]/[longitude] when both are set; otherwise uses [destination].
+Future<bool> openVenueDirections({
+  String? destination,
+  double? latitude,
+  double? longitude,
+}) async {
+  final hasCoords = latitude != null &&
+      longitude != null &&
+      latitude.isFinite &&
+      longitude.isFinite;
+  final query = hasCoords
+      ? '$latitude,$longitude'
+      : (destination?.trim() ?? '');
   if (query.isEmpty) return false;
 
   final uri = Uri.parse(

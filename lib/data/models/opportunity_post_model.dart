@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../core/constants/player_profile_constants.dart';
+import '../../core/utils/date_utils.dart';
 import '../../features/discover/domain/opportunity_category.dart';
 import '../../features/discover/domain/opportunity_field_schema.dart';
 import 'location_model.dart';
@@ -94,30 +96,210 @@ class OpportunityPostModel extends Equatable {
     return null;
   }
 
-  /// Chips shown on the feed card (from schema `showOnCard` fields).
+  DateTime? get eventDateEnd {
+    final raw = fields['matchDateEnd'];
+    if (raw is String && raw.isNotEmpty) {
+      return DateTime.tryParse(raw);
+    }
+    return null;
+  }
+
+  /// Single day or "12 Jan – 15 Jan" for card / share.
+  String? get eventDateLabel {
+    final start = eventDate;
+    if (start == null) return null;
+    final end = eventDateEnd;
+    if (end == null ||
+        (end.year == start.year &&
+            end.month == start.month &&
+            end.day == start.day)) {
+      return AppDateUtils.formatShort(start);
+    }
+    return '${AppDateUtils.formatShort(start)} – ${AppDateUtils.formatShort(end)}';
+  }
+
+  /// Sponsor: what the poster can offer the brand (card body, not a badge).
+  String? get brandingOfferText {
+    final raw = fields['brandingRequirements'];
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    return s.isEmpty ? null : s;
+  }
+
+  /// Photographer / videographer portfolio reference URL (if valid).
+  String? get portfolioUrl {
+    final raw = fields['portfolio'] ?? fields['portfolioUrl'];
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty) return null;
+    final normalized = s.startsWith('http://') || s.startsWith('https://')
+        ? s
+        : 'https://$s';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) return null;
+    if (uri.scheme != 'http' && uri.scheme != 'https') return null;
+    if (uri.host.isEmpty || !uri.host.contains('.')) return null;
+    return normalized;
+  }
+
+  /// Chips for every non-empty schema field (dates stay on the calendar row).
+  /// `showOnCard` fields are listed first for visual priority.
   List<String> get cardChips {
     final defs = OpportunityFieldSchema.fieldsFor(category);
+    final priority = <String>[];
     final chips = <String>[];
-    for (final def in defs) {
-      if (!def.showOnCard) continue;
-      final value = fields[def.key];
-      if (value == null) continue;
-      if (value is List) {
-        for (final v in value) {
-          final s = v.toString().trim();
-          if (s.isNotEmpty) chips.add(s);
-        }
+    final seen = <String>{};
+
+    void addChip(String? label, {required bool highPriority}) {
+      if (label == null || label.isEmpty) return;
+      if (!seen.add(label)) return;
+      if (highPriority) {
+        priority.add(label);
       } else {
-        final s = value.toString().trim();
-        if (s.isEmpty || s == 'N/A') continue;
-        if (def.type == OpportunityFieldType.yesNo) {
-          if (s == 'Yes') chips.add(def.label);
-        } else {
-          chips.add(s);
-        }
+        chips.add(label);
       }
     }
-    return chips.take(5).toList();
+
+    for (final def in defs) {
+      if (def.type == OpportunityFieldType.date ||
+          def.type == OpportunityFieldType.dateOrRange) {
+        continue; // calendar row via eventDateLabel
+      }
+      // Valid portfolio URLs use the link row; skip chip for those.
+      if (def.type == OpportunityFieldType.url || def.key == 'portfolio') {
+        final asUrl = portfolioUrl;
+        final raw = fields[def.key]?.toString().trim() ?? '';
+        if (asUrl != null || raw.isEmpty) continue;
+        // Legacy free-text portfolio note — fall through as a chip.
+      }
+      // Long offer copy — shown as bold body text on the card, not a chip.
+      if (def.key == 'brandingRequirements') continue;
+      final value = fields[def.key];
+      if (value == null) continue;
+
+      final highPriority = def.showOnCard ||
+          def.key == 'payment' ||
+          def.key == 'paymentAmount' ||
+          def.key == 'requiredPlayers' ||
+          def.key == 'numberRequired' ||
+          def.key == 'battingHand' ||
+          def.key == 'bowlingStyle' ||
+          def.key == 'playerType';
+
+      if (value is List) {
+        for (final v in value) {
+          addChip(
+            _cardChipLabel(def, v.toString()),
+            highPriority: highPriority,
+          );
+        }
+        continue;
+      }
+
+      final raw = value.toString().trim();
+      if (raw.isEmpty || raw == 'N/A') continue;
+
+      if (def.type == OpportunityFieldType.yesNo) {
+        addChip(_yesNoChip(def, raw), highPriority: highPriority);
+      } else {
+        addChip(_cardChipLabel(def, raw), highPriority: highPriority);
+      }
+    }
+    return [...priority, ...chips];
+  }
+
+  static String? _yesNoChip(OpportunityFieldDef def, String raw) {
+    final yes = raw == 'Yes' || raw.toLowerCase() == 'true';
+    final no = raw == 'No' || raw.toLowerCase() == 'false';
+    if (!yes && !no) return _truncateChip(raw);
+
+    return switch (def.key) {
+      'certified' => yes ? 'Certified' : 'Not certified',
+      'digitalExperience' => yes ? 'Digital scoring' : 'No digital req.',
+      'bookingAvailable' => yes ? 'Bookable' : 'Not bookable',
+      'drone' => yes ? 'Drone' : 'No drone',
+      'commentary' => yes ? 'Commentary' : 'No commentary',
+      'liveGraphics' => yes ? 'Live graphics' : 'No live graphics',
+      'replay' => yes ? 'Replay' : 'No replay',
+      'highlightPackages' => yes ? 'Highlights' : 'No highlights',
+      'liveProduction' => yes ? 'Live production' : 'No live production',
+      _ => yes ? _shortFieldLabel(def.label) : 'No · ${_shortFieldLabel(def.label)}',
+    };
+  }
+
+  /// Compact badge text for dense card chips.
+  static String? _cardChipLabel(OpportunityFieldDef def, String raw) {
+    final s = raw.trim();
+    if (s.isEmpty || s == 'N/A') return null;
+
+    if (def.key == 'requiredPlayers' || def.key == 'numberRequired') {
+      return '$s needed';
+    }
+    if (def.key == 'overs') {
+      return s == 'Any' ? 'Any overs' : '$s overs';
+    }
+    if (def.key == 'battingHand') {
+      return switch (s) {
+        'Right-hand' || 'Right' || 'Right Hand Batsman' => 'RHB',
+        'Left-hand' || 'Left' || 'Left Hand Batsman' => 'LHB',
+        _ => s,
+      };
+    }
+    if (def.key == 'bowlingStyle') {
+      final parsed = PlayerBowlingStyleLabels.fromStored(s);
+      if (parsed != null) return parsed.shortLabel;
+      return switch (s) {
+        'Left Arm Spin' => 'LA Spin',
+        'Leg Spinner' => 'Leg spin',
+        _ => s,
+      };
+    }
+    if (def.key == 'matchType') {
+      return switch (s) {
+        'Leather Ball' => 'Leather',
+        'Tennis Ball' => 'Tennis',
+        'Either' => 'Leather / Tennis',
+        _ => s,
+      };
+    }
+    if (def.key == 'experience') {
+      return '$s exp.';
+    }
+    if (def.key == 'playingLevel') {
+      return '$s level';
+    }
+
+    // Free-text / long values: keep readable, not paragraph-length.
+    if (def.type == OpportunityFieldType.multiline ||
+        def.type == OpportunityFieldType.text ||
+        def.type == OpportunityFieldType.number) {
+      return _truncateChip(s);
+    }
+    return s;
+  }
+
+  static String _shortFieldLabel(String label) {
+    var s = label.trim();
+    final lower = s.toLowerCase();
+    for (final suffix in const [
+      ' (optional)',
+      ' preferred',
+      ' required',
+      ' needed',
+    ]) {
+      if (lower.endsWith(suffix)) {
+        s = s.substring(0, s.length - suffix.length).trim();
+        break;
+      }
+    }
+    return _truncateChip(s) ?? s;
+  }
+
+  static String? _truncateChip(String raw, {int max = 36}) {
+    final s = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (s.isEmpty) return null;
+    if (s.length <= max) return s;
+    return '${s.substring(0, max - 1).trimRight()}…';
   }
 
   factory OpportunityPostModel.fromMap(String id, Map<String, dynamic> map) {
@@ -232,6 +414,7 @@ class OpportunityPostModel extends Equatable {
       description,
       authorName,
       location.displayLabel,
+      location.placeName,
       location.city,
       location.district,
       location.stateProvince,

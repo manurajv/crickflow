@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
-import '../../../core/utils/cf_team_id_format.dart';
-import '../../../core/utils/deep_link_utils.dart';
 import '../../../data/models/player_model.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
@@ -18,8 +15,6 @@ import 'widgets/team_detail_bottom_bar.dart';
 import 'widgets/team_join_action_button.dart';
 import 'widgets/team_join_requests_panel.dart';
 import 'widgets/team_notification_pref_tile.dart';
-import 'widgets/team_logo_picker.dart';
-import 'widgets/team_qr_view.dart';
 import 'widgets/team_squad_empty_state.dart';
 import 'widgets/team_squad_player_card.dart';
 
@@ -87,7 +82,6 @@ class TeamDetailScreen extends ConsumerWidget {
 
           return playersAsync.when(
             data: (players) {
-              final isOwner = TeamSquadUtils.isTeamOwner(uid, team);
               final canManageRequests =
                   TeamSquadUtils.canManageJoinRequests(uid, team);
               final canManageMembers = canManageRequests;
@@ -200,8 +194,7 @@ class TeamDetailScreen extends ConsumerWidget {
             team: team,
             players: players,
             onProfile: () {
-              final isOwner = TeamSquadUtils.isTeamOwner(uid, team);
-              _showTeamProfile(context, ref, team, isOwner);
+              context.push('/teams/$teamId/profile');
             },
             onLeave: (currentPlayer, isOwner) => _confirmLeaveTeam(
               context,
@@ -380,102 +373,6 @@ class TeamDetailScreen extends ConsumerWidget {
     }
   }
 
-  void _showTeamProfile(
-    BuildContext context,
-    WidgetRef ref,
-    TeamModel team,
-    bool isOwner,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.55,
-        maxChildSize: 0.85,
-        builder: (_, scroll) => SingleChildScrollView(
-          controller: scroll,
-          padding: const EdgeInsets.all(AppDimens.spaceLg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: TeamLogoPicker(
-                  logoUrl: team.profileImageUrl,
-                  teamName: team.name,
-                  size: 96,
-                  onTap: isOwner
-                      ? () {
-                          Navigator.pop(ctx);
-                          context.push('/teams/$teamId/edit');
-                        }
-                      : null,
-                ),
-              ),
-              const SizedBox(height: AppDimens.spaceMd),
-              Text(
-                team.name,
-                textAlign: TextAlign.center,
-                style: Theme.of(ctx).textTheme.headlineMedium,
-              ),
-              if (team.teamCode != null && team.teamCode!.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  CfTeamIdFormat.displayLabel(team.teamCode),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                    color: AppColors.gold,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-              Text(
-                team.location.displayLabel,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppDimens.spaceLg),
-              TeamQrView(team: team),
-              const SizedBox(height: AppDimens.spaceLg),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _stat(ctx, 'Played', '${team.stats.matchesPlayed}'),
-                  _stat(ctx, 'Won', '${team.stats.matchesWon}'),
-                  _stat(ctx, 'Points', '${team.stats.points}'),
-                ],
-              ),
-              const SizedBox(height: AppDimens.spaceLg),
-              OutlinedButton.icon(
-                onPressed: () {
-                  final link = DeepLinkUtils.httpsTeamUri(team.id).toString();
-                  Share.share('Join ${team.name} on CrickFlow.\n$link');
-                },
-                icon: const Icon(Icons.share_outlined),
-                label: const Text('Share team invite'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _stat(BuildContext context, String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppColors.gold,
-          ),
-        ),
-        Text(label),
-      ],
-    );
-  }
 }
 
 final _teamProvider = StreamProvider.family<TeamModel?, String>((ref, teamId) {

@@ -5,6 +5,7 @@ import '../../../core/utils/cricket_math.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
+import '../../teams/presentation/utils/team_squad_utils.dart';
 
 class PlayerScreen extends ConsumerWidget {
   const PlayerScreen({super.key});
@@ -47,8 +48,11 @@ class PlayerScreen extends ConsumerWidget {
                             p.stats.runs,
                             p.stats.ballsFaced,
                           );
+                          final path = TeamSquadUtils.cricketProfilePath(p);
                           return ListTile(
-                            onTap: () => context.push('/players/${p.id}'),
+                            onTap: path == null
+                                ? null
+                                : () => context.push(path),
                             leading: CircleAvatar(
                               backgroundColor: AppColors.primaryBlue,
                               child: Text(
