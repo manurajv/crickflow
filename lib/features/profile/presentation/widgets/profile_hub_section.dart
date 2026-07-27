@@ -3,54 +3,76 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../data/models/user_model.dart';
 
 /// Quick navigation hub for the signed-in user's account area.
 class ProfileHubSection extends StatelessWidget {
-  const ProfileHubSection({super.key});
+  const ProfileHubSection({
+    super.key,
+    this.user,
+    this.isOwnProfile = true,
+  });
+
+  /// When viewing another user's profile, pass their [user] and set
+  /// [isOwnProfile] to false to show only their cricket profile link.
+  final UserModel? user;
+  final bool isOwnProfile;
 
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final otherPlayerId = user?.playerId?.trim() ?? '';
+    final otherName = user?.effectiveName.trim() ?? 'Player';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Quick links',
+          isOwnProfile ? 'Quick links' : 'Cricket',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: cf.textPrimary,
               ),
         ),
         const SizedBox(height: AppDimens.spaceSm),
-        _HubTile(
-          icon: Icons.insights_outlined,
-          title: 'Cricket Profile',
-          subtitle: 'Stats, badges, and analysis',
-          accent: cf.accent,
-          onTap: () => context.push('/my-cricket-profile'),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        _HubTile(
-          icon: Icons.edit_outlined,
-          title: 'Edit Profile',
-          subtitle: 'Photo, role, and contact details',
-          onTap: () => context.push('/profile/edit'),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        _HubTile(
-          icon: Icons.bookmark_outline,
-          title: 'Saved Opportunities',
-          subtitle: 'Bookmarks from Discover marketplace',
-          onTap: () => context.push('/discover/saved'),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        _HubTile(
-          icon: Icons.person_search_outlined,
-          title: 'Find Cricketers',
-          subtitle: 'Discover players near you',
-          onTap: () => context.push('/find-cricketers'),
-        ),
+        if (isOwnProfile) ...[
+          _HubTile(
+            icon: Icons.insights_outlined,
+            title: 'Cricket Profile',
+            subtitle: 'Stats, badges, and analysis',
+            accent: cf.accent,
+            onTap: () => context.push('/my-cricket-profile'),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          _HubTile(
+            icon: Icons.edit_outlined,
+            title: 'Edit Profile',
+            subtitle: 'Photo, role, and contact details',
+            onTap: () => context.push('/profile/edit'),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          _HubTile(
+            icon: Icons.bookmark_outline,
+            title: 'Saved Opportunities',
+            subtitle: 'Bookmarks from Discover marketplace',
+            onTap: () => context.push('/discover/saved'),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          _HubTile(
+            icon: Icons.person_search_outlined,
+            title: 'Find Cricketers',
+            subtitle: 'Discover players near you',
+            onTap: () => context.push('/find-cricketers'),
+          ),
+        ] else if (otherPlayerId.isNotEmpty) ...[
+          _HubTile(
+            icon: Icons.insights_outlined,
+            title: "$otherName's Cricket Profile",
+            subtitle: 'Stats, badges, and analysis',
+            accent: cf.accent,
+            onTap: () => context.push('/player/$otherPlayerId/cricket'),
+          ),
+        ],
       ],
     );
   }

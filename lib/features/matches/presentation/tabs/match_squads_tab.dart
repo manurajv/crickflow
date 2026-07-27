@@ -104,7 +104,7 @@ void _openTeamProfile(BuildContext context, MatchSquadSide side) {
   context.push('/teams/$id');
 }
 
-bool _canOpenCricketProfile(MatchPlayerSnapshot player) {
+bool _canOpenUserProfile(MatchPlayerSnapshot player) {
   if (player.isMatchOnlyPlayer) return false;
   if (player.id.startsWith('guest_')) return false;
   if (!player.isRegisteredUser) return false;
@@ -112,10 +112,10 @@ bool _canOpenCricketProfile(MatchPlayerSnapshot player) {
   return publicId.isNotEmpty;
 }
 
-void _openCricketProfile(BuildContext context, MatchPlayerSnapshot player) {
-  if (!_canOpenCricketProfile(player)) return;
+void _openUserProfile(BuildContext context, MatchPlayerSnapshot player) {
+  if (!_canOpenUserProfile(player)) return;
   final publicId = player.playerId!.trim();
-  context.push('/player/$publicId/cricket');
+  context.push('/player/$publicId');
 }
 
 class _TeamHeaderRow extends StatelessWidget {
@@ -313,7 +313,7 @@ class _PlayerRow extends ConsumerWidget {
     final isViceCaptain = side.viceCaptainId == player.id;
     final isWicketKeeper = side.wicketKeeperId == player.id;
     final clustersAsync = ref.watch(playerCricketProfileByIdProvider(player.id));
-    final canOpen = _canOpenCricketProfile(player);
+    final canOpen = _canOpenUserProfile(player);
 
     final avatar = _SquadPlayerAvatar(
       player: player,
@@ -390,7 +390,7 @@ class _PlayerRow extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _openCricketProfile(context, player),
+        onTap: () => _openUserProfile(context, player),
         child: row,
       ),
     );

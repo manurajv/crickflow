@@ -3,13 +3,34 @@
 
 
 
-**Last updated:** Team Profile hub (Matches · Leaderboard · Stats · Members · Trophies · Profile)
+**Last updated:** Player Rankings cards — section stats + light-theme medals
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Player Rankings)
+
+| Item | Status |
+|------|--------|
+| Drawer: responsive width (~84%, max 360); header unchanged | Done |
+| Drawer: removed Fantasy Cricket + Player Directory from Explore | Done |
+| Drawer Quick Actions: added Nearby Matches; kept Start match / Add tournament | Done |
+| Drawer Explore: Discover, Community, Player Rankings, Find cricketers | Done |
+| Player Rankings screen (`/player-rankings`) | Done |
+| Ball type chips (Leather / Tennis / Indoor) + Batting/Bowling/Fielding | Done |
+| Filter sheet: year / overs / location (+ city search + current location) | Done |
+| Ranking cards: section detail stats (Inn/R/Avg/SR, Inn/W/Eco/SR, Mat/Dis/Ct/St/RO) | Done |
+| Top-3 medal colours theme-aware (stronger contrast in light mode) | Done |
+| Overs filter: match-aggregate path; safe totalOvers parse; wider match pool | Done |
+| Ranks from existing `PlayerStatsModel` + `CricketMath` (no team/tournament engine changes) | Done |
+| Year filter: All Time + 2026…current; year rankings from completed match innings | Done |
+| City search: Places + Geocode fallback for small towns; autofills country/state/city | Done |
+| Categories needing ball-event replay (maidens, dots, fastest 50/100, best figures) | Empty state — career docs lack those fields |
 
 ---
 

@@ -188,7 +188,7 @@ class TeamSquadUtils {
 
   /// Registered CrickFlow players with a public cricket ID only.
   /// Walk-in / guest / match-only players are not tappable.
-  static bool canOpenCricketProfile(PlayerModel player) {
+  static bool canOpenUserProfile(PlayerModel player) {
     final publicId = player.playerId?.trim() ?? '';
     if (publicId.isEmpty) return false;
     final userId = player.userId?.trim() ?? '';
@@ -196,8 +196,19 @@ class TeamSquadUtils {
     return true;
   }
 
+  /// Social / user profile (`/player/:playerId`).
+  static String? userProfilePath(PlayerModel player) {
+    if (!canOpenUserProfile(player)) return null;
+    return '/player/${player.playerId!.trim()}';
+  }
+
+  /// Cricket stats profile (`/player/:playerId/cricket`).
   static String? cricketProfilePath(PlayerModel player) {
-    if (!canOpenCricketProfile(player)) return null;
+    if (!canOpenUserProfile(player)) return null;
     return '/player/${player.playerId!.trim()}/cricket';
   }
+
+  @Deprecated('Use canOpenUserProfile')
+  static bool canOpenCricketProfile(PlayerModel player) =>
+      canOpenUserProfile(player);
 }

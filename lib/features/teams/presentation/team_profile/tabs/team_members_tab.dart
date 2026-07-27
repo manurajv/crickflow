@@ -160,8 +160,8 @@ class _MemberCard extends ConsumerWidget {
       if (player.bowlingStyle.isNotEmpty) player.bowlingStyle,
     ].join(' · ');
 
-    final canOpen = TeamSquadUtils.canOpenCricketProfile(player);
-    final profilePath = TeamSquadUtils.cricketProfilePath(player);
+    final canOpen = TeamSquadUtils.canOpenUserProfile(player);
+    final profilePath = TeamSquadUtils.userProfilePath(player);
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppDimens.spaceSm),

@@ -52,8 +52,8 @@ class TeamSquadPlayerCard extends ConsumerWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: TeamSquadUtils.canOpenCricketProfile(player)
-              ? () => context.push(TeamSquadUtils.cricketProfilePath(player)!)
+          onTap: TeamSquadUtils.canOpenUserProfile(player)
+              ? () => context.push(TeamSquadUtils.userProfilePath(player)!)
               : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(

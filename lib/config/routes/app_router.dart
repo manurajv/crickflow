@@ -37,6 +37,7 @@ import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/player_onboarding/presentation/player_onboarding_screen.dart';
 import '../../features/overlay/presentation/live_overlay_screen.dart';
+import '../../features/player_rankings/presentation/player_rankings_screen.dart';
 import '../../features/players/presentation/player_cricket_profile_redirect.dart';
 import '../../features/players/presentation/player_screen.dart';
 import '../../features/store/presentation/store_screen.dart';
@@ -622,6 +623,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/player-rankings',
+        builder: (_, _) => const PlayerRankingsScreen(),
       ),
       GoRoute(path: '/players', builder: (_, __) => const PlayerScreen()),
       GoRoute(

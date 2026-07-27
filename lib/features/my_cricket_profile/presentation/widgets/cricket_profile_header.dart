@@ -16,6 +16,7 @@ import '../../../../data/models/user_model.dart';
 import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/widgets/player_cluster_text.dart';
+import '../../../community/presentation/chat/open_chat.dart';
 import '../../../profile/presentation/widgets/player_follow_button.dart';
 
 /// Profile hero content — sits below the pinned app bar inside [FlexibleSpaceBar].
@@ -176,6 +177,20 @@ class CricketProfileHeader extends ConsumerWidget {
                   ),
                   const SizedBox(width: AppDimens.spaceSm),
                 ],
+                if (!isOwnProfile && user != null) ...[
+                  Expanded(
+                    child: _CardActionButton(
+                      icon: Icons.chat_bubble_outline,
+                      label: 'Chat',
+                      onPressed: () => openChatWithUser(
+                        context: context,
+                        ref: ref,
+                        other: user!,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimens.spaceSm),
+                ],
                 Expanded(
                   child: _CardActionButton(
                     icon: Icons.share_outlined,
@@ -183,16 +198,18 @@ class CricketProfileHeader extends ConsumerWidget {
                     onPressed: playerId.isEmpty ? null : () => _share(context),
                   ),
                 ),
-                const SizedBox(width: AppDimens.spaceSm),
-                Expanded(
-                  child: _CardActionButton(
-                    icon: Icons.qr_code_2_outlined,
-                    label: 'QR Code',
-                    onPressed: playerId.isEmpty
-                        ? null
-                        : () => context.push('/player/$playerId/qr'),
+                if (isOwnProfile) ...[
+                  const SizedBox(width: AppDimens.spaceSm),
+                  Expanded(
+                    child: _CardActionButton(
+                      icon: Icons.qr_code_2_outlined,
+                      label: 'QR Code',
+                      onPressed: playerId.isEmpty
+                          ? null
+                          : () => context.push('/player/$playerId/qr'),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ],

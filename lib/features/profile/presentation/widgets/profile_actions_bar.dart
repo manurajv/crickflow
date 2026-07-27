@@ -7,11 +7,11 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/deep_link_utils.dart';
 import '../../../../data/models/user_model.dart';
-import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/community_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/report_reason_dialog.dart';
+import '../../../community/presentation/chat/open_chat.dart';
 import 'player_follow_button.dart';
 
 class ProfileActionsBar extends ConsumerWidget {
@@ -74,40 +74,20 @@ class ProfileActionsBar extends ConsumerWidget {
           alignment: WrapAlignment.center,
           children: [
             CfButton(
+              label: 'Chat',
+              icon: Icons.chat_bubble_outline,
+              compact: true,
+              onPressed: () => openChatWithUser(
+                context: context,
+                ref: ref,
+                other: user,
+              ),
+            ),
+            CfButton(
               label: 'Share',
               compact: true,
               isOutlined: true,
               onPressed: () => _shareProfile(user),
-            ),
-            CfButton(
-              label: 'Message',
-              compact: true,
-              isOutlined: true,
-              onPressed: () async {
-                final me = ref.read(currentUserProfileProvider).valueOrNull;
-                if (me == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sign in to message')),
-                  );
-                  return;
-                }
-                try {
-                  final chatId =
-                      await ref.read(chatRepositoryProvider).openOrCreateChat(
-                            me: me,
-                            other: user,
-                          );
-                  if (context.mounted) {
-                    context.push('/community/chats/$chatId');
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('$e')),
-                    );
-                  }
-                }
-              },
             ),
             CfButton(
               label: 'Report Player',

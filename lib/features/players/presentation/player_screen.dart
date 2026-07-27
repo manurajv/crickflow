@@ -48,7 +48,7 @@ class PlayerScreen extends ConsumerWidget {
                             p.stats.runs,
                             p.stats.ballsFaced,
                           );
-                          final path = TeamSquadUtils.cricketProfilePath(p);
+                          final path = TeamSquadUtils.userProfilePath(p);
                           return ListTile(
                             onTap: path == null
                                 ? null

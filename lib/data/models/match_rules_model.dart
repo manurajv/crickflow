@@ -232,11 +232,12 @@ class MatchRulesModel extends Equatable {
         map['cricketMatchType'] as String?,
       ),
       ballType: _ballTypeFromString(map['ballType'] as String?),
-      totalOvers: map['totalOvers'] as int? ?? 20,
-      ballsPerOver: map['ballsPerOver'] as int? ?? 6,
-      playersPerTeam: map['playersPerTeam'] as int? ?? 11,
-      oversPerBowler: map['oversPerBowler'] as int? ??
-          calculateOversPerBowler(map['totalOvers'] as int? ?? 20),
+      totalOvers: _intFrom(map['totalOvers'], 20),
+      ballsPerOver: _intFrom(map['ballsPerOver'], 6),
+      playersPerTeam: _intFrom(map['playersPerTeam'], 11),
+      oversPerBowler: map['oversPerBowler'] != null
+          ? _intFrom(map['oversPerBowler'], calculateOversPerBowler(20))
+          : calculateOversPerBowler(_intFrom(map['totalOvers'], 20)),
       isManualOversPerBowler:
           map['isManualOversPerBowler'] as bool? ?? false,
       wideRuns: map['wideRuns'] as int? ?? 1,
@@ -310,6 +311,13 @@ class MatchRulesModel extends Equatable {
   static List<int> _oversListFromFirestore(Object? raw) {
     if (raw is! List) return [];
     return raw.map((e) => (e as num).toInt()).toList()..sort();
+  }
+
+  static int _intFrom(dynamic value, int fallback) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim()) ?? fallback;
+    return fallback;
   }
 
   static Map<String, List<int>> _powerplaySlotsToMap(List<List<int>> slots) {

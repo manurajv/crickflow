@@ -28,7 +28,7 @@ class TeamPlayerTile extends StatelessWidget {
       if (player.role.isNotEmpty) player.role,
       if (player.battingStyle.isNotEmpty) player.battingStyle,
     ];
-    final canOpen = TeamSquadUtils.canOpenCricketProfile(player);
+    final canOpen = TeamSquadUtils.canOpenUserProfile(player);
 
     return Card(
       margin: const EdgeInsets.symmetric(
@@ -37,7 +37,7 @@ class TeamPlayerTile extends StatelessWidget {
       ),
       child: InkWell(
         onTap: canOpen
-            ? () => context.push(TeamSquadUtils.cricketProfilePath(player)!)
+            ? () => context.push(TeamSquadUtils.userProfilePath(player)!)
             : null,
         borderRadius: AppDimens.cardRadius,
         child: Padding(

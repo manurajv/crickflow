@@ -68,7 +68,7 @@ class _PlayerCard extends ConsumerWidget {
     return _CardShell(
       onTap: playerId.isEmpty
           ? null
-          : () => context.push('/player/$playerId/cricket'),
+          : () => context.push('/player/$playerId'),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

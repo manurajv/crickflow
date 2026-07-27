@@ -195,9 +195,11 @@ class GoogleMapsLocationService {
   }
 
   /// [bias] ranks autocomplete results nearer this point (does not hard-filter).
+  /// [types] is a Places Autocomplete type filter, e.g. `(cities)`.
   Future<List<PlaceSuggestion>> searchPlaces(
     String query, {
     GeoCoords? bias,
+    String? types,
   }) async {
     final trimmed = query.trim();
     if (trimmed.length < 2) return [];
@@ -208,7 +210,10 @@ class GoogleMapsLocationService {
     };
     if (bias != null) {
       params['location'] = '${bias.latitude},${bias.longitude}';
-      params['radius'] = '80000';
+      params['radius'] = '200000';
+    }
+    if (types != null && types.isNotEmpty) {
+      params['types'] = types;
     }
 
     final uri = Uri.https(
@@ -235,6 +240,80 @@ class GoogleMapsLocationService {
           ),
         )
         .where((p) => p.placeId.isNotEmpty && p.description.isNotEmpty)
+        .toList();
+  }
+
+  /// City / town search that includes small localities Autocomplete often misses.
+  /// Combines unrestricted Places autocomplete with Geocoding results.
+  Future<List<PlaceSuggestion>> searchCities(
+    String query, {
+    GeoCoords? bias,
+  }) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+
+    final seen = <String>{};
+    final out = <PlaceSuggestion>[];
+
+    void add(PlaceSuggestion s) {
+      if (s.placeId.isEmpty || s.description.isEmpty) return;
+      if (!seen.add(s.placeId)) return;
+      out.add(s);
+    }
+
+    try {
+      for (final s in await searchPlaces(query, bias: bias)) {
+        add(s);
+      }
+    } catch (_) {}
+
+    try {
+      for (final s in await _geocodeAsSuggestions(trimmed, bias: bias)) {
+        add(s);
+      }
+    } catch (_) {}
+
+    return out;
+  }
+
+  Future<List<PlaceSuggestion>> _geocodeAsSuggestions(
+    String query, {
+    GeoCoords? bias,
+  }) async {
+    final params = <String, String>{
+      'address': query,
+      'key': MapsConfig.apiKey,
+    };
+    if (bias != null) {
+      final delta = 2.5;
+      params['bounds'] =
+          '${bias.latitude - delta},${bias.longitude - delta}|'
+          '${bias.latitude + delta},${bias.longitude + delta}';
+    }
+
+    final uri = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/geocode/json',
+      params,
+    );
+    final response = await http.get(uri);
+    if (response.statusCode != 200) return [];
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final status = body['status'] as String? ?? 'UNKNOWN';
+    if (status != 'OK' && status != 'ZERO_RESULTS') return [];
+
+    final results = body['results'] as List<dynamic>? ?? const [];
+    return results
+        .map((raw) {
+          final map = raw as Map<String, dynamic>;
+          return PlaceSuggestion(
+            placeId: map['place_id'] as String? ?? '',
+            description: map['formatted_address'] as String? ?? '',
+          );
+        })
+        .where((p) => p.placeId.isNotEmpty && p.description.isNotEmpty)
+        .take(8)
         .toList();
   }
 

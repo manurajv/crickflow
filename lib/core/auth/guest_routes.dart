@@ -13,6 +13,7 @@ class GuestRoutes {
   static const browseRoots = {
     '/teams',
     '/players',
+    '/player-rankings',
     '/analytics',
     '/wagon-wheel',
     '/fantasy',

@@ -32,9 +32,9 @@ class TournamentPlayerStatsScreen extends StatelessWidget {
         title: Text(detail.playerName),
         actions: [
           IconButton(
-            tooltip: 'Cricket profile',
+            tooltip: 'View profile',
             icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push('/player/${detail.playerId}/cricket'),
+            onPressed: () => context.push('/player/${detail.playerId}'),
           ),
         ],
       ),

@@ -68,6 +68,12 @@ class _PlayerProfileBodyState extends ConsumerState<PlayerProfileBody> {
         if (widget.isOwnProfile) ...[
           const SizedBox(height: AppDimens.spaceXl),
           const ProfileHubSection(),
+        ] else if ((widget.user.playerId ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: AppDimens.spaceXl),
+          ProfileHubSection(
+            user: widget.user,
+            isOwnProfile: false,
+          ),
         ],
         const SizedBox(height: AppDimens.spaceXl),
         ProfileDetailsSection(

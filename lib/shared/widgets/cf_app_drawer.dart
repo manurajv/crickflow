@@ -27,8 +27,11 @@ class CfAppDrawer extends ConsumerWidget {
     final role = profile?.role ?? UserRole.organizer;
     final showOrganizerActions = isGuest || role != UserRole.viewer;
 
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final drawerWidth = (screenWidth * 0.84).clamp(280.0, 360.0);
+
     return Drawer(
-      width: 260,
+      width: drawerWidth,
       backgroundColor: context.cf.surface,
       child: SafeArea(
         child: Column(
@@ -85,6 +88,12 @@ class CfAppDrawer extends ConsumerWidget {
                         );
                       },
                     ),
+                    _DrawerTile(
+                      icon: Icons.near_me_outlined,
+                      label: 'Nearby Matches',
+                      subtitle: 'Games around you',
+                      onTap: () => _goShell(context, '/home'),
+                    ),
                   ],
                   const _DrawerSectionHeader('My cricket'),
                   _DrawerTile(
@@ -114,6 +123,24 @@ class CfAppDrawer extends ConsumerWidget {
                   ),
                   const _DrawerSectionHeader('Explore'),
                   _DrawerTile(
+                    icon: Icons.explore_outlined,
+                    label: 'Discover',
+                    onTap: () => _goShell(context, '/discover'),
+                  ),
+                  _DrawerTile(
+                    icon: Icons.forum_outlined,
+                    label: 'Community',
+                    onTap: () => _goShell(context, '/community'),
+                  ),
+                  _DrawerTile(
+                    icon: Icons.leaderboard_outlined,
+                    label: 'Player Rankings',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/player-rankings');
+                    },
+                  ),
+                  _DrawerTile(
                     icon: Icons.person_search_outlined,
                     label: 'Find cricketers',
                     onTap: () {
@@ -128,22 +155,6 @@ class CfAppDrawer extends ConsumerWidget {
                           }
                         },
                       );
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.people_outline,
-                    label: 'Player directory',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/players');
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.sports_esports_outlined,
-                    label: 'Fantasy cricket',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/fantasy');
                     },
                   ),
                   const _DrawerSectionHeader('Account'),
