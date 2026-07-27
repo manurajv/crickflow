@@ -157,12 +157,11 @@ class MatchCardContent extends StatelessWidget {
             teamALogoUrl: teamALogoUrl,
             teamBLogoUrl: teamBLogoUrl,
             nameColor: nameColor,
-            isHero: _isHero,
           ),
           if (match.scheduledAt != null) ...[
             const SizedBox(height: AppDimens.spaceSm),
             Text(
-              'Match scheduled to begin on '
+              'Scheduled to begin on '
               '${AppDateUtils.formatCardSchedule(match.scheduledAt!)}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: mutedColor,
@@ -267,7 +266,6 @@ class _UpcomingTeamsBlock extends StatelessWidget {
     this.teamALogoUrl,
     this.teamBLogoUrl,
     required this.nameColor,
-    required this.isHero,
   });
 
   final String teamAName;
@@ -275,7 +273,6 @@ class _UpcomingTeamsBlock extends StatelessWidget {
   final String? teamALogoUrl;
   final String? teamBLogoUrl;
   final Color nameColor;
-  final bool isHero;
 
   @override
   Widget build(BuildContext context) {
@@ -293,18 +290,7 @@ class _UpcomingTeamsBlock extends StatelessWidget {
           logoUrl: teamALogoUrl,
           style: style,
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Text(
-            'vs',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: isHero
-                      ? Colors.white54
-                      : context.cf.textMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
+        const SizedBox(height: 8),
         _UpcomingTeamLine(
           name: teamBName,
           logoUrl: teamBLogoUrl,
@@ -649,22 +635,41 @@ class _MatchCardMetaLine extends StatelessWidget {
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(
           color: mutedColor,
         );
-    final parts = <InlineSpan>[];
+    final leading = <String>[];
     final date = match.scheduledAt ?? match.startedAt ?? match.completedAt;
     if (date != null) {
-      parts.add(TextSpan(text: AppDateUtils.formatCardDate(date)));
+      leading.add(AppDateUtils.formatCardDate(date));
     }
-    if (parts.isNotEmpty) {
-      parts.add(TextSpan(text: ' | ', style: style));
-    }
-    parts.add(TextSpan(text: '${match.rules.totalOvers} Ov.'));
-
+    leading.add('${match.rules.totalOvers} Ov.');
+    final leadingText = leading.join(' | ');
     final venue = _venueQuery;
-    if (venue != null) {
-      parts.add(TextSpan(text: ' | ', style: style));
-      parts.add(
-        WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
+
+    if (venue == null) {
+      return Text(
+        leadingText,
+        style: style,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    return Row(
+      children: [
+        Text(
+          leadingText,
+          style: style,
+          maxLines: 1,
+          softWrap: false,
+        ),
+        Text(' | ', style: style),
+        Icon(
+          Icons.location_on_outlined,
+          size: 14,
+          color: isHero ? Colors.white70 : mutedColor,
+        ),
+        const SizedBox(width: 2),
+        Expanded(
           child: GestureDetector(
             onTap: () => showVenueLocationSheet(
               context,
@@ -673,38 +678,19 @@ class _MatchCardMetaLine extends StatelessWidget {
               location: match.location.isEmpty ? null : match.location,
             ),
             behavior: HitTestBehavior.opaque,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 14,
-                  color: isHero ? Colors.white70 : mutedColor,
-                ),
-                const SizedBox(width: 2),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 160),
-                  child: Text(
-                    venue,
-                    style: style?.copyWith(
-                      decoration: TextDecoration.underline,
-                      decorationColor: mutedColor.withValues(alpha: 0.6),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            child: Text(
+              venue,
+              style: style?.copyWith(
+                decoration: TextDecoration.underline,
+                decorationColor: mutedColor.withValues(alpha: 0.6),
+              ),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ),
-      );
-    }
-
-    return Text.rich(
-      TextSpan(style: style, children: parts),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
+      ],
     );
   }
 }

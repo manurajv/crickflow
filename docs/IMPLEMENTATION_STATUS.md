@@ -86,9 +86,12 @@
 
 | Item | Status |
 |------|--------|
-| Nearby matches use GPS radius only; no country-wide fallback | Done |
-| Untagged matches only if same current city/district | Done |
-| Permission denied → profile city only (not entire country) | Done |
+| Default GPS mode: **50 km radius** | Done |
+| Custom city filter: **50 km radius** (same as GPS) | Done |
+| Country/state filter: text match; no subtitle under title | Done |
+| Titles: "Matches/Tournaments in {place}" when filtered; "Near You" for GPS | Done |
+| Location filter icon on the right; no See all | Done |
+| Permission denied → profile city text fallback only | Done |
 
 ---
 

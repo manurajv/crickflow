@@ -1,5 +1,6 @@
 import '../../../core/constants/enums.dart';
 import '../../../core/utils/cricket_math.dart';
+import '../../../core/utils/location_text_filter.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/player_model.dart';
 import 'player_rankings_models.dart';
@@ -260,20 +261,7 @@ class PlayerRankingsService {
 
   bool _matchesLocation(PlayerModel player, PlayerRankingsFilter filter) {
     if (!filter.hasLocationFilter) return true;
-    final loc = player.location;
-    if (filter.location.country.isNotEmpty &&
-        !_containsIgnoreCase(loc.country, filter.location.country)) {
-      return false;
-    }
-    if (filter.location.stateProvince.isNotEmpty &&
-        !_containsIgnoreCase(loc.stateProvince, filter.location.stateProvince)) {
-      return false;
-    }
-    if (filter.location.city.isNotEmpty &&
-        !_containsIgnoreCase(loc.city, filter.location.city)) {
-      return false;
-    }
-    return true;
+    return locationMatchesTextFilter(player.location, filter.location);
   }
 
   _Metric? _metricFor(PlayerStatsModel s, PlayerRankingsCategory category) {
@@ -458,10 +446,6 @@ class PlayerRankingsService {
           PlayerRankingStat(label: 'RO', value: '${stats.runOuts}'),
         ],
     };
-  }
-
-  static bool _containsIgnoreCase(String haystack, String needle) {
-    return haystack.toLowerCase().contains(needle.trim().toLowerCase());
   }
 }
 

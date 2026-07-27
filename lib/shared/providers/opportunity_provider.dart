@@ -369,7 +369,7 @@ final authorOpportunityPostsProvider =
     FutureProvider.family<List<OpportunityPostModel>, String>((ref, authorId) {
   return ref
       .read(opportunityRepositoryProvider)
-      .fetchByAuthor(authorId, limit: 10);
+      .fetchByAuthor(authorId, limit: 100);
 });
 
 /// Field filter values with aliases across categories / legacy posts.

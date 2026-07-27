@@ -462,25 +462,15 @@ class _AuthorRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          post.authorName.isNotEmpty
-                              ? post.authorName
-                              : 'Cricketer',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (post.authorVerified) ...[
-                        const SizedBox(width: 4),
-                        Icon(Icons.verified, size: 14, color: cf.accent),
-                      ],
-                    ],
+                  child: Text(
+                    post.authorName.isNotEmpty
+                        ? post.authorName
+                        : 'Cricketer',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

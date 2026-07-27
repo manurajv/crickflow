@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/geo_distance.dart';
 import '../../../../shared/widgets/tournament_list_card.dart';
 import '../../domain/nearby_tournament_item.dart';
-import '../../providers/nearby_matches_provider.dart';
+import '../../providers/nearby_anchor_location_provider.dart';
 import '../../providers/nearby_tournaments_provider.dart';
 import 'matches_near_you_section.dart';
 
@@ -17,108 +16,84 @@ class NearbyTournamentsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(nearbyTournamentsProvider);
-    final cf = context.cf;
+    final anchor = ref.watch(nearbyAnchorLocationProvider);
+    final title = nearbyTournamentsSectionTitle(anchor);
 
     return async.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(AppDimens.spaceMd),
-        child: Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
+      loading: () => NearbySectionSkeleton(
+        title: title,
+        onFilterLocation: () => openNearbyLocationFilter(ref, context),
+        locationFiltered: anchor != null,
       ),
-      error: (_, _) => const SizedBox.shrink(),
+      error: (_, _) => NearbySectionMessage(
+        title: title,
+        message: 'Unable to load nearby tournaments.',
+        actionLabel: 'Retry',
+        onAction: () => ref.invalidate(nearbyTournamentsProvider),
+        onFilterLocation: () => openNearbyLocationFilter(ref, context),
+        locationFiltered: anchor != null,
+      ),
       data: (state) {
         switch (state.status) {
           case NearbyTournamentsStatus.loading:
-            return const SizedBox.shrink();
+            return NearbySectionSkeleton(
+              title: title,
+              onFilterLocation: () => openNearbyLocationFilter(ref, context),
+              locationFiltered: anchor != null,
+            );
           case NearbyTournamentsStatus.permissionDenied:
           case NearbyTournamentsStatus.serviceDisabled:
+            return NearbySectionMessage(
+              title: title,
+              message: state.message,
+              actionLabel: 'Browse All Tournaments',
+              onAction: () => openMyCricketTournamentsAll(ref, context),
+              onFilterLocation: () => openNearbyLocationFilter(ref, context),
+              locationFiltered: anchor != null,
+            );
           case NearbyTournamentsStatus.empty:
+            return NearbySectionMessage(
+              title: title,
+              message: state.message.isNotEmpty
+                  ? state.message
+                  : 'No tournaments near you right now.',
+              actionLabel: 'Browse All Tournaments',
+              onAction: () => openMyCricketTournamentsAll(ref, context),
+              onFilterLocation: () => openNearbyLocationFilter(ref, context),
+              locationFiltered: anchor != null,
+            );
           case NearbyTournamentsStatus.error:
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppDimens.spaceMd,
-                AppDimens.spaceMd,
-                AppDimens.spaceMd,
-                AppDimens.spaceSm,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Tournaments Near You',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: AppDimens.spaceSm),
-                  Text(
-                    state.message.isNotEmpty
-                        ? state.message
-                        : 'No tournaments near you right now.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: cf.textSecondary,
-                        ),
-                  ),
-                  TextButton(
-                    onPressed: () => context.go('/discover'),
-                    child: const Text('Browse Discover'),
-                  ),
-                ],
-              ),
+            return NearbySectionMessage(
+              title: title,
+              message: state.message,
+              actionLabel: 'Retry',
+              onAction: () => ref.invalidate(nearbyTournamentsProvider),
+              onFilterLocation: () => openNearbyLocationFilter(ref, context),
+              locationFiltered: anchor != null,
             );
           case NearbyTournamentsStatus.ready:
             final cardWidth = nearbyCarouselCardWidth(context);
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppDimens.spaceMd,
-                    AppDimens.spaceMd,
-                    AppDimens.spaceMd,
-                    AppDimens.spaceXs,
+                NearbySectionHeader(
+                  title: title,
+                  subtitle: nearbyLocationSubtitle(
+                    regionLabel: state.regionLabel,
+                    useRadius: nearbyFilterUsesRadius(anchor),
+                    message: state.message,
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Tournaments Near You',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            if (state.regionLabel.isNotEmpty ||
-                                state.message.isNotEmpty)
-                              Text(
-                                state.message.isNotEmpty
-                                    ? state.message
-                                    : 'Within ~${kNearbyMatchRadiusKm.round()} km · ${state.regionLabel}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: cf.textSecondary),
-                              ),
-                          ],
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => context.go('/discover'),
-                        child: const Text('See all'),
-                      ),
-                    ],
-                  ),
+                  onFilterLocation: () => openNearbyLocationFilter(ref, context),
+                  locationFiltered: anchor != null,
                 ),
                 SizedBox(
-                  height: 220,
+                  height: 190,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimens.spaceMd,
-                      vertical: AppDimens.spaceXs,
+                    padding: const EdgeInsets.only(
+                      left: AppDimens.spaceMd,
+                      right: AppDimens.spaceMd,
+                      bottom: 2,
                     ),
                     itemCount: state.items.length,
                     separatorBuilder: (_, _) =>
@@ -127,7 +102,7 @@ class NearbyTournamentsSection extends ConsumerWidget {
                       final item = state.items[index];
                       final distance = item.distanceKm != null
                           ? formatDistanceAway(item.distanceKm!)
-                          : (item.regionFallback ? 'Near you' : null);
+                          : null;
                       return Align(
                         alignment: Alignment.topCenter,
                         child: SizedBox(
@@ -145,6 +120,7 @@ class NearbyTournamentsSection extends ConsumerWidget {
                     },
                   ),
                 ),
+                const SizedBox(height: AppDimens.spaceXs),
               ],
             );
         }

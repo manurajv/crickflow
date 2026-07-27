@@ -124,12 +124,6 @@ class OpportunityAuthorSheet extends ConsumerWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (user.playerId != null &&
-                                  user.playerId!.isNotEmpty) ...[
-                                const SizedBox(width: 4),
-                                Icon(Icons.verified,
-                                    size: 16, color: cf.accent),
-                              ],
                             ],
                           ),
                           if (user.playerId != null &&
@@ -167,8 +161,8 @@ class OpportunityAuthorSheet extends ConsumerWidget {
                 Row(
                   children: [
                     _StatChip(
-                      label: 'Matches',
-                      value: '${user.stats.matchesPlayed}',
+                      label: 'Posts',
+                      value: '${postsAsync.valueOrNull?.length ?? 0}',
                     ),
                     const SizedBox(width: 8),
                     _StatChip(
@@ -266,6 +260,7 @@ class OpportunityAuthorSheet extends ConsumerWidget {
                       );
                     }
                     return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (final p in posts.take(5)) ...[
                           _MiniPostTile(post: p),
@@ -325,38 +320,41 @@ class _MiniPostTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cf = context.cf;
     final theme = Theme.of(context);
-    return Container(
-      decoration: cfCardDecoration(context),
-      padding: const EdgeInsets.all(AppDimens.spaceMd),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            post.category.badgeLabel,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: post.category.badgeColor,
-              fontWeight: FontWeight.w800,
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        decoration: cfCardDecoration(context),
+        padding: const EdgeInsets.all(AppDimens.spaceMd),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              post.category.badgeLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: post.category.badgeColor,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            post.title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (post.locationLabel.isNotEmpty) ...[
             const SizedBox(height: 4),
-            TappableVenueLocation(
-              label: post.locationLabel,
-              location: post.location,
-              underline: false,
-              style: theme.textTheme.bodySmall?.copyWith(color: cf.textMuted),
+            Text(
+              post.title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
+            if (post.locationLabel.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              TappableVenueLocation(
+                label: post.locationLabel,
+                location: post.location,
+                underline: false,
+                style: theme.textTheme.bodySmall?.copyWith(color: cf.textMuted),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -380,16 +378,18 @@ class _StatChip extends StatelessWidget {
         border: Border.all(color: cf.border.withValues(alpha: 0.6)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             value,
+            textAlign: TextAlign.center,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
           Text(
             label,
+            textAlign: TextAlign.center,
             style: theme.textTheme.labelSmall?.copyWith(color: cf.textMuted),
           ),
         ],

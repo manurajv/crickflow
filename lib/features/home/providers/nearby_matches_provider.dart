@@ -1,14 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/geo_distance.dart';
+import '../../../core/utils/location_text_filter.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/services/google_maps_location_service.dart';
 import '../../../domain/scoring/match_lifecycle.dart';
 import '../../../shared/providers/providers.dart';
 import '../domain/nearby_match_item.dart';
+import 'nearby_anchor_location_provider.dart';
 
-const double kNearbyMatchRadiusKm = kNearbyRadiusKm;
+const double kNearbyMatchRadiusKm = 50;
 
 /// Cached nearby matches for the home "Matches Near You" section.
 final nearbyMatchesProvider =
@@ -19,14 +21,7 @@ final nearbyMatchesProvider =
   ref.onDispose(() => timer.ignore());
 
   final locationService = ref.watch(googleMapsLocationServiceProvider);
-  final access = await locationService.ensureLocationPermission();
-
-  if (access == LocationAccessStatus.serviceDisabled) {
-    return const NearbyMatchesState(
-      status: NearbyMatchesStatus.serviceDisabled,
-      message: 'Turn on location services to see matches near you.',
-    );
-  }
+  final anchor = ref.watch(nearbyAnchorLocationProvider);
 
   List<MatchModel> matches;
   try {
@@ -50,6 +45,28 @@ final nearbyMatchesProvider =
     return false;
   }).toList();
 
+  // Custom location filter.
+  // City → 50 km radius + city text fallback. Country/state only → text match.
+  if (anchor != null && !anchor.isEmpty) {
+    if (anchor.city.trim().isNotEmpty) {
+      return _buildFromCityFilter(
+        candidates: candidates,
+        filter: anchor,
+        locationService: locationService,
+      );
+    }
+    return _buildFromTextFilter(candidates: candidates, filter: anchor);
+  }
+
+  final access = await locationService.ensureLocationPermission();
+
+  if (access == LocationAccessStatus.serviceDisabled) {
+    return const NearbyMatchesState(
+      status: NearbyMatchesStatus.serviceDisabled,
+      message: 'Turn on location services to see matches near you.',
+    );
+  }
+
   if (access == LocationAccessStatus.denied ||
       access == LocationAccessStatus.deniedForever) {
     return _permissionDeniedFallback(ref: ref, candidates: candidates);
@@ -61,20 +78,165 @@ final nearbyMatchesProvider =
   }
 
   var regionLabel = '';
-  var country = '';
-  var city = '';
   try {
     final resolved = await locationService.reverseGeocode(coords);
     regionLabel = resolved.location.displayLabel;
-    country = resolved.location.country;
-    city = resolved.location.city.isNotEmpty
-        ? resolved.location.city
-        : (resolved.location.district.isNotEmpty
-            ? resolved.location.district
-            : resolved.location.stateProvince);
   } catch (_) {}
 
-  // Primary: GPS distance only — never mix in far-away matches.
+  return _buildFromCoords(
+    candidates: candidates,
+    coords: coords,
+    regionLabel: regionLabel,
+  );
+});
+
+Future<GeoCoords?> resolveNearbyAnchorCoords(
+  GoogleMapsLocationService locationService,
+  LocationModel anchor,
+) async {
+  // Prefer geocoding the city so radius centers on the selected city — not a
+  // stale device GPS pin that may still be attached to the LocationModel.
+  final query = [
+    anchor.city,
+    anchor.stateProvince,
+    anchor.country,
+  ].where((e) => e.trim().isNotEmpty).join(', ');
+  if (query.isNotEmpty) {
+    try {
+      final suggestions = await locationService.searchCities(query);
+      if (suggestions.isNotEmpty) {
+        final resolved = await locationService.resolvePlace(
+          suggestions.first.placeId,
+          fallbackDescription: suggestions.first.description,
+        );
+        if (resolved.location.hasCoordinates) {
+          return GeoCoords(
+            latitude: resolved.location.latitude!,
+            longitude: resolved.location.longitude!,
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (anchor.hasCoordinates) {
+    return GeoCoords(
+      latitude: anchor.latitude!,
+      longitude: anchor.longitude!,
+    );
+  }
+  return null;
+}
+
+Future<NearbyMatchesState> _buildFromCityFilter({
+  required List<MatchModel> candidates,
+  required LocationModel filter,
+  required GoogleMapsLocationService locationService,
+}) async {
+  final regionLabel = locationFilterSummaryLabel(filter);
+  final coords = await resolveNearbyAnchorCoords(locationService, filter);
+  final items = <NearbyMatchItem>[];
+  final seen = <String>{};
+
+  if (coords != null) {
+    for (final match in candidates) {
+      final loc = match.location;
+      if (!loc.hasCoordinates) continue;
+      final lat = loc.latitude!;
+      final lng = loc.longitude!;
+      if (!withinApproxBoundingBox(
+        origin: coords,
+        lat: lat,
+        lng: lng,
+        radiusKm: kNearbyMatchRadiusKm,
+      )) {
+        continue;
+      }
+      final km = distanceKmBetween(
+        coords,
+        GeoCoords(latitude: lat, longitude: lng),
+      );
+      if (km <= kNearbyMatchRadiusKm) {
+        items.add(NearbyMatchItem(match: match, distanceKm: km));
+        seen.add(match.id);
+      }
+    }
+  }
+
+  // Many matches only have city/venue text (no lat/lng). Include those too.
+  for (final match in candidates) {
+    if (seen.contains(match.id)) continue;
+    if (!locationMatchesCityFilter(
+      match.location,
+      filter,
+      venue: match.venue,
+    )) {
+      continue;
+    }
+    items.add(NearbyMatchItem(match: match, regionFallback: true));
+    seen.add(match.id);
+  }
+
+  items.sort((a, b) {
+    final da = a.distanceKm ?? double.infinity;
+    final db = b.distanceKm ?? double.infinity;
+    return da.compareTo(db);
+  });
+
+  if (items.isNotEmpty) {
+    return NearbyMatchesState(
+      status: NearbyMatchesStatus.ready,
+      items: items.take(20).toList(),
+      userCoords: coords,
+      regionLabel: regionLabel,
+    );
+  }
+
+  return NearbyMatchesState(
+    status: NearbyMatchesStatus.empty,
+    userCoords: coords,
+    regionLabel: regionLabel,
+    message: regionLabel.isNotEmpty
+        ? (coords != null
+            ? 'No matches within ${kNearbyMatchRadiusKm.round()} km of $regionLabel.'
+            : 'No matches in $regionLabel.')
+        : 'No matches found for this location.',
+  );
+}
+
+NearbyMatchesState _buildFromTextFilter({
+  required List<MatchModel> candidates,
+  required LocationModel filter,
+}) {
+  final regionLabel = locationFilterSummaryLabel(filter);
+  final filtered = candidates
+      .where((m) => locationMatchesTextFilter(m.location, filter))
+      .map((m) => NearbyMatchItem(match: m, regionFallback: true))
+      .take(20)
+      .toList();
+
+  if (filtered.isEmpty) {
+    return NearbyMatchesState(
+      status: NearbyMatchesStatus.empty,
+      regionLabel: regionLabel,
+      message: regionLabel.isNotEmpty
+          ? 'No matches in $regionLabel.'
+          : 'No matches found for this location.',
+    );
+  }
+
+  return NearbyMatchesState(
+    status: NearbyMatchesStatus.ready,
+    items: filtered,
+    regionLabel: regionLabel,
+  );
+}
+
+NearbyMatchesState _buildFromCoords({
+  required List<MatchModel> candidates,
+  required GeoCoords coords,
+  required String regionLabel,
+}) {
   final withDistance = <NearbyMatchItem>[];
   for (final match in candidates) {
     final loc = match.location;
@@ -113,42 +275,16 @@ final nearbyMatchesProvider =
     );
   }
 
-  // No geo-tagged hits in radius — include untagged matches only if they
-  // match the *current* city/district (never country-wide).
-  if (city.isNotEmpty) {
-    final localOnly = candidates
-        .where((m) => !m.location.hasCoordinates)
-        .where(
-          (m) => _matchesCurrentLocality(
-            m.location,
-            country: country,
-            locality: city,
-          ),
-        )
-        .map((m) => NearbyMatchItem(match: m, regionFallback: true))
-        .take(20)
-        .toList();
-    if (localOnly.isNotEmpty) {
-      return NearbyMatchesState(
-        status: NearbyMatchesStatus.ready,
-        items: localOnly,
-        userCoords: coords,
-        regionLabel: regionLabel,
-        message: 'Showing matches in $city',
-      );
-    }
-  }
-
   return NearbyMatchesState(
     status: NearbyMatchesStatus.empty,
     userCoords: coords,
     regionLabel: regionLabel,
-    message: 'No matches are currently scheduled near you.',
+    message: regionLabel.isNotEmpty
+        ? 'No matches within ${kNearbyMatchRadiusKm.round()} km of $regionLabel.'
+        : 'No matches are currently scheduled near you.',
   );
-});
+}
 
-/// When GPS is unavailable, only show matches in the profile city — never
-/// an entire country (that looked like "random" far-away matches).
 Future<NearbyMatchesState> _permissionDeniedFallback({
   required Ref ref,
   required List<MatchModel> candidates,
@@ -201,7 +337,6 @@ Future<NearbyMatchesState> _permissionDeniedFallback({
   );
 }
 
-/// Strict locality match — city/district must align; country alone is not enough.
 bool _matchesCurrentLocality(
   LocationModel location, {
   required String country,

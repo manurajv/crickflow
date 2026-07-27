@@ -108,3 +108,4 @@ bool locationMatchesFilter(LocationModel location, String country, String city) 
   }
   return true;
 }
+

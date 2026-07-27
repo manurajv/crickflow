@@ -6,19 +6,19 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/location_model.dart';
 import '../../../../data/services/google_maps_location_service.dart';
-import '../../../../domain/services/player_rankings/player_rankings_models.dart';
 
-Future<PlayerRankingsFilter?> showPlayerRankingsFilterSheet(
+/// Location-only filter sheet (same UX as Player Rankings location block).
+Future<LocationModel?> showNearbyLocationFilterSheet(
   BuildContext context, {
-  required PlayerRankingsFilter initial,
+  required LocationModel initial,
   required Future<LocationModel?> Function() onUseCurrentLocation,
   required GoogleMapsLocationService locationService,
 }) {
-  return showModalBottomSheet<PlayerRankingsFilter>(
+  return showModalBottomSheet<LocationModel>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (ctx) => _PlayerRankingsFilterSheet(
+    builder: (ctx) => _NearbyLocationFilterSheet(
       initial: initial,
       onUseCurrentLocation: onUseCurrentLocation,
       locationService: locationService,
@@ -26,29 +26,28 @@ Future<PlayerRankingsFilter?> showPlayerRankingsFilterSheet(
   );
 }
 
-class _PlayerRankingsFilterSheet extends StatefulWidget {
-  const _PlayerRankingsFilterSheet({
+class _NearbyLocationFilterSheet extends StatefulWidget {
+  const _NearbyLocationFilterSheet({
     required this.initial,
     required this.onUseCurrentLocation,
     required this.locationService,
   });
 
-  final PlayerRankingsFilter initial;
+  final LocationModel initial;
   final Future<LocationModel?> Function() onUseCurrentLocation;
   final GoogleMapsLocationService locationService;
 
   @override
-  State<_PlayerRankingsFilterSheet> createState() =>
-      _PlayerRankingsFilterSheetState();
+  State<_NearbyLocationFilterSheet> createState() =>
+      _NearbyLocationFilterSheetState();
 }
 
-class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> {
-  late int? _year;
-  late PlayerRankingsOversFilter _overs;
+class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> {
   late TextEditingController _search;
   late TextEditingController _country;
   late TextEditingController _state;
   late TextEditingController _city;
+  LocationModel? _resolved;
   var _locating = false;
   var _resolvingPlace = false;
   List<PlaceSuggestion> _suggestions = [];
@@ -58,13 +57,12 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
   @override
   void initState() {
     super.initState();
-    _year = widget.initial.year;
-    _overs = widget.initial.overs;
-    final initialLabel = widget.initial.location.displayLabel.trim();
+    _resolved = widget.initial.hasCoordinates ? widget.initial : null;
+    final initialLabel = widget.initial.displayLabel.trim();
     _search = TextEditingController(text: initialLabel);
-    _country = TextEditingController(text: widget.initial.location.country);
-    _state = TextEditingController(text: widget.initial.location.stateProvince);
-    _city = TextEditingController(text: widget.initial.location.city);
+    _country = TextEditingController(text: widget.initial.country);
+    _state = TextEditingController(text: widget.initial.stateProvince);
+    _city = TextEditingController(text: widget.initial.city);
   }
 
   @override
@@ -131,9 +129,12 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
         return;
       }
       setState(() {
+        _resolved = loc;
         _country.text = loc.country;
         _state.text = loc.stateProvince;
-        _city.text = loc.city;
+        _city.text = loc.city.isNotEmpty
+            ? loc.city
+            : (loc.district.isNotEmpty ? loc.district : loc.placeName);
         _search.text = loc.displayLabel.isNotEmpty
             ? loc.displayLabel
             : [
@@ -159,6 +160,7 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
       try {
         final results = await widget.locationService.searchCities(query);
         if (!mounted) return;
+        // Ignore stale results if the field changed while searching.
         if (_search.text.trim() != query) return;
         setState(() {
           _suggestions = results;
@@ -194,6 +196,7 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
           ? loc.displayLabel
           : suggestion.description;
       setState(() {
+        _resolved = loc;
         _country.text = loc.country;
         _state.text = loc.stateProvince;
         _city.text = loc.city.isNotEmpty
@@ -211,20 +214,25 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
     }
   }
 
+  void _clearResolvedCoords() {
+    if (_resolved != null) {
+      setState(() => _resolved = null);
+    }
+  }
+
   void _apply() {
-    final location = LocationModel(
+    final fromFields = LocationModel(
       country: _country.text.trim(),
       stateProvince: _state.text.trim(),
       city: _city.text.trim(),
+      latitude: _resolved?.latitude,
+      longitude: _resolved?.longitude,
+      placeName: _resolved?.placeName ?? '',
+      district: _resolved?.district ?? '',
     );
     Navigator.pop(
       context,
-      widget.initial.copyWith(
-        year: _year,
-        clearYear: _year == null,
-        overs: _overs,
-        location: location,
-      ),
+      fromFields.isEmpty ? const LocationModel() : fromFields,
     );
   }
 
@@ -232,7 +240,6 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
   Widget build(BuildContext context) {
     final cf = context.cf;
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    final years = playerRankingsYearOptions();
 
     return SafeArea(
       child: Padding(
@@ -247,48 +254,12 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Filters',
+                'Location',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: AppDimens.spaceMd),
-              DropdownButtonFormField<int?>(
-                key: ValueKey(_year),
-                initialValue: _year,
-                decoration: _fieldDecoration('Year'),
-                items: [
-                  const DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text('All Time'),
-                  ),
-                  for (final y in years)
-                    DropdownMenuItem<int?>(
-                      value: y,
-                      child: Text('$y'),
-                    ),
-                ],
-                onChanged: (value) => setState(() => _year = value),
-              ),
-              const SizedBox(height: AppDimens.spaceLg),
-              _SectionLabel('Overs'),
-              const SizedBox(height: AppDimens.spaceXs),
-              Wrap(
-                spacing: AppDimens.spaceXs,
-                runSpacing: AppDimens.spaceXs,
-                children: [
-                  for (final o in PlayerRankingsOversFilter.values)
-                    ChoiceChip(
-                      label: Text(o.title),
-                      selected: _overs == o,
-                      onSelected: (_) => setState(() => _overs = o),
-                      selectedColor: cf.accent.withValues(alpha: 0.15),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppDimens.spaceLg),
-              _SectionLabel('Location'),
-              const SizedBox(height: AppDimens.spaceSm),
               ListenableBuilder(
                 listenable: _search,
                 builder: (context, _) {
@@ -365,7 +336,7 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.my_location_outlined, size: 18),
+                    : const Icon(Icons.my_location, size: 18),
                 label: Text(
                   _locating ? 'Detecting…' : 'Use current location',
                 ),
@@ -384,18 +355,21 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
                 controller: _country,
                 decoration: _fieldDecoration('Country'),
                 textCapitalization: TextCapitalization.words,
+                onChanged: (_) => _clearResolvedCoords(),
               ),
               const SizedBox(height: AppDimens.spaceMd),
               TextField(
                 controller: _state,
                 decoration: _fieldDecoration('State / Province'),
                 textCapitalization: TextCapitalization.words,
+                onChanged: (_) => _clearResolvedCoords(),
               ),
               const SizedBox(height: AppDimens.spaceMd),
               TextField(
                 controller: _city,
                 decoration: _fieldDecoration('City'),
                 textCapitalization: TextCapitalization.words,
+                onChanged: (_) => _clearResolvedCoords(),
               ),
               const SizedBox(height: AppDimens.spaceLg),
               Row(
@@ -404,8 +378,7 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
                     child: OutlinedButton(
                       onPressed: () {
                         setState(() {
-                          _year = null;
-                          _overs = PlayerRankingsOversFilter.all;
+                          _resolved = null;
                           _search.clear();
                           _country.clear();
                           _state.clear();
@@ -421,8 +394,8 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
                   Expanded(
                     flex: 2,
                     child: FilledButton(
-                      onPressed: _apply,
-                      child: const Text('Apply filters'),
+                      onPressed: _resolvingPlace ? null : _apply,
+                      child: const Text('Apply'),
                     ),
                   ),
                 ],
@@ -431,24 +404,6 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: context.cf.textMuted,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.0,
-          ),
     );
   }
 }

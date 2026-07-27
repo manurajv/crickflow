@@ -40,11 +40,26 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
       if (uid == null && mounted) {
         setState(() => _scope = MyCricketListScope.all);
       }
+      _consumePendingScope();
     });
+  }
+
+  void _consumePendingScope() {
+    final pending = ref.read(myCricketMatchesInitialScopeProvider);
+    if (pending == null || !mounted) return;
+    setState(() => _scope = pending);
+    ref.read(myCricketMatchesInitialScopeProvider.notifier).state = null;
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<MyCricketListScope?>(myCricketMatchesInitialScopeProvider,
+        (prev, next) {
+      if (next == null || !mounted) return;
+      setState(() => _scope = next);
+      ref.read(myCricketMatchesInitialScopeProvider.notifier).state = null;
+    });
+
     final uid = ref.watch(authStateProvider).value?.uid;
     final isGuest = uid == null;
 

@@ -539,13 +539,6 @@ class _RankingCard extends StatelessWidget {
                                   ),
                             ),
                           ),
-                        ] else if (entry.verified) ...[
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.verified,
-                            size: 16,
-                            color: cf.accent,
-                          ),
                         ],
                       ],
                     ),

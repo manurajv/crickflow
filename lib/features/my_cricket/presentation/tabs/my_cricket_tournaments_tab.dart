@@ -34,7 +34,15 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
       if (uid == null && mounted) {
         setState(() => _scope = MyCricketListScope.all);
       }
+      _consumePendingScope();
     });
+  }
+
+  void _consumePendingScope() {
+    final pending = ref.read(myCricketTournamentsInitialScopeProvider);
+    if (pending == null || !mounted) return;
+    setState(() => _scope = pending);
+    ref.read(myCricketTournamentsInitialScopeProvider.notifier).state = null;
   }
 
   void _registerTournament() {
@@ -52,6 +60,13 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<MyCricketListScope?>(myCricketTournamentsInitialScopeProvider,
+        (prev, next) {
+      if (next == null || !mounted) return;
+      setState(() => _scope = next);
+      ref.read(myCricketTournamentsInitialScopeProvider.notifier).state = null;
+    });
+
     final uid = ref.watch(authStateProvider).value?.uid;
     final isGuest = uid == null;
 
