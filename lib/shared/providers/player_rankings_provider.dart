@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/location_model.dart';
+import '../../data/models/player_model.dart';
 import '../../data/repositories/player_rankings_repository.dart';
 import '../../domain/services/player_rankings/player_rankings_models.dart';
+import 'my_player_provider.dart';
 
 final playerRankingsRepositoryProvider = Provider(
   (ref) => PlayerRankingsRepository(),
@@ -20,6 +22,7 @@ class PlayerRankingsFeedState {
     this.error,
     this.totalCount = 0,
     this.page = -1,
+    this.myEntry,
   });
 
   final List<PlayerRankingEntry> entries;
@@ -29,6 +32,7 @@ class PlayerRankingsFeedState {
   final Object? error;
   final int totalCount;
   final int page;
+  final PlayerRankingEntry? myEntry;
 
   PlayerRankingsFeedState copyWith({
     List<PlayerRankingEntry>? entries,
@@ -39,6 +43,8 @@ class PlayerRankingsFeedState {
     bool clearError = false,
     int? totalCount,
     int? page,
+    PlayerRankingEntry? myEntry,
+    bool clearMyEntry = false,
   }) {
     return PlayerRankingsFeedState(
       entries: entries ?? this.entries,
@@ -48,6 +54,7 @@ class PlayerRankingsFeedState {
       error: clearError ? null : (error ?? this.error),
       totalCount: totalCount ?? this.totalCount,
       page: page ?? this.page,
+      myEntry: clearMyEntry ? null : (myEntry ?? this.myEntry),
     );
   }
 }
@@ -68,6 +75,14 @@ class PlayerRankingsFeedController
   PlayerRankingsFilter get _filter =>
       _ref.read(playerRankingsFilterProvider);
 
+  Future<PlayerModel?> _viewerPlayer() async {
+    try {
+      return await _ref.read(myPlayerProvider.future);
+    } catch (_) {
+      return _ref.read(myPlayerProvider).valueOrNull;
+    }
+  }
+
   Future<void> refresh() async {
     state = state.copyWith(
       loading: true,
@@ -75,15 +90,23 @@ class PlayerRankingsFeedController
       entries: const [],
       page: -1,
       hasMore: true,
+      clearMyEntry: true,
     );
     try {
-      final result = await _repo.fetchRankings(filter: _filter, page: 0);
+      final viewer = await _viewerPlayer();
+      final result = await _repo.fetchRankings(
+        filter: _filter,
+        page: 0,
+        viewerPlayerDocId: viewer?.id,
+        viewerPublicPlayerId: viewer?.playerId,
+      );
       state = PlayerRankingsFeedState(
         entries: result.entries,
         loading: false,
         hasMore: result.hasMore,
         totalCount: result.totalCount,
         page: 0,
+        myEntry: result.myEntry,
       );
     } catch (e) {
       state = state.copyWith(loading: false, error: e);
@@ -97,10 +120,13 @@ class PlayerRankingsFeedController
     _loadMoreLocked = true;
     state = state.copyWith(loadingMore: true, clearError: true);
     try {
+      final viewer = await _viewerPlayer();
       final nextPage = state.page + 1;
       final result = await _repo.fetchRankings(
         filter: _filter,
         page: nextPage,
+        viewerPlayerDocId: viewer?.id,
+        viewerPublicPlayerId: viewer?.playerId,
       );
       state = state.copyWith(
         entries: [...state.entries, ...result.entries],
@@ -108,6 +134,7 @@ class PlayerRankingsFeedController
         hasMore: result.hasMore,
         totalCount: result.totalCount,
         page: nextPage,
+        myEntry: result.myEntry ?? state.myEntry,
       );
     } catch (e) {
       state = state.copyWith(loadingMore: false, error: e);
@@ -123,6 +150,15 @@ final playerRankingsFeedControllerProvider = StateNotifierProvider<
   ref.listen<PlayerRankingsFilter>(playerRankingsFilterProvider, (prev, next) {
     if (prev == next) return;
     controller.refresh();
+  });
+  ref.listen(myPlayerProvider, (prev, next) {
+    final prevId = prev?.valueOrNull?.id;
+    final nextId = next.valueOrNull?.id;
+    if (prevId == nextId) return;
+    // Auth/player resolved after first paint — refresh so sticky rank appears.
+    if (nextId != null && nextId.isNotEmpty) {
+      controller.refresh();
+    }
   });
   return controller;
 });

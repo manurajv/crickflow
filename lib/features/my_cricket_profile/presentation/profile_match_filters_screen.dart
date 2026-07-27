@@ -40,8 +40,14 @@ class _ProfileMatchFiltersScreenState
   void initState() {
     super.initState();
     // Drop legacy team filter — Team is no longer offered in the UI.
+    // Indoor is a match type, not a ball option.
     final current = ref.read(widget.resolvedFiltersProvider);
-    _draft = current.copyWith(teamId: () => null);
+    _draft = current.copyWith(
+      teamId: () => null,
+      ballType: () => current.ballType == CricketBallType.indoor
+          ? null
+          : current.ballType,
+    );
   }
 
   void _apply() {
@@ -173,9 +179,14 @@ class _ProfileMatchFiltersScreenState
   }
 
   Widget _buildBallOptions(CfColors cf) {
+    // Indoor is a match type (see Match type filter), not a ball option here.
+    const ballOptions = [
+      CricketBallType.leather,
+      CricketBallType.tennis,
+    ];
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: AppDimens.spaceSm),
-      children: CricketBallType.values
+      children: ballOptions
           .map(
             (type) => _optionTile(
               cf: cf,

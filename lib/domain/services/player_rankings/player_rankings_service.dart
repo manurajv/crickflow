@@ -26,7 +26,6 @@ class PlayerRankingsService {
       // Walk-in / match-only guest players have no linked account.
       if (!_isRegisteredPlayer(player)) continue;
       if (!_matchesLocation(player, filter)) continue;
-      if (!_matchesSearch(player, filter, teamNamesById)) continue;
 
       final stats = statsByPlayerId != null
           ? (statsByPlayerId[player.id] ?? const PlayerStatsModel())
@@ -72,14 +71,12 @@ class PlayerRankingsService {
 
   /// Aggregates batting / bowling / fielding from completed match innings.
   ///
-  /// When [ballType] is null, all ball types are included (career-style overall).
-  /// Optional [year] filters on completed / started / scheduled / created date.
-  /// [bowlingInningsOut] is filled with bowling-innings counts per player.
+  /// Ball filtering is rankings-specific via [filter]:
+  /// - Leather / Tennis: same as cricket profile (`resolvedBallType`).
+  /// - Indoor: indoor match type, optional leather/tennis material.
   Map<String, PlayerStatsModel> aggregateFromMatches({
     required List<MatchModel> matches,
-    CricketBallType? ballType,
-    PlayerRankingsOversFilter overs = PlayerRankingsOversFilter.all,
-    int? year,
+    required PlayerRankingsFilter filter,
     Map<String, int>? bowlingInningsOut,
   }) {
     final byId = <String, _MatchAgg>{};
@@ -88,16 +85,14 @@ class PlayerRankingsService {
         byId.putIfAbsent(id, _MatchAgg.new);
 
     for (final match in matches) {
-      if (ballType != null && match.rules.resolvedBallType != ballType) {
-        continue;
-      }
-      if (!_matchesOversFilter(match, overs)) continue;
-      if (year != null) {
+      if (!_matchesRankingsBallFilter(match, filter)) continue;
+      if (!_matchesOversFilter(match, filter.overs)) continue;
+      if (filter.year != null) {
         final date = match.completedAt ??
             match.startedAt ??
             match.scheduledAt ??
             match.createdAt;
-        if (date == null || date.year != year) continue;
+        if (date == null || date.year != filter.year) continue;
       }
 
       final played = <String>{};
@@ -170,6 +165,40 @@ class PlayerRankingsService {
     };
   }
 
+  /// Rankings-only ball matching. Does not change cricket profile filters.
+  bool _matchesRankingsBallFilter(
+    MatchModel match,
+    PlayerRankingsFilter filter,
+  ) {
+    if (filter.ballType == CricketBallType.indoor) {
+      final isIndoorMatch =
+          match.rules.cricketMatchType == CricketMatchType.indoor ||
+              match.rules.ballType == CricketBallType.indoor;
+      if (!isIndoorMatch) return false;
+      final material = filter.indoorBallMaterial;
+      if (material == null) return true;
+      return _rankingsBallType(match) == material;
+    }
+
+    // Leather / Tennis — resolve like Cloud Functions stats buckets.
+    return _rankingsBallType(match) == filter.ballType;
+  }
+
+  /// Mirrors `resolveBallType` in functions/src/utils/stats.js so rankings
+  /// align with how player typed stats are written.
+  CricketBallType _rankingsBallType(MatchModel match) {
+    final rules = match.rules;
+    final explicit = rules.ballType;
+    if (explicit != null) {
+      // Legacy "indoor" ball enum was used for tennis-style indoor games.
+      if (explicit == CricketBallType.indoor) return CricketBallType.tennis;
+      return explicit;
+    }
+    if (rules.format == MatchFormat.tennis) return CricketBallType.tennis;
+    if (rules.format == MatchFormat.custom) return CricketBallType.tennis;
+    return CricketBallType.leather;
+  }
+
   bool _matchesOversFilter(MatchModel match, PlayerRankingsOversFilter overs) {
     if (overs == PlayerRankingsOversFilter.all) return true;
 
@@ -215,16 +244,12 @@ class PlayerRankingsService {
   }
 
   PlayerStatsModel _statsFor(PlayerModel player, CricketBallType ballType) {
-    final typed = player.statsForBallType(ballType);
-    if (typed.matchesPlayed > 0 ||
-        typed.runs > 0 ||
-        typed.wickets > 0 ||
-        typed.catches > 0 ||
-        typed.runOuts > 0 ||
-        typed.stumpings > 0) {
-      return typed;
+    // Career path is unused for rankings (match aggregates only). Kept for
+    // typed-bucket access if a caller passes statsByPlayerId: null.
+    if (ballType == CricketBallType.indoor) {
+      return const PlayerStatsModel();
     }
-    return player.stats;
+    return player.statsForBallType(ballType);
   }
 
   /// Registered CrickFlow accounts only — excludes walk-ins and match guests.
@@ -249,24 +274,6 @@ class PlayerRankingsService {
       return false;
     }
     return true;
-  }
-
-  bool _matchesSearch(
-    PlayerModel player,
-    PlayerRankingsFilter filter,
-    Map<String, String> teamNamesById,
-  ) {
-    final q = filter.searchQuery.trim().toLowerCase();
-    if (q.isEmpty) return true;
-    if (player.name.toLowerCase().contains(q)) return true;
-    if (player.fullName.toLowerCase().contains(q)) return true;
-    final publicId = player.playerId?.toLowerCase() ?? '';
-    if (publicId.contains(q)) return true;
-    for (final teamId in player.effectiveTeamIds) {
-      final name = teamNamesById[teamId]?.toLowerCase() ?? '';
-      if (name.contains(q)) return true;
-    }
-    return false;
   }
 
   _Metric? _metricFor(PlayerStatsModel s, PlayerRankingsCategory category) {

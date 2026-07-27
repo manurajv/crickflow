@@ -45,8 +45,6 @@ class OpportunityPostCard extends ConsumerWidget {
     final uid = ref.watch(authStateProvider).valueOrNull?.uid;
     final isOwner = uid != null && uid == post.authorId;
     final isAdmin = ref.watch(isPlatformAdminProvider);
-    final saved =
-        ref.watch(opportunityPostSavedProvider(post.id)).valueOrNull ?? false;
     final category = post.category;
     final chips = post.cardChips;
     final eventDateLabel = post.eventDateLabel;
@@ -243,10 +241,7 @@ class OpportunityPostCard extends ConsumerWidget {
                   thickness: 1,
                   color: cf.border.withValues(alpha: 0.55),
                 ),
-                _Footer(
-                  post: post,
-                  saved: saved,
-                ),
+                _Footer(post: post),
               ],
             ],
           ),
@@ -594,17 +589,12 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
 }
 
 class _Footer extends ConsumerWidget {
-  const _Footer({
-    required this.post,
-    required this.saved,
-  });
+  const _Footer({required this.post});
 
   final OpportunityPostModel post;
-  final bool saved;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cf = context.cf;
     final showChat =
         post.contactMethods.contains(OpportunityContactMethod.chat);
     final showPhone =
@@ -615,89 +605,61 @@ class _Footer extends ConsumerWidget {
             post.contactWhatsApp.trim().isNotEmpty;
     final hasContact = showChat || showPhone || showWa;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (hasContact) ...[
-          const SizedBox(height: AppDimens.spaceSm),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (showPhone)
-                _ContactButton(
-                  icon: Icons.phone_outlined,
-                  label: 'Call',
-                  onTap: () => launchUrl(
-                    Uri(scheme: 'tel', path: post.contactPhone.trim()),
-                  ),
-                ),
-              if (showWa)
-                _ContactButton(
-                  icon: Icons.chat_outlined,
-                  label: 'WhatsApp',
-                  onTap: () {
-                    final phone =
-                        post.contactWhatsApp.replaceAll(RegExp(r'\D'), '');
-                    launchUrl(
-                      Uri.parse('https://wa.me/$phone'),
-                      mode: LaunchMode.externalApplication,
-                    );
-                  },
-                ),
-              if (showChat)
-                OutlinedButton(
-                  onPressed: () => _openChat(context, ref),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    minimumSize: const Size(0, 34),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text('Chat'),
-                ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.only(top: AppDimens.spaceSm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: hasContact
+                ? Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (showPhone)
+                        _ContactButton(
+                          icon: Icons.phone_outlined,
+                          label: 'Call',
+                          onTap: () => launchUrl(
+                            Uri(scheme: 'tel', path: post.contactPhone.trim()),
+                          ),
+                        ),
+                      if (showWa)
+                        _ContactButton(
+                          icon: Icons.chat_outlined,
+                          label: 'WhatsApp',
+                          onTap: () {
+                            final phone = post.contactWhatsApp
+                                .replaceAll(RegExp(r'\D'), '');
+                            launchUrl(
+                              Uri.parse('https://wa.me/$phone'),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          },
+                        ),
+                      if (showChat)
+                        OutlinedButton(
+                          onPressed: () => _openChat(context, ref),
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            minimumSize: const Size(0, 34),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('Chat'),
+                        ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          _FooterAction(
+            icon: Icons.share_outlined,
+            label: post.shareCount > 0 ? '${post.shareCount}' : '',
+            onTap: () => _share(ref),
           ),
         ],
-        Row(
-          children: [
-            _FooterAction(
-              icon: Icons.share_outlined,
-              label: post.shareCount > 0 ? '${post.shareCount}' : '',
-              onTap: () => _share(ref),
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: () => requireAuthVoid(
-                context: context,
-                ref: ref,
-                action: () async {
-                  final uid = ref.read(authStateProvider).valueOrNull?.uid;
-                  if (uid == null) return;
-                  try {
-                    await ref.read(opportunityRepositoryProvider).toggleSave(
-                          postId: post.id,
-                          userId: uid,
-                        );
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Could not save: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-              icon: Icon(
-                saved ? Icons.bookmark : Icons.bookmark_border,
-                color: saved ? cf.accent : null,
-              ),
-              tooltip: saved ? 'Saved' : 'Save',
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
@@ -712,7 +674,9 @@ class _Footer extends ConsumerWidget {
     buf.write(post.category.chipLabel);
     buf.writeln();
     buf.write(url);
-    await Share.share(buf.toString().trim());
+    final result = await Share.share(buf.toString().trim());
+    // Only count completed shares (sent to another app or copied).
+    if (result.status != ShareResultStatus.success) return;
     try {
       await ref
           .read(opportunityRepositoryProvider)

@@ -126,8 +126,7 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
           IconButton(
             tooltip: 'Filter',
             icon: Badge(
-              isLabelVisible:
-                  !filter.usesCareerAggregates || filter.hasLocationFilter,
+              isLabelVisible: filter.hasAdvancedFilters,
               smallSize: 8,
               child: const Icon(Icons.tune),
             ),
@@ -152,7 +151,11 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
                         selected: filter.ballType == type,
                         onSelected: (_) => updatePlayerRankingsFilter(
                           ref,
-                          (f) => f.copyWith(ballType: type),
+                          (f) => f.copyWith(
+                            ballType: type,
+                            clearIndoorBallMaterial:
+                                type != CricketBallType.indoor,
+                          ),
                         ),
                         selectedColor: cf.accent.withValues(alpha: 0.15),
                         checkmarkColor: cf.accent,
@@ -160,6 +163,56 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
                     ),
                 ],
               ),
+              if (filter.ballType == CricketBallType.indoor)
+                _ChipRow(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: AppDimens.spaceXs),
+                      child: FilterChip(
+                        label: const Text('All indoor'),
+                        selected: filter.indoorBallMaterial == null,
+                        onSelected: (_) => updatePlayerRankingsFilter(
+                          ref,
+                          (f) => f.copyWith(clearIndoorBallMaterial: true),
+                        ),
+                        selectedColor: cf.accent.withValues(alpha: 0.15),
+                        checkmarkColor: cf.accent,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: AppDimens.spaceXs),
+                      child: FilterChip(
+                        label: const Text('Leather'),
+                        selected: filter.indoorBallMaterial ==
+                            CricketBallType.leather,
+                        onSelected: (_) => updatePlayerRankingsFilter(
+                          ref,
+                          (f) => f.copyWith(
+                            indoorBallMaterial: CricketBallType.leather,
+                          ),
+                        ),
+                        selectedColor: cf.accent.withValues(alpha: 0.15),
+                        checkmarkColor: cf.accent,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: AppDimens.spaceXs),
+                      child: FilterChip(
+                        label: const Text('Tennis'),
+                        selected:
+                            filter.indoorBallMaterial == CricketBallType.tennis,
+                        onSelected: (_) => updatePlayerRankingsFilter(
+                          ref,
+                          (f) => f.copyWith(
+                            indoorBallMaterial: CricketBallType.tennis,
+                          ),
+                        ),
+                        selectedColor: cf.accent.withValues(alpha: 0.15),
+                        checkmarkColor: cf.accent,
+                      ),
+                    ),
+                  ],
+                ),
               _ChipRow(
                 children: [
                   for (final section in PlayerRankingsSection.values)
@@ -183,7 +236,7 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
                   AppDimens.spaceMd,
                   AppDimens.spaceXs,
                   AppDimens.spaceMd,
-                  AppDimens.spaceSm,
+                  AppDimens.spaceXs,
                 ),
                 child: DropdownButtonFormField<PlayerRankingsCategory>(
                   key: ValueKey('${filter.section}_${filter.category}'),
@@ -218,26 +271,28 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
                   },
                 ),
               ),
-              if (!filter.usesCareerAggregates)
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: AppDimens.spaceMd,
-                    right: AppDimens.spaceMd,
-                    bottom: AppDimens.spaceXs,
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      filter.year != null
-                          ? 'Showing ${filter.year} rankings'
-                          : 'Filtered match stats',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: cf.textMuted,
-                          ),
-                    ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppDimens.spaceMd,
+                  0,
+                  AppDimens.spaceMd,
+                  AppDimens.spaceSm,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    filter.advancedFilterSummary,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cf.textSecondary,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                        ),
                   ),
                 ),
+              ),
               Expanded(child: _buildBody(context, cf, feed, filter)),
+              if (feed.myEntry != null)
+                _MyRankBar(entry: feed.myEntry!),
             ],
           ),
         ),
@@ -284,13 +339,15 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
       );
     }
 
+    final bottomPad = feed.myEntry != null ? 12.0 : 0.0;
+
     return RefreshIndicator(
       onRefresh: () =>
           ref.read(playerRankingsFeedControllerProvider.notifier).refresh(),
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: AppDimens.listPadding,
+        padding: AppDimens.listPadding.copyWith(bottom: 16 + bottomPad),
         itemCount: feed.entries.length + (feed.loadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= feed.entries.length) {
@@ -300,9 +357,10 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
             );
           }
           final entry = feed.entries[index];
+          final isMe = feed.myEntry?.playerDocId == entry.playerDocId;
           return Padding(
             padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
-            child: _RankingCard(entry: entry),
+            child: _RankingCard(entry: entry, highlightAsYou: isMe),
           );
         },
       ),
@@ -329,9 +387,15 @@ class _ChipRow extends StatelessWidget {
 }
 
 class _RankingCard extends StatelessWidget {
-  const _RankingCard({required this.entry});
+  const _RankingCard({
+    required this.entry,
+    this.highlightAsYou = false,
+    this.compact = false,
+  });
 
   final PlayerRankingEntry entry;
+  final bool highlightAsYou;
+  final bool compact;
 
   Color _medalColor(CfColors cf) {
     final light = cf.isLight;
@@ -350,6 +414,7 @@ class _RankingCard extends StatelessWidget {
     final rankColor = _medalColor(cf);
     final fillAlpha = cf.isLight ? 0.14 : 0.08;
     final borderAlpha = cf.isLight ? 0.55 : 0.45;
+    final youAccent = cf.accent;
 
     return Material(
       color: Colors.transparent,
@@ -367,51 +432,58 @@ class _RankingCard extends StatelessWidget {
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
-            color: isTopThree
-                ? rankColor.withValues(alpha: fillAlpha)
-                : cf.card,
+            color: highlightAsYou
+                ? youAccent.withValues(alpha: cf.isLight ? 0.10 : 0.14)
+                : isTopThree
+                    ? rankColor.withValues(alpha: fillAlpha)
+                    : cf.card,
             borderRadius: BorderRadius.circular(AppDimens.radiusMd),
             border: Border.all(
-              color: isTopThree
-                  ? rankColor.withValues(alpha: borderAlpha)
-                  : cf.border.withValues(alpha: 0.5),
-              width: isTopThree ? 1.4 : 1,
+              color: highlightAsYou
+                  ? youAccent.withValues(alpha: 0.55)
+                  : isTopThree
+                      ? rankColor.withValues(alpha: borderAlpha)
+                      : cf.border.withValues(alpha: 0.5),
+              width: highlightAsYou || isTopThree ? 1.4 : 1,
             ),
-            boxShadow: isTopThree
+            boxShadow: isTopThree || highlightAsYou
                 ? [
                     BoxShadow(
-                      color: rankColor.withValues(
-                        alpha: cf.isLight ? 0.12 : 0.18,
-                      ),
+                      color: (highlightAsYou ? youAccent : rankColor)
+                          .withValues(alpha: cf.isLight ? 0.12 : 0.18),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
                   ]
                 : null,
           ),
-          padding: const EdgeInsets.all(AppDimens.spaceMd),
+          padding: EdgeInsets.all(
+            compact ? AppDimens.spaceSm + 2 : AppDimens.spaceMd,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: compact ? 36 : 40,
+                height: compact ? 36 : 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: rankColor.withValues(alpha: cf.isLight ? 0.22 : 0.18),
+                  color: (highlightAsYou ? youAccent : rankColor)
+                      .withValues(alpha: cf.isLight ? 0.22 : 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '#${entry.rank}',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: rankColor,
+                        color: highlightAsYou ? youAccent : rankColor,
+                        fontSize: compact ? 12 : null,
                       ),
                 ),
               ),
               const SizedBox(width: AppDimens.spaceMd),
               CircleAvatar(
-                radius: 22,
+                radius: compact ? 18 : 22,
                 backgroundColor: cf.border,
                 backgroundImage: entry.photoUrl != null &&
                         entry.photoUrl!.isNotEmpty
@@ -444,7 +516,30 @@ class _RankingCard extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
-                        if (entry.verified) ...[
+                        if (highlightAsYou) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: youAccent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'You',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: youAccent,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 10,
+                                  ),
+                            ),
+                          ),
+                        ] else if (entry.verified) ...[
                           const SizedBox(width: 4),
                           Icon(
                             Icons.verified,
@@ -454,20 +549,25 @@ class _RankingCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      [
-                        if (entry.teamName.isNotEmpty) entry.teamName,
-                        if (entry.role.isNotEmpty) entry.role,
-                      ].join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: cf.textSecondary,
-                          ),
-                    ),
-                    if (entry.detailStats.isNotEmpty) ...[
-                      const SizedBox(height: 6),
+                    if (!compact) ...[
+                      if (entry.role.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          entry.role,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: cf.textSecondary,
+                                  ),
+                        ),
+                      ],
+                      if (entry.detailStats.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        _DetailStatsRow(stats: entry.detailStats),
+                      ],
+                    ] else if (entry.detailStats.isNotEmpty) ...[
+                      const SizedBox(height: 4),
                       _DetailStatsRow(stats: entry.detailStats),
                     ],
                   ],
@@ -478,8 +578,59 @@ class _RankingCard extends StatelessWidget {
                 entry.valueLabel,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: isTopThree ? rankColor : cf.textPrimary,
+                      color: highlightAsYou
+                          ? youAccent
+                          : isTopThree
+                              ? rankColor
+                              : cf.textPrimary,
                     ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MyRankBar extends StatelessWidget {
+  const _MyRankBar({required this.entry});
+
+  final PlayerRankingEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Material(
+      elevation: 8,
+      color: cf.surfaceElevated,
+      shadowColor: cf.cardShadow,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.spaceMd,
+            AppDimens.spaceSm,
+            AppDimens.spaceMd,
+            AppDimens.spaceSm,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'YOUR RANK',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: cf.textMuted,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              _RankingCard(
+                entry: entry,
+                highlightAsYou: true,
+                compact: true,
               ),
             ],
           ),

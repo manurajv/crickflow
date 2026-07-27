@@ -26,6 +26,9 @@
 | Filter sheet: year / overs / location (+ city search + current location) | Done |
 | Ranking cards: section detail stats (Inn/R/Avg/SR, Inn/W/Eco/SR, Mat/Dis/Ct/St/RO) | Done |
 | Top-3 medal colours theme-aware (stronger contrast in light mode) | Done |
+| Subtitle under Performance: category + location + year + overs | Done |
+| Sticky bottom "Your Rank" bar for signed-in user | Done |
+| Ball filters: Leather/Tennis like cricket profile; Indoor = match type + leather/tennis | Done |
 | Overs filter: match-aggregate path; safe totalOvers parse; wider match pool | Done |
 | Ranks from existing `PlayerStatsModel` + `CricketMath` (no team/tournament engine changes) | Done |
 | Year filter: All Time + 2026…current; year rankings from completed match innings | Done |

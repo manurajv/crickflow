@@ -30,11 +30,16 @@ class PlayerRankingsRepository {
       _firestore.collection(AppConstants.matchesCollection);
 
   /// Fetches a pool of players, ranks client-side, returns a page.
+  ///
+  /// When [viewerPlayerDocId] / [viewerPublicPlayerId] are set, [myEntry] is
+  /// the signed-in user's row in the full ranked list (if present).
   Future<PlayerRankingsResult> fetchRankings({
     required PlayerRankingsFilter filter,
     int page = 0,
     int pageSize = 25,
     int poolLimit = 500,
+    String? viewerPlayerDocId,
+    String? viewerPublicPlayerId,
   }) async {
     Map<String, PlayerStatsModel>? yearStats;
     List<PlayerModel> players;
@@ -44,34 +49,24 @@ class PlayerRankingsRepository {
     if (!filter.usesCareerAggregates) {
       final matches = await _fetchCompletedMatches(
         year: filter.year,
-        // Overs filter needs a wider pool — recent-only can miss format buckets.
-        limit: filter.overs == PlayerRankingsOversFilter.all ? 1000 : 2500,
+        // Ball-type rankings need a wide completed-match pool.
+        limit: 2500,
       );
 
       bowlingInningsByPlayerId = <String, int>{};
-
-      // Prefer selected ball type; if empty, fall back to all types for that
-      // year — same idea as career rankings falling back to overall stats.
       yearStats = _rankings.aggregateFromMatches(
         matches: matches,
-        ballType: filter.ballType,
-        overs: filter.overs,
-        year: filter.year,
+        filter: filter,
         bowlingInningsOut: bowlingInningsByPlayerId,
       );
-      if (yearStats.isEmpty) {
-        bowlingInningsByPlayerId.clear();
-        yearStats = _rankings.aggregateFromMatches(
-          matches: matches,
-          ballType: null,
-          overs: filter.overs,
-          year: filter.year,
-          bowlingInningsOut: bowlingInningsByPlayerId,
-        );
-      }
       players = await _playersForIds(yearStats.keys.toList());
     } else {
       players = await _fetchCareerPlayers(poolLimit: poolLimit);
+      // Ensure the viewer is in the career pool so their rank can appear.
+      players = await _ensureViewerInPool(
+        players: players,
+        viewerPlayerDocId: viewerPlayerDocId,
+      );
     }
 
     final teamIds = <String>{
@@ -87,25 +82,95 @@ class PlayerRankingsRepository {
       bowlingInningsByPlayerId: bowlingInningsByPlayerId,
     );
 
+    final myEntry = _findViewerEntry(
+      ranked: ranked,
+      viewerPlayerDocId: viewerPlayerDocId,
+      viewerPublicPlayerId: viewerPublicPlayerId,
+    );
+
+    // Search only narrows the list — ranks stay from the other filters.
+    final visible = _applySearch(ranked, filter.searchQuery);
+
     final start = page * pageSize;
-    if (start >= ranked.length) {
+    if (start >= visible.length) {
       return PlayerRankingsResult(
         entries: const [],
-        totalCount: ranked.length,
+        totalCount: visible.length,
         page: page,
         pageSize: pageSize,
         hasMore: false,
+        myEntry: myEntry,
       );
     }
 
-    final end = (start + pageSize).clamp(0, ranked.length);
+    final end = (start + pageSize).clamp(0, visible.length);
     return PlayerRankingsResult(
-      entries: ranked.sublist(start, end),
-      totalCount: ranked.length,
+      entries: visible.sublist(start, end),
+      totalCount: visible.length,
       page: page,
       pageSize: pageSize,
-      hasMore: end < ranked.length,
+      hasMore: end < visible.length,
+      myEntry: myEntry,
     );
+  }
+
+  List<PlayerRankingEntry> _applySearch(
+    List<PlayerRankingEntry> ranked,
+    String searchQuery,
+  ) {
+    final q = searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return ranked;
+    return [
+      for (final e in ranked)
+        if (_entryMatchesSearch(e, q)) e,
+    ];
+  }
+
+  bool _entryMatchesSearch(PlayerRankingEntry entry, String q) {
+    if (entry.playerName.toLowerCase().contains(q)) return true;
+    final publicId = entry.publicPlayerId?.toLowerCase() ?? '';
+    if (publicId.contains(q)) return true;
+    if (entry.teamName.toLowerCase().contains(q)) return true;
+    if (entry.role.toLowerCase().contains(q)) return true;
+    return false;
+  }
+
+  Future<List<PlayerModel>> _ensureViewerInPool({
+    required List<PlayerModel> players,
+    String? viewerPlayerDocId,
+  }) async {
+    final id = viewerPlayerDocId?.trim() ?? '';
+    if (id.isEmpty) return players;
+    if (players.any((p) => p.id == id)) return players;
+    try {
+      final doc = await _players.doc(id).get();
+      final data = doc.data();
+      if (!doc.exists || data == null) return players;
+      final player = PlayerModel.fromMap(doc.id, data);
+      final userId = player.userId?.trim() ?? '';
+      if (userId.isEmpty) return players;
+      return [...players, player];
+    } catch (e) {
+      debugPrint('PlayerRankings: failed to load viewer player: $e');
+      return players;
+    }
+  }
+
+  PlayerRankingEntry? _findViewerEntry({
+    required List<PlayerRankingEntry> ranked,
+    String? viewerPlayerDocId,
+    String? viewerPublicPlayerId,
+  }) {
+    final docId = viewerPlayerDocId?.trim() ?? '';
+    final publicId = viewerPublicPlayerId?.trim() ?? '';
+    if (docId.isEmpty && publicId.isEmpty) return null;
+
+    for (final e in ranked) {
+      if (docId.isNotEmpty && e.playerDocId == docId) return e;
+      final pid = e.publicPlayerId?.trim() ?? '';
+      if (publicId.isNotEmpty && pid.isNotEmpty && pid == publicId) return e;
+    }
+    return null;
   }
 
   Future<List<PlayerModel>> _fetchCareerPlayers({required int poolLimit}) async {
@@ -236,6 +301,7 @@ class PlayerRankingsResult {
     required this.page,
     required this.pageSize,
     required this.hasMore,
+    this.myEntry,
   });
 
   final List<PlayerRankingEntry> entries;
@@ -243,4 +309,7 @@ class PlayerRankingsResult {
   final int page;
   final int pageSize;
   final bool hasMore;
+
+  /// Signed-in user's ranking row for the current filters, if ranked.
+  final PlayerRankingEntry? myEntry;
 }

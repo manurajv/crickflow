@@ -137,6 +137,15 @@ extension PlayerRankingsOversFilterX on PlayerRankingsOversFilter {
         PlayerRankingsOversFilter.overs21to99 => '21–99 Overs',
         PlayerRankingsOversFilter.testMatch => 'Test Match',
       };
+
+  /// Compact label for the rankings subtitle (e.g. "1–12 overs", "All overs").
+  String get summaryLabel => switch (this) {
+        PlayerRankingsOversFilter.all => 'All overs',
+        PlayerRankingsOversFilter.overs1to12 => '1–12 overs',
+        PlayerRankingsOversFilter.overs13to20 => '13–20 overs',
+        PlayerRankingsOversFilter.overs21to99 => '21–99 overs',
+        PlayerRankingsOversFilter.testMatch => 'Test Match',
+      };
 }
 
 const kPlayerRankingsBattingCategories = [
@@ -172,6 +181,7 @@ const kPlayerRankingsFieldingCategories = [
 class PlayerRankingsFilter extends Equatable {
   const PlayerRankingsFilter({
     this.ballType = CricketBallType.leather,
+    this.indoorBallMaterial,
     this.section = PlayerRankingsSection.batting,
     this.category = PlayerRankingsCategory.mostRuns,
     this.year,
@@ -181,6 +191,11 @@ class PlayerRankingsFilter extends Equatable {
   });
 
   final CricketBallType ballType;
+
+  /// Rankings-only: when [ballType] is indoor, optionally restrict to indoor
+  /// matches played with leather or tennis. `null` = all indoor.
+  final CricketBallType? indoorBallMaterial;
+
   final PlayerRankingsSection section;
   final PlayerRankingsCategory category;
 
@@ -195,11 +210,55 @@ class PlayerRankingsFilter extends Equatable {
       location.stateProvince.isNotEmpty ||
       location.city.isNotEmpty;
 
-  bool get usesCareerAggregates =>
-      year == null && overs == PlayerRankingsOversFilter.all;
+  /// Rankings always aggregate from completed matches so Leather / Tennis /
+  /// Indoor filters stay accurate (career overall stats are not ball-specific).
+  bool get usesCareerAggregates => false;
+
+  /// Year, overs, location, or indoor leather/tennis sub-filter is active.
+  bool get hasAdvancedFilters =>
+      year != null ||
+      overs != PlayerRankingsOversFilter.all ||
+      hasLocationFilter ||
+      indoorBallMaterial != null;
+
+  /// e.g. "Most Runs in Colombo (in 2026, 1–12 overs)"
+  /// or "Most Runs worldwide (All time, All overs)".
+  String get advancedFilterSummary {
+    final place = _locationSummaryLabel;
+    final yearPart = year != null ? 'in $year' : 'All time';
+    final ballPart = _ballSummaryLabel;
+    return '${category.title} · $ballPart in $place ($yearPart, ${overs.summaryLabel})';
+  }
+
+  String get _ballSummaryLabel {
+    if (ballType != CricketBallType.indoor) {
+      return switch (ballType) {
+        CricketBallType.leather => 'Leather',
+        CricketBallType.tennis => 'Tennis',
+        CricketBallType.indoor => 'Indoor',
+      };
+    }
+    return switch (indoorBallMaterial) {
+      CricketBallType.leather => 'Indoor · Leather',
+      CricketBallType.tennis => 'Indoor · Tennis',
+      _ => 'Indoor',
+    };
+  }
+
+  String get _locationSummaryLabel {
+    final city = location.city.trim();
+    if (city.isNotEmpty) return city;
+    final state = location.stateProvince.trim();
+    if (state.isNotEmpty) return state;
+    final country = location.country.trim();
+    if (country.isNotEmpty) return country;
+    return 'worldwide';
+  }
 
   PlayerRankingsFilter copyWith({
     CricketBallType? ballType,
+    CricketBallType? indoorBallMaterial,
+    bool clearIndoorBallMaterial = false,
     PlayerRankingsSection? section,
     PlayerRankingsCategory? category,
     int? year,
@@ -217,8 +276,16 @@ class PlayerRankingsFilter extends Equatable {
       nextCategory = nextSection.categories.first;
     }
 
+    final nextBall = ballType ?? this.ballType;
+    final nextIndoorMaterial = nextBall != CricketBallType.indoor
+        ? null
+        : (clearIndoorBallMaterial
+            ? null
+            : (indoorBallMaterial ?? this.indoorBallMaterial));
+
     return PlayerRankingsFilter(
-      ballType: ballType ?? this.ballType,
+      ballType: nextBall,
+      indoorBallMaterial: nextIndoorMaterial,
       section: nextSection,
       category: nextCategory,
       year: clearYear ? null : (year ?? this.year),
@@ -231,6 +298,7 @@ class PlayerRankingsFilter extends Equatable {
   @override
   List<Object?> get props => [
         ballType,
+        indoorBallMaterial,
         section,
         category,
         year,
