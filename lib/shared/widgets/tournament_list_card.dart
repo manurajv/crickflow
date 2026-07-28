@@ -15,6 +15,7 @@ class TournamentListCard extends StatelessWidget {
     this.onTap,
     this.trailing,
     this.attributionLabel,
+    this.compact = false,
     this.margin = const EdgeInsets.symmetric(
       horizontal: AppDimens.spaceMd,
       vertical: AppDimens.spaceXs,
@@ -26,11 +27,14 @@ class TournamentListCard extends StatelessWidget {
   final Widget? trailing;
   /// e.g. Network feed: "Alex's tournament"
   final String? attributionLabel;
+  /// Smaller banner + denser meta for Home carousels.
+  final bool compact;
   final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
     final status = _statusLabel(tournament.status);
+    final pad = compact ? AppDimens.spaceSm : AppDimens.spaceMd;
 
     return Card(
       margin: margin,
@@ -46,6 +50,7 @@ class TournamentListCard extends StatelessWidget {
                 _Banner(
                   tournament: tournament,
                   attributionLabel: attributionLabel,
+                  height: compact ? 88 : 120,
                 ),
                 Positioned(
                   top: 8,
@@ -66,7 +71,7 @@ class TournamentListCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: AppDimens.cardPadding,
+              padding: EdgeInsets.all(pad),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -78,6 +83,8 @@ class TournamentListCard extends StatelessWidget {
                           Text(
                             _dateLine(tournament),
                             style: Theme.of(context).textTheme.bodySmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         if (tournament.location.displayLabel.isNotEmpty)
                           TappableVenueLocation(
@@ -90,6 +97,8 @@ class TournamentListCard extends StatelessWidget {
                         Text(
                           '${tournament.teamIds.length} teams · ${tournament.matchIds.length} matches',
                           style: Theme.of(context).textTheme.labelSmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -149,16 +158,18 @@ class _Banner extends StatelessWidget {
   const _Banner({
     required this.tournament,
     this.attributionLabel,
+    this.height = 120,
   });
 
   final TournamentModel tournament;
   final String? attributionLabel;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     final attribution = attributionLabel?.trim();
     return SizedBox(
-      height: 120,
+      height: height,
       child: Stack(
         fit: StackFit.expand,
         children: [

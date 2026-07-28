@@ -22,9 +22,12 @@ String nearbyLocationSubtitle({
 }) =>
     '';
 
-/// Horizontal carousel height for match / tournament cards on Home.
+/// Horizontal carousel height for match cards on Home.
 /// Sized to the card content (no empty strip under the footer links).
 const double kNearbyCarouselHeight = 175;
+
+/// Tournament list cards are taller (banner + meta), so they need more room.
+const double kNearbyTournamentCarouselHeight = 200;
 
 /// Card width so the next item peeks (~78% of screen).
 double nearbyCarouselCardWidth(BuildContext context) {

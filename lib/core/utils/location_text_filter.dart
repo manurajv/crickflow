@@ -68,8 +68,11 @@ bool locationMatchesCityFilter(
 
 /// Country + state/province matching for home nearby sections.
 ///
-/// Looser than [locationMatchesTextFilter]: empty match sub-region still
-/// passes when country matches, and state is checked against district/city too.
+/// Looser than [locationMatchesTextFilter]:
+/// - empty match sub-region still passes when country matches
+/// - state is checked against district/city/placeName too
+/// - venues that omit state/province still pass once country matches
+///   (common for tournament/match docs)
 bool locationMatchesNearbyRegion(LocationModel location, LocationModel filter) {
   final country = filter.country.trim();
   final state = filter.stateProvince.trim();
@@ -84,8 +87,28 @@ bool locationMatchesNearbyRegion(LocationModel location, LocationModel filter) {
 
   if (state.isEmpty) return true;
 
+  final locState = location.stateProvince.trim();
+  if (locState.isEmpty) {
+    // Prefer a soft hit on city/district/place when state was never stored.
+    final soft = <String>[
+      location.district,
+      location.city,
+      location.placeName,
+      location.displayLabel,
+    ]
+        .map((s) => s.trim().toLowerCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final q = state.toLowerCase();
+    for (final h in soft) {
+      if (h.contains(q) || q.contains(h)) return true;
+    }
+    // Country already aligned and no state on the doc — keep in the feed.
+    return true;
+  }
+
   final haystacks = <String>[
-    location.stateProvince,
+    locState,
     location.district,
     location.city,
     location.placeName,
@@ -94,9 +117,6 @@ bool locationMatchesNearbyRegion(LocationModel location, LocationModel filter) {
       .map((s) => s.trim().toLowerCase())
       .where((s) => s.isNotEmpty)
       .toList();
-
-  // Match docs often omit state — keep country-aligned rows in the feed.
-  if (haystacks.isEmpty) return true;
 
   final q = state.toLowerCase();
   for (final h in haystacks) {

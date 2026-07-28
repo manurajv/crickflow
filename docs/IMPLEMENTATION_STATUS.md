@@ -120,6 +120,7 @@
 |------|--------|
 | Home nearby filters by **country + state/province** (no 50 km radius) | Done |
 | **Matches Near You** — live + upcoming in GPS/selected region; Network + all others except user's own; location is a hard filter | Done |
+| **Tournaments Near You** — includes your hosted tournaments; country fallback when state text mismatches; compact home cards | Done |
 | Search city in home filter → fills state/province; city field removed | Done |
 | Current location → same region text filter | Done |
 | Titles: "Matches/Tournaments in {state}" when filtered; "Near You" for GPS default | Done |

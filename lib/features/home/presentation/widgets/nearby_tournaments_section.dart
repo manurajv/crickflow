@@ -85,7 +85,7 @@ class NearbyTournamentsSection extends ConsumerWidget {
                   locationFiltered: anchor != null,
                 ),
                 SizedBox(
-                  height: kNearbyCarouselHeight,
+                  height: kNearbyTournamentCarouselHeight,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(
@@ -105,6 +105,7 @@ class NearbyTournamentsSection extends ConsumerWidget {
                           child: TournamentListCard(
                             tournament: item.tournament,
                             attributionLabel: item.attributionLabel,
+                            compact: true,
                             margin: EdgeInsets.zero,
                             onTap: () => context.push(
                               '/tournaments/${item.tournament.id}',

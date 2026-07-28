@@ -180,8 +180,8 @@ NearbyMatchesState _buildFromRegionFilter({
 
   final items = <NearbyMatchItem>[];
   for (final m in candidates) {
-    // Hard location filter (country + state/province), same as tournaments.
-    if (!locationMatchesTextFilter(m.location, region)) continue;
+    // Region filter (country + state/province); venues that omit state still match.
+    if (!locationMatchesNearbyRegion(m.location, region)) continue;
 
     final fromNetwork = matchInvolvesFollowedPlayer(m, followedPlayers);
     items.add(
