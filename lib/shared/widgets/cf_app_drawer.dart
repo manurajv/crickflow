@@ -88,12 +88,6 @@ class CfAppDrawer extends ConsumerWidget {
                         );
                       },
                     ),
-                    _DrawerTile(
-                      icon: Icons.near_me_outlined,
-                      label: 'Nearby Matches',
-                      subtitle: 'Games around you',
-                      onTap: () => _goShell(context, '/home'),
-                    ),
                   ],
                   const _DrawerSectionHeader('My cricket'),
                   _DrawerTile(

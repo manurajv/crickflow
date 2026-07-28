@@ -12,7 +12,8 @@ import '../../../../data/services/stream_service.dart';
 import '../../data/models/stream_studio_config.dart';
 import '../../domain/streaming_enums.dart';
 
-/// 2× logical pixels for crisp scorebug text; native GL scales to encoder frame.
+/// Capture at logical size; pair with [overlayCaptureSizeFor] near encoder
+/// resolution so the logo/text are not upscaled soft by native GL.
 const _kOverlayCapturePixelRatio = 1.0;
 
 /// Bumped on Android lifecycle resume while live — forces capture tree rebuild.
@@ -272,10 +273,9 @@ Future<Size> encoderFrameSizeForLive(
 
 /// Max short-side (in px) for the Flutter overlay capture layer.
 ///
-/// The overlay PNG is scaled to the encoder frame by native GL, so it does not
-/// need to match encoder pixels. Capping the offscreen raster avoids GPU/native
-/// OOM crashes at 1080p/1440p/4K while keeping scorebug text crisp.
-const double _kMaxOverlayCaptureShortSide = 720;
+/// Kept at 1080 so 1080p streams burn in 1:1 (sharp logo/text). Higher encoder
+/// presets (1440p/4K) still downscale the PNG via native GL to avoid OOM.
+const double _kMaxOverlayCaptureShortSide = 1080;
 
 /// Aspect-preserving capture size for the overlay burn-in tree, capped so high
 /// encoder resolutions never allocate an oversized offscreen layer.

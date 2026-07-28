@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/enums.dart';
+import '../../data/models/ball_event_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/player_model.dart';
 import '../../domain/services/player_cricket_profile_models.dart';
 import '../../domain/services/player_cricket_profile_service.dart';
 import '../../domain/services/player_typed_stats_service.dart';
 import '../../domain/services/profile_match_filter_service.dart';
+import '../../features/my_cricket/my_cricket_filters.dart';
 import 'my_player_provider.dart';
 import 'my_player_stats_breakdown_provider.dart';
 import 'providers.dart';
@@ -73,11 +75,15 @@ final playerStatsBreakdownByIdProvider =
         .where((m) => m.status == MatchStatus.completed)
         .toList();
 
+    final ballEventsByMatchId = await loadBallEventsForMatches(
+      matchRepository: ref.watch(matchRepositoryProvider),
+      matches: completed,
+    );
+
     final service = ref.watch(playerTypedStatsServiceProvider);
     final typedSections = <PlayerStatsSection>[];
 
     for (final type in CricketBallType.values) {
-      final stored = player.statsForBallType(type);
       final fromMatches = service.aggregateDetailedForType(
         completedMatches: completed,
         playerId: player.id,
@@ -85,26 +91,31 @@ final playerStatsBreakdownByIdProvider =
         authUid: uid,
         playerTeamId: player.teamId,
         userTeamIds: userTeamIds,
+        ballEventsByMatchId: ballEventsByMatchId,
       );
-      final stats =
-          stored.matchesPlayed > 0 ? stored : fromMatches.stats;
-      if (stats.matchesPlayed > 0) {
+      if (fromMatches.stats.matchesPlayed > 0) {
         typedSections.add(
           PlayerStatsSection(
             title: cricketBallTypeLabel(type),
-            stats: stats,
-            ballsPerOver:
-                stored.matchesPlayed > 0 ? null : fromMatches.ballsPerOver,
-            bowlingActualOvers: stored.matchesPlayed > 0
-                ? null
-                : fromMatches.bowlingActualOvers,
+            stats: fromMatches.stats,
+            ballsPerOver: fromMatches.ballsPerOver,
+            bowlingActualOvers: fromMatches.bowlingActualOvers,
           ),
         );
       }
     }
 
+    final overall = service.aggregateOverallDetailed(
+      completedMatches: completed,
+      playerId: player.id,
+      authUid: uid,
+      playerTeamId: player.teamId,
+      userTeamIds: userTeamIds,
+      ballEventsByMatchId: ballEventsByMatchId,
+    );
+
     return PlayerStatsBreakdown(
-      overall: player.stats,
+      overall: overall.stats,
       typedSections: typedSections,
     );
   },
@@ -115,11 +126,51 @@ final profileMatchFiltersProvider =
 
 final profileInitialTabProvider = StateProvider<int>((ref) => 0);
 
+/// Filtered batting/bowling/fielding breakdown for a player (loads ball events
+/// so fielding catches / run-outs / stumpings are accurate).
+final filteredPlayerStatsBreakdownProvider =
+    FutureProvider.family<PlayerStatsBreakdown?, String>((ref, playerId) async {
+  final player =
+      await ref.watch(playerRepositoryProvider).getPlayer(playerId);
+  if (player == null) return null;
+
+  final matches = await ref.watch(matchesProvider.future);
+  final filters = ref.watch(profileMatchFiltersProvider);
+  final uid = player.userId ?? player.id;
+  final userTeamIds = player.effectiveTeamIds.toSet();
+
+  final participated = matches
+      .where(
+        (m) => userParticipatedInMatch(
+          m,
+          uid: uid,
+          player: player,
+          userTeamIds: userTeamIds,
+        ),
+      )
+      .toList();
+
+  final filtered = filterProfileMatches(participated, filters);
+  final ballEventsByMatchId = await loadBallEventsForMatches(
+    matchRepository: ref.watch(matchRepositoryProvider),
+    matches: filtered,
+  );
+
+  return buildProfileFilteredStatsBreakdown(
+    player: player,
+    participatedMatches: participated,
+    filters: filters,
+    service: ref.watch(playerTypedStatsServiceProvider),
+    ballEventsByMatchId: ballEventsByMatchId,
+  );
+});
+
 PlayerStatsBreakdown buildProfileFilteredStatsBreakdown({
   required PlayerModel player,
   required List<MatchModel> participatedMatches,
   required ProfileMatchFilters filters,
   required PlayerTypedStatsService service,
+  Map<String, List<BallEventModel>>? ballEventsByMatchId,
 }) {
   final filtered = filterProfileMatches(participatedMatches, filters);
   final completed =
@@ -136,6 +187,7 @@ PlayerStatsBreakdown buildProfileFilteredStatsBreakdown({
       authUid: uid,
       playerTeamId: player.teamId,
       userTeamIds: userTeamIds,
+      ballEventsByMatchId: ballEventsByMatchId,
     );
     if (fromMatches.stats.matchesPlayed > 0) {
       typedSections.add(
@@ -155,6 +207,7 @@ PlayerStatsBreakdown buildProfileFilteredStatsBreakdown({
     authUid: uid,
     playerTeamId: player.teamId,
     userTeamIds: userTeamIds,
+    ballEventsByMatchId: ballEventsByMatchId,
   );
 
   return PlayerStatsBreakdown(
@@ -162,9 +215,3 @@ PlayerStatsBreakdown buildProfileFilteredStatsBreakdown({
     typedSections: typedSections,
   );
 }
-
-String cricketBallTypeLabel(CricketBallType type) => switch (type) {
-      CricketBallType.leather => 'Leather',
-      CricketBallType.tennis => 'Tennis',
-      CricketBallType.indoor => 'Indoor',
-    };

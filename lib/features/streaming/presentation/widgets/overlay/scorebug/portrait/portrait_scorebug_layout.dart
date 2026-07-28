@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../broadcast_live_branding.dart';
 import '../scorebug_tokens.dart';
 
 /// Responsive scale and sizing for portrait (9:16) broadcast scorebugs.
@@ -13,11 +14,15 @@ class PortraitScorebugLayout {
   static double secondaryRowHeight(double scale) => 24 * scale;
 
   static EdgeInsets topHeaderPadding(double scale) =>
-      EdgeInsets.fromLTRB(12 * scale, 18 * scale, 12 * scale, 0);
+      EdgeInsets.fromLTRB(12 * scale, 28 * scale, 22 * scale, 0);
 
   /// Space reserved below [PortraitTopHeader] (title + logo + LIVE badge).
   static double topHeaderReservedHeight(double scale) =>
-      (18 + 34 + 4 + 14 + 16) * scale;
+      28 * scale +
+      BroadcastLiveBranding.portraitLogoSize * scale +
+      BroadcastLiveBranding.logoBadgeGap(scale, landscape: false) +
+      BroadcastLiveBranding.liveBadgeHeight(scale, landscape: false) +
+      14 * scale;
 
   static BoxShadow barShadow() => BoxShadow(
         color: Colors.black.withValues(alpha: 0.4),

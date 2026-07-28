@@ -1,8 +1,10 @@
 import '../../../core/constants/enums.dart';
 import '../../../core/utils/cricket_math.dart';
 import '../../../core/utils/location_text_filter.dart';
+import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/player_model.dart';
+import '../../scoring/ball_event_aggregator.dart';
 import 'player_rankings_models.dart';
 
 /// Ranks players from [PlayerStatsModel] + [CricketMath].
@@ -72,6 +74,10 @@ class PlayerRankingsService {
 
   /// Aggregates batting / bowling / fielding from completed match innings.
   ///
+  /// Fielding on the match doc is not persisted (see BALL_EVENT_ARCHITECTURE);
+  /// pass [ballEventsByMatchId] so catches / run-outs / stumpings can be
+  /// derived from ball events (required for Fielding rankings).
+  ///
   /// Ball filtering is rankings-specific via [filter]:
   /// - Leather / Tennis: same as cricket profile (`resolvedBallType`).
   /// - Indoor: indoor match type, optional leather/tennis material.
@@ -79,6 +85,7 @@ class PlayerRankingsService {
     required List<MatchModel> matches,
     required PlayerRankingsFilter filter,
     Map<String, int>? bowlingInningsOut,
+    Map<String, List<BallEventModel>>? ballEventsByMatchId,
   }) {
     final byId = <String, _MatchAgg>{};
 
@@ -86,15 +93,7 @@ class PlayerRankingsService {
         byId.putIfAbsent(id, _MatchAgg.new);
 
     for (final match in matches) {
-      if (!_matchesRankingsBallFilter(match, filter)) continue;
-      if (!_matchesOversFilter(match, filter.overs)) continue;
-      if (filter.year != null) {
-        final date = match.completedAt ??
-            match.startedAt ??
-            match.scheduledAt ??
-            match.createdAt;
-        if (date == null || date.year != filter.year) continue;
-      }
+      if (!matchPassesRankingsFilters(match, filter)) continue;
 
       final played = <String>{};
 
@@ -136,15 +135,33 @@ class PlayerRankingsService {
             agg.threeWickets += 1;
           }
         }
+      }
 
-        for (final f in inn.fielders) {
-          if (f.playerId.isEmpty) continue;
-          if (f.catches == 0 && f.runOuts == 0 && f.stumpings == 0) continue;
-          played.add(f.playerId);
-          final agg = ensure(f.playerId);
-          agg.catches += f.catches;
-          agg.runOuts += f.runOuts;
-          agg.stumpings += f.stumpings;
+      // Fielding: prefer ball events (innings.fielders are not persisted).
+      final events = ballEventsByMatchId?[match.id];
+      if (events != null && events.isNotEmpty) {
+        for (final f in BallEventAggregator.fieldersFromEvents(events)) {
+          _creditFielder(
+            ensure,
+            played,
+            f.playerId,
+            f.catches,
+            f.runOuts,
+            f.stumpings,
+          );
+        }
+      } else {
+        for (final inn in match.innings) {
+          for (final f in inn.fielders) {
+            _creditFielder(
+              ensure,
+              played,
+              f.playerId,
+              f.catches,
+              f.runOuts,
+              f.stumpings,
+            );
+          }
         }
       }
 
@@ -164,6 +181,40 @@ class PlayerRankingsService {
     return {
       for (final e in byId.entries) e.key: e.value.toStats(),
     };
+  }
+
+  void _creditFielder(
+    _MatchAgg Function(String id) ensure,
+    Set<String> played,
+    String playerId,
+    int catches,
+    int runOuts,
+    int stumpings,
+  ) {
+    if (playerId.isEmpty) return;
+    if (catches == 0 && runOuts == 0 && stumpings == 0) return;
+    played.add(playerId);
+    final agg = ensure(playerId);
+    agg.catches += catches;
+    agg.runOuts += runOuts;
+    agg.stumpings += stumpings;
+  }
+
+  /// Whether a completed match is included for the current rankings filters.
+  bool matchPassesRankingsFilters(
+    MatchModel match,
+    PlayerRankingsFilter filter,
+  ) {
+    if (!_matchesRankingsBallFilter(match, filter)) return false;
+    if (!_matchesOversFilter(match, filter.overs)) return false;
+    if (filter.year != null) {
+      final date = match.completedAt ??
+          match.startedAt ??
+          match.scheduledAt ??
+          match.createdAt;
+      if (date == null || date.year != filter.year) return false;
+    }
+    return true;
   }
 
   /// Rankings-only ball matching. Does not change cricket profile filters.

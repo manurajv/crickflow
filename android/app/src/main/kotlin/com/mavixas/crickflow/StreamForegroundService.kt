@@ -122,7 +122,7 @@ class StreamForegroundService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("CrickFlow Live")
             .setContentText("Streaming...")
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_crickflow)
             .setOngoing(true)
             .setContentIntent(pending)
             .addAction(0, "Stop", stopPending)

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
+import '../models/ball_event_model.dart';
 import '../models/match_model.dart';
 import '../models/player_model.dart';
 import '../models/team_model.dart';
@@ -53,11 +54,20 @@ class PlayerRankingsRepository {
         limit: 2500,
       );
 
+      Map<String, List<BallEventModel>>? ballEventsByMatchId;
+      if (filter.section == PlayerRankingsSection.fielding) {
+        ballEventsByMatchId = await _loadBallEventsForFielding(
+          matches: matches,
+          filter: filter,
+        );
+      }
+
       bowlingInningsByPlayerId = <String, int>{};
       yearStats = _rankings.aggregateFromMatches(
         matches: matches,
         filter: filter,
         bowlingInningsOut: bowlingInningsByPlayerId,
+        ballEventsByMatchId: ballEventsByMatchId,
       );
       players = await _playersForIds(yearStats.keys.toList());
     } else {
@@ -257,6 +267,51 @@ class PlayerRankingsRepository {
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
     return DateTime.tryParse(value.toString());
+  }
+
+  /// Fielding is stored only on ball events — load events for matches that
+  /// pass the current rankings filters (capped for latency).
+  Future<Map<String, List<BallEventModel>>> _loadBallEventsForFielding({
+    required List<MatchModel> matches,
+    required PlayerRankingsFilter filter,
+    int maxMatches = 400,
+    int batchSize = 20,
+  }) async {
+    final relevant = matches
+        .where((m) => _rankings.matchPassesRankingsFilters(m, filter))
+        .take(maxMatches)
+        .toList();
+    if (relevant.isEmpty) return const {};
+
+    final out = <String, List<BallEventModel>>{};
+    for (var i = 0; i < relevant.length; i += batchSize) {
+      final end = (i + batchSize).clamp(0, relevant.length);
+      final chunk = relevant.sublist(i, end);
+      final results = await Future.wait(
+        chunk.map((m) async {
+          try {
+            final snap = await _matches
+                .doc(m.id)
+                .collection('ball_events')
+                .orderBy('sequence')
+                .get();
+            final events = snap.docs
+                .map((d) => BallEventModel.fromMap(d.id, d.data()))
+                .toList();
+            return MapEntry(m.id, events);
+          } catch (e) {
+            debugPrint(
+              'PlayerRankings: ball_events for ${m.id} failed: $e',
+            );
+            return MapEntry(m.id, const <BallEventModel>[]);
+          }
+        }),
+      );
+      for (final e in results) {
+        if (e.value.isNotEmpty) out[e.key] = e.value;
+      }
+    }
+    return out;
   }
 
   Future<List<PlayerModel>> _playersForIds(List<String> ids) async {

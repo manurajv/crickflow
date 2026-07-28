@@ -9,13 +9,11 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../domain/services/profile_match_filter_service.dart';
-import '../../../../shared/providers/guest_device_location_provider.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/widgets/location_filter_bar.dart';
 import '../../../../shared/widgets/match_list_card.dart';
 import '../../my_cricket_filters.dart';
 import '../widgets/my_cricket_action_banner.dart';
@@ -267,7 +265,6 @@ class _GuestMatchesBody extends ConsumerWidget {
     }
 
     final matchesAsync = ref.watch(matchesProvider);
-    final locationAsync = ref.watch(guestDeviceLocationProvider);
     final search = ref.watch(myCricketSearchProvider);
 
     return Column(
@@ -277,99 +274,47 @@ class _GuestMatchesBody extends ConsumerWidget {
           compact: true,
           title: 'Sign in to view your matches',
           subtitle:
-              'Browse nearby matches below, or sign in to see your teams, '
+              'Browse all matches below, or sign in to see your teams, '
               'played games, and network.',
         ),
         _guestScopeChips(context),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(matchesProvider);
-              ref.invalidate(guestDeviceLocationProvider);
-            },
+            onRefresh: () async => ref.invalidate(matchesProvider),
             child: matchesAsync.when(
-              data: (matches) => locationAsync.when(
-                data: (location) {
-                  if (location == null || location.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 48),
-                        Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              'Enable location access to see matches near you.',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
+              data: (matches) {
+                var list = List<MatchModel>.from(matches);
 
-                  var list = matches
+                if (search.isNotEmpty) {
+                  final q = search.toLowerCase();
+                  list = list
                       .where(
-                        (m) => locationMatchesFilter(
-                          m.location,
-                          location.country,
-                          location.city,
-                        ),
+                        (m) =>
+                            m.title.toLowerCase().contains(q) ||
+                            m.teamAName.toLowerCase().contains(q) ||
+                            m.teamBName.toLowerCase().contains(q),
                       )
                       .toList();
+                }
 
-                  if (search.isNotEmpty) {
-                    final q = search.toLowerCase();
-                    list = list
-                        .where(
-                          (m) =>
-                              m.title.toLowerCase().contains(q) ||
-                              m.teamAName.toLowerCase().contains(q) ||
-                              m.teamBName.toLowerCase().contains(q),
-                        )
-                        .toList();
-                  }
-
-                  if (list.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: Text(
-                            'Matches near ${location.displayLabel}',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                        ),
-                        const MatchListEmptyState(
-                          message: 'No matches found near your location',
-                        ),
-                      ],
-                    );
-                  }
-
-                  return ListView.builder(
+                if (list.isEmpty) {
+                  return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 16),
-                    itemCount: list.length + 1,
-                    itemBuilder: (_, i) {
-                      if (i == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                          child: Text(
-                            'Matches near ${location.displayLabel}',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                        );
-                      }
-                      return MatchListCard(match: list[i - 1]);
-                    },
+                    children: const [
+                      MatchListEmptyState(
+                        message: 'No matches found',
+                      ),
+                    ],
                   );
-                },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('$e')),
-              ),
+                }
+
+                return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 16),
+                  itemCount: list.length,
+                  itemBuilder: (_, i) => MatchListCard(match: list[i]),
+                );
+              },
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('$e')),

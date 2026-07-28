@@ -290,8 +290,18 @@ class _StartMatchSetupFormState extends State<StartMatchSetupForm> {
           icon: Icons.sports_cricket,
           isRequired: true,
           children: [
+            Text(
+              'Choose the format — scoring rules update to match.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cf.textMuted,
+                    height: 1.35,
+                  ),
+            ),
+            const SizedBox(height: AppDimens.spaceMd),
             _MatchTypePicker(
-              selected: rules.cricketMatchType,
+              selected: rules.cricketMatchType.isOfferedInApp
+                  ? rules.cricketMatchType
+                  : CricketMatchType.limitedOvers,
               onSelected: _onMatchTypeSelected,
             ),
           ],
@@ -956,59 +966,123 @@ class _MatchTypePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final types = CricketMatchType.uiValues;
+
     return Row(
-      children: CricketMatchType.values.map((type) {
-        final isSelected = type == selected;
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => onSelected(type),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? cf.accent
-                      : cf.sectionBackground,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected ? cf.accent : cf.border,
-                    width: isSelected ? 1.5 : 1,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      StartMatchSetupForm._matchTypeIcon(type),
-                      size: 22,
-                      color: isSelected
-                          ? cf.accent
-                          : cf.textSecondary,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      StartMatchSetupForm._matchTypeLabel(type),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.2,
-                        fontWeight: isSelected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: isSelected
-                            ? Colors.white
-                            : cf.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      children: [
+        for (var i = 0; i < types.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: _MatchTypeOption(
+              type: types[i],
+              selected: types[i] == selected,
+              onTap: () => onSelected(types[i]),
             ),
           ),
-        );
-      }).toList(),
+        ],
+      ],
+    );
+  }
+}
+
+class _MatchTypeOption extends StatelessWidget {
+  const _MatchTypeOption({
+    required this.type,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final CricketMatchType type;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    final accent = cf.accent;
+    final fg = selected ? accent : cf.textSecondary;
+    final labelColor = selected ? accent : cf.textPrimary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? accent.withValues(alpha: cf.isLight ? 0.10 : 0.18)
+                : cf.sectionBackground,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? accent : cf.border,
+              width: selected ? 1.75 : 1,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.16),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected
+                      ? accent.withValues(alpha: cf.isLight ? 0.16 : 0.28)
+                      : cf.card,
+                  border: Border.all(
+                    color: selected
+                        ? accent.withValues(alpha: 0.45)
+                        : cf.border,
+                  ),
+                ),
+                child: Icon(
+                  StartMatchSetupForm._matchTypeIcon(type),
+                  size: 22,
+                  color: fg,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                StartMatchSetupForm._matchTypeLabel(type),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.2,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: labelColor,
+                  letterSpacing: 0.15,
+                ),
+              ),
+              const SizedBox(height: 6),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: selected ? 18 : 0,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -3,9 +3,7 @@ import '../../../core/constants/enums.dart';
 import '../../../core/utils/cricket_math.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/player_model.dart';
-import '../../../shared/providers/player_cricket_profile_provider.dart';
-import '../../../domain/services/player_typed_stats_service.dart'
-    hide cricketBallTypeLabel;
+import '../../../domain/services/player_typed_stats_service.dart';
 
 /// Builds [BatterIntroProfile] for the stream batter intro card.
 class BatterIntroProfileBuilder {

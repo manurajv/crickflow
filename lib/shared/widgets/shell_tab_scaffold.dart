@@ -19,7 +19,7 @@ class ShellTabScaffold extends StatelessWidget {
   final Widget body;
   final List<Widget>? actions;
   final Widget? floatingActionButton;
-  /// Sits above the shell [NavigationBar] (e.g. sticky AdMob banner).
+  /// Sits above the shell bottom nav (e.g. sticky AdMob banner).
   final Widget? bottomNavigationBar;
   final PreferredSizeWidget? bottom;
   final bool showDrawerMenu;

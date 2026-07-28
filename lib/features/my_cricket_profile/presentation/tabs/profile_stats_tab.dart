@@ -9,7 +9,6 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../domain/services/captain_stats_service.dart';
 import '../../../../domain/services/profile_match_filter_service.dart';
-import '../../../../shared/providers/my_player_stats_breakdown_provider.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
@@ -37,13 +36,6 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
   Widget build(BuildContext context) {
     final cf = context.cf;
     final filters = ref.watch(profileMatchFiltersProvider);
-    final service = ref.watch(playerTypedStatsServiceProvider);
-    final breakdown = buildProfileFilteredStatsBreakdown(
-      player: widget.player,
-      participatedMatches: widget.matches,
-      filters: filters,
-      service: service,
-    );
     final filteredMatches = filterProfileMatches(widget.matches, filters);
     final captainStats = const CaptainStatsService().compute(
       playerId: widget.player.id,
@@ -51,51 +43,83 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
           .where((m) => m.status == MatchStatus.completed)
           .toList(),
     );
+    final breakdownAsync =
+        ref.watch(filteredPlayerStatsBreakdownProvider(widget.player.id));
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(myCricketProfileProvider);
+        ref.invalidate(
+          filteredPlayerStatsBreakdownProvider(widget.player.id),
+        );
       },
-      child: ListView(
-        padding: AppDimens.listPadding,
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          MyCricketActionBanner(
-            inset: false,
-            title: 'Deep dive into your game',
-            actionLabel: 'Analyze',
-            onAction: () =>
-                context.push('/players/${widget.player.id}/analysis'),
-          ),
-          const SizedBox(height: AppDimens.spaceMd),
-          _modeChips(context, cf),
-          const SizedBox(height: AppDimens.spaceMd),
-          if (_mode == _StatsMode.captain)
-            CaptainStatsSection(stats: captainStats)
-          else ...[
-            _overallHeader(context),
-            StatGrid(
-              cells: playerStatCells(
-                breakdown.overall,
-                _mode.asViewMode,
+      child: breakdownAsync.when(
+        data: (breakdown) {
+          if (breakdown == null) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 120),
+                Center(child: Text('No stats yet')),
+              ],
+            );
+          }
+          return ListView(
+            padding: AppDimens.listPadding,
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              MyCricketActionBanner(
+                inset: false,
+                title: 'Deep dive into your game',
+                actionLabel: 'Analyze',
+                onAction: () =>
+                    context.push('/players/${widget.player.id}/analysis'),
               ),
-            ),
-            ...breakdown.typedSections.expand(
-              (section) => [
-                const SizedBox(height: AppDimens.spaceLg),
-                _sectionHeader(context, section.title),
+              const SizedBox(height: AppDimens.spaceMd),
+              _modeChips(context, cf),
+              const SizedBox(height: AppDimens.spaceMd),
+              if (_mode == _StatsMode.captain)
+                CaptainStatsSection(stats: captainStats)
+              else ...[
+                _overallHeader(context),
                 StatGrid(
                   cells: playerStatCells(
-                    section.stats,
+                    breakdown.overall,
                     _mode.asViewMode,
-                    ballsPerOver: section.ballsPerOver,
-                    bowlingActualOvers: section.bowlingActualOvers,
                   ),
                 ),
+                ...breakdown.typedSections.expand(
+                  (section) => [
+                    const SizedBox(height: AppDimens.spaceLg),
+                    _sectionHeader(context, section.title),
+                    StatGrid(
+                      cells: playerStatCells(
+                        section.stats,
+                        _mode.asViewMode,
+                        ballsPerOver: section.ballsPerOver,
+                        bowlingActualOvers: section.bowlingActualOvers,
+                      ),
+                    ),
+                  ],
+                ),
               ],
-            ),
+            ],
+          );
+        },
+        loading: () => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 120),
+            Center(child: CircularProgressIndicator()),
           ],
-        ],
+        ),
+        error: (e, _) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(height: 120),
+            Center(child: Text('$e')),
+          ],
+        ),
       ),
     );
   }

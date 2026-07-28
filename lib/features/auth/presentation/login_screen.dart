@@ -7,7 +7,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/player_profile_constants.dart';
 import '../../../core/auth/auth_gate.dart';
 import '../../../core/routing/deep_link_handler.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/user_model.dart';
@@ -190,301 +189,322 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
     final theme = Theme.of(context);
-    final heroEmphasis = cf.isLight ? Colors.white : CfColors.gold;
-    final subtitleColor =
-        cf.isLight ? Colors.white.withValues(alpha: 0.85) : cf.textSecondary;
+    const titleColor = Color(0xFF0A0E17);
+    const subtitleColor = Color(0xFF555555);
+    const accentBlue = Color(0xFF1565C0);
+    final formBorder = Border.all(color: const Color(0xFFE8EAED));
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.heroGradient),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  onPressed: _isLoading ? null : _handleBack,
-                  icon: Icon(Icons.arrow_back, color: heroEmphasis),
-                  tooltip: 'Back',
-                ),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: _isLoading ? null : _handleBack,
+                icon: const Icon(Icons.arrow_back, color: titleColor),
+                tooltip: 'Back',
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppDimens.spaceLg,
-                    0,
-                    AppDimens.spaceLg,
-                    AppDimens.spaceLg,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Icon(
-                        Icons.sports_cricket,
-                        size: 56,
-                        color: CfColors.gold.withValues(alpha: 0.9),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppDimens.spaceLg,
+                  0,
+                  AppDimens.spaceLg,
+                  AppDimens.spaceLg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Image.asset(
+                      AppConstants.crickflowLogoAsset,
+                      height: 104,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: AppDimens.spaceMd),
+                    Text(
+                      AppConstants.appName,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineLarge?.copyWith(
+                        color: titleColor,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
                       ),
-                      const SizedBox(height: AppDimens.spaceMd),
-                      Text(
-                        AppConstants.appName,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineLarge?.copyWith(
-                          color: heroEmphasis,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
+                    ),
+                    const SizedBox(height: AppDimens.spaceSm),
+                    Text(
+                      'Score • Stream • Connect',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: accentBlue,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                        height: 1.3,
                       ),
-                      const SizedBox(height: AppDimens.spaceSm),
-                      Text(
-                        'Score matches, join squads, and stream live.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: subtitleColor,
-                          height: 1.35,
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Your complete cricket platform',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: subtitleColor,
+                        height: 1.35,
                       ),
-                      const SizedBox(height: AppDimens.spaceXl),
-                      Material(
-                        color: cf.card,
-                        elevation: cf.isLight ? 2 : 0,
-                        shadowColor: cf.cardShadow,
+                    ),
+                    const SizedBox(height: AppDimens.spaceXl),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppDimens.spaceLg),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
+                        border: formBorder,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0F000000),
+                            blurRadius: 16,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppDimens.spaceLg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Sign in',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: titleColor,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Use Google or your mobile number to continue.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: subtitleColor,
+                              ),
+                            ),
+                            const SizedBox(height: AppDimens.spaceLg),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  _isLoading && !_showOtp ? null : _googleSignIn,
+                              icon: _isLoading && !_showOtp
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: titleColor,
+                                      ),
+                                    )
+                                  : const Icon(Icons.g_mobiledata, size: 28),
+                              label: const Text('Continue with Google'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(
+                                  double.infinity,
+                                  AppDimens.buttonHeight,
+                                ),
+                                side: const BorderSide(color: Color(0xFFE8EAED)),
+                                foregroundColor: titleColor,
+                                backgroundColor: const Color(0xFFFAFAFA),
+                              ),
+                            ),
+                            const SizedBox(height: AppDimens.spaceLg),
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: Divider(color: Color(0xFFE8EAED)),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppDimens.spaceMd,
+                                  ),
+                                  child: Text(
+                                    'OR',
+                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      color: const Color(0xFF888888),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const Expanded(
+                                  child: Divider(color: Color(0xFFE8EAED)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppDimens.spaceLg),
+                            if (!_showOtp) ...[
                               Text(
-                                'Sign in',
-                                style: theme.textTheme.titleLarge?.copyWith(
+                                'Phone number',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: titleColor,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Use Google or your mobile number to continue.',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: cf.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: AppDimens.spaceLg),
-                              OutlinedButton.icon(
-                                onPressed:
-                                    _isLoading && !_showOtp ? null : _googleSignIn,
-                                icon: _isLoading && !_showOtp
-                                    ? SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: cf.textPrimary,
-                                        ),
-                                      )
-                                    : Icon(Icons.g_mobiledata, size: 28),
-                                label: const Text('Continue with Google'),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(
-                                    double.infinity,
-                                    AppDimens.buttonHeight,
-                                  ),
-                                  side: BorderSide(color: cf.border),
-                                  foregroundColor: cf.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: AppDimens.spaceLg),
-                              Row(
-                                children: [
-                                  Expanded(child: Divider(color: cf.border)),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppDimens.spaceMd,
-                                    ),
-                                    child: Text(
-                                      'OR',
-                                      style: theme.textTheme.labelMedium
-                                          ?.copyWith(color: cf.textMuted),
-                                    ),
-                                  ),
-                                  Expanded(child: Divider(color: cf.border)),
-                                ],
-                              ),
-                              const SizedBox(height: AppDimens.spaceLg),
-                              if (!_showOtp) ...[
-                                Text(
-                                  'Phone number',
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: AppDimens.spaceSm),
-                                Builder(
-                                  builder: (context) {
-                                    final countries = [
-                                      ...CricketCountry.countriesByDialCode,
-                                    ];
-                                    if (CricketCountry.byDialCode(_dialCode) ==
-                                        null) {
-                                      countries.insert(
-                                        0,
-                                        CricketCountry(
-                                          name: 'Other',
-                                          code: '',
-                                          flag: '🌐',
-                                          dialCode: _dialCode,
-                                        ),
-                                      );
-                                    }
-                                    return DropdownButtonFormField<String>(
-                                      value: _dialCode,
-                                      isExpanded: true,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Country',
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 16,
-                                        ),
+                              const SizedBox(height: AppDimens.spaceSm),
+                              Builder(
+                                builder: (context) {
+                                  final countries = [
+                                    ...CricketCountry.countriesByDialCode,
+                                  ];
+                                  if (CricketCountry.byDialCode(_dialCode) ==
+                                      null) {
+                                    countries.insert(
+                                      0,
+                                      CricketCountry(
+                                        name: 'Other',
+                                        code: '',
+                                        flag: '🌐',
+                                        dialCode: _dialCode,
                                       ),
-                                      selectedItemBuilder: (_) => countries
-                                          .map(
-                                            (c) => Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: _DialCountryLabel(
-                                                country: c,
-                                                compact: true,
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                      items: countries
-                                          .map(
-                                            (c) => DropdownMenuItem(
-                                              value: c.dialCode,
-                                              child: _DialCountryLabel(
-                                                country: c,
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: _isLoading
-                                          ? null
-                                          : (v) {
-                                              if (v != null) {
-                                                setState(() => _dialCode = v);
-                                              }
-                                            },
                                     );
-                                  },
-                                ),
-                                const SizedBox(height: AppDimens.spaceSm),
-                                TextField(
-                                  controller: _phoneController,
-                                  enabled: !_isLoading,
-                                  decoration: InputDecoration(
-                                    labelText: 'Mobile number',
-                                    hintText: _phoneNumberHint,
-                                    helperText:
-                                        'Digits only — no country code',
-                                    prefixIcon:
-                                        const Icon(Icons.phone_outlined),
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 16,
+                                  }
+                                  return DropdownButtonFormField<String>(
+                                    value: _dialCode,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Country',
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 16,
+                                      ),
                                     ),
+                                    selectedItemBuilder: (_) => countries
+                                        .map(
+                                          (c) => Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: _DialCountryLabel(
+                                              country: c,
+                                              compact: true,
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                    items: countries
+                                        .map(
+                                          (c) => DropdownMenuItem(
+                                            value: c.dialCode,
+                                            child: _DialCountryLabel(
+                                              country: c,
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: _isLoading
+                                        ? null
+                                        : (v) {
+                                            if (v != null) {
+                                              setState(() => _dialCode = v);
+                                            }
+                                          },
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: AppDimens.spaceSm),
+                              TextField(
+                                controller: _phoneController,
+                                enabled: !_isLoading,
+                                decoration: InputDecoration(
+                                  labelText: 'Mobile number',
+                                  hintText: _phoneNumberHint,
+                                  helperText: 'Digits only — no country code',
+                                  prefixIcon: const Icon(Icons.phone_outlined),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 16,
                                   ),
-                                  keyboardType: TextInputType.phone,
-                                  textInputAction: TextInputAction.done,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  onSubmitted: (_) => _sendOtp(),
                                 ),
-                                const SizedBox(height: AppDimens.spaceLg),
-                                CfButton(
-                                  label: 'Send OTP',
-                                  icon: Icons.sms_outlined,
-                                  isLoading: _isLoading,
-                                  isGold: true,
-                                  onPressed: _isLoading ? null : _sendOtp,
+                                keyboardType: TextInputType.phone,
+                                textInputAction: TextInputAction.done,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                onSubmitted: (_) => _sendOtp(),
+                              ),
+                              const SizedBox(height: AppDimens.spaceLg),
+                              CfButton(
+                                label: 'Send OTP',
+                                icon: Icons.sms_outlined,
+                                isLoading: _isLoading,
+                                onPressed: _isLoading ? null : _sendOtp,
+                              ),
+                            ] else ...[
+                              Text(
+                                'Enter verification code',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: titleColor,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ] else ...[
-                                Text(
-                                  'Enter verification code',
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'We sent a 6-digit code to $_formattedPhone. '
+                                'Enter it below to sign in to ${AppConstants.appName}.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: subtitleColor,
+                                  height: 1.4,
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'We sent a 6-digit code to $_formattedPhone. '
-                                  'Enter it below to sign in to ${AppConstants.appName}.',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: cf.textSecondary,
-                                    height: 1.4,
-                                  ),
+                              ),
+                              const SizedBox(height: AppDimens.spaceMd),
+                              TextField(
+                                controller: _otpController,
+                                enabled: !_isLoading,
+                                decoration: InputDecoration(
+                                  labelText: 'Verification code',
+                                  hintText: '6-digit code',
+                                  helperText:
+                                      'Check your SMS for a message from ${AppConstants.appName}',
+                                  prefixIcon: const Icon(Icons.lock_outline),
                                 ),
-                                const SizedBox(height: AppDimens.spaceMd),
-                                TextField(
-                                  controller: _otpController,
-                                  enabled: !_isLoading,
-                                  decoration: InputDecoration(
-                                    labelText: 'Verification code',
-                                    hintText: '6-digit code',
-                                    helperText:
-                                        'Check your SMS for a message from ${AppConstants.appName}',
-                                    prefixIcon:
-                                        const Icon(Icons.lock_outline),
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.done,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(6),
-                                  ],
-                                  onSubmitted: (_) => _verifyOtp(),
-                                ),
-                                const SizedBox(height: AppDimens.spaceMd),
-                                CfButton(
-                                  label: 'Verify & continue',
-                                  isLoading: _isLoading,
-                                  isGold: true,
-                                  onPressed: _isLoading ? null : _verifyOtp,
-                                ),
-                                const SizedBox(height: AppDimens.spaceSm),
-                                TextButton(
-                                  onPressed: _isLoading ? null : _resetPhoneAuth,
-                                  child: const Text('Change phone number'),
-                                ),
-                              ],
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.done,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(6),
+                                ],
+                                onSubmitted: (_) => _verifyOtp(),
+                              ),
+                              const SizedBox(height: AppDimens.spaceMd),
+                              CfButton(
+                                label: 'Verify & continue',
+                                isLoading: _isLoading,
+                                onPressed: _isLoading ? null : _verifyOtp,
+                              ),
+                              const SizedBox(height: AppDimens.spaceSm),
+                              TextButton(
+                                onPressed: _isLoading ? null : _resetPhoneAuth,
+                                child: const Text('Change phone number'),
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: AppDimens.spaceLg),
-                      TextButton(
-                        onPressed: _isLoading ? null : () => context.go('/home'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: heroEmphasis,
-                        ),
-                        child: const Text('Browse without signing in'),
+                    ),
+                    const SizedBox(height: AppDimens.spaceLg),
+                    TextButton(
+                      onPressed: _isLoading ? null : () => context.go('/home'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: accentBlue,
                       ),
-                      const SizedBox(height: AppDimens.spaceSm),
-                      Text(
-                        'Sign in to score matches, manage teams, and stream live.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: subtitleColor,
-                        ),
+                      child: const Text('Browse without signing in'),
+                    ),
+                    const SizedBox(height: AppDimens.spaceSm),
+                    Text(
+                      'Sign in to score matches, manage teams, and stream live.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: subtitleColor,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

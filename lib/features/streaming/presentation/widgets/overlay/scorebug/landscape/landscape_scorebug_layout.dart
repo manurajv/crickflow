@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../broadcast_live_branding.dart';
 import '../scorebug_tokens.dart';
 
 /// Responsive scale and safe margins for landscape broadcast overlays.
@@ -23,13 +24,17 @@ class LandscapeScorebugLayout {
 
   static EdgeInsets topHeaderPadding(double scale) => EdgeInsets.only(
         left: 40 * scale,
-        top: 16 * scale,
-        right: 18 * scale,
+        top: 32 * scale,
+        right: 36 * scale,
       );
 
   /// Space reserved below [LandscapeTopHeader] (logo + LIVE badge).
   static double topHeaderReservedHeight(double scale) =>
-      (16 + 50 + 30 + 16 + 14) * scale;
+      32 * scale +
+      BroadcastLiveBranding.landscapeLogoSize * scale +
+      BroadcastLiveBranding.logoBadgeGap(scale, landscape: true) +
+      BroadcastLiveBranding.liveBadgeHeight(scale, landscape: true) +
+      16 * scale;
 
   /// Horizontal inset for scorebug and side intro panels (matches header).
   static double overlayHorizontalInset(double scale) => 40 * scale;

@@ -13,7 +13,6 @@ import '../../../../domain/services/profile_match_filter_service.dart';
 import '../../../../features/my_cricket/my_cricket_filters.dart';
 import '../../../../features/my_cricket_profile/presentation/widgets/captain_stats_section.dart';
 import '../../../../shared/providers/my_player_provider.dart';
-import '../../../../shared/providers/my_player_stats_breakdown_provider.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/player_stat_cells.dart';
@@ -54,6 +53,9 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
           return _noPlayer(context);
         }
 
+        final breakdownAsync =
+            ref.watch(filteredPlayerStatsBreakdownProvider(player.id));
+
         return matchesAsync.when(
           data: (matches) {
             final participated = matches
@@ -67,13 +69,6 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
                 )
                 .toList();
             final filters = ref.watch(profileMatchFiltersProvider);
-            final service = ref.watch(playerTypedStatsServiceProvider);
-            final breakdown = buildProfileFilteredStatsBreakdown(
-              player: player,
-              participatedMatches: participated,
-              filters: filters,
-              service: service,
-            );
             final filteredMatches =
                 filterProfileMatches(participated, filters);
             final captainStats = const CaptainStatsService().compute(
@@ -87,55 +82,83 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
               onRefresh: () async {
                 ref.invalidate(myPlayerProvider);
                 ref.invalidate(matchesProvider);
+                ref.invalidate(filteredPlayerStatsBreakdownProvider(player.id));
               },
-              child: ListView(
-                padding: AppDimens.listPadding,
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  _PlayerHeader(player: player),
-                  const SizedBox(height: AppDimens.spaceSm),
-                  MyCricketActionBanner(
-                    inset: false,
-                    title: 'Want to improve your stats?',
-                    actionLabel: 'Analyze',
-                    onAction: () =>
-                        context.push('/players/${player.id}/analysis'),
-                  ),
-                  const SizedBox(height: AppDimens.spaceMd),
-                  _modeChips(context),
-                  const SizedBox(height: AppDimens.spaceMd),
-                  if (_mode == _StatsMode.captain)
-                    CaptainStatsSection(stats: captainStats)
-                  else ...[
-                    _overallHeader(context),
-                    StatGrid(
-                      cells: playerStatCells(
-                        breakdown.overall,
-                        _mode.asViewMode,
+              child: breakdownAsync.when(
+                data: (breakdown) {
+                  if (breakdown == null) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: Text('No stats yet')),
+                      ],
+                    );
+                  }
+                  return ListView(
+                    padding: AppDimens.listPadding,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      _PlayerHeader(player: player),
+                      const SizedBox(height: AppDimens.spaceSm),
+                      MyCricketActionBanner(
+                        inset: false,
+                        title: 'Want to improve your stats?',
+                        actionLabel: 'Analyze',
+                        onAction: () =>
+                            context.push('/players/${player.id}/analysis'),
                       ),
-                    ),
-                    ...breakdown.typedSections.expand(
-                      (section) => [
-                        const SizedBox(height: AppDimens.spaceLg),
-                        _sectionHeader(context, section.title),
+                      const SizedBox(height: AppDimens.spaceMd),
+                      _modeChips(context),
+                      const SizedBox(height: AppDimens.spaceMd),
+                      if (_mode == _StatsMode.captain)
+                        CaptainStatsSection(stats: captainStats)
+                      else ...[
+                        _overallHeader(context),
                         StatGrid(
                           cells: playerStatCells(
-                            section.stats,
+                            breakdown.overall,
                             _mode.asViewMode,
-                            ballsPerOver: section.ballsPerOver,
-                            bowlingActualOvers: section.bowlingActualOvers,
                           ),
                         ),
+                        ...breakdown.typedSections.expand(
+                          (section) => [
+                            const SizedBox(height: AppDimens.spaceLg),
+                            _sectionHeader(context, section.title),
+                            StatGrid(
+                              cells: playerStatCells(
+                                section.stats,
+                                _mode.asViewMode,
+                                ballsPerOver: section.ballsPerOver,
+                                bowlingActualOvers: section.bowlingActualOvers,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppDimens.spaceLg),
+                        Text(
+                          'Type sections appear after you complete a match in that format. '
+                          'Set ball type when creating a match (Leather / Tennis / Indoor).',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ],
-                    ),
-                    const SizedBox(height: AppDimens.spaceLg),
-                    Text(
-                      'Type sections appear after you complete a match in that format. '
-                      'Set ball type when creating a match (Leather / Tennis / Indoor).',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    ],
+                  );
+                },
+                loading: () => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 120),
+                    Center(child: CircularProgressIndicator()),
                   ],
-                ],
+                ),
+                error: (e, _) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(height: 120),
+                    Center(child: Text('$e')),
+                  ],
+                ),
               ),
             );
           },

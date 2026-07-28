@@ -34,7 +34,7 @@ class PushNotificationHandler {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@drawable/ic_stat_crickflow');
     const iosInit = DarwinInitializationSettings();
     await _localNotifications.initialize(
       const InitializationSettings(android: androidInit, iOS: iosInit),
@@ -153,7 +153,7 @@ class PushNotificationHandler {
           : 'General CrickFlow notifications',
       importance: Importance.high,
       priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_stat_crickflow',
       color: const Color(_goldAccent),
       styleInformation: BigTextStyleInformation(
         body,

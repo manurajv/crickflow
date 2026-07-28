@@ -660,6 +660,52 @@ class MatchRepository {
     });
   }
 
+  /// Live + upcoming matches across all users (for Home discovery).
+  ///
+  /// Queries each active status separately so completed/network updates cannot
+  /// crowd live/scheduled fixtures out of a small `updatedAt` feed.
+  Future<List<MatchModel>> fetchLiveAndUpcomingMatches({
+    int limitPerStatus = 40,
+  }) async {
+    const statuses = <MatchStatus>[
+      MatchStatus.live,
+      MatchStatus.inningsBreak,
+      MatchStatus.tossCompleted,
+      MatchStatus.scheduled,
+    ];
+
+    final snaps = await Future.wait(
+      statuses.map(
+        (status) => _matches
+            .where('status', isEqualTo: status.name)
+            .orderBy('createdAt', descending: true)
+            .limit(limitPerStatus)
+            .get(),
+      ),
+    );
+
+    final byId = <String, MatchModel>{};
+    for (final snap in snaps) {
+      for (final doc in snap.docs) {
+        byId[doc.id] = MatchModel.fromMap(doc.id, doc.data());
+      }
+    }
+
+    final list = byId.values.toList();
+    list.sort((a, b) {
+      final aLive = MatchLifecycle.isEffectivelyLive(a) ? 0 : 1;
+      final bLive = MatchLifecycle.isEffectivelyLive(b) ? 0 : 1;
+      if (aLive != bLive) return aLive.compareTo(bLive);
+      final aAt = a.scheduledAt ?? a.createdAt;
+      final bAt = b.scheduledAt ?? b.createdAt;
+      if (aAt == null && bAt == null) return 0;
+      if (aAt == null) return 1;
+      if (bAt == null) return -1;
+      return aAt.compareTo(bAt);
+    });
+    return list;
+  }
+
   Future<List<BallEventModel>> fetchBallEvents(String matchId) async {
     final local = _localStore;
     var localEvents = const <BallEventModel>[];

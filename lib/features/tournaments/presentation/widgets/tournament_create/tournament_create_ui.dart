@@ -204,52 +204,69 @@ class TournamentCricketMatchTypePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final types = CricketMatchType.uiValues;
+    final effectiveSelected =
+        selected.isOfferedInApp ? selected : CricketMatchType.limitedOvers;
+
     return Row(
-      children: CricketMatchType.values.map((type) {
-        final isSelected = type == selected;
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => onSelected(type),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: isSelected ? cf.accent : cf.sectionBackground,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected ? cf.accent : cf.border,
-                    width: isSelected ? 1.5 : 1,
+      children: [
+        for (var i = 0; i < types.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onSelected(types[i]),
+                borderRadius: BorderRadius.circular(14),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: types[i] == effectiveSelected
+                        ? cf.accent.withValues(alpha: cf.isLight ? 0.10 : 0.18)
+                        : cf.sectionBackground,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: types[i] == effectiveSelected
+                          ? cf.accent
+                          : cf.border,
+                      width: types[i] == effectiveSelected ? 1.75 : 1,
+                    ),
                   ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _icon(type),
-                      size: 22,
-                      color: isSelected ? cf.onAccent : cf.textSecondary,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _label(type),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.2,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? cf.onAccent : cf.textPrimary,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _icon(types[i]),
+                        size: 22,
+                        color: types[i] == effectiveSelected
+                            ? cf.accent
+                            : cf.textSecondary,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        _label(types[i]),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.2,
+                          fontWeight: types[i] == effectiveSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: types[i] == effectiveSelected
+                              ? cf.accent
+                              : cf.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        );
-      }).toList(),
+        ],
+      ],
     );
   }
 }

@@ -5,11 +5,9 @@ import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/tournament_model.dart';
-import '../../../../shared/providers/guest_device_location_provider.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
-import '../../../../shared/widgets/location_filter_bar.dart';
 import '../../../../shared/widgets/tournament_list_card.dart';
 import '../../my_cricket_filters.dart';
 import '../widgets/my_cricket_action_banner.dart';
@@ -257,7 +255,6 @@ class _GuestTournamentsBody extends ConsumerWidget {
     }
 
     final tournamentsAsync = ref.watch(tournamentsProvider);
-    final locationAsync = ref.watch(guestDeviceLocationProvider);
     final search = ref.watch(myCricketSearchProvider);
 
     return Column(
@@ -267,111 +264,61 @@ class _GuestTournamentsBody extends ConsumerWidget {
           compact: true,
           title: 'Sign in to view your tournaments',
           subtitle:
-              'Browse nearby tournaments below, or sign in to see your teams '
+              'Browse all tournaments below, or sign in to see your teams '
               'and network.',
         ),
         _guestScopeChips(context),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(tournamentsProvider);
-              ref.invalidate(guestDeviceLocationProvider);
-            },
+            onRefresh: () async => ref.invalidate(tournamentsProvider),
             child: tournamentsAsync.when(
-              data: (all) => locationAsync.when(
-                data: (location) {
-                  if (location == null || location.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 48),
-                        Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              'Enable location access to see tournaments near you.',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
+              data: (all) {
+                var list = List<TournamentModel>.from(all);
 
-                  var list = all
-                      .where(
-                        (t) => locationMatchesFilter(
-                          t.location,
-                          location.country,
-                          location.city,
-                        ),
-                      )
+                if (search.isNotEmpty) {
+                  final q = search.toLowerCase();
+                  list = list
+                      .where((t) => t.name.toLowerCase().contains(q))
                       .toList();
+                }
 
-                  if (search.isNotEmpty) {
-                    final q = search.toLowerCase();
-                    list = list
-                        .where((t) => t.name.toLowerCase().contains(q))
-                        .toList();
-                  }
-
-                  if (list.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: Text(
-                            'Tournaments near ${location.displayLabel}',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                        ),
-                        const SizedBox(height: 48),
-                        Center(
-                          child: Text(
-                            'No tournaments found near your location',
-                            style: TextStyle(color: context.cf.textSecondary),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-
-                  return ListView.builder(
+                if (list.isEmpty) {
+                  return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 16),
-                    itemCount: list.length + 1,
-                    itemBuilder: (_, i) {
-                      if (i == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                          child: Text(
-                            'Tournaments near ${location.displayLabel}',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                        );
-                      }
-                      final t = list[i - 1];
-                      return TournamentListCard(
-                        tournament: t,
-                        onTap: () => onOpenTournament(t),
-                        trailing: t.tournamentCode != null
-                            ? Text(
-                                t.tournamentCode!,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelMedium
-                                    ?.copyWith(color: context.cf.accent),
-                              )
-                            : null,
-                      );
-                    },
+                    children: [
+                      const SizedBox(height: 48),
+                      Center(
+                        child: Text(
+                          'No tournaments found',
+                          style: TextStyle(color: context.cf.textSecondary),
+                        ),
+                      ),
+                    ],
                   );
-                },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('$e')),
-              ),
+                }
+
+                return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 16),
+                  itemCount: list.length,
+                  itemBuilder: (_, i) {
+                    final t = list[i];
+                    return TournamentListCard(
+                      tournament: t,
+                      onTap: () => onOpenTournament(t),
+                      trailing: t.tournamentCode != null
+                          ? Text(
+                              t.tournamentCode!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(color: context.cf.accent),
+                            )
+                          : null,
+                    );
+                  },
+                );
+              },
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('$e')),

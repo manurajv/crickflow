@@ -23,7 +23,8 @@ String nearbyLocationSubtitle({
     '';
 
 /// Horizontal carousel height for match / tournament cards on Home.
-const double kNearbyCarouselHeight = 220;
+/// Sized to the card content (no empty strip under the footer links).
+const double kNearbyCarouselHeight = 175;
 
 /// Card width so the next item peeks (~78% of screen).
 double nearbyCarouselCardWidth(BuildContext context) {
@@ -169,25 +170,20 @@ class MatchesNearYouSection extends ConsumerWidget {
                   height: kNearbyCarouselHeight,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(
-                      left: AppDimens.spaceMd,
-                      right: AppDimens.spaceMd,
-                      bottom: 2,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spaceMd,
                     ),
                     itemCount: state.items.length,
                     separatorBuilder: (_, _) =>
                         const SizedBox(width: AppDimens.spaceSm),
                     itemBuilder: (context, index) {
                       final item = state.items[index];
-                      return Align(
-                        alignment: Alignment.topCenter,
-                        child: SizedBox(
-                          width: cardWidth,
-                          child: MatchListCard(
-                            match: item.match,
-                            attributionLabel: item.attributionLabel,
-                            margin: EdgeInsets.zero,
-                          ),
+                      return SizedBox(
+                        width: cardWidth,
+                        child: MatchListCard(
+                          match: item.match,
+                          attributionLabel: item.attributionLabel,
+                          margin: EdgeInsets.zero,
                         ),
                       );
                     },

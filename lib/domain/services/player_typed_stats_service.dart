@@ -1,9 +1,11 @@
 import '../../core/constants/enums.dart';
 import '../../core/utils/overs_formatter.dart';
+import '../../data/models/ball_event_model.dart';
 import '../../data/models/innings_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/player_model.dart';
 import '../../features/my_cricket/my_cricket_filters.dart';
+import '../scoring/ball_event_aggregator.dart';
 
 /// Typed stats plus optional overs metadata for display.
 class PlayerTypedStatsResult {
@@ -29,32 +31,17 @@ class PlayerTypedStatsService {
     String? authUid,
     String? playerTeamId,
     Set<String> userTeamIds = const {},
+    Map<String, List<BallEventModel>>? ballEventsByMatchId,
   }) {
-    final agg = _Agg();
-
-    for (final match in completedMatches) {
-      if (match.rules.resolvedBallType != ballType) continue;
-      if (!userParticipatedInMatch(
-        match,
-        uid: authUid,
-        player: playerTeamId != null
-            ? PlayerModel(id: playerId, name: '', teamId: playerTeamId)
-            : null,
-        userTeamIds: userTeamIds,
-      )) {
-        continue;
-      }
-
-      var playedInMatch = false;
-      for (final inn in match.innings) {
-        playedInMatch =
-            _accumulateInnings(agg, inn, playerId, match.rules.ballsPerOver) ||
-                playedInMatch;
-      }
-      if (playedInMatch) agg.matchesPlayed += 1;
-    }
-
-    return agg.toStats();
+    return aggregateDetailedForType(
+      completedMatches: completedMatches,
+      playerId: playerId,
+      ballType: ballType,
+      authUid: authUid,
+      playerTeamId: playerTeamId,
+      userTeamIds: userTeamIds,
+      ballEventsByMatchId: ballEventsByMatchId,
+    ).stats;
   }
 
   PlayerTypedStatsResult aggregateDetailedForType({
@@ -64,34 +51,30 @@ class PlayerTypedStatsService {
     String? authUid,
     String? playerTeamId,
     Set<String> userTeamIds = const {},
+    Map<String, List<BallEventModel>>? ballEventsByMatchId,
   }) {
     final agg = _Agg();
     final bpoCounts = <int, int>{};
 
     for (final match in completedMatches) {
       if (match.rules.resolvedBallType != ballType) continue;
-      if (!userParticipatedInMatch(
+      if (!_playedMatch(
         match,
-        uid: authUid,
-        player: playerTeamId != null
-            ? PlayerModel(id: playerId, name: '', teamId: playerTeamId)
-            : null,
+        playerId: playerId,
+        authUid: authUid,
+        playerTeamId: playerTeamId,
         userTeamIds: userTeamIds,
       )) {
         continue;
       }
 
-      var playedInMatch = false;
-      for (final inn in match.innings) {
-        playedInMatch = _accumulateInnings(
-              agg,
-              inn,
-              playerId,
-              match.rules.ballsPerOver,
-            ) ||
-            playedInMatch;
-      }
-      if (playedInMatch) {
+      final played = _accumulateMatch(
+        agg,
+        match,
+        playerId,
+        ballEventsByMatchId?[match.id],
+      );
+      if (played) {
         agg.matchesPlayed += 1;
         final bpo = match.rules.ballsPerOver;
         bpoCounts[bpo] = (bpoCounts[bpo] ?? 0) + 1;
@@ -112,33 +95,29 @@ class PlayerTypedStatsService {
     String? authUid,
     String? playerTeamId,
     Set<String> userTeamIds = const {},
+    Map<String, List<BallEventModel>>? ballEventsByMatchId,
   }) {
     final agg = _Agg();
     final bpoCounts = <int, int>{};
 
     for (final match in completedMatches) {
-      if (!userParticipatedInMatch(
+      if (!_playedMatch(
         match,
-        uid: authUid,
-        player: playerTeamId != null
-            ? PlayerModel(id: playerId, name: '', teamId: playerTeamId)
-            : null,
+        playerId: playerId,
+        authUid: authUid,
+        playerTeamId: playerTeamId,
         userTeamIds: userTeamIds,
       )) {
         continue;
       }
 
-      var playedInMatch = false;
-      for (final inn in match.innings) {
-        playedInMatch = _accumulateInnings(
-              agg,
-              inn,
-              playerId,
-              match.rules.ballsPerOver,
-            ) ||
-            playedInMatch;
-      }
-      if (playedInMatch) {
+      final played = _accumulateMatch(
+        agg,
+        match,
+        playerId,
+        ballEventsByMatchId?[match.id],
+      );
+      if (played) {
         agg.matchesPlayed += 1;
         final bpo = match.rules.ballsPerOver;
         bpoCounts[bpo] = (bpoCounts[bpo] ?? 0) + 1;
@@ -151,6 +130,64 @@ class PlayerTypedStatsService {
       bowlingActualOvers:
           agg.bowlingActualOvers > 0 ? agg.bowlingActualOvers : null,
     );
+  }
+
+  bool _playedMatch(
+    MatchModel match, {
+    required String playerId,
+    String? authUid,
+    String? playerTeamId,
+    Set<String> userTeamIds = const {},
+  }) {
+    return userParticipatedInMatch(
+      match,
+      uid: authUid,
+      player: playerTeamId != null
+          ? PlayerModel(id: playerId, name: '', teamId: playerTeamId)
+          : PlayerModel(id: playerId, name: ''),
+      userTeamIds: userTeamIds,
+    );
+  }
+
+  bool _accumulateMatch(
+    _Agg agg,
+    MatchModel match,
+    String playerId,
+    List<BallEventModel>? events,
+  ) {
+    var found = false;
+    for (final inn in match.innings) {
+      found = _accumulateInnings(
+            agg,
+            inn,
+            playerId,
+            match.rules.ballsPerOver,
+          ) ||
+          found;
+    }
+
+    // Fielding: prefer ball events (innings.fielders are not persisted).
+    if (events != null && events.isNotEmpty) {
+      for (final f in BallEventAggregator.fieldersFromEvents(events)) {
+        if (f.playerId != playerId) continue;
+        found = true;
+        agg.catches += f.catches;
+        agg.runOuts += f.runOuts;
+        agg.stumpings += f.stumpings;
+      }
+    } else {
+      for (final inn in match.innings) {
+        for (final f in inn.fielders) {
+          if (f.playerId != playerId) continue;
+          found = true;
+          agg.catches += f.catches;
+          agg.runOuts += f.runOuts;
+          agg.stumpings += f.stumpings;
+        }
+      }
+    }
+
+    return found;
   }
 
   bool _accumulateInnings(

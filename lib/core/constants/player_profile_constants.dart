@@ -337,18 +337,14 @@ class CricketCountry {
     return null;
   }
 
-  /// One entry per unique dial code (first matching country), sorted numerically.
+  /// One entry per unique dial code (first matching country), sorted by name.
   static List<CricketCountry> get countriesByDialCode {
     final seen = <String>{};
     final list = <CricketCountry>[];
     for (final c in all) {
       if (seen.add(c.dialCode)) list.add(c);
     }
-    list.sort((a, b) {
-      final na = int.tryParse(a.dialCode.replaceAll('+', '')) ?? 0;
-      final nb = int.tryParse(b.dialCode.replaceAll('+', '')) ?? 0;
-      return na.compareTo(nb);
-    });
+    list.sort((a, b) => a.name.compareTo(b.name));
     return list;
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../config/admob_config.dart';
 import '../../../core/auth/auth_gate.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/theme/app_dimens.dart';
@@ -86,7 +87,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onPressed: () => context.push('/settings'),
         ),
       ],
-      // Pinned above the shell NavigationBar; does not scroll with content.
+      // Pinned above the shell bottom nav; does not scroll with content.
       bottomNavigationBar: const CfStickyBannerAd(
         placement: AdPlacement.home,
       ),
@@ -145,6 +146,13 @@ class _WelcomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final isLight = cf.isLight;
+    // Soft brand-blue → white (or deep navy in dark). Readable white type on the blue side.
+    const titleColor = Colors.white;
+    final subtitleColor = Colors.white.withValues(alpha: 0.88);
+    final accentColor =
+        isLight ? const Color(0xFFE3F2FD) : CfColors.primaryBlueLight;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -157,9 +165,36 @@ class _WelcomeHeader extends StatelessWidget {
         vertical: AppDimens.spaceLg,
       ),
       decoration: BoxDecoration(
-        gradient: cf.heroGradient,
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: isLight
+              ? const [
+                  Color(0xFF1565C0),
+                  Color(0xFF1E88E5),
+                  Color(0xFFE3F2FD),
+                  Color(0xFFFFFFFF),
+                ]
+              : [
+                  const Color(0xFF0D47A1),
+                  CfColors.primaryBlue,
+                  cf.card,
+                ],
+          stops: isLight
+              ? const [0.0, 0.35, 0.75, 1.0]
+              : const [0.0, 0.45, 1.0],
+        ),
         borderRadius: AppDimens.cardRadius,
         border: Border.all(color: cf.border),
+        boxShadow: isLight
+            ? const [
+                BoxShadow(
+                  color: Color(0x140D47A1),
+                  blurRadius: 14,
+                  offset: Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
       child: Row(
         children: [
@@ -173,40 +208,52 @@ class _WelcomeHeader extends StatelessWidget {
                         ? 'Hi, Guest'
                         : 'Hi, ${p?.displayName.isNotEmpty == true ? p!.displayName : p?.effectiveName ?? 'Scorer'}',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
+                          color: titleColor,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
                   loading: () => Text(
                     'Hi',
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: titleColor,
+                        ),
                   ),
                   error: (_, _) => Text(
                     'Hi',
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: titleColor,
+                        ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
-                  'Score. Stream. Connect.\nYour Complete Cricket Platform.',
+                  'Score • Stream • Connect',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: accentColor,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Your complete cricket platform',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white70,
+                        color: subtitleColor,
+                        height: 1.35,
                       ),
                 ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-            ),
-            child: const Icon(
-              Icons.sports_cricket,
-              color: Colors.white,
-              size: 28,
+          const SizedBox(width: AppDimens.spaceSm),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              AppConstants.crickflowLogoAsset,
+              width: 64,
+              height: 64,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
             ),
           ),
         ],

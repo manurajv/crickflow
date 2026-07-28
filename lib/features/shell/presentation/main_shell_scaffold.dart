@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/cf_colors.dart';
 
-/// Root shell with unified bottom navigation (Home · Discover · Matches · Community · Profile).
+import '../../../shared/widgets/cf_shell_bottom_nav.dart';
+
+/// Root shell with custom bottom navigation
+/// (Home · Discover · My Cricket · Community · Profile).
 class MainShellScaffold extends StatelessWidget {
   const MainShellScaffold({
     super.key,
@@ -22,41 +24,9 @@ class MainShellScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: context.cf.border, width: 0.5)),
-        ),
-        child: NavigationBar(
-          selectedIndex: navigationShell.currentIndex,
-          onDestinationSelected: _onTap,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.explore_outlined),
-              selectedIcon: Icon(Icons.explore),
-              label: 'Discover',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.sports_cricket_outlined),
-              selectedIcon: Icon(Icons.sports_cricket),
-              label: 'My Cricket',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.groups_outlined),
-              selectedIcon: Icon(Icons.groups),
-              label: 'Community',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
-        ),
+      bottomNavigationBar: CfShellBottomNav(
+        currentIndex: navigationShell.currentIndex,
+        onDestinationSelected: _onTap,
       ),
     );
   }

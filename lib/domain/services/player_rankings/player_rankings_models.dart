@@ -37,8 +37,18 @@ enum PlayerRankingsOversFilter {
   overs1to12,
   overs13to20,
   overs21to99,
-  testMatch,
+  /// Deferred with [CricketMatchType.testMatch] — hidden from rankings UI.
+  testMatch;
+
+  /// Overs chips shown in rankings filters (test deferred).
+  static const List<PlayerRankingsOversFilter> uiValues = [
+    all,
+    overs1to12,
+    overs13to20,
+    overs21to99,
+  ];
 }
+
 
 /// Years shown in the rankings year dropdown (newest first).
 /// Published from 2026; new years appear automatically when the calendar rolls.

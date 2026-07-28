@@ -34,7 +34,7 @@ class LandscapeTopHeader extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.only(left: 12 * scale, right: 30 * scale),
+            padding: EdgeInsets.only(left: 16 * scale, right: 12 * scale),
             child: BroadcastLiveBranding(
               tokens: tokens,
               scale: scale,

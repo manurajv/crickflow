@@ -158,16 +158,6 @@ class _ProfileMatchFiltersScreenState
         ),
         _optionTile(
           cf: cf,
-          label: 'Test',
-          selected: _draft.overs == -1,
-          onTap: () => setState(
-            () => _draft = _draft.copyWith(
-              overs: () => _draft.overs == -1 ? null : -1,
-            ),
-          ),
-        ),
-        _optionTile(
-          cf: cf,
           label: customSelected
               ? 'Custom (${_draft.overs} overs)'
               : 'Custom overs',
@@ -206,7 +196,7 @@ class _ProfileMatchFiltersScreenState
   Widget _buildTypeOptions(CfColors cf) {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: AppDimens.spaceSm),
-      children: CricketMatchType.values
+      children: CricketMatchType.uiValues
           .map(
             (type) => _optionTile(
               cf: cf,

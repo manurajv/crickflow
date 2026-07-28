@@ -126,33 +126,52 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(gradient: context.cf.heroGradient),
-        child: FadeTransition(
-          opacity: _fade,
-          child: Center(
+      backgroundColor: Colors.white,
+      body: FadeTransition(
+        opacity: _fade,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.sports_cricket,
-                    size: 80, color: CfColors.gold.withValues(alpha: 0.9)),
-                const SizedBox(height: 24),
+                Image.asset(
+                  AppConstants.crickflowLogoAsset,
+                  height: 168,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 20),
                 Text(
                   AppConstants.appName,
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        color: Colors.white,
-                        letterSpacing: 2,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: const Color(0xFF0A0E17),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Score • Stream • Connect',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: const Color(0xFF1565C0),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4,   
+                        height: 1.2,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Score • Stream • Shine',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: CfColors.gold,
+                  'Your complete cricket platform',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: const Color(0xFF555555),
+                        height: 1.35,
                       ),
                 ),
                 const SizedBox(height: 48),
-                CircularProgressIndicator(color: CfColors.gold),
+                const CircularProgressIndicator(color: CfColors.primaryBlue),
               ],
             ),
           ),

@@ -60,15 +60,14 @@ List<StatCellData> playerStatCells(
       StatCellData(value: '${stats.fiveWickets}', label: '5W'),
     ],
     PlayerStatViewMode.fielding => [
+      StatCellData(value: '${stats.matchesPlayed}', label: 'Mat'),
       StatCellData(value: '${stats.catches}', label: 'Catches'),
       StatCellData(value: '${stats.runOuts}', label: 'Run outs'),
       StatCellData(value: '${stats.stumpings}', label: 'Stumpings'),
       StatCellData(
         value: '${stats.catches + stats.runOuts + stats.stumpings}',
-        label: 'Total',
+        label: 'Dismissals',
       ),
-      StatCellData(value: '${stats.matchesPlayed}', label: 'Mat'),
-      StatCellData(value: '${stats.dismissals}', label: 'Dismissals'),
     ],
   };
 }

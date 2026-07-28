@@ -277,7 +277,7 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
                 spacing: AppDimens.spaceXs,
                 runSpacing: AppDimens.spaceXs,
                 children: [
-                  for (final o in PlayerRankingsOversFilter.values)
+                  for (final o in PlayerRankingsOversFilter.uiValues)
                     ChoiceChip(
                       label: Text(o.title),
                       selected: _overs == o,

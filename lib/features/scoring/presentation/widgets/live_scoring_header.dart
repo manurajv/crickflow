@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/innings_model.dart';
@@ -39,9 +40,7 @@ class LiveScoringHeader extends StatelessWidget {
     final scoreColor = Colors.white;
     final metaColor = Colors.white.withValues(alpha: isLight ? 0.82 : 0.75);
     final emphasisColor = isLight ? Colors.white : CfColors.gold;
-    final watermarkColor = isLight
-        ? Colors.white.withValues(alpha: 0.1)
-        : CfColors.gold.withValues(alpha: 0.08);
+    final watermarkOpacity = isLight ? 0.18 : 0.14;
 
     final content = _headerContent(
       cf: cf,
@@ -68,12 +67,17 @@ class LiveScoringHeader extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            right: 16,
-            top: 8,
-            child: Icon(
-              Icons.sports_cricket,
-              size: 80,
-              color: watermarkColor,
+            right: 12,
+            top: 4,
+            child: Opacity(
+              opacity: watermarkOpacity,
+              child: Image.asset(
+                AppConstants.crickflowLogoAsset,
+                width: 88,
+                height: 88,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
             ),
           ),
           Center(

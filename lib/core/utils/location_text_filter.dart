@@ -66,6 +66,45 @@ bool locationMatchesCityFilter(
   return false;
 }
 
+/// Country + state/province matching for home nearby sections.
+///
+/// Looser than [locationMatchesTextFilter]: empty match sub-region still
+/// passes when country matches, and state is checked against district/city too.
+bool locationMatchesNearbyRegion(LocationModel location, LocationModel filter) {
+  final country = filter.country.trim();
+  final state = filter.stateProvince.trim();
+  if (country.isEmpty && state.isEmpty) return true;
+
+  final locCountry = location.country.trim();
+  if (country.isNotEmpty && locCountry.isNotEmpty) {
+    final c = country.toLowerCase();
+    final lc = locCountry.toLowerCase();
+    if (!lc.contains(c) && !c.contains(lc)) return false;
+  }
+
+  if (state.isEmpty) return true;
+
+  final haystacks = <String>[
+    location.stateProvince,
+    location.district,
+    location.city,
+    location.placeName,
+    location.displayLabel,
+  ]
+      .map((s) => s.trim().toLowerCase())
+      .where((s) => s.isNotEmpty)
+      .toList();
+
+  // Match docs often omit state — keep country-aligned rows in the feed.
+  if (haystacks.isEmpty) return true;
+
+  final q = state.toLowerCase();
+  for (final h in haystacks) {
+    if (h.contains(q) || q.contains(h)) return true;
+  }
+  return false;
+}
+
 /// Most-specific place label: city → state → country (same as rankings).
 String locationFilterSummaryLabel(LocationModel location) {
   final city = location.city.trim();

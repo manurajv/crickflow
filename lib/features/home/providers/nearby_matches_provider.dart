@@ -14,7 +14,11 @@ import '../../../shared/providers/providers.dart';
 import '../domain/nearby_match_item.dart';
 import 'nearby_anchor_location_provider.dart';
 
-/// Home "Matches Near You" — region text filter (country + state/province).
+/// Home "Matches Near You" / "Matches in {region}".
+///
+/// Live + upcoming matches in the selected/GPS region, excluding the user's
+/// own. Includes Network and everyone else (same idea as My Cricket → All,
+/// scoped by location).
 final nearbyMatchesProvider =
     FutureProvider.autoDispose<NearbyMatchesState>((ref) async {
   final link = ref.keepAlive();
@@ -31,7 +35,8 @@ final nearbyMatchesProvider =
 
   List<MatchModel> matches;
   try {
-    matches = await ref.watch(matchesProvider.future);
+    matches =
+        await ref.read(matchRepositoryProvider).fetchLiveAndUpcomingMatches();
   } catch (e) {
     return NearbyMatchesState(
       status: NearbyMatchesStatus.error,
@@ -39,26 +44,14 @@ final nearbyMatchesProvider =
     );
   }
 
-  // Discover others nearby. User's own friendlies stay in My Cricket.
-  // Tournament fixtures: hide only when the user's team is playing that match
-  // (still show other fixtures from a tournament their team is entered in).
   final candidates = matches.where((m) {
-    if (_excludeFromNearbyMatches(
+    if (!_isLiveOrUpcoming(m)) return false;
+    return !_excludeOwnMatch(
       m,
       uid: uid,
       player: player,
       userTeamIds: userTeamIds,
-    )) {
-      return false;
-    }
-    if (MatchLifecycle.isEffectivelyLive(m)) return true;
-    if (MatchLifecycle.isUpcoming(m)) return true;
-    if (MatchLifecycle.isCompleted(m)) {
-      final completed = m.completedAt;
-      if (completed == null) return true;
-      return DateTime.now().difference(completed).inDays <= 7;
-    }
-    return false;
+    );
   }).toList();
 
   if (anchor != null && !anchor.isEmpty) {
@@ -117,6 +110,10 @@ final nearbyMatchesProvider =
   }
 });
 
+bool _isLiveOrUpcoming(MatchModel m) {
+  return MatchLifecycle.isEffectivelyLive(m) || MatchLifecycle.isUpcoming(m);
+}
+
 Future<PlayerModel?> _nearbyPlayer(Ref ref) async {
   try {
     return await ref.watch(myPlayerProvider.future);
@@ -142,9 +139,7 @@ Set<String> _nearbyUserTeamIds(Ref ref, PlayerModel? player) {
   };
 }
 
-/// Tournament matches: exclude only if user's team is in this fixture.
-/// Standalone matches: exclude creator / scorer / team involvement.
-bool _excludeFromNearbyMatches(
+bool _excludeOwnMatch(
   MatchModel m, {
   required String? uid,
   required PlayerModel? player,
@@ -170,6 +165,7 @@ NearbyMatchesState _buildFromRegionFilter({
   required LocationModel filter,
   required List<UserModel> following,
   required FollowedPlayerRefs followedPlayers,
+  String message = '',
 }) {
   final region = nearbyRegionFilter(filter);
   final regionLabel = nearbyRegionLabel(region);
@@ -184,7 +180,9 @@ NearbyMatchesState _buildFromRegionFilter({
 
   final items = <NearbyMatchItem>[];
   for (final m in candidates) {
+    // Hard location filter (country + state/province), same as tournaments.
     if (!locationMatchesTextFilter(m.location, region)) continue;
+
     final fromNetwork = matchInvolvesFollowedPlayer(m, followedPlayers);
     items.add(
       NearbyMatchItem(
@@ -198,29 +196,88 @@ NearbyMatchesState _buildFromRegionFilter({
     );
   }
 
-  // Network matches first (same people as My Cricket → Network).
+  // Live first, then Network (visible), then other matches in the region.
   items.sort((a, b) {
+    final aLive = MatchLifecycle.isEffectivelyLive(a.match) ? 0 : 1;
+    final bLive = MatchLifecycle.isEffectivelyLive(b.match) ? 0 : 1;
+    if (aLive != bLive) return aLive.compareTo(bLive);
     if (a.fromNetwork != b.fromNetwork) {
       return a.fromNetwork ? -1 : 1;
     }
-    return 0;
+    final aAt = a.match.scheduledAt ?? a.match.createdAt;
+    final bAt = b.match.scheduledAt ?? b.match.createdAt;
+    if (aAt == null && bAt == null) return 0;
+    if (aAt == null) return 1;
+    if (bAt == null) return -1;
+    return aAt.compareTo(bAt);
   });
 
   if (items.isEmpty) {
     return NearbyMatchesState(
       status: NearbyMatchesStatus.empty,
       regionLabel: regionLabel,
-      message: regionLabel.isNotEmpty
-          ? 'No matches in $regionLabel.'
-          : 'No matches found for this location.',
+      message: message.isNotEmpty
+          ? message
+          : (regionLabel.isNotEmpty
+              ? 'No live or upcoming matches in $regionLabel.'
+              : 'No matches found for this location.'),
     );
   }
 
   return NearbyMatchesState(
     status: NearbyMatchesStatus.ready,
-    items: items.take(20).toList(),
+    items: _takeWithNetworkAndOthers(items, limit: 20),
     regionLabel: regionLabel,
+    message: message,
   );
+}
+
+/// Prefer Network early, but always leave room for other regional matches.
+List<NearbyMatchItem> _takeWithNetworkAndOthers(
+  List<NearbyMatchItem> sorted, {
+  required int limit,
+}) {
+  if (sorted.length <= limit) return List<NearbyMatchItem>.from(sorted);
+
+  final live = sorted
+      .where((i) => MatchLifecycle.isEffectivelyLive(i.match))
+      .toList();
+  final rest = sorted
+      .where((i) => !MatchLifecycle.isEffectivelyLive(i.match))
+      .toList();
+
+  final selected = <NearbyMatchItem>[];
+  final used = <String>{};
+
+  void add(NearbyMatchItem item) {
+    if (selected.length >= limit) return;
+    if (used.add(item.match.id)) selected.add(item);
+  }
+
+  for (final item in live) {
+    add(item);
+  }
+
+  final network = rest.where((i) => i.fromNetwork).toList();
+  final others = rest.where((i) => !i.fromNetwork).toList();
+
+  if (others.isEmpty || network.isEmpty) {
+    for (final item in rest) {
+      add(item);
+    }
+    return selected;
+  }
+
+  var i = 0;
+  var j = 0;
+  while (selected.length < limit &&
+      (i < network.length || j < others.length)) {
+    if (i < network.length) add(network[i++]);
+    if (selected.length >= limit) break;
+    if (j < others.length) add(others[j++]);
+  }
+
+  return selected;
 }
 
 NearbyMatchesState _permissionDeniedFallback({
@@ -255,15 +312,12 @@ NearbyMatchesState _permissionDeniedFallback({
     filter: region,
     following: following,
     followedPlayers: followedPlayers,
+    message:
+        'Showing matches in ${nearbyRegionLabel(region)} (precise location unavailable).',
   );
+
   if (result.status == NearbyMatchesStatus.ready) {
-    return NearbyMatchesState(
-      status: NearbyMatchesStatus.ready,
-      items: result.items,
-      regionLabel: result.regionLabel,
-      message:
-          'Showing matches in ${result.regionLabel} (precise location unavailable).',
-    );
+    return result;
   }
 
   return NearbyMatchesState(

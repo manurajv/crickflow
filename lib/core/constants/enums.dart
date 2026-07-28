@@ -6,8 +6,18 @@ enum MatchFormat { standard, tennis, custom }
 enum CricketMatchType {
   limitedOvers,
   indoor,
-  testMatch,
+  /// Deferred — keep for schema/compat; hidden from create/filter UI until a future release.
+  testMatch;
+
+  /// Match types shown in create / edit / filter UIs.
+  static const List<CricketMatchType> uiValues = [
+    limitedOvers,
+    indoor,
+  ];
+
+  bool get isOfferedInApp => uiValues.contains(this);
 }
+
 
 enum PitchType { rough, cement, turf, astroturf, matting }
 
@@ -133,9 +143,18 @@ enum TournamentMatchFormat {
   limitedOvers,
   boxTurf,
   pairCricket,
+  /// Deferred — hidden from tournament UI until a future release.
   testMatch,
-  theHundred,
+  theHundred;
+
+  static const List<TournamentMatchFormat> uiValues = [
+    limitedOvers,
+    boxTurf,
+    pairCricket,
+    theHundred,
+  ];
 }
+
 
 enum WinningPrizeType { cash, trophies, both }
 

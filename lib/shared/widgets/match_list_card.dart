@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
+import '../../core/constants/enums.dart';
 import '../../core/utils/match_card_navigation.dart';
 import '../../core/utils/tournament_match_stage_utils.dart';
 import '../../data/models/match_model.dart';
@@ -12,6 +13,8 @@ import '../../data/models/tournament_model.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/providers/tournament_match_providers.dart';
+import '../../shared/providers/tournament_match_scoring_providers.dart';
+import '../../shared/providers/tournament_providers.dart';
 import 'match_card_ui.dart';
 
 /// Standard match card for all list feeds (Home, My Cricket, Discover, etc.).
@@ -70,6 +73,26 @@ class MatchListCard extends ConsumerWidget {
             ? matchTypeLabel
             : '')
         : matchTypeLabel;
+    final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+    final role = ref.watch(currentUserProfileProvider).valueOrNull?.role ??
+        UserRole.organizer;
+    final tournamentId = match.tournamentId;
+    final scoringAccess = resolveTournamentMatchScoringAccess(
+      match: match,
+      userId: uid,
+      role: role,
+      tournament: tournamentId != null && tournamentId.isNotEmpty
+          ? ref.watch(tournamentProvider(tournamentId)).valueOrNull
+          : null,
+      officials: tournamentId != null && tournamentId.isNotEmpty
+          ? ref.watch(tournamentOfficialsProvider(tournamentId)).valueOrNull ??
+              []
+          : const [],
+    );
+    final actions = _actions(
+      context,
+      showLiveScore: scoringAccess.canScoreLive,
+    );
 
     return Container(
       margin: margin,
@@ -82,7 +105,6 @@ class MatchListCard extends ConsumerWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
-                final uid = ref.read(authStateProvider).value?.uid;
                 openMatchFromListCard(
                   context,
                   ref: ref,
@@ -106,7 +128,7 @@ class MatchListCard extends ConsumerWidget {
             ),
           ),
           if (showQuickLinks &&
-              (_actions(context).isNotEmpty ||
+              (actions.isNotEmpty ||
                   (stageLabel != null && stageLabel.isNotEmpty))) ...[
             Divider(height: 1, color: context.cf.border),
             Padding(
@@ -138,7 +160,7 @@ class MatchListCard extends ConsumerWidget {
                     )
                   else
                     const Spacer(),
-                  ..._actions(context),
+                  ...actions,
                 ],
               ),
             ),
@@ -229,7 +251,10 @@ class MatchListCard extends ConsumerWidget {
     context.push('/match/${match.id}');
   }
 
-  List<Widget> _actions(BuildContext context) {
+  List<Widget> _actions(
+    BuildContext context, {
+    required bool showLiveScore,
+  }) {
     if (_isUpcoming) {
       return [
         _LinkButton(
@@ -244,10 +269,11 @@ class MatchListCard extends ConsumerWidget {
     }
     if (_isLive) {
       return [
-        _LinkButton(
-          label: 'Live Score',
-          onTap: () => context.push('/match/${match.id}/score'),
-        ),
+        if (showLiveScore)
+          _LinkButton(
+            label: 'Live Score',
+            onTap: () => context.push('/match/${match.id}/score'),
+          ),
         _LinkButton(
           label: 'Scorecard',
           onTap: () => context.push('/match/${match.id}?tab=scorecard'),

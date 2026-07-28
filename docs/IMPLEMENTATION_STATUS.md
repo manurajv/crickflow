@@ -3,13 +3,44 @@
 
 
 
-**Last updated:** Player Rankings cards — section stats + light-theme medals
+**Last updated:** Splash / login brand colors + copy
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Splash / login brand)
+
+| Item | Status |
+|------|--------|
+| Splash: white background, large logo, CrickFlow name, “Score Stream Connect” + “Your complete cricket platform” | Done |
+| Login: white professional layout aligned with splash; bordered sign-in card; blue accents | Done |
+| Scorebug / burn-in brand logo ~2× original; more top/right padding; LIVE badge centered under logo | Done |
+| Burn-in logo sharpness — local 1024 asset + capture short-side 1080 (was 720 upscale blur) | Done |
+| Home welcome banner — CrickFlow logo (replaces cricket icon); blue→white gradient | Done |
+| Live scoring header watermark — CrickFlow logo (replaces cricket icon) | Done |
+| Custom shell bottom nav — in-bar circular My Cricket logo (compact, no raised strip) | Done |
+| Test Match hidden from create/filter UIs (enum kept for future release) | Done |
+
+---
+
+## Latest (Brand logo & app icons)
+
+| Item | Status |
+|------|--------|
+| Local logo `assets/images/crickflow-logo.png` + pubspec `assets/images/` | Done |
+| Hosted logo `public/assets/crickflow-logo.png` (stream overlay URL) | Done — deploy hosting |
+| Android adaptive icons (mipmap dens + anydpi-v26) + black adaptive background | Done |
+| Android `roundIcon` + restored `launch_background` (was missing) | Done |
+| Android notification / FCM / live-stream small icon `@drawable/ic_stat_crickflow` | Done |
+| Play Store 512 icon moved to `docs/store/playstore-icon.png` (was invalid under `res/`) | Done |
+| iOS AppIcon (`icon-ios-*` + matching Contents.json, no mac/watch) | Done |
+| iOS LaunchImage + black LaunchScreen background | Done |
+| Flutter splash + login use `AppConstants.crickflowLogoAsset` | Done |
 
 ---
 
@@ -34,6 +65,7 @@
 | Year filter: All Time + 2026…current; year rankings from completed match innings | Done |
 | City search: Places + Geocode fallback for small towns; autofills country/state/city | Done |
 | Categories needing ball-event replay (maidens, dots, fastest 50/100, best figures) | Empty state — career docs lack those fields |
+| Fielding rankings — derive catches/run-outs/stumpings from `ball_events` (not persisted on innings) | Done |
 
 ---
 
@@ -87,6 +119,7 @@
 | Item | Status |
 |------|--------|
 | Home nearby filters by **country + state/province** (no 50 km radius) | Done |
+| **Matches Near You** — live + upcoming in GPS/selected region; Network + all others except user's own; location is a hard filter | Done |
 | Search city in home filter → fills state/province; city field removed | Done |
 | Current location → same region text filter | Done |
 | Titles: "Matches/Tournaments in {state}" when filtered; "Near You" for GPS default | Done |
@@ -424,6 +457,7 @@
 | Tabs — Matches, Stats, Trophies, Badges, Teams, Connections (no Highlights/Photos) | Done |
 | Matches tab — Upcoming/Live/Completed + filters (overs, ball, type, year, team) | Done |
 | Stats tab — Batting, Bowling, Fielding (reused) + Captain section | Done |
+| Fielding stats — catches / run-outs / stumpings from ball events; Dismissals = sum (Total removed) | Done |
 | **Analysis screen** — `/players/:id/analysis` — collapsible dashboard (batting/bowling/fielding/captaincy/opponent/situation/progression/heatmaps) | Done |
 | Analyze CTA — My Cricket Stats + Profile Stats tabs → Analysis screen | Done |
 | Captain stats — wins, toss %, chases, timeline, by year/format | Done |
@@ -858,7 +892,7 @@
 | Item | Status |
 |------|--------|
 | Guest browse — app opens to Home without login | Done |
-| **My Cricket guest UX** — Teams/Stats/Highlights sign-in gate; Matches/Tournaments **All** = nearby via device location; **Your** matches = team participation; **Your** tournaments = team participation or organizer (signed-in); no create FAB/banners for guests | Done — `my_cricket_*_tab.dart`, `my_cricket_guest_sign_in_prompt.dart` |
+| **My Cricket guest UX** — Teams/Stats/Highlights sign-in gate; Matches/Tournaments **All** = full feed (no location filter); **Your** matches = team participation; **Your** tournaments = team participation or organizer (signed-in); no create FAB/banners for guests | Done — `my_cricket_*_tab.dart`, `my_cricket_guest_sign_in_prompt.dart` |
 | Public Firestore read rules (matches, teams, players, …) | Done — deploy rules |
 | Login gate dialog for protected actions | Done — `auth_gate.dart` |
 | Resume action after login (`PendingAuthAction`) | Done |
