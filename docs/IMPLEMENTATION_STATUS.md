@@ -86,12 +86,11 @@
 
 | Item | Status |
 |------|--------|
-| Default GPS mode: **50 km radius** | Done |
-| Custom city filter: **50 km radius** (same as GPS) | Done |
-| Country/state filter: text match; no subtitle under title | Done |
-| Titles: "Matches/Tournaments in {place}" when filtered; "Near You" for GPS | Done |
+| Home nearby filters by **country + state/province** (no 50 km radius) | Done |
+| Search city in home filter → fills state/province; city field removed | Done |
+| Current location → same region text filter | Done |
+| Titles: "Matches/Tournaments in {state}" when filtered; "Near You" for GPS default | Done |
 | Location filter icon on the right; no See all | Done |
-| Permission denied → profile city text fallback only | Done |
 
 ---
 
@@ -630,6 +629,8 @@
 | Matches tab — Start banner, Your/Played/Network/All chips, empty state | Done |
 | Home, Discover, Highlights use same `MatchListCard` | Done |
 | **Venue country flag** — Unicode flag emoji from `LocationModel.country` shown inline before match type label in top section; zero-dependency via `CountryFlagUtils`; covers all ICC members + associates | Done |
+| Tournament match cards — stage/type left in bottom bar (secondary body text); `Tournament Match | name` matches individual type styling; flag + status badge on that same top line | Done |
+| Completed cards — recompute result when stored summary is only "Match completed"; derive winner from innings scores even if innings status lags | Done |
 
 ---
 

@@ -77,6 +77,16 @@ class MatchCardContent extends StatelessWidget {
 
     final nameColor = _isHero ? Colors.white : cf.textPrimary;
     final mutedColor = _isHero ? Colors.white70 : cf.textSecondary;
+    final typeText = matchTypeLabel != null
+        ? matchTypeLabel!.trim()
+        : matchTypeDisplayLabel(match);
+    final tournamentName = tournamentLabel?.trim() ?? '';
+    final upcomingRound =
+        _isUpcoming && roundLabel != null && roundLabel!.trim().isNotEmpty
+            ? roundLabel!.trim()
+            : null;
+    final hasTournamentHeader =
+        tournamentName.isNotEmpty || upcomingRound != null;
 
     Color teamNameColor(bool winner, bool batting, bool loser) {
       if (_isHero) {
@@ -92,6 +102,16 @@ class MatchCardContent extends StatelessWidget {
       if (winner || batting || _isUpcoming) return FontWeight.w700;
       return FontWeight.w600;
     }
+
+    final flagAndBadge = [
+      const SizedBox(width: AppDimens.spaceSm),
+      _VenueCountryFlag(match: match, isHero: _isHero),
+      MatchStatusChip(
+        label: status.label,
+        color: status.color,
+        showLivePulse: status.label == 'LIVE',
+      ),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,41 +129,44 @@ class MatchCardContent extends StatelessWidget {
           ),
           const SizedBox(height: 4),
         ],
-        if (tournamentLabel != null && tournamentLabel!.trim().isNotEmpty ||
-            (_isUpcoming &&
-                roundLabel != null &&
-                roundLabel!.trim().isNotEmpty)) ...[
-          MatchTournamentHeader(
-            tournamentName: tournamentLabel?.trim() ?? '',
-            roundLabel: _isUpcoming ? roundLabel?.trim() : null,
-            isHero: _isHero,
+        if (hasTournamentHeader) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: MatchTournamentHeader(
+                  tournamentName: tournamentName,
+                  roundLabel: upcomingRound,
+                  isHero: _isHero,
+                ),
+              ),
+              ...flagAndBadge,
+            ],
           ),
           const SizedBox(height: 4),
         ],
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                matchTypeLabel ?? matchTypeDisplayLabel(match),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: mutedColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+        if (typeText.isNotEmpty || !hasTournamentHeader) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: typeText.isEmpty
+                    ? const SizedBox.shrink()
+                    : Text(
+                        typeText,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: mutedColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
-            ),
-            const SizedBox(width: AppDimens.spaceSm),
-            _VenueCountryFlag(match: match, isHero: _isHero),
-            MatchStatusChip(
-              label: status.label,
-              color: status.color,
-              showLivePulse: status.label == 'LIVE',
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
+              if (!hasTournamentHeader) ...flagAndBadge,
+            ],
+          ),
+          const SizedBox(height: 4),
+        ],
         _MatchCardMetaLine(
           match: match,
           mutedColor: mutedColor,
@@ -435,7 +458,7 @@ class MatchTournamentHeader extends StatelessWidget {
     final hasRound = roundLabel != null && roundLabel!.isNotEmpty;
     if (!hasName && !hasRound) return const SizedBox.shrink();
 
-    final textColor = isHero ? Colors.white.withValues(alpha: 0.88) : cf.textSecondary;
+    final textColor = isHero ? Colors.white70 : cf.textSecondary;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -446,10 +469,9 @@ class MatchTournamentHeader extends StatelessWidget {
               'Tournament Match | $tournamentName',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: textColor,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
+                    fontWeight: FontWeight.w500,
                   ),
             ),
           ),

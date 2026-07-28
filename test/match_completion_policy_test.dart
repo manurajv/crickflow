@@ -158,6 +158,39 @@ void main() {
     expect(result.winnerTeamId, isNull);
   });
 
+  test('completed match derives result when innings status lags', () {
+    final match = MatchModel(
+      id: 'm1',
+      title: 'A vs B',
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      status: MatchStatus.completed,
+      resultSummary: 'Match completed',
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          totalRuns: 160,
+        ),
+        InningsModel(
+          inningsNumber: 2,
+          battingTeamId: 'b',
+          bowlingTeamId: 'a',
+          status: InningsStatus.inProgress,
+          totalRuns: 145,
+          totalWickets: 10,
+        ),
+      ],
+    );
+    final result = MatchCompletionPolicy.compute(match);
+    expect(result.summary, 'Team A won by 15 runs');
+    expect(result.winnerTeamId, 'a');
+  });
+
   test('chase runs needed decreases as score increases', () {
     final match = baseMatch(
       innings: const [

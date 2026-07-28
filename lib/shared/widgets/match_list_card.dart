@@ -62,7 +62,14 @@ class MatchListCard extends ConsumerWidget {
     final roundLabel = showRoundBadge && !isTournament
         ? _roundLabel(ref, match)
         : null;
-    final effectiveMatchTypeLabel = matchTypeLabel ?? stageLabel;
+    // Tournament stage/type lives in the bottom bar; keep top row for flag + badge.
+    final contentTypeLabel = isTournament
+        ? (matchTypeLabel != null &&
+                matchTypeLabel!.trim().isNotEmpty &&
+                matchTypeLabel != stageLabel
+            ? matchTypeLabel
+            : '')
+        : matchTypeLabel;
 
     return Container(
       margin: margin,
@@ -89,7 +96,7 @@ class MatchListCard extends ConsumerWidget {
                 child: MatchCardContent(
                   match: match,
                   tournamentLabel: tournamentHeader,
-                  matchTypeLabel: effectiveMatchTypeLabel,
+                  matchTypeLabel: contentTypeLabel,
                   roundLabel: roundLabel,
                   attributionLabel: attributionLabel,
                   teamALogoUrl: teamA?.profileImageUrl,
@@ -98,13 +105,41 @@ class MatchListCard extends ConsumerWidget {
               ),
             ),
           ),
-          if (showQuickLinks && _actions(context).isNotEmpty) ...[
+          if (showQuickLinks &&
+              (_actions(context).isNotEmpty ||
+                  (stageLabel != null && stageLabel.isNotEmpty))) ...[
             Divider(height: 1, color: context.cf.border),
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: _actions(context),
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (stageLabel != null && stageLabel.isNotEmpty)
+                    Expanded(
+                      child: Padding(
+                        // Match [_LinkButton] horizontal inset; no extra vertical
+                        // padding so the bar stays the same height as individual cards.
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          stageLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(
+                                color: context.cf.textSecondary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                height: 1.0,
+                              ),
+                        ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  ..._actions(context),
+                ],
               ),
             ),
           ],
@@ -255,6 +290,7 @@ class _LinkButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
       ),
       child: Text(
         label,
@@ -262,6 +298,7 @@ class _LinkButton extends StatelessWidget {
               color: cf.link,
               fontWeight: FontWeight.w600,
               fontSize: 13,
+              height: 1.0,
             ),
       ),
     );

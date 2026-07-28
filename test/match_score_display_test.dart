@@ -110,4 +110,38 @@ void main() {
     expect(MatchScoreDisplay.isTeamWinner(match, 'a'), isTrue);
     expect(MatchScoreDisplay.isTeamWinner(match, 'b'), isFalse);
   });
+
+  test('ignores stored Match completed and recomputes from scores', () {
+    final match = MatchModel(
+      id: 'm1',
+      title: 'A vs B',
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      status: MatchStatus.completed,
+      resultSummary: 'Match completed',
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          totalRuns: 120,
+        ),
+        InningsModel(
+          inningsNumber: 2,
+          battingTeamId: 'b',
+          bowlingTeamId: 'a',
+          status: InningsStatus.inProgress,
+          totalRuns: 121,
+          totalWickets: 3,
+        ),
+      ],
+    );
+    expect(
+      MatchScoreDisplay.completedResultLine(match),
+      'Team B won by 7 wickets',
+    );
+  });
 }

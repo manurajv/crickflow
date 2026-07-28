@@ -6,8 +6,9 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/location_model.dart';
 import '../../../../data/services/google_maps_location_service.dart';
+import '../../providers/nearby_anchor_location_provider.dart';
 
-/// Location-only filter sheet (same UX as Player Rankings location block).
+/// Home nearby location filter — search a city to set state/province + country.
 Future<LocationModel?> showNearbyLocationFilterSheet(
   BuildContext context, {
   required LocationModel initial,
@@ -46,8 +47,6 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
   late TextEditingController _search;
   late TextEditingController _country;
   late TextEditingController _state;
-  late TextEditingController _city;
-  LocationModel? _resolved;
   var _locating = false;
   var _resolvingPlace = false;
   List<PlaceSuggestion> _suggestions = [];
@@ -57,12 +56,15 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
   @override
   void initState() {
     super.initState();
-    _resolved = widget.initial.hasCoordinates ? widget.initial : null;
-    final initialLabel = widget.initial.displayLabel.trim();
-    _search = TextEditingController(text: initialLabel);
-    _country = TextEditingController(text: widget.initial.country);
-    _state = TextEditingController(text: widget.initial.stateProvince);
-    _city = TextEditingController(text: widget.initial.city);
+    final region = nearbyRegionFilter(widget.initial);
+    final label = nearbyRegionLabel(widget.initial);
+    _search = TextEditingController(
+      text: label.isNotEmpty
+          ? label
+          : widget.initial.displayLabel.trim(),
+    );
+    _country = TextEditingController(text: region.country);
+    _state = TextEditingController(text: region.stateProvince);
   }
 
   @override
@@ -71,7 +73,6 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
     _search.dispose();
     _country.dispose();
     _state.dispose();
-    _city.dispose();
     super.dispose();
   }
 
@@ -111,6 +112,25 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
     });
   }
 
+  void _applyLocation(LocationModel loc) {
+    final state = loc.stateProvince.trim().isNotEmpty
+        ? loc.stateProvince.trim()
+        : (loc.district.trim().isNotEmpty
+            ? loc.district.trim()
+            : loc.city.trim());
+    final country = loc.country.trim();
+    _country.text = country;
+    _state.text = state;
+    final label = [
+      if (state.isNotEmpty) state,
+      if (country.isNotEmpty) country,
+    ].join(', ');
+    _search.text = label.isNotEmpty
+        ? label
+        : (loc.displayLabel.isNotEmpty ? loc.displayLabel : _search.text);
+    _suggestions = [];
+  }
+
   Future<void> _useCurrentLocation() async {
     _debounce?.cancel();
     setState(() {
@@ -129,20 +149,11 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
         return;
       }
       setState(() {
-        _resolved = loc;
-        _country.text = loc.country;
-        _state.text = loc.stateProvince;
-        _city.text = loc.city.isNotEmpty
-            ? loc.city
-            : (loc.district.isNotEmpty ? loc.district : loc.placeName);
-        _search.text = loc.displayLabel.isNotEmpty
-            ? loc.displayLabel
-            : [
-                loc.city,
-                loc.stateProvince,
-                loc.country,
-              ].where((e) => e.trim().isNotEmpty).join(', ');
-        _suggestions = [];
+        _applyLocation(loc);
+        if (_state.text.trim().isEmpty) {
+          _statusMessage =
+              'Could not determine state or province. Enter it below.';
+        }
       });
     } finally {
       if (mounted) setState(() => _locating = false);
@@ -160,7 +171,6 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
       try {
         final results = await widget.locationService.searchCities(query);
         if (!mounted) return;
-        // Ignore stale results if the field changed while searching.
         if (_search.text.trim() != query) return;
         setState(() {
           _suggestions = results;
@@ -191,19 +201,12 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
         fallbackDescription: suggestion.description,
       );
       if (!mounted) return;
-      final loc = resolved.location;
-      final address = loc.displayLabel.isNotEmpty
-          ? loc.displayLabel
-          : suggestion.description;
       setState(() {
-        _resolved = loc;
-        _country.text = loc.country;
-        _state.text = loc.stateProvince;
-        _city.text = loc.city.isNotEmpty
-            ? loc.city
-            : (loc.district.isNotEmpty ? loc.district : loc.placeName);
-        _search.text = address;
-        _suggestions = [];
+        _applyLocation(resolved.location);
+        if (_state.text.trim().isEmpty) {
+          _statusMessage =
+              'Could not determine state or province. Enter it below.';
+        }
       });
     } catch (e) {
       if (mounted) {
@@ -214,21 +217,10 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
     }
   }
 
-  void _clearResolvedCoords() {
-    if (_resolved != null) {
-      setState(() => _resolved = null);
-    }
-  }
-
   void _apply() {
     final fromFields = LocationModel(
       country: _country.text.trim(),
       stateProvince: _state.text.trim(),
-      city: _city.text.trim(),
-      latitude: _resolved?.latitude,
-      longitude: _resolved?.longitude,
-      placeName: _resolved?.placeName ?? '',
-      district: _resolved?.district ?? '',
     );
     Navigator.pop(
       context,
@@ -259,6 +251,14 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
                       fontWeight: FontWeight.w800,
                     ),
               ),
+              const SizedBox(height: AppDimens.spaceXs),
+              Text(
+                'Search a city to set the state or province. Matches are shown for that region.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: cf.textSecondary,
+                      height: 1.35,
+                    ),
+              ),
               const SizedBox(height: AppDimens.spaceMd),
               ListenableBuilder(
                 listenable: _search,
@@ -273,7 +273,8 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
                               child: SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               ),
                             )
                           : const Icon(Icons.search, size: 20),
@@ -355,21 +356,12 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
                 controller: _country,
                 decoration: _fieldDecoration('Country'),
                 textCapitalization: TextCapitalization.words,
-                onChanged: (_) => _clearResolvedCoords(),
               ),
               const SizedBox(height: AppDimens.spaceMd),
               TextField(
                 controller: _state,
                 decoration: _fieldDecoration('State / Province'),
                 textCapitalization: TextCapitalization.words,
-                onChanged: (_) => _clearResolvedCoords(),
-              ),
-              const SizedBox(height: AppDimens.spaceMd),
-              TextField(
-                controller: _city,
-                decoration: _fieldDecoration('City'),
-                textCapitalization: TextCapitalization.words,
-                onChanged: (_) => _clearResolvedCoords(),
               ),
               const SizedBox(height: AppDimens.spaceLg),
               Row(
@@ -378,11 +370,9 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
                     child: OutlinedButton(
                       onPressed: () {
                         setState(() {
-                          _resolved = null;
                           _search.clear();
                           _country.clear();
                           _state.clear();
-                          _city.clear();
                           _suggestions = [];
                           _statusMessage = null;
                         });

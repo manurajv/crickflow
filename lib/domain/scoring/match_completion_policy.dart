@@ -105,9 +105,7 @@ class MatchCompletionPolicy {
     if (superOvers.length >= 2) {
       final so1 = superOvers.first;
       final so2 = superOvers.length > 1 ? superOvers[1] : null;
-      if (so2 != null &&
-          so1.status == InningsStatus.completed &&
-          so2.status == InningsStatus.completed) {
+      if (so2 != null && _canDeriveResultFromPair(match, so1, so2)) {
         return resultFromInnings(match: match, first: so1, second: so2) ??
             const MatchResult(
               summary: 'Super over tied',
@@ -120,14 +118,16 @@ class MatchCompletionPolicy {
     if (regular.length >= 2) {
       final first = _regularInnings(match, 1) ?? regular.first;
       final second = _regularInnings(match, 2) ?? regular[1];
-      if (first.status == InningsStatus.completed &&
-          second.status == InningsStatus.completed) {
+      if (_canDeriveResultFromPair(match, first, second)) {
         final r = resultFromInnings(match: match, first: first, second: second);
         if (r != null) return r;
       }
     }
 
-    if (regular.length == 1 && regular.first.status == InningsStatus.completed) {
+    if (regular.length == 1 &&
+        (regular.first.status == InningsStatus.completed ||
+            InningsCompletionPolicy.isInningsComplete(match, regular.first) ||
+            match.status == MatchStatus.completed)) {
       final winner = teamName(match, regular.first.battingTeamId);
       return MatchResult(
         winnerTeamId: regular.first.battingTeamId,
@@ -140,6 +140,24 @@ class MatchCompletionPolicy {
       summary: 'Match completed',
       method: MatchResultMethod.noResult,
     );
+  }
+
+  /// Innings status can lag behind completion (e.g. break → finalize race).
+  /// For already-completed matches, use score totals even if status is stale.
+  static bool _canDeriveResultFromPair(
+    MatchModel match,
+    InningsModel first,
+    InningsModel second,
+  ) {
+    final bothReady = _inningsReadyForResult(match, first) &&
+        _inningsReadyForResult(match, second);
+    if (bothReady) return true;
+    return match.status == MatchStatus.completed;
+  }
+
+  static bool _inningsReadyForResult(MatchModel match, InningsModel inn) {
+    return inn.status == InningsStatus.completed ||
+        InningsCompletionPolicy.isInningsComplete(match, inn);
   }
 
   static bool shouldOfferSuperOver(MatchModel match) {

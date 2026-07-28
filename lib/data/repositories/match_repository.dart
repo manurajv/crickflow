@@ -1228,9 +1228,10 @@ class MatchRepository {
 
     final result = MatchCompletionPolicy.compute(match);
     final winnerId = match.winnerTeamId ?? result.winnerTeamId;
-    final summary = match.resultSummary.isNotEmpty
-        ? match.resultSummary
-        : result.summary;
+    final storedSummary = match.resultSummary.trim();
+    final useStored = storedSummary.isNotEmpty &&
+        storedSummary.toLowerCase() != 'match completed';
+    final summary = useStored ? storedSummary : result.summary;
 
     final completed = match.copyWith(
       status: MatchStatus.completed,

@@ -56,7 +56,7 @@ class _HomePromotionsCarouselState
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppDimens.spaceMd,
-                AppDimens.spaceMd,
+                2,
                 AppDimens.spaceMd,
                 AppDimens.spaceXs,
               ),
@@ -76,7 +76,7 @@ class _HomePromotionsCarouselState
             ),
             if (promos.length > 1)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: 4, bottom: 2),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(promos.length, (i) {
@@ -256,7 +256,7 @@ class _PromoSkeleton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
-        AppDimens.spaceMd,
+        2,
         AppDimens.spaceMd,
         AppDimens.spaceSm,
       ),

@@ -1,17 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/utils/geo_distance.dart';
+import '../../../core/constants/enums.dart';
 import '../../../core/utils/location_text_filter.dart';
 import '../../../data/models/location_model.dart';
+import '../../../data/models/player_model.dart';
 import '../../../data/models/tournament_model.dart';
+import '../../../data/models/user_model.dart';
 import '../../../data/services/google_maps_location_service.dart';
+import '../../../features/my_cricket/my_cricket_filters.dart';
+import '../../../shared/providers/my_player_provider.dart';
+import '../../../shared/providers/player_social_provider.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/widgets/location_filter_bar.dart';
 import '../domain/nearby_tournament_item.dart';
 import 'nearby_anchor_location_provider.dart';
-import 'nearby_matches_provider.dart';
 
-/// Nearby tournaments for Home (GPS radius, or rankings-style location filter).
+/// Home nearby tournaments — region text filter (country + state/province).
 final nearbyTournamentsProvider =
     FutureProvider.autoDispose<NearbyTournamentsState>((ref) async {
   final link = ref.keepAlive();
@@ -20,6 +23,11 @@ final nearbyTournamentsProvider =
 
   final locationService = ref.watch(googleMapsLocationServiceProvider);
   final anchor = ref.watch(nearbyAnchorLocationProvider);
+  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+  final player = await _nearbyPlayer(ref);
+  final userTeamIds = _nearbyUserTeamIds(ref, player);
+  final following = await _nearbyFollowing(ref, uid);
+  final followedPlayers = FollowedPlayerRefs.fromUsers(following);
 
   List<TournamentModel> tournaments;
   try {
@@ -31,17 +39,23 @@ final nearbyTournamentsProvider =
     );
   }
 
-  // Custom location filter.
-  // City → 50 km radius + city text fallback. Country/state only → text match.
+  // No drafts; exclude user's own; keep others + Network (followed organizers).
+  tournaments = tournaments.where((t) {
+    if (t.status == TournamentStatus.draft) return false;
+    return !userParticipatedInTournament(
+      t,
+      uid: uid,
+      userTeamIds: userTeamIds,
+    );
+  }).toList();
+
   if (anchor != null && !anchor.isEmpty) {
-    if (anchor.city.trim().isNotEmpty) {
-      return _buildFromCityFilter(
-        tournaments: tournaments,
-        filter: anchor,
-        locationService: locationService,
-      );
-    }
-    return _buildFromTextFilter(tournaments: tournaments, filter: anchor);
+    return _buildFromRegionFilter(
+      tournaments: tournaments,
+      filter: anchor,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
   }
 
   final access = await locationService.ensureLocationPermission();
@@ -55,39 +69,108 @@ final nearbyTournamentsProvider =
 
   if (access == LocationAccessStatus.denied ||
       access == LocationAccessStatus.deniedForever) {
-    return _permissionDeniedFallback(ref: ref, candidates: tournaments);
+    return _permissionDeniedFallback(
+      ref: ref,
+      candidates: tournaments,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
   }
 
   final coords = await locationService.getCurrentCoords();
   if (coords == null) {
-    return _permissionDeniedFallback(ref: ref, candidates: tournaments);
+    return _permissionDeniedFallback(
+      ref: ref,
+      candidates: tournaments,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
   }
 
-  var regionLabel = '';
   try {
     final resolved = await locationService.reverseGeocode(coords);
-    regionLabel = resolved.location.displayLabel;
-  } catch (_) {}
-
-  return _buildFromCoords(
-    tournaments: tournaments,
-    coords: coords,
-    regionLabel: regionLabel,
-  );
+    return _buildFromRegionFilter(
+      tournaments: tournaments,
+      filter: resolved.location,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
+  } catch (_) {
+    return _permissionDeniedFallback(
+      ref: ref,
+      candidates: tournaments,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
+  }
 });
 
-NearbyTournamentsState _buildFromTextFilter({
+Future<PlayerModel?> _nearbyPlayer(Ref ref) async {
+  try {
+    return await ref.watch(myPlayerProvider.future);
+  } catch (_) {
+    return ref.read(myPlayerProvider).valueOrNull;
+  }
+}
+
+Future<List<UserModel>> _nearbyFollowing(Ref ref, String? uid) async {
+  if (uid == null || uid.isEmpty) return const [];
+  try {
+    return await ref.watch(playerFollowingProvider(uid).future);
+  } catch (_) {
+    return ref.read(playerFollowingProvider(uid)).valueOrNull ?? const [];
+  }
+}
+
+Set<String> _nearbyUserTeamIds(Ref ref, PlayerModel? player) {
+  final created = ref.watch(teamsProvider).valueOrNull ?? [];
+  return {
+    ...created.map((t) => t.id),
+    ...?player?.effectiveTeamIds,
+  };
+}
+
+NearbyTournamentsState _buildFromRegionFilter({
   required List<TournamentModel> tournaments,
   required LocationModel filter,
+  required List<UserModel> following,
+  required FollowedPlayerRefs followedPlayers,
 }) {
-  final regionLabel = locationFilterSummaryLabel(filter);
-  final filtered = tournaments
-      .where((t) => locationMatchesTextFilter(t.location, filter))
-      .map((t) => NearbyTournamentItem(tournament: t, regionFallback: true))
-      .take(12)
-      .toList();
+  final region = nearbyRegionFilter(filter);
+  final regionLabel = nearbyRegionLabel(region);
 
-  if (filtered.isEmpty) {
+  if (region.country.isEmpty && region.stateProvince.isEmpty) {
+    return NearbyTournamentsState(
+      status: NearbyTournamentsStatus.empty,
+      regionLabel: regionLabel,
+      message: 'Choose a state or province to see tournaments.',
+    );
+  }
+
+  final items = <NearbyTournamentItem>[];
+  for (final t in tournaments) {
+    if (!locationMatchesTextFilter(t.location, region)) continue;
+    final fromNetwork = tournamentInvolvesFollowedUser(t, followedPlayers);
+    items.add(
+      NearbyTournamentItem(
+        tournament: t,
+        regionFallback: true,
+        fromNetwork: fromNetwork,
+        attributionLabel: fromNetwork
+            ? networkTournamentAttribution(t, following)
+            : null,
+      ),
+    );
+  }
+
+  items.sort((a, b) {
+    if (a.fromNetwork != b.fromNetwork) {
+      return a.fromNetwork ? -1 : 1;
+    }
+    return 0;
+  });
+
+  if (items.isEmpty) {
     return NearbyTournamentsState(
       status: NearbyTournamentsStatus.empty,
       regionLabel: regionLabel,
@@ -99,175 +182,58 @@ NearbyTournamentsState _buildFromTextFilter({
 
   return NearbyTournamentsState(
     status: NearbyTournamentsStatus.ready,
-    items: filtered,
+    items: items.take(12).toList(),
     regionLabel: regionLabel,
   );
 }
 
-Future<NearbyTournamentsState> _buildFromCityFilter({
-  required List<TournamentModel> tournaments,
-  required LocationModel filter,
-  required GoogleMapsLocationService locationService,
-}) async {
-  final regionLabel = locationFilterSummaryLabel(filter);
-  final coords = await resolveNearbyAnchorCoords(locationService, filter);
-  final items = <NearbyTournamentItem>[];
-  final seen = <String>{};
-
-  if (coords != null) {
-    for (final t in tournaments) {
-      final loc = t.location;
-      if (!loc.hasCoordinates) continue;
-      final lat = loc.latitude!;
-      final lng = loc.longitude!;
-      if (!withinApproxBoundingBox(
-        origin: coords,
-        lat: lat,
-        lng: lng,
-        radiusKm: kNearbyMatchRadiusKm,
-      )) {
-        continue;
-      }
-      final km = distanceKmBetween(
-        coords,
-        GeoCoords(latitude: lat, longitude: lng),
-      );
-      if (km <= kNearbyMatchRadiusKm) {
-        items.add(NearbyTournamentItem(tournament: t, distanceKm: km));
-        seen.add(t.id);
-      }
-    }
-  }
-
-  for (final t in tournaments) {
-    if (seen.contains(t.id)) continue;
-    if (!locationMatchesCityFilter(t.location, filter)) continue;
-    items.add(NearbyTournamentItem(tournament: t, regionFallback: true));
-    seen.add(t.id);
-  }
-
-  items.sort((a, b) {
-    final da = a.distanceKm ?? double.infinity;
-    final db = b.distanceKm ?? double.infinity;
-    return da.compareTo(db);
-  });
-
-  if (items.isNotEmpty) {
-    return NearbyTournamentsState(
-      status: NearbyTournamentsStatus.ready,
-      items: items.take(12).toList(),
-      userCoords: coords,
-      regionLabel: regionLabel,
-    );
-  }
-
-  return NearbyTournamentsState(
-    status: NearbyTournamentsStatus.empty,
-    userCoords: coords,
-    regionLabel: regionLabel,
-    message: regionLabel.isNotEmpty
-        ? (coords != null
-            ? 'No tournaments within ${kNearbyMatchRadiusKm.round()} km of $regionLabel.'
-            : 'No tournaments in $regionLabel.')
-        : 'No tournaments found for this location.',
-  );
-}
-
-NearbyTournamentsState _buildFromCoords({
-  required List<TournamentModel> tournaments,
-  required GeoCoords coords,
-  required String regionLabel,
-}) {
-  final withDistance = <NearbyTournamentItem>[];
-  for (final t in tournaments) {
-    final loc = t.location;
-    if (!loc.hasCoordinates) continue;
-    final lat = loc.latitude!;
-    final lng = loc.longitude!;
-    if (!withinApproxBoundingBox(
-      origin: coords,
-      lat: lat,
-      lng: lng,
-      radiusKm: kNearbyMatchRadiusKm,
-    )) {
-      continue;
-    }
-    final km = distanceKmBetween(
-      coords,
-      GeoCoords(latitude: lat, longitude: lng),
-    );
-    if (km <= kNearbyMatchRadiusKm) {
-      withDistance.add(NearbyTournamentItem(tournament: t, distanceKm: km));
-    }
-  }
-
-  withDistance.sort((a, b) {
-    final da = a.distanceKm ?? double.infinity;
-    final db = b.distanceKm ?? double.infinity;
-    return da.compareTo(db);
-  });
-
-  if (withDistance.isNotEmpty) {
-    return NearbyTournamentsState(
-      status: NearbyTournamentsStatus.ready,
-      items: withDistance.take(12).toList(),
-      userCoords: coords,
-      regionLabel: regionLabel,
-    );
-  }
-
-  return NearbyTournamentsState(
-    status: NearbyTournamentsStatus.empty,
-    userCoords: coords,
-    regionLabel: regionLabel,
-    message: regionLabel.isNotEmpty
-        ? 'No tournaments within ${kNearbyMatchRadiusKm.round()} km of $regionLabel.'
-        : 'No tournaments near you right now.',
-  );
-}
-
-Future<NearbyTournamentsState> _permissionDeniedFallback({
+NearbyTournamentsState _permissionDeniedFallback({
   required Ref ref,
   required List<TournamentModel> candidates,
-}) async {
+  required List<UserModel> following,
+  required FollowedPlayerRefs followedPlayers,
+}) {
   final profile = ref.read(currentUserProfileProvider).valueOrNull;
   final loc = profile?.location;
-  final country = loc?.country ?? '';
-  final city = (loc == null || loc.isEmpty)
-      ? ''
-      : (loc.city.isNotEmpty
-          ? loc.city
-          : (loc.district.isNotEmpty ? loc.district : loc.stateProvince));
-  final regionLabel = loc?.displayLabel ?? '';
 
-  if (city.isEmpty) {
-    return NearbyTournamentsState(
+  if (loc == null || loc.isEmpty) {
+    return const NearbyTournamentsState(
       status: NearbyTournamentsStatus.permissionDenied,
       message:
-          'Location permission denied. Enable location to discover nearby tournaments.',
-      regionLabel: regionLabel,
+          'Location permission denied. Enable location to discover tournaments near you.',
     );
   }
 
-  final filtered = candidates
-      .where((t) => locationMatchesFilter(t.location, country, city))
-      .map((t) => NearbyTournamentItem(tournament: t, regionFallback: true))
-      .take(12)
-      .toList();
-
-  if (filtered.isEmpty) {
+  final region = nearbyRegionFilter(loc);
+  if (region.country.isEmpty && region.stateProvince.isEmpty) {
     return NearbyTournamentsState(
       status: NearbyTournamentsStatus.permissionDenied,
       message:
-          'Location permission denied. Enable location to discover nearby tournaments.',
-      regionLabel: regionLabel,
+          'Location permission denied. Enable location to discover tournaments near you.',
+      regionLabel: loc.displayLabel,
+    );
+  }
+
+  final result = _buildFromRegionFilter(
+    tournaments: candidates,
+    filter: region,
+    following: following,
+    followedPlayers: followedPlayers,
+  );
+  if (result.status == NearbyTournamentsStatus.ready) {
+    return NearbyTournamentsState(
+      status: NearbyTournamentsStatus.ready,
+      items: result.items,
+      regionLabel: result.regionLabel,
+      message:
+          'Showing tournaments in ${result.regionLabel} (precise location unavailable).',
     );
   }
 
   return NearbyTournamentsState(
-    status: NearbyTournamentsStatus.ready,
-    items: filtered,
-    regionLabel: regionLabel,
-    message: 'Showing tournaments in $city (precise location unavailable).',
+    status: NearbyTournamentsStatus.permissionDenied,
+    message:
+        'Location permission denied. Enable location to discover tournaments near you.',
+    regionLabel: result.regionLabel,
   );
 }

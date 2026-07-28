@@ -30,26 +30,6 @@ class TournamentMatchCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
-    final group = ref.watch(
-      tournamentGroupByIdProvider(
-        (tournamentId: tournamentId, groupId: match.groupId),
-      ),
-    );
-    final resolvedRoundName = match.roundName?.isNotEmpty == true
-        ? match.roundName!
-        : ref
-            .watch(
-              tournamentRoundByIdProvider(
-                (tournamentId: tournamentId, roundId: match.roundId),
-              ),
-            )
-            ?.name;
-    final stageLabel = tournamentMatchStageLabel(
-      match,
-      roundName: resolvedRoundName,
-      groupName: group?.name,
-    );
-
     final isLive = MatchLifecycle.isEffectivelyLive(match);
     final canDelete =
         canManage && isDeletableUpcomingMatch(match.status);
@@ -141,7 +121,6 @@ class TournamentMatchCard extends ConsumerWidget {
           match: match,
           showTournamentHeader: false,
           showRoundBadge: false,
-          matchTypeLabel: stageLabel,
           showQuickLinks: true,
         ),
       ],

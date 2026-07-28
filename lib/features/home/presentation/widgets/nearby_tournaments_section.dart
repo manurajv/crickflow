@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/utils/geo_distance.dart';
 import '../../../../shared/widgets/tournament_list_card.dart';
 import '../../domain/nearby_tournament_item.dart';
 import '../../providers/nearby_anchor_location_provider.dart';
@@ -80,14 +79,13 @@ class NearbyTournamentsSection extends ConsumerWidget {
                   title: title,
                   subtitle: nearbyLocationSubtitle(
                     regionLabel: state.regionLabel,
-                    useRadius: nearbyFilterUsesRadius(anchor),
                     message: state.message,
                   ),
                   onFilterLocation: () => openNearbyLocationFilter(ref, context),
                   locationFiltered: anchor != null,
                 ),
                 SizedBox(
-                  height: 190,
+                  height: kNearbyCarouselHeight,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(
@@ -100,16 +98,13 @@ class NearbyTournamentsSection extends ConsumerWidget {
                         const SizedBox(width: AppDimens.spaceSm),
                     itemBuilder: (context, index) {
                       final item = state.items[index];
-                      final distance = item.distanceKm != null
-                          ? formatDistanceAway(item.distanceKm!)
-                          : null;
                       return Align(
                         alignment: Alignment.topCenter,
                         child: SizedBox(
                           width: cardWidth,
                           child: TournamentListCard(
                             tournament: item.tournament,
-                            attributionLabel: distance,
+                            attributionLabel: item.attributionLabel,
                             margin: EdgeInsets.zero,
                             onTap: () => context.push(
                               '/tournaments/${item.tournament.id}',
@@ -120,7 +115,6 @@ class NearbyTournamentsSection extends ConsumerWidget {
                     },
                   ),
                 ),
-                const SizedBox(height: AppDimens.spaceXs),
               ],
             );
         }

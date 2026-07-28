@@ -1,27 +1,33 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/utils/geo_distance.dart';
 import '../../../core/utils/location_text_filter.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/match_model.dart';
+import '../../../data/models/player_model.dart';
+import '../../../data/models/user_model.dart';
 import '../../../data/services/google_maps_location_service.dart';
 import '../../../domain/scoring/match_lifecycle.dart';
+import '../../../features/my_cricket/my_cricket_filters.dart';
+import '../../../shared/providers/my_player_provider.dart';
+import '../../../shared/providers/player_social_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../domain/nearby_match_item.dart';
 import 'nearby_anchor_location_provider.dart';
 
-const double kNearbyMatchRadiusKm = 50;
-
-/// Cached nearby matches for the home "Matches Near You" section.
+/// Home "Matches Near You" — region text filter (country + state/province).
 final nearbyMatchesProvider =
     FutureProvider.autoDispose<NearbyMatchesState>((ref) async {
-  // Keep alive briefly so scroll rebuilds don't re-query GPS every time.
   final link = ref.keepAlive();
   final timer = Future<void>.delayed(const Duration(minutes: 5), link.close);
   ref.onDispose(() => timer.ignore());
 
   final locationService = ref.watch(googleMapsLocationServiceProvider);
   final anchor = ref.watch(nearbyAnchorLocationProvider);
+  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+  final player = await _nearbyPlayer(ref);
+  final userTeamIds = _nearbyUserTeamIds(ref, player);
+  final following = await _nearbyFollowing(ref, uid);
+  final followedPlayers = FollowedPlayerRefs.fromUsers(following);
 
   List<MatchModel> matches;
   try {
@@ -33,8 +39,18 @@ final nearbyMatchesProvider =
     );
   }
 
-  // Prefer live / upcoming, then recent completed.
+  // Discover others nearby. User's own friendlies stay in My Cricket.
+  // Tournament fixtures: hide only when the user's team is playing that match
+  // (still show other fixtures from a tournament their team is entered in).
   final candidates = matches.where((m) {
+    if (_excludeFromNearbyMatches(
+      m,
+      uid: uid,
+      player: player,
+      userTeamIds: userTeamIds,
+    )) {
+      return false;
+    }
     if (MatchLifecycle.isEffectivelyLive(m)) return true;
     if (MatchLifecycle.isUpcoming(m)) return true;
     if (MatchLifecycle.isCompleted(m)) {
@@ -45,17 +61,13 @@ final nearbyMatchesProvider =
     return false;
   }).toList();
 
-  // Custom location filter.
-  // City → 50 km radius + city text fallback. Country/state only → text match.
   if (anchor != null && !anchor.isEmpty) {
-    if (anchor.city.trim().isNotEmpty) {
-      return _buildFromCityFilter(
-        candidates: candidates,
-        filter: anchor,
-        locationService: locationService,
-      );
-    }
-    return _buildFromTextFilter(candidates: candidates, filter: anchor);
+    return _buildFromRegionFilter(
+      candidates: candidates,
+      filter: anchor,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
   }
 
   final access = await locationService.ensureLocationPermission();
@@ -69,153 +81,132 @@ final nearbyMatchesProvider =
 
   if (access == LocationAccessStatus.denied ||
       access == LocationAccessStatus.deniedForever) {
-    return _permissionDeniedFallback(ref: ref, candidates: candidates);
+    return _permissionDeniedFallback(
+      ref: ref,
+      candidates: candidates,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
   }
 
   final coords = await locationService.getCurrentCoords();
   if (coords == null) {
-    return _permissionDeniedFallback(ref: ref, candidates: candidates);
+    return _permissionDeniedFallback(
+      ref: ref,
+      candidates: candidates,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
   }
 
-  var regionLabel = '';
   try {
     final resolved = await locationService.reverseGeocode(coords);
-    regionLabel = resolved.location.displayLabel;
-  } catch (_) {}
-
-  return _buildFromCoords(
-    candidates: candidates,
-    coords: coords,
-    regionLabel: regionLabel,
-  );
+    return _buildFromRegionFilter(
+      candidates: candidates,
+      filter: resolved.location,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
+  } catch (_) {
+    return _permissionDeniedFallback(
+      ref: ref,
+      candidates: candidates,
+      following: following,
+      followedPlayers: followedPlayers,
+    );
+  }
 });
 
-Future<GeoCoords?> resolveNearbyAnchorCoords(
-  GoogleMapsLocationService locationService,
-  LocationModel anchor,
-) async {
-  // Prefer geocoding the city so radius centers on the selected city — not a
-  // stale device GPS pin that may still be attached to the LocationModel.
-  final query = [
-    anchor.city,
-    anchor.stateProvince,
-    anchor.country,
-  ].where((e) => e.trim().isNotEmpty).join(', ');
-  if (query.isNotEmpty) {
-    try {
-      final suggestions = await locationService.searchCities(query);
-      if (suggestions.isNotEmpty) {
-        final resolved = await locationService.resolvePlace(
-          suggestions.first.placeId,
-          fallbackDescription: suggestions.first.description,
-        );
-        if (resolved.location.hasCoordinates) {
-          return GeoCoords(
-            latitude: resolved.location.latitude!,
-            longitude: resolved.location.longitude!,
-          );
-        }
-      }
-    } catch (_) {}
+Future<PlayerModel?> _nearbyPlayer(Ref ref) async {
+  try {
+    return await ref.watch(myPlayerProvider.future);
+  } catch (_) {
+    return ref.read(myPlayerProvider).valueOrNull;
   }
-
-  if (anchor.hasCoordinates) {
-    return GeoCoords(
-      latitude: anchor.latitude!,
-      longitude: anchor.longitude!,
-    );
-  }
-  return null;
 }
 
-Future<NearbyMatchesState> _buildFromCityFilter({
-  required List<MatchModel> candidates,
-  required LocationModel filter,
-  required GoogleMapsLocationService locationService,
-}) async {
-  final regionLabel = locationFilterSummaryLabel(filter);
-  final coords = await resolveNearbyAnchorCoords(locationService, filter);
-  final items = <NearbyMatchItem>[];
-  final seen = <String>{};
-
-  if (coords != null) {
-    for (final match in candidates) {
-      final loc = match.location;
-      if (!loc.hasCoordinates) continue;
-      final lat = loc.latitude!;
-      final lng = loc.longitude!;
-      if (!withinApproxBoundingBox(
-        origin: coords,
-        lat: lat,
-        lng: lng,
-        radiusKm: kNearbyMatchRadiusKm,
-      )) {
-        continue;
-      }
-      final km = distanceKmBetween(
-        coords,
-        GeoCoords(latitude: lat, longitude: lng),
-      );
-      if (km <= kNearbyMatchRadiusKm) {
-        items.add(NearbyMatchItem(match: match, distanceKm: km));
-        seen.add(match.id);
-      }
-    }
+Future<List<UserModel>> _nearbyFollowing(Ref ref, String? uid) async {
+  if (uid == null || uid.isEmpty) return const [];
+  try {
+    return await ref.watch(playerFollowingProvider(uid).future);
+  } catch (_) {
+    return ref.read(playerFollowingProvider(uid)).valueOrNull ?? const [];
   }
+}
 
-  // Many matches only have city/venue text (no lat/lng). Include those too.
-  for (final match in candidates) {
-    if (seen.contains(match.id)) continue;
-    if (!locationMatchesCityFilter(
-      match.location,
-      filter,
-      venue: match.venue,
-    )) {
-      continue;
-    }
-    items.add(NearbyMatchItem(match: match, regionFallback: true));
-    seen.add(match.id);
-  }
+Set<String> _nearbyUserTeamIds(Ref ref, PlayerModel? player) {
+  final created = ref.watch(teamsProvider).valueOrNull ?? [];
+  return {
+    ...created.map((t) => t.id),
+    ...?player?.effectiveTeamIds,
+  };
+}
 
-  items.sort((a, b) {
-    final da = a.distanceKm ?? double.infinity;
-    final db = b.distanceKm ?? double.infinity;
-    return da.compareTo(db);
-  });
-
-  if (items.isNotEmpty) {
-    return NearbyMatchesState(
-      status: NearbyMatchesStatus.ready,
-      items: items.take(20).toList(),
-      userCoords: coords,
-      regionLabel: regionLabel,
+/// Tournament matches: exclude only if user's team is in this fixture.
+/// Standalone matches: exclude creator / scorer / team involvement.
+bool _excludeFromNearbyMatches(
+  MatchModel m, {
+  required String? uid,
+  required PlayerModel? player,
+  required Set<String> userTeamIds,
+}) {
+  if (m.isTournamentMatch) {
+    return userTeamParticipatedInMatch(
+      m,
+      player: player,
+      userTeamIds: userTeamIds,
     );
   }
-
-  return NearbyMatchesState(
-    status: NearbyMatchesStatus.empty,
-    userCoords: coords,
-    regionLabel: regionLabel,
-    message: regionLabel.isNotEmpty
-        ? (coords != null
-            ? 'No matches within ${kNearbyMatchRadiusKm.round()} km of $regionLabel.'
-            : 'No matches in $regionLabel.')
-        : 'No matches found for this location.',
+  return userParticipatedInMatch(
+    m,
+    uid: uid,
+    player: player,
+    userTeamIds: userTeamIds,
   );
 }
 
-NearbyMatchesState _buildFromTextFilter({
+NearbyMatchesState _buildFromRegionFilter({
   required List<MatchModel> candidates,
   required LocationModel filter,
+  required List<UserModel> following,
+  required FollowedPlayerRefs followedPlayers,
 }) {
-  final regionLabel = locationFilterSummaryLabel(filter);
-  final filtered = candidates
-      .where((m) => locationMatchesTextFilter(m.location, filter))
-      .map((m) => NearbyMatchItem(match: m, regionFallback: true))
-      .take(20)
-      .toList();
+  final region = nearbyRegionFilter(filter);
+  final regionLabel = nearbyRegionLabel(region);
 
-  if (filtered.isEmpty) {
+  if (region.country.isEmpty && region.stateProvince.isEmpty) {
+    return NearbyMatchesState(
+      status: NearbyMatchesStatus.empty,
+      regionLabel: regionLabel,
+      message: 'Choose a state or province to see matches.',
+    );
+  }
+
+  final items = <NearbyMatchItem>[];
+  for (final m in candidates) {
+    if (!locationMatchesTextFilter(m.location, region)) continue;
+    final fromNetwork = matchInvolvesFollowedPlayer(m, followedPlayers);
+    items.add(
+      NearbyMatchItem(
+        match: m,
+        regionFallback: true,
+        fromNetwork: fromNetwork,
+        attributionLabel: fromNetwork
+            ? networkMatchAttribution(m, following)
+            : null,
+      ),
+    );
+  }
+
+  // Network matches first (same people as My Cricket → Network).
+  items.sort((a, b) {
+    if (a.fromNetwork != b.fromNetwork) {
+      return a.fromNetwork ? -1 : 1;
+    }
+    return 0;
+  });
+
+  if (items.isEmpty) {
     return NearbyMatchesState(
       status: NearbyMatchesStatus.empty,
       regionLabel: regionLabel,
@@ -227,144 +218,58 @@ NearbyMatchesState _buildFromTextFilter({
 
   return NearbyMatchesState(
     status: NearbyMatchesStatus.ready,
-    items: filtered,
+    items: items.take(20).toList(),
     regionLabel: regionLabel,
   );
 }
 
-NearbyMatchesState _buildFromCoords({
-  required List<MatchModel> candidates,
-  required GeoCoords coords,
-  required String regionLabel,
-}) {
-  final withDistance = <NearbyMatchItem>[];
-  for (final match in candidates) {
-    final loc = match.location;
-    if (!loc.hasCoordinates) continue;
-    final lat = loc.latitude!;
-    final lng = loc.longitude!;
-    if (!withinApproxBoundingBox(
-      origin: coords,
-      lat: lat,
-      lng: lng,
-      radiusKm: kNearbyMatchRadiusKm,
-    )) {
-      continue;
-    }
-    final km = distanceKmBetween(
-      coords,
-      GeoCoords(latitude: lat, longitude: lng),
-    );
-    if (km <= kNearbyMatchRadiusKm) {
-      withDistance.add(NearbyMatchItem(match: match, distanceKm: km));
-    }
-  }
-
-  withDistance.sort((a, b) {
-    final da = a.distanceKm ?? double.infinity;
-    final db = b.distanceKm ?? double.infinity;
-    return da.compareTo(db);
-  });
-
-  if (withDistance.isNotEmpty) {
-    return NearbyMatchesState(
-      status: NearbyMatchesStatus.ready,
-      items: withDistance.take(20).toList(),
-      userCoords: coords,
-      regionLabel: regionLabel,
-    );
-  }
-
-  return NearbyMatchesState(
-    status: NearbyMatchesStatus.empty,
-    userCoords: coords,
-    regionLabel: regionLabel,
-    message: regionLabel.isNotEmpty
-        ? 'No matches within ${kNearbyMatchRadiusKm.round()} km of $regionLabel.'
-        : 'No matches are currently scheduled near you.',
-  );
-}
-
-Future<NearbyMatchesState> _permissionDeniedFallback({
+NearbyMatchesState _permissionDeniedFallback({
   required Ref ref,
   required List<MatchModel> candidates,
-}) async {
+  required List<UserModel> following,
+  required FollowedPlayerRefs followedPlayers,
+}) {
   final profile = ref.read(currentUserProfileProvider).valueOrNull;
   final loc = profile?.location;
-  final country = loc?.country ?? '';
-  final city = (loc == null || loc.isEmpty)
-      ? ''
-      : (loc.city.isNotEmpty
-          ? loc.city
-          : (loc.district.isNotEmpty ? loc.district : loc.stateProvince));
-  final regionLabel = loc?.displayLabel ?? '';
 
-  if (city.isEmpty) {
-    return NearbyMatchesState(
+  if (loc == null || loc.isEmpty) {
+    return const NearbyMatchesState(
       status: NearbyMatchesStatus.permissionDenied,
       message:
-          'Location permission denied. Enable location to discover nearby matches.',
-      regionLabel: regionLabel,
+          'Location permission denied. Enable location to discover matches near you.',
     );
   }
 
-  final filtered = candidates
-      .where(
-        (m) => _matchesCurrentLocality(
-          m.location,
-          country: country,
-          locality: city,
-        ),
-      )
-      .map((m) => NearbyMatchItem(match: m, regionFallback: true))
-      .take(20)
-      .toList();
-
-  if (filtered.isEmpty) {
+  final region = nearbyRegionFilter(loc);
+  if (region.country.isEmpty && region.stateProvince.isEmpty) {
     return NearbyMatchesState(
       status: NearbyMatchesStatus.permissionDenied,
       message:
-          'Location permission denied. Enable location to discover nearby matches.',
-      regionLabel: regionLabel,
+          'Location permission denied. Enable location to discover matches near you.',
+      regionLabel: loc.displayLabel,
+    );
+  }
+
+  final result = _buildFromRegionFilter(
+    candidates: candidates,
+    filter: region,
+    following: following,
+    followedPlayers: followedPlayers,
+  );
+  if (result.status == NearbyMatchesStatus.ready) {
+    return NearbyMatchesState(
+      status: NearbyMatchesStatus.ready,
+      items: result.items,
+      regionLabel: result.regionLabel,
+      message:
+          'Showing matches in ${result.regionLabel} (precise location unavailable).',
     );
   }
 
   return NearbyMatchesState(
-    status: NearbyMatchesStatus.ready,
-    items: filtered,
-    regionLabel: regionLabel,
-    message: 'Showing matches in $city (precise location unavailable).',
+    status: NearbyMatchesStatus.permissionDenied,
+    message:
+        'Location permission denied. Enable location to discover matches near you.',
+    regionLabel: result.regionLabel,
   );
-}
-
-bool _matchesCurrentLocality(
-  LocationModel location, {
-  required String country,
-  required String locality,
-}) {
-  final q = locality.trim().toLowerCase();
-  if (q.isEmpty) return false;
-
-  final city = location.city.toLowerCase();
-  final district = location.district.toLowerCase();
-  final state = location.stateProvince.toLowerCase();
-  final localityHit = city == q ||
-      district == q ||
-      city.contains(q) ||
-      district.contains(q) ||
-      (city.isEmpty && district.isEmpty && state == q);
-
-  if (!localityHit) return false;
-
-  if (country.trim().isNotEmpty) {
-    final c = country.trim().toLowerCase();
-    final matchCountry = location.country.toLowerCase();
-    if (matchCountry.isNotEmpty &&
-        matchCountry != c &&
-        !matchCountry.contains(c) &&
-        !c.contains(matchCountry)) {
-      return false;
-    }
-  }
-  return true;
 }

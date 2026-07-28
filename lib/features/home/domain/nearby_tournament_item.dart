@@ -6,11 +6,19 @@ class NearbyTournamentItem {
     required this.tournament,
     this.distanceKm,
     this.regionFallback = false,
+    this.attributionLabel,
+    this.fromNetwork = false,
   });
 
   final TournamentModel tournament;
   final double? distanceKm;
   final bool regionFallback;
+
+  /// e.g. Network: "Alex's tournament"
+  final String? attributionLabel;
+
+  /// True when a followed organizer hosts it (My Cricket Network).
+  final bool fromNetwork;
 }
 
 enum NearbyTournamentsStatus {

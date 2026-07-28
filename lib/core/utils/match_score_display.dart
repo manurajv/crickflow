@@ -99,9 +99,26 @@ class MatchScoreDisplay {
   /// e.g. "Team A won by 12 runs" — for completed match cards.
   static String? completedResultLine(MatchModel match) {
     if (!MatchLifecycle.isCompleted(match)) return null;
-    final base = match.resultSummary.isNotEmpty
-        ? match.resultSummary
-        : MatchCompletionPolicy.compute(match).summary;
+    final stored = match.resultSummary.trim();
+    final useStored = stored.isNotEmpty &&
+        stored.toLowerCase() != 'match completed';
+    String base;
+    if (useStored) {
+      base = stored;
+    } else {
+      final computed = MatchCompletionPolicy.compute(match);
+      if (computed.summary.toLowerCase() != 'match completed') {
+        base = computed.summary;
+      } else {
+        final winnerId =
+            match.winnerTeamId ?? computed.winnerTeamId;
+        if (winnerId != null && winnerId.isNotEmpty) {
+          base = '${teamName(match, winnerId)} won';
+        } else {
+          base = computed.summary;
+        }
+      }
+    }
     return MatchRevisionDisplay.completedResultWithDlsNote(match, base);
   }
 

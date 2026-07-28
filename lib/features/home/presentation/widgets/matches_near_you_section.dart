@@ -15,22 +15,15 @@ import '../../providers/nearby_matches_provider.dart';
 import '../../providers/nearby_tournaments_provider.dart';
 import 'nearby_location_filter_sheet.dart';
 
-/// Subtitle under Matches / Tournaments section headers.
-/// Shown only for radius mode (GPS or city filter). Country/state: no subtitle.
+/// Optional subtitle under nearby section headers (kept empty by design).
 String nearbyLocationSubtitle({
   required String regionLabel,
-  required bool useRadius,
   String message = '',
-}) {
-  if (!useRadius) return '';
-  final radius = kNearbyMatchRadiusKm.round();
-  final place = regionLabel.trim();
-  if (place.isNotEmpty) {
-    return '$place · within $radius km';
-  }
-  if (message.trim().isNotEmpty) return message.trim();
-  return 'Within $radius km';
-}
+}) =>
+    '';
+
+/// Horizontal carousel height for match / tournament cards on Home.
+const double kNearbyCarouselHeight = 220;
 
 /// Card width so the next item peeks (~78% of screen).
 double nearbyCarouselCardWidth(BuildContext context) {
@@ -52,40 +45,48 @@ void openMyCricketTournamentsAll(WidgetRef ref, BuildContext context) {
   context.go('/matches?tab=1');
 }
 
+var _nearbyLocationFilterOpen = false;
+
 Future<void> openNearbyLocationFilter(WidgetRef ref, BuildContext context) async {
-  final service = ref.read(googleMapsLocationServiceProvider);
-  final current = ref.read(nearbyAnchorLocationProvider);
-  LocationModel initial = current ?? const LocationModel();
+  if (_nearbyLocationFilterOpen) return;
+  _nearbyLocationFilterOpen = true;
+  try {
+    final service = ref.read(googleMapsLocationServiceProvider);
+    final current = ref.read(nearbyAnchorLocationProvider);
+    LocationModel initial = current ?? const LocationModel();
 
-  if (initial.isEmpty) {
-    try {
-      final coords = await service.getCurrentCoords();
-      if (coords != null) {
+    if (initial.isEmpty) {
+      try {
+        final coords = await service.getCurrentCoords();
+        if (coords != null) {
+          final place = await service.reverseGeocode(coords);
+          initial = place.location;
+        }
+      } catch (_) {}
+    }
+
+    if (!context.mounted) return;
+    final result = await showNearbyLocationFilterSheet(
+      context,
+      initial: initial,
+      locationService: service,
+      onUseCurrentLocation: () async {
+        final coords = await service.getCurrentCoords();
+        if (coords == null) return null;
         final place = await service.reverseGeocode(coords);
-        initial = place.location;
-      }
-    } catch (_) {}
+        return place.location;
+      },
+    );
+    if (result == null || !context.mounted) return;
+
+    // Empty result from Reset → back to device GPS.
+    ref.read(nearbyAnchorLocationProvider.notifier).state =
+        result.isEmpty ? null : result;
+    ref.invalidate(nearbyMatchesProvider);
+    ref.invalidate(nearbyTournamentsProvider);
+  } finally {
+    _nearbyLocationFilterOpen = false;
   }
-
-  if (!context.mounted) return;
-  final result = await showNearbyLocationFilterSheet(
-    context,
-    initial: initial,
-    locationService: service,
-    onUseCurrentLocation: () async {
-      final coords = await service.getCurrentCoords();
-      if (coords == null) return null;
-      final place = await service.reverseGeocode(coords);
-      return place.location;
-    },
-  );
-  if (result == null || !context.mounted) return;
-
-  // Empty result from Reset → back to device GPS.
-  ref.read(nearbyAnchorLocationProvider.notifier).state =
-      result.isEmpty ? null : result;
-  ref.invalidate(nearbyMatchesProvider);
-  ref.invalidate(nearbyTournamentsProvider);
 }
 
 /// Horizontally scrollable nearby matches using [MatchListCard].
@@ -159,14 +160,13 @@ class MatchesNearYouSection extends ConsumerWidget {
                   title: title,
                   subtitle: nearbyLocationSubtitle(
                     regionLabel: state.regionLabel,
-                    useRadius: nearbyFilterUsesRadius(anchor),
                     message: state.message,
                   ),
                   onFilterLocation: () => openNearbyLocationFilter(ref, context),
                   locationFiltered: anchor != null,
                 ),
                 SizedBox(
-                  height: 190,
+                  height: kNearbyCarouselHeight,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(
@@ -185,6 +185,7 @@ class MatchesNearYouSection extends ConsumerWidget {
                           width: cardWidth,
                           child: MatchListCard(
                             match: item.match,
+                            attributionLabel: item.attributionLabel,
                             margin: EdgeInsets.zero,
                           ),
                         ),
@@ -192,7 +193,6 @@ class MatchesNearYouSection extends ConsumerWidget {
                     },
                   ),
                 ),
-                const SizedBox(height: AppDimens.spaceXs),
               ],
             );
         }
@@ -221,7 +221,7 @@ class NearbySectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
-        AppDimens.spaceMd,
+        2,
         AppDimens.spaceSm,
         AppDimens.spaceXs,
       ),
@@ -298,14 +298,14 @@ class NearbySectionSkeleton extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppDimens.spaceMd,
-              AppDimens.spaceMd,
+              2,
               AppDimens.spaceMd,
               AppDimens.spaceXs,
             ),
             child: Text(title, style: Theme.of(context).textTheme.titleLarge),
           ),
         SizedBox(
-          height: 160,
+          height: kNearbyCarouselHeight,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: AppDimens.spaceMd),
@@ -368,7 +368,7 @@ class NearbySectionMessage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppDimens.spaceMd,
-              AppDimens.spaceMd,
+              2,
               AppDimens.spaceMd,
               AppDimens.spaceXs,
             ),

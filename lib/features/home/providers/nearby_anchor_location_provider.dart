@@ -1,27 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/utils/location_text_filter.dart';
 import '../../../data/models/location_model.dart';
 
-/// Home nearby sections anchor. `null` = live device GPS ("Near You").
+/// Home nearby sections anchor. `null` = device location → state/province.
 final nearbyAnchorLocationProvider =
     StateProvider<LocationModel?>((ref) => null);
 
-/// City filter (or no filter / GPS) uses 50 km radius; country/state uses text match.
-bool nearbyFilterUsesRadius(LocationModel? anchor) {
-  if (anchor == null || anchor.isEmpty) return true;
-  return anchor.city.trim().isNotEmpty;
+/// Country + state/province only (city ignored for home nearby filtering).
+LocationModel nearbyRegionFilter(LocationModel location) {
+  return LocationModel(
+    country: location.country.trim(),
+    stateProvince: location.stateProvince.trim().isNotEmpty
+        ? location.stateProvince.trim()
+        : (location.district.trim().isNotEmpty
+            ? location.district.trim()
+            : ''),
+  );
 }
 
-/// Short place name for titles (city → state → country), same as rankings.
+/// Label for titles: state/province → country.
+String nearbyRegionLabel(LocationModel location) {
+  final region = nearbyRegionFilter(location);
+  if (region.stateProvince.isNotEmpty) return region.stateProvince;
+  if (region.country.isNotEmpty) return region.country;
+  return '';
+}
+
 String nearbyAnchorShortName(LocationModel location) {
-  final label = locationFilterSummaryLabel(location);
-  if (label.isNotEmpty) return label;
-  for (final p in [location.district, location.placeName]) {
-    final t = p.trim();
-    if (t.isNotEmpty) return t;
-  }
-  return 'this area';
+  final label = nearbyRegionLabel(location);
+  return label.isNotEmpty ? label : 'this area';
 }
 
 String nearbyMatchesSectionTitle(LocationModel? anchor) {
