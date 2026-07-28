@@ -1,0 +1,32 @@
+name: crickflow_admin_core
+description: Shared foundation for CrickFlow Super Admin and Admin web panels.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.8.1
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.2
+  cloud_firestore: ^5.6.6
+  firebase_storage: ^12.4.5
+  firebase_messaging: ^15.2.5
+  cloud_functions: ^5.3.4
+  firebase_analytics: ^11.4.5
+  firebase_remote_config: ^5.4.3
+  equatable: ^2.0.7
+  intl: ^0.20.2
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

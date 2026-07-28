@@ -1441,5 +1441,12 @@ service cloud.firestore {
           && resource.data.userId == request.auth.uid;
       }
     }
+
+    /// Additive web-admin profiles. Does not alter mobile `users` or other collections.
+    /// Writes stay locked until a provisioner / Super Admin module ships.
+    match /admin_users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
   }
 }

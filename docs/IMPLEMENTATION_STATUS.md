@@ -3,13 +3,30 @@
 
 
 
-**Last updated:** Splash / login brand colors + copy
+**Last updated:** Web Admin System foundation (Super Admin + Org Admin)
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
-> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Tournament module:** [TOURNAMENT_MODULE.md](TOURNAMENT_MODULE.md) · **Doc index:** [README.md](README.md)
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Web Admin System — foundation)
+
+| Item | Status |
+|------|--------|
+| Separate Flutter Web apps under `apps/superadmin` + `apps/admin` (mobile untouched) | Done |
+| Shared package `apps/admin_core` (theme, auth, permissions, shell, widgets) | Done |
+| Firebase web apps registered on `crickflow-b06bc` (Super Admin + Admin) | Done |
+| GoRouter + role redirects (login / access denied / dashboard) | Done |
+| Additive `admin_users` collection for platform roles (does not alter mobile `users`) | Done |
+| Permission catalog + `PermissionGate` | Done |
+| Premium SaaS shell: collapsible nav, top bar, breadcrumbs, light/dark | Done |
+| Placeholder dashboard cards + module placeholder routes | Done |
+| Reusable widgets (cards, tables, search, filters, pagination, charts stub) | Done |
+| Feature modules (users/matches/…) | Pending — next phases |
 
 ---
 

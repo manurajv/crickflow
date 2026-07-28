@@ -6,6 +6,7 @@ Start here:
 2. **[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** — What is done vs pending (agents)
 3. **[REMAINING_FEATURES.md](REMAINING_FEATURES.md)** — What still needs infra / ML / store accounts
 4. **[DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)** — Colors, typography, components
+5. **[WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md)** — Super Admin + Org Admin Flutter Web panels (separate from mobile)
 
 ## Feature docs
 
