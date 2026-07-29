@@ -22,6 +22,7 @@ dependencies:
   equatable: ^2.0.7
   intl: ^0.20.2
   google_fonts: ^6.2.1
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
@@ -30,3 +31,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/crickflow-logo.png

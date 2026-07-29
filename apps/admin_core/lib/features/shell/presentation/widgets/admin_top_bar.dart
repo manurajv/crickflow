@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/extensions/context_extensions.dart';
+import '../../../../core/router/admin_route_paths.dart';
 import '../../../../core/theme/admin_colors.dart';
 import '../../../../core/theme/theme_mode_provider.dart';
 import '../../../auth/providers/auth_providers.dart';
@@ -18,8 +20,8 @@ class AdminTopBar extends ConsumerWidget implements PreferredSizeWidget {
     final colors = context.adminColors;
     final crumbs = ref.watch(breadcrumbProvider);
     final collapsed = ref.watch(sidebarCollapsedProvider);
-    final admin = ref.watch(adminSessionProvider).adminUser;
-    final themeMode = ref.watch(themeModeProvider);
+    final session = ref.watch(adminSessionProvider);
+    final admin = session.adminUser;
 
     return Material(
       color: colors.surface,
@@ -40,9 +42,7 @@ class AdminTopBar extends ConsumerWidget implements PreferredSizeWidget {
               icon: const Icon(Icons.menu),
             ),
             const SizedBox(width: 8),
-            Expanded(
-              child: _Breadcrumbs(crumbs: crumbs),
-            ),
+            Expanded(child: _Breadcrumbs(crumbs: crumbs)),
             IconButton(
               tooltip: 'Notifications',
               onPressed: () {
@@ -59,25 +59,12 @@ class AdminTopBar extends ConsumerWidget implements PreferredSizeWidget {
               },
               icon: const Icon(Icons.notifications_outlined),
             ),
-            IconButton(
-              tooltip: themeMode == ThemeMode.dark ? 'Light mode' : 'Dark mode',
-              onPressed: () {
-                final next = themeMode == ThemeMode.dark
-                    ? ThemeMode.light
-                    : ThemeMode.dark;
-                ref.read(themeModeProvider.notifier).state = next;
-              },
-              icon: Icon(
-                themeMode == ThemeMode.dark
-                    ? Icons.light_mode_outlined
-                    : Icons.dark_mode_outlined,
-              ),
-            ),
             const SizedBox(width: 4),
             _ProfileMenu(
               name: admin?.displayName ?? admin?.email ?? 'Admin',
-              role: admin?.platformRole.label ?? '',
+              role: admin?.roleLabel ?? session.role?.label ?? '',
               initials: admin?.initials ?? '?',
+              photoUrl: admin?.photoUrl ?? session.firebaseUser?.photoURL,
             ),
           ],
         ),
@@ -126,19 +113,31 @@ class _ProfileMenu extends ConsumerWidget {
     required this.name,
     required this.role,
     required this.initials,
+    this.photoUrl,
   });
 
   final String name;
   final String role;
   final String initials;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+
     return PopupMenuButton<String>(
       offset: const Offset(0, 48),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onSelected: (value) async {
-        if (value == 'logout') {
+        if (value == 'profile') {
+          context.go(AdminRoutePaths.profile);
+        } else if (value == 'settings') {
+          context.go(AdminRoutePaths.accountSettings);
+        } else if (value == 'theme') {
+          ref.read(themeModeProvider.notifier).state =
+              isDark ? ThemeMode.light : ThemeMode.dark;
+        } else if (value == 'logout') {
           await ref.read(authServiceProvider).signOut();
         }
       },
@@ -154,24 +153,61 @@ class _ProfileMenu extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'profile', child: Text('Profile')),
-        const PopupMenuItem(value: 'settings', child: Text('Settings')),
+        const PopupMenuItem(
+          value: 'profile',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.person_outline),
+            title: Text('Profile'),
+            dense: true,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'settings',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.manage_accounts_outlined),
+            title: Text('Account Settings'),
+            dense: true,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'theme',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+            title: Text(isDark ? 'Light mode' : 'Dark mode'),
+            dense: true,
+          ),
+        ),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'logout', child: Text('Logout')),
+        const PopupMenuItem(
+          value: 'logout',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.logout),
+            title: Text('Logout'),
+            dense: true,
+          ),
+        ),
       ],
       child: Row(
         children: [
           CircleAvatar(
             radius: 16,
             backgroundColor: AdminColors.primaryBlue,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            backgroundImage:
+                photoUrl != null ? NetworkImage(photoUrl!) : null,
+            child: photoUrl == null
+                ? Text(
+                    initials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : null,
           ),
           const SizedBox(width: 8),
           ConstrainedBox(

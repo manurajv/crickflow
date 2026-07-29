@@ -24,6 +24,10 @@ GoRouter createSuperAdminRouter(Ref ref) {
         path: AdminRoutePaths.accessDenied,
         builder: (context, state) => const AccessDeniedScreen(),
       ),
+      GoRoute(
+        path: AdminRoutePaths.forbidden,
+        builder: (context, state) => const ForbiddenScreen(),
+      ),
       ShellRoute(
         builder: (context, state, child) => AdminShell(child: child),
         routes: [
@@ -31,6 +35,18 @@ GoRouter createSuperAdminRouter(Ref ref) {
             path: AdminRoutePaths.dashboard,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: DashboardScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.profile,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ProfileScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.accountSettings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AccountSettingsScreen(),
             ),
           ),
           ..._placeholders,

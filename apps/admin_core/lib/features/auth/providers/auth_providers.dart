@@ -5,8 +5,11 @@ import '../../../core/config/admin_app_type.dart';
 import '../../../models/admin_permission.dart';
 import '../../../models/admin_role.dart';
 import '../../../models/admin_user.dart';
+import '../../../models/role_definition.dart';
+import '../../../services/admin_role_service.dart';
 import '../../../services/admin_user_service.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/session_preferences.dart';
 
 final adminAppTypeProvider = Provider<AdminAppType>((ref) {
   throw UnimplementedError('Override adminAppTypeProvider in each app');
@@ -14,11 +17,22 @@ final adminAppTypeProvider = Provider<AdminAppType>((ref) {
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
+final sessionPreferencesProvider =
+    Provider<SessionPreferences>((ref) => SessionPreferences());
+
 final adminUserServiceProvider =
     Provider<AdminUserService>((ref) => AdminUserService());
 
+final adminRoleServiceProvider =
+    Provider<AdminRoleService>((ref) => AdminRoleService());
+
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authServiceProvider).authStateChanges();
+});
+
+/// Tracks ID token refreshes (custom claims preparation).
+final idTokenProvider = StreamProvider<User?>((ref) {
+  return ref.watch(authServiceProvider).idTokenChanges();
 });
 
 /// Resolves the additive admin profile for the signed-in user.
@@ -34,12 +48,25 @@ final adminUserProvider = StreamProvider<AdminUser?>((ref) {
   );
 });
 
+final roleDefinitionProvider = StreamProvider<RoleDefinition?>((ref) {
+  final adminAsync = ref.watch(adminUserProvider);
+  return adminAsync.when(
+    data: (admin) {
+      if (admin == null) return Stream.value(null);
+      return ref.watch(adminRoleServiceProvider).watchById(admin.roleId);
+    },
+    loading: () => const Stream.empty(),
+    error: (_, _) => Stream.value(null),
+  );
+});
+
 /// High-level session used by GoRouter redirects.
 enum AdminSessionStatus {
   loading,
   unauthenticated,
   noAdminProfile,
   inactive,
+  unauthorizedRole,
   wrongPanel,
   authorized,
 }
@@ -49,18 +76,31 @@ class AdminSession {
     required this.status,
     this.firebaseUser,
     this.adminUser,
+    this.role,
+    this.permissions = const {},
+    this.customClaims = const {},
   });
 
   final AdminSessionStatus status;
   final User? firebaseUser;
   final AdminUser? adminUser;
+  final RoleDefinition? role;
+  final Set<AdminPermission> permissions;
+  final Map<String, dynamic> customClaims;
 
   bool get isAuthorized => status == AdminSessionStatus.authorized;
+
+  bool hasPermission(AdminPermission permission) =>
+      isAuthorized && permissions.contains(permission);
 }
 
 final adminSessionProvider = Provider<AdminSession>((ref) {
+  // Keep session in sync with token refresh (claims may appear later).
+  ref.watch(idTokenProvider);
+
   final authAsync = ref.watch(authStateProvider);
   final adminAsync = ref.watch(adminUserProvider);
+  final roleAsync = ref.watch(roleDefinitionProvider);
   final appType = ref.watch(adminAppTypeProvider);
 
   if (authAsync.isLoading) {
@@ -72,7 +112,7 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
     return const AdminSession(status: AdminSessionStatus.unauthenticated);
   }
 
-  if (adminAsync.isLoading) {
+  if (adminAsync.isLoading || roleAsync.isLoading) {
     return AdminSession(
       status: AdminSessionStatus.loading,
       firebaseUser: user,
@@ -95,55 +135,65 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
     );
   }
 
-  final allowed = _rolesForPanel(appType);
-  if (!allowed.contains(admin.platformRole)) {
+  final role = roleAsync.asData?.value ??
+      (AdminRole.tryParse(admin.roleId) != null
+          ? RoleDefinition.fallback(AdminRole.tryParse(admin.roleId)!)
+          : null);
+
+  if (role == null || !role.canAccessAnyAdminPanel) {
+    return AdminSession(
+      status: AdminSessionStatus.unauthorizedRole,
+      firebaseUser: user,
+      adminUser: admin,
+      role: role,
+    );
+  }
+
+  if (!role.canAccessPanel(appType)) {
     return AdminSession(
       status: AdminSessionStatus.wrongPanel,
       firebaseUser: user,
       adminUser: admin,
+      role: role,
+      permissions: admin.resolvePermissions(role),
     );
   }
 
-  // Org admins must never access global platform data via missing org id.
+  // Org admins must be scoped to an organization.
   if (appType == AdminAppType.organizationAdmin &&
-      admin.platformRole != AdminRole.superAdmin &&
       (admin.organizationId == null || admin.organizationId!.isEmpty)) {
     return AdminSession(
       status: AdminSessionStatus.noAdminProfile,
       firebaseUser: user,
       adminUser: admin,
+      role: role,
     );
   }
+
+  // Prefer custom claims when present (server-backed). Fall back to Firestore.
+  // Cloud Functions can later mirror roleId + permissions into token claims.
+  final permissions = admin.resolvePermissions(role);
 
   return AdminSession(
     status: AdminSessionStatus.authorized,
     firebaseUser: user,
     adminUser: admin,
+    role: role,
+    permissions: permissions,
   );
 });
 
-Set<AdminRole> _rolesForPanel(AdminAppType type) => switch (type) {
-      AdminAppType.superAdmin => {AdminRole.superAdmin},
-      AdminAppType.organizationAdmin => {
-          AdminRole.admin,
-          AdminRole.moderator,
-          AdminRole.tournamentAdmin,
-          AdminRole.support,
-        },
-    };
-
 final permissionCheckerProvider = Provider<PermissionChecker>((ref) {
   final session = ref.watch(adminSessionProvider);
-  return PermissionChecker(session.adminUser);
+  return PermissionChecker(session);
 });
 
 class PermissionChecker {
-  const PermissionChecker(this.user);
+  const PermissionChecker(this.session);
 
-  final AdminUser? user;
+  final AdminSession session;
 
-  bool can(AdminPermission permission) =>
-      user?.hasPermission(permission) ?? false;
+  bool can(AdminPermission permission) => session.hasPermission(permission);
 
   bool canAny(Iterable<AdminPermission> permissions) =>
       permissions.any(can);

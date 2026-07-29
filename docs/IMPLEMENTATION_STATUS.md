@@ -3,13 +3,44 @@
 
 
 
-**Last updated:** Web Admin System foundation (Super Admin + Org Admin)
+**Last updated:** Premium Admin Dashboard (Super Admin + Org scoped)
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
-> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Community:** [COMMUNITY.md](COMMUNITY.md) · **Doc index:** [README.md](README.md)
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Web Admin — Dashboard)
+
+| Item | Status |
+|------|--------|
+| SaaS dashboard: welcome header, quick actions, overview cards + sparklines | Done |
+| Live activity, system status, platform health sections | Done |
+| Recent matches / reports / users / tournaments lists | Done |
+| Analytics chart placeholders (no chart libs yet) | Done |
+| Org Admin uses same layout with org-scoped placeholder metrics | Done |
+| Skeleton / empty / error + pull-to-refresh + manual refresh | Done |
+| `DashboardRepository` ready to swap placeholders for Firestore later | Done |
+| Real Firestore aggregates / listeners | Pending |
+
+---
+
+## Latest (Web Admin — auth & authorization)
+
+| Item | Status |
+|------|--------|
+| Same Firebase Auth project as mobile (email/password + Google popup) | Done |
+| Remember me / session persistence + forgot password | Done |
+| `admin_roles` permission maps + `admin_users.roleId` (+ overrides) | Done |
+| Panel routing: superAdmin → Super Admin; admin → Org Admin; else Access Denied | Done |
+| Per-route permission map + `/forbidden` guard | Done |
+| Profile / Account Settings / Theme / Logout in user menu | Done |
+| Access Denied copy + Return to Login | Done |
+| Architecture ready for custom claims (token refresh hooks) | Done |
+| Custom claims Cloud Function + full Firestore claim enforcement | Pending |
 
 ---
 

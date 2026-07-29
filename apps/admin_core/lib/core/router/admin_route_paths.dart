@@ -22,4 +22,7 @@ abstract final class AdminRoutePaths {
   static const logs = '/logs';
   static const organizations = '/organizations';
   static const revenue = '/revenue';
+  static const profile = '/profile';
+  static const accountSettings = '/account-settings';
+  static const forbidden = '/forbidden';
 }

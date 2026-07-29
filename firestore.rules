@@ -1448,5 +1448,11 @@ service cloud.firestore {
       allow read: if isSignedIn() && request.auth.uid == userId;
       allow write: if false;
     }
+
+    /// Role permission definitions for web admin panels (read-only to clients).
+    match /admin_roles/{roleId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
   }
 }

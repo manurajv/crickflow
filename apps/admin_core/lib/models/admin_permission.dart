@@ -2,7 +2,8 @@ import 'admin_role.dart';
 
 /// Fine-grained permissions checked before loading admin pages.
 ///
-/// Add new values here; map them in [AdminPermissionCatalog] for each role.
+/// Wire names match enum names and map keys in `admin_roles.permissions`.
+/// Add new values here; seed / update the matching `admin_roles` document.
 enum AdminPermission {
   canManageUsers,
   canManageMatches,
@@ -21,7 +22,9 @@ enum AdminPermission {
   canManageOrganizations,
   canAccessGlobalData,
   canManageDiscover,
-  canViewDashboard;
+  canViewDashboard,
+  canViewProfile,
+  canManageAccount;
 
   String get label => switch (this) {
         AdminPermission.canManageUsers => 'Manage users',
@@ -42,17 +45,34 @@ enum AdminPermission {
         AdminPermission.canAccessGlobalData => 'Access global data',
         AdminPermission.canManageDiscover => 'Manage discover',
         AdminPermission.canViewDashboard => 'View dashboard',
+        AdminPermission.canViewProfile => 'View profile',
+        AdminPermission.canManageAccount => 'Manage account',
       };
+
+  static AdminPermission? tryParse(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    // Alias used in product specs
+    if (raw == 'canManageBroadcasts') return AdminPermission.canManageBroadcast;
+    for (final p in AdminPermission.values) {
+      if (p.name == raw) return p;
+    }
+    return null;
+  }
 }
 
-/// Default permission sets per [AdminRole]. Easy to extend.
-abstract final class AdminPermissionCatalog {
-  static const Set<AdminPermission> _all = {...AdminPermission.values};
+/// Built-in permission maps used when Firestore `admin_roles` is missing.
+///
+/// Production should store these in `admin_roles/{roleId}` so permission
+/// changes do not require a client release.
+abstract final class DefaultAdminRolePermissions {
+  static const Set<AdminPermission> all = {...AdminPermission.values};
 
   static Set<AdminPermission> forRole(AdminRole role) => switch (role) {
-        AdminRole.superAdmin => Set.unmodifiable(_all),
+        AdminRole.superAdmin => Set.unmodifiable(all),
         AdminRole.admin => {
             AdminPermission.canViewDashboard,
+            AdminPermission.canViewProfile,
+            AdminPermission.canManageAccount,
             AdminPermission.canManageUsers,
             AdminPermission.canManageMatches,
             AdminPermission.canManageTeams,
@@ -68,11 +88,15 @@ abstract final class AdminPermissionCatalog {
           },
         AdminRole.moderator => {
             AdminPermission.canViewDashboard,
+            AdminPermission.canViewProfile,
+            AdminPermission.canManageAccount,
             AdminPermission.canModerateCommunity,
             AdminPermission.canViewReports,
           },
         AdminRole.tournamentAdmin => {
             AdminPermission.canViewDashboard,
+            AdminPermission.canViewProfile,
+            AdminPermission.canManageAccount,
             AdminPermission.canManageMatches,
             AdminPermission.canManageTeams,
             AdminPermission.canManagePlayers,
@@ -81,34 +105,38 @@ abstract final class AdminPermissionCatalog {
           },
         AdminRole.support => {
             AdminPermission.canViewDashboard,
+            AdminPermission.canViewProfile,
+            AdminPermission.canManageAccount,
             AdminPermission.canViewReports,
             AdminPermission.canViewLogs,
             AdminPermission.canViewAnalytics,
           },
+        AdminRole.viewer => {
+            AdminPermission.canViewProfile,
+          },
       };
 
-  /// Merges role defaults with optional document-level grants/denies.
+  static Map<String, bool> asPermissionMap(AdminRole role) {
+    final allowed = forRole(role);
+    return {
+      for (final p in AdminPermission.values) p.name: allowed.contains(p),
+    };
+  }
+}
+
+/// Resolves effective permissions from a role map + optional user overrides.
+abstract final class AdminPermissionResolver {
   static Set<AdminPermission> resolve({
-    required AdminRole role,
-    List<String>? grants,
-    List<String>? denies,
+    required Map<String, bool> rolePermissions,
+    Map<String, bool> overrides = const {},
   }) {
-    final set = Set<AdminPermission>.from(forRole(role));
-    for (final g in grants ?? const []) {
-      final p = _parse(g);
+    final merged = Map<String, bool>.from(rolePermissions)..addAll(overrides);
+    final set = <AdminPermission>{};
+    for (final entry in merged.entries) {
+      if (!entry.value) continue;
+      final p = AdminPermission.tryParse(entry.key);
       if (p != null) set.add(p);
     }
-    for (final d in denies ?? const []) {
-      final p = _parse(d);
-      if (p != null) set.remove(p);
-    }
     return Set.unmodifiable(set);
-  }
-
-  static AdminPermission? _parse(String raw) {
-    for (final p in AdminPermission.values) {
-      if (p.name == raw) return p;
-    }
-    return null;
   }
 }

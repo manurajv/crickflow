@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/config/admin_app_type.dart';
 import '../../../core/extensions/context_extensions.dart';
-import '../../../core/theme/admin_colors.dart';
 import '../../../core/widgets/permission_gate.dart';
 import '../../../models/admin_permission.dart';
-import '../../../shared/widgets/cf_chart_placeholder.dart';
-import '../../../shared/widgets/cf_stat_tile.dart';
-import '../../auth/providers/auth_providers.dart';
+import '../../../shared/widgets/cf_button.dart';
+import '../../../shared/widgets/cf_empty_state.dart';
 import '../../shell/providers/shell_providers.dart';
+import '../models/dashboard_models.dart';
+import '../providers/dashboard_providers.dart';
+import 'widgets/dashboard_activity_health.dart';
+import 'widgets/dashboard_quick_overview.dart';
+import 'widgets/dashboard_recent_sections.dart';
+import 'widgets/dashboard_section_header.dart';
+import 'widgets/dashboard_welcome_header.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -19,6 +23,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  bool _refreshing = false;
+
   @override
   void initState() {
     super.initState();
@@ -27,191 +33,263 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     });
   }
 
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await ref.read(dashboardControllerProvider.notifier).refresh(quiet: true);
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final appType = ref.watch(adminAppTypeProvider);
-    final admin = ref.watch(adminSessionProvider).adminUser;
-    final colors = context.adminColors;
+    final async = ref.watch(dashboardControllerProvider);
 
     return PermissionGate(
       permission: AdminPermission.canViewDashboard,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final crossAxisCount = width >= 1400
-              ? 4
-              : width >= 1000
-                  ? 3
-                  : width >= 700
-                      ? 2
-                      : 1;
+      child: async.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
+        loading: () => const _DashboardSkeleton(),
+        error: (error, _) => Center(
+          child: CfEmptyState(
+            icon: Icons.error_outline,
+            title: 'Couldn’t load dashboard',
+            message: error.toString(),
+            action: CfButton(
+              label: 'Retry',
+              icon: Icons.refresh,
+              onPressed: () =>
+                  ref.read(dashboardControllerProvider.notifier).refresh(),
+            ),
+          ),
+        ),
+        data: (snapshot) => _DashboardBody(
+          snapshot: snapshot,
+          refreshing: _refreshing,
+          onRefresh: _refresh,
+        ),
+      ),
+    );
+  }
+}
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+class _DashboardBody extends StatelessWidget {
+  const _DashboardBody({
+    required this.snapshot,
+    required this.onRefresh,
+    required this.refreshing,
+  });
+
+  final DashboardSnapshot snapshot;
+  final Future<void> Function() onRefresh;
+  final bool refreshing;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final overviewCols = width >= 1400
+            ? 4
+            : width >= 1100
+                ? 3
+                : width >= 720
+                    ? 2
+                    : 1;
+        final twoCol = width >= 1100;
+
+        return RefreshIndicator(
+          onRefresh: onRefresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              width >= 1400 ? 28 : 20,
+              20,
+              width >= 1400 ? 28 : 20,
+              32,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Welcome${admin?.displayName != null ? ', ${admin!.displayName}' : ''}',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                DashboardWelcomeHeader(
+                  scopeLabel: snapshot.scopeLabel,
+                  isOrganizationScoped: snapshot.isOrganizationScoped,
+                  onRefresh: () {
+                    onRefresh();
+                  },
+                  refreshing: refreshing,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  appType == AdminAppType.superAdmin
-                      ? 'Platform overview — placeholder metrics for foundation phase.'
-                      : 'Organization overview — scoped to your organization only.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.textSecondary,
-                      ),
+                const SizedBox(height: 22),
+                DashboardQuickActionsSection(actions: snapshot.quickActions),
+                const SizedBox(height: 26),
+                DashboardOverviewSection(
+                  metrics: snapshot.overview,
+                  crossAxisCount: overviewCols,
                 ),
-                if (admin?.organizationName != null) ...[
-                  const SizedBox(height: 8),
-                  Chip(
-                    avatar: const Icon(Icons.business, size: 16),
-                    label: Text(admin!.organizationName!),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                GridView.count(
-                  crossAxisCount: crossAxisCount,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1.55,
-                  children: [
-                    for (final card in _placeholderCards(appType))
-                      CfStatTile(
-                        icon: card.icon,
-                        title: card.title,
-                        value: card.value,
-                        growthLabel: card.growth,
-                        growthPositive: card.positive,
-                        accentColor: card.color,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                if (width >= 1000)
-                  const Row(
+                const SizedBox(height: 26),
+                if (twoCol)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: CfChartPlaceholder(title: 'Activity (placeholder)'),
+                        flex: 5,
+                        child: DashboardLiveActivitySection(
+                          items: snapshot.activity,
+                        ),
                       ),
-                      SizedBox(width: 16),
+                      const SizedBox(width: 16),
                       Expanded(
-                        child: CfChartPlaceholder(
-                          title: 'Engagement (placeholder)',
+                        flex: 5,
+                        child: DashboardPlatformHealthSection(
+                          items: snapshot.platformHealth,
                         ),
                       ),
                     ],
                   )
                 else ...[
-                  const CfChartPlaceholder(title: 'Activity (placeholder)'),
-                  const SizedBox(height: 16),
-                  const CfChartPlaceholder(title: 'Engagement (placeholder)'),
+                  DashboardLiveActivitySection(items: snapshot.activity),
+                  const SizedBox(height: 26),
+                  DashboardPlatformHealthSection(
+                    items: snapshot.platformHealth,
+                  ),
                 ],
+                const SizedBox(height: 26),
+                DashboardSystemStatusSection(items: snapshot.systemStatus),
+                const SizedBox(height: 26),
+                if (twoCol)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: DashboardRecentMatchesSection(
+                          items: snapshot.recentMatches,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DashboardRecentReportsSection(
+                          items: snapshot.recentReports,
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  DashboardRecentMatchesSection(items: snapshot.recentMatches),
+                  const SizedBox(height: 26),
+                  DashboardRecentReportsSection(items: snapshot.recentReports),
+                ],
+                const SizedBox(height: 26),
+                if (twoCol)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: DashboardRecentUsersSection(
+                          items: snapshot.recentUsers,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DashboardRecentTournamentsSection(
+                          items: snapshot.recentTournaments,
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  DashboardRecentUsersSection(items: snapshot.recentUsers),
+                  const SizedBox(height: 26),
+                  DashboardRecentTournamentsSection(
+                    items: snapshot.recentTournaments,
+                  ),
+                ],
+                const SizedBox(height: 26),
+                DashboardAnalyticsPlaceholdersSection(
+                  items: snapshot.analyticsPlaceholders,
+                ),
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
-  }
-
-  List<_DashCard> _placeholderCards(AdminAppType type) {
-    final base = <_DashCard>[
-      const _DashCard(
-        icon: Icons.people_outline,
-        title: 'Users',
-        value: '—',
-        growth: '+0%',
-        positive: true,
-        color: AdminColors.primaryBlue,
-      ),
-      const _DashCard(
-        icon: Icons.sports_cricket_outlined,
-        title: 'Matches',
-        value: '—',
-        growth: '+0%',
-        positive: true,
-        color: AdminColors.goldDark,
-      ),
-      const _DashCard(
-        icon: Icons.groups_outlined,
-        title: 'Teams',
-        value: '—',
-        growth: '+0%',
-        positive: true,
-        color: Color(0xFF7E57C2),
-      ),
-      const _DashCard(
-        icon: Icons.person_outline,
-        title: 'Players',
-        value: '—',
-        growth: '+0%',
-        positive: true,
-        color: Color(0xFF26A69A),
-      ),
-      const _DashCard(
-        icon: Icons.live_tv_outlined,
-        title: 'Streams',
-        value: '—',
-        growth: '+0%',
-        positive: true,
-        color: Color(0xFFE53935),
-      ),
-      const _DashCard(
-        icon: Icons.flag_outlined,
-        title: 'Reports',
-        value: '—',
-        growth: '0',
-        positive: null,
-        color: Color(0xFFFB8C00),
-      ),
-      const _DashCard(
-        icon: Icons.insights_outlined,
-        title: 'Analytics',
-        value: '—',
-        growth: '+0%',
-        positive: true,
-        color: AdminColors.primaryBlueLight,
-      ),
-    ];
-
-    if (type == AdminAppType.superAdmin) {
-      base.add(
-        const _DashCard(
-          icon: Icons.payments_outlined,
-          title: 'Revenue',
-          value: '—',
-          growth: '+0%',
-          positive: true,
-          color: Color(0xFF43A047),
-        ),
-      );
-    }
-
-    return base;
   }
 }
 
-class _DashCard {
-  const _DashCard({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.growth,
-    required this.positive,
-    required this.color,
-  });
+class _DashboardSkeleton extends StatelessWidget {
+  const _DashboardSkeleton();
 
-  final IconData icon;
-  final String title;
-  final String value;
-  final String growth;
-  final bool? positive;
-  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.adminColors;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 150,
+            decoration: BoxDecoration(
+              color: colors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.border),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DashboardSkeletonBox(width: 220, height: 28),
+                SizedBox(height: 12),
+                DashboardSkeletonBox(width: 360, height: 16),
+                SizedBox(height: 8),
+                DashboardSkeletonBox(width: 280, height: 16),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          const DashboardSkeletonBox(width: 140, height: 20),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 64,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: 5,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, _) => const SizedBox(
+                width: 180,
+                child: DashboardSkeletonCard(height: 64),
+              ),
+            ),
+          ),
+          const SizedBox(height: 26),
+          const DashboardSkeletonBox(width: 120, height: 20),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cols = constraints.maxWidth >= 1100
+                  ? 4
+                  : constraints.maxWidth >= 720
+                      ? 2
+                      : 1;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 8,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  childAspectRatio: 1.35,
+                ),
+                itemBuilder: (_, _) => const DashboardSkeletonCard(height: 140),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }

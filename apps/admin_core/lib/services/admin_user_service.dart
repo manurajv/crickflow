@@ -16,13 +16,21 @@ class AdminUserService {
   Future<AdminUser?> fetchByUid(String uid) async {
     final snap = await _doc(uid).get();
     if (!snap.exists || snap.data() == null) return null;
-    return AdminUser.fromMap(uid, snap.data()!);
+    try {
+      return AdminUser.fromMap(uid, snap.data()!);
+    } catch (_) {
+      return null;
+    }
   }
 
   Stream<AdminUser?> watchByUid(String uid) {
     return _doc(uid).snapshots().map((snap) {
       if (!snap.exists || snap.data() == null) return null;
-      return AdminUser.fromMap(uid, snap.data()!);
+      try {
+        return AdminUser.fromMap(uid, snap.data()!);
+      } catch (_) {
+        return null;
+      }
     });
   }
 }
