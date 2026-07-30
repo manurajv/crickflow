@@ -112,7 +112,7 @@ class _TimelinePanel extends ConsumerWidget {
 
     return AuditSectionCard(
       title: 'Activity Timeline',
-      subtitle: 'Realtime feed — newest first. Auto-updates without refresh.',
+      subtitle: 'Recent admin activity — newest first. Pull to refresh.',
       child: async.when(
         loading: () => const CfLoadingState(message: 'Connecting timeline…'),
         error: (e, _) => Text('$e'),
@@ -121,7 +121,7 @@ class _TimelinePanel extends ConsumerWidget {
             return const CfEmptyState(
               icon: Icons.timeline,
               title: 'No activity yet',
-              message: 'Administrative actions will appear here in realtime.',
+              message: 'Administrative actions will appear here after refresh.',
             );
           }
           return Column(

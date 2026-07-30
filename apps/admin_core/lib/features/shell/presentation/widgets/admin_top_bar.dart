@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/a11y/admin_a11y.dart';
 import '../../../../core/extensions/context_extensions.dart';
+import '../../../../core/locale/admin_locale_catalog.dart';
+import '../../../../core/locale/admin_locale_providers.dart';
 import '../../../../core/router/admin_route_paths.dart';
 import '../../../../core/theme/admin_colors.dart';
 import '../../../../core/theme/theme_mode_provider.dart';
+import '../../../../shared/widgets/cf_snackbar.dart';
 import '../../../audit/providers/audit_providers.dart';
 import '../../../auth/providers/auth_providers.dart';
 import '../../../users/models/admin_audit_log.dart';
@@ -20,6 +24,8 @@ class AdminTopBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.adminColors;
+    final dimens = context.adminDimens;
+    final l10n = context.l10n;
     final crumbs = ref.watch(breadcrumbProvider);
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final session = ref.watch(adminSessionProvider);
@@ -29,39 +35,31 @@ class AdminTopBar extends ConsumerWidget implements PreferredSizeWidget {
       color: colors.surface,
       elevation: 0,
       child: Container(
-        height: 64,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        height: dimens.topBarHeight,
+        padding: EdgeInsets.symmetric(horizontal: dimens.spaceLg),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: colors.border)),
         ),
         child: Row(
           children: [
             IconButton(
-              tooltip: collapsed ? 'Expand navigation' : 'Collapse navigation',
+              tooltip:
+                  collapsed ? l10n.actionExpandNav : l10n.actionCollapseNav,
               onPressed: () {
                 ref.read(sidebarCollapsedProvider.notifier).state = !collapsed;
               },
               icon: const Icon(Icons.menu),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: dimens.spaceSm),
             Expanded(child: _Breadcrumbs(crumbs: crumbs)),
             IconButton(
-              tooltip: 'Notifications',
+              tooltip: l10n.navNotifications,
               onPressed: () {
-                showMenu<void>(
-                  context: context,
-                  position: const RelativeRect.fromLTRB(1000, 64, 24, 0),
-                  items: const [
-                    PopupMenuItem(
-                      enabled: false,
-                      child: Text('No notifications yet'),
-                    ),
-                  ],
-                );
+                CfSnack.info(context, l10n.commonNotificationsNone);
               },
               icon: const Icon(Icons.notifications_outlined),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: dimens.spaceXs),
             _ProfileMenu(
               name: admin?.displayName ?? admin?.email ?? 'Admin',
               role: admin?.roleLabel ?? session.role?.label ?? '',
@@ -83,28 +81,47 @@ class _Breadcrumbs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.adminColors;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (var i = 0; i < crumbs.length; i++) ...[
-            if (i > 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.chevron_right, size: 16, color: colors.textMuted),
-              ),
-            Text(
-              crumbs[i],
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight:
-                        i == crumbs.length - 1 ? FontWeight.w700 : FontWeight.w500,
-                    color: i == crumbs.length - 1
-                        ? colors.textPrimary
-                        : colors.textSecondary,
-                  ),
+    final dimens = context.adminDimens;
+    final l10n = context.l10n;
+    if (crumbs.isEmpty) {
+      return Text(
+        l10n.breadcrumbDashboard,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colors.textPrimary,
             ),
+      );
+    }
+    return Semantics(
+      label: 'Breadcrumb: ${crumbs.join(' > ')}',
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < crumbs.length; i++) ...[
+              if (i > 0)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: dimens.spaceSm),
+                  child: Icon(
+                    Icons.chevron_right,
+                    size: dimens.iconSm,
+                    color: colors.textMuted,
+                  ),
+                ),
+              Text(
+                crumbs[i],
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: i == crumbs.length - 1
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: i == crumbs.length - 1
+                          ? colors.textPrimary
+                          : colors.textSecondary,
+                    ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -127,10 +144,14 @@ class _ProfileMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
+    final dimens = context.adminDimens;
+    final l10n = context.l10n;
+    final regional = ref.watch(adminRegionalSettingsProvider);
 
     return PopupMenuButton<String>(
       offset: const Offset(0, 48),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: dimens.borderRadiusMd),
+      tooltip: l10n.accountMenu,
       onSelected: (value) async {
         if (value == 'profile') {
           context.go(AdminRoutePaths.profile);
@@ -139,6 +160,14 @@ class _ProfileMenu extends ConsumerWidget {
         } else if (value == 'theme') {
           ref.read(themeModeProvider.notifier).state =
               isDark ? ThemeMode.light : ThemeMode.dark;
+        } else if (value.startsWith('lang:')) {
+          final code = value.substring(5);
+          await ref
+              .read(adminRegionalSettingsProvider.notifier)
+              .setLanguageCode(code == 'system' ? null : code);
+          if (context.mounted) {
+            CfSnack.info(context, l10n.accountLanguageSaved);
+          }
         } else if (value == 'logout') {
           final session = ref.read(adminSessionProvider);
           final admin = session.adminUser;
@@ -167,21 +196,21 @@ class _ProfileMenu extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'profile',
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.person_outline),
-            title: Text('Profile'),
+            leading: const Icon(Icons.person_outline),
+            title: Text(l10n.accountProfile),
             dense: true,
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'settings',
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.manage_accounts_outlined),
-            title: Text('Account Settings'),
+            leading: const Icon(Icons.manage_accounts_outlined),
+            title: Text(l10n.accountSettings),
             dense: true,
           ),
         ),
@@ -189,18 +218,45 @@ class _ProfileMenu extends ConsumerWidget {
           value: 'theme',
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-            title: Text(isDark ? 'Light mode' : 'Dark mode'),
+            leading: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+            ),
+            title: Text(isDark ? l10n.accountLightMode : l10n.accountDarkMode),
             dense: true,
           ),
         ),
+        PopupMenuItem(
+          enabled: false,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.language_outlined),
+            title: Text(l10n.accountLanguage),
+            dense: true,
+          ),
+        ),
+        for (final opt in AdminLocaleCatalog.selectable)
+          PopupMenuItem(
+            value: 'lang:${opt.code ?? 'system'}',
+            child: ListTile(
+              contentPadding: const EdgeInsets.only(left: 24),
+              leading: Icon(
+                (regional.languageCode ?? 'system') == (opt.code ?? 'system')
+                    ? Icons.check
+                    : Icons.translate_outlined,
+                size: 18,
+              ),
+              title: Text(opt.nativeName),
+              subtitle: Text(opt.englishName),
+              dense: true,
+            ),
+          ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'logout',
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.logout),
-            title: Text('Logout'),
+            leading: const Icon(Icons.logout),
+            title: Text(l10n.actionLogout),
             dense: true,
           ),
         ),
@@ -208,7 +264,7 @@ class _ProfileMenu extends ConsumerWidget {
       child: Row(
         children: [
           _ProfileAvatar(photoUrl: photoUrl, initials: initials),
-          const SizedBox(width: 8),
+          SizedBox(width: dimens.spaceSm),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 140),
             child: Column(
@@ -232,7 +288,7 @@ class _ProfileMenu extends ConsumerWidget {
               ],
             ),
           ),
-          const Icon(Icons.keyboard_arrow_down, size: 18),
+          Icon(Icons.keyboard_arrow_down, size: dimens.iconMd),
         ],
       ),
     );

@@ -302,7 +302,7 @@ final groundsListControllerProvider =
 });
 
 final selectedManagedGroundProvider =
-    StreamProvider.autoDispose<ManagedGround?>((ref) {
+    FutureProvider.autoDispose<ManagedGround?>((ref) async {
   final id =
       ref.watch(groundsListControllerProvider.select((s) => s.selectedId));
   final fromList = ref.watch(
@@ -314,12 +314,13 @@ final selectedManagedGroundProvider =
       return null;
     }),
   );
-  if (id == null) return Stream.value(null);
-  return ref.watch(groundsRepositoryProvider).watchById(
+  if (id == null) return null;
+  final fetched = await ref.watch(groundsRepositoryProvider).fetchById(
         id,
         appType: ref.watch(adminAppTypeProvider),
         actor: ref.watch(adminSessionProvider).adminUser,
-      ).map((g) => g ?? fromList);
+      );
+  return fetched ?? fromList;
 });
 
 final selectedGroundAuditProvider =

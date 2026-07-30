@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_role.dart';
 import '../../../models/admin_user.dart';
 import '../../users/models/admin_audit_log.dart';
@@ -196,7 +197,7 @@ class OrganizationsRepository {
 
   Future<OrganizationSummaryStats> fetchSummary() async {
     try {
-      final snap = await _orgs.limit(500).get();
+      final snap = await _orgs.limit(AdminQueryLimits.summaryScanMax).get();
       final list = snap.docs
           .map((d) => ManagedOrganization.fromFirestore(id: d.id, map: d.data()))
           .toList();

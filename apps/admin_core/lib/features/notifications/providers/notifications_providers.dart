@@ -479,10 +479,10 @@ final notificationsHubControllerProvider = StateNotifierProvider.autoDispose<
 });
 
 final selectedNotificationCampaignProvider =
-    StreamProvider.autoDispose<ManagedNotificationCampaign?>((ref) {
+    FutureProvider.autoDispose<ManagedNotificationCampaign?>((ref) async {
   final id = ref.watch(notificationsHubControllerProvider).selectedId;
-  if (id == null) return Stream.value(null);
-  return ref.watch(notificationsRepositoryProvider).watchCampaign(id);
+  if (id == null) return null;
+  return ref.watch(notificationsRepositoryProvider).fetchCampaign(id);
 });
 
 final notificationAuditProvider =

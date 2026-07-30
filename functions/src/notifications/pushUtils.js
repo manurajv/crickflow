@@ -17,12 +17,28 @@ async function resolveAuthUid(db, playerOrUserId) {
   return playerOrUserId;
 }
 
+/**
+ * Prefers users/{uid}/private/fcm (owner-only). Falls back to legacy users.fcmToken.
+ */
+async function resolveFcmToken(db, uid) {
+  const privateSnap = await db
+    .collection('users')
+    .doc(uid)
+    .collection('private')
+    .doc('fcm')
+    .get();
+  const privateToken = privateSnap.data()?.fcmToken;
+  if (privateToken) return privateToken;
+
+  const userSnap = await db.collection('users').doc(uid).get();
+  return userSnap.data()?.fcmToken || null;
+}
+
 async function sendPushToUser(db, userId, { title, body, data = {} }) {
   const uid = await resolveAuthUid(db, userId);
   if (!uid) return false;
 
-  const userSnap = await db.collection('users').doc(uid).get();
-  const token = userSnap.data()?.fcmToken;
+  const token = await resolveFcmToken(db, uid);
   if (!token) {
     console.warn(`sendPushToUser: no fcmToken for ${uid}`);
     return false;
@@ -61,4 +77,4 @@ async function sendPushToUser(db, userId, { title, body, data = {} }) {
   }
 }
 
-module.exports = { resolveAuthUid, sendPushToUser };
+module.exports = { resolveAuthUid, sendPushToUser, resolveFcmToken };

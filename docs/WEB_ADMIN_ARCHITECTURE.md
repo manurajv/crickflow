@@ -55,6 +55,8 @@ Enum `AdminPermission`. Add a value, seed it on `admin_roles`, and register the 
 
 CrickFlow brand: blue `#1E88E5`, gold `#FFC107`, white, dark gray. Light + dark Material 3.
 
+Design system tokens + shared `Cf*` widgets: see **[WEB_ADMIN_DESIGN.md](WEB_ADMIN_DESIGN.md)**.
+
 `AdminShell`: collapsible sidebar, top bar (breadcrumbs, notifications, profile menu with Profile / Account Settings / Theme / Logout).
 
 ---
@@ -115,7 +117,15 @@ cd ../admin; flutter build web --release
 - [x] Support Center & Ticket Management (`SupportScreen`; `/support`; help desk tickets, conversations, KB/FAQ; channel-ready)
 - [x] AI Operations & Automation Center (`AiOpsScreen`; `/ai-ops`; rules engine, recommendations, provider-ready)
 - [x] Security Operations Center (`SecurityScreen`; `/security`; access control, roles, alerts, DR architecture)
-- [x] Feature modules (CMS, Settings, Audit Logs) — players / revenue still placeholders
+- [x] DevOps & Release Center (`DevOpsScreen`; `/devops`; Super Admin; deploy monitor — never auto-deploys)
+- [x] Continuity & DR Center (`ContinuityScreen`; `/continuity`; Super Admin; backup/restore/migration metadata — never auto-restores)
+- [x] Design system tokens + shared `Cf*` polish ([WEB_ADMIN_DESIGN.md](WEB_ADMIN_DESIGN.md))
+- [x] Production readiness (cache, query limits, one-shot details, cost docs — [WEB_ADMIN_PRODUCTION.md](WEB_ADMIN_PRODUCTION.md))
+- [x] Enterprise QA report + Critical/High bug fixes — [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md)
+- [x] Accessibility + i18n/l10n/globalization foundation — [WEB_ADMIN_I18N_A11Y.md](WEB_ADMIN_I18N_A11Y.md)
+- [x] Developer documentation handbook + in-app Docs Center — [developer/README.md](developer/README.md)
+- [x] CI/CD architecture (GitHub Actions, env matrix, manual Hosting deploy) — [developer/cicd.md](developer/cicd.md)
+- [x] Feature modules (CMS, Settings, Audit Logs, Players, Revenue) — Revenue architecture-ready (no payment gateway)
 - [x] Platform Settings hub + CMS content management
 - [x] Audit Center (activity monitoring)
 - [ ] Custom claims Cloud Function — prepared, not implemented

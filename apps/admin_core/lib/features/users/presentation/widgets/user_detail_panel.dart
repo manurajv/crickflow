@@ -4,11 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/extensions/context_extensions.dart';
-import '../../../../core/theme/admin_colors.dart';
 import '../../../../models/admin_permission.dart';
 import '../../../../models/admin_role.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/cf_loading_state.dart';
+import '../../../../shared/widgets/cf_network_image.dart';
 import '../../../auth/providers/auth_providers.dart';
 import '../../models/managed_user.dart';
 import '../../models/user_account_status.dart';
@@ -129,37 +129,26 @@ class _ProfileBlock extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             color: colors.background,
-            image: user.coverUrl != null
-                ? DecorationImage(
-                    image: NetworkImage(user.coverUrl!),
-                    fit: BoxFit.cover,
-                  )
-                : null,
             border: Border.all(color: colors.border),
           ),
-          child: user.coverUrl == null
-              ? Icon(Icons.image_outlined, color: colors.textMuted)
-              : null,
+          clipBehavior: Clip.antiAlias,
+          child: user.coverUrl != null && user.coverUrl!.isNotEmpty
+              ? CfNetworkImage(
+                  url: user.coverUrl,
+                  width: double.infinity,
+                  height: 96,
+                  borderRadius: BorderRadius.zero,
+                )
+              : Icon(Icons.image_outlined, color: colors.textMuted),
         ),
         Transform.translate(
           offset: const Offset(0, -28),
           child: Column(
             children: [
-              CircleAvatar(
+              CfAvatar(
+                url: user.photoUrl,
                 radius: 36,
-                backgroundColor: AdminColors.primaryBlue,
-                backgroundImage:
-                    user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                child: user.photoUrl == null
-                    ? Text(
-                        user.initials,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                        ),
-                      )
-                    : null,
+                label: user.initials,
               ),
               const SizedBox(height: 8),
               Text(

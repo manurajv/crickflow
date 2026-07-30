@@ -110,11 +110,11 @@ class StreamMetadataModel extends Equatable {
     );
   }
 
+  /// Public Firestore projection — never persists ingest secrets.
+  /// [rtmpUrl] / [streamKey] stay in-memory / local prefs only.
   Map<String, dynamic> toMap() => {
         'status': status.name,
         'destination': destination.name,
-        if (rtmpUrl != null) 'rtmpUrl': rtmpUrl,
-        if (streamKey != null) 'streamKey': streamKey,
         'viewerCount': viewerCount,
         if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
         if (lastHeartbeatAt != null)

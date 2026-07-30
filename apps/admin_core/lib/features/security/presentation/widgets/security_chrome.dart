@@ -122,18 +122,21 @@ class SocSectionChips extends StatelessWidget {
     super.key,
     required this.section,
     required this.onChanged,
+    this.isSuperAdmin = true,
   });
 
   final SocHubSection section;
   final ValueChanged<SocHubSection> onChanged;
+  final bool isSuperAdmin;
 
   @override
   Widget build(BuildContext context) {
+    final sections = SocHubSection.visibleFor(isSuperAdmin: isSuperAdmin);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          for (final s in SocHubSection.values)
+          for (final s in sections)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(

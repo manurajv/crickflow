@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../models/audit_enums.dart';
 import '../models/audit_filters.dart';
 import '../models/audit_log_view.dart';
@@ -18,10 +19,10 @@ class AuditRepository {
   CollectionReference<Map<String, dynamic>> get _audit =>
       _db.collection(AdminCollections.adminAuditLogs);
 
-  /// Realtime newest-first feed (capped). Org-scoped when [organizationId] set.
+  /// Realtime newest-first feed (capped). Prefer [fetchTimeline] for hubs.
   Stream<List<AuditLogView>> watchTimeline({
     String? organizationId,
-    int limit = 40,
+    int limit = AdminQueryLimits.auditTimelineMax,
   }) {
     Query<Map<String, dynamic>> q = _audit.orderBy(
       'timestamp',
@@ -42,6 +43,29 @@ class AuditRepository {
         return logs;
       },
     );
+  }
+
+  /// One-shot timeline (default for Audit Center — avoids permanent listener).
+  Future<List<AuditLogView>> fetchTimeline({
+    String? organizationId,
+    int limit = AdminQueryLimits.auditTimelineMax,
+  }) async {
+    Query<Map<String, dynamic>> q = _audit.orderBy(
+      'timestamp',
+      descending: true,
+    );
+    final snap =
+        await q.limit(organizationId == null ? limit : limit * 3).get();
+    var logs = snap.docs
+        .map((d) => AuditLogView.fromFirestore(id: d.id, map: d.data()))
+        .toList();
+    if (organizationId != null && organizationId.isNotEmpty) {
+      logs = logs
+          .where((l) => l.organizationId == organizationId)
+          .take(limit)
+          .toList();
+    }
+    return logs;
   }
 
   Future<AuditPageResult> fetchPage({

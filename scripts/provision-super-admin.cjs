@@ -32,6 +32,8 @@ const ALL_PERMS = [
   'canManageSupport',
   'canManageAiOps',
   'canManageSecurity',
+  'canManageDeployments',
+  'canManageContinuity',
   'canManageCms',
   'canViewReports',
   'canManageSettings',

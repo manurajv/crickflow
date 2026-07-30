@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_user.dart';
 import '../../users/models/admin_audit_log.dart';
 import '../models/ads_enums.dart';
@@ -163,6 +164,12 @@ class AdsRepository {
     });
   }
 
+  Future<ManagedAdCampaign?> fetchCampaign(String id) async {
+    final snap = await _campaigns.doc(id).get();
+    if (!snap.exists || snap.data() == null) return null;
+    return ManagedAdCampaign.fromFirestore(id: snap.id, map: snap.data()!);
+  }
+
   Future<AdsSummaryStats> fetchSummary({
     required AdminAppType appType,
     required AdminUser? actor,
@@ -174,7 +181,7 @@ class AdsRepository {
         if (orgId == null || orgId.isEmpty) return const AdsSummaryStats();
         query = query.where('organizationId', isEqualTo: orgId);
       }
-      final snap = await query.limit(400).get();
+      final snap = await query.limit(AdminQueryLimits.summaryScanMax).get();
       final items = snap.docs
           .map((d) => ManagedAdCampaign.fromFirestore(id: d.id, map: d.data()))
           .toList();

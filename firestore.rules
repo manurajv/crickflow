@@ -253,11 +253,23 @@ service cloud.firestore {
 
     function isStreamMetadataUpdate() {
       let diff = request.resource.data.diff(resource.data);
-      return diff.affectedKeys().hasOnly(['stream'])
-        || diff.affectedKeys().hasOnly(['stream', 'updatedAt']);
+      return (diff.affectedKeys().hasOnly(['stream'])
+          || diff.affectedKeys().hasOnly(['stream', 'updatedAt']))
+        && streamMetadataHasNoSecrets();
     }
 
-    /// Any signed-in CrickFlow user may update stream metadata (go live).
+    /// Ingest credentials must never live on public match docs.
+    function streamMetadataHasNoSecrets() {
+      let s = request.resource.data.get('stream', {});
+      return (!('streamKey' in s)
+          || s.streamKey == null
+          || s.streamKey == '')
+        && (!('rtmpUrl' in s)
+          || s.rtmpUrl == null
+          || s.rtmpUrl == '');
+    }
+
+    /// Signed-in users may go live (product policy); secrets blocked above.
     function canUpdateStreamMetadata(matchId) {
       return isSignedIn();
     }
@@ -676,12 +688,31 @@ service cloud.firestore {
         );
     }
 
+    function userHasNoClientFcmOnParent() {
+      return !('fcmToken' in request.resource.data)
+        && !('fcmUpdatedAt' in request.resource.data);
+    }
+
     match /users/{userId} {
       allow read: if true;
-      allow create: if isOwner(userId);
-      allow update: if (isOwner(userId) && userPublicPlayerIdImmutable())
-        || canAdminUpdateUserDoc();
+      allow create: if isOwner(userId) && userHasNoClientFcmOnParent();
+      allow update: if (
+          (isOwner(userId) && userPublicPlayerIdImmutable())
+          || canAdminUpdateUserDoc()
+        )
+        && userHasNoClientFcmOnParent();
       allow delete: if isOwner(userId);
+
+      // FCM device tokens — owner write only; Cloud Functions read via Admin SDK.
+      match /private/{docId} {
+        allow read: if false;
+        allow create, update: if isOwner(userId)
+          && docId == 'fcm'
+          && request.resource.data.keys().hasOnly(['fcmToken', 'fcmUpdatedAt'])
+          && request.resource.data.fcmToken is string
+          && request.resource.data.fcmToken.size() > 0;
+        allow delete: if isOwner(userId);
+      }
 
       match /teamNotificationPrefs/{teamId} {
         allow read, write: if isOwner(userId);
@@ -951,10 +982,37 @@ service cloud.firestore {
       }
     }
 
+    /// Additive admin-managed keys on mobile `players`.
+    function onlyAdminManagedPlayerFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'adminFeatured',
+          'adminVerified',
+          'adminStatus',
+          'adminRecordStatus',
+          'adminDeletedAt',
+          'adminDeletedBy',
+          'organizationId',
+          'name',
+          'fullName',
+          'role',
+          'battingStyle',
+          'bowlingStyle',
+          'updatedAt'
+        ]);
+    }
+
+    function canAdminUpdatePlayerDoc() {
+      return onlyAdminManagedPlayerFields()
+        && playerPublicIdImmutable()
+        && (isSuperAdminUser() || isActiveAdminUser());
+    }
+
     match /players/{playerId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn()
+      allow update: if (
+        isSignedIn()
         && playerPublicIdImmutable()
         && (
           isMemberSelfLeavePlayerUpdate()
@@ -964,7 +1022,8 @@ service cloud.firestore {
           || isTeamOwnerAssigningPlayer()
           || isTeamLeadershipAssigningPlayer()
           || isLeadershipRemovingPlayer()
-        );
+        )
+      ) || canAdminUpdatePlayerDoc();
       allow delete: if isSignedIn() && (
         playerId == request.auth.uid ||
         resource.data.userId == request.auth.uid
@@ -1381,11 +1440,44 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid
         || resource.data.addedByUserId == request.auth.uid
       );
+      // Client creates must be typed, sized, and attributed to the actor.
+      // Blocks arbitrary spam to any userId with free-form title/body.
       allow create: if isSignedIn()
         && request.resource.data.userId is string
         && request.resource.data.userId.size() > 0
+        && request.resource.data.userId != request.auth.uid
         && request.resource.data.title is string
-        && request.resource.data.body is string;
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 500
+        && request.resource.data.type is string
+        && request.resource.data.addedByUserId == request.auth.uid
+        && request.resource.data.type in [
+          'player_follow',
+          'follower_milestone',
+          'community_like',
+          'community_comment',
+          'team_join_request',
+          'team_join_accepted',
+          'team_join_rejected',
+          'team_invitation',
+          'team_invitation_accepted',
+          'team_invitation_rejected',
+          'team_member_added',
+          'team_member_removed',
+          'tournament_invitation',
+          'tournament_invitation_accepted',
+          'tournament_invitation_rejected',
+          'tournament_join_request',
+          'tournament_join_approved',
+          'tournament_join_rejected',
+          'tournament_official_invitation',
+          'tournament_official_invitation_accepted',
+          'tournament_official_invitation_rejected',
+          'tournament_completed'
+        ];
     }
 
     match /matchFollowers/{followerId} {
@@ -1749,6 +1841,12 @@ service cloud.firestore {
       allow read, create, update, delete: if isActiveAdminUser();
     }
 
+    /// Revenue ledger — Super Admin only; metadata estimates, never card data.
+    match /admin_revenue_ledger/{id} {
+      allow read, create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
     /// Support Center (help desk) — additive; never community/private chats.
     match /admin_support_tickets/{id} {
       allow read, create, update, delete: if isActiveAdminUser();
@@ -1840,6 +1938,78 @@ service cloud.firestore {
 
     match /admin_security_policies/{id} {
       allow read: if isActiveAdminUser();
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    /// DevOps & Release Center — Super Admin only; no secrets stored.
+    match /admin_devops_releases/{id} {
+      allow read, create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_devops_deployments/{id} {
+      allow read, create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_devops_builds/{id} {
+      allow read, create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_devops_rollouts/{id} {
+      allow read, create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_devops_rollbacks/{id} {
+      allow read, create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_devops_domains/{id} {
+      allow read, create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_devops_env_vars/{id} {
+      allow read, create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_devops_timeline/{id} {
+      allow read, create: if isSuperAdminUser();
+      allow update, delete: if false;
+    }
+
+    match /admin_devops_settings/{id} {
+      allow read: if isSuperAdminUser();
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    /// Continuity / DR Center — Super Admin only; metadata only (no auto-restore).
+    match /admin_continuity_backups/{id} {
+      allow read, create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_continuity_restores/{id} {
+      allow read, create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_continuity_migrations/{id} {
+      allow read, create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_continuity_plans/{id} {
+      allow read, create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_continuity_timeline/{id} {
+      allow read, create: if isSuperAdminUser();
+      allow update, delete: if false;
+    }
+
+    match /admin_continuity_settings/{id} {
+      allow read: if isSuperAdminUser();
       allow create, update: if isSuperAdminUser();
       allow delete: if false;
     }

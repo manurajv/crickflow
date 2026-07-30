@@ -26,14 +26,31 @@ class SuperAdminApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final locale = ref.watch(adminLocaleProvider);
     final router = ref.watch(_routerProvider);
 
     return MaterialApp.router(
-      title: 'CrickFlow Super Admin',
+      onGenerateTitle: (context) => context.l10n.appTitleSuperAdmin,
       debugShowCheckedModeBanner: false,
       theme: AdminTheme.light(),
       darkTheme: AdminTheme.dark(),
       themeMode: themeMode,
+      locale: locale,
+      supportedLocales: AdminL10nConfig.supportedLocales,
+      localizationsDelegates: AdminL10nConfig.localizationsDelegates,
+      localeResolutionCallback: AdminL10nConfig.resolutionCallback,
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: mq.textScaler.clamp(
+              minScaleFactor: 0.9,
+              maxScaleFactor: 1.6,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       routerConfig: router,
     );
   }

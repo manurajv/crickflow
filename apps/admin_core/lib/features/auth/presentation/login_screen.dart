@@ -54,6 +54,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (_) {
       // Ignore — no pending redirect.
     }
+    if (!mounted) return;
   }
 
   @override
@@ -77,11 +78,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         password: _password.text,
         rememberMe: _rememberMe,
       );
+      if (!mounted) return;
       await ref.read(sessionPreferencesProvider).saveRememberedEmail(
             rememberMe: _rememberMe,
             email: _email.text,
           );
       await auth.refreshIdToken(forceRefresh: true);
+      if (!mounted) return;
       final user = auth.currentUser;
       if (user != null) {
         await ref.read(auditLoggerProvider).logAuthEvent(
@@ -92,6 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             );
       }
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() => _error = _mapAuthError(e));
       await ref.read(auditLoggerProvider).logAuthEvent(
             action: AdminAuditActions.adminLoginFailed,
@@ -102,6 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             severity: AuditSeverity.high,
           );
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -117,11 +122,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final auth = ref.read(authServiceProvider);
       await auth.signInWithGoogle(rememberMe: _rememberMe);
+      if (!mounted) return;
       await ref.read(sessionPreferencesProvider).saveRememberedEmail(
             rememberMe: _rememberMe,
             email: auth.currentUser?.email ?? _email.text,
           );
       await auth.refreshIdToken(forceRefresh: true);
+      if (!mounted) return;
       final user = auth.currentUser;
       if (user != null) {
         await ref.read(auditLoggerProvider).logAuthEvent(
@@ -133,12 +140,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             );
       }
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       if (e.code == 'popup-closed-by-user' || e.code == 'cancelled-popup-request') {
         // User cancelled — no error toast.
       } else {
         setState(() => _error = _mapAuthError(e));
       }
     } catch (e) {
+      if (!mounted) return;
       if (e.toString().contains('redirect started')) {
         setState(() => _info = 'Continuing Google sign-in…');
       } else {
@@ -162,6 +171,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
     try {
       await ref.read(authServiceProvider).sendPasswordReset(email);
+      if (!mounted) return;
       setState(() => _info = 'Password reset email sent to $email');
       await ref.read(auditLoggerProvider).logAuthEvent(
             action: AdminAuditActions.adminPasswordResetRequested,
@@ -170,8 +180,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             severity: AuditSeverity.warning,
           );
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() => _error = _mapAuthError(e));
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);

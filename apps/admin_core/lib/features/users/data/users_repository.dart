@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_role.dart';
 import '../../../models/admin_user.dart';
 import '../models/admin_audit_log.dart';
@@ -288,7 +289,7 @@ class UsersRepository {
 
     // Count via limited reads — placeholders when aggregation unavailable.
     try {
-      final snap = await base.limit(500).get();
+      final snap = await base.limit(AdminQueryLimits.summaryScanMax).get();
       final users = snap.docs
           .map((d) => ManagedUser.fromFirestore(id: d.id, map: d.data()))
           .toList();

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_user.dart';
 import '../models/analytics_filters.dart';
 import '../models/analytics_models.dart';
@@ -19,7 +20,7 @@ class AnalyticsRepository {
   final FirebaseFirestore _db;
 
   static const _cacheTtl = Duration(minutes: 2);
-  static const _sampleLimit = 400;
+  static const _sampleLimit = AdminQueryLimits.analyticsSampleMax;
 
   AnalyticsSnapshot? _cache;
   String? _cacheKey;

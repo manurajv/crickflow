@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../users/models/admin_audit_log.dart';
 import '../models/monitoring_enums.dart';
 import '../models/monitoring_filters.dart';
@@ -19,7 +20,7 @@ class MonitoringRepository {
   final FirebaseFirestore _db;
 
   static const _cacheTtl = Duration(minutes: 2);
-  static const _sampleLimit = 80;
+  static const _sampleLimit = AdminQueryLimits.monitoringSampleMax;
 
   MonitoringSnapshot? _cache;
   DateTime? _cacheAt;

@@ -1,0 +1,129 @@
+name: Admin PR Validation
+
+# Quality gates for CrickFlow Admin (apps/*). Does not deploy.
+on:
+  pull_request:
+    branches: [main, develop, staging]
+    paths:
+      - 'apps/**'
+      - 'config/admin/**'
+      - 'firebase.admin.json'
+      - '.github/workflows/admin-*.yml'
+      - 'docs/developer/cicd.md'
+
+concurrency:
+  group: admin-pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-admin-core:
+    name: Analyze admin_core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin_core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Format check
+        run: dart format --output=none --set-exit-if-changed .
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+      - name: Unit tests
+        run: flutter test
+
+  analyze-admin:
+    name: Analyze org admin
+    runs-on: ubuntu-latest
+    needs: analyze-admin-core
+    defaults:
+      run:
+        working-directory: apps/admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter analyze --fatal-infos
+
+  analyze-superadmin:
+    name: Analyze superadmin
+    runs-on: ubuntu-latest
+    needs: analyze-admin-core
+    defaults:
+      run:
+        working-directory: apps/superadmin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter analyze --fatal-infos
+
+  build-web:
+    name: Build web (verification)
+    runs-on: ubuntu-latest
+    needs: [analyze-admin, analyze-superadmin]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Read version
+        id: ver
+        run: echo "version=$(tr -d '[:space:]' < apps/VERSION)" >> "$GITHUB_OUTPUT"
+      - name: Pub get (core)
+        working-directory: apps/admin_core
+        run: flutter pub get
+      - name: Build Organization Admin
+        working-directory: apps/admin
+        run: |
+          flutter pub get
+          flutter build web --release \
+            --dart-define=ADMIN_ENV=testing \
+            --dart-define=ADMIN_VERSION=${{ steps.ver.outputs.version }} \
+            --dart-define=ADMIN_BUILD_NUMBER=${{ github.run_number }} \
+            --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
+            --dart-define=ADMIN_GIT_REF=${{ github.head_ref || github.ref_name }}
+      - name: Build Super Admin
+        working-directory: apps/superadmin
+        run: |
+          flutter pub get
+          flutter build web --release \
+            --dart-define=ADMIN_ENV=testing \
+            --dart-define=ADMIN_VERSION=${{ steps.ver.outputs.version }} \
+            --dart-define=ADMIN_BUILD_NUMBER=${{ github.run_number }} \
+            --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
+            --dart-define=ADMIN_GIT_REF=${{ github.head_ref || github.ref_name }}
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-web-pr-${{ github.event.pull_request.number }}
+          path: |
+            apps/admin/build/web
+            apps/superadmin/build/web
+          retention-days: 7
+
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

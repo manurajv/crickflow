@@ -75,6 +75,12 @@ GoRouter createOrgAdminRouter(Ref ref) {
             ),
           ),
           GoRoute(
+            path: AdminRoutePaths.players,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PlayersScreen(),
+            ),
+          ),
+          GoRoute(
             path: AdminRoutePaths.grounds,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: GroundsScreen(),
@@ -188,6 +194,4 @@ List<RouteBase> get _placeholders => [
         ),
     ];
 
-const _placeholderRoutes = <String, String>{
-  AdminRoutePaths.players: 'Players',
-};
+const _placeholderRoutes = <String, String>{};

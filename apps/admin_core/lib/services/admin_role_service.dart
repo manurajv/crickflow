@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/cache/admin_cache.dart';
 import '../core/constants/admin_collections.dart';
+import '../core/logging/admin_logger.dart';
 import '../models/admin_role.dart';
 import '../models/role_definition.dart';
 
@@ -64,21 +66,34 @@ class AdminRoleService {
   }
 
   Future<int> countUsersWithRole(String roleId) async {
+    final cacheKey = 'role.usage.$roleId';
+    final cached = AdminCache.shared.get<int>(cacheKey);
+    if (cached != null) return cached;
+
     try {
       final agg = await _db
           .collection(AdminCollections.adminUsers)
           .where('roleId', isEqualTo: roleId)
           .count()
           .get();
-      return agg.count ?? 0;
-    } catch (_) {
+      final n = agg.count ?? 0;
+      AdminCache.shared.set(cacheKey, n, ttl: const Duration(minutes: 5));
+      return n;
+    } catch (e) {
+      AdminLogger.debug(
+        'countUsersWithRole aggregation failed',
+        module: 'roles',
+        error: e,
+      );
       try {
         final snap = await _db
             .collection(AdminCollections.adminUsers)
             .where('roleId', isEqualTo: roleId)
             .limit(50)
             .get();
-        return snap.docs.length;
+        final n = snap.docs.length;
+        AdminCache.shared.set(cacheKey, n, ttl: const Duration(minutes: 5));
+        return n;
       } catch (_) {
         return 0;
       }
@@ -87,6 +102,7 @@ class AdminRoleService {
 
   Future<void> saveRole(RoleDefinition role) async {
     await _doc(role.id).set(role.toSeedMap(), SetOptions(merge: true));
+    AdminCache.shared.invalidatePrefix('role.usage');
   }
 
   Future<RoleDefinition> duplicateRole(RoleDefinition source, String newId) async {

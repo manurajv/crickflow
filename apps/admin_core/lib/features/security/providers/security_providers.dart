@@ -150,6 +150,11 @@ class SecurityHubController extends StateNotifier<SecurityHubState> {
   }
 
   Future<void> setSection(SocHubSection section) async {
+    if (!isSuperAdmin && section.isPlatformOnly) {
+      state = state.copyWith(section: SocHubSection.dashboard);
+      await refresh();
+      return;
+    }
     state = state.copyWith(section: section);
     await refresh();
   }
@@ -176,11 +181,19 @@ class SecurityHubController extends StateNotifier<SecurityHubState> {
       appType: _appType,
       actor: actor,
     );
-    final section = state.section;
+    var section = state.section;
+    if (!isSuperAdmin && section.isPlatformOnly) {
+      section = SocHubSection.dashboard;
+      state = state.copyWith(section: section);
+    }
 
     switch (section) {
       case SocHubSection.roleManagement:
       case SocHubSection.permissionManagement:
+        if (!isSuperAdmin) {
+          state = state.copyWith(summary: summary, roles: const []);
+          return;
+        }
         final roles = await _repo.fetchRoles();
         state = state.copyWith(roles: roles, summary: summary);
         return;

@@ -1,0 +1,63 @@
+name: Admin Release
+
+# Creates a GitHub Release from apps/VERSION. Does not deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Optional tag override (default vX.Y.Z from apps/VERSION)
+        required: false
+        default: ''
+      prerelease:
+        description: Mark as prerelease
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve tag
+        id: tag
+        run: |
+          VER=$(tr -d '[:space:]' < apps/VERSION)
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="v$VER"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+      - name: Generate notes
+        run: |
+          {
+            echo "## CrickFlow Admin $TAG"
+            echo
+            echo "- Version file: \`apps/VERSION\` → ${{ steps.tag.outputs.version }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Actor: @${{ github.actor }}"
+            echo
+            echo "### Deployment"
+            echo
+            echo "This release **does not** deploy Hosting. Run **Admin Deploy (manual)** after QA."
+            echo
+            echo "### Handbook"
+            echo
+            echo "See \`docs/developer/cicd.md\` and DevOps Center quality gates."
+          } > /tmp/notes.md
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: CrickFlow Admin ${{ steps.tag.outputs.tag }}
+          body_path: /tmp/notes.md
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true

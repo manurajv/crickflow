@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../core/cache/admin_cache.dart';
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_user.dart';
 import '../../users/models/admin_audit_log.dart';
 import '../models/ground_enums.dart';
@@ -28,8 +30,9 @@ class GroundsRepository {
   CollectionReference<Map<String, dynamic>> get _audit =>
       _db.collection(AdminCollections.adminAuditLogs);
 
-  static const _tournamentScanLimit = 1000;
-  static const _registryScanLimit = 500;
+  static const _tournamentScanLimit =
+      AdminQueryLimits.groundsTournamentScanMax;
+  static const _registryScanLimit = AdminQueryLimits.groundsRegistryScanMax;
 
   Future<GroundPageResult> fetchPage({
     required AdminAppType appType,
@@ -105,40 +108,47 @@ class GroundsRepository {
   }
 
   /// Builds unique grounds from tournaments, merged with registry metadata.
+  /// Cached for 2 minutes to avoid re-scanning tournaments on every page flip.
   Future<List<ManagedGround>> _loadCatalog({
     required AdminAppType appType,
     required AdminUser? actor,
   }) async {
-    final fromTournaments = await _aggregateFromTournaments(
-      appType: appType,
-      actor: actor,
-    );
-    final registry = await _loadRegistry(appType: appType, actor: actor);
+    final orgKey = appType == AdminAppType.organizationAdmin
+        ? (actor?.organizationId ?? 'none')
+        : 'global';
+    final cacheKey = 'grounds.catalog.$orgKey';
+    return AdminCache.shared.getOrLoad(cacheKey, () async {
+      final fromTournaments = await _aggregateFromTournaments(
+        appType: appType,
+        actor: actor,
+      );
+      final registry = await _loadRegistry(appType: appType, actor: actor);
 
-    // Collapse by normalized ground name (fixes city-split duplicates).
-    final byName = <String, ManagedGround>{};
+      // Collapse by normalized ground name (fixes city-split duplicates).
+      final byName = <String, ManagedGround>{};
 
-    void upsert(ManagedGround g) {
-      final key = ManagedGround.normalizeNameKey(g.name);
-      if (key.isEmpty) return;
-      final existing = byName[key];
-      if (existing == null) {
-        byName[key] = g;
-      } else {
-        byName[key] = _mergeSameName(existing, g);
+      void upsert(ManagedGround g) {
+        final key = ManagedGround.normalizeNameKey(g.name);
+        if (key.isEmpty) return;
+        final existing = byName[key];
+        if (existing == null) {
+          byName[key] = g;
+        } else {
+          byName[key] = _mergeSameName(existing, g);
+        }
       }
-    }
 
-    for (final g in fromTournaments) {
-      upsert(g);
-    }
-    for (final reg in registry) {
-      if (_visibleToActor(reg, appType: appType, actor: actor)) {
-        upsert(reg);
+      for (final g in fromTournaments) {
+        upsert(g);
       }
-    }
+      for (final reg in registry) {
+        if (_visibleToActor(reg, appType: appType, actor: actor)) {
+          upsert(reg);
+        }
+      }
 
-    return byName.values.toList();
+      return byName.values.toList();
+    });
   }
 
   /// Prefer tournament-derived canonical id; keep richer admin / location fields.
@@ -502,19 +512,30 @@ class GroundsRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) {
-    return _grounds.doc(id).snapshots().asyncMap((snap) async {
-      if (snap.exists && snap.data() != null) {
-        final g = ManagedGround.fromFirestore(id: snap.id, map: snap.data()!);
-        if (!_visibleToActor(g, appType: appType, actor: actor)) return null;
-        return g;
-      }
-      final catalog = await _loadCatalog(appType: appType, actor: actor);
-      try {
-        return catalog.firstWhere((g) => g.id == id);
-      } catch (_) {
-        return null;
-      }
-    });
+    return Stream.fromFuture(
+      fetchById(id, appType: appType, actor: actor),
+    );
+  }
+
+  /// One-shot detail — avoids reloading the full tournament catalog on every
+  /// snapshot event (previous `.snapshots().asyncMap` cost).
+  Future<ManagedGround?> fetchById(
+    String id, {
+    required AdminAppType appType,
+    required AdminUser? actor,
+  }) async {
+    final snap = await _grounds.doc(id).get();
+    if (snap.exists && snap.data() != null) {
+      final g = ManagedGround.fromFirestore(id: snap.id, map: snap.data()!);
+      if (!_visibleToActor(g, appType: appType, actor: actor)) return null;
+      return g;
+    }
+    final catalog = await _loadCatalog(appType: appType, actor: actor);
+    try {
+      return catalog.firstWhere((g) => g.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<AdminAuditLogEntry>> fetchAuditForGround(
@@ -548,6 +569,7 @@ class GroundsRepository {
     }
     await ref.set(data);
     final created = ManagedGround.fromFirestore(id: ref.id, map: data);
+    AdminCache.shared.invalidatePrefix('grounds.catalog');
     await _writeAudit(
       action: AdminAuditActions.groundCreated,
       actor: actor,
@@ -581,6 +603,7 @@ class GroundsRepository {
       'adminFeatured': featured,
       'updatedAt': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
+    AdminCache.shared.invalidatePrefix('grounds.catalog');
     await _writeAudit(
       action: featured
           ? AdminAuditActions.groundFeatured
@@ -656,6 +679,7 @@ class GroundsRepository {
       'adminDeletedBy': actor.uid,
       'updatedAt': now,
     }, SetOptions(merge: true));
+    AdminCache.shared.invalidatePrefix('grounds.catalog');
     await _writeAudit(
       action: AdminAuditActions.groundSoftDeleted,
       actor: actor,
@@ -677,6 +701,7 @@ class GroundsRepository {
       'adminDeletedBy': FieldValue.delete(),
       'updatedAt': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
+    AdminCache.shared.invalidatePrefix('grounds.catalog');
     await _writeAudit(
       action: AdminAuditActions.groundRestored,
       actor: actor,

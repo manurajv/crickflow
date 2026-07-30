@@ -1,0 +1,62 @@
+# CrickFlow Admin — environment matrix (documentation only)
+#
+# Never put secrets, API keys, or service-account JSON in this file.
+# Real Firebase options live in each app's firebase_options.dart (or future
+# per-env variants). Switch builds with --dart-define=ADMIN_ENV=...
+#
+# Isolated Firebase projects for non-prod are recommended when available.
+# Until then, use the same project carefully and never mix Hosting sites.
+
+environments:
+  development:
+    admin_env: development
+    firebase_project_id: crickflow-b06bc   # or crickflow-admin-dev (future)
+    hosting_site_admin: crickflow-admin-dev
+    hosting_site_superadmin: crickflow-superadmin-dev
+    domains:
+      - localhost
+    notes: Local flutter run; Auth authorized domain localhost
+
+  testing:
+    admin_env: testing
+    firebase_project_id: crickflow-b06bc   # or crickflow-admin-test (future)
+    hosting_site_admin: crickflow-admin-test
+    hosting_site_superadmin: crickflow-superadmin-test
+    domains:
+      - admin-test.crickflow.app
+      - superadmin-test.crickflow.app
+    notes: CI preview / QA; optional Hosting preview channels
+
+  staging:
+    admin_env: staging
+    firebase_project_id: crickflow-b06bc   # or crickflow-admin-staging (future)
+    hosting_site_admin: crickflow-admin-staging
+    hosting_site_superadmin: crickflow-superadmin-staging
+    domains:
+      - admin-staging.crickflow.app
+      - superadmin-staging.crickflow.app
+    notes: Pre-production validation; manual promote only
+
+  production:
+    admin_env: production
+    firebase_project_id: crickflow-b06bc
+    hosting_site_admin: crickflow-admin
+    hosting_site_superadmin: crickflow-superadmin
+    domains:
+      - admin.crickflow.app
+      - superadmin.crickflow.app
+    notes: Production; deploy only via workflow_dispatch + approvals
+
+github_secrets_required:
+  - FIREBASE_SERVICE_ACCOUNT_PRODUCTION  # JSON for prod deploys (Actions secret)
+  - FIREBASE_SERVICE_ACCOUNT_STAGING     # optional isolated staging
+  - FIREBASE_TOKEN                       # alternative to service account
+  # Never commit the values of these secrets.
+
+dart_defines_example: >
+  flutter build web --release
+  --dart-define=ADMIN_ENV=staging
+  --dart-define=ADMIN_VERSION=0.2.0
+  --dart-define=ADMIN_BUILD_NUMBER=123
+  --dart-define=ADMIN_FIREBASE_PROJECT_ID=crickflow-b06bc
+  --dart-define=ADMIN_GIT_SHA=$GITHUB_SHA

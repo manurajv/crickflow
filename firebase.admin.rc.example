@@ -1,0 +1,28 @@
+# Optional Firebase RC fragment for Admin Hosting multi-site targets.
+#
+# DO NOT replace `.firebaserc` blindly — merge manually in Firebase Console /
+# CLI when ready:
+#
+#   firebase target:apply hosting admin <SITE_ID>
+#   firebase target:apply hosting superadmin <SITE_ID>
+#
+# Example (placeholders — replace SITE_IDs after creating Hosting sites):
+#
+# {
+#   "projects": { "default": "crickflow-b06bc" },
+#   "targets": {
+#     "crickflow-b06bc": {
+#       "hosting": {
+#         "admin": ["crickflow-admin"],
+#         "superadmin": ["crickflow-superadmin"]
+#       }
+#     }
+#   }
+# }
+#
+# Deploy using the separate config (does not alter mobile `public/` hosting):
+#
+#   firebase deploy --only hosting:admin,hosting:superadmin \
+#     -c firebase.admin.json --project crickflow-b06bc
+#
+# Production deploys must be manual (GitHub Actions workflow_dispatch).

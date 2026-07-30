@@ -4,7 +4,6 @@ abstract final class AdminRoutePaths {
   static const accessDenied = '/access-denied';
   static const dashboard = '/';
 
-  // Placeholder destinations (navigation only — modules not implemented yet)
   static const users = '/users';
   static const teams = '/teams';
   static const players = '/players';
@@ -22,7 +21,12 @@ abstract final class AdminRoutePaths {
   static const support = '/support';
   static const aiOps = '/ai-ops';
   static const security = '/security';
-  // Remaining placeholders
+  static const devops = '/devops';
+
+  /// Continuity / Backup / DR hub (Super Admin).
+  static const continuity = '/continuity';
+
+  static const docs = '/docs';
   static const cms = '/cms';
   static const settings = '/settings';
   static const logs = '/logs';

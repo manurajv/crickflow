@@ -408,10 +408,10 @@ final adsHubControllerProvider =
 });
 
 final selectedAdCampaignProvider =
-    StreamProvider.autoDispose<ManagedAdCampaign?>((ref) {
+    FutureProvider.autoDispose<ManagedAdCampaign?>((ref) async {
   final id = ref.watch(adsHubControllerProvider).selectedId;
-  if (id == null) return Stream.value(null);
-  return ref.watch(adsRepositoryProvider).watchCampaign(id);
+  if (id == null) return null;
+  return ref.watch(adsRepositoryProvider).fetchCampaign(id);
 });
 
 final adsAuditProvider =

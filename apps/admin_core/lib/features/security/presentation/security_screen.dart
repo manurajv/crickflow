@@ -79,7 +79,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             const SizedBox(height: 16),
             SocSectionChips(
               section: state.section,
+              isSuperAdmin: isSuperAdmin,
               onChanged: (s) async {
+                if (!isSuperAdmin && s.isPlatformOnly) return;
                 _draftPolicies = null;
                 await controller.setSection(s);
                 ref.read(breadcrumbProvider.notifier).state = [

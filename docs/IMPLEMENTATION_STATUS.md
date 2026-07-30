@@ -3,13 +3,172 @@
 
 
 
-**Last updated:** Security Operations Center (SOC)
+**Last updated:** Play Store release hardening (mobile C1–C4 + Crashlytics)
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
-> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Play launch:** [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Production certificate:** [PRODUCTION_READINESS_CERTIFICATE.md](PRODUCTION_READINESS_CERTIFICATE.md) · **Developer handbook:** [developer/README.md](developer/README.md) · **CI/CD:** [developer/cicd.md](developer/cicd.md) · **Continuity:** [developer/continuity.md](developer/continuity.md) · **Admin design:** [WEB_ADMIN_DESIGN.md](WEB_ADMIN_DESIGN.md) · **Production:** [WEB_ADMIN_PRODUCTION.md](WEB_ADMIN_PRODUCTION.md) · **i18n / a11y:** [WEB_ADMIN_I18N_A11Y.md](WEB_ADMIN_I18N_A11Y.md) · **QA report:** [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Mobile — Play Store hardening)
+
+| Item | Status |
+|------|--------|
+| AdMob `forceTestAds = false` (C4) | Done |
+| FCM token → `users/{uid}/private/fcm` + CF fallback (C1) | Done — **deploy rules + functions** |
+| Stream `streamKey`/`rtmpUrl` omitted from public match docs (C2) | Done — rules reject secrets |
+| Notification create allowlist + `addedByUserId` (C3) | Done — **deploy rules** |
+| Crashlytics wired (`main.dart` + Android plugin) | Done — enable product in Firebase Console |
+| Maps key GCP restriction + launch runbook | Ops — [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md) |
+| App Check (H1) | Still pending (ops) |
+| Signing / Play Console listing / screenshots | Ops — user |
+
+## Previous (Web Admin — Revenue)
+
+| Item | Status |
+|------|--------|
+| Revenue hub `/revenue` (replaces placeholder) | Done |
+| Dashboard + ads/sponsorship estimates from admin metadata | Done |
+| Subscriptions / payouts / integrations architecture panels | Done |
+| Optional `admin_revenue_ledger` (Super Admin rules) | Done |
+| Payment gateway / card charging | **Never** from this UI |
+| Mobile / business logic | Untouched |
+
+## Previous (Web Admin — Players)
+
+| Item | Status |
+|------|--------|
+| Players hub `/players` (replaces placeholder) | Done |
+| Summary cards, search, filters, paginated table, detail panel | Done |
+| Additive admin meta (feature / verify / suspend / soft-delete) | Done |
+| Org Admin scoped via org teams → playerIds | Done |
+| Firestore admin update path for players | Done |
+| Career stats / roster mutation from admin | Untouched (by design) |
+
+## Previous (Final Production Readiness Audit)
+
+| Item | Status |
+|------|--------|
+| Full-ecosystem production audit | Done — [PRODUCTION_READINESS_CERTIFICATE.md](PRODUCTION_READINESS_CERTIFICATE.md) |
+| Public launch certification | **NO-GO** until Critical C1–C5 + App Check |
+| Closed beta | **CONDITIONAL GO** with mitigations |
+| Live scoring / admin CI / Continuity safety | PASS |
+| Business logic changes in audit pass | None (review-only) |
+
+## Previous (Web Admin — Continuity & DR)
+
+| Item | Status |
+|------|--------|
+| Continuity hub `/continuity` (Super Admin only) | Done |
+| Backup dashboard + Firestore/Storage/config metadata | Done |
+| Backup history, validate, soft-archive | Done |
+| Restore Center (preview + typed confirmation only) | Done |
+| Recovery plans + Disaster Recovery dashboard | Done |
+| Migration dry-run + Import/Export architecture stubs | Done |
+| Health verification checklist + timeline + audit | Done |
+| Never auto-restores / never overwrites production from UI | Done |
+| Additive `admin_continuity_*` + Firestore Super Admin rules | Done |
+| Permission `canManageContinuity` (not in Org Admin defaults) | Done |
+| Mobile / business logic | Untouched |
+
+## Previous (Web Admin — CI/CD)
+
+| Item | Status |
+|------|--------|
+| GitHub Actions: PR / main / security / release / **manual** deploy | Done |
+| `firebase.admin.json` (Admin Hosting only; mobile hosting untouched) | Done |
+| Env matrix + `AdminEnvConfig` dart-defines | Done |
+| Dependabot for admin packages | Done |
+| DevOps quality gates include CI checks | Done |
+| Auto-deploy on push | **Never** (by design) |
+
+## Previous (Web Admin — Developer Documentation)
+
+| Item | Status |
+|------|--------|
+| Handbook `docs/developer/*` (architecture → roadmap) | Done |
+| In-app Docs Center `/docs` (Super Admin, searchable) | Done |
+| Assets mirror `admin_core/assets/docs/` | Done |
+| Mermaid diagrams in architecture/auth/state docs | Done |
+| No secrets / no business-logic changes | Done |
+
+## Previous (Web Admin — Accessibility & i18n)
+
+| Item | Status |
+|------|--------|
+| ARB + gen-l10n (`en`, `si`, `ta`, `hi`, `ar` RTL scaffold) | Done |
+| MaterialApp locale / delegates / text scale clamp | Done |
+| Language switcher + `SessionPreferences` regional persistence | Done |
+| `AdminFormatters` (date / time / number / TZ modes) | Done |
+| Shell nav + account menu localization | Done |
+| WCAG-oriented muted contrast + a11y helpers | Done |
+| Export / multilingual search facades | Architecture ready |
+| Per-module string migration | Incremental (pattern in docs) |
+
+## Previous (Web Admin — Enterprise QA)
+
+| Item | Status |
+|------|--------|
+| Full-module QA audit (Critical→Low) | Done — [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md) |
+| Org Admin session data leak (SOC) | Fixed |
+| Platform-only SOC sections for Org Admin | Fixed (hidden + load gated) |
+| `/reports` any-of permission vs router | Fixed (`AdminRoutePermissions.isAllowed`) |
+| Match commentary / DevOps filter controller leaks | Fixed |
+| Unit tests: route permissions + SOC visibility | Done |
+| Firestore `admin_audit_logs` org rule harden | Deferred (needs query+index coordination) |
+
+## Previous (Web Admin — DevOps & Release Center)
+
+| Item | Status |
+|------|--------|
+| DevOps hub `/devops` (Super Admin only) | Done |
+| Deployment dashboard + environment manager | Done |
+| Release management + release notes | Done |
+| Build monitor / feature rollout / rollback (architecture) | Done |
+| Deployment logs + timeline + quality gates | Done |
+| Domain monitor + env var key metadata (masked) | Done |
+| Never auto-deploys or auto-rollbacks | Done |
+| Secrets never stored/shown | Done |
+| Additive `admin_devops_*` + Firestore Super Admin rules | Done |
+| Mobile / business logic / Firebase auto-config | Untouched |
+
+---
+
+## Latest (Web Admin — Production Readiness)
+
+| Item | Status |
+|------|--------|
+| Shared `AdminCache` / `AdminLogger` / `AdminErrors` / `AdminDebouncer` | Done |
+| `AdminQueryLimits` (summary / analytics / grounds caps) | Done |
+| Detail panels: Stream → one-shot Future (users, orgs, teams, tournaments, grounds, ads, notifications, moderation) | Done |
+| Keep realtime: auth session, support messages, live match/broadcast | Done |
+| Audit timeline one-shot + hub refresh invalidate | Done |
+| Grounds catalog TTL cache + lower tournament scan (500) | Done |
+| Role usage count cache (5 min) | Done |
+| `CfNetworkImage` lazy/progressive helper | Done |
+| Remove unused FlutterFire deps from `admin_core` | Done |
+| Docs: `WEB_ADMIN_PRODUCTION.md` (cost, testing/CI readiness) | Done |
+| Business logic / UI redesign / mobile app | Untouched |
+
+---
+
+## Latest (Web Admin — Design System & UX polish)
+
+| Item | Status |
+|------|--------|
+| Design tokens (`AdminDimens`, typography, motion, elevations) | Done |
+| Light / dark theme refinement (M3 + brand secondary gold) | Done |
+| Shared `Cf*` kit upgrade (buttons, cards, tables, dialogs, snacks) | Done |
+| Skeleton loaders + error / empty / loading states | Done |
+| Filter drawer chrome + page header helpers | Done |
+| Status badge + search chips | Done |
+| Shell polish (sidebar selected/hover, top bar, breadcrumbs) | Done |
+| Docs: `WEB_ADMIN_DESIGN.md` | Done |
+| Feature modules rewritten | Not in scope (opportunistic adoption) |
+| Mobile app / Firestore / APIs / auth / business logic | Untouched |
 
 ---
 
@@ -231,6 +390,8 @@
 | **Support Center** (`SupportScreen`; `/support`; tickets, KB, FAQ, CSAT) | Done |
 | **AI Operations** (`AiOpsScreen`; `/ai-ops`; rules, recommendations, jobs) | Done |
 | **Security Center** (`SecurityScreen`; `/security`; SOC, access, DR) | Done |
+| **DevOps & Releases** (`DevOpsScreen`; `/devops`; Super Admin) | Done |
+| **Continuity & DR** (`ContinuityScreen`; `/continuity`; Super Admin) | Done |
 | **User Management** (`UsersScreen` in admin_core; wired in both apps) | Done |
 | Paginated Firestore user list + search/filters + summary cards | Done |
 | User detail side panel + confirmable actions + audit logs | Done |
@@ -528,7 +689,7 @@
 | **Unified search** — AppBar search → autofocus screen, recent chips (SharedPreferences), category suggestions, filter tabs, ranked results | Done — `/search`, `/search/results` |
 | **Home layout** — Nearby → Promotions → Live / Upcoming / Recent → Tournaments → banner | Done — existing auth/nav/FAB preserved |
 | Deploy Firestore rules for `home_promotions` | Pending — `.\scripts\deploy-firebase.ps1` |
-| Replace AdMob test IDs with production units | Pending — set `AdMobConfig.forceTestAds = false` + real IDs |
+| Replace AdMob test IDs with production units | Done — `forceTestAds = false`; verify units in AdMob console |
 
 ---
 

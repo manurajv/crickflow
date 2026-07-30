@@ -35,6 +35,24 @@ enum SocHubSection {
         SocHubSection.securityPolicies => 'Security Policies',
         SocHubSection.compliance => 'Compliance',
       };
+
+  /// Platform-wide SOC tools — Super Admin only (unscoped data / DR architecture).
+  bool get isPlatformOnly => switch (this) {
+        SocHubSection.roleManagement ||
+        SocHubSection.permissionManagement ||
+        SocHubSection.ipManagement ||
+        SocHubSection.apiSecurity ||
+        SocHubSection.backupCenter ||
+        SocHubSection.restoreCenter ||
+        SocHubSection.disasterRecovery ||
+        SocHubSection.securityPolicies ||
+        SocHubSection.compliance =>
+          true,
+        _ => false,
+      };
+
+  static List<SocHubSection> visibleFor({required bool isSuperAdmin}) =>
+      values.where((s) => isSuperAdmin || !s.isPlatformOnly).toList();
 }
 
 enum SocSeverity {

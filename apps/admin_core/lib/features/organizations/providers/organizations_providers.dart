@@ -352,12 +352,12 @@ final organizationsListControllerProvider = StateNotifierProvider.autoDispose<
 });
 
 final selectedManagedOrganizationProvider =
-    StreamProvider.autoDispose<ManagedOrganization?>((ref) {
+    FutureProvider.autoDispose<ManagedOrganization?>((ref) async {
   final id = ref.watch(
     organizationsListControllerProvider.select((s) => s.selectedId),
   );
-  if (id == null) return Stream.value(null);
-  return ref.watch(organizationsRepositoryProvider).watchById(id);
+  if (id == null) return null;
+  return ref.watch(organizationsRepositoryProvider).fetchById(id);
 });
 
 final organizationRelatedCountsProvider =

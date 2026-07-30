@@ -26,6 +26,9 @@ abstract final class AdminCollections {
   /// Mobile teams (read / limited admin updates of additive fields).
   static const teams = 'teams';
 
+  /// Mobile player profiles (read / limited admin updates of additive fields).
+  static const players = 'players';
+
   /// Optional grounds registry (admin materializes on first write).
   static const grounds = 'grounds';
 
@@ -148,4 +151,52 @@ abstract final class AdminCollections {
 
   /// Security policies singleton (`global` doc).
   static const adminSecurityPolicies = 'admin_security_policies';
+
+  /// DevOps releases (metadata only — never triggers deploys).
+  static const adminDevopsReleases = 'admin_devops_releases';
+
+  /// Deployment log events (CI/CD webhooks later).
+  static const adminDevopsDeployments = 'admin_devops_deployments';
+
+  /// Build monitor entries.
+  static const adminDevopsBuilds = 'admin_devops_builds';
+
+  /// Feature rollout plans (Remote Config later).
+  static const adminDevopsRollouts = 'admin_devops_rollouts';
+
+  /// Rollback plans (architecture only — no auto rollback).
+  static const adminDevopsRollbacks = 'admin_devops_rollbacks';
+
+  /// Domain monitor entries.
+  static const adminDevopsDomains = 'admin_devops_domains';
+
+  /// Env var key metadata only — never secret values.
+  static const adminDevopsEnvVars = 'admin_devops_env_vars';
+
+  /// DevOps timeline events.
+  static const adminDevopsTimeline = 'admin_devops_timeline';
+
+  /// DevOps settings singleton (`global`).
+  static const adminDevopsSettings = 'admin_devops_settings';
+
+  /// Continuity / DR backup metadata (never stores secrets or payload blobs).
+  static const adminContinuityBackups = 'admin_continuity_backups';
+
+  /// Restore preview / confirmation requests (never auto-applies).
+  static const adminContinuityRestores = 'admin_continuity_restores';
+
+  /// Migration dry-run / planned jobs.
+  static const adminContinuityMigrations = 'admin_continuity_migrations';
+
+  /// Recovery plan documents.
+  static const adminContinuityPlans = 'admin_continuity_plans';
+
+  /// Continuity timeline events.
+  static const adminContinuityTimeline = 'admin_continuity_timeline';
+
+  /// Continuity settings singleton (`global`).
+  static const adminContinuitySettings = 'admin_continuity_settings';
+
+  /// Optional revenue ledger rows (metadata only — no card data / secrets).
+  static const adminRevenueLedger = 'admin_revenue_ledger';
 }

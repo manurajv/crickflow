@@ -273,6 +273,19 @@ class SecurityRepository {
   // Sessions (audit-derived + optional registry)
   // ---------------------------------------------------------------------------
 
+  /// Org Admin must only see sessions tied to their organization.
+  /// Platform / unscoped rows (`organizationId` null) are Super Admin only.
+  List<ManagedSecuritySession> _scopeSessionsForOrg(
+    List<ManagedSecuritySession> items, {
+    required AdminAppType appType,
+    required AdminUser? actor,
+  }) {
+    if (appType != AdminAppType.organizationAdmin) return items;
+    final orgId = actor?.organizationId?.trim();
+    if (orgId == null || orgId.isEmpty) return const [];
+    return items.where((s) => s.organizationId == orgId).toList();
+  }
+
   Future<List<ManagedSecuritySession>> fetchSessionsFromAudit({
     required AdminAppType appType,
     required AdminUser? actor,
@@ -291,29 +304,21 @@ class SecurityRepository {
       var items = snap.docs
           .map((d) => ManagedSecuritySession.fromAuditMap(d.id, d.data()))
           .toList();
-      if (appType == AdminAppType.organizationAdmin) {
-        final orgId = actor?.organizationId;
-        items = items
-            .where((s) =>
-                orgId == null ||
-                s.organizationId == null ||
-                s.organizationId == orgId)
-            .toList();
-      }
-      return items;
+      return _scopeSessionsForOrg(items, appType: appType, actor: actor);
     } catch (_) {
       try {
         final snap = await _audit
             .orderBy('timestamp', descending: true)
             .limit(limit)
             .get();
-        return snap.docs
+        final items = snap.docs
             .where((d) {
               final a = (d.data()['action'] as String?) ?? '';
               return a.startsWith('auth.');
             })
             .map((d) => ManagedSecuritySession.fromAuditMap(d.id, d.data()))
             .toList();
+        return _scopeSessionsForOrg(items, appType: appType, actor: actor);
       } catch (_) {
         return const [];
       }

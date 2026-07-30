@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/admin_colors.dart';
 
-enum CfButtonVariant { primary, secondary, ghost, danger }
+enum CfButtonVariant {
+  primary,
+  secondary,
+  outlined,
+  text,
+  ghost,
+  danger,
+  success,
+}
 
 class CfButton extends StatelessWidget {
   const CfButton({
@@ -13,6 +22,7 @@ class CfButton extends StatelessWidget {
     this.variant = CfButtonVariant.primary,
     this.isLoading = false,
     this.expanded = false,
+    this.tooltip,
   });
 
   final String label;
@@ -21,21 +31,34 @@ class CfButton extends StatelessWidget {
   final CfButtonVariant variant;
   final bool isLoading;
   final bool expanded;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.adminColors;
+    final dimens = context.adminDimens;
+    final enabled = onPressed != null && !isLoading;
+
     final child = isLoading
-        ? const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        ? SizedBox(
+            width: dimens.iconMd,
+            height: dimens.iconMd,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: variant == CfButtonVariant.ghost ||
+                      variant == CfButtonVariant.text ||
+                      variant == CfButtonVariant.outlined ||
+                      variant == CfButtonVariant.secondary
+                  ? AdminColors.primaryBlue
+                  : Colors.white,
+            ),
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 18),
-                const SizedBox(width: 8),
+                Icon(icon, size: dimens.iconMd),
+                SizedBox(width: dimens.spaceSm),
               ],
               Text(label),
             ],
@@ -43,28 +66,41 @@ class CfButton extends StatelessWidget {
 
     final button = switch (variant) {
       CfButtonVariant.primary => ElevatedButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: enabled ? onPressed : null,
           child: child,
         ),
-      CfButtonVariant.secondary => OutlinedButton(
-          onPressed: isLoading ? null : onPressed,
+      CfButtonVariant.secondary ||
+      CfButtonVariant.outlined =>
+        OutlinedButton(
+          onPressed: enabled ? onPressed : null,
           child: child,
         ),
-      CfButtonVariant.ghost => TextButton(
-          onPressed: isLoading ? null : onPressed,
+      CfButtonVariant.ghost || CfButtonVariant.text => TextButton(
+          onPressed: enabled ? onPressed : null,
           child: child,
         ),
       CfButtonVariant.danger => ElevatedButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: enabled ? onPressed : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AdminColors.light.error,
+            backgroundColor: colors.error,
             foregroundColor: Colors.white,
+            disabledBackgroundColor: colors.error.withValues(alpha: 0.4),
+          ),
+          child: child,
+        ),
+      CfButtonVariant.success => ElevatedButton(
+          onPressed: enabled ? onPressed : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: colors.success,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: colors.success.withValues(alpha: 0.4),
           ),
           child: child,
         ),
     };
 
-    if (!expanded) return button;
-    return SizedBox(width: double.infinity, child: button);
+    final sized = expanded ? SizedBox(width: double.infinity, child: button) : button;
+    if (tooltip == null || tooltip!.isEmpty) return sized;
+    return Tooltip(message: tooltip!, child: sized);
   }
 }

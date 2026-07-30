@@ -43,6 +43,8 @@ Firestore → create collection `admin_roles` (if missing), then document **`sup
     "canManageSupport": true,
     "canManageAiOps": true,
     "canManageSecurity": true,
+    "canManageDeployments": true,
+    "canManageContinuity": true,
     "canManageCms": true,
     "canViewReports": true,
     "canManageSettings": true,
@@ -440,3 +442,53 @@ Also reuses `admin_roles` (Super Admin CRUD via Security Center) and `admin_audi
 | Future | App Check, Cloud Armor, reCAPTCHA Enterprise, SSO, 2FA, Security Center APIs without redesign |
 
 Audit: `security.role_*`, `security.permission_changed`, `security.session_terminated`, `security.block_added`, `security.ip_*`, `security.access_granted`, `security.backup_created`, `security.policy_updated`, plus existing `security.*` / `auth.*` events.
+
+## DevOps & Release Center
+
+Hub at `/devops` (`DevOpsScreen`, permission `canManageDeployments`). **Super Admin only** — not wired into Org Admin nav. Metadata and monitoring only.
+
+| Collection | Purpose |
+|------------|---------|
+| `admin_devops_releases` | Release drafts / notes / status |
+| `admin_devops_deployments` | Deployment log events (CI later) |
+| `admin_devops_builds` | Build monitor stubs |
+| `admin_devops_rollouts` | Gradual rollout plans (Remote Config later) |
+| `admin_devops_rollbacks` | Prepared rollback intents (never auto-executes) |
+| `admin_devops_domains` | Domain / SSL / DNS monitor entries |
+| `admin_devops_env_vars` | Env **key** metadata only (values never stored) |
+| `admin_devops_timeline` | Release / env timeline |
+| `admin_devops_settings/global` | Active env, versions, quality gates |
+
+| Concern | Behavior |
+|---------|----------|
+| Auto-deploy | **Never** — no Firebase Hosting / Cloud Build / GitHub Actions trigger from client |
+| Auto-rollback | **Never** — prepare architecture only |
+| Secrets | Env vars show masked placeholders; OAuth / Firebase credentials never stored |
+| Org Admin | No access (`canManageDeployments` Super Admin only) |
+| Future | GitHub Actions, Firebase CLI, Cloud Build, Cloud Deploy, Vercel, Netlify adapters |
+
+Audit: `devops.release_*`, `devops.feature_rollout`, `devops.rollback_prepared`, `devops.environment_updated`, `devops.env_var_meta_updated`.
+
+## Continuity & Disaster Recovery Center
+
+Hub at `/continuity` (`ContinuityScreen`, permission `canManageContinuity`). **Super Admin only** — not wired into Org Admin nav. Metadata and safe workflows only — see [developer/continuity.md](developer/continuity.md).
+
+| Collection | Purpose |
+|------------|---------|
+| `admin_continuity_backups` | Backup job metadata (no payloads / secrets) |
+| `admin_continuity_restores` | Restore preview requests (`previewOnly`) |
+| `admin_continuity_migrations` | Migration dry-runs / planned jobs |
+| `admin_continuity_plans` | Recovery plans |
+| `admin_continuity_timeline` | Continuity timeline |
+| `admin_continuity_settings/global` | Hub settings |
+
+| Concern | Behavior |
+|---------|----------|
+| Auto-restore | **Never** — preview + typed confirmation only |
+| Auto-migration | **Never** — dry-run by default |
+| Secrets | Never stored in continuity documents |
+| Org Admin | No access (`canManageContinuity` Super Admin only) |
+| Future | Google Cloud Backup, Firestore Export/Import, schedules, multi-region DR |
+
+Audit: `continuity.backup_*`, `continuity.restore_requested`, `continuity.migration_started`, `continuity.plan_updated`, `continuity.validation_performed`.
+

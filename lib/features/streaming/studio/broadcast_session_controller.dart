@@ -546,19 +546,24 @@ class BroadcastSessionController {
     final anyLive = playbackEntries.any((e) => e.isLive);
     final resolvedStatus = isEnding && anyLive ? StreamStatus.live : status;
 
-    final stream = base.stream.copyWith(
+    // Never write RTMP ingest URL/key to the public match doc (keys stay local).
+    final stream = StreamMetadataModel(
       status: resolvedStatus,
       destination: destination,
-      rtmpUrl: config.rtmpUrl,
-      streamKey: config.streamKey,
+      viewerCount: base.stream.viewerCount,
       startedAt: isGoingLive ? liveStartedAt : base.stream.startedAt,
+      lastHeartbeatAt: base.stream.lastHeartbeatAt,
       youtubeWatchUrl: _resolveStreamYoutubeWatchUrl(
         config: config,
         playbackEntries: playbackEntries,
         sessionWatchUrl: watchUrl,
         baseStream: base.stream,
       ),
+      secondaryYoutubeWatchUrl: base.stream.secondaryYoutubeWatchUrl,
       playbackEntries: playbackEntries,
+      cameraALabel: base.stream.cameraALabel,
+      cameraBLabel: base.stream.cameraBLabel,
+      webrtcEnabled: base.stream.webrtcEnabled,
       broadcastOrientation: config.orientation.name,
     );
 

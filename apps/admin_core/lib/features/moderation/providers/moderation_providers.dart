@@ -467,16 +467,16 @@ final moderationHubControllerProvider = StateNotifierProvider.autoDispose
   return ModerationHubController(ref, surface);
 });
 
-final selectedModerationPostProvider = StreamProvider.autoDispose
-    .family<ManagedModerationPost?, ModerationSurface>((ref, surface) {
+final selectedModerationPostProvider = FutureProvider.autoDispose
+    .family<ManagedModerationPost?, ModerationSurface>((ref, surface) async {
   final state = ref.watch(moderationHubControllerProvider(surface));
   final id = state.selectedPostId;
   final source = state.selectedSource;
-  if (id == null || source == null) return Stream.value(null);
+  if (id == null || source == null) return null;
   final repo = ref.watch(moderationRepositoryProvider);
   return source == ModerationSource.discover
-      ? repo.watchDiscoverPost(id)
-      : repo.watchCommunityPost(id);
+      ? repo.fetchDiscoverPost(id)
+      : repo.fetchCommunityPost(id);
 });
 
 final moderationAuditProvider = FutureProvider.autoDispose

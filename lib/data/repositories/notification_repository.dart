@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -10,10 +11,14 @@ import '../models/tournament_model.dart';
 import '../../core/constants/enums.dart';
 
 class NotificationRepository {
-  NotificationRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  NotificationRepository({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
   final _uuid = const Uuid();
 
   static const int pageSize = 30;
@@ -81,11 +86,11 @@ class NotificationRepository {
     required String userId,
     required String title,
     required String body,
+    required String type,
     String? matchId,
     String? matchTitle,
     String? teamId,
     String? playerId,
-    String? type,
     String? category,
     String? tab,
     String? addedByUserId,
@@ -94,21 +99,28 @@ class NotificationRepository {
     String? requestId,
     String? actionStatus,
   }) async {
-    if (userId.isEmpty) return;
+    if (userId.isEmpty || type.isEmpty) return;
+    if (userId == _auth.currentUser?.uid) return;
+
+    final actorId = addedByUserId ?? _auth.currentUser?.uid;
+    if (actorId == null || actorId.isEmpty) return;
+
+    final safeTitle = title.length > 120 ? title.substring(0, 120) : title;
+    final safeBody = body.length > 500 ? body.substring(0, 500) : body;
 
     await _col.doc(_uuid.v4()).set({
       'userId': userId,
-      'title': title,
-      'body': body,
-      'message': body,
+      'title': safeTitle,
+      'body': safeBody,
+      'message': safeBody,
+      'type': type,
+      'addedByUserId': actorId,
       'matchId': ?matchId,
       'matchTitle': ?matchTitle,
       'teamId': ?teamId,
       'playerId': ?playerId,
-      'type': ?type,
       'category': ?category,
       'tab': ?tab,
-      'addedByUserId': ?addedByUserId,
       'reportId': ?reportId,
       'tournamentId': ?tournamentId,
       'requestId': ?requestId,

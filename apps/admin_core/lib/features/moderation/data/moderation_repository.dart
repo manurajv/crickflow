@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_user.dart';
 import '../../users/models/admin_audit_log.dart';
 import '../models/managed_moderation.dart';
@@ -225,6 +226,18 @@ class ModerationRepository {
     });
   }
 
+  Future<ManagedModerationPost?> fetchCommunityPost(String id) async {
+    final snap = await _community.doc(id).get();
+    if (!snap.exists || snap.data() == null) return null;
+    return ManagedModerationPost.fromCommunity(id: snap.id, map: snap.data()!);
+  }
+
+  Future<ManagedModerationPost?> fetchDiscoverPost(String id) async {
+    final snap = await _discover.doc(id).get();
+    if (!snap.exists || snap.data() == null) return null;
+    return ManagedModerationPost.fromDiscover(id: snap.id, map: snap.data()!);
+  }
+
   Future<List<ManagedContentReport>> fetchReports({
     required bool usersOnly,
     int limit = 80,
@@ -306,8 +319,8 @@ class ModerationRepository {
         dQuery = dQuery.where('organizationId', isEqualTo: orgId);
       }
 
-      final cSnap = await cQuery.limit(400).get();
-      final dSnap = await dQuery.limit(400).get();
+      final cSnap = await cQuery.limit(AdminQueryLimits.summaryScanMax).get();
+      final dSnap = await dQuery.limit(AdminQueryLimits.summaryScanMax).get();
       final community = cSnap.docs
           .map((d) => ManagedModerationPost.fromCommunity(id: d.id, map: d.data()))
           .toList();

@@ -20,6 +20,8 @@ enum AdminPermission {
   canManageSupport,
   canManageAiOps,
   canManageSecurity,
+  canManageDeployments,
+  canManageContinuity,
   canManageCms,
   canViewReports,
   canManageSettings,
@@ -47,6 +49,9 @@ enum AdminPermission {
         AdminPermission.canManageSupport => 'Manage support',
         AdminPermission.canManageAiOps => 'Manage AI operations',
         AdminPermission.canManageSecurity => 'Manage security',
+        AdminPermission.canManageDeployments => 'Manage deployments',
+        AdminPermission.canManageContinuity =>
+          'Manage backup & disaster recovery',
         AdminPermission.canManageCms => 'Manage CMS',
         AdminPermission.canViewReports => 'View reports',
         AdminPermission.canManageSettings => 'Manage settings',

@@ -26,8 +26,10 @@ String? adminAuthRedirect({
       if (isLogin || isDenied) return AdminRoutePaths.dashboard;
       if (isForbidden) return null;
 
-      final required = AdminRoutePermissions.requiredFor(loc);
-      if (required != null && !session.hasPermission(required)) {
+      if (!AdminRoutePermissions.isAllowed(
+        loc,
+        session.hasPermission,
+      )) {
         return AdminRoutePaths.forbidden;
       }
       return null;

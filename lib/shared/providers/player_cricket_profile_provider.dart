@@ -136,18 +136,9 @@ final filteredPlayerStatsBreakdownProvider =
 
   final matches = await ref.watch(matchesProvider.future);
   final filters = ref.watch(profileMatchFiltersProvider);
-  final uid = player.userId ?? player.id;
-  final userTeamIds = player.effectiveTeamIds.toSet();
 
   final participated = matches
-      .where(
-        (m) => userParticipatedInMatch(
-          m,
-          uid: uid,
-          player: player,
-          userTeamIds: userTeamIds,
-        ),
-      )
+      .where((m) => playerAppearedInMatch(m, player))
       .toList();
 
   final filtered = filterProfileMatches(participated, filters);

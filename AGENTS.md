@@ -10,7 +10,7 @@
 8. Follow **`docs/MVP_ROADMAP.md`** and **`docs/PHASE3_ROADMAP.md`** for phase scope.
 9. Match patterns: Riverpod, `lib/features/*`, repositories in `lib/data/repositories/`.
 10. Firebase project: **crickflow-b06bc** — options in `lib/config/firebase_options.dart`.
-11. Web admin panels: **`apps/superadmin`**, **`apps/admin`**, shared **`apps/admin_core`** — see **`docs/WEB_ADMIN_ARCHITECTURE.md`**. Do not modify the mobile app when working on web admin.
+11. Web admin panels: **`apps/superadmin`**, **`apps/admin`**, shared **`apps/admin_core`** — see **`docs/WEB_ADMIN_ARCHITECTURE.md`**, **`docs/WEB_ADMIN_DESIGN.md`**, and **`docs/WEB_ADMIN_PRODUCTION.md`**. Do not modify the mobile app when working on web admin.
 12. After changes: `flutter analyze`, update `IMPLEMENTATION_STATUS.md`.
 13. Deploy: `.\scripts\deploy-firebase.ps1` (Windows) or see RELEASE_CHECKLIST.
 14. Release AAB: `.\scripts\build-release.ps1`

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_user.dart';
 import '../../users/models/admin_audit_log.dart';
 import '../models/managed_notification.dart';
@@ -191,6 +192,15 @@ class NotificationsRepository {
     });
   }
 
+  Future<ManagedNotificationCampaign?> fetchCampaign(String id) async {
+    final snap = await _campaigns.doc(id).get();
+    if (!snap.exists || snap.data() == null) return null;
+    return ManagedNotificationCampaign.fromFirestore(
+      id: snap.id,
+      map: snap.data()!,
+    );
+  }
+
   Future<NotificationSummaryStats> fetchSummary({
     required AdminAppType appType,
     required AdminUser? actor,
@@ -204,7 +214,7 @@ class NotificationsRepository {
         }
         query = query.where('organizationId', isEqualTo: orgId);
       }
-      final snap = await query.limit(400).get();
+      final snap = await query.limit(AdminQueryLimits.summaryScanMax).get();
       final items = snap.docs
           .map(
             (d) => ManagedNotificationCampaign.fromFirestore(

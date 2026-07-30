@@ -3,10 +3,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/extensions/context_extensions.dart';
 import '../../../../core/router/admin_route_paths.dart';
-import '../../../../core/theme/admin_colors.dart';
 import '../../../../shared/widgets/cf_card.dart';
 import '../../../../shared/widgets/cf_chart_placeholder.dart';
 import '../../../../shared/widgets/cf_empty_state.dart';
+import '../../../../shared/widgets/cf_network_image.dart';
 import '../../models/dashboard_models.dart';
 import 'dashboard_section_header.dart';
 
@@ -202,22 +202,10 @@ class DashboardRecentUsersSection extends StatelessWidget {
               for (var i = 0; i < items.length; i++) ...[
                 if (i > 0) Divider(height: 1, color: colors.border),
                 ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AdminColors.primaryBlue,
-                    backgroundImage: items[i].photoUrl != null
-                        ? NetworkImage(items[i].photoUrl!)
-                        : null,
-                    child: items[i].photoUrl == null
-                        ? Text(
-                            items[i].name.isNotEmpty
-                                ? items[i].name[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          )
-                        : null,
+                  leading: CfAvatar(
+                    url: items[i].photoUrl,
+                    radius: 20,
+                    label: items[i].name,
                   ),
                   title: Text(
                     items[i].name,

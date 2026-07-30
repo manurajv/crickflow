@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/admin_colors.dart';
+import '../../core/theme/admin_typography.dart';
 import 'cf_card.dart';
 
 class CfStatTile extends StatelessWidget {
@@ -14,6 +15,7 @@ class CfStatTile extends StatelessWidget {
     this.growthPositive,
     this.accentColor,
     this.compact = false,
+    this.onTap,
   });
 
   final IconData icon;
@@ -23,10 +25,12 @@ class CfStatTile extends StatelessWidget {
   final bool? growthPositive;
   final Color? accentColor;
   final bool compact;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.adminColors;
+    final dimens = context.adminDimens;
     final accent = accentColor ?? AdminColors.primaryBlue;
     final growthColor = growthPositive == null
         ? colors.textMuted
@@ -34,9 +38,15 @@ class CfStatTile extends StatelessWidget {
     final iconSize = compact ? 34.0 : 40.0;
 
     return CfCard(
+      variant: CfCardVariant.stat,
+      onTap: onTap,
+      semanticLabel: '$title $value',
       padding: compact
-          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
-          : const EdgeInsets.all(20),
+          ? EdgeInsets.symmetric(
+              horizontal: dimens.spaceMd + 2,
+              vertical: dimens.spaceMd,
+            )
+          : dimens.cardPadding,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,18 +58,20 @@ class CfStatTile extends StatelessWidget {
                 height: iconSize,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: dimens.borderRadiusMd,
                 ),
                 child: Icon(icon, color: accent, size: compact ? 18 : 22),
               ),
               const Spacer(),
               if (growthLabel != null)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: dimens.spaceSm,
+                    vertical: dimens.spaceXs,
+                  ),
                   decoration: BoxDecoration(
                     color: growthColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(dimens.radiusPill),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -72,7 +84,8 @@ class CfStatTile extends StatelessWidget {
                           size: 14,
                           color: growthColor,
                         ),
-                      if (growthPositive != null) const SizedBox(width: 4),
+                      if (growthPositive != null)
+                        SizedBox(width: dimens.spaceXs),
                       Text(
                         growthLabel!,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -85,17 +98,14 @@ class CfStatTile extends StatelessWidget {
                 ),
             ],
           ),
-          SizedBox(height: compact ? 10 : 16),
+          SizedBox(height: compact ? dimens.spaceMd - 2 : dimens.spaceLg),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: (compact
-                    ? Theme.of(context).textTheme.titleLarge
-                    : Theme.of(context).textTheme.headlineMedium)
-                ?.copyWith(fontWeight: FontWeight.w800),
+            style: AdminTypography.statistic(context, compact: compact),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: dimens.spaceXs / 2),
           Text(
             title,
             maxLines: 1,

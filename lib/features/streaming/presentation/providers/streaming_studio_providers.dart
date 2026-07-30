@@ -175,12 +175,15 @@ class StreamStudioNotifier extends StateNotifier<StreamStudioConfig> {
   StreamStudioNotifier() : super(const StreamStudioConfig());
 
   void initFromMatch(MatchModel match) {
+    // Ingest credentials are local-only — never rehydrate from public match docs.
     state = state.copyWith(
       title: match.title,
       description: '${match.teamAName} vs ${match.teamBName}',
-      rtmpUrl: match.stream.rtmpUrl ?? StreamPlatform.youtube.defaultRtmpUrl,
-      streamKey: match.stream.streamKey ?? '',
-      youtubeWatchUrl: match.stream.youtubeWatchUrl ?? '',
+      rtmpUrl: state.rtmpUrl.isNotEmpty
+          ? state.rtmpUrl
+          : StreamPlatform.youtube.defaultRtmpUrl,
+      streamKey: state.streamKey,
+      youtubeWatchUrl: match.stream.youtubeWatchUrl ?? state.youtubeWatchUrl,
     );
   }
 

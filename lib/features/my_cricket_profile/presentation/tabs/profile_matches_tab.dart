@@ -30,7 +30,9 @@ class ProfileMatchesTab extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 MatchListEmptyState(
-                  message: 'No matches match your filters',
+                  message: filters.hasActiveFilters
+                      ? 'No matches match your filters'
+                      : 'No matches played yet',
                 ),
               ],
             )

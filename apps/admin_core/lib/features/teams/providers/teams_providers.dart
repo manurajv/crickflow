@@ -259,11 +259,11 @@ final teamsListControllerProvider =
 });
 
 final selectedManagedTeamProvider =
-    StreamProvider.autoDispose<ManagedTeam?>((ref) {
+    FutureProvider.autoDispose<ManagedTeam?>((ref) async {
   final id =
       ref.watch(teamsListControllerProvider.select((s) => s.selectedId));
-  if (id == null) return Stream.value(null);
-  return ref.watch(teamsRepositoryProvider).watchById(
+  if (id == null) return null;
+  return ref.watch(teamsRepositoryProvider).fetchById(
         id,
         appType: ref.watch(adminAppTypeProvider),
         actor: ref.watch(adminSessionProvider).adminUser,

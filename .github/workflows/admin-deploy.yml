@@ -1,0 +1,151 @@
+name: Admin Deploy (manual)
+
+# Manual Firebase Hosting deploy for Admin panels only.
+# Never runs on push. Requires environment approval when configured.
+#
+# Prerequisites (Firebase Console / CLI — not applied automatically):
+#   - Hosting sites + targets mapped (see firebase.admin.rc.example)
+#   - GitHub Environment secrets (see docs/developer/cicd.md)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - testing
+          - staging
+          - production
+      targets:
+        description: Hosting targets
+        required: true
+        type: choice
+        default: both
+        options:
+          - both
+          - admin
+          - superadmin
+      confirm_production:
+        description: Type deploy-production to allow production
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Deployment guards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block accidental production
+        if: inputs.environment == 'production' && inputs.confirm_production != 'deploy-production'
+        run: |
+          echo "::error::Production requires confirm_production=deploy-production"
+          exit 1
+      - name: Summarize
+        run: |
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Targets: ${{ inputs.targets }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Ref: ${{ github.ref_name }} @ ${{ github.sha }}"
+
+  build:
+    name: Build release web
+    needs: guard
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Version
+        id: ver
+        run: echo "version=$(tr -d '[:space:]' < apps/VERSION)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        env:
+          ADMIN_ENV: ${{ inputs.environment }}
+        run: |
+          VER=${{ steps.ver.outputs.version }}
+          BN=${{ github.run_number }}
+          (cd apps/admin_core && flutter pub get)
+          if [ "${{ inputs.targets }}" = "both" ] || [ "${{ inputs.targets }}" = "admin" ]; then
+            (cd apps/admin && flutter pub get && flutter build web --release \
+              --dart-define=ADMIN_ENV=$ADMIN_ENV \
+              --dart-define=ADMIN_VERSION=$VER \
+              --dart-define=ADMIN_BUILD_NUMBER=$BN \
+              --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
+              --dart-define=ADMIN_GIT_REF=${{ github.ref_name }})
+          fi
+          if [ "${{ inputs.targets }}" = "both" ] || [ "${{ inputs.targets }}" = "superadmin" ]; then
+            (cd apps/superadmin && flutter pub get && flutter build web --release \
+              --dart-define=ADMIN_ENV=$ADMIN_ENV \
+              --dart-define=ADMIN_VERSION=$VER \
+              --dart-define=ADMIN_BUILD_NUMBER=$BN \
+              --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
+              --dart-define=ADMIN_GIT_REF=${{ github.ref_name }})
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admin-deploy-${{ inputs.environment }}-${{ github.run_number }}
+          path: |
+            apps/admin/build/web
+            apps/superadmin/build/web
+          retention-days: 14
+
+  deploy:
+    name: Deploy Hosting
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: admin-deploy-${{ inputs.environment }}-${{ github.run_number }}
+          path: .
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+      - name: Authenticate
+        env:
+          # Prefer environment-scoped secret; fall back to repository secret name.
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Missing FIREBASE_SERVICE_ACCOUNT secret for this GitHub Environment"
+            exit 1
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "${{ runner.temp }}/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ runner.temp }}/sa.json" >> "$GITHUB_ENV"
+      - name: Deploy targets
+        env:
+          PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          set -e
+          PROJECT_ID="${PROJECT_ID:-crickflow-b06bc}"
+          ONLY=""
+          case "${{ inputs.targets }}" in
+            admin) ONLY="hosting:admin" ;;
+            superadmin) ONLY="hosting:superadmin" ;;
+            both) ONLY="hosting:admin,hosting:superadmin" ;;
+          esac
+          # Uses firebase.admin.json — does not touch mobile public/ hosting.
+          firebase deploy --only "$ONLY" \
+            -c firebase.admin.json \
+            --project "$PROJECT_ID" \
+            --non-interactive
+      - name: Post-deploy note
+        run: |
+          echo "Deploy finished for ${{ inputs.environment }}."
+          echo "Verify Auth domains, SSL, and smoke-test login."
+          echo "Rollback: Firebase Hosting release history (manual) — never auto."

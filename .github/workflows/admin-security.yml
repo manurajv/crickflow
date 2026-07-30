@@ -1,0 +1,71 @@
+name: Admin Security Scan
+
+# Secret + dependency scanning for Admin paths. Does not deploy.
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'config/admin/**'
+      - '.github/workflows/admin-*.yml'
+      - 'scripts/ci/**'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'config/admin/**'
+      - 'scripts/ci/**'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  gitleaks:
+    name: Secret detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  firebase-config-hygiene:
+    name: Firebase config hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject committed private keys
+        run: |
+          set -euo pipefail
+          if git grep -I -n --fixed-strings "BEGIN PRIVATE KEY" -- \
+            'apps' 'config' '.github/workflows' 'scripts/ci' \
+            ':!**/*.md' ':!**/cicd.md'; then
+            echo "::error::Private key material found in tree"
+            exit 1
+          fi
+          if git ls-files | grep -Ei 'service.?account|firebase-adminsdk.*\.json$'; then
+            echo "::error::Service account JSON must not be committed"
+            exit 1
+          fi
+          echo "No private key / service-account filename hits in scoped paths."
+
+  # Future: OSV / license scan hooks can be added here without redesign.
+  package-audit-note:
+    name: Dependency audit note
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Outdated packages (informational)
+        working-directory: apps/admin_core
+        run: |
+          flutter pub get
+          flutter pub outdated || true

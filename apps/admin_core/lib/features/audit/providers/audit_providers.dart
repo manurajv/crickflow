@@ -116,6 +116,7 @@ class AuditHubController extends StateNotifier<AuditHubState> {
   }
 
   Future<void> refresh() async {
+    _ref.invalidate(auditTimelineProvider);
     state = state.copyWith(
       isLoading: true,
       clearError: true,
@@ -203,12 +204,13 @@ final auditHubControllerProvider =
 });
 
 final auditTimelineProvider =
-    StreamProvider.autoDispose<List<AuditLogView>>((ref) {
+    FutureProvider.autoDispose<List<AuditLogView>>((ref) async {
   final appType = ref.watch(adminAppTypeProvider);
   final orgId = appType == AdminAppType.superAdmin
       ? null
       : ref.watch(adminSessionProvider).adminUser?.organizationId;
-  return ref.watch(auditRepositoryProvider).watchTimeline(
+  // One-shot — refresh via hub pull-to-refresh / invalidate.
+  return ref.watch(auditRepositoryProvider).fetchTimeline(
         organizationId: orgId,
       );
 });

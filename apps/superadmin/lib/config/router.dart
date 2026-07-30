@@ -75,6 +75,12 @@ GoRouter createSuperAdminRouter(Ref ref) {
             ),
           ),
           GoRoute(
+            path: AdminRoutePaths.players,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PlayersScreen(),
+            ),
+          ),
+          GoRoute(
             path: AdminRoutePaths.grounds,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: GroundsScreen(),
@@ -166,6 +172,24 @@ GoRouter createSuperAdminRouter(Ref ref) {
             ),
           ),
           GoRoute(
+            path: AdminRoutePaths.devops,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DevOpsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.continuity,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ContinuityScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.docs,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DeveloperDocsScreen(),
+            ),
+          ),
+          GoRoute(
             path: AdminRoutePaths.settings,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SettingsScreen(),
@@ -183,24 +207,14 @@ GoRouter createSuperAdminRouter(Ref ref) {
               child: AuditScreen(),
             ),
           ),
-          ..._placeholders,
+          GoRoute(
+            path: AdminRoutePaths.revenue,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RevenueScreen(),
+            ),
+          ),
         ],
       ),
     ],
   );
 }
-
-List<RouteBase> get _placeholders => [
-      for (final entry in _placeholderRoutes.entries)
-        GoRoute(
-          path: entry.key,
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: ModulePlaceholderScreen(title: entry.value),
-          ),
-        ),
-    ];
-
-const _placeholderRoutes = <String, String>{
-  AdminRoutePaths.players: 'Players',
-  AdminRoutePaths.revenue: 'Revenue',
-};

@@ -6,15 +6,36 @@ library;
 
 // Config
 export 'core/config/admin_app_type.dart';
+export 'core/config/admin_env_config.dart';
 export 'core/config/firebase_bootstrap.dart';
 export 'core/constants/admin_collections.dart';
+export 'core/constants/admin_query_limits.dart';
 export 'core/constants/breakpoints.dart';
 
 // Theme
 export 'core/theme/admin_colors.dart';
+export 'core/theme/admin_dimens.dart';
+export 'core/theme/admin_elevations.dart';
+export 'core/theme/admin_motion.dart';
+export 'core/theme/admin_typography.dart';
 export 'core/theme/admin_theme.dart';
 export 'core/theme/theme_mode_provider.dart';
 export 'core/extensions/context_extensions.dart';
+export 'core/cache/admin_cache.dart';
+export 'core/logging/admin_logger.dart';
+export 'core/errors/admin_errors.dart';
+export 'core/utils/admin_debouncer.dart';
+
+// Localization / accessibility / regional
+export 'l10n/generated/admin_localizations.dart';
+export 'core/l10n/admin_l10n_config.dart';
+export 'core/l10n/admin_nav_l10n.dart';
+export 'core/l10n/admin_export_localizer.dart';
+export 'core/l10n/admin_search_i18n.dart';
+export 'core/locale/admin_locale_catalog.dart';
+export 'core/locale/admin_regional_settings.dart';
+export 'core/locale/admin_locale_providers.dart';
+export 'core/a11y/admin_a11y.dart';
 
 // Models & permissions
 export 'models/admin_role.dart';
@@ -78,6 +99,11 @@ export 'features/matches/models/match_filters.dart';
 
 // Team Management
 export 'features/teams/presentation/teams_screen.dart';
+export 'features/players/presentation/players_screen.dart';
+export 'features/players/providers/players_providers.dart';
+export 'features/players/models/managed_player.dart';
+export 'features/players/models/player_enums.dart';
+export 'features/players/models/player_filters.dart';
 export 'features/teams/providers/teams_providers.dart';
 export 'features/teams/models/managed_team.dart';
 export 'features/teams/models/team_enums.dart';
@@ -161,6 +187,27 @@ export 'features/security/models/managed_security.dart';
 export 'features/security/models/security_enums.dart';
 export 'features/security/models/security_filters.dart';
 
+// DevOps & Release Center
+export 'features/devops/presentation/devops_screen.dart';
+export 'features/devops/providers/devops_providers.dart';
+export 'features/devops/models/managed_devops.dart';
+export 'features/devops/models/devops_enums.dart';
+export 'features/devops/models/devops_filters.dart';
+export 'features/continuity/presentation/continuity_screen.dart';
+export 'features/continuity/providers/continuity_providers.dart';
+export 'features/continuity/models/managed_continuity.dart';
+export 'features/continuity/models/continuity_enums.dart';
+export 'features/continuity/models/continuity_filters.dart';
+export 'features/revenue/presentation/revenue_screen.dart';
+export 'features/revenue/providers/revenue_providers.dart';
+export 'features/revenue/models/managed_revenue.dart';
+export 'features/revenue/models/revenue_enums.dart';
+export 'features/revenue/models/revenue_filters.dart';
+
+// Developer documentation (DX only)
+export 'features/developer_docs/presentation/developer_docs_screen.dart';
+export 'features/developer_docs/data/developer_docs_catalog.dart';
+
 // CMS & Platform Settings
 export 'features/settings/presentation/settings_screen.dart';
 export 'features/settings/providers/settings_providers.dart';
@@ -184,7 +231,12 @@ export 'shared/widgets/cf_filter_sheet.dart';
 export 'shared/widgets/cf_data_table.dart';
 export 'shared/widgets/cf_empty_state.dart';
 export 'shared/widgets/cf_loading_state.dart';
+export 'shared/widgets/cf_skeleton.dart';
+export 'shared/widgets/cf_snackbar.dart';
+export 'shared/widgets/cf_status_badge.dart';
+export 'shared/widgets/cf_page.dart';
 export 'shared/widgets/cf_pagination.dart';
 export 'shared/widgets/cf_chart_placeholder.dart';
 export 'shared/widgets/cf_stat_tile.dart';
+export 'shared/widgets/cf_network_image.dart';
 export 'core/widgets/permission_gate.dart';

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 /// Super Admin navigation — platform-wide sections.
 List<AdminNavSection> buildSuperAdminNav() {
-  return const [
+  return [
     AdminNavSection(
       id: NavSectionId.dashboard,
       items: [
@@ -13,7 +13,6 @@ List<AdminNavSection> buildSuperAdminNav() {
           icon: Icons.dashboard_outlined,
           route: AdminRoutePaths.dashboard,
           permission: AdminPermission.canViewDashboard,
-          enabled: true,
         ),
       ],
     ),
@@ -21,18 +20,18 @@ List<AdminNavSection> buildSuperAdminNav() {
       id: NavSectionId.management,
       items: [
         AdminNavItem(
-          id: 'organizations',
-          label: 'Organizations',
-          icon: Icons.apartment_outlined,
-          route: AdminRoutePaths.organizations,
-          permission: AdminPermission.canManageOrganizations,
-        ),
-        AdminNavItem(
           id: 'users',
           label: 'Users',
           icon: Icons.people_outline,
           route: AdminRoutePaths.users,
           permission: AdminPermission.canManageUsers,
+        ),
+        AdminNavItem(
+          id: 'organizations',
+          label: 'Organizations',
+          icon: Icons.apartment_outlined,
+          route: AdminRoutePaths.organizations,
+          permission: AdminPermission.canManageOrganizations,
         ),
         AdminNavItem(
           id: 'teams',
@@ -44,14 +43,21 @@ List<AdminNavSection> buildSuperAdminNav() {
         AdminNavItem(
           id: 'players',
           label: 'Players',
-          icon: Icons.person_outline,
+          icon: Icons.sports_cricket_outlined,
           route: AdminRoutePaths.players,
           permission: AdminPermission.canManagePlayers,
         ),
         AdminNavItem(
+          id: 'grounds',
+          label: 'Grounds',
+          icon: Icons.stadium_outlined,
+          route: AdminRoutePaths.grounds,
+          permission: AdminPermission.canManageGrounds,
+        ),
+        AdminNavItem(
           id: 'matches',
           label: 'Matches',
-          icon: Icons.sports_cricket_outlined,
+          icon: Icons.sports_outlined,
           route: AdminRoutePaths.matches,
           permission: AdminPermission.canManageMatches,
         ),
@@ -63,11 +69,11 @@ List<AdminNavSection> buildSuperAdminNav() {
           permission: AdminPermission.canManageTournaments,
         ),
         AdminNavItem(
-          id: 'grounds',
-          label: 'Grounds',
-          icon: Icons.stadium_outlined,
-          route: AdminRoutePaths.grounds,
-          permission: AdminPermission.canManageGrounds,
+          id: 'broadcast',
+          label: 'Broadcasts',
+          icon: Icons.live_tv_outlined,
+          route: AdminRoutePaths.broadcast,
+          permission: AdminPermission.canManageBroadcast,
         ),
       ],
     ),
@@ -89,9 +95,9 @@ List<AdminNavSection> buildSuperAdminNav() {
           permission: AdminPermission.canManageDiscover,
         ),
         AdminNavItem(
-          id: 'moderation',
-          label: 'Moderation',
-          icon: Icons.gavel_outlined,
+          id: 'reports',
+          label: 'Reports',
+          icon: Icons.flag_outlined,
           route: AdminRoutePaths.reports,
           permission: AdminPermission.canViewReports,
         ),
@@ -101,18 +107,18 @@ List<AdminNavSection> buildSuperAdminNav() {
       id: NavSectionId.platform,
       items: [
         AdminNavItem(
-          id: 'broadcast',
-          label: 'Broadcast',
-          icon: Icons.live_tv_outlined,
-          route: AdminRoutePaths.broadcast,
-          permission: AdminPermission.canManageBroadcast,
-        ),
-        AdminNavItem(
           id: 'ads',
-          label: 'Ads',
+          label: 'Advertisements',
           icon: Icons.campaign_outlined,
           route: AdminRoutePaths.ads,
           permission: AdminPermission.canManageAds,
+        ),
+        AdminNavItem(
+          id: 'notifications',
+          label: 'Notifications',
+          icon: Icons.notifications_outlined,
+          route: AdminRoutePaths.notifications,
+          permission: AdminPermission.canSendNotifications,
         ),
         AdminNavItem(
           id: 'cms',
@@ -122,11 +128,11 @@ List<AdminNavSection> buildSuperAdminNav() {
           permission: AdminPermission.canManageCms,
         ),
         AdminNavItem(
-          id: 'notifications',
-          label: 'Notifications',
-          icon: Icons.notifications_outlined,
-          route: AdminRoutePaths.notifications,
-          permission: AdminPermission.canSendNotifications,
+          id: 'analytics',
+          label: 'Analytics',
+          icon: Icons.insights_outlined,
+          route: AdminRoutePaths.analytics,
+          permission: AdminPermission.canViewAnalytics,
         ),
         AdminNavItem(
           id: 'revenue',
@@ -141,15 +147,8 @@ List<AdminNavSection> buildSuperAdminNav() {
       id: NavSectionId.system,
       items: [
         AdminNavItem(
-          id: 'analytics',
-          label: 'Analytics',
-          icon: Icons.insights_outlined,
-          route: AdminRoutePaths.analytics,
-          permission: AdminPermission.canViewAnalytics,
-        ),
-        AdminNavItem(
           id: 'monitoring',
-          label: 'System Health',
+          label: 'System Monitoring',
           icon: Icons.monitor_heart_outlined,
           route: AdminRoutePaths.monitoring,
           permission: AdminPermission.canViewSystemHealth,
@@ -176,11 +175,31 @@ List<AdminNavSection> buildSuperAdminNav() {
           permission: AdminPermission.canManageSecurity,
         ),
         AdminNavItem(
+          id: 'devops',
+          label: 'DevOps & Releases',
+          icon: Icons.rocket_launch_outlined,
+          route: AdminRoutePaths.devops,
+          permission: AdminPermission.canManageDeployments,
+        ),
+        AdminNavItem(
+          id: 'continuity',
+          label: 'Continuity & DR',
+          icon: Icons.backup_outlined,
+          route: AdminRoutePaths.continuity,
+          permission: AdminPermission.canManageContinuity,
+        ),
+        AdminNavItem(
           id: 'logs',
           label: 'Audit Logs',
           icon: Icons.history_outlined,
           route: AdminRoutePaths.logs,
           permission: AdminPermission.canViewLogs,
+        ),
+        AdminNavItem(
+          id: 'docs',
+          label: 'Developer Docs',
+          icon: Icons.menu_book_outlined,
+          route: AdminRoutePaths.docs,
         ),
       ],
     ),

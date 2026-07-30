@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +22,19 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirebaseBootstrap.configure();
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+  // Keep Crashlytics off in debug to avoid noise; on in release/profile.
+  await FirebaseCrashlytics.instance
+      .setCrashlyticsCollectionEnabled(!kDebugMode);
+
   // Non-blocking — ads must never delay app start.
   unawaited(AdMobService.initialize());
 

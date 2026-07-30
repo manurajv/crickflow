@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_user.dart';
 import '../../users/models/admin_audit_log.dart';
 import '../models/match_enums.dart';
@@ -120,7 +121,7 @@ class MatchesRepository {
       base = base.where('organizationId', isEqualTo: orgId);
     }
     try {
-      final snap = await base.limit(500).get();
+      final snap = await base.limit(AdminQueryLimits.summaryScanMax).get();
       final list = snap.docs.map((d) => ManagedMatch.fromFirestore(id: d.id, map: d.data())).where((m) => !m.isSoftDeleted).toList();
       return MatchSummaryStats(
         total: list.length,

@@ -331,12 +331,303 @@ class _Streaming extends StatelessWidget {
     );
   }
 }
-class _CommentarySection extends ConsumerWidget { @override Widget build(BuildContext context, WidgetRef ref) { final controller = ref.read(matchesListControllerProvider.notifier); final query = ref.watch(matchesListControllerProvider.select((s) => s.commentaryQuery)); final async = ref.watch(selectedMatchCommentaryProvider); return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const _SectionTitle('Commentary'), const SizedBox(height: 8), TextField(onChanged: controller.setCommentaryQuery, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search commentary?'), controller: TextEditingController(text: query)..selection = TextSelection.fromPosition(TextPosition(offset: query.length))), const SizedBox(height: 8), async.when(loading: () => const LinearProgressIndicator(), error: (e, _) => Text('$e'), data: (items) => items.isEmpty ? Text('No commentary yet', style: TextStyle(color: context.adminColors.textMuted)) : Column(children: [for (final item in items.take(20)) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(item.text), subtitle: Text(item.overLabel ?? ''), trailing: Text(item.timestamp == null ? '' : DateFormat('MMM d HH:mm').format(item.timestamp!), style: Theme.of(context).textTheme.labelSmall))]))]); }}
+class _CommentarySection extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_CommentarySection> createState() => _CommentarySectionState();
+}
+
+class _CommentarySectionState extends ConsumerState<_CommentarySection> {
+  late final TextEditingController _search;
+
+  @override
+  void initState() {
+    super.initState();
+    _search = TextEditingController(
+      text: ref.read(matchesListControllerProvider).commentaryQuery,
+    );
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ref.read(matchesListControllerProvider.notifier);
+    final async = ref.watch(selectedMatchCommentaryProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle('Commentary'),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _search,
+          onChanged: controller.setCommentaryQuery,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search commentary…',
+          ),
+        ),
+        const SizedBox(height: 8),
+        async.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+          data: (items) => items.isEmpty
+              ? Text(
+                  'No commentary yet',
+                  style: TextStyle(color: context.adminColors.textMuted),
+                )
+              : Column(
+                  children: [
+                    for (final item in items.take(20))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(item.text),
+                        subtitle: Text(item.overLabel ?? ''),
+                        trailing: Text(
+                          item.timestamp == null
+                              ? ''
+                              : DateFormat('MMM d HH:mm')
+                                  .format(item.timestamp!),
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
 class _TimelineSection extends ConsumerWidget { @override Widget build(BuildContext context, WidgetRef ref) { final async = ref.watch(selectedMatchTimelineProvider); return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const _SectionTitle('Timeline'), const SizedBox(height: 8), async.when(loading: () => const LinearProgressIndicator(), error: (e, _) => Text('$e'), data: (items) => items.isEmpty ? Text('No timeline yet', style: TextStyle(color: context.adminColors.textMuted)) : Column(children: [for (final item in items.take(20)) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(item.title), subtitle: Text(item.subtitle), trailing: Text(DateFormat('MMM d HH:mm').format(item.occurredAt), style: Theme.of(context).textTheme.labelSmall))]))]); }}
 class _AuditSection extends ConsumerWidget { @override Widget build(BuildContext context, WidgetRef ref) { final async = ref.watch(selectedMatchAuditProvider); return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const _SectionTitle('Audit Log'), const SizedBox(height: 8), async.when(loading: () => const LinearProgressIndicator(), error: (e, _) => Text('$e'), data: (items) => items.isEmpty ? Text('No admin actions yet', style: TextStyle(color: context.adminColors.textMuted)) : Column(children: [for (final item in items.take(20)) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(item.action), subtitle: Text(item.reason ?? item.actorEmail), trailing: Text(DateFormat('MMM d HH:mm').format(item.timestamp), style: Theme.of(context).textTheme.labelSmall))]))]); }}
-class _Actions extends ConsumerWidget { const _Actions({required this.match}); final ManagedMatch match; @override Widget build(BuildContext context, WidgetRef ref) { final controller = ref.read(matchesListControllerProvider.notifier); final isSuper = AdminRole.tryParse(ref.watch(adminSessionProvider).adminUser?.roleId) == AdminRole.superAdmin; Future<void> confirmAction({required String title, required String message, required Future<void> Function(String? reason) run, bool danger = false}) async { final reasonController = TextEditingController(); final ok = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: Text(title), content: Column(mainAxisSize: MainAxisSize.min, children: [Text(message), const SizedBox(height: 12), TextField(controller: reasonController, decoration: const InputDecoration(labelText: 'Reason (optional)'))]), actions: [CfButton(label: 'Cancel', variant: CfButtonVariant.ghost, onPressed: () => Navigator.pop(context, false)), CfButton(label: 'Confirm', variant: danger ? CfButtonVariant.danger : CfButtonVariant.primary, onPressed: () => Navigator.pop(context, true))])); if (ok == true) { await run(reasonController.text.trim().isEmpty ? null : reasonController.text.trim()); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title completed'))); }}
- return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const _SectionTitle('Actions'), const SizedBox(height: 8), Wrap(spacing: 8, runSpacing: 8, children: [OutlinedButton(onPressed: () {}, child: const Text('View Match')), OutlinedButton(onPressed: () => _editMetadata(context, ref, match), child: const Text('Edit Metadata')), if (isSuper) ...[OutlinedButton(onPressed: () => confirmAction(title: match.adminPaused ? 'Resume Match' : 'Pause Match', message: match.adminPaused ? 'Resume admin monitoring state?' : 'Pause admin monitoring state? This does not alter scoring engine.', run: (r) => controller.setPaused(match, !match.adminPaused, reason: r)), child: Text(match.adminPaused ? 'Resume' : 'Pause')), OutlinedButton(onPressed: () => confirmAction(title: 'Cancel Match', message: 'Mark this match as cancelled?', danger: true, run: (r) => controller.setStatus(match, ManagedMatchStatus.cancelled, reason: r)), child: const Text('Cancel')), OutlinedButton(onPressed: () => confirmAction(title: 'Mark Abandoned', message: 'Mark this match as abandoned?', danger: true, run: (r) => controller.setStatus(match, ManagedMatchStatus.abandoned, reason: r)), child: const Text('Abandon')), OutlinedButton(onPressed: () => confirmAction(title: match.adminFeatured ? 'Remove Feature' : 'Feature Match', message: match.adminFeatured ? 'Remove match feature?' : 'Feature this match?', run: (r) => controller.setFeatured(match, !match.adminFeatured, reason: r)), child: Text(match.adminFeatured ? 'Unfeature' : 'Feature')), if (!match.isSoftDeleted) OutlinedButton(onPressed: () => confirmAction(title: 'Soft-delete Match', message: 'Soft-delete this match? History and score data stay intact.', danger: true, run: (r) => controller.softDelete(match, reason: r)), child: const Text('Delete')) else OutlinedButton(onPressed: () => confirmAction(title: 'Restore Match', message: 'Restore this match?', run: (r) => controller.restore(match, reason: r)), child: const Text('Restore')), OutlinedButton(onPressed: () => confirmAction(title: 'Archive Match', message: 'Archive this match?', run: (r) => controller.archive(match, reason: r)), child: const Text('Archive'))]] )]); }
- Future<void> _editMetadata(BuildContext context, WidgetRef ref, ManagedMatch match) async { final title = TextEditingController(text: match.title); final venue = TextEditingController(text: match.venue); final ok = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('Edit Match Metadata'), content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')), TextField(controller: venue, decoration: const InputDecoration(labelText: 'Venue'))])), actions: [CfButton(label: 'Cancel', variant: CfButtonVariant.ghost, onPressed: () => Navigator.pop(context, false)), CfButton(label: 'Save', onPressed: () => Navigator.pop(context, true))])); if (ok == true) { await ref.read(matchesListControllerProvider.notifier).saveMetadata(match, title: title.text.trim(), venue: venue.text.trim()); } }
+class _Actions extends ConsumerWidget {
+  const _Actions({required this.match});
+  final ManagedMatch match;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(matchesListControllerProvider.notifier);
+    final isSuper = AdminRole.tryParse(
+          ref.watch(adminSessionProvider).adminUser?.roleId,
+        ) ==
+        AdminRole.superAdmin;
+
+    Future<void> confirmAction({
+      required String title,
+      required String message,
+      required Future<void> Function(String? reason) run,
+      bool danger = false,
+    }) async {
+      final reasonController = TextEditingController();
+      try {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(message),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: reasonController,
+                  decoration:
+                      const InputDecoration(labelText: 'Reason (optional)'),
+                ),
+              ],
+            ),
+            actions: [
+              CfButton(
+                label: 'Cancel',
+                variant: CfButtonVariant.ghost,
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              CfButton(
+                label: 'Confirm',
+                variant:
+                    danger ? CfButtonVariant.danger : CfButtonVariant.primary,
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          ),
+        );
+        if (ok == true) {
+          await run(
+            reasonController.text.trim().isEmpty
+                ? null
+                : reasonController.text.trim(),
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$title completed')),
+            );
+          }
+        }
+      } finally {
+        reasonController.dispose();
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle('Actions'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(onPressed: () {}, child: const Text('View Match')),
+            OutlinedButton(
+              onPressed: () => _editMetadata(context, ref, match),
+              child: const Text('Edit Metadata'),
+            ),
+            if (isSuper) ...[
+              OutlinedButton(
+                onPressed: () => confirmAction(
+                  title: match.adminPaused ? 'Resume Match' : 'Pause Match',
+                  message: match.adminPaused
+                      ? 'Resume admin monitoring state?'
+                      : 'Pause admin monitoring state? This does not alter scoring engine.',
+                  run: (r) =>
+                      controller.setPaused(match, !match.adminPaused, reason: r),
+                ),
+                child: Text(match.adminPaused ? 'Resume' : 'Pause'),
+              ),
+              OutlinedButton(
+                onPressed: () => confirmAction(
+                  title: 'Cancel Match',
+                  message: 'Mark this match as cancelled?',
+                  danger: true,
+                  run: (r) => controller.setStatus(
+                    match,
+                    ManagedMatchStatus.cancelled,
+                    reason: r,
+                  ),
+                ),
+                child: const Text('Cancel'),
+              ),
+              OutlinedButton(
+                onPressed: () => confirmAction(
+                  title: 'Mark Abandoned',
+                  message: 'Mark this match as abandoned?',
+                  danger: true,
+                  run: (r) => controller.setStatus(
+                    match,
+                    ManagedMatchStatus.abandoned,
+                    reason: r,
+                  ),
+                ),
+                child: const Text('Abandon'),
+              ),
+              OutlinedButton(
+                onPressed: () => confirmAction(
+                  title: match.adminFeatured
+                      ? 'Remove Feature'
+                      : 'Feature Match',
+                  message: match.adminFeatured
+                      ? 'Remove match feature?'
+                      : 'Feature this match?',
+                  run: (r) => controller.setFeatured(
+                    match,
+                    !match.adminFeatured,
+                    reason: r,
+                  ),
+                ),
+                child: Text(match.adminFeatured ? 'Unfeature' : 'Feature'),
+              ),
+              if (!match.isSoftDeleted)
+                OutlinedButton(
+                  onPressed: () => confirmAction(
+                    title: 'Soft-delete Match',
+                    message:
+                        'Soft-delete this match? History and score data stay intact.',
+                    danger: true,
+                    run: (r) => controller.softDelete(match, reason: r),
+                  ),
+                  child: const Text('Delete'),
+                )
+              else
+                OutlinedButton(
+                  onPressed: () => confirmAction(
+                    title: 'Restore Match',
+                    message: 'Restore this match?',
+                    run: (r) => controller.restore(match, reason: r),
+                  ),
+                  child: const Text('Restore'),
+                ),
+              OutlinedButton(
+                onPressed: () => confirmAction(
+                  title: 'Archive Match',
+                  message: 'Archive this match?',
+                  run: (r) => controller.archive(match, reason: r),
+                ),
+                child: const Text('Archive'),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _editMetadata(
+    BuildContext context,
+    WidgetRef ref,
+    ManagedMatch match,
+  ) async {
+    final title = TextEditingController(text: match.title);
+    final venue = TextEditingController(text: match.venue);
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Edit Match Metadata'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: title,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                TextField(
+                  controller: venue,
+                  decoration: const InputDecoration(labelText: 'Venue'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            CfButton(
+              label: 'Cancel',
+              variant: CfButtonVariant.ghost,
+              onPressed: () => Navigator.pop(context, false),
+            ),
+            CfButton(
+              label: 'Save',
+              onPressed: () => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+      );
+      if (ok == true) {
+        await ref.read(matchesListControllerProvider.notifier).saveMetadata(
+              match,
+              title: title.text.trim(),
+              venue: venue.text.trim(),
+            );
+      }
+    } finally {
+      title.dispose();
+      venue.dispose();
+    }
+  }
 }
 class _PlaceholderList extends StatelessWidget { const _PlaceholderList({required this.items}); final List<String> items; @override Widget build(BuildContext context) { final colors = context.adminColors; return Column(children: [for (final item in items) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(item), subtitle: Text('Coming soon', style: TextStyle(color: colors.textMuted, fontSize: 12)), trailing: Icon(Icons.lock_outline, size: 16, color: colors.textMuted))]); }}
 class _SectionTitle extends StatelessWidget { const _SectionTitle(this.text); final String text; @override Widget build(BuildContext context) => Text(text, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)); }

@@ -251,11 +251,11 @@ final tournamentsListControllerProvider = StateNotifierProvider.autoDispose<
 });
 
 final selectedManagedTournamentProvider =
-    StreamProvider.autoDispose<ManagedTournament?>((ref) {
+    FutureProvider.autoDispose<ManagedTournament?>((ref) async {
   final id =
       ref.watch(tournamentsListControllerProvider.select((s) => s.selectedId));
-  if (id == null) return Stream.value(null);
-  return ref.watch(tournamentsRepositoryProvider).watchById(
+  if (id == null) return null;
+  return ref.watch(tournamentsRepositoryProvider).fetchById(
         id,
         appType: ref.watch(adminAppTypeProvider),
         actor: ref.watch(adminSessionProvider).adminUser,

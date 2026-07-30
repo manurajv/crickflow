@@ -150,6 +150,7 @@ enum AuditModule {
       'support' || 'ticket' => AuditModule.support,
       'ai' => AuditModule.aiOps,
       'security' => AuditModule.security,
+      'devops' || 'deploy' || 'release' => AuditModule.system,
       'system' || 'firebase' || 'api' => AuditModule.system,
       _ => AuditModule.other,
     };

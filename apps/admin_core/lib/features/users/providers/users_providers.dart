@@ -265,16 +265,16 @@ final usersListControllerProvider =
 });
 
 final selectedManagedUserProvider =
-    StreamProvider.autoDispose<ManagedUser?>((ref) {
+    FutureProvider.autoDispose<ManagedUser?>((ref) async {
   final id =
       ref.watch(usersListControllerProvider.select((s) => s.selectedUserId));
-  if (id == null) return Stream.value(null);
-  return ref.watch(usersRepositoryProvider).watchById(
+  if (id == null) return null;
+  return ref.watch(usersRepositoryProvider).fetchById(
         id,
         appType: ref.watch(adminAppTypeProvider),
         actor: ref.watch(adminSessionProvider).adminUser,
       );
-    });
+});
 
 final selectedUserActivityProvider =
     FutureProvider.autoDispose<List<UserActivityItem>>((ref) async {

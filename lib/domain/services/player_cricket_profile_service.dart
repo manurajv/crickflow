@@ -37,14 +37,7 @@ class PlayerCricketProfileService {
     Set<String> userTeamIds = const {},
   }) async {
     final participated = allMatches
-        .where(
-          (m) => userParticipatedInMatch(
-            m,
-            uid: authUid,
-            player: player,
-            userTeamIds: userTeamIds,
-          ),
-        )
+        .where((m) => playerAppearedInMatch(m, player))
         .toList();
 
     final completed = participated

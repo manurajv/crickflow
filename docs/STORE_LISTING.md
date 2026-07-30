@@ -46,6 +46,8 @@ Complete the Play questionnaire (no gambling; user-generated sports content).
 
 ## Build upload
 
+Full ops checklist (signing, Maps key, deploy rules): [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md).
+
 ```powershell
 .\scripts\build-release.ps1
 ```

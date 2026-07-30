@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
+import '../../../core/constants/admin_query_limits.dart';
 import '../../../models/admin_user.dart';
 import '../../users/models/admin_audit_log.dart';
 import '../models/managed_tournament.dart';
@@ -219,6 +220,19 @@ class TournamentsRepository {
     });
   }
 
+  /// One-shot detail fetch (preferred for admin detail panels).
+  Future<ManagedTournament?> fetchById(
+    String id, {
+    required AdminAppType appType,
+    required AdminUser? actor,
+  }) async {
+    final snap = await _tournaments.doc(id).get();
+    if (!snap.exists || snap.data() == null) return null;
+    final t = ManagedTournament.fromFirestore(id: snap.id, map: snap.data()!);
+    if (!_visibleToActor(t, appType: appType, actor: actor)) return null;
+    return t;
+  }
+
   Future<TournamentSummaryStats> fetchSummary({
     required AdminAppType appType,
     required AdminUser? actor,
@@ -231,7 +245,7 @@ class TournamentsRepository {
     }
 
     try {
-      final snap = await base.limit(500).get();
+      final snap = await base.limit(AdminQueryLimits.summaryScanMax).get();
       final list = snap.docs
           .map((d) => ManagedTournament.fromFirestore(id: d.id, map: d.data()))
           .where((t) => !t.isSoftDeleted)

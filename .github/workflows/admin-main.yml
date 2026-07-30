@@ -1,0 +1,126 @@
+name: Admin Main Pipeline
+
+# On merge to main/develop: test, build, publish artifacts.
+# Does NOT deploy to Firebase Hosting automatically.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'config/admin/**'
+      - 'firebase.admin.json'
+      - '.github/workflows/admin-*.yml'
+      - 'apps/VERSION'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: admin_core
+        working-directory: apps/admin_core
+        run: |
+          flutter pub get
+          dart format --output=none --set-exit-if-changed .
+          flutter analyze --fatal-infos
+          flutter test
+      - name: admin
+        working-directory: apps/admin
+        run: |
+          flutter pub get
+          flutter analyze --fatal-infos
+      - name: superadmin
+        working-directory: apps/superadmin
+        run: |
+          flutter pub get
+          flutter analyze --fatal-infos
+
+  build-and-package:
+    name: Package web builds
+    runs-on: ubuntu-latest
+    needs: quality
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      build_number: ${{ steps.meta.outputs.build_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Metadata
+        id: meta
+        run: |
+          VER=$(tr -d '[:space:]' < apps/VERSION)
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "build_number=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          {
+            echo "# CrickFlow Admin build"
+            echo
+            echo "- Version: \`$VER+${{ github.run_number }}\`"
+            echo "- Git SHA: \`${{ github.sha }}\`"
+            echo "- Ref: \`${{ github.ref_name }}\`"
+            echo "- Environment dart-define: \`staging\` (artifact only)"
+            echo "- Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "## Notes"
+            echo
+            echo "Artifacts are **not** deployed. Use **Admin Deploy (manual)** workflow."
+          } > release-notes-preview.md
+      - name: Build apps
+        env:
+          ADMIN_VERSION: ${{ steps.meta.outputs.version }}
+          ADMIN_BUILD_NUMBER: ${{ steps.meta.outputs.build_number }}
+        run: |
+          (cd apps/admin_core && flutter pub get)
+          (cd apps/admin && flutter pub get && flutter build web --release \
+            --dart-define=ADMIN_ENV=staging \
+            --dart-define=ADMIN_VERSION=$ADMIN_VERSION \
+            --dart-define=ADMIN_BUILD_NUMBER=$ADMIN_BUILD_NUMBER \
+            --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
+            --dart-define=ADMIN_GIT_REF=${{ github.ref_name }})
+          (cd apps/superadmin && flutter pub get && flutter build web --release \
+            --dart-define=ADMIN_ENV=staging \
+            --dart-define=ADMIN_VERSION=$ADMIN_VERSION \
+            --dart-define=ADMIN_BUILD_NUMBER=$ADMIN_BUILD_NUMBER \
+            --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
+            --dart-define=ADMIN_GIT_REF=${{ github.ref_name }})
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-web-${{ steps.meta.outputs.version }}-${{ github.run_number }}
+          path: |
+            apps/admin/build/web
+            apps/superadmin/build/web
+            release-notes-preview.md
+          retention-days: 30
+
+  # Optional: write build metadata to Firestore for DevOps Center (no secrets in logs).
+  publish-ci-metadata:
+    name: Publish CI metadata (optional)
+    runs-on: ubuntu-latest
+    needs: build-and-package
+    if: ${{ vars.ADMIN_CI_METADATA_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Write DevOps build doc
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+          ADMIN_VERSION: ${{ needs.build-and-package.outputs.version }}
+          ADMIN_BUILD_NUMBER: ${{ needs.build-and-package.outputs.build_number }}
+          GIT_SHA: ${{ github.sha }}
+          GIT_REF: ${{ github.ref_name }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ci/publish-admin-ci-metadata.cjs

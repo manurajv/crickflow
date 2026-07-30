@@ -41,6 +41,99 @@ bool userParticipatedInMatch(
   );
 }
 
+bool _playerIdMatches(
+  PlayerModel player, {
+  String? docId,
+  String? cfPlayerId,
+}) {
+  if (docId != null && docId.isNotEmpty) {
+    if (docId == player.id) return true;
+    if (player.userId != null &&
+        player.userId!.isNotEmpty &&
+        docId == player.userId) {
+      return true;
+    }
+    if (player.playerId != null &&
+        player.playerId!.isNotEmpty &&
+        docId == player.playerId) {
+      return true;
+    }
+  }
+  if (cfPlayerId != null &&
+      cfPlayerId.isNotEmpty &&
+      player.playerId != null &&
+      player.playerId!.isNotEmpty &&
+      cfPlayerId == player.playerId) {
+    return true;
+  }
+  return false;
+}
+
+/// True when [player] is in the match squad / scorecard (not merely on a team
+/// that played, or only scored/created the match).
+bool playerAppearedInMatch(MatchModel m, PlayerModel player) {
+  if (player.id.isEmpty) return false;
+
+  if (_playerIdMatches(player, docId: m.playerOfMatchId)) return true;
+  final hero = m.matchHero;
+  if (hero != null && _playerIdMatches(player, docId: hero.playerId)) {
+    return true;
+  }
+
+  final setup = m.setup;
+  if (setup != null) {
+    for (final snapshot in <MatchPlayerSnapshot>[
+      ...setup.teamAPlayingPlayers,
+      ...setup.teamASubstitutePlayers,
+      ...setup.teamBPlayingPlayers,
+      ...setup.teamBSubstitutePlayers,
+    ]) {
+      if (_playerIdMatches(
+        player,
+        docId: snapshot.id,
+        cfPlayerId: snapshot.playerId,
+      )) {
+        return true;
+      }
+    }
+    for (final official in <String?>[
+      setup.teamACaptainId,
+      setup.teamAViceCaptainId,
+      setup.teamAWicketKeeperId,
+      setup.teamBCaptainId,
+      setup.teamBViceCaptainId,
+      setup.teamBWicketKeeperId,
+    ]) {
+      if (_playerIdMatches(player, docId: official)) return true;
+    }
+  }
+
+  for (final innings in m.innings) {
+    for (final id in <String?>[
+      innings.strikerId,
+      innings.nonStrikerId,
+      innings.currentBowlerId,
+      innings.currentWicketKeeperId,
+    ]) {
+      if (_playerIdMatches(player, docId: id)) return true;
+    }
+    for (final batter in innings.batsmen) {
+      if (_playerIdMatches(player, docId: batter.playerId)) return true;
+    }
+    for (final bowler in innings.bowlers) {
+      if (_playerIdMatches(player, docId: bowler.playerId)) return true;
+    }
+    for (final fielder in innings.fielders) {
+      if (_playerIdMatches(player, docId: fielder.playerId)) return true;
+    }
+    for (final fow in innings.fallOfWickets) {
+      if (_playerIdMatches(player, docId: fow.batsmanId)) return true;
+    }
+  }
+
+  return false;
+}
+
 bool userTeamParticipatedInTournament(
   TournamentModel t, {
   Set<String> userTeamIds = const {},

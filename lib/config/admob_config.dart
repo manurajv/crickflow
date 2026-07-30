@@ -25,7 +25,8 @@ abstract final class AdMobConfig {
   static const iosProdNative = 'ca-app-pub-7062464075957292/2921443271';
 
   /// When true, always use Google test units (also forced in [kDebugMode]).
-  static const forceTestAds = true;
+  /// Must be false for Play Store / production release builds.
+  static const forceTestAds = false;
 
   static bool get useTestAds => forceTestAds || kDebugMode;
 
