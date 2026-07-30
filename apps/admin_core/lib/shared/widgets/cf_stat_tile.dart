@@ -13,6 +13,7 @@ class CfStatTile extends StatelessWidget {
     this.growthLabel,
     this.growthPositive,
     this.accentColor,
+    this.compact = false,
   });
 
   final IconData icon;
@@ -21,6 +22,7 @@ class CfStatTile extends StatelessWidget {
   final String? growthLabel;
   final bool? growthPositive;
   final Color? accentColor;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -29,26 +31,32 @@ class CfStatTile extends StatelessWidget {
     final growthColor = growthPositive == null
         ? colors.textMuted
         : (growthPositive! ? colors.success : colors.error);
+    final iconSize = compact ? 34.0 : 40.0;
 
     return CfCard(
+      padding: compact
+          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+          : const EdgeInsets.all(20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: iconSize,
+                height: iconSize,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: accent, size: 22),
+                child: Icon(icon, color: accent, size: compact ? 18 : 22),
               ),
               const Spacer(),
               if (growthLabel != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: growthColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -77,17 +85,22 @@ class CfStatTile extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: compact ? 10 : 16),
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: (compact
+                    ? Theme.of(context).textTheme.titleLarge
+                    : Theme.of(context).textTheme.headlineMedium)
+                ?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             title,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colors.textSecondary,
                 ),
           ),

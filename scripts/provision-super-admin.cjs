@@ -14,7 +14,7 @@ const NAME = process.argv[4] || 'Manuraj Vimukthi';
 // Public Firebase CLI OAuth client (used by firebase-tools)
 const CLIENT_ID =
   '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com';
-const CLIENT_SECRET = 'jEQ6QTSQwu0e2RZ95U3u1mAz';
+const CLIENT_SECRET = 'j9iVZfS8kkCEFUPaAeJV0sAi';
 
 const ALL_PERMS = [
   'canManageUsers',
@@ -22,11 +22,16 @@ const ALL_PERMS = [
   'canManageTeams',
   'canManagePlayers',
   'canManageTournaments',
+  'canManageGrounds',
   'canSendNotifications',
   'canManageAds',
   'canModerateCommunity',
   'canManageBroadcast',
   'canViewAnalytics',
+  'canViewSystemHealth',
+  'canManageSupport',
+  'canManageAiOps',
+  'canManageSecurity',
   'canManageCms',
   'canViewReports',
   'canManageSettings',
@@ -68,10 +73,15 @@ const ROLES = {
       'canManageTeams',
       'canManagePlayers',
       'canManageTournaments',
+      'canManageGrounds',
       'canSendNotifications',
       'canModerateCommunity',
       'canManageBroadcast',
       'canViewAnalytics',
+      'canViewSystemHealth',
+      'canManageSupport',
+      'canManageAiOps',
+      'canManageSecurity',
       'canViewReports',
       'canManageSettings',
       'canManageDiscover',
@@ -103,6 +113,7 @@ const ROLES = {
       'canManageTeams',
       'canManagePlayers',
       'canManageTournaments',
+      'canManageGrounds',
       'canViewReports',
     ]),
   },
@@ -118,6 +129,8 @@ const ROLES = {
       'canViewReports',
       'canViewLogs',
       'canViewAnalytics',
+      'canViewSystemHealth',
+      'canManageSupport',
     ]),
   },
   viewer: {

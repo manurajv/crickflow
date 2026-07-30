@@ -237,7 +237,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: AppDimens.spaceSm),
                     Text(
-                      'Score • Stream • Connect',
+                      '• Score • Stream • Connect',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: accentBlue,

@@ -152,7 +152,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Score • Stream • Connect',
+                  '• Score • Stream • Connect',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: const Color(0xFF1565C0),

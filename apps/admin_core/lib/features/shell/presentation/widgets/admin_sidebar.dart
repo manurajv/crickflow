@@ -9,6 +9,11 @@ import '../../../../models/nav_models.dart';
 import '../../../auth/providers/auth_providers.dart';
 import '../../providers/shell_providers.dart';
 
+/// Width below which the sidebar shows icon-only chrome.
+/// Chosen between [Breakpoints.sidebarCollapsed] and expanded so mid-animation
+/// frames stay compact until there is room for labels.
+const double _sidebarCompactMaxWidth = 140;
+
 class AdminSidebar extends ConsumerWidget {
   const AdminSidebar({super.key});
 
@@ -17,6 +22,7 @@ class AdminSidebar extends ConsumerWidget {
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final sections = ref.watch(navSectionsProvider);
     final appType = ref.watch(adminAppTypeProvider);
+    final checker = ref.watch(permissionCheckerProvider);
     final location = GoRouterState.of(context).uri.path;
     final width = collapsed
         ? Breakpoints.sidebarCollapsed
@@ -26,45 +32,50 @@ class AdminSidebar extends ConsumerWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeInOut,
       width: width,
+      clipBehavior: Clip.hardEdge,
       color: context.adminColors.sidebar,
-      child: Column(
-        children: [
-          _SidebarHeader(
-            collapsed: collapsed,
-            title: appType.displayName,
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-              children: [
-                for (final section in sections) ...[
-                  ..._buildSection(
-                    context,
-                    ref,
-                    section: section,
-                    collapsed: collapsed,
-                    location: location,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          _LogoutTile(collapsed: collapsed),
-          const SizedBox(height: 12),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < _sidebarCompactMaxWidth;
+          return Column(
+            children: [
+              _SidebarHeader(
+                compact: compact,
+                title: appType.displayName,
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                  children: [
+                    for (final section in sections) ...[
+                      ..._buildSection(
+                        context,
+                        checker: checker,
+                        section: section,
+                        compact: compact,
+                        location: location,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              _LogoutTile(compact: compact),
+              const SizedBox(height: 12),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
 List<Widget> _buildSection(
-  BuildContext context,
-  WidgetRef ref, {
+  BuildContext context, {
+  required PermissionChecker checker,
   required AdminNavSection section,
-  required bool collapsed,
+  required bool compact,
   required String location,
 }) {
-  final checker = ref.watch(permissionCheckerProvider);
   final visible = section.items.where((item) {
     if (item.permission == null) return true;
     return checker.can(item.permission!);
@@ -72,11 +83,13 @@ List<Widget> _buildSection(
   if (visible.isEmpty) return const [];
 
   return [
-    if (!collapsed)
+    if (!compact)
       Padding(
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 6),
         child: Text(
           section.label.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Colors.white54,
                 letterSpacing: 1.1,
@@ -87,7 +100,7 @@ List<Widget> _buildSection(
     for (final item in visible)
       _NavTile(
         item: item,
-        collapsed: collapsed,
+        compact: compact,
         selected: location == item.route ||
             (item.route != '/' && location.startsWith(item.route)),
       ),
@@ -95,18 +108,18 @@ List<Widget> _buildSection(
 }
 
 class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader({required this.collapsed, required this.title});
+  const _SidebarHeader({required this.compact, required this.title});
 
-  final bool collapsed;
+  final bool compact;
   final String title;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 64,
-      padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 16),
-      alignment: collapsed ? Alignment.center : Alignment.centerLeft,
-      child: collapsed
+      padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 16),
+      alignment: compact ? Alignment.center : Alignment.centerLeft,
+      child: compact
           ? Container(
               width: 36,
               height: 36,
@@ -154,6 +167,8 @@ class _SidebarHeader extends StatelessWidget {
                     children: [
                       const Text(
                         'CrickFlow',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -162,6 +177,8 @@ class _SidebarHeader extends StatelessWidget {
                       ),
                       Text(
                         title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white60,
                           fontSize: 11,
@@ -179,12 +196,12 @@ class _SidebarHeader extends StatelessWidget {
 class _NavTile extends ConsumerWidget {
   const _NavTile({
     required this.item,
-    required this.collapsed,
+    required this.compact,
     required this.selected,
   });
 
   final AdminNavItem item;
-  final bool collapsed;
+  final bool compact;
   final bool selected;
 
   @override
@@ -193,7 +210,7 @@ class _NavTile extends ConsumerWidget {
     final fg = selected ? AdminColors.gold : Colors.white70;
 
     return Tooltip(
-      message: collapsed ? item.label : '',
+      message: compact ? item.label : '',
       waitDuration: const Duration(milliseconds: 400),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
@@ -215,9 +232,9 @@ class _NavTile extends ConsumerWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               height: 44,
-              padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 12),
-              alignment: collapsed ? Alignment.center : Alignment.centerLeft,
-              child: collapsed
+              padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 12),
+              alignment: compact ? Alignment.center : Alignment.centerLeft,
+              child: compact
                   ? Icon(item.icon, color: fg, size: 20)
                   : Row(
                       children: [
@@ -226,6 +243,8 @@ class _NavTile extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: fg,
                               fontWeight:
@@ -263,9 +282,9 @@ class _NavTile extends ConsumerWidget {
 }
 
 class _LogoutTile extends ConsumerWidget {
-  const _LogoutTile({required this.collapsed});
+  const _LogoutTile({required this.compact});
 
-  final bool collapsed;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -300,16 +319,25 @@ class _LogoutTile extends ConsumerWidget {
           },
           child: SizedBox(
             height: 44,
-            child: collapsed
-                ? const Icon(Icons.logout, color: Colors.white54, size: 20)
+            child: compact
+                ? const Center(
+                    child: Icon(Icons.logout, color: Colors.white54, size: 20),
+                  )
                 : const Row(
                     children: [
                       SizedBox(width: 12),
                       Icon(Icons.logout, color: Colors.white54, size: 20),
                       SizedBox(width: 12),
-                      Text(
-                        'Logout',
-                        style: TextStyle(color: Colors.white70, fontSize: 13.5),
+                      Expanded(
+                        child: Text(
+                          'Logout',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13.5,
+                          ),
+                        ),
                       ),
                     ],
                   ),

@@ -23,6 +23,11 @@ class PermissionGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(adminSessionProvider);
+    // Session still resolving — do not flash "Permission required".
+    if (session.status == AdminSessionStatus.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final allowed = ref.watch(permissionCheckerProvider).can(permission);
     if (allowed) return child;
     return fallback ??
@@ -51,6 +56,10 @@ class PermissionGateAny extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(adminSessionProvider);
+    if (session.status == AdminSessionStatus.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final checker = ref.watch(permissionCheckerProvider);
     final allowed =
         requireAll ? checker.canAll(permissions) : checker.canAny(permissions);

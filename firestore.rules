@@ -11,6 +11,23 @@ service cloud.firestore {
           .hasOnly(['likeCount', 'commentCount', 'shareCount', 'saveCount', 'updatedAt']);
     }
 
+    /// Additive admin moderation keys on `community_posts` (mobile ignores unknown fields).
+    function onlyCommunityAdminModeration() {
+      return isActiveAdminUser()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'adminStatus',
+              'adminFeatured',
+              'adminVerified',
+              'adminModerationNote',
+              'adminModeratedAt',
+              'adminModeratedBy',
+              'isPinned',
+              'organizationId',
+              'updatedAt'
+            ]);
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -601,10 +618,69 @@ service cloud.firestore {
         || request.resource.data.playerId == resource.data.playerId;
     }
 
+    /// Active web-admin profile (additive `admin_users` — does not use mobile roles).
+    function adminUserData() {
+      return get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data;
+    }
+
+    function isActiveAdminUser() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+        && adminUserData().get('isActive', false) == true;
+    }
+
+    function isSuperAdminUser() {
+      return isActiveAdminUser()
+        && adminUserData().get('roleId', '') == 'superAdmin';
+    }
+
+    function isOrgAdminUser() {
+      return isActiveAdminUser()
+        && adminUserData().get('roleId', '') == 'admin'
+        && adminUserData().get('organizationId', '') is string
+        && adminUserData().get('organizationId', '').size() > 0;
+    }
+
+    /// Additive admin-managed keys on mobile `users` (mobile clients ignore unknown fields).
+    function onlyAdminManagedUserFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'accountStatus',
+          'status',
+          'adminVerified',
+          'organizationId',
+          'lastLoginAt',
+          'deletedAt',
+          'deletedBy',
+          'displayName',
+          'name',
+          'mobile',
+          'phoneNumber',
+          'bio',
+          'country',
+          'location',
+          'updatedAt'
+        ]);
+    }
+
+    function canAdminUpdateUserDoc() {
+      return onlyAdminManagedUserFields()
+        && userPublicPlayerIdImmutable()
+        && (
+          isSuperAdminUser()
+          || (
+            isOrgAdminUser()
+            && resource.data.get('organizationId', '')
+              == adminUserData().get('organizationId', '')
+          )
+        );
+    }
+
     match /users/{userId} {
       allow read: if true;
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) && userPublicPlayerIdImmutable();
+      allow update: if (isOwner(userId) && userPublicPlayerIdImmutable())
+        || canAdminUpdateUserDoc();
       allow delete: if isOwner(userId);
 
       match /teamNotificationPrefs/{teamId} {
@@ -794,7 +870,39 @@ service cloud.firestore {
     /// Home carousel: admin ads + announcements. Public read; admin write.
     match /home_promotions/{promoId} {
       allow read: if true;
-      allow create, update, delete: if isPlatformAdmin();
+      allow create, update, delete: if isPlatformAdmin() || isActiveAdminUser();
+    }
+
+    /// Additive admin-managed keys on mobile `teams`.
+    function onlyAdminManagedTeamFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'adminFeatured',
+          'adminVerified',
+          'adminStatus',
+          'adminRecordStatus',
+          'adminDeletedAt',
+          'adminDeletedBy',
+          'adminCategory',
+          'adminBallType',
+          'organizationId',
+          'name',
+          'coachName',
+          'contactNumber',
+          'updatedAt'
+        ]);
+    }
+
+    function canAdminUpdateTeamDoc() {
+      return onlyAdminManagedTeamFields()
+        && (
+          isSuperAdminUser()
+          || (
+            isOrgAdminUser()
+            && resource.data.get('organizationId', '')
+              == adminUserData().get('organizationId', '')
+          )
+        );
     }
 
     match /teams/{teamId} {
@@ -804,7 +912,8 @@ service cloud.firestore {
       allow update: if isTeamOwnerFullUpdate()
         || isMemberSelfLeaveTeamUpdate(teamId)
         || isOwnerLeaveTeamUpdate()
-        || isLeadershipRosterUpdate(teamId);
+        || isLeadershipRosterUpdate(teamId)
+        || canAdminUpdateTeamDoc();
       allow delete: if isSignedIn()
         && resource.data.createdBy == request.auth.uid
         && teamPublicCodeImmutable();
@@ -862,12 +971,43 @@ service cloud.firestore {
       );
     }
 
+    /// Additive admin-managed keys on mobile `matches`.
+    function onlyAdminManagedMatchFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'adminFeatured',
+          'adminPaused',
+          'adminStatus',
+          'adminRecordStatus',
+          'adminDeletedAt',
+          'adminDeletedBy',
+          'organizationId',
+          'status',
+          'title',
+          'venue',
+          'updatedAt'
+        ]);
+    }
+
+    function canAdminUpdateMatchDoc() {
+      return onlyAdminManagedMatchFields()
+        && (
+          isSuperAdminUser()
+          || (
+            isOrgAdminUser()
+            && resource.data.get('organizationId', '')
+              == adminUserData().get('organizationId', '')
+          )
+        );
+    }
+
     match /matches/{matchId} {
       allow read: if true;
       allow create: if isSignedIn() && validMatchCreate();
       allow update: if (canUpdateMatchForTargetRevision(matchId)
         && validTargetRevisionMatchUpdate())
-        || (canUpdateStreamMetadata(matchId) && isStreamMetadataUpdate());
+        || (canUpdateStreamMetadata(matchId) && isStreamMetadataUpdate())
+        || canAdminUpdateMatchDoc();
       allow delete: if canDeleteMatch(matchId);
 
       match /ball_events/{eventId} {
@@ -956,11 +1096,43 @@ service cloud.firestore {
       }
     }
 
+    /// Additive admin-managed keys on mobile `tournaments`.
+    function onlyAdminManagedTournamentFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'adminFeatured',
+          'adminApprovalStatus',
+          'adminRecordStatus',
+          'adminDeletedAt',
+          'adminDeletedBy',
+          'organizationId',
+          'status',
+          'name',
+          'description',
+          'entryFee',
+          'winningPrize',
+          'updatedAt'
+        ]);
+    }
+
+    function canAdminUpdateTournamentDoc() {
+      return onlyAdminManagedTournamentFields()
+        && (
+          isSuperAdminUser()
+          || (
+            isOrgAdminUser()
+            && resource.data.get('organizationId', '')
+              == adminUserData().get('organizationId', '')
+          )
+        );
+    }
+
     match /tournaments/{tournamentId} {
       allow read: if true;
       allow create: if isTournamentOrganizerOnCreate();
       allow update: if isTournamentOrganizer(tournamentId)
-        || isTeamLeadershipAcceptingInvitation(tournamentId);
+        || isTeamLeadershipAcceptingInvitation(tournamentId)
+        || canAdminUpdateTournamentDoc();
       allow delete: if isTournamentOrganizer(tournamentId);
     }
 
@@ -1196,10 +1368,12 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      // Inbox owner, or actor who created the notification (like/comment revoke).
+      // Inbox owner, or actor who created the notification (like/comment revoke),
+      // or active web admin (monitor only — never exposes FCM tokens).
       allow read: if isSignedIn() && (
         resource.data.userId == request.auth.uid
         || resource.data.addedByUserId == request.auth.uid
+        || isActiveAdminUser()
       );
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid;
@@ -1261,9 +1435,13 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         resource.data.authorId == request.auth.uid
         || onlyCommunityEngagementUpdate()
+        || onlyCommunityAdminModeration()
       );
       allow delete: if isSignedIn()
-        && resource.data.authorId == request.auth.uid;
+        && (
+          resource.data.authorId == request.auth.uid
+          || isSuperAdminUser()
+        );
 
       match /likes/{userId} {
         allow read: if true;
@@ -1301,12 +1479,24 @@ service cloud.firestore {
 
     match /community_post_reports/{reportId} {
       allow read: if isSignedIn()
-        && resource.data.reporterUserId == request.auth.uid;
+        && (
+          resource.data.reporterUserId == request.auth.uid
+          || isActiveAdminUser()
+        );
       allow create: if isSignedIn()
         && request.resource.data.reporterUserId == request.auth.uid
         && request.resource.data.postId is string
         && request.resource.data.reason is string;
-      allow update, delete: if false;
+      allow update: if isActiveAdminUser()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'status',
+              'reviewedBy',
+              'reviewedAt',
+              'resolution',
+              'reviewNote'
+            ]);
+      allow delete: if false;
     }
 
     /// Counter-only updates for views/shares/saves on opportunity posts.
@@ -1318,10 +1508,12 @@ service cloud.firestore {
     }
 
     function onlyOpportunityAdminModeration() {
-      return isPlatformAdmin()
+      return (isPlatformAdmin() || isActiveAdminUser())
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly([
-              'isPinned', 'isFeatured', 'isPremium', 'status', 'updatedAt'
+              'isPinned', 'isFeatured', 'isPremium', 'status', 'updatedAt',
+              'organizationId', 'adminModerationNote', 'adminModeratedAt',
+              'adminModeratedBy'
             ]);
     }
 
@@ -1358,12 +1550,22 @@ service cloud.firestore {
     match /opportunity_post_reports/{reportId} {
       allow read: if isSignedIn()
         && (resource.data.reporterUserId == request.auth.uid
-            || isPlatformAdmin());
+            || isPlatformAdmin()
+            || isActiveAdminUser());
       allow create: if isSignedIn()
         && request.resource.data.reporterUserId == request.auth.uid
         && request.resource.data.postId is string
         && request.resource.data.reason is string;
-      allow update, delete: if isPlatformAdmin();
+      allow update: if (isPlatformAdmin() || isActiveAdminUser())
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'status',
+              'reviewedBy',
+              'reviewedAt',
+              'resolution',
+              'reviewNote'
+            ]);
+      allow delete: if false;
     }
 
     function isChatParticipant() {
@@ -1442,17 +1644,243 @@ service cloud.firestore {
       }
     }
 
-    /// Additive web-admin profiles. Does not alter mobile `users` or other collections.
-    /// Writes stay locked until a provisioner / Super Admin module ships.
-    match /admin_users/{userId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow write: if false;
+    /// Admin ground registry (additive). Not used by mobile create flows.
+    /// Soft-delete only — hard deletes are denied.
+    function canAdminManageGroundDoc() {
+      return isSuperAdminUser()
+        || (
+          isOrgAdminUser()
+          && resource.data.get('organizationId', '')
+            == adminUserData().get('organizationId', '')
+        );
     }
 
-    /// Role permission definitions for web admin panels (read-only to clients).
+    function canAdminCreateGroundDoc() {
+      return isSuperAdminUser()
+        || (
+          isOrgAdminUser()
+          && request.resource.data.get('organizationId', '')
+            == adminUserData().get('organizationId', '')
+          && request.resource.data.get('organizationId', '').size() > 0
+        );
+    }
+
+    match /grounds/{groundId} {
+      allow read: if canAdminManageGroundDoc();
+      allow create: if isActiveAdminUser()
+        && canAdminCreateGroundDoc()
+        && request.resource.data.keys().hasAll(['name', 'createdBy', 'createdAt'])
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if canAdminManageGroundDoc()
+        && request.resource.data.get('createdBy', '')
+          == resource.data.get('createdBy', '')
+        && (
+          isSuperAdminUser()
+          || request.resource.data.get('organizationId', '')
+            == resource.data.get('organizationId', '')
+        );
+      allow delete: if false;
+    }
+
+    /// Canonical organization entities (boards, clubs, academies, …).
+    /// Super Admin CRUD; Org Admin may read their own org doc only.
+    match /organizations/{orgId} {
+      allow read: if isSuperAdminUser()
+        || (isOrgAdminUser()
+            && adminUserData().organizationId == orgId);
+      allow create, update, delete: if isSuperAdminUser();
+    }
+
+    /// Additive web-admin profiles. Does not alter mobile `users` or other collections.
+    match /admin_users/{userId} {
+      allow read: if isSignedIn()
+        && (request.auth.uid == userId || isActiveAdminUser());
+      // Role changes: Super Admin only (seed scripts use Admin SDK).
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    /// Role permission definitions — Super Admin manage via Security Center.
     match /admin_roles/{roleId} {
       allow read: if isSignedIn();
-      allow write: if false;
+      allow create, update: if isSuperAdminUser();
+      allow delete: if isSuperAdminUser()
+        && !(resource.data.isSystem == true);
+    }
+
+    /// Immutable audit trail for admin actions (User Management and future modules).
+    match /admin_audit_logs/{logId} {
+      allow read: if isActiveAdminUser();
+      allow create: if isActiveAdminUser()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'action', 'actorUid', 'actorEmail', 'targetUid', 'timestamp'
+        ]);
+      allow update, delete: if false;
+    }
+
+    /// Admin notification campaigns (additive — does not alter mobile generation).
+    match /admin_notification_campaigns/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_notification_templates/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_notification_segments/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    /// Advertisement manager (additive — does not alter mobile AdMob).
+    match /admin_ad_campaigns/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_advertisers/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_admob_config/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_sponsored_content/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    /// Support Center (help desk) — additive; never community/private chats.
+    match /admin_support_tickets/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+
+      match /messages/{messageId} {
+        allow read, create, update, delete: if isActiveAdminUser();
+      }
+    }
+
+    match /admin_support_kb/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_support_faqs/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_support_announcements/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_support_meta/{id} {
+      allow read, create, update: if isActiveAdminUser();
+      allow delete: if false;
+    }
+
+    /// AI Operations Center — recommendations never auto-mutate user data.
+    match /admin_ai_recommendations/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_ai_rules/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_ai_jobs/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_ai_logs/{id} {
+      allow read, create: if isActiveAdminUser();
+      allow update, delete: if false;
+    }
+
+    match /admin_ai_settings/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    /// Security Operations Center — never stores secrets/tokens/keys.
+    match /admin_security_alerts/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_security_blocks/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_security_ips/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_security_devices/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_security_access/{id} {
+      allow read, create, update, delete: if isActiveAdminUser();
+    }
+
+    match /admin_security_backups/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_security_restores/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_security_sessions/{id} {
+      allow read, create, update: if isActiveAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_security_policies/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    /// Platform settings singleton — Super Admin write; active admins read.
+    match /admin_platform_settings/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_feature_flags/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_remote_config/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_app_versions/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update, delete: if isSuperAdminUser();
+    }
+
+    match /admin_maintenance/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update: if isSuperAdminUser();
+      allow delete: if false;
+    }
+
+    match /admin_cms_pages/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update, delete: if isSuperAdminUser();
+    }
+
+    /// Legal page *content* only — never stores public Privacy/Terms URLs.
+    match /admin_legal_pages/{id} {
+      allow read: if isActiveAdminUser();
+      allow create, update, delete: if isSuperAdminUser();
     }
   }
 }

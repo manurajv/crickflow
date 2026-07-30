@@ -6,7 +6,9 @@ import '../../../../core/extensions/context_extensions.dart';
 import '../../../../core/router/admin_route_paths.dart';
 import '../../../../core/theme/admin_colors.dart';
 import '../../../../core/theme/theme_mode_provider.dart';
+import '../../../audit/providers/audit_providers.dart';
 import '../../../auth/providers/auth_providers.dart';
+import '../../../users/models/admin_audit_log.dart';
 import '../../providers/shell_providers.dart';
 
 class AdminTopBar extends ConsumerWidget implements PreferredSizeWidget {
@@ -138,7 +140,19 @@ class _ProfileMenu extends ConsumerWidget {
           ref.read(themeModeProvider.notifier).state =
               isDark ? ThemeMode.light : ThemeMode.dark;
         } else if (value == 'logout') {
+          final session = ref.read(adminSessionProvider);
+          final admin = session.adminUser;
+          final user = ref.read(authServiceProvider).currentUser;
           await ref.read(authServiceProvider).signOut();
+          if (admin != null || user != null) {
+            await ref.read(auditLoggerProvider).logAuthEvent(
+                  action: AdminAuditActions.adminLogout,
+                  uid: admin?.uid ?? user?.uid ?? 'unknown',
+                  email: admin?.email ?? user?.email ?? '',
+                  roleId: admin?.roleId,
+                  organizationId: admin?.organizationId,
+                );
+          }
         }
       },
       itemBuilder: (context) => [
@@ -193,22 +207,7 @@ class _ProfileMenu extends ConsumerWidget {
       ],
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AdminColors.primaryBlue,
-            backgroundImage:
-                photoUrl != null ? NetworkImage(photoUrl!) : null,
-            child: photoUrl == null
-                ? Text(
-                    initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  )
-                : null,
-          ),
+          _ProfileAvatar(photoUrl: photoUrl, initials: initials),
           const SizedBox(width: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 140),
@@ -235,6 +234,54 @@ class _ProfileMenu extends ConsumerWidget {
           ),
           const Icon(Icons.keyboard_arrow_down, size: 18),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({
+    required this.initials,
+    this.photoUrl,
+  });
+
+  final String initials;
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Text(
+      initials,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+
+    if (photoUrl == null || photoUrl!.isEmpty) {
+      return CircleAvatar(
+        radius: 16,
+        backgroundColor: AdminColors.primaryBlue,
+        child: fallback,
+      );
+    }
+
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: AdminColors.primaryBlue,
+      child: ClipOval(
+        child: Image.network(
+          photoUrl!,
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Center(child: fallback),
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Center(child: fallback);
+          },
+        ),
       ),
     );
   }

@@ -57,18 +57,23 @@ class DashboardOverviewSection extends StatelessWidget {
           title: 'Overview',
           subtitle: 'Key metrics · placeholders until aggregates are wired',
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: metrics.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 14,
-            crossAxisSpacing: 14,
-            childAspectRatio: crossAxisCount >= 4 ? 1.35 : 1.45,
-          ),
-          itemBuilder: (context, index) {
-            return DashboardOverviewStatCard(metric: metrics[index]);
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = 14.0;
+            final cols = crossAxisCount.clamp(1, 6);
+            final itemWidth =
+                (constraints.maxWidth - spacing * (cols - 1)) / cols;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final metric in metrics)
+                  SizedBox(
+                    width: itemWidth,
+                    child: DashboardOverviewStatCard(metric: metric),
+                  ),
+              ],
+            );
           },
         ),
       ],

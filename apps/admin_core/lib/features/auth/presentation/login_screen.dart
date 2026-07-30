@@ -6,6 +6,8 @@ import '../../../core/extensions/context_extensions.dart';
 import '../../../core/theme/admin_colors.dart';
 import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/cf_card.dart';
+import '../../audit/providers/audit_providers.dart';
+import '../../users/models/admin_audit_log.dart';
 import '../providers/auth_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -80,8 +82,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             email: _email.text,
           );
       await auth.refreshIdToken(forceRefresh: true);
+      final user = auth.currentUser;
+      if (user != null) {
+        await ref.read(auditLoggerProvider).logAuthEvent(
+              action: AdminAuditActions.adminLoginSuccess,
+              uid: user.uid,
+              email: user.email ?? _email.text.trim(),
+              status: AuditStatus.success,
+            );
+      }
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _mapAuthError(e));
+      await ref.read(auditLoggerProvider).logAuthEvent(
+            action: AdminAuditActions.adminLoginFailed,
+            uid: 'unknown',
+            email: _email.text.trim(),
+            reason: e.code,
+            status: AuditStatus.failed,
+            severity: AuditSeverity.high,
+          );
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -103,6 +122,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             email: auth.currentUser?.email ?? _email.text,
           );
       await auth.refreshIdToken(forceRefresh: true);
+      final user = auth.currentUser;
+      if (user != null) {
+        await ref.read(auditLoggerProvider).logAuthEvent(
+              action: AdminAuditActions.adminLoginSuccess,
+              uid: user.uid,
+              email: user.email ?? '',
+              status: AuditStatus.success,
+              metadata: const {'method': 'google'},
+            );
+      }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'popup-closed-by-user' || e.code == 'cancelled-popup-request') {
         // User cancelled — no error toast.
@@ -134,6 +163,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authServiceProvider).sendPasswordReset(email);
       setState(() => _info = 'Password reset email sent to $email');
+      await ref.read(auditLoggerProvider).logAuthEvent(
+            action: AdminAuditActions.adminPasswordResetRequested,
+            uid: 'unknown',
+            email: email,
+            severity: AuditSeverity.warning,
+          );
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _mapAuthError(e));
     } catch (e) {

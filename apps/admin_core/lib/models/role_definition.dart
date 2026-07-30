@@ -16,6 +16,7 @@ class RoleDefinition extends Equatable {
     this.allowedPanel,
     this.description,
     this.isSystem = true,
+    this.archived = false,
   });
 
   final String id;
@@ -24,6 +25,9 @@ class RoleDefinition extends Equatable {
   final AdminAppType? allowedPanel;
   final String? description;
   final bool isSystem;
+
+  /// Soft-archive flag — system roles should not be hard-deleted.
+  final bool archived;
 
   AdminRole? get knownRole => AdminRole.tryParse(id);
 
@@ -57,8 +61,13 @@ class RoleDefinition extends Equatable {
     }
 
     final label = (map['label'] as String?) ?? known?.label ?? id;
-    final permissions = perms.isEmpty && known != null
-        ? DefaultAdminRolePermissions.asPermissionMap(known)
+    // Merge built-in defaults under Firestore map so newly added
+    // permissions apply without re-seeding. Explicit Firestore values win.
+    final permissions = known != null
+        ? {
+            ...DefaultAdminRolePermissions.asPermissionMap(known),
+            ...perms,
+          }
         : perms;
 
     return RoleDefinition(
@@ -67,7 +76,9 @@ class RoleDefinition extends Equatable {
       permissions: permissions,
       allowedPanel: panel,
       description: map['description'] as String?,
-      isSystem: map['isSystem'] as bool? ?? true,
+      isSystem: map['isSystem'] as bool? ?? known != null,
+      archived: map['archived'] as bool? ??
+          (map['recordStatus'] == 'archived'),
     );
   }
 
@@ -83,6 +94,25 @@ class RoleDefinition extends Equatable {
     );
   }
 
+  RoleDefinition copyWith({
+    String? label,
+    Map<String, bool>? permissions,
+    AdminAppType? allowedPanel,
+    String? description,
+    bool? isSystem,
+    bool? archived,
+  }) {
+    return RoleDefinition(
+      id: id,
+      label: label ?? this.label,
+      permissions: permissions ?? this.permissions,
+      allowedPanel: allowedPanel ?? this.allowedPanel,
+      description: description ?? this.description,
+      isSystem: isSystem ?? this.isSystem,
+      archived: archived ?? this.archived,
+    );
+  }
+
   Map<String, dynamic> toSeedMap() => {
         'label': label,
         'description': description,
@@ -93,8 +123,11 @@ class RoleDefinition extends Equatable {
         },
         'permissions': permissions,
         'isSystem': isSystem,
+        'archived': archived,
+        'recordStatus': archived ? 'archived' : 'active',
       };
 
   @override
-  List<Object?> get props => [id, label, permissions, allowedPanel];
+  List<Object?> get props =>
+      [id, label, permissions, allowedPanel, archived];
 }

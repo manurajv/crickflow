@@ -17,7 +17,7 @@ Firebase project (same as mobile): **`crickflow-b06bc`**.
 - Do **not** change mobile `lib/`, existing Cloud Functions, scorebug, RTMP/YouTube, privacy/terms URLs, or mobile Auth flows.
 - Admin auth uses the **same Firebase Authentication** project as mobile.
 - Admin authorization uses additive collections `admin_users` + `admin_roles` (not mobile `users.role`).
-- Org admins must never receive global platform data; queries in future modules must filter by `organizationId`.
+- Org admins must never receive global platform data; queries in modules must filter by `organizationId` (canonical orgs live in `organizations/{id}`).
 - Client-side permissions are UX only — prepare Firestore rules + custom claims for real enforcement.
 
 ---
@@ -100,5 +100,22 @@ cd ../admin; flutter build web --release
 - [x] Access Denied + Forbidden screens
 - [x] Profile menu (Profile, Account Settings, Theme, Logout)
 - [x] Placeholder dashboard + navigation
-- [ ] Feature modules (users, matches, …) — **not in this phase**
+- [x] User Management module (paginated list, filters, detail panel, audit)
+- [x] Tournament Management module (parity with Users; deep related panels stubbed)
+- [x] Match Management module (paginated list, live monitor panel, commentary/timeline/audit, additive admin actions)
+- [x] Team Management module (paginated list, filters, detail panel, verify/feature/suspend/soft-delete)
+- [x] Ground Management module (tournament `grounds[]` catalog + registry merge, filters, map preview, verify/feature/suspend/soft-delete)
+- [x] Broadcast Management module (monitor `matches.stream`; live list, health, timeline, feature/archive/soft-delete; no stop-stream; secrets masked)
+- [x] Community & Discover Moderation module (`ModerationScreen`; soft-moderate community/discover; reports queue; chat metadata only; audit)
+- [x] Notification & Announcement Management module (`NotificationsScreen`; campaigns, schedules, templates, segments, home_promotions announcements; auto-inbox monitor; no FCM token access)
+- [x] Advertisement Management module (`AdsScreen`; custom ads, AdMob config mirror, sponsored content, advertisers, approval queue; mobile AdMob unchanged)
+- [x] Organization Management module (`OrganizationsScreen`; Super Admin CRUD for boards/clubs/academies; link Org Admin; related counts)
+- [x] Analytics & Reports module (`AnalyticsScreen`; KPIs, fl_chart, org-scoped aggregations, reports/CSV export; BigQuery-ready)
+- [x] System Monitoring & Platform Health (`MonitoringScreen`; `/monitoring`; Firebase service status, live bar, timeline; Cloud Monitoring–ready)
+- [x] Support Center & Ticket Management (`SupportScreen`; `/support`; help desk tickets, conversations, KB/FAQ; channel-ready)
+- [x] AI Operations & Automation Center (`AiOpsScreen`; `/ai-ops`; rules engine, recommendations, provider-ready)
+- [x] Security Operations Center (`SecurityScreen`; `/security`; access control, roles, alerts, DR architecture)
+- [x] Feature modules (CMS, Settings, Audit Logs) — players / revenue still placeholders
+- [x] Platform Settings hub + CMS content management
+- [x] Audit Center (activity monitoring)
 - [ ] Custom claims Cloud Function — prepared, not implemented

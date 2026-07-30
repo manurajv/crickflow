@@ -3,13 +3,178 @@
 
 
 
-**Last updated:** Premium Admin Dashboard (Super Admin + Org scoped)
+**Last updated:** Security Operations Center (SOC)
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Web Admin — Security Operations Center)
+
+| Item | Status |
+|------|--------|
+| Security Center hub `/security` (Dashboard → Compliance) | Done |
+| Overview cards (score, alerts, blocks, failed logins, sessions) | Done |
+| Role Management (create / duplicate / rename / archive / delete) | Done (Super Admin) |
+| Permission matrix (AdminPermission flags; granular types reserved) | Done |
+| Access Control grants (temporary / emergency / read-only + expiry) | Done |
+| Login Sessions (audit-derived; terminate + terminate-all) | Done |
+| Active Devices registry (trusted / re-verify architecture) | Done |
+| Security Alerts + Threat Detection recommendations | Done |
+| Block Lists + IP Management (masked IPs; Super Admin IP writes) | Done |
+| API Security / Backup / Restore / DR / Policies / Compliance | Prepared (monitor / architecture only) |
+| Secrets / tokens / keys never exposed | Done |
+| Additive `admin_security_*` collections + Firestore rules | Done |
+| `admin_roles` Super Admin client write for Role Management | Done |
+| Mobile app / Firebase auto-config / business logic | Untouched |
+
+---
+
+## Latest (Web Admin — AI Operations & Automation Center)
+
+| Item | Status |
+|------|--------|
+| AI Operations hub `/ai-ops` (Dashboard → Settings) | Done |
+| Overview cards + recommendation queues by category | Done |
+| Automation rules engine (create/enable/disable/duplicate/delete) | Done |
+| `workflowGraph` reserved for future visual builder | Done |
+| Moderation / spam / duplicate / fraud / smart reports sections | Done (recommend-only) |
+| AI Insights placeholders (provider-generated later) | Done |
+| AI Jobs queue (manual + scheduled — Cloud Function worker later) | Done |
+| AI Models provider registry (no keys) | Done |
+| AI Logs + feature-flag settings | Done |
+| Org-scoped for Org Admin; Super Admin platform-wide | Done |
+| Recommendations never auto-mutate user data | Done |
+| `AiProviderAdapter` plug-in point (OpenAI/Gemini/Vertex/…) | Prepared |
+| External AI API calls from client | Not implemented (by design) |
+| Mobile app / existing business logic | Untouched |
+
+---
+
+## Latest (Web Admin — Support Center & Ticket Management)
+
+| Item | Status |
+|------|--------|
+| Support Center hub `/support` (Dashboard → Reports) | Done |
+| Ticket table (sort, pagination, sticky header, badges) | Done |
+| Ticket detail + conversation timeline + internal notes | Done |
+| Create / assign / transfer / escalate / resolve / close / reopen | Done |
+| Bug reports / feature requests / feedback / contact sections | Done |
+| Knowledge base, FAQ, support announcements CMS | Done |
+| CSAT + SLA fields + reports snapshot | Done |
+| Org-scoped for Org Admin; Super Admin platform-wide | Done |
+| Support agents: assigned-only unless broader access | Done |
+| Additive collections + Firestore rules | Done |
+| Audit `support.*` actions | Done |
+| CSV export; Excel/PDF stubs | Done |
+| Email / WhatsApp / Slack / Discord / CRM / AI channels | Prepared (architecture) |
+| Mobile app / community chats / existing reports | Untouched |
+
+---
+
+## Latest (Web Admin — System Monitoring & Platform Health)
+
+| Item | Status |
+|------|--------|
+| System Operations Center hub `/monitoring` | Done |
+| Live status bar (platform / matches / streams / users / errors) | Done |
+| Overview KPIs + Firebase service status panel | Done |
+| Firestore / Auth / Functions / Storage / Hosting / FCM sections | Done |
+| Live streaming health (monitor only — no stream control) | Done |
+| Database / Performance / Error monitoring | Done |
+| Scheduled jobs + background tasks architecture stubs | Done |
+| Platform health timeline (audit-derived, newest first) | Done |
+| Search + advanced filters (date / severity / service / module / env) | Done |
+| Org-scoped metrics for Org Admin; Super Admin platform-wide | Done |
+| TTL cache + count()/capped samples (no expensive listeners) | Done |
+| Secrets never exposed; hosting never deployed from UI | Done |
+| Cloud Monitoring / Crashlytics / BigQuery / Grafana / Datadog / Sentry swap-ready | Prepared |
+| Alert integrations (email / push / Slack) | Pending (architecture only) |
+
+---
+
+## Latest (Web Admin — Audit Logs & Activity Monitoring)
+
+| Item | Status |
+|------|--------|
+| Audit Center hub `/logs` (Dashboard → Export) | Done |
+| Realtime Activity Timeline (Firestore snapshots) | Done |
+| Searchable audit table + detail panel (immutable) | Done |
+| Login History / Security / Permission / Data / System sections | Done |
+| Shared `AuditLogger` for consistent metadata (no secrets) | Done |
+| Auth login success/fail/logout + password-reset audit events | Done |
+| Org Admin org-scoped view (`organizationId`); Super Admin platform-wide | Done |
+| CSV / JSON export; Excel/PDF/backup stubs | Done |
+| Retention policy UI (cleanup future) | Done |
+| Existing module `_writeAudit` entries appear in the hub | Done |
+| Geo/IP/device enrichment from client | Pending (fields ready) |
+| Automatic retention cleanup job | Pending |
+
+---
+
+## Latest (Web Admin — CMS & Platform Settings)
+
+| Item | Status |
+|------|--------|
+| Settings hub `/settings` with 16 sections (dashboard → audit) | Done |
+| CMS route `/cms` (CMS / Legal / Contact / Social focused) | Done |
+| General, Branding, Contact, Social, System Prefs editors | Done |
+| Feature Flags (12 toggles, additive for future modules) | Done |
+| Remote Config CRUD (upload size, radii, stream defaults, limits) | Done |
+| App Version Management (soft/force update + release history) | Done |
+| Maintenance Mode (title, ETA, bypass roles) | Done |
+| CMS pages (home, welcome, onboarding, FAQ, help, …) | Done |
+| Legal pages content-only (Privacy/Terms **URLs never modified**) | Done |
+| API Config + Firebase status (read-only, secrets masked) | Done |
+| Backup & Restore stubs (JSON/CSV/PDF future) | Done |
+| Audit log for all configuration changes | Done |
+| Super Admin write; Org Admin read-only | Done |
+| Additive Firestore collections + Super Admin rules | Done |
+| Mobile Privacy/Terms URLs, OAuth, streaming, overlays untouched | Done |
+| Firebase Remote Config live push / real health probes | Pending |
+
+---
+
+## Latest (Web Admin — Organization Management v2)
+
+| Item | Status |
+|------|--------|
+| Expanded org types: `nationalBoard`, `provincialBoard`, `districtAssociation`, `club`, `academy`, `school`, `university`, `corporate`, `league`, `tournamentOrganizer`, `privateGroup`, `other` | Done |
+| New statuses: `pending`, `verified`, `archived` (+ existing `active`, `inactive`, `suspended`, `deleted`) | Done |
+| New model fields: `bannerUrl`, `establishedYear`, `registrationNumber`, `adminCount`, `featured`, `approvedAt/By`, `verifiedAt/By` | Done |
+| Summary cards: Total, Active, Pending, Verified, Suspended, Boards, Clubs, With Admin | Done |
+| Filter drawer: all new statuses, all types (short labels), registration date range, include archived/deleted | Done |
+| Composer: registration number, established year, banner URL, description section, new type+status options | Done |
+| Status badges with icons + verification/featured badges | Done |
+| Repository: `setStatus` (pending→approved, verified), `archive/unarchive`, `setFeatured`, `transferOwnership` | Done |
+| Audit keys: `approved`, `verified`, `pending`, `archived`, `unarchived`, `featured`, `unfeatured`, `ownership_transferred` | Done |
+| 13-tab detail panel: Overview, Administrators, Teams, Players, Tournaments, Grounds, Matches, Broadcasts, Community, Analytics, Documents, Reports, Audit Log | Done |
+| Administrators tab: link/unlink, transfer ownership UI | Done |
+| Analytics tab: org-scoped counts (users, teams, tournaments, matches, grounds) | Done |
+| Documents tab: prepared stubs for certificate, registration, tax, identity | Done |
+| Audit tab: full log with icons, actor, timestamp, reason | Done |
+| Firestore rules: Super Admin CRUD; Org Admin read own org | Done |
+| Bulk reassignment of users/teams | Pending |
+| Related resource tabs (Teams, Players, etc.) wired to real Firestore data | Pending |
+
+---
+
+## Latest (Web Admin — Analytics & Reports)
+
+| Item | Status |
+|------|--------|
+| `AnalyticsScreen` hub (Overview → Export) with period + advanced filters | Done |
+| KPI cards with period-over-period change + realtime strip | Done |
+| `fl_chart` line/bar charts (DAU sample, matches, streams, community, ads) | Done |
+| Org Admin scoped by `organizationId`; Super Admin platform-wide (+ optional org filter) | Done |
+| Firestore `count()` + capped samples + 2‑min cache (BigQuery-ready repo) | Done |
+| Reports preview + CSV export (Excel/PDF/email scheduled stubs) | Done |
+| Revenue section architecture-only (no payment gateway) | Done |
+| Full warehouse DAU/MAU/retention / AdMob impressions API | Pending |
 
 ---
 
@@ -40,6 +205,8 @@
 | Profile / Account Settings / Theme / Logout in user menu | Done |
 | Access Denied copy + Return to Login | Done |
 | Architecture ready for custom claims (token refresh hooks) | Done |
+| `PermissionGate` shows spinner while session loading (no false deny flash) | Done |
+| Auth streams avoid `Stream.empty()` false “no profile”; GoRouter refresh post-frame | Done |
 | Custom claims Cloud Function + full Firestore claim enforcement | Pending |
 
 ---
@@ -57,7 +224,68 @@
 | Premium SaaS shell: collapsible nav, top bar, breadcrumbs, light/dark | Done |
 | Placeholder dashboard cards + module placeholder routes | Done |
 | Reusable widgets (cards, tables, search, filters, pagination, charts stub) | Done |
-| Feature modules (users/matches/…) | Pending — next phases |
+| Feature modules (users / tournaments / matches / teams / grounds / broadcasts) | In progress — next phases for remaining modules |
+| **Organization Management** (`OrganizationsScreen`; Super Admin) | Done |
+| **Analytics & Reports** (`AnalyticsScreen`; Super + Org scoped) | Done |
+| **System Monitoring** (`MonitoringScreen`; `/monitoring`; Super + Org scoped) | Done |
+| **Support Center** (`SupportScreen`; `/support`; tickets, KB, FAQ, CSAT) | Done |
+| **AI Operations** (`AiOpsScreen`; `/ai-ops`; rules, recommendations, jobs) | Done |
+| **Security Center** (`SecurityScreen`; `/security`; SOC, access, DR) | Done |
+| **User Management** (`UsersScreen` in admin_core; wired in both apps) | Done |
+| Paginated Firestore user list + search/filters + summary cards | Done |
+| User detail side panel + confirmable actions + audit logs | Done |
+| Org Admin scoped by `organizationId` (additive field on `users`) | Done |
+| Soft account status / adminVerified (additive; mobile ignores) | Done |
+| Soft delete (`accountStatus`/`status` + `deletedAt`/`deletedBy`; restorable) | Done |
+| **Tournament Management** (`TournamentsScreen`; wired in both apps) | Done |
+| Paginated tournament list + search/filters + summary cards | Done |
+| Detail panel + approve/feature/cancel/soft-delete/archive + points preview | Done |
+| Additive admin fields on `tournaments` (featured, approval, soft-delete, org) | Done |
+| **Match Management** (`MatchesScreen`; wired in both apps) | Done |
+| Paginated match list + search/filters + summary cards | Done |
+| Live detail panel + commentary / timeline / audit + stream quick actions | Done |
+| Additive admin fields on `matches` (featured, paused, soft-delete, org) | Done |
+| Safe metadata actions only; scoring / ball events / overlays untouched | Done |
+| **Team Management** (`TeamsScreen`; wired in both apps) | Done |
+| Paginated team list + search/filters + summary cards | Done |
+| Detail panel + verify/feature/suspend/soft-delete/archive + stats preview | Done |
+| Additive admin fields on `teams` (featured, verified, category, soft-delete, org) | Done |
+| Members / matches / tournaments / followers / reports deep modules | Placeholders |
+| Teams / fixtures / live monitor / reports / stats deep modules | Placeholders |
+| **Ground Management** (`GroundsScreen`; wired in both apps) | Done |
+| Paginated ground list + search/filters + summary cards + map preview | Done |
+| Detail panel + verify/feature/suspend/soft-delete/archive + facilities | Done |
+| Additive `grounds` catalog (tournament `grounds[]` + optional registry; match venue unused) | Done |
+| Matches / bookings / photos / reviews / reports deep modules | Placeholders |
+| Map clustering SDK + nearby geo queries | Future ready |
+| **Broadcast Management** (`BroadcastsScreen`; wired in both apps) | Done |
+| Paginated broadcast monitor from `matches.stream` + summary cards | Done |
+| Detail panel (overview / match / streaming / health / timeline / audit) | Done |
+| Live monitor mode; feature / archive / soft-delete (no stop-stream) | Done |
+| Stream keys / OAuth / RTMP secrets never exposed (masked only) | Done |
+| Logs / reports / viewer analytics deep modules | Placeholders |
+| **Community & Discover Moderation** (separate surfaces + shared queue) | Done |
+| Community screen — posts / tournament / media / queue / community reports | Done |
+| Discover screen — opportunity posts / discover reports / queue | Done |
+| Shared Moderation (`/reports`) — reports, users, chats metadata, trending | Done |
+| Soft moderation via additive `adminStatus` / discover `status` + audit trail | Done |
+| Chat metadata only — private messages never exposed | Done |
+| Nested comments deep moderation + AI moderation hooks | Future ready |
+| **Notification & Announcement Management** (`NotificationsScreen`; `/notifications`) | Done |
+| Dashboard cards + sections (campaigns, scheduled, templates, segments, history) | Done |
+| Create / draft / schedule / queue / specific-user inbox send (≤50) | Done |
+| Announcements via existing `home_promotions` | Done |
+| Auto notifications monitor (read-only `notifications` inbox) | Done |
+| Mass FCM fan-out delivery worker | Future ready |
+| Export CSV/Excel/PDF | Future ready (UI stub) |
+| **Advertisement Management** (`AdsScreen`; `/ads`) | Done |
+| Custom ads / campaigns / approval queue / advertisers / sponsored | Done |
+| AdMob config mirror (admin only — mobile `AdMobConfig` unchanged) | Done |
+| Home carousel sync via `home_promotions` on approve | Done |
+| AdMob revenue API / Meta Audience Network | Future ready |
+| Admin role promote/demote via `admin_users` (Super Admin) | Done |
+| Related lists (matches, posts, devices, login history) | Placeholders |
+| Custom claims Cloud Function + claim-based rules | Pending |
 
 ---
 

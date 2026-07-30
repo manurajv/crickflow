@@ -17,31 +17,37 @@ class CfCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.adminColors;
-    final card = Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: colors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.border),
-        boxShadow: colors.isLight
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
-      ),
-      child: child,
+    final radius = BorderRadius.circular(16);
+    final shape = RoundedRectangleBorder(
+      borderRadius: radius,
+      side: BorderSide(color: colors.border),
     );
-    if (onTap == null) return card;
+
+    final content = Padding(padding: padding, child: child);
+
+    // Use Material (not DecoratedBox) as the colored surface so nested
+    // ListTile / SwitchListTile ink splashes paint onto this ancestor.
+    if (onTap == null) {
+      return Material(
+        color: colors.card,
+        elevation: colors.isLight ? 1.5 : 0,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
+        child: content,
+      );
+    }
+
     return Material(
-      color: Colors.transparent,
+      color: colors.card,
+      elevation: colors.isLight ? 1.5 : 0,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shape: shape,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: card,
+        borderRadius: radius,
+        child: content,
       ),
     );
   }

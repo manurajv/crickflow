@@ -10,6 +10,7 @@ abstract final class AdminRoutePaths {
   static const players = '/players';
   static const matches = '/matches';
   static const tournaments = '/tournaments';
+  static const grounds = '/grounds';
   static const community = '/community';
   static const discover = '/discover';
   static const broadcast = '/broadcast';
@@ -17,6 +18,11 @@ abstract final class AdminRoutePaths {
   static const reports = '/reports';
   static const notifications = '/notifications';
   static const analytics = '/analytics';
+  static const monitoring = '/monitoring';
+  static const support = '/support';
+  static const aiOps = '/ai-ops';
+  static const security = '/security';
+  // Remaining placeholders
   static const cms = '/cms';
   static const settings = '/settings';
   static const logs = '/logs';

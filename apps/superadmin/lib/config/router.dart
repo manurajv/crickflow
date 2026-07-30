@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 GoRouter createSuperAdminRouter(Ref ref) {
   final refresh = GoRouterRefreshNotifier(ref);
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     initialLocation: AdminRoutePaths.dashboard,
@@ -49,6 +50,139 @@ GoRouter createSuperAdminRouter(Ref ref) {
               child: AccountSettingsScreen(),
             ),
           ),
+          GoRoute(
+            path: AdminRoutePaths.users,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: UsersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.tournaments,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TournamentsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.matches,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MatchesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.teams,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TeamsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.grounds,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: GroundsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.broadcast,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BroadcastsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.community,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ModerationScreen(
+                surface: ModerationSurface.community,
+                permission: AdminPermission.canModerateCommunity,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.discover,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ModerationScreen(
+                surface: ModerationSurface.discover,
+                permission: AdminPermission.canManageDiscover,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.reports,
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: ModerationScreen(
+                surface: ModerationSurface.queue,
+                permissions: const [
+                  AdminPermission.canViewReports,
+                  AdminPermission.canModerateCommunity,
+                  AdminPermission.canManageDiscover,
+                ],
+              ),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.notifications,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: NotificationsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.ads,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AdsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.organizations,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: OrganizationsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.analytics,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AnalyticsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.monitoring,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MonitoringScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.support,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SupportScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.aiOps,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AiOpsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.security,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SecurityScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.settings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SettingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.cms,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CmsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.logs,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AuditScreen(),
+            ),
+          ),
           ..._placeholders,
         ],
       ),
@@ -67,21 +201,6 @@ List<RouteBase> get _placeholders => [
     ];
 
 const _placeholderRoutes = <String, String>{
-  AdminRoutePaths.organizations: 'Organizations',
-  AdminRoutePaths.users: 'Users',
-  AdminRoutePaths.teams: 'Teams',
   AdminRoutePaths.players: 'Players',
-  AdminRoutePaths.matches: 'Matches',
-  AdminRoutePaths.tournaments: 'Tournaments',
-  AdminRoutePaths.community: 'Community',
-  AdminRoutePaths.discover: 'Discover',
-  AdminRoutePaths.broadcast: 'Broadcast',
-  AdminRoutePaths.ads: 'Ads',
-  AdminRoutePaths.cms: 'CMS',
-  AdminRoutePaths.notifications: 'Notifications',
   AdminRoutePaths.revenue: 'Revenue',
-  AdminRoutePaths.analytics: 'Analytics',
-  AdminRoutePaths.reports: 'Reports',
-  AdminRoutePaths.logs: 'Logs',
-  AdminRoutePaths.settings: 'Settings',
 };

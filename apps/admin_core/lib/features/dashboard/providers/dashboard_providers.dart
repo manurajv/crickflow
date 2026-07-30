@@ -16,15 +16,22 @@ final dashboardNowProvider = StreamProvider<DateTime>((ref) async* {
 
 class DashboardController
     extends StateNotifier<AsyncValue<DashboardSnapshot>> {
-  DashboardController(this._ref) : super(const AsyncLoading()) {
-    refresh();
-  }
+  DashboardController(this._ref) : super(const AsyncLoading());
 
   final Ref _ref;
   bool _busy = false;
+  bool _bootstrapped = false;
+
+  /// Call once from the screen after the first frame (avoids Riverpod
+  /// ConcurrentModificationError when refreshing during provider creation).
+  Future<void> ensureBootstrapped() async {
+    if (_bootstrapped || !mounted) return;
+    _bootstrapped = true;
+    await refresh();
+  }
 
   Future<void> refresh({bool quiet = false}) async {
-    if (_busy) return;
+    if (_busy || !mounted) return;
     _busy = true;
     if (!quiet) {
       state = const AsyncLoading<DashboardSnapshot>().copyWithPrevious(state);
@@ -37,8 +44,10 @@ class DashboardController
             organizationId: admin?.organizationId,
             organizationName: admin?.organizationName,
           );
+      if (!mounted) return;
       state = AsyncData(snapshot);
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncError<DashboardSnapshot>(e, st).copyWithPrevious(state);
     } finally {
       _busy = false;

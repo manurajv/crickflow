@@ -29,7 +29,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(breadcrumbProvider.notifier).state = ['Dashboard'];
+      ref.read(dashboardControllerProvider.notifier).ensureBootstrapped();
     });
   }
 
@@ -258,10 +260,7 @@ class _DashboardSkeleton extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: 5,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (_, _) => const SizedBox(
-                width: 180,
-                child: DashboardSkeletonCard(height: 64),
-              ),
+              itemBuilder: (_, _) => const DashboardSkeletonActionChip(),
             ),
           ),
           const SizedBox(height: 26),
@@ -284,7 +283,7 @@ class _DashboardSkeleton extends StatelessWidget {
                   crossAxisSpacing: 14,
                   childAspectRatio: 1.35,
                 ),
-                itemBuilder: (_, _) => const DashboardSkeletonCard(height: 140),
+                itemBuilder: (_, _) => const DashboardSkeletonCard(),
               );
             },
           ),

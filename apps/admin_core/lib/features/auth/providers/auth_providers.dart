@@ -35,29 +35,34 @@ final idTokenProvider = StreamProvider<User?>((ref) {
   return ref.watch(authServiceProvider).idTokenChanges();
 });
 
+/// Stream that stays open with no events so [StreamProvider] remains loading.
+Stream<T> _pendingStream<T>() => Stream<T>.multi((_) {});
+
 /// Resolves the additive admin profile for the signed-in user.
 final adminUserProvider = StreamProvider<AdminUser?>((ref) {
-  final auth = ref.watch(authStateProvider);
-  return auth.when(
-    data: (user) {
-      if (user == null) return Stream.value(null);
-      return ref.watch(adminUserServiceProvider).watchByUid(user.uid);
-    },
-    loading: () => const Stream.empty(),
-    error: (_, _) => Stream.value(null),
-  );
+  final authAsync = ref.watch(authStateProvider);
+  // Never use Stream.empty() here — it completes immediately and looks like
+  // "no admin profile", flashing Access Denied before Firestore responds.
+  if (authAsync.isLoading) {
+    return _pendingStream<AdminUser?>();
+  }
+  final user = authAsync.asData?.value;
+  if (user == null) {
+    return Stream.value(null);
+  }
+  return ref.watch(adminUserServiceProvider).watchByUid(user.uid);
 });
 
 final roleDefinitionProvider = StreamProvider<RoleDefinition?>((ref) {
   final adminAsync = ref.watch(adminUserProvider);
-  return adminAsync.when(
-    data: (admin) {
-      if (admin == null) return Stream.value(null);
-      return ref.watch(adminRoleServiceProvider).watchById(admin.roleId);
-    },
-    loading: () => const Stream.empty(),
-    error: (_, _) => Stream.value(null),
-  );
+  if (adminAsync.isLoading || (!adminAsync.hasValue && !adminAsync.hasError)) {
+    return _pendingStream<RoleDefinition?>();
+  }
+  final admin = adminAsync.asData?.value;
+  if (admin == null) {
+    return Stream.value(null);
+  }
+  return ref.watch(adminRoleServiceProvider).watchById(admin.roleId);
 });
 
 /// High-level session used by GoRouter redirects.
@@ -103,7 +108,7 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
   final roleAsync = ref.watch(roleDefinitionProvider);
   final appType = ref.watch(adminAppTypeProvider);
 
-  if (authAsync.isLoading) {
+  if (authAsync.isLoading || (!authAsync.hasValue && !authAsync.hasError)) {
     return const AdminSession(status: AdminSessionStatus.loading);
   }
 
@@ -112,7 +117,10 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
     return const AdminSession(status: AdminSessionStatus.unauthenticated);
   }
 
-  if (adminAsync.isLoading || roleAsync.isLoading) {
+  // Wait until admin + role streams have settled (not still loading / pending).
+  final adminPending =
+      adminAsync.isLoading || (!adminAsync.hasValue && !adminAsync.hasError);
+  if (adminPending) {
     return AdminSession(
       status: AdminSessionStatus.loading,
       firebaseUser: user,
@@ -124,6 +132,16 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
     return AdminSession(
       status: AdminSessionStatus.noAdminProfile,
       firebaseUser: user,
+    );
+  }
+
+  final rolePending =
+      roleAsync.isLoading || (!roleAsync.hasValue && !roleAsync.hasError);
+  if (rolePending) {
+    return AdminSession(
+      status: AdminSessionStatus.loading,
+      firebaseUser: user,
+      adminUser: admin,
     );
   }
 

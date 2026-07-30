@@ -227,7 +227,7 @@ class _WelcomeHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Score • Stream • Connect',
+                  '• Score • Stream • Connect',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: accentColor,
                         fontWeight: FontWeight.w600,

@@ -33,6 +33,7 @@ class _DashboardOverviewStatCardState extends State<DashboardOverviewStatCard> {
         transform: Matrix4.translationValues(0, _hover ? -2 : 0, 0),
         child: CfCard(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(

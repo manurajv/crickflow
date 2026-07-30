@@ -79,26 +79,43 @@ class DashboardSkeletonBox extends StatelessWidget {
 }
 
 class DashboardSkeletonCard extends StatelessWidget {
-  const DashboardSkeletonCard({super.key, this.height = 120});
-
-  final double height;
+  const DashboardSkeletonCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return CfCard(
-      child: SizedBox(
-        height: height,
-        child: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DashboardSkeletonBox(width: 40, height: 40, radius: 12),
-            Spacer(),
-            DashboardSkeletonBox(width: 80, height: 22),
-            SizedBox(height: 8),
-            DashboardSkeletonBox(width: 120, height: 14),
-          ],
-        ),
+    return const CfCard(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DashboardSkeletonBox(width: 40, height: 40, radius: 12),
+          Spacer(),
+          DashboardSkeletonBox(width: 80, height: 22),
+          SizedBox(height: 8),
+          DashboardSkeletonBox(width: 120, height: 14),
+        ],
       ),
     );
   }
 }
+
+/// Horizontal chip-style skeleton matching [DashboardQuickActionCard].
+class DashboardSkeletonActionChip extends StatelessWidget {
+  const DashboardSkeletonActionChip({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const CfCard(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DashboardSkeletonBox(width: 36, height: 36, radius: 10),
+          SizedBox(width: 12),
+          DashboardSkeletonBox(width: 90, height: 14),
+        ],
+      ),
+    );
+  }
+}
+
