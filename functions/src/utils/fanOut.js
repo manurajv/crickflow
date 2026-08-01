@@ -53,12 +53,12 @@ async function fanOutMatchNotification(
     ...extraData,
   };
 
-  // Topic push uses generic copy (followers subscribed via match_{id}).
+  // Topic push uses the same professional multi-line body as per-user FCM.
   if (!options.skipTopic) {
     await notifyMatchTopic(
       matchId,
       baseBuilt.pushTitle || baseBuilt.matchTitle || baseBuilt.title,
-      firstLine(baseBuilt.pushBody || baseBuilt.body || baseBuilt.title),
+      baseBuilt.pushBody || baseBuilt.body || baseBuilt.title,
       data,
     );
   }
@@ -182,11 +182,6 @@ function normalizeBuilt(built, match) {
   };
 }
 
-function firstLine(text) {
-  if (!text) return '';
-  return String(text).split('\n').find((l) => l.trim()) || '';
-}
-
 function categoryForType(type) {
   switch (type) {
     case 'match_started':
@@ -202,6 +197,8 @@ function categoryForType(type) {
     case 'penalty_runs':
       return 'match';
     case 'wicket':
+    case 'retired_hurt':
+    case 'retired_out':
     case 'hat_trick':
     case 'team_milestone':
     case 'player_milestone':

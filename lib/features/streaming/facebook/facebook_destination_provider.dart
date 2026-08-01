@@ -1,4 +1,5 @@
 import '../data/models/stream_studio_config.dart';
+import '../domain/stream_credential_normalizer.dart';
 import '../services/stream_platform_service.dart';
 import '../domain/streaming_enums.dart';
 import '../domain/destinations/stream_destination_provider.dart';
@@ -15,8 +16,9 @@ class FacebookDestinationProvider implements StreamDestinationProvider {
   @override
   String get label => 'Facebook Live';
 
+  /// Graph API auto-create is not wired yet — manual RTMP from Live Producer.
   @override
-  bool get supportsOAuth => true;
+  bool get supportsOAuth => false;
 
   @override
   Future<StreamLiveCredentials?> createLiveBroadcast(
@@ -37,12 +39,19 @@ class FacebookDestinationProvider implements StreamDestinationProvider {
   Future<StreamLiveCredentials?> resolveManualCredentials(
     StreamStudioConfig config,
   ) async {
-    if (config.streamKey.trim().isEmpty) return null;
-    return StreamLiveCredentials(
-      rtmpUrl: config.rtmpUrl.isEmpty
-          ? StreamPlatform.facebook.defaultRtmpUrl
-          : config.rtmpUrl,
+    final normalized = StreamCredentialNormalizer.normalize(
+      rtmpUrl: config.rtmpUrl,
       streamKey: config.streamKey,
+      platform: StreamPlatform.facebook,
+    );
+    if (normalized.streamKey.isEmpty) return null;
+    final url = normalized.rtmpUrl.isNotEmpty
+        ? normalized.rtmpUrl
+        : StreamPlatform.facebook.defaultRtmpUrl;
+    return StreamLiveCredentials(
+      rtmpUrl: url,
+      streamKey: normalized.streamKey,
+      watchUrl: '',
       providerLabel: label,
     );
   }

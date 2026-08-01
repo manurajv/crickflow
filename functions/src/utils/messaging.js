@@ -1,5 +1,8 @@
 const { getMessaging } = require('firebase-admin/messaging');
 
+/** High-priority match channel — must match Flutter PushNotificationHandler. */
+const MATCH_CHANNEL_ID = 'crickflow_match';
+
 async function notifyMatchTopic(matchId, title, body, data = {}) {
   try {
     await getMessaging().send({
@@ -10,6 +13,25 @@ async function notifyMatchTopic(matchId, title, body, data = {}) {
         ...Object.fromEntries(
           Object.entries(data).map(([k, v]) => [k, v == null ? '' : String(v)]),
         ),
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: MATCH_CHANNEL_ID,
+          priority: 'high',
+          defaultSound: true,
+        },
+      },
+      apns: {
+        headers: {
+          'apns-priority': '10',
+        },
+        payload: {
+          aps: {
+            sound: 'default',
+            'mutable-content': 1,
+          },
+        },
       },
     });
   } catch (err) {
@@ -41,4 +63,4 @@ async function createUserNotification(db, userId, payload) {
   });
 }
 
-module.exports = { notifyMatchTopic, createUserNotification };
+module.exports = { notifyMatchTopic, createUserNotification, MATCH_CHANNEL_ID };

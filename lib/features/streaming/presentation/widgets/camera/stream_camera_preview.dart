@@ -35,7 +35,7 @@ class StreamCameraPreview extends ConsumerWidget {
     CfColors cf,
     StreamService service,
   ) {
-    if (loading || !service.isInitialized) {
+    if (loading && error == null && !service.isInitialized) {
       return ColoredBox(
         color: Colors.black,
         child: Center(
@@ -49,6 +49,22 @@ class StreamCameraPreview extends ConsumerWidget {
                 style: TextStyle(color: cf.textSecondary),
               ),
             ],
+          ),
+        ),
+      );
+    }
+
+    if (!service.isInitialized) {
+      return ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              error ?? service.lastError ?? 'Camera unavailable',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: cf.textSecondary),
+            ),
           ),
         ),
       );

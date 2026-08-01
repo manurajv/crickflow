@@ -1,4 +1,8 @@
 const { getMessaging } = require('firebase-admin/messaging');
+const { MATCH_CHANNEL_ID } = require('../utils/messaging');
+
+const JOIN_CHANNEL_ID = 'team_join_requests';
+const DEFAULT_CHANNEL_ID = 'crickflow_default';
 
 /**
  * Resolves a player doc id or auth uid to the Firebase Auth uid used in users/{uid}.
@@ -34,6 +38,28 @@ async function resolveFcmToken(db, uid) {
   return userSnap.data()?.fcmToken || null;
 }
 
+function androidChannelForData(data = {}) {
+  const type = String(data.type || '');
+  const category = String(data.category || '');
+  if (type === 'team_join_request') return JOIN_CHANNEL_ID;
+  if (
+    category === 'match' ||
+    category === 'live_match' ||
+    category === 'streaming' ||
+    type.startsWith('match_') ||
+    type === 'wicket' ||
+    type === 'hat_trick' ||
+    type.includes('milestone') ||
+    type.includes('stream') ||
+    type.includes('innings') ||
+    type.includes('dls') ||
+    type.includes('target')
+  ) {
+    return MATCH_CHANNEL_ID;
+  }
+  return DEFAULT_CHANNEL_ID;
+}
+
 async function sendPushToUser(db, userId, { title, body, data = {} }) {
   const uid = await resolveAuthUid(db, userId);
   if (!uid) return false;
@@ -49,6 +75,8 @@ async function sendPushToUser(db, userId, { title, body, data = {} }) {
     stringData[key] = value == null ? '' : String(value);
   }
 
+  const channelId = androidChannelForData(stringData);
+
   try {
     await getMessaging().send({
       token,
@@ -57,11 +85,15 @@ async function sendPushToUser(db, userId, { title, body, data = {} }) {
       android: {
         priority: 'high',
         notification: {
-          channelId: 'team_join_requests',
-          sound: 'default',
+          channelId,
+          priority: 'high',
+          defaultSound: true,
         },
       },
       apns: {
+        headers: {
+          'apns-priority': '10',
+        },
         payload: {
           aps: {
             sound: 'default',

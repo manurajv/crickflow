@@ -76,12 +76,20 @@ $env:GOOGLE_MAPS_API_KEY = "your-restricted-key"
 ## 4. Build the AAB
 
 ```powershell
+# optional:
+$env:GOOGLE_MAPS_API_KEY = "your-restricted-key"
 .\scripts\build-release.ps1
 ```
 
 Output:
 
 `build\app\outputs\bundle\release\app-release.aab`
+
+Release builds use **R8 minify + resource shrinking** (`android/app/build.gradle.kts`). After enabling, smoke-test a release install (sign-in, scoring, ads, go-live).
+
+Keep the R8 mapping file for Crashlytics / deobfuscation:
+
+`build\app\outputs\mapping\release\mapping.txt`
 
 If `assetlinks.json` changed, redeploy hosting:
 

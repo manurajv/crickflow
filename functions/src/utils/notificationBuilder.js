@@ -5,50 +5,65 @@ const {
   currentInnings,
   firstInnings,
   scoreLine,
+  scoreStatusLine,
   chaseSituation,
   matchTitle,
   formatOvers,
   teamName,
 } = require('./matchFormat');
 
-/** Standard match-notification shape for inbox + push. */
-function pack(match, eventTitle, detailLines, extras = {}) {
+/**
+ * Professional match notification shape (Google Cricket / CrickHeroes style).
+ *
+ * Push tray:
+ *   Title  = full match title (never shortened)
+ *   Body   = what happened
+ *            batting side score (runs/wkts overs)
+ *
+ * Inbox:
+ *   matchTitle = full match title
+ *   title      = short event label
+ *   body       = same multi-line body as push
+ */
+function pack(match, eventTitle, eventLine, scoreStatus, extras = {}) {
   const mt = matchTitle(match);
-  const details = detailLines.filter((l) => l != null && String(l).trim() !== '');
+  const event = String(eventLine || eventTitle || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join('\n');
+  const score = scoreStatus != null ? String(scoreStatus).trim() : '';
+  const bodyLines = [event, score].filter((l) => l && l.length > 0);
+  const body = bodyLines.join('\n');
   return {
     title: eventTitle,
-    body: details.join('\n'),
+    body,
     matchTitle: mt,
     pushTitle: mt,
-    pushBody: [eventTitle, ...details.slice(0, 2)].join('\n'),
+    pushBody: body,
     ...extras,
   };
 }
 
-function tournamentLine(match) {
+function currentScoreStatus(match, inn) {
+  const use = inn || currentInnings(match);
+  if (!use) return null;
+  return scoreStatusLine(match, use);
+}
+
+function tournamentHint(match) {
   return match.tournamentName || match.roundName || null;
 }
 
-function venueLine(match) {
-  const v = (match.venue || '').trim();
-  return v || null;
-}
-
-function tossLines(match) {
-  const lines = [];
+function tossHint(match) {
   const tossWinnerIsTeamA = match.tossWinnerIsTeamA;
   const batsFirst = match.tossWinnerBatsFirst;
-  if (tossWinnerIsTeamA == null || batsFirst == null) return lines;
+  if (tossWinnerIsTeamA == null || batsFirst == null) return null;
   const winner = tossWinnerIsTeamA
     ? match.teamAName || 'Team A'
     : match.teamBName || 'Team B';
   const decision = batsFirst ? 'bat' : 'bowl';
-  lines.push(`${winner} won the toss and elected to ${decision}.`);
-  return lines;
-}
-
-function oversLine(match) {
-  return `${totalOvers(match)} Overs`;
+  return `${winner} elected to ${decision}`;
 }
 
 function milestoneLabel(runs) {
@@ -56,94 +71,84 @@ function milestoneLabel(runs) {
     case 30:
       return 'Thirty';
     case 50:
-      return 'Half Century';
+      return 'Fifty';
     case 100:
       return 'Century';
     case 150:
       return '150';
     case 200:
-      return 'Double Century';
+      return 'Double century';
     default:
-      return `${runs} Runs`;
+      return `${runs} runs`;
   }
 }
 
 function bowlingMilestoneLabel(wickets) {
   switch (wickets) {
     case 3:
-      return 'Three Wickets';
+      return '3 wickets';
     case 4:
-      return 'Four Wickets';
+      return '4 wickets';
     case 5:
-      return 'Five Wicket Haul';
+      return '5-wicket haul';
     default:
-      return `${wickets} Wickets`;
+      return `${wickets} wickets`;
   }
 }
 
 function buildMatchStartNotification(match, perspective = 'general', actorName) {
-  const mt = matchTitle(match);
+  const overs = `${totalOvers(match)} overs`;
+  const toss = tossHint(match);
+  const tourney = tournamentHint(match);
+  let event;
   if (perspective === 'self') {
-    return pack(match, '🏏 Match Started', [
-      'Your match has started',
-      tournamentLine(match),
-      venueLine(match),
-      oversLine(match),
-      ...tossLines(match),
-    ]);
+    event = ['Your match is live', toss || overs].filter(Boolean).join(' · ');
+  } else if (perspective === 'network' && actorName) {
+    event = [`${actorName} started a match`, toss || overs]
+      .filter(Boolean)
+      .join(' · ');
+  } else {
+    event = [tourney, toss || overs].filter(Boolean).join(' · ') || 'Match is live';
   }
-  if (perspective === 'network' && actorName) {
-    return pack(match, '🏏 Match Started', [
-      `${actorName} has started a match`,
-      tournamentLine(match),
-      mt,
-      oversLine(match),
-    ]);
-  }
-  return pack(match, '🏏 Match Started', [
-    tournamentLine(match),
-    venueLine(match),
-    oversLine(match),
-    ...tossLines(match),
-  ]);
+  return pack(match, 'Match started', event, null);
 }
 
 function buildSecondInningsStartNotification(match) {
-  const inn = currentInnings(match) || { totalRuns: 0, totalWickets: 0, legalBalls: 0 };
-  const bpo = ballsPerOver(match);
-  const team = battingTeamName(match, inn);
+  const inn =
+    currentInnings(match) || { totalRuns: 0, totalWickets: 0, legalBalls: 0 };
   const { target, runsNeeded, ballsRemaining } = chaseSituation(match, inn);
-  return pack(match, 'Second Innings Started', [
-    team,
-    scoreLine(inn, bpo),
-    `Target ${target}`,
-    `Need ${runsNeeded} runs from ${ballsRemaining} balls`,
-  ]);
+  const team = battingTeamName(match, inn);
+  return pack(
+    match,
+    'Chase underway',
+    `${team} need ${runsNeeded} from ${ballsRemaining} (target ${target})`,
+    currentScoreStatus(match, inn),
+  );
 }
 
-function buildFirstInningsCompleteNotification(match, perspective = 'general', actorName) {
+function buildFirstInningsCompleteNotification(
+  match,
+  perspective = 'general',
+  actorName,
+) {
   const first = firstInnings(match);
   const bpo = ballsPerOver(match);
   const team = battingTeamName(match, first);
   const target = (first?.totalRuns || 0) + 1;
+  const status = first ? `${team} ${scoreLine(first, bpo)}` : null;
   if (perspective === 'network' && actorName) {
-    return pack(match, 'First Innings Complete', [
-      `${actorName}'s match has reached the innings break.`,
-      `Target: ${target} Runs.`,
-    ]);
+    return pack(
+      match,
+      'Innings break',
+      `${actorName}'s match — target ${target}`,
+      status,
+    );
   }
-  return pack(match, 'First Innings Complete', [
-    team,
-    scoreLine(first, bpo),
-    `${totalOvers(match)} Overs`,
-    `Target`,
-    `${target} Runs`,
-  ]);
+  return pack(match, 'Innings break', `Target ${target}`, status);
 }
 
 function buildWicketNotification(match, event) {
   const inn = currentInnings(match);
-  const bpo = ballsPerOver(match);
   const batter =
     event.dismissedPlayerName ||
     event.lineupStrikerName ||
@@ -152,31 +157,88 @@ function buildWicketNotification(match, event) {
   const dismissal =
     event.dismissalText ||
     event.commentary ||
-    (batter ? `${batter} is out` : 'Wicket fallen');
-  const lines = [batter, dismissal, scoreLine(inn, bpo)].filter(Boolean);
+    (batter ? `${batter} is out` : 'Wicket');
+  let eventLine = batter
+    ? `OUT · ${dismissal}`.replace(/\s+/g, ' ').trim()
+    : `OUT · ${dismissal}`;
+  // Avoid "OUT · Name Name is out" redundancy when dismissal already has name.
+  if (batter && dismissal.toLowerCase().startsWith(batter.toLowerCase())) {
+    eventLine = `OUT · ${dismissal}`;
+  } else if (batter && !dismissal.toLowerCase().includes(batter.toLowerCase())) {
+    eventLine = `OUT · ${batter} — ${dismissal}`;
+  }
   if (inn && inn.inningsNumber >= 2) {
     const { runsNeeded } = chaseSituation(match, inn);
-    if (runsNeeded > 0) lines.push(`Need ${runsNeeded} more runs`);
+    if (runsNeeded > 0) {
+      eventLine = `${eventLine} · Need ${runsNeeded}`;
+    }
   }
-  return pack(match, 'WICKET!', lines);
+  return pack(match, 'Wicket', eventLine, currentScoreStatus(match, inn));
+}
+
+/**
+ * Retired Hurt — not a dismissal. Never use the word "Out".
+ */
+function buildRetiredHurtNotification(match, event) {
+  const batter =
+    event.dismissedPlayerName ||
+    event.lineupStrikerName ||
+    'Batter';
+  const runs = retiredScoreFromMatch(match, event);
+  const eventLine =
+    runs != null
+      ? `${batter} retired hurt on ${runs}.`
+      : `${batter} retired hurt and left the field.`;
+  return pack(match, 'Retired Hurt', eventLine, currentScoreStatus(match));
+}
+
+/**
+ * Retired Out — counts as a wicket but wording is "retired out", not "OUT ·".
+ */
+function buildRetiredOutNotification(match, event) {
+  const batter =
+    event.dismissedPlayerName ||
+    event.lineupStrikerName ||
+    'Batter';
+  const runs = retiredScoreFromMatch(match, event);
+  const eventLine =
+    runs != null
+      ? `${batter} retired out on ${runs}.`
+      : `${batter} retired out.`;
+  return pack(match, 'Retired Out', eventLine, currentScoreStatus(match));
+}
+
+function retiredScoreFromMatch(match, event) {
+  const id = event.dismissedPlayerId;
+  if (!id || !match?.innings) return null;
+  for (const inn of match.innings) {
+    const batsmen = inn.batsmen || [];
+    const b = batsmen.find((x) => x.playerId === id);
+    if (b) {
+      if (b.retiredAtScore != null) return b.retiredAtScore;
+      if (b.runs != null) return b.runs;
+    }
+  }
+  return null;
 }
 
 function buildHatTrickNotification(match, bowlerName, perspective = 'general') {
   const name = bowlerName || 'Bowler';
-  const line =
+  const event =
     perspective === 'self'
-      ? 'You take three wickets in three balls.'
-      : `${name} takes three wickets in three balls.`;
-  return pack(match, 'HAT-TRICK!', [line]);
+      ? 'You — 3 wickets in 3 balls'
+      : `${name} — 3 wickets in 3 balls`;
+  return pack(match, 'Hat-trick', event, currentScoreStatus(match));
 }
 
 function buildTeamMilestoneNotification(match, milestone, inn) {
-  const bpo = ballsPerOver(match);
   const team = battingTeamName(match, inn);
-  return pack(match, `${milestone} Runs`, [
-    team,
-    scoreLine(inn, bpo),
-  ]);
+  return pack(
+    match,
+    `${milestone} up`,
+    `${team} reach ${milestone}`,
+    currentScoreStatus(match, inn),
+  );
 }
 
 function buildPlayerMilestoneNotification(
@@ -187,21 +249,14 @@ function buildPlayerMilestoneNotification(
   perspective = 'general',
 ) {
   const label = milestoneLabel(runs);
+  const figures = `${runs} (${balls})`;
+  let event;
   if (perspective === 'self') {
-    return pack(match, `${label}!`, [
-      `You scored a ${label}.`,
-      `${runs} (${balls})`,
-    ]);
+    event = `You ${figures}`;
+  } else {
+    event = `${playerName || 'Batter'} ${figures}`;
   }
-  if (perspective === 'network') {
-    return pack(match, `${label}!`, [
-      `${playerName} scored a ${label}.`,
-      `${runs} (${balls})`,
-    ]);
-  }
-  return pack(match, `${label}!`, [
-    `${playerName} reaches ${runs} from ${balls} balls.`,
-  ]);
+  return pack(match, label, event, currentScoreStatus(match));
 }
 
 function buildBowlingMilestoneNotification(
@@ -213,20 +268,14 @@ function buildBowlingMilestoneNotification(
 ) {
   const label = bowlingMilestoneLabel(wickets);
   const figures =
-    runsConceded != null ? `${wickets}/${runsConceded}` : `${wickets} wickets`;
+    runsConceded != null ? `${wickets}/${runsConceded}` : `${wickets} wkts`;
+  let event;
   if (perspective === 'self') {
-    return pack(match, `${label}!`, [
-      `You took ${wickets} wickets.`,
-      figures,
-    ]);
+    event = `You — ${label} (${figures})`;
+  } else {
+    event = `${playerName || 'Bowler'} — ${label} (${figures})`;
   }
-  if (perspective === 'network') {
-    return pack(match, `${label}!`, [
-      `${playerName} took ${wickets} wickets.`,
-      figures,
-    ]);
-  }
-  return pack(match, `${label}!`, [playerName, figures]);
+  return pack(match, label, event, currentScoreStatus(match));
 }
 
 function buildTargetRevisionNotification(match, revision) {
@@ -234,21 +283,14 @@ function buildTargetRevisionNotification(match, revision) {
   const bpo = ballsPerOver(match);
   const oldTarget = revision.oldTarget ?? revision.originalTarget;
   const newTarget = revision.newTarget ?? revision.revisedTarget;
-  const lines = [
-    `Old Target: ${oldTarget ?? '—'}`,
-    `New Target: ${newTarget ?? '—'}`,
-  ];
-  if (revision.reason) lines.push(revision.reason);
-  if (inn) {
-    lines.push(scoreLine(inn, bpo));
-    if (inn.inningsNumber >= 2 && newTarget) {
-      const runsNeeded = Math.max(0, newTarget - (inn.totalRuns || 0));
-      const totalBalls = totalOvers(match) * bpo;
-      const ballsRemaining = Math.max(0, totalBalls - (inn.legalBalls || 0));
-      lines.push(`Need ${runsNeeded} runs from ${ballsRemaining} balls`);
-    }
+  let event = `Target ${oldTarget ?? '—'} → ${newTarget ?? '—'}`;
+  if (inn && inn.inningsNumber >= 2 && newTarget) {
+    const runsNeeded = Math.max(0, newTarget - (inn.totalRuns || 0));
+    const totalBalls = totalOvers(match) * bpo;
+    const ballsRemaining = Math.max(0, totalBalls - (inn.legalBalls || 0));
+    event = `${event} · Need ${runsNeeded} from ${ballsRemaining}`;
   }
-  return pack(match, 'Target Revised', lines);
+  return pack(match, 'Target revised', event, currentScoreStatus(match, inn));
 }
 
 function buildDlsNotification(match, revision) {
@@ -258,27 +300,22 @@ function buildDlsNotification(match, revision) {
     revision.newTarget ??
     match.targetState?.revisedTarget ??
     match.targetState?.pendingChaseTarget;
-  const lines = [];
-  if (newTarget) lines.push(`Target revised to ${newTarget}`);
-  if (revision.revisedOvers) {
-    lines.push(`Overs reduced to ${revision.revisedOvers}`);
+  const parts = [];
+  if (newTarget) parts.push(`Target ${newTarget}`);
+  if (revision.revisedOvers) parts.push(`${revision.revisedOvers} overs`);
+  let event = parts.join(' · ') || 'DLS applied';
+  if (inn && inn.inningsNumber >= 2 && newTarget) {
+    const runsNeeded = Math.max(0, newTarget - (inn.totalRuns || 0));
+    const totalBalls = (revision.revisedOvers || totalOvers(match)) * bpo;
+    const ballsRemaining = Math.max(0, totalBalls - (inn.legalBalls || 0));
+    event = `${event} · Need ${runsNeeded} from ${ballsRemaining}`;
   }
-  if (inn) {
-    lines.push(scoreLine(inn, bpo));
-    if (inn.inningsNumber >= 2 && newTarget) {
-      const runsNeeded = Math.max(0, newTarget - (inn.totalRuns || 0));
-      const totalBalls = (revision.revisedOvers || totalOvers(match)) * bpo;
-      const ballsRemaining = Math.max(0, totalBalls - (inn.legalBalls || 0));
-      lines.push(`Need ${runsNeeded} runs from ${ballsRemaining} balls`);
-    }
-  }
-  return pack(match, 'DLS Applied', lines);
+  return pack(match, 'DLS', event, currentScoreStatus(match, inn));
 }
 
 function resultVerbSummary(match) {
   const summary = (match.resultSummary || '').trim();
   if (summary) {
-    // Prefer natural "defeated … by" wording when possible.
     const winnerId = match.winnerTeamId;
     if (winnerId) {
       const winner = teamName(match, winnerId);
@@ -288,28 +325,37 @@ function resultVerbSummary(match) {
           : match.teamAName || 'Team A';
       const byMatch = summary.match(/by\s+(.+)$/i);
       if (byMatch) {
-        return `${winner} defeated ${loser} by ${byMatch[1]}.`;
+        return `${winner} beat ${loser} by ${byMatch[1]}`;
       }
     }
-    return summary.endsWith('.') ? summary : `${summary}.`;
+    return summary.replace(/\.$/, '');
   }
   const outcome = match.targetState?.matchOutcome;
-  if (outcome === 'draw') return 'The match ended in a draw.';
-  if (outcome === 'abandoned') return 'The match was abandoned.';
-  return 'Match completed.';
+  if (outcome === 'draw') return 'Match drawn';
+  if (outcome === 'abandoned') return 'Match abandoned';
+  return 'Match complete';
 }
 
 function buildMatchResultNotification(match, perspective = 'general', performanceLines) {
   const outcome = match.targetState?.matchOutcome;
-  let eventTitle = '🏆 Match Complete';
-  if (outcome === 'draw') eventTitle = 'Match Drawn';
-  if (outcome === 'abandoned') eventTitle = 'Match Abandoned';
+  let eventTitle = 'Match complete';
+  if (outcome === 'draw') eventTitle = 'Match drawn';
+  if (outcome === 'abandoned') eventTitle = 'Match abandoned';
 
-  const lines = [resultVerbSummary(match)];
+  let event = resultVerbSummary(match);
   if (performanceLines && performanceLines.length) {
-    lines.push('', ...performanceLines);
+    const compact = performanceLines
+      .map((l) => String(l).trim())
+      .filter((l) => l && l !== 'Your Performance')
+      .slice(0, 2)
+      .join(' · ');
+    if (compact) event = `${event} · ${compact}`;
   }
-  return pack(match, eventTitle, lines, { perspective });
+  // Final batting status if still available.
+  const inn = currentInnings(match) || firstInnings(match);
+  return pack(match, eventTitle, event, currentScoreStatus(match, inn), {
+    perspective,
+  });
 }
 
 function formatPerformanceLines(perf, perspective, playerName) {
@@ -320,20 +366,7 @@ function formatPerformanceLines(perf, perspective, playerName) {
       : null;
   const catchLine =
     perf.catches > 0
-      ? `${perf.catches} Catch${perf.catches === 1 ? '' : 'es'}`
-      : null;
-  const sr =
-    perf.balls > 0 && perf.runs > 0
-      ? `Strike Rate ${((perf.runs / perf.balls) * 100).toFixed(1)}`
-      : null;
-  const bpo = perf.bpo || 6;
-  const economy =
-    perf.ballsBowled > 0 && perf.runsConceded != null
-      ? `Economy ${((perf.runsConceded * bpo) / perf.ballsBowled).toFixed(2)}`
-      : null;
-  const oversBowled =
-    perf.ballsBowled > 0
-      ? `${formatOvers(perf.ballsBowled, bpo)} Overs`
+      ? `${perf.catches} catch${perf.catches === 1 ? '' : 'es'}`
       : null;
   const figures =
     perf.wickets > 0 && perf.runsConceded != null
@@ -341,99 +374,70 @@ function formatPerformanceLines(perf, perspective, playerName) {
       : null;
 
   if (perspective === 'network') {
-    const lines = [];
-    if (bat) {
-      lines.push(`${playerName} scored`, bat);
-      if (perf.wickets > 0) {
-        lines.push(
-          `and took ${perf.wickets} wicket${perf.wickets === 1 ? '' : 's'}.`,
-        );
-      }
-      return lines;
+    if (bat && perf.wickets > 0) {
+      return [`${playerName} ${bat} & ${figures || `${perf.wickets} wkts`}`];
     }
+    if (bat) return [`${playerName} ${bat}`];
     if (perf.wickets > 0) {
-      return [
-        `${playerName} took ${perf.wickets} wicket${perf.wickets === 1 ? '' : 's'}.`,
-        figures,
-      ].filter(Boolean);
+      return [`${playerName} ${figures || `${perf.wickets} wkts`}`];
     }
-    if (catchLine) return [`${playerName}`, catchLine];
+    if (catchLine) return [`${playerName} ${catchLine}`];
     return [];
   }
 
-  // Self / general performance block
-  const lines = ['Your Performance'];
-  if (bat) lines.push(bat);
-  if (perf.wickets > 0) {
-    lines.push(`${perf.wickets} Wicket${perf.wickets === 1 ? '' : 's'}`);
-    if (figures) lines.push(figures);
-  }
-  if (catchLine) lines.push(catchLine);
-  if (bat && sr) lines.push(sr);
-  if (!bat && oversBowled) lines.push(oversBowled);
-  if (!bat && economy) lines.push(economy);
-  return lines.length > 1 ? lines : [];
+  const bits = [];
+  if (bat) bits.push(bat);
+  if (perf.wickets > 0) bits.push(figures || `${perf.wickets} wkts`);
+  if (catchLine) bits.push(catchLine);
+  return bits.length ? bits : [];
 }
 
 function buildHeroOfMatchNotification(match, hero, perspective = 'general') {
   const name = hero?.playerName || 'Player';
-  const lines = [];
-  if (perspective === 'self') {
-    lines.push('You were named Hero of the Match.');
-  } else if (perspective === 'network') {
-    lines.push(`${name} was named Hero of the Match.`);
-  } else {
-    lines.push(`${name} was named Hero of the Match.`);
-  }
-  if (hero?.reason) lines.push(hero.reason);
-  if (hero?.battingLine) lines.push(hero.battingLine);
-  if (hero?.bowlingLine) lines.push(hero.bowlingLine);
-  return pack(match, '⭐ Hero of the Match', lines);
+  let event =
+    perspective === 'self'
+      ? 'You — Hero of the Match'
+      : `${name} — Hero of the Match`;
+  const bits = [hero?.reason, hero?.battingLine, hero?.bowlingLine]
+    .filter(Boolean)
+    .slice(0, 1);
+  if (bits.length) event = `${event} · ${bits[0]}`;
+  return pack(match, 'Hero of the Match', event, null);
 }
 
 function buildBadgeUnlockNotification(badgeTitle, reason) {
   return {
-    title: '🏅 New Badge Unlocked',
+    title: 'New badge',
     body: [badgeTitle, reason].filter(Boolean).join('\n'),
     matchTitle: null,
-    pushTitle: '🏅 New Badge Unlocked',
+    pushTitle: 'New badge unlocked',
     pushBody: [badgeTitle, reason].filter(Boolean).join('\n'),
     category: 'badge',
   };
 }
 
 function buildMatchBreakStartedNotification(match, activeBreak) {
-  const inn = currentInnings(match) || { totalRuns: 0, totalWickets: 0, legalBalls: 0 };
-  const bpo = ballsPerOver(match);
   const breakType = activeBreak?.breakType || 'Match';
-  return pack(match, `${breakType} Break`, [
-    'Current Score',
-    scoreLine(inn, bpo),
-  ]);
+  return pack(
+    match,
+    `${breakType} break`,
+    'Play paused',
+    currentScoreStatus(match),
+  );
 }
 
 function buildMatchBreakEndedNotification(match, lastEntry) {
-  const inn = currentInnings(match) || { totalRuns: 0, totalWickets: 0, legalBalls: 0 };
-  const bpo = ballsPerOver(match);
-  const team = battingTeamName(match, inn);
-  const lines = [];
-  if (lastEntry?.breakType) {
-    lines.push(`${lastEntry.breakType} break ended`);
-  }
-  lines.push(team, scoreLine(inn, bpo));
-  return pack(match, 'Match Resumed', lines);
+  const breakType = lastEntry?.breakType;
+  const event = breakType ? `${breakType} over — play resumed` : 'Play resumed';
+  return pack(match, 'Play resumed', event, currentScoreStatus(match));
 }
 
 function buildStreamStartedNotification(match) {
-  return pack(match, 'Live Stream Started', [
-    'Watch the live stream now on CrickFlow.',
-  ]);
+  return pack(match, 'Live stream', 'Watch now on CrickFlow', null);
 }
 
 function buildStreamEndedNotification(match) {
-  return pack(match, 'Stream Ended', [
-    'The live stream has ended.',
-  ]);
+  return pack(match, 'Stream ended', 'Live stream has ended', null);
 }
 
 module.exports = {
@@ -444,6 +448,8 @@ module.exports = {
   buildSecondInningsStartNotification,
   buildFirstInningsCompleteNotification,
   buildWicketNotification,
+  buildRetiredHurtNotification,
+  buildRetiredOutNotification,
   buildHatTrickNotification,
   buildTeamMilestoneNotification,
   buildPlayerMilestoneNotification,

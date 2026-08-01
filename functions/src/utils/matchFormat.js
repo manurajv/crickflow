@@ -52,6 +52,16 @@ function scoreLine(inn, bpo) {
   )})`;
 }
 
+/**
+ * Google Cricket / CrickHeroes style status line — batting side + score + overs.
+ * Example: "Falcons 145/3 (18.2)"
+ */
+function scoreStatusLine(match, inn) {
+  const bpo = ballsPerOver(match);
+  const team = battingTeamName(match, inn);
+  return `${team} ${scoreLine(inn, bpo)}`;
+}
+
 function chaseTarget(match, inn) {
   if (!inn) return 0;
   if (inn.targetRuns && inn.targetRuns > 0) return inn.targetRuns;
@@ -86,6 +96,7 @@ module.exports = {
   currentInnings,
   firstInnings,
   scoreLine,
+  scoreStatusLine,
   chaseTarget,
   chaseSituation,
   matchTitle,

@@ -109,11 +109,15 @@ class MatchStreamPlayback {
   }
 
   static bool hasWatchablePlayback(MatchModel match) {
-    if (playableSourcesFor(match).isNotEmpty) return true;
-    return hasActiveAwaitingWatchUrl(match);
+    if (isStreamActive(match)) {
+      // Pending live placeholder, or a real live URL — not prior VODs alone.
+      if (hasActiveAwaitingWatchUrl(match)) return true;
+      return playableSourcesFor(match).any((s) => s.isLive);
+    }
+    return playableSourcesFor(match).isNotEmpty;
   }
 
-  /// True while a go-live is in progress but the public URL is not ready yet.
+  /// True while a go-live is waiting for a public watch URL.
   static bool hasActiveAwaitingWatchUrl(MatchModel match) {
     final active = match.stream.status == StreamStatus.live ||
         match.stream.status == StreamStatus.connecting;
@@ -178,21 +182,18 @@ class MatchStreamPlayback {
     }).toList();
 
     final out = <MatchStreamSource>[];
-    final usedKeys = <String>{};
+    final usedSessionKeys = <String>{};
 
     for (var i = 0; i < filtered.length; i++) {
       final entry = filtered[i];
       final url = _resolveEntryUrl(entry, match.stream);
       var sessionKey = StreamPlaybackMerger.sessionKeyFor(entry);
-      if (usedKeys.contains(sessionKey)) {
-        sessionKey = '${sessionKey}_$i';
-      }
-      usedKeys.add(sessionKey);
+      if (!usedSessionKeys.add(sessionKey)) continue;
 
       final platform = platformFromUrl(
         url.isNotEmpty ? url : entry.url,
       );
-      final statusLabel = _statusLabel(entry, i, filtered);
+      final statusLabel = _statusLabel(entry, url, i, filtered);
       final sessionStart = _inferSessionStart(entry, match.stream);
       final startTimeLabel = formatSessionStartTime(sessionStart);
       final rawSessionId = entry.sessionId.trim();
@@ -212,7 +213,56 @@ class MatchStreamPlayback {
         ),
       );
     }
-    return out;
+    return _dedupeSourcesByWatchUrl(out);
+  }
+
+  /// One row per public watch URL in the hub picker (prefer live / newer).
+  static List<MatchStreamSource> _dedupeSourcesByWatchUrl(
+    List<MatchStreamSource> sources,
+  ) {
+    if (sources.length <= 1) return sources;
+
+    final pending = <MatchStreamSource>[];
+    final byUrl = <String, MatchStreamSource>{};
+
+    for (final source in sources) {
+      if (!source.hasPlayableUrl) {
+        // At most one pending-live placeholder.
+        if (source.isLive && pending.any((p) => p.isLive)) continue;
+        pending.add(source);
+        continue;
+      }
+      final key = _urlIdentityKey(source.url);
+      if (key.isEmpty) {
+        pending.add(source);
+        continue;
+      }
+      final existing = byUrl[key];
+      if (existing == null) {
+        byUrl[key] = source;
+        continue;
+      }
+      byUrl[key] = _preferSource(existing, source);
+    }
+
+    final merged = [...pending, ...byUrl.values];
+    merged.sort((a, b) {
+      if (a.isLive != b.isLive) return a.isLive ? -1 : 1;
+      final aAt = a.addedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bAt = b.addedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bAt.compareTo(aAt);
+    });
+    return merged;
+  }
+
+  static MatchStreamSource _preferSource(
+    MatchStreamSource a,
+    MatchStreamSource b,
+  ) {
+    if (a.isLive != b.isLive) return a.isLive ? a : b;
+    final aAt = a.addedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bAt = b.addedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return bAt.isAfter(aAt) ? b : a;
   }
 
   /// Resolves a playback entry URL, upgrading an active live pending row when
@@ -294,10 +344,16 @@ class MatchStreamPlayback {
 
   static String _statusLabel(
     StreamPlaybackEntryModel entry,
+    String resolvedUrl,
     int indexInNewestFirst,
     List<StreamPlaybackEntryModel> allNewestFirst,
   ) {
-    if (entry.isLive) return 'Live Now';
+    if (entry.isLive) {
+      if (isPendingWatchUrl(resolvedUrl) || isPendingWatchUrl(entry.url)) {
+        return 'Pending live';
+      }
+      return 'Live Now';
+    }
 
     final firstCompletedIndex =
         allNewestFirst.indexWhere((e) => !e.isLive);

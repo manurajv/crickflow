@@ -181,7 +181,7 @@ class RtmpCameraConnector(val context: Context, val useOpenGL: Boolean, val isPo
      * doesn't support any configuration seated or your device hasn't a AAC encoder).
      */
     @JvmOverloads
-    fun prepareAudio(bitrate: Int = 64 * 1024, sampleRate: Int = 32000, isStereo: Boolean = true, echoCanceler: Boolean = false,
+    fun prepareAudio(bitrate: Int = 128 * 1024, sampleRate: Int = 44100, isStereo: Boolean = true, echoCanceler: Boolean = false,
                      noiseSuppressor: Boolean = false): Boolean {
         microphoneManager.createMicrophone(sampleRate, isStereo, echoCanceler, noiseSuppressor)
         prepareAudioRtp(isStereo, sampleRate)
@@ -214,7 +214,7 @@ class RtmpCameraConnector(val context: Context, val useOpenGL: Boolean, val isPo
             return
         }
         isStreaming = true
-        startStreamRtp(url)
+        startStreamRtp(RtmpUrlSanitizer.sanitize(url))
     }
 
     fun startRecord(path: String) {

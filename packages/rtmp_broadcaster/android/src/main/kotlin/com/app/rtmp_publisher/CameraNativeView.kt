@@ -871,6 +871,7 @@ class CameraNativeView(
             glRot = glConfig.glRotation,
         )
         val encRot = glConfig.videoEncoderRotation
+        // Facebook Live expects AAC @ 44.1 kHz stereo; 32 kHz often fails publish.
         val prepared = try {
             if (rtmpCamera.isRecording) {
                 rtmpCamera.prepareVideo(
@@ -882,7 +883,13 @@ class CameraNativeView(
                     encRot,
                 )
             } else {
-                rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo(
+                rtmpCamera.prepareAudio(
+                    128 * 1024,
+                    44100,
+                    true,
+                    false,
+                    false,
+                ) && rtmpCamera.prepareVideo(
                     encW,
                     encH,
                     30,
@@ -907,7 +914,11 @@ class CameraNativeView(
             return false
         }
         encoderPrepared = true
-        lastStreamUrl = url
+        val publishUrl = RtmpUrlSanitizer.sanitize(url)
+        if (publishUrl != url) {
+            Log.i("CameraNativeView", "RTMP URL sanitized for publish")
+        }
+        lastStreamUrl = publishUrl
         lastStreamBitrate = videoBitrate
         lastMicEnabled = micEnabled
         return try {
@@ -916,7 +927,11 @@ class CameraNativeView(
             } else {
                 rtmpCamera.disableAudio()
             }
-            rtmpCamera.startStream(url)
+            Log.i(
+                "CameraNativeView",
+                "startStream host=${publishUrl.substringBefore("/").substringAfter("://")} pathLen=${publishUrl.length}",
+            )
+            rtmpCamera.startStream(publishUrl)
             applyStreamRotationIfLive()
             true
         } catch (e: Exception) {

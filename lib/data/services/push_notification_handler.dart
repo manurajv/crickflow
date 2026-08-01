@@ -19,6 +19,7 @@ class PushNotificationHandler {
 
   static const _joinRequestChannelId = 'team_join_requests';
   static const _defaultChannelId = 'crickflow_default';
+  static const _matchChannelId = 'crickflow_match';
   static const _goldAccent = 0xFFFFC107;
 
   final FlutterLocalNotificationsPlugin _localNotifications =
@@ -48,17 +49,24 @@ class PushNotificationHandler {
         description: 'Alerts when a player requests to join your team',
         importance: Importance.high,
       );
+      const matchChannel = AndroidNotificationChannel(
+        _matchChannelId,
+        'Live match updates',
+        description: 'Wickets, milestones, and live match status',
+        importance: Importance.high,
+      );
       const defaultChannel = AndroidNotificationChannel(
         _defaultChannelId,
         'CrickFlow',
         description: 'General CrickFlow notifications',
-        importance: Importance.defaultImportance,
+        importance: Importance.high,
       );
 
       final androidPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       await androidPlugin?.createNotificationChannel(joinChannel);
+      await androidPlugin?.createNotificationChannel(matchChannel);
       await androidPlugin?.createNotificationChannel(defaultChannel);
     }
 
@@ -139,18 +147,26 @@ class PushNotificationHandler {
 
     final data = NotificationNavigation.dataFromRemote(message.data);
     final type = data['type'] ?? '';
+    final category = data['category'] ?? '';
     final isJoinRequest = type == 'team_join_request';
-    final channelId =
-        isJoinRequest ? _joinRequestChannelId : _defaultChannelId;
+    final isMatchUpdate = _isMatchNotificationType(type, category);
+    final channelId = isJoinRequest
+        ? _joinRequestChannelId
+        : (isMatchUpdate ? _matchChannelId : _defaultChannelId);
+    final channelName = isJoinRequest
+        ? 'Team join requests'
+        : (isMatchUpdate ? 'Live match updates' : 'CrickFlow');
     final title = notification.title ?? 'CrickFlow';
     final body = notification.body ?? '';
 
     final androidDetails = AndroidNotificationDetails(
       channelId,
-      isJoinRequest ? 'Team join requests' : 'CrickFlow',
+      channelName,
       channelDescription: isJoinRequest
           ? 'Alerts when a player requests to join your team'
-          : 'General CrickFlow notifications',
+          : (isMatchUpdate
+              ? 'Wickets, milestones, and live match status'
+              : 'General CrickFlow notifications'),
       importance: Importance.high,
       priority: Priority.high,
       icon: '@drawable/ic_stat_crickflow',
@@ -158,7 +174,7 @@ class PushNotificationHandler {
       styleInformation: BigTextStyleInformation(
         body,
         contentTitle: title,
-        summaryText: isJoinRequest ? 'Tap to review request' : 'CrickFlow',
+        summaryText: isJoinRequest ? 'Tap to review request' : null,
       ),
       category: isJoinRequest
           ? AndroidNotificationCategory.social
@@ -181,5 +197,24 @@ class PushNotificationHandler {
       ),
       payload: NotificationNavigation.encodePayload(data),
     );
+  }
+
+  static bool _isMatchNotificationType(String type, String category) {
+    if (category == 'match' ||
+        category == 'live_match' ||
+        category == 'streaming') {
+      return true;
+    }
+    return type.startsWith('match_') ||
+        type == 'wicket' ||
+        type == 'retired_hurt' ||
+        type == 'retired_out' ||
+        type == 'hat_trick' ||
+        type.contains('milestone') ||
+        type.contains('stream') ||
+        type.contains('innings') ||
+        type.contains('dls') ||
+        type.contains('target') ||
+        type == 'hero_of_match';
   }
 }

@@ -433,6 +433,8 @@ class StreamService extends ChangeNotifier {
   /// Call after [CameraPreview] is mounted so the native view exists.
   Future<void> refreshDeviceZoomSteps() async {
     if (_controller == null || !isInitialized || _previewRecovering) return;
+    // Never rebuild zoom steps / re-apply zoom while RTMP is live.
+    if (isStreaming) return;
     try {
       final maxZoom = await _controller!.getMaxZoom();
       final cameras = await availableCameras();
@@ -529,7 +531,11 @@ class StreamService extends ChangeNotifier {
 
   Future<void> _runCameraOperation(Future<void> Function() action) async {
     final previous = _cameraOperation;
-    final operation = (previous ?? Future<void>.value()).then((_) => action());
+    // A failed prior op must not block the queue forever (camera stuck on
+    // "Starting camera…" after a bad stop/recover).
+    final operation = (previous ?? Future<void>.value())
+        .catchError((_) {})
+        .then((_) => action());
     _cameraOperation = operation;
     await operation;
   }
@@ -575,11 +581,8 @@ class StreamService extends ChangeNotifier {
         try {
           await _controller!.restartPreview();
           await _waitForNativePreviewReady();
-          if (_lenses.isNotEmpty) {
-            await _applyZoomForLens(
-              _lenses[_selectedLensIndex.clamp(0, _lenses.length - 1)],
-            );
-          }
+          // Do not re-apply zoom while live — restartPreview + setZoom causes
+          // a visible FOV jump ~seconds after go-live (worse on release builds).
           return;
         } catch (_) {}
       }

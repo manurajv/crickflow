@@ -313,6 +313,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
             snapshot: matchIntroSnapshot,
             theme: overlayTheme,
             landscape: landscapeUi,
+            forBurnInCapture: forBurnInCapture,
             onFinished: onMatchIntroFinished,
             onVisualChange: onMatchIntroVisualChange,
           ),
@@ -328,6 +329,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
             snapshot: openingBatsmenSnapshot,
             theme: overlayTheme,
             landscape: landscapeUi,
+            forBurnInCapture: forBurnInCapture,
             onFinished: onOpeningBatsmenFinished,
             onVisualChange: onOpeningBatsmenVisualChange,
           ),
@@ -453,6 +455,7 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
             snapshot: chaseOpeningBatsmenSnapshot,
             theme: overlayTheme,
             landscape: landscapeUi,
+            forBurnInCapture: forBurnInCapture,
             onFinished: onChaseOpeningBatsmenFinished,
             onVisualChange: onChaseOpeningBatsmenVisualChange,
           ),
@@ -521,22 +524,34 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
   Widget _buildCaptureTree({
     required List<Widget> burnInLayers,
     required GlobalKey repaintKey,
-    required int recoveryGeneration,
   }) {
+    // Must stay in the paint path for RepaintBoundary.toImage — Impeller
+    // often culls off-screen Positioned/Transform trees in release.
+    // Sit on top of the camera at near-zero opacity so Hybrid Composition
+    // isn't covered by an opaque Flutter layer (that blacks the preview).
+    // Opacity wraps OUTSIDE the RepaintBoundary so toImage stays full-alpha.
+    // Do NOT remount with a ValueKey on recovery — that restarts match-intro /
+    // opening-batsmen AnimationControllers.
     return Positioned(
-      key: ValueKey<int>(recoveryGeneration),
-      left: -_encoderSize.width - 32,
+      left: 0,
       top: 0,
+      width: _encoderSize.width,
+      height: _encoderSize.height,
       child: IgnorePointer(
-        child: SizedBox(
-          width: _encoderSize.width,
-          height: _encoderSize.height,
-          child: RepaintBoundary(
-            key: repaintKey,
-            child: Stack(
-              clipBehavior: Clip.hardEdge,
-              fit: StackFit.expand,
-              children: burnInLayers,
+        child: Opacity(
+          opacity: 0.01,
+          child: TickerMode(
+            enabled: true,
+            child: RepaintBoundary(
+              key: repaintKey,
+              child: ColoredBox(
+                color: Colors.transparent,
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  fit: StackFit.expand,
+                  children: burnInLayers,
+                ),
+              ),
             ),
           ),
         ),
@@ -694,7 +709,9 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
         ? ref.watch(tournamentProvider(tournamentId)).valueOrNull
         : null;
     final burnIn = ref.watch(streamOverlayBurnInServiceProvider);
-    final overlayRecoveryGen = ref.watch(overlayLifecycleRecoveryProvider);
+    // Keep watching so lifecycle recovery still schedules pushes; do not remount
+    // the capture tree (that restarts intro / opening-batsmen animations).
+    ref.watch(overlayLifecycleRecoveryProvider);
     final stream = ref.watch(streamServiceProvider);
     // While live or publishing, preview overlays are native burn-in only.
     final hideFlutterOverlays = _isLiveSession(stream);
@@ -922,13 +939,13 @@ class _StreamStudioCompositorState extends ConsumerState<StreamStudioCompositor>
             child: previewLayers,
           ),
         ),
+        // After the camera so Hybrid Composition isn't covered by Flutter layers.
         if (_isLiveSession(stream) &&
             _encoderSize.width > 0 &&
             _encoderSize.height > 0)
           _buildCaptureTree(
             burnInLayers: burnInLayers,
             repaintKey: burnIn.repaintKey,
-            recoveryGeneration: overlayRecoveryGen,
           ),
       ],
     );

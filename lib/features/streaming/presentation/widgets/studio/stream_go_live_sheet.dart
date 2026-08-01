@@ -549,7 +549,9 @@ class StreamBroadcastDestinationSection extends ConsumerWidget {
               matchId: matchId,
               platform: StreamPlatform.facebook,
               helpText:
-                  'In Facebook → Live → Streaming setup, copy the server URL and stream key.',
+                  'In Facebook Live Producer → Use stream key, keep that page open, '
+                  'then paste Server URL + Stream key here. CrickFlow must connect '
+                  'before you tap Go Live on Facebook.',
             ),
           StreamPlatform.customRtmp => _ManualRtmpSetup(
               matchId: matchId,

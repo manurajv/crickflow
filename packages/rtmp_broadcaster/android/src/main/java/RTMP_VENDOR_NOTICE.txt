@@ -1,0 +1,6 @@
+Vendored from https://github.com/pedroSG94/rtmp-rtsp-stream-client-java
+commit a049b6f167c (Apache License 2.0).
+
+Local patches for Facebook Live RTMPS:
+- RtmpConnection: default TLS port 443 (was 1935)
+- TLSSocketFactory: enable TLSv1.2 + TLSv1.3 (was TLSv1.1 + TLSv1.2)

@@ -252,7 +252,10 @@ exports.startYouTubeLiveBroadcast = onCall(
         streamId,
       );
     } catch (err) {
-      throw new HttpsError('failed-precondition', err.message || 'YouTube go-live failed');
+      const msg = err.message || 'YouTube go-live failed';
+      // Surface a cleaner message; transition races are handled inside
+      // transitionYouTubeBroadcastToLive and should not reach here.
+      throw new HttpsError('failed-precondition', msg);
     }
   },
 );

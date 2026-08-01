@@ -38,7 +38,8 @@ class StreamAddLinkAction extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final showDot = !MatchStreamPlayback.hasWatchablePlayback(resolved);
+    final showDot =
+        MatchStreamPlayback.playableSourcesFor(resolved).isEmpty;
     final theme = Theme.of(context);
 
     return Padding(

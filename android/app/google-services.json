@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "202403125129-62qm9b9orlg04qa2i5rctmdkadr1iu8j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mavixas.crickflow",
+            "certificate_hash": "7d0ae4f440b8c1bd4384ad293aae5fe774ae5d72"
+          }
+        },
+        {
+          "client_id": "202403125129-66tkbuh0t2vm8gvjc9emrq2ungb5vcfn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mavixas.crickflow",
+            "certificate_hash": "0749c14b258c76ba704d006b4a4dd1e7630bd4c7"
+          }
+        },
+        {
           "client_id": "202403125129-i25q82hre5c1ejeu26gtbkertv4bts8i.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

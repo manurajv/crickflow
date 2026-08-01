@@ -1,12 +1,13 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.mavixas.crickflow",
-      "sha256_cert_fingerprints": [
-        "93:0F:11:8A:85:DD:A4:11:4A:9C:CB:5C:61:89:45:FB:28:F8:61:FC:9C:F3:3E:0A:59:DA:E6:52:33:95:8B:79"
-      ]
-    }
-  }
-]
+﻿[{
+    "target":  {
+                   "sha256_cert_fingerprints":  [
+                                                    "93:0F:11:8A:85:DD:A4:11:4A:9C:CB:5C:61:89:45:FB:28:F8:61:FC:9C:F3:3E:0A:59:DA:E6:52:33:95:8B:79",
+                                                    "F6:24:75:72:B3:05:F3:CA:07:B7:89:D1:C8:29:27:AF:E4:36:C3:FF:D8:64:BF:66:54:64:19:66:A2:C8:4F:C3"
+                                                ],
+                   "namespace":  "android_app",
+                   "package_name":  "com.mavixas.crickflow"
+               },
+    "relation":  [
+                     "delegate_permission/common.handle_all_urls"
+                 ]
+}]

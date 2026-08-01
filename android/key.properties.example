@@ -1,5 +1,6 @@
 # Copy to android/key.properties and fill in (do NOT commit key.properties).
+# Prefer an absolute path OUTSIDE the repo (created by create-release-keystore.ps1).
 storePassword=YOUR_KEYSTORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
 keyAlias=crickflow
-storeFile=../crickflow-release.keystore
+storeFile=C:/Users/YOUR_WINDOWS_USERNAME/Documents/keys/crickflow/crickflow-release.keystore

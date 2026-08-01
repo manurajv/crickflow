@@ -78,6 +78,16 @@ class BroadcastSessionController {
       }
     }
 
+    // Facebook / Twitch auto-create is not configured — require a pasted key.
+    if (!provider.supportsOAuth) {
+      return BroadcastSessionResult(
+        config: normalized,
+        errorMessage:
+            'Paste your ${provider.label} stream key from Live Producer, '
+            'then go live',
+      );
+    }
+
     try {
       final creds = await provider.createLiveBroadcast(normalized);
       if (creds == null) {
@@ -303,7 +313,18 @@ class BroadcastSessionController {
     if (wasNativeStream) {
       await _streamService.stopStream();
       await _streamService.endLiveSession();
-      await _streamService.resumePreviewAfterStreamEnd();
+      try {
+        await _streamService.resumePreviewAfterStreamEnd();
+      } catch (e) {
+        debugPrint('[CrickFlowBroadcast] resume preview after end failed: $e');
+        try {
+          await _streamService.initCamera();
+        } catch (retryError) {
+          debugPrint(
+            '[CrickFlowBroadcast] camera re-init after end failed: $retryError',
+          );
+        }
+      }
     }
     if (config.platform == StreamPlatform.youtube &&
         config.broadcastSetupMode == StreamBroadcastSetupMode.automatic &&
@@ -452,8 +473,8 @@ class BroadcastSessionController {
 
   /// Top-level [StreamMetadataModel.youtubeWatchUrl] for Firestore.
   ///
-  /// When a new manual live session is still pending, do not leak the prior
-  /// session's URL into metadata (that would duplicate it in the hub instantly).
+  /// When a new manual live session has no watch URL yet, do not leak the prior
+  /// session's URL into metadata (that would show the old player in the hub).
   String? _resolveStreamYoutubeWatchUrl({
     required StreamStudioConfig config,
     required List<StreamPlaybackEntryModel> playbackEntries,
@@ -463,10 +484,15 @@ class BroadcastSessionController {
     final activeLive = StreamPlaybackMerger.activeLiveWatchUrl(playbackEntries);
     if (activeLive != null) return activeLive;
 
-    final livePending = playbackEntries.any(
-      (e) => e.isLive && MatchStreamPlayback.isPendingWatchUrl(e.url),
-    );
-    if (livePending && config.needsManualWatchUrl) return null;
+    if (config.needsManualWatchUrl) {
+      final hasLiveRow = playbackEntries.any((e) => e.isLive);
+      // No live row yet, or still pending — keep hub player hidden.
+      if (!hasLiveRow) return null;
+      final livePending = playbackEntries.any(
+        (e) => e.isLive && MatchStreamPlayback.isPendingWatchUrl(e.url),
+      );
+      if (livePending) return null;
+    }
 
     return StreamPlaybackMerger.latestWatchUrl(playbackEntries) ??
         sessionWatchUrl ??
@@ -529,14 +555,16 @@ class BroadcastSessionController {
     } else if (isGoingLive) {
       final sessionId = _uuid.v4();
       final resolvedUrl = watchUrl?.trim() ?? '';
-      final pendingUrl = MatchStreamPlayback.pendingWatchUrl(
-        platform: _playbackPlatformForConfig(config.platform),
-        sessionId: sessionId,
-      );
+      final sessionUrl = resolvedUrl.isNotEmpty
+          ? resolvedUrl
+          : MatchStreamPlayback.pendingWatchUrl(
+              platform: _playbackPlatformForConfig(config.platform),
+              sessionId: sessionId,
+            );
       playbackEntries = StreamPlaybackMerger.beginLiveSession(
         existing: playbackEntries,
         sessionId: sessionId,
-        url: resolvedUrl.isNotEmpty ? resolvedUrl : pendingUrl,
+        url: sessionUrl,
         addedAt: liveStartedAt,
         addedByUserId: addedByUserId,
         addedByName: addedByName,

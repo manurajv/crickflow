@@ -60,6 +60,8 @@ class _StreamingDashboardScreenState
   bool _isLive = false;
   bool _startingLive = false;
   bool _endingStream = false;
+  /// Prevents overlapping YouTube transition calls (go-live + RTMP reconnect).
+  Future<void>? _youtubePublishInFlight;
   Timer? _heartbeatTimer;
   Timer? _youtubeStatusTimer;
   String? _lastEventId;
@@ -114,14 +116,18 @@ class _StreamingDashboardScreenState
     final burnIn = ref.read(streamOverlayBurnInServiceProvider);
     final stream = ref.read(streamServiceProvider);
     stream.onRtmpConnected = () {
-      burnIn.schedulePush();
+      burnIn.schedulePush(force: true);
       unawaited(burnIn.recoverAfterLifecycle());
+      // Preview reconnect while live used to re-apply zoom and jump FOV;
+      // only reattach the surface — zoom is left alone.
       unawaited(stream.reconnectPreview(retries: 6));
       final cfg = ref.read(streamStudioConfigProvider(widget.matchId));
       if (cfg.platform == StreamPlatform.youtube &&
           cfg.broadcastSetupMode == StreamBroadcastSetupMode.automatic &&
           cfg.youtubeBroadcastId.isNotEmpty) {
-        unawaited(_publishYouTubeBroadcast(cfg));
+        if (_youtubePublishInFlight == null) {
+          unawaited(_publishYouTubeBroadcast(cfg));
+        }
       }
     };
   }
@@ -275,8 +281,11 @@ class _StreamingDashboardScreenState
       await service.resumePreviewAfterBackground();
       if (!mounted) return;
       setState(() {
-        _cameraLoading = !service.isInitialized;
-        _cameraError = service.lastError;
+        _cameraLoading = false;
+        _cameraError = service.isInitialized
+            ? null
+            : (service.lastError ?? 'Camera failed to start');
+        if (service.isInitialized) _previewSession++;
       });
     } catch (e) {
       if (mounted) {
@@ -305,6 +314,12 @@ class _StreamingDashboardScreenState
       });
       return;
     }
+    if (mounted) {
+      setState(() {
+        _cameraLoading = true;
+        _cameraError = null;
+      });
+    }
     try {
       await ref.read(streamServiceProvider).initCamera(
             lensIndex: config.selectedLensIndex,
@@ -316,8 +331,13 @@ class _StreamingDashboardScreenState
       if (mounted) {
         final service = ref.read(streamServiceProvider);
         setState(() {
-          _cameraLoading = !service.isInitialized;
-          _cameraError = service.lastError;
+          _cameraLoading = false;
+          _cameraError = service.isInitialized
+              ? null
+              : (service.lastError ?? 'Camera failed to start');
+          if (service.isInitialized) {
+            _previewSession++;
+          }
         });
         if (service.isInitialized) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -742,7 +762,9 @@ class _StreamingDashboardScreenState
           if (!mounted || !_isLive) return;
           final burnIn = ref.read(streamOverlayBurnInServiceProvider);
           burnIn.startLiveRefresh();
-          burnIn.schedulePush();
+          // Attach native GL overlay filter + push scorebug (initial connect
+          // does not fire onRtmpConnected if wiring happens after publish).
+          unawaited(burnIn.recoverAfterLifecycle());
         });
       }
     } finally {
@@ -752,28 +774,56 @@ class _StreamingDashboardScreenState
 
   Future<void> _publishYouTubeBroadcast(StreamStudioConfig config) async {
     if (config.youtubeBroadcastId.isEmpty) return;
+    final existing = _youtubePublishInFlight;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+
+    final gate = Completer<void>();
+    _youtubePublishInFlight = gate.future;
     try {
-      await ref.read(streamPlatformServiceProvider).startYouTubeLiveBroadcast(
-            broadcastId: config.youtubeBroadcastId,
-            streamId: config.youtubeStreamId,
+      try {
+        await ref.read(streamPlatformServiceProvider).startYouTubeLiveBroadcast(
+              broadcastId: config.youtubeBroadcastId,
+              streamId: config.youtubeStreamId,
+            );
+        await _syncYouTubeWatchUrlToMatch(config);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Stream is live on YouTube'),
+              duration: Duration(seconds: 5),
+            ),
           );
-      await _syncYouTubeWatchUrlToMatch(config);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Stream is live on YouTube'),
-            duration: Duration(seconds: 5),
-          ),
-        );
+        }
+      } on StreamPlatformException catch (e) {
+        final msg = e.message.toLowerCase();
+        final benign = msg.contains('invalid transition') ||
+            msg.contains('redundant transition') ||
+            msg.contains('invalidtransition') ||
+            msg.contains('redundanttransition');
+        if (benign) {
+          // Auto-start often wins the race; treat as success if still live.
+          debugPrint(
+            '[CrickFlowStream] YouTube transition race ignored: ${e.message}',
+          );
+          await _syncYouTubeWatchUrlToMatch(config);
+          return;
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('YouTube go-live: ${e.message}'),
+              duration: const Duration(seconds: 8),
+            ),
+          );
+        }
       }
-    } on StreamPlatformException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('YouTube go-live: ${e.message}'),
-            duration: const Duration(seconds: 8),
-          ),
-        );
+    } finally {
+      if (!gate.isCompleted) gate.complete();
+      if (identical(_youtubePublishInFlight, gate.future)) {
+        _youtubePublishInFlight = null;
       }
     }
   }
@@ -844,16 +894,25 @@ class _StreamingDashboardScreenState
       }
       await ActiveStreamSession.clear();
       await ref.read(streamServiceProvider).resetToPortraitUi();
+      _youtubePublishInFlight = null;
       if (recordingPath != null) {
         await _exportRecordingToGallery(recordingPath);
       }
       if (!mounted) return;
       final service = ref.read(streamServiceProvider);
+      // Ensure preview is usable if user returns to studio quickly.
+      if (wasNative && !service.isInitialized) {
+        try {
+          await service.resumePreviewAfterStreamEnd();
+        } catch (_) {}
+      }
+      if (!mounted) return;
       setState(() {
         _isLive = false;
         _endingStream = false;
         _cameraLoading = false;
         _cameraError = service.lastError;
+        _previewSession++;
       });
       // Brief delay so portrait rotation completes before leaving stream studio.
       await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -1156,7 +1215,8 @@ class _StreamingDashboardScreenState
         }
 
         final showStreamLinkDot = config.needsManualWatchUrl &&
-            !MatchStreamPlayback.hasWatchablePlayback(match);
+            !MatchStreamPlayback.playableSourcesFor(match)
+                .any((s) => s.isLive);
         final showAddStreamLink = _isLive && config.needsManualWatchUrl;
 
         return PopScope(

@@ -391,8 +391,8 @@ class _NotificationCard extends ConsumerWidget {
                       if (matchHeader != null) ...[
                         Text(
                           matchHeader,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                          softWrap: true,
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: cf.textSecondary,
                             fontWeight: FontWeight.w600,

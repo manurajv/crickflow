@@ -556,7 +556,7 @@ class MatchStreamPlayerState extends State<MatchStreamPlayer> {
               if (_loading) const CircularProgressIndicator(),
               if (_loading) const SizedBox(height: 12),
               Text(
-                'Stream link loading…',
+                'Pending live…',
                 style: TextStyle(color: cf.textSecondary, fontSize: 13),
               ),
             ],

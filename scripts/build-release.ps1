@@ -6,7 +6,7 @@ Set-Location $root
 
 $keyProps = Join-Path $root "android\key.properties"
 if (-not (Test-Path $keyProps)) {
-    Write-Host "Missing android/key.properties — release will use debug signing." -ForegroundColor Yellow
+    Write-Host "Missing android/key.properties - release will use debug signing." -ForegroundColor Yellow
     Write-Host "See docs/ANDROID_RELEASE_SIGNING.md before Play Store upload." -ForegroundColor Yellow
 } else {
     Write-Host "Release keystore configured." -ForegroundColor Green
@@ -20,7 +20,7 @@ if ($env:GOOGLE_MAPS_API_KEY -and $env:GOOGLE_MAPS_API_KEY.Trim().Length -gt 0) 
     $dartDefines += "--dart-define=GOOGLE_MAPS_API_KEY=$($env:GOOGLE_MAPS_API_KEY.Trim())"
     Write-Host "Using GOOGLE_MAPS_API_KEY from environment." -ForegroundColor Green
 } else {
-    Write-Host "GOOGLE_MAPS_API_KEY not set — using embedded MapsConfig fallback. Restrict that key in GCP." -ForegroundColor Yellow
+    Write-Host "GOOGLE_MAPS_API_KEY not set - using embedded MapsConfig fallback. Restrict that key in GCP." -ForegroundColor Yellow
 }
 
 Write-Host "Building app bundle..." -ForegroundColor Cyan

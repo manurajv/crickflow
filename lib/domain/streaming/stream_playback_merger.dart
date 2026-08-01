@@ -163,24 +163,24 @@ class StreamPlaybackMerger {
     if (liveIdx >= 0) {
       final live = entries[liveIdx];
       if (hasCanonical && _isPendingWatchUrl(live.url)) {
-        final canonicalKey = _urlIdentityKey(canonical);
-        final usedByOtherSession = entries.any(
-          (e) =>
-              !e.isLive &&
-              e.sessionId.trim() != live.sessionId.trim() &&
-              _urlIdentityKey(e.url) == canonicalKey &&
-              canonicalKey.isNotEmpty,
-        );
-        if (!usedByOtherSession) {
-          final updated = [...entries];
-          updated[liveIdx] = live.copyWith(url: canonical);
-          return updated;
-        }
+        // Always upgrade the current live placeholder — UI dedupes same URLs.
+        final updated = [...entries];
+        updated[liveIdx] = live.copyWith(url: canonical);
+        return updated;
       }
       return entries;
     }
 
     if (hasCanonical) {
+      final canonicalKey = _urlIdentityKey(canonical);
+      final alreadyLive = entries.any(
+        (e) =>
+            e.isLive &&
+            _urlIdentityKey(e.url) == canonicalKey &&
+            canonicalKey.isNotEmpty,
+      );
+      if (alreadyLive) return entries;
+
       final augmented = [
         ...entries,
         StreamPlaybackEntryModel(

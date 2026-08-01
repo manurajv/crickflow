@@ -3,13 +3,50 @@
 
 
 
-**Last updated:** Play Store release hardening (mobile C1–C4 + Crashlytics)
+**Last updated:** Retired Hurt / Retired Out edge cases
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Play launch:** [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Production certificate:** [PRODUCTION_READINESS_CERTIFICATE.md](PRODUCTION_READINESS_CERTIFICATE.md) · **Developer handbook:** [developer/README.md](developer/README.md) · **CI/CD:** [developer/cicd.md](developer/cicd.md) · **Continuity:** [developer/continuity.md](developer/continuity.md) · **Admin design:** [WEB_ADMIN_DESIGN.md](WEB_ADMIN_DESIGN.md) · **Production:** [WEB_ADMIN_PRODUCTION.md](WEB_ADMIN_PRODUCTION.md) · **i18n / a11y:** [WEB_ADMIN_I18N_A11Y.md](WEB_ADMIN_I18N_A11Y.md) · **QA report:** [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Live scoring — RH / RO edge cases)
+
+| Item | Status |
+|------|--------|
+| RH/RO after No Ball — Free Hit preserved; not a legal delivery | Done |
+| Just-retired RH hidden from immediate incoming picker; returnable later / when no fresh remain | Done |
+| Retired Out never returnable (`isOut`) | Done |
+| Scorer picks striker or non-striker for RH/RO | Done |
+| Push notifications: “retired hurt on N” / “retired out on N” (no “OUT ·” for RH) | Done |
+
+---
+
+## Latest (Live scoring — Retired Hurt Laws compliance)
+
+| Item | Status |
+|------|--------|
+| RH does **not** increment team wickets / FOW / bowler wickets | Done |
+| RH does **not** end partnership or affect bowling figures / legal balls | Done |
+| Scorecard shows `runs*` + **Retired Hurt** (not Out); `isOut` stays false | Done |
+| Firestore: `status: retired_hurt`, `isRetiredHurt`, `canReturn`, `retiredAtScore`/`retiredAtBalls` | Done |
+| Timeline + commentary for RH + incoming batter; return resumes same stats | Done |
+| Incoming batter picker labels returning RH batters | Done |
+
+---
+
+## Latest (Live scoring — No Ball balls faced)
+
+| Item | Status |
+|------|--------|
+| NB+bat runs (NB+1…NB+6) increment striker Balls Faced by 1 | Done |
+| NB+leg bye (shot/pad contact) increments Balls Faced | Done |
+| NB-only and NB+bye do **not** increment Balls Faced | Done |
+| Over `legalBalls` / over progression unchanged (NB still illegal by default) | Done |
+| Event `countsAsBallFaced`, scorecard `batsmen.balls`, live over strip, CF `ballEventStats` aligned | Done |
 
 ---
 
@@ -22,6 +59,7 @@
 | Stream `streamKey`/`rtmpUrl` omitted from public match docs (C2) | Done — rules reject secrets |
 | Notification create allowlist + `addedByUserId` (C3) | Done — **deploy rules** |
 | Crashlytics wired (`main.dart` + Android plugin) | Done — enable product in Firebase Console |
+| Release R8 minify + shrinkResources + proguard-rules | Done — retest release AAB (auth, scoring, ads, stream) |
 | Maps key GCP restriction + launch runbook | Ops — [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md) |
 | App Check (H1) | Still pending (ops) |
 | Signing / Play Console listing / screenshots | Ops — user |
@@ -712,6 +750,7 @@
 | Item | Status |
 |------|--------|
 | **Match title header** on every match notification (`matchTitle` + event title + details) | Done — `notificationBuilder.js`, inbox UI |
+| **Match push copy (Google Cricket style)** — tray title = full match name; body = event + `Team runs/wkts (overs)`; no separate “innings” wording; topic sends full multi-line body; `crickflow_match` high-priority Android channel | Done — deploy functions + app update for channel |
 | **Boundary push removed** — fours/sixes still write highlights, no inbox/FCM spam | Done — `onBallEventCreated.js` |
 | **Wickets / hat-trick / team milestones (50–200)** | Done |
 | **Player milestones** (30/50/100/150/200 + 3/4/5 wickets) — self + followed only; self wins over network in same match | Done — `fanOut.js` + `notificationPersonalize.js` |
@@ -790,7 +829,13 @@
 | **Post-match presentation** — on `MatchStatus.completed` while live: 10s full match summary card (both innings top batters/bowlers + result banner), then thank-you card until auto end at 2 min; scorebug title/LIVE header kept | Done |
 | **Live stream lifecycle** — back-press end confirmation while LIVE; FGS + Recents kill cleanup; background/foreground seamless resume; RTMP transport reconnect (5× exponential backoff); connection-lost banner with Retry/End; structured lifecycle logs | Done |
 | **RTMP reconnect (manual)** — on network restore, republishes to same saved RTMP URL + stream key (same as go-live); reconnecting badge clears on publish confirm; stop always halts native RTMP after reconnect | Done |
-| **YouTube live truthfulness** — RTMP publish verified before LIVE UI; API mints fresh ingest per immediate go-live; `startYouTubeLiveBroadcast` CF transitions broadcast to public live (preview-first: ready→testing→live); polls `getYouTubeBroadcastStatus` and auto-ends app when YouTube completes | Done — category, visibility, tags, thumbnail on create |
+| **YouTube live truthfulness** — RTMP publish verified before LIVE UI; API mints fresh ingest per immediate go-live; `startYouTubeLiveBroadcast` CF transitions broadcast to public live (ready→testing→live only; ignores auto-start race `invalid`/`redundant` transition); polls `getYouTubeBroadcastStatus` and auto-ends app when YouTube completes | Done — category, visibility, tags, thumbnail on create |
+| **Go-live overlay + camera re-entry** — burn-in `recoverAfterLifecycle` on first go-live; camera op queue survives prior failures; end-stream re-inits preview | Done |
+| **Play/release overlay + zoom** — capture tree paints on-screen (Impeller no longer culls offscreen `toImage`); live reconnect no longer re-applies zoom; longer burn-in retries | Done |
+| **Match intro / opening batsmen burn-in** — no capture-tree remount (kept AnimationControllers alive); solid scrim instead of BackdropFilter for RTMP capture; no Opacity wrapper | Done |
+| **Go-live black camera + manual watch URL** — burn-in capture sits above camera at ~1% opacity (Impeller paints; PlatformView not covered); hub shows pending live until a watch URL exists; stream picker dedupes identical URLs | Done |
+| **Facebook Live RTMP connect** — preserve Facebook secure_stream_url query in stream key; split full URL pasted into key field; force Facebook RTMPS if YouTube URL stuck; disable stub OAuth path; keep `net.ossrs.rtmp` for RTMPS minify; prompt for watch link while pending | Done |
+| **Facebook RTMPS connect (v2)** — vendor pedro RTMP sources: TLS port defaults to 443, TLS 1.3 enabled; AAC 44.1 kHz; Dart/native URL sanitizer injects `:443`; clearer Live Producer setup copy | Done |
 | **Preview surface lifecycle (lock/notification/resume)** — `PreviewSurfaceLifecycle` detaches Camera2 on `surfaceDestroyed`, clears abandoned surfaces/HandlerThread, rebuilds GL→camera→capture session only after new valid surface; no RTMP/encoder restart | Done |
 | **Live overlay lifecycle recovery** — on surface/GL recreation while streaming: native invalidates stale GL filter, force-relinks encoder pipeline, `restoreStreamOverlayPipeline`; Dart `recoverAfterLifecycle()` retries PNG capture/push (even during brief RTMP reconnect); capture tree rebuild via `overlayLifecycleRecoveryProvider` | Done |
 | **Resolution ↔ overlay sync** — changing stream resolution pre-live re-inits camera + compositor capture size; native `applyCapturePreset` resets frozen GL/overlay lock; go-live validates GL lock vs preset (`ensureGlLockMatchesPreset`) | Done |
@@ -1399,7 +1444,7 @@
 | Active wicketkeeper cannot bowl (bowler picker blocks keeper) | Done |
 | Wicketkeeper blocked as opening bowler (start innings + edit lineup) | Done |
 | Scoring UI kit — unified bottom sheets (start innings → live scoring) | Done |
-| Retired hurt — not a wicket; `retiredHurt` + `isEligibleToReturn`; batter can return | Done |
+| Retired hurt — Laws-compliant: not a wicket; no FOW; partnership continues; returnable with same stats; scorecard `Retired Hurt` | Done |
 | Wicket picker — all dismissal types visible (no Show more) | Done |
 | Quick settings sheet — 4-column grid, More shortcuts / Show less, primary + secondary tiers | Done |
 | Change Scorer — QR / Teams / Officials / Search tabs, single active scorer | Done |
@@ -1505,7 +1550,7 @@ See [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md).
 | Notifications, badges, stats (CF) | Done |
 
 | Deep links + hosting (`/`, `/privacy`, `/open-app`) | Done |
-| App Links (`crickflow-b06bc.web.app` + debug SHA in assetlinks) | Done |
+| App Links (`crickflow-b06bc.web.app` + debug + upload + Play App signing SHA-256 in assetlinks) | Done |
 | Settings → privacy (url_launcher) | Done |
 | RTMP stream heartbeat (Firestore) | Done |
 

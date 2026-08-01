@@ -23,6 +23,7 @@ class MatchIntroductionOverlay extends StatefulWidget {
     this.onFinished,
     this.onVisualChange,
     this.captureFrame = false,
+    this.forBurnInCapture = false,
   });
 
   final MatchIntroductionSnapshot snapshot;
@@ -32,6 +33,8 @@ class MatchIntroductionOverlay extends StatefulWidget {
   final VoidCallback? onVisualChange;
   /// When true, renders the fully revealed intro frame (for YouTube thumbnail capture).
   final bool captureFrame;
+  /// RTMP burn-in path — avoid BackdropFilter (breaks toImage) and SafeArea padding.
+  final bool forBurnInCapture;
 
   @override
   State<MatchIntroductionOverlay> createState() =>
@@ -70,6 +73,25 @@ class _MatchIntroductionOverlayState extends State<MatchIntroductionOverlay>
     if (_finished || !mounted) return;
     _finished = true;
     widget.onFinished?.call();
+  }
+
+  /// Burn-in capture must ignore phone SafeArea insets (encoder frame has none).
+  Widget _wrapIntroChrome(Widget child) {
+    if (widget.forBurnInCapture || widget.captureFrame) {
+      return MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        removeBottom: true,
+        removeLeft: true,
+        removeRight: true,
+        child: child,
+      );
+    }
+    return SafeArea(
+      minimum: EdgeInsets.zero,
+      bottom: false,
+      child: child,
+    );
   }
 
   @override
@@ -156,32 +178,54 @@ class _MatchIntroductionOverlayState extends State<MatchIntroductionOverlay>
                 fit: StackFit.expand,
                 clipBehavior: Clip.hardEdge,
                 children: [
-                  ClipRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: 6 * scale,
-                        sigmaY: 6 * scale,
-                      ),
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.42 + darken * 0.2),
-                          Colors.black.withValues(alpha: 0.58 + darken * 0.18),
-                          Colors.black.withValues(alpha: 0.78 + darken * 0.12),
-                        ],
+                  // BackdropFilter samples content behind the overlay. In the
+                  // burn-in capture tree there is no camera behind it — blur is
+                  // empty and can break RepaintBoundary.toImage. Use a solid
+                  // scrim for burn-in; keep blur for on-device Flutter preview.
+                  if (widget.forBurnInCapture || widget.captureFrame)
+                    ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.62),
+                    )
+                  else ...[
+                    ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: 6 * scale,
+                          sigmaY: 6 * scale,
+                        ),
+                        child: const SizedBox.expand(),
                       ),
                     ),
-                  ),
-                  SafeArea(
-                    minimum: EdgeInsets.zero,
-                    bottom: false,
-                    child: Stack(
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.42 + darken * 0.2),
+                            Colors.black.withValues(alpha: 0.58 + darken * 0.18),
+                            Colors.black.withValues(alpha: 0.78 + darken * 0.12),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (widget.forBurnInCapture || widget.captureFrame)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.28 + darken * 0.15),
+                            Colors.black.withValues(alpha: 0.4 + darken * 0.12),
+                            Colors.black.withValues(alpha: 0.55 + darken * 0.1),
+                          ],
+                        ),
+                      ),
+                    ),
+                  _wrapIntroChrome(
+                    Stack(
                       clipBehavior: Clip.none,
                       children: [
                         Positioned(

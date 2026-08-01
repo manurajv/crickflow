@@ -615,7 +615,10 @@ Future<void> promptStreamWatchUrlIfNeeded({
 }) async {
   final match = ref.read(matchProvider(matchId)).valueOrNull;
   if (match == null) return;
-  if (MatchStreamPlayback.hasWatchablePlayback(match)) return;
+  // Pending live is not a real watch URL yet — still prompt to paste one.
+  if (MatchStreamPlayback.playableSourcesFor(match).any((s) => s.isLive)) {
+    return;
+  }
 
   final StreamStudioConfig resolvedConfig = config ??
       ref.read(streamStudioConfigProvider(matchId));

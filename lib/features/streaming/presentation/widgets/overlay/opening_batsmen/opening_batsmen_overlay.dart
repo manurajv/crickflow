@@ -24,6 +24,7 @@ class OpeningBatsmenOverlay extends ConsumerStatefulWidget {
     required this.landscape,
     this.onFinished,
     this.onVisualChange,
+    this.forBurnInCapture = false,
   });
 
   final String matchId;
@@ -32,6 +33,7 @@ class OpeningBatsmenOverlay extends ConsumerStatefulWidget {
   final bool landscape;
   final VoidCallback? onFinished;
   final VoidCallback? onVisualChange;
+  final bool forBurnInCapture;
 
   static const holdDuration = Duration(seconds: 5);
 
@@ -141,6 +143,49 @@ class _OpeningBatsmenOverlayState extends ConsumerState<OpeningBatsmenOverlay>
         return AnimatedBuilder(
           animation: _controller,
           builder: (context, child) {
+            final chrome = Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  left: widget.landscape ? 20 * scale : 10 * scale,
+                  right: widget.landscape ? 20 * scale : 10 * scale,
+                  top: widget.landscape ? 8 * scale : 4 * scale,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: BroadcastMatchTitleChip(
+                          title: snapshot.matchTitle,
+                          tokens: tokens,
+                          scale: scale,
+                          landscape: widget.landscape,
+                        ),
+                      ),
+                      SizedBox(width: 10 * scale),
+                      BroadcastLiveBranding(
+                        tokens: tokens,
+                        scale: scale,
+                        landscape: widget.landscape,
+                        logoUrl: snapshot.crickflowLogoUrl.isNotEmpty
+                            ? snapshot.crickflowLogoUrl
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: headerBlock,
+                  bottom: 0,
+                  child: Align(
+                    alignment: const Alignment(0, -0.28),
+                    child: cards,
+                  ),
+                ),
+              ],
+            );
+
             return Opacity(
               opacity: BroadcastEventAnim.exitAwareOpacity(_controller),
               child: Stack(
@@ -150,52 +195,21 @@ class _OpeningBatsmenOverlayState extends ConsumerState<OpeningBatsmenOverlay>
                   ColoredBox(
                     color: Colors.black.withValues(alpha: 0.38),
                   ),
-                  SafeArea(
-                    minimum: EdgeInsets.zero,
-                    bottom: false,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned(
-                          left: widget.landscape ? 20 * scale : 10 * scale,
-                          right: widget.landscape ? 20 * scale : 10 * scale,
-                          top: widget.landscape ? 8 * scale : 4 * scale,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: BroadcastMatchTitleChip(
-                                  title: snapshot.matchTitle,
-                                  tokens: tokens,
-                                  scale: scale,
-                                  landscape: widget.landscape,
-                                ),
-                              ),
-                              SizedBox(width: 10 * scale),
-                              BroadcastLiveBranding(
-                                tokens: tokens,
-                                scale: scale,
-                                landscape: widget.landscape,
-                                logoUrl: snapshot.crickflowLogoUrl.isNotEmpty
-                                    ? snapshot.crickflowLogoUrl
-                                    : null,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top: headerBlock,
-                          bottom: 0,
-                          child: Align(
-                            alignment: const Alignment(0, -0.28),
-                            child: cards,
-                          ),
-                        ),
-                      ],
+                  if (widget.forBurnInCapture)
+                    MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      removeBottom: true,
+                      removeLeft: true,
+                      removeRight: true,
+                      child: chrome,
+                    )
+                  else
+                    SafeArea(
+                      minimum: EdgeInsets.zero,
+                      bottom: false,
+                      child: chrome,
                     ),
-                  ),
                 ],
               ),
             );

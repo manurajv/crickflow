@@ -8,7 +8,14 @@
 .\scripts\create-release-keystore.ps1
 ```
 
-Creates `android/crickflow-release.keystore` (gitignored) and copies `key.properties.example` → `key.properties`.
+Creates `%USERPROFILE%\Documents\keys\crickflow\crickflow-release.keystore` (outside the repo) and helps set `key.properties`.
+
+Override location:
+
+```powershell
+$env:CRICKFLOW_KEYSTORE_PATH = "D:\secure\crickflow-release.keystore"
+.\scripts\create-release-keystore.ps1
+```
 
 **Manual:**
 
@@ -16,13 +23,22 @@ Creates `android/crickflow-release.keystore` (gitignored) and copies `key.proper
 keytool -genkey -v -keystore crickflow-release.keystore -alias crickflow -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Store the keystore outside the repo if you prefer (e.g. `C:\Users\You\keys\crickflow-release.keystore`).
+Keep the keystore **outside** the git repo (e.g. `Documents\keys\crickflow\`).
 
 ## 2. Configure Gradle
 
-1. Copy `android/key.properties.example` → `android/key.properties`
-2. Set `storeFile` to the keystore path (relative to `android/` folder)
-3. Add passwords
+1. Ensure `android/key.properties` exists (gitignored)
+2. Set `storeFile` to the **absolute** keystore path (forward slashes OK on Windows)
+3. Set `storePassword` / `keyPassword` to the passwords you typed in `keytool` (usually the same)
+
+Example:
+
+```properties
+storePassword=...
+keyPassword=...
+keyAlias=crickflow
+storeFile=C:/Users/manur/Documents/keys/crickflow/crickflow-release.keystore
+```
 
 `android/app/build.gradle.kts` loads `key.properties` automatically when present.
 
@@ -32,7 +48,11 @@ Store the keystore outside the repo if you prefer (e.g. `C:\Users\You\keys\crick
 .\scripts\get-android-sha.ps1
 ```
 
-Add **SHA-1** and **SHA-256** to Firebase Console → Project settings → Your apps → Android.
+Add **SHA-1** and **SHA-256** for **debug** and **upload/release** keystores to Firebase Console → Project settings → Your apps → Android.
+
+After the first Play upload (App Signing enabled), also add the **App signing key** fingerprints from Play Console (Classical / the cert that actually signs user installs). Those differ from your upload keystore. Missing them causes Google Sign-In `ApiException: 10` on Internal testing / production while debug still works.
+
+Verify the live Play APK with `apksigner verify --print-certs` if unsure which Play cert is active.
 
 ## 4. Build release
 

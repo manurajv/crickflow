@@ -381,6 +381,56 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Flatten googleapis / Gaxios error shapes for reason matching. */
+function youtubeApiErrorBlob(err) {
+  const apiErr = err?.response?.data?.error;
+  const nested = Array.isArray(apiErr?.errors) ? apiErr.errors : [];
+  const gaxiosErrors = Array.isArray(err?.errors) ? err.errors : [];
+  const parts = [
+    err?.message,
+    err?.code,
+    apiErr?.message,
+    apiErr?.status,
+    ...nested.map((e) => `${e?.reason || ''} ${e?.message || ''}`),
+    ...gaxiosErrors.map((e) => `${e?.reason || ''} ${e?.message || ''}`),
+  ];
+  return parts.filter(Boolean).join(' ').toLowerCase();
+}
+
+/**
+ * YouTube returns these when enableAutoStart already moved the broadcast, or
+ * when we race a second transition call. Safe to ignore and re-poll.
+ */
+function isBenignYouTubeTransitionError(err) {
+  const blob = youtubeApiErrorBlob(err);
+  return (
+    blob.includes('invalidtransition') ||
+    blob.includes('redundanttransition') ||
+    blob.includes('invalid transition') ||
+    blob.includes('redundant transition')
+  );
+}
+
+async function tryYouTubeBroadcastTransition(
+  youtube,
+  broadcastId,
+  broadcastStatus,
+) {
+  try {
+    const transitioned = await youtube.liveBroadcasts.transition({
+      id: broadcastId,
+      broadcastStatus,
+      part: ['status'],
+    });
+    return { ok: true, data: transitioned.data };
+  } catch (err) {
+    if (isBenignYouTubeTransitionError(err)) {
+      return { ok: false, benign: true };
+    }
+    throw err;
+  }
+}
+
 async function isYouTubeIngestActive(youtube, broadcast, streamIdHint) {
   const streamStatus = broadcast.status?.streamStatus || null;
   if (streamStatus === 'active' || streamStatus === 'good') {
@@ -402,6 +452,10 @@ async function isYouTubeIngestActive(youtube, broadcast, streamIdHint) {
 
 /**
  * Transitions an API-created broadcast to live after RTMP ingest is active.
+ *
+ * With enableAutoStart, YouTube often moves ready→testing→live on its own.
+ * We only nudge valid steps (ready→testing, testing→live) and never
+ * ready→live. Benign race errors are ignored while we poll for `live`.
  */
 async function transitionYouTubeBroadcastToLive(uid, broadcastId, streamId) {
   if (!broadcastId) {
@@ -437,50 +491,45 @@ async function transitionYouTubeBroadcastToLive(uid, broadcastId, streamId) {
       throw new Error('YouTube broadcast already ended');
     }
 
-    if (lifeCycleStatus === 'ready' && streamActive) {
-      try {
-        await youtube.liveBroadcasts.transition({
-          id: broadcastId,
-          broadcastStatus: 'testing',
-          part: ['status'],
-        });
-        await sleep(1500);
-        continue;
-      } catch (err) {
-        const reason = err?.message || '';
-        if (
-          !reason.includes('invalidTransition') &&
-          !reason.includes('redundantTransition')
-        ) {
-          throw err;
-        }
-      }
+    // Mid-auto-start states — wait; do not force another transition.
+    if (
+      lifeCycleStatus === 'liveStarting' ||
+      lifeCycleStatus === 'testStarting'
+    ) {
+      await sleep(1500);
+      continue;
     }
 
-    if (lifeCycleStatus === 'testing' || streamActive) {
-      try {
-        const transitioned = await youtube.liveBroadcasts.transition({
-          id: broadcastId,
-          broadcastStatus: 'live',
-          part: ['status'],
-        });
+    if (!streamActive) {
+      await sleep(2500);
+      continue;
+    }
+
+    if (lifeCycleStatus === 'ready') {
+      await tryYouTubeBroadcastTransition(youtube, broadcastId, 'testing');
+      await sleep(1500);
+      continue;
+    }
+
+    if (lifeCycleStatus === 'testing') {
+      const nudged = await tryYouTubeBroadcastTransition(
+        youtube,
+        broadcastId,
+        'live',
+      );
+      if (nudged.ok) {
         await ensureYouTubeLiveEmbeddable(youtube, broadcastId);
         return {
           ok: true,
           broadcastId,
           lifeCycleStatus:
-            transitioned.data?.status?.lifeCycleStatus || 'live',
-          streamStatus: transitioned.data?.status?.streamStatus || streamStatus,
+            nudged.data?.status?.lifeCycleStatus || 'live',
+          streamStatus: nudged.data?.status?.streamStatus || streamStatus,
         };
-      } catch (err) {
-        const reason = err?.message || '';
-        if (
-          !reason.includes('invalidTransition') &&
-          !reason.includes('redundantTransition')
-        ) {
-          throw err;
-        }
       }
+      // Auto-start may still finish — re-poll.
+      await sleep(1500);
+      continue;
     }
 
     await sleep(2500);

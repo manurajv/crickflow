@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -61,10 +60,14 @@ class StreamOverlayBurnInService {
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      schedulePush();
+      schedulePush(force: true);
       // Encoder GL filter attaches after RTMP connects and OpenGlView is ready.
-      Future<void>.delayed(const Duration(milliseconds: 800), schedulePush);
-      Future<void>.delayed(const Duration(milliseconds: 2000), schedulePush);
+      // Release/Play builds need longer retries than debug.
+      for (final ms in <int>[400, 800, 1600, 3000, 6000, 10000, 15000]) {
+        Future<void>.delayed(Duration(milliseconds: ms), () {
+          schedulePush(force: true);
+        });
+      }
     });
   }
 
@@ -84,7 +87,19 @@ class StreamOverlayBurnInService {
       _ref.read(overlayLifecycleRecoveryProvider.notifier).state++;
       startLiveRefresh();
 
-      const delaysMs = <int>[0, 150, 300, 450, 600, 800, 1000, 1200];
+      const delaysMs = <int>[
+        0,
+        150,
+        300,
+        500,
+        800,
+        1200,
+        2000,
+        3500,
+        6000,
+        10000,
+        15000,
+      ];
       for (final delayMs in delaysMs) {
         if (delayMs > 0) {
           await Future<void>.delayed(Duration(milliseconds: delayMs));
@@ -94,10 +109,11 @@ class StreamOverlayBurnInService {
 
         await _restoreNativeOverlayPipeline();
         await SchedulerBinding.instance.endOfFrame;
+        await SchedulerBinding.instance.endOfFrame;
 
         final ok = await pushNow(force: true);
         if (ok) {
-          _log('overlay recovered after lifecycle');
+          _log('overlay recovered after lifecycle (${delayMs}ms)');
           return;
         }
       }
@@ -218,23 +234,23 @@ class StreamOverlayBurnInService {
     stopLiveRefresh();
   }
 
-  /// [Offstage] and [Visibility.visible=false] skip painting — only capture
-  /// trees that are painted can be passed to [RenderRepaintBoundary.toImage].
+  /// [Offstage] / zero-opacity / offscreen-culled trees skip painting.
+  /// In release, [RenderObject.debugNeedsPaint] is unreliable (always false),
+  /// so always wait several frames after [markNeedsPaint].
   Future<bool> _waitUntilPainted(
     RenderRepaintBoundary boundary, {
-    int maxFrames = 8,
+    int maxFrames = 12,
   }) async {
     for (var i = 0; i < maxFrames; i++) {
+      boundary.markNeedsPaint();
       await SchedulerBinding.instance.endOfFrame;
-      if (!boundary.debugNeedsPaint) return true;
     }
-    return !boundary.debugNeedsPaint;
+    return true;
   }
 
   void _log(String message) {
-    if (kDebugMode) {
-      debugPrint('[CrickFlowStream] $message');
-    }
+    // Always log overlay pipeline issues — release/Play failures are silent otherwise.
+    debugPrint('[CrickFlowStream] $message');
   }
 }
 
