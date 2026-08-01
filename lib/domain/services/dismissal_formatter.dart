@@ -82,7 +82,9 @@ class DismissalFormatter {
   }
 
   static bool needsDismissedBatterPicker(WicketType type) =>
-      type == WicketType.runOut;
+      type == WicketType.runOut ||
+      type == WicketType.retiredHurt ||
+      type == WicketType.retiredOut;
 
   static bool isMankadType(WicketType? type) => type == WicketType.mankad;
 
@@ -207,8 +209,8 @@ class DismissalFormatter {
       WicketType.stumped => _formatStumped(bowler: bowler),
       WicketType.hitWicket =>
         bowler.isEmpty ? 'hit wicket' : 'hit wicket b $bowler',
-      WicketType.retiredHurt => 'retired hurt',
-      WicketType.retiredOut => 'retired out',
+      WicketType.retiredHurt => 'Retired Hurt',
+      WicketType.retiredOut => 'Retired Out',
       WicketType.obstructingField => 'obstructing the field',
       WicketType.timedOut => 'timed out',
       WicketType.handledBall => 'handled the ball',

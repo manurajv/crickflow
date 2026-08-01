@@ -54,6 +54,8 @@ class CommentaryService {
     WicketType? wicketType,
     String? fielderName,
     String? bowlerName,
+    String? batterName,
+    String? incomingBatterName,
     bool isMankad = false,
     bool isWicketKeeper = false,
   }) {
@@ -67,6 +69,16 @@ class CommentaryService {
       return bowler.isNotEmpty
           ? 'Mankad! $bowler removes the non-striker.'
           : 'Mankad — non-striker run out.';
+    }
+
+    if (wicketType == WicketType.retiredHurt) {
+      return forRetiredHurt(
+        batterName: batterName ?? '',
+        incomingBatterName: incomingBatterName,
+      );
+    }
+    if (wicketType == WicketType.retiredOut) {
+      return forRetiredOut(batterName: batterName ?? '');
     }
 
     return switch (wicketType) {
@@ -90,10 +102,44 @@ class CommentaryService {
       WicketType.bowled when bowler.isNotEmpty => 'Bowled! $bowler strikes.',
       WicketType.lbw when bowler.isNotEmpty => 'LBW! $bowler gets the decision.',
       WicketType.hitWicket => 'Hit wicket — gone!',
-      WicketType.retiredHurt => 'Retired hurt.',
-      WicketType.retiredOut => 'Retired out.',
+      WicketType.retiredHurt => 'Retired Hurt',
+      WicketType.retiredOut => 'Retired Out',
       _ => 'WICKET! Huge moment in the match.',
     };
+  }
+
+  /// Professional retired-hurt commentary (not a dismissal).
+  static String forRetiredHurt({
+    required String batterName,
+    String? incomingBatterName,
+    int? runs,
+  }) {
+    final batter =
+        batterName.trim().isNotEmpty ? batterName.trim() : 'The batter';
+    final onScore = runs != null ? ' on $runs' : '';
+    final injury =
+        '$batter retires hurt$onScore after suffering an injury.';
+    final incoming = incomingBatterName?.trim() ?? '';
+    if (incoming.isEmpty) return injury;
+    return '$injury $incoming comes to the crease.';
+  }
+
+  /// Professional retired-out commentary (counts as a wicket; cannot return).
+  static String forRetiredOut({
+    required String batterName,
+    int? runs,
+  }) {
+    final batter =
+        batterName.trim().isNotEmpty ? batterName.trim() : 'The batter';
+    if (runs != null) {
+      return '$batter retired out on $runs.';
+    }
+    return '$batter retired out.';
+  }
+
+  static String forIncomingBatter(String batterName) {
+    final name = batterName.trim().isNotEmpty ? batterName.trim() : 'The batter';
+    return '$name comes to the crease.';
   }
 
   static String forEvent(BallEventModel event) {
@@ -209,6 +255,12 @@ class CommentaryService {
   }
 
   static String _wicketDescription(BallEventModel event, int idx) {
+    if (event.retiredHurt || event.wicketType == WicketType.retiredHurt) {
+      final name = event.dismissedPlayerName?.trim().isNotEmpty == true
+          ? event.dismissedPlayerName!.trim()
+          : 'The batter';
+      return '$name retires hurt after suffering an injury.';
+    }
     if (event.wicketType == WicketType.runOut || event.isMankad) {
       return _pick(_runOutDescriptions, idx);
     }

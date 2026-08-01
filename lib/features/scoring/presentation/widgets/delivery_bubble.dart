@@ -71,7 +71,10 @@ class DeliveryBubbleStyle {
   final Color text;
 
   static DeliveryBubbleStyle forEvent(BallEventModel event, CfColors cf) {
-    final isWicket = event.eventType == BallEventType.wicket;
+    final isRetiredHurt =
+        event.retiredHurt || event.wicketType == WicketType.retiredHurt;
+    final isWicket =
+        event.eventType == BallEventType.wicket && !isRetiredHurt;
     final isSix = event.eventType == BallEventType.runs && event.runs >= 6;
     final isFour = event.eventType == BallEventType.runs && event.runs == 4;
     final isExtra = event.eventType == BallEventType.wide ||
@@ -82,33 +85,39 @@ class DeliveryBubbleStyle {
             event.runOutDeliveryKind != null &&
             event.runOutDeliveryKind != RunOutDeliveryKind.normal);
 
-    final bg = isWicket
-        ? cf.error
-        : isSix
-            ? cf.statusUpcoming.withValues(alpha: 0.18)
-            : isFour
-                ? cf.success.withValues(alpha: 0.15)
-                : isExtra
-                    ? cf.accent.withValues(alpha: 0.12)
-                    : cf.sectionBackground;
+    final bg = isRetiredHurt
+        ? cf.accent.withValues(alpha: 0.14)
+        : isWicket
+            ? cf.error
+            : isSix
+                ? cf.statusUpcoming.withValues(alpha: 0.18)
+                : isFour
+                    ? cf.success.withValues(alpha: 0.15)
+                    : isExtra
+                        ? cf.accent.withValues(alpha: 0.12)
+                        : cf.sectionBackground;
 
-    final border = isWicket
-        ? cf.error
-        : isSix
-            ? cf.statusUpcoming.withValues(alpha: 0.65)
-            : isFour
-                ? cf.success.withValues(alpha: 0.55)
-                : isExtra
-                    ? cf.accent.withValues(alpha: 0.45)
-                    : cf.border;
+    final border = isRetiredHurt
+        ? cf.accent.withValues(alpha: 0.5)
+        : isWicket
+            ? cf.error
+            : isSix
+                ? cf.statusUpcoming.withValues(alpha: 0.65)
+                : isFour
+                    ? cf.success.withValues(alpha: 0.55)
+                    : isExtra
+                        ? cf.accent.withValues(alpha: 0.45)
+                        : cf.border;
 
-    final text = isWicket
-        ? Colors.white
-        : isSix
-            ? cf.statusUpcoming
-            : isFour
-                ? cf.success
-                : cf.textPrimary;
+    final text = isRetiredHurt
+        ? cf.accent
+        : isWicket
+            ? Colors.white
+            : isSix
+                ? cf.statusUpcoming
+                : isFour
+                    ? cf.success
+                    : cf.textPrimary;
 
     return DeliveryBubbleStyle(background: bg, border: border, text: text);
   }

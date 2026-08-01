@@ -533,6 +533,10 @@ class CommentaryFeedService {
   }
 
   static bool _isDisplayBallEvent(BallEventModel e) {
+    if (e.eventType == BallEventType.lineupChange &&
+        e.commentary.contains('comes to the crease')) {
+      return true;
+    }
     return switch (e.eventType) {
       BallEventType.runs ||
       BallEventType.wide ||
@@ -547,6 +551,10 @@ class CommentaryFeedService {
   }
 
   static bool _isSkippableMetaEvent(BallEventModel e) {
+    if (e.eventType == BallEventType.lineupChange &&
+        e.commentary.contains('comes to the crease')) {
+      return false;
+    }
     return switch (e.eventType) {
       BallEventType.lineupChange ||
       BallEventType.batterSwap ||

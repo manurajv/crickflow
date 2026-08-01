@@ -249,7 +249,15 @@ class ScoringEngine {
         runs = input.runs;
         extraRuns = input.runs;
       case BallEventType.wicket:
-        if (input.wicketType == WicketType.runOut &&
+        // Retirement is not a delivery under the Laws — no runs, not legal.
+        // Preserves Free Hit after a No Ball for the next ball.
+        if (input.wicketType == WicketType.retiredHurt ||
+            input.wicketType == WicketType.retiredOut) {
+          isLegal = false;
+          runs = 0;
+          batsmanRuns = 0;
+          extraRuns = 0;
+        } else if (input.wicketType == WicketType.runOut &&
             input.runOutDeliveryKind != null &&
             input.runOutDeliveryKind != RunOutDeliveryKind.normal) {
           final completed = input.completedRuns;
@@ -280,9 +288,13 @@ class ScoringEngine {
           batsmanRuns = input.runs;
           runs = input.runs;
         }
+        // Free-hit void only applies to bowler-credited dismissals — not
+        // run out / mankad / retirement (administrative, not a ball).
         if (isFreeHit &&
             input.wicketType != WicketType.runOut &&
-            input.wicketType != WicketType.mankad) {
+            input.wicketType != WicketType.mankad &&
+            input.wicketType != WicketType.retiredHurt &&
+            input.wicketType != WicketType.retiredOut) {
           isLegal = true;
         }
       case BallEventType.penalty:
@@ -382,13 +394,17 @@ class ScoringEngine {
           );
 
     final isRetiredHurt = input.wicketType == WicketType.retiredHurt;
+    final isRetiredOut = input.wicketType == WicketType.retiredOut;
+    final isRetirement = isRetiredHurt || isRetiredOut;
+    // Retirement is never voided by free hit (not a delivery dismissal).
     final isWicket = input.type == BallEventType.wicket &&
         !isRetiredHurt &&
         DismissalFormatter.countsAsWicket(
           storedWicketType,
           isMankad: isMankad,
         ) &&
-        !(isFreeHit && storedWicketType != WicketType.runOut);
+        (isRetiredOut ||
+            !(isFreeHit && storedWicketType != WicketType.runOut));
     final bowlerGetsWicket = isWicket &&
         DismissalFormatter.creditsBowlerWicket(
           storedWicketType,
@@ -402,10 +418,18 @@ class ScoringEngine {
         ? (batsmanRuns == 6 ? 'six' : 'four')
         : null;
 
-    final countsAsBallFaced = isLegal &&
-        input.type != BallEventType.wide &&
-        input.type != BallEventType.noBall;
-    final countsToBowler = input.type != BallEventType.bye &&
+    final countsAsBallFaced = _computeCountsAsBallFaced(
+      isLegalDelivery: isLegal,
+      eventType: input.type,
+      batsmanRuns: batsmanRuns,
+      noBallRunsMode: nbMode,
+      noBallLegByeRuns: nbLegByeRuns,
+      runOutDeliveryKind: input.type == BallEventType.wicket
+          ? input.runOutDeliveryKind
+          : null,
+    );
+    final countsToBowler = !isRetirement &&
+        input.type != BallEventType.bye &&
         input.type != BallEventType.legBye;
 
     final isBowlerChange = isLineupChange &&
@@ -434,9 +458,11 @@ class ScoringEngine {
       noBallRuns: breakdown.noBallRuns,
       penaltyRuns: breakdown.penaltyRuns,
       countsAsBallFaced: countsAsBallFaced,
+      // Retirement is administrative (not a ball in the over).
       countsInOver: isLineupChange ||
               isBatterSwap ||
               isKeeperChange ||
+              isRetirement ||
               input.type == BallEventType.endOver
           ? false
           : true,
@@ -709,7 +735,10 @@ class ScoringEngine {
       }
     }
 
-    if (event.bowlerId != null) {
+    // Retirement must not affect bowling figures at all.
+    if (event.bowlerId != null &&
+        !event.retiredHurt &&
+        event.wicketType != WicketType.retiredOut) {
       final runsAgainstBowler = _runsAgainstBowler(event);
       bowlers = _updateBowler(
         bowlers,
@@ -985,11 +1014,13 @@ class ScoringEngine {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
       final b = list[idx];
+      // Returning after retired hurt: resume same runs/balls/stats; clear RH flags.
       list[idx] = b.copyWith(
         playerName: playerName?.isNotEmpty == true ? playerName! : b.playerName,
         retiredHurt: false,
         isEligibleToReturn: false,
         dismissalInfo: b.retiredHurt ? '' : b.dismissalInfo,
+        clearRetiredSnapshot: b.retiredHurt,
       );
       return list;
     }
@@ -1121,19 +1152,27 @@ class ScoringEngine {
   ) {
     final idx = list.indexWhere((b) => b.playerId == playerId);
     if (idx >= 0) {
-      list[idx] = list[idx].copyWith(
+      final b = list[idx];
+      list[idx] = b.copyWith(
         isOut: false,
         retiredHurt: true,
         isEligibleToReturn: true,
-        dismissalInfo: 'retired hurt',
+        dismissalInfo: 'Retired Hurt',
+        retiredAtScore: b.runs,
+        retiredAtBalls: b.balls,
+        status: 'retired_hurt',
       );
     } else {
       list.add(
         BatsmanInningsModel(
           playerId: playerId,
+          isOut: false,
           retiredHurt: true,
           isEligibleToReturn: true,
-          dismissalInfo: 'retired hurt',
+          dismissalInfo: 'Retired Hurt',
+          retiredAtScore: 0,
+          retiredAtBalls: 0,
+          status: 'retired_hurt',
         ),
       );
     }
@@ -1190,16 +1229,49 @@ class ScoringEngine {
     return event.runs;
   }
 
-  static bool _countsAsBallFaced(BallEventModel event) {
-    if (!event.isLegalDelivery) return false;
-    return event.eventType != BallEventType.wide &&
-        event.eventType != BallEventType.noBall;
+  /// Balls faced for the striker. Independent of over legal-ball count:
+  /// NB+bat runs and NB+leg-bye (pad/shot contact) increment BF, while the
+  /// delivery still does not advance [InningsModel.legalBalls] unless rules say so.
+  static bool countsAsBallFaced(BallEventModel event) {
+    return _computeCountsAsBallFaced(
+      isLegalDelivery: event.isLegalDelivery,
+      eventType: event.eventType,
+      batsmanRuns: event.batsmanRuns,
+      noBallRunsMode: event.noBallRunsMode,
+      noBallLegByeRuns: event.noBallLegByeRuns > 0
+          ? event.noBallLegByeRuns
+          : event.legByeRuns,
+      runOutDeliveryKind: event.runOutDeliveryKind,
+    );
   }
 
-  static bool _strikerFacedDelivery(BallEventModel event) {
-    if (!event.isLegalDelivery) return false;
-    return event.eventType != BallEventType.wide &&
-        event.eventType != BallEventType.noBall;
+  static bool _countsAsBallFaced(BallEventModel event) =>
+      countsAsBallFaced(event);
+
+  static bool _strikerFacedDelivery(BallEventModel event) =>
+      countsAsBallFaced(event);
+
+  static bool _computeCountsAsBallFaced({
+    required bool isLegalDelivery,
+    required BallEventType eventType,
+    required int batsmanRuns,
+    NoBallRunsMode? noBallRunsMode,
+    int noBallLegByeRuns = 0,
+    RunOutDeliveryKind? runOutDeliveryKind,
+  }) {
+    final isNoBall = eventType == BallEventType.noBall ||
+        runOutDeliveryKind == RunOutDeliveryKind.noBall;
+    if (isNoBall) {
+      final mode = noBallRunsMode ?? NoBallRunsMode.bat;
+      // Bat runs off the no-ball → ball faced.
+      if (mode == NoBallRunsMode.bat) return batsmanRuns > 0;
+      // Leg-bye off a no-ball implies pad/body contact from a shot → ball faced.
+      if (mode == NoBallRunsMode.legBye) return noBallLegByeRuns > 0;
+      // NB only / NB+bye (no shot) → do not increment balls faced.
+      return false;
+    }
+    if (!isLegalDelivery) return false;
+    return eventType != BallEventType.wide;
   }
 
   List<BatsmanInningsModel> _incrementBatsmanBall(

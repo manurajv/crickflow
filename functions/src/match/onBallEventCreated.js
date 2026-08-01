@@ -4,6 +4,8 @@ const { fanOutMatchNotification } = require('../utils/fanOut');
 const { refreshFantasyForMatch } = require('../fantasy/refreshFantasyForMatch');
 const {
   buildWicketNotification,
+  buildRetiredHurtNotification,
+  buildRetiredOutNotification,
   buildHatTrickNotification,
   buildTeamMilestoneNotification,
   buildPlayerMilestoneNotification,
@@ -35,6 +37,10 @@ function detectMilestone(prev, next, thresholds) {
 async function detectHatTrick(matchId, event) {
   const bowlerId = event.bowlerId;
   if (!bowlerId || event.eventType !== 'wicket') return false;
+  // Retirement / non-wickets never contribute to a hat-trick.
+  if (event.retiredHurt || event.wicketType === 'retiredHurt') return false;
+  if (event.wicketType === 'retiredOut') return false;
+  if (event.isWicket === false) return false;
 
   const snap = await db
     .collection('matches')
@@ -113,8 +119,20 @@ exports.onBallEventCreated = onDocumentCreated(
     }
 
     if (type === 'wicket') {
-      const built = buildWicketNotification(match, data);
-      await fanOutMatchNotification(db, matchId, match, built, 'wicket', {
+      const isRetiredHurt =
+        data.retiredHurt === true || data.wicketType === 'retiredHurt';
+      const isRetiredOut = data.wicketType === 'retiredOut';
+      const built = isRetiredHurt
+        ? buildRetiredHurtNotification(match, data)
+        : isRetiredOut
+          ? buildRetiredOutNotification(match, data)
+          : buildWicketNotification(match, data);
+      const notifType = isRetiredHurt
+        ? 'retired_hurt'
+        : isRetiredOut
+          ? 'retired_out'
+          : 'wicket';
+      await fanOutMatchNotification(db, matchId, match, built, notifType, {
         eventType: type,
         sequence: String(data.sequence || ''),
       }, { category: 'live_match', tab: 'live' });

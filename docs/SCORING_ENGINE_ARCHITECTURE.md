@@ -278,7 +278,7 @@ Already has: `eventType`, `runs`, `batsmanRuns`, `extraRuns`, `isLegalDelivery`,
 | bye / leg bye | `bye`, `legBye` | ✅ |
 | wicket / run out / stumped | `wicket` + `WicketType` | ✅ extend enum |
 | overthrow | ❌ | Add `overthrow` + bat runs split |
-| retired hurt / out | partial `retired` | Split types |
+| retired hurt / out | ✅ `retiredHurt` (not a wicket) / `retiredOut` | RH: no FOW, partnership continues, returnable |
 | dead ball | ❌ | Add + rule flag |
 | penalty | `penalty` | Implement reducer branch |
 
@@ -428,7 +428,7 @@ void onWicket(InningsState inn) {
 | Stat | Rule |
 |------|------|
 | Runs | `batsmanRuns` on event |
-| Balls faced | Legal delivery, not wide; bye no; leg bye yes; dot on legal |
+| Balls faced | Legal delivery (not wide); bye/leg bye on legal ball; **NB+bat runs** and **NB+leg bye** (shot/pad contact); NB-only and NB+bye do **not** count. Independent of over `legalBalls`. |
 | Fours / sixes | On `runs` type 4 / 6 |
 | Strike rate | `CricketMath.strikeRate` |
 | Dismissal | `isOut`, `dismissalInfo` on wicket |
@@ -580,7 +580,7 @@ ReduceResult reduce(MatchAggregate match, InningsState inn, BallCommand cmd, Rul
 | `oversPerBowler` max | Block selection | ❌ |
 | `wideCountsAsLegalDelivery` | Optional ball count | ❌ |
 | Overthrow | Split runs | ❌ |
-| Retired hurt / out | Separate flows | ❌ |
+| Retired hurt / out | RH not a wicket; returnable | ✅ |
 | Dead ball | No state change | ❌ |
 | Super over | Separate rules preset | ❌ |
 | Tie / DLS | Manual result | ❌ |

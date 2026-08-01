@@ -904,8 +904,46 @@ class MatchSummaryService {
     final sorted = [...ballEvents]..sort((a, b) => a.sequence.compareTo(b.sequence));
     final runsByInnings = <int, int>{};
     final milestonesHit = <int, Set<int>>{};
+    final batterRuns = <String, int>{};
 
     for (final e in sorted) {
+      if (e.batsmanRuns > 0 && e.strikerId != null && e.strikerId!.isNotEmpty) {
+        batterRuns[e.strikerId!] =
+            (batterRuns[e.strikerId!] ?? 0) + e.batsmanRuns;
+      }
+
+      final isRetiredHurt = e.retiredHurt ||
+          e.wicketType == WicketType.retiredHurt;
+      if (isRetiredHurt) {
+        final id = e.dismissedPlayerId ?? e.strikerId;
+        final name = (e.dismissedPlayerName?.trim().isNotEmpty == true)
+            ? e.dismissedPlayerName!.trim()
+            : 'Batter';
+        final score = id != null ? (batterRuns[id] ?? 0) : 0;
+        add(
+          'Retired Hurt',
+          '$name retired hurt on $score.',
+          inningsLabel: 'Inn ${e.inningsNumber}',
+        );
+        continue;
+      }
+
+      if (e.wicketType == WicketType.retiredOut) {
+        final id = e.dismissedPlayerId ?? e.strikerId;
+        final name = (e.dismissedPlayerName?.trim().isNotEmpty == true)
+            ? e.dismissedPlayerName!.trim()
+            : 'Batter';
+        final score = id != null ? (batterRuns[id] ?? 0) : 0;
+        add(
+          'Retired Out',
+          '$name retired out on $score.',
+          inningsLabel: 'Inn ${e.inningsNumber}',
+        );
+        // Still a wicket for score — team milestones tracked below only on
+        // legal deliveries; FOW is derived elsewhere from isWicket.
+        continue;
+      }
+
       if (!e.isLegalDelivery) continue;
       final inn = e.inningsNumber;
       runsByInnings[inn] = (runsByInnings[inn] ?? 0) + e.runs;

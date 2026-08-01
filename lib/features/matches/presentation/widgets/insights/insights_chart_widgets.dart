@@ -38,50 +38,55 @@ class _InsightsCollapsibleSectionState extends State<InsightsCollapsibleSection>
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    // Material under ExpansionTile so ListTile ink/splash paint here instead of
+    // being hidden by the card DecoratedBox (Flutter debug assertion).
     return Container(
       margin: const EdgeInsets.only(bottom: AppDimens.spaceMd),
       decoration: cfCardDecoration(context),
       clipBehavior: Clip.antiAlias,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: widget.initiallyExpanded,
-          tilePadding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spaceMd,
-            vertical: AppDimens.spaceXs,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: widget.initiallyExpanded,
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.spaceMd,
+              vertical: AppDimens.spaceXs,
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(
+              AppDimens.spaceMd,
+              0,
+              AppDimens.spaceMd,
+              AppDimens.spaceMd,
+            ),
+            onExpansionChanged: (value) {
+              setState(() {
+                _expanded = value;
+                if (value) _loaded = true;
+              });
+            },
+            title: Text(
+              widget.title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cf.textPrimary,
+                  ),
+            ),
+            subtitle: widget.subtitle != null
+                ? Text(
+                    widget.subtitle!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cf.textSecondary,
+                        ),
+                  )
+                : null,
+            iconColor: cf.accent,
+            collapsedIconColor: cf.textSecondary,
+            children: [
+              if (_loaded && _expanded) widget.child,
+            ],
           ),
-          childrenPadding: const EdgeInsets.fromLTRB(
-            AppDimens.spaceMd,
-            0,
-            AppDimens.spaceMd,
-            AppDimens.spaceMd,
-          ),
-          onExpansionChanged: (value) {
-            setState(() {
-              _expanded = value;
-              if (value) _loaded = true;
-            });
-          },
-          title: Text(
-            widget.title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: cf.textPrimary,
-                ),
-          ),
-          subtitle: widget.subtitle != null
-              ? Text(
-                  widget.subtitle!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: cf.textSecondary,
-                      ),
-                )
-              : null,
-          iconColor: cf.accent,
-          collapsedIconColor: cf.textSecondary,
-          children: [
-            if (_loaded && _expanded) widget.child,
-          ],
         ),
       ),
     );

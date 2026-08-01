@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../utils/scoring_display_utils.dart';
-import '../../../../core/theme/cf_colors.dart';
 
 /// Batter on crease with live stats for picker cards.
 class CreaseBatterOption {
@@ -46,6 +47,41 @@ Future<String?> showRunOutDismissedPicker(
   BuildContext context, {
   required InningsModel innings,
 }) {
+  return showCreaseBatterPicker(
+    context,
+    innings: innings,
+    title: 'Which batter got out?',
+    subtitle: 'Run out — tap the dismissed batter',
+    confirmLabel: 'Confirm run out',
+  );
+}
+
+/// Retired Hurt / Retired Out: which batter is leaving the crease?
+Future<String?> showRetirementBatterPicker(
+  BuildContext context, {
+  required InningsModel innings,
+  required WicketType wicketType,
+}) {
+  final isHurt = wicketType == WicketType.retiredHurt;
+  return showCreaseBatterPicker(
+    context,
+    innings: innings,
+    title: isHurt ? 'Who is retiring hurt?' : 'Who is retiring out?',
+    subtitle: isHurt
+        ? 'Retired hurt — choose striker or non-striker'
+        : 'Retired out — choose striker or non-striker',
+    confirmLabel: isHurt ? 'Confirm retired hurt' : 'Confirm retired out',
+  );
+}
+
+/// Shared striker / non-striker crease picker.
+Future<String?> showCreaseBatterPicker(
+  BuildContext context, {
+  required InningsModel innings,
+  required String title,
+  required String subtitle,
+  required String confirmLabel,
+}) {
   final striker = CreaseBatterOption.fromInnings(
     innings,
     innings.strikerId,
@@ -63,10 +99,10 @@ Future<String?> showRunOutDismissedPicker(
     context,
     isScrollControlled: true,
     builder: (ctx) => _CreasePickerBody(
-      title: 'Which batter got out?',
-      subtitle: 'Run out — tap the dismissed batter',
+      title: title,
+      subtitle: subtitle,
       options: options,
-      confirmLabel: 'Confirm run out',
+      confirmLabel: confirmLabel,
     ),
   );
 }

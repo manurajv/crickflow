@@ -183,7 +183,7 @@ void main() {
       );
     });
 
-    test('wide and no-ball credit runs but not balls faced', () {
+    test('wide does not count balls; NB+bat does; NB-only/NB+bye do not', () {
       final wide = BallEventModel(
         id: 'w',
         matchId: 'm1',
@@ -197,7 +197,7 @@ void main() {
         strikerId: 's1',
         sequence: 1,
       );
-      final nb = BallEventModel(
+      final nbBat = BallEventModel(
         id: 'n',
         matchId: 'm1',
         inningsNumber: 1,
@@ -207,12 +207,46 @@ void main() {
         runs: 2,
         batsmanRuns: 1,
         isLegalDelivery: false,
+        noBallRunsMode: NoBallRunsMode.bat,
         strikerId: 's1',
         sequence: 2,
       );
+      final nbOnly = BallEventModel(
+        id: 'n0',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 0,
+        ballInOver: 1,
+        eventType: BallEventType.noBall,
+        runs: 1,
+        batsmanRuns: 0,
+        isLegalDelivery: false,
+        noBallRunsMode: NoBallRunsMode.bat,
+        strikerId: 's1',
+        sequence: 3,
+      );
+      final nbBye = BallEventModel(
+        id: 'nb',
+        matchId: 'm1',
+        inningsNumber: 1,
+        overNumber: 0,
+        ballInOver: 1,
+        eventType: BallEventType.noBall,
+        runs: 2,
+        batsmanRuns: 0,
+        isLegalDelivery: false,
+        noBallRunsMode: NoBallRunsMode.bye,
+        noBallByeRuns: 1,
+        strikerId: 's1',
+        sequence: 4,
+      );
       expect(
-        ScoringDisplayUtils.batsmanOverStats('s1', [wide, nb]),
-        (runs: 1, balls: 0),
+        ScoringDisplayUtils.batsmanOverStats('s1', [wide, nbBat]),
+        (runs: 1, balls: 1),
+      );
+      expect(
+        ScoringDisplayUtils.batsmanOverStats('s1', [nbOnly, nbBye]),
+        (runs: 0, balls: 0),
       );
     });
 

@@ -89,8 +89,13 @@ class _BattingRow extends StatelessWidget {
     final onCreaseSuffix = isOnCrease ? (isStriker ? '*' : '') : '';
     final dismissal = batsman.isOut
         ? batsman.dismissalInfo
-        : (isOnCrease ? 'not out' : '');
+        : batsman.retiredHurt
+            ? 'Retired Hurt'
+            : (isOnCrease ? 'not out' : '');
     final sr = CricketMath.strikeRate(batsman.runs, batsman.balls);
+    final runsLabel = batsman.retiredHurt && !batsman.isOut && !isOnCrease
+        ? '${batsman.runs}*'
+        : '${batsman.runs}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -125,7 +130,7 @@ class _BattingRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              '${batsman.runs}',
+              runsLabel,
               textAlign: TextAlign.end,
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),

@@ -778,7 +778,9 @@ class _BattingRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 _StatCell(
-                  value: '${batsman.runs}',
+                  value: batsman.retiredHurt && !batsman.isOut && !onCrease
+                      ? '${batsman.runs}*'
+                      : '${batsman.runs}',
                   width: _kColR,
                   emphasize: true,
                 ),

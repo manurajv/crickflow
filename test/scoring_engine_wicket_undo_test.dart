@@ -164,8 +164,16 @@ void main() {
 
     final inn = result.match.currentInnings!;
     expect(inn.totalWickets, 0);
+    expect(inn.legalBalls, 0);
+    expect(inn.partnershipRuns, 0);
+    expect(inn.partnershipBalls, 0);
     expect(inn.bowlers.single.wickets, 0);
+    expect(inn.bowlers.single.oversBowledBalls, 0);
+    expect(inn.bowlers.single.runsConceded, 0);
     expect(result.event.isWicket, isFalse);
+    expect(result.event.isLegalDelivery, isFalse);
+    expect(result.event.countsInOver, isFalse);
+    expect(result.event.countsToBowler, isFalse);
     expect(result.event.retiredHurt, isTrue);
     expect(result.event.isEligibleToReturn, isTrue);
 
@@ -174,8 +182,192 @@ void main() {
     expect(striker.isOut, isFalse);
     expect(striker.retiredHurt, isTrue);
     expect(striker.isEligibleToReturn, isTrue);
-    expect(striker.dismissalInfo, 'retired hurt');
+    expect(striker.canReturn, isTrue);
+    expect(striker.status, 'retired_hurt');
+    expect(striker.dismissalInfo, 'Retired Hurt');
     expect(inn.strikerId, isNull);
+  });
+
+  test('retired hurt preserves score and partnership; return resumes stats', () {
+    var match = baseMatch();
+    // Build a score for the striker first.
+    match = engine
+        .recordBall(
+          match: match,
+          input: const BallEventInput(type: BallEventType.runs, runs: 4),
+          sequence: 1,
+        )
+        .match;
+    match = engine
+        .recordBall(
+          match: match,
+          input: const BallEventInput(type: BallEventType.runs, runs: 2),
+          sequence: 2,
+        )
+        .match;
+
+    final before = match.currentInnings!;
+    expect(before.totalRuns, 6);
+    expect(before.totalWickets, 0);
+    expect(before.partnershipRuns, 6);
+    final beforeStriker =
+        before.batsmen.firstWhere((b) => b.playerId == 'striker');
+    expect(beforeStriker.runs, 6);
+    expect(beforeStriker.balls, 2);
+
+    final rh = engine.recordBall(
+      match: match,
+      input: const BallEventInput(
+        type: BallEventType.wicket,
+        wicketType: WicketType.retiredHurt,
+        dismissedPlayerId: 'striker',
+        dismissedPlayerName: 'Striker',
+      ),
+      sequence: 3,
+    );
+    final afterRh = rh.match.currentInnings!;
+    expect(afterRh.totalRuns, 6);
+    expect(afterRh.totalWickets, 0);
+    expect(afterRh.legalBalls, 2);
+    expect(afterRh.partnershipRuns, 6);
+    expect(afterRh.partnershipBalls, 2);
+    expect(afterRh.bowlers.single.oversBowledBalls, 2);
+    expect(afterRh.bowlers.single.wickets, 0);
+
+    final retired =
+        afterRh.batsmen.firstWhere((b) => b.playerId == 'striker');
+    expect(retired.runs, 6);
+    expect(retired.balls, 2);
+    expect(retired.isOut, isFalse);
+    expect(retired.retiredAtScore, 6);
+    expect(retired.retiredAtBalls, 2);
+    expect(retired.status, 'retired_hurt');
+
+    // Incoming replacement batter — partnership continues.
+    final lineup = engine.recordBall(
+      match: rh.match,
+      input: const BallEventInput(
+        type: BallEventType.lineupChange,
+        creaseStrikerId: 's3',
+        creaseStrikerName: 'Incoming',
+        creaseNonStrikerId: 'non_striker',
+        creaseNonStrikerName: 'Non',
+        bowlerId: 'bowler',
+      ),
+      sequence: 4,
+    );
+    final afterLineup = lineup.match.currentInnings!;
+    expect(afterLineup.totalWickets, 0);
+    expect(afterLineup.partnershipRuns, 6);
+    expect(afterLineup.strikerId, 's3');
+
+    // Later: non-striker out — RH batter becomes selectable and can return.
+    final wicket = engine.recordBall(
+      match: lineup.match,
+      input: const BallEventInput(
+        type: BallEventType.wicket,
+        wicketType: WicketType.bowled,
+        dismissedPlayerId: 'non_striker',
+      ),
+      sequence: 5,
+    );
+    expect(wicket.match.currentInnings!.totalWickets, 1);
+
+    final stillRetired = wicket.match.currentInnings!.batsmen
+        .firstWhere((b) => b.playerId == 'striker');
+    expect(stillRetired.retiredHurt, isTrue);
+    expect(stillRetired.isEligibleToReturn, isTrue);
+    expect(stillRetired.isOut, isFalse);
+
+    // Return: resume 6(2).
+    final returned = engine.recordBall(
+      match: wicket.match,
+      input: const BallEventInput(
+        type: BallEventType.lineupChange,
+        creaseStrikerId: 'striker',
+        creaseStrikerName: 'Striker',
+        creaseNonStrikerId: 's3',
+        creaseNonStrikerName: 'Incoming',
+        bowlerId: 'bowler',
+      ),
+      sequence: 6,
+    );
+    final back = returned.match.currentInnings!.batsmen
+        .firstWhere((b) => b.playerId == 'striker');
+    expect(back.runs, 6);
+    expect(back.balls, 2);
+    expect(back.retiredHurt, isFalse);
+    expect(back.isEligibleToReturn, isFalse);
+    expect(back.isOut, isFalse);
+    expect(back.dismissalInfo, isEmpty);
+    expect(back.status, isNull);
+  });
+
+  test('retired hurt after no-ball preserves free hit for next delivery', () {
+    var match = baseMatch();
+    match = engine
+        .recordBall(
+          match: match,
+          input: const BallEventInput(type: BallEventType.noBall, runs: 0),
+          sequence: 1,
+        )
+        .match;
+    expect(match.currentInnings!.isFreeHitActive, isTrue);
+    expect(match.currentInnings!.legalBalls, 0);
+
+    final rh = engine.recordBall(
+      match: match,
+      input: const BallEventInput(
+        type: BallEventType.wicket,
+        wicketType: WicketType.retiredHurt,
+        dismissedPlayerId: 'non_striker',
+      ),
+      sequence: 2,
+    );
+    final inn = rh.match.currentInnings!;
+    expect(inn.isFreeHitActive, isTrue);
+    expect(inn.legalBalls, 0);
+    expect(inn.totalWickets, 0);
+    expect(inn.nonStrikerId, isNull);
+    expect(inn.strikerId, 'striker');
+    expect(inn.bowlers.single.oversBowledBalls, 0);
+    expect(rh.event.isLegalDelivery, isFalse);
+    expect(rh.event.isFreeHit, isTrue);
+  });
+
+  test('retired out after free hit still counts as wicket and preserves FH', () {
+    var match = baseMatch();
+    match = engine
+        .recordBall(
+          match: match,
+          input: const BallEventInput(type: BallEventType.noBall, runs: 0),
+          sequence: 1,
+        )
+        .match;
+
+    final ro = engine.recordBall(
+      match: match,
+      input: const BallEventInput(
+        type: BallEventType.wicket,
+        wicketType: WicketType.retiredOut,
+        dismissedPlayerId: 'striker',
+      ),
+      sequence: 2,
+    );
+    final inn = ro.match.currentInnings!;
+    expect(inn.isFreeHitActive, isTrue);
+    expect(inn.legalBalls, 0);
+    expect(inn.totalWickets, 1);
+    expect(inn.partnershipRuns, 0);
+    expect(ro.event.isWicket, isTrue);
+    expect(ro.event.isLegalDelivery, isFalse);
+    expect(inn.bowlers.single.wickets, 0);
+    expect(inn.bowlers.single.oversBowledBalls, 0);
+
+    final out = inn.batsmen.firstWhere((b) => b.playerId == 'striker');
+    expect(out.isOut, isTrue);
+    expect(out.retiredHurt, isFalse);
+    expect(out.isEligibleToReturn, isFalse);
   });
 
   test('mankad stores as run out with bowler display and no bowler wicket', () {

@@ -115,7 +115,7 @@ void main() {
       );
       expect(
         DismissalFormatter.format(type: WicketType.retiredHurt),
-        'retired hurt',
+        'Retired Hurt',
       );
       expect(
         DismissalFormatter.format(

@@ -97,6 +97,9 @@ class BatsmanInningsModel extends Equatable {
     this.dismissalInfo = '',
     this.retiredHurt = false,
     this.isEligibleToReturn = false,
+    this.retiredAtScore,
+    this.retiredAtBalls,
+    this.status,
   });
 
   final String playerId;
@@ -109,7 +112,16 @@ class BatsmanInningsModel extends Equatable {
   final String dismissalInfo;
   /// Left the crease hurt — not a wicket; may bat again.
   final bool retiredHurt;
+  /// Alias persisted as `canReturn` — eligible to resume later in the innings.
   final bool isEligibleToReturn;
+  /// Individual score when the batter retired hurt (Laws: not dismissed).
+  final int? retiredAtScore;
+  final int? retiredAtBalls;
+  /// Batting status string for Firestore (`retired_hurt`, etc.).
+  final String? status;
+
+  bool get canReturn => isEligibleToReturn;
+  bool get isRetiredHurt => retiredHurt;
 
   BatsmanInningsModel copyWith({
     String? playerId,
@@ -122,6 +134,10 @@ class BatsmanInningsModel extends Equatable {
     String? dismissalInfo,
     bool? retiredHurt,
     bool? isEligibleToReturn,
+    int? retiredAtScore,
+    int? retiredAtBalls,
+    String? status,
+    bool clearRetiredSnapshot = false,
   }) {
     return BatsmanInningsModel(
       playerId: playerId ?? this.playerId,
@@ -134,10 +150,22 @@ class BatsmanInningsModel extends Equatable {
       dismissalInfo: dismissalInfo ?? this.dismissalInfo,
       retiredHurt: retiredHurt ?? this.retiredHurt,
       isEligibleToReturn: isEligibleToReturn ?? this.isEligibleToReturn,
+      retiredAtScore:
+          clearRetiredSnapshot ? null : (retiredAtScore ?? this.retiredAtScore),
+      retiredAtBalls:
+          clearRetiredSnapshot ? null : (retiredAtBalls ?? this.retiredAtBalls),
+      status: clearRetiredSnapshot ? null : (status ?? this.status),
     );
   }
 
   factory BatsmanInningsModel.fromMap(Map<String, dynamic> map) {
+    final retired = map['retiredHurt'] as bool? ??
+        map['isRetiredHurt'] as bool? ??
+        false;
+    final canReturn = map['isEligibleToReturn'] as bool? ??
+        map['canReturn'] as bool? ??
+        false;
+    final statusRaw = map['status'] as String?;
     return BatsmanInningsModel(
       playerId: map['playerId'] as String? ?? '',
       playerName: map['playerName'] as String? ?? '',
@@ -147,8 +175,11 @@ class BatsmanInningsModel extends Equatable {
       sixes: map['sixes'] as int? ?? 0,
       isOut: map['isOut'] as bool? ?? false,
       dismissalInfo: map['dismissalInfo'] as String? ?? '',
-      retiredHurt: map['retiredHurt'] as bool? ?? false,
-      isEligibleToReturn: map['isEligibleToReturn'] as bool? ?? false,
+      retiredHurt: retired || statusRaw == 'retired_hurt',
+      isEligibleToReturn: canReturn || retired,
+      retiredAtScore: map['retiredAtScore'] as int?,
+      retiredAtBalls: map['retiredAtBalls'] as int?,
+      status: statusRaw,
     );
   }
 
@@ -161,12 +192,21 @@ class BatsmanInningsModel extends Equatable {
         'sixes': sixes,
         'isOut': isOut,
         'dismissalInfo': dismissalInfo,
-        if (retiredHurt) 'retiredHurt': retiredHurt,
-        if (isEligibleToReturn) 'isEligibleToReturn': isEligibleToReturn,
+        if (retiredHurt) ...{
+          'retiredHurt': true,
+          'isRetiredHurt': true,
+          'status': status ?? 'retired_hurt',
+          'canReturn': isEligibleToReturn,
+          if (isEligibleToReturn) 'isEligibleToReturn': true,
+          if (retiredAtScore != null) 'retiredAtScore': retiredAtScore,
+          if (retiredAtBalls != null) 'retiredAtBalls': retiredAtBalls,
+        },
+        if (!retiredHurt && isEligibleToReturn) 'isEligibleToReturn': true,
+        if (!retiredHurt && status != null) 'status': status,
       };
 
   @override
-  List<Object?> get props => [playerId, runs, balls];
+  List<Object?> get props => [playerId, runs, balls, retiredHurt, isOut];
 }
 
 /// Fielding contributions for one player in an innings.

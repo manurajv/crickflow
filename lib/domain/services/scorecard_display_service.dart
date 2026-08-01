@@ -180,7 +180,7 @@ class ScorecardDisplayService {
     Map<String, String>? playerNames,
   }) {
     if (batsman.retiredHurt && !batsman.isOut) {
-      return onCrease ? 'not out' : 'retired hurt';
+      return onCrease ? 'not out' : 'Retired Hurt';
     }
 
     if (!batsman.isOut) {
@@ -223,8 +223,8 @@ class ScorecardDisplayService {
       'runout' => 'run out',
       'stumped' => 'stumped',
       'hitwicket' => 'hit wicket',
-      'retiredhurt' || 'retired' => 'retired hurt',
-      'retiredout' => 'retired out',
+      'retiredhurt' || 'retired' => 'Retired Hurt',
+      'retiredout' => 'Retired Out',
       _ => raw,
     };
   }

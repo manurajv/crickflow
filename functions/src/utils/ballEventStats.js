@@ -115,7 +115,7 @@ function formatDismissalFromEvent(event) {
     case 'hitWicket':
       return bowler ? `hit wicket b ${bowler}` : 'hit wicket';
     case 'retiredHurt':
-      return 'retired hurt';
+      return 'Retired Hurt';
     case 'retiredOut':
       return 'retired out';
     case 'obstructingField':
@@ -143,9 +143,28 @@ function runsAgainstBowler(event) {
   return event.runs || 0;
 }
 
+/**
+ * Balls faced for the striker. Independent of over legal-ball count:
+ * NB+bat runs and NB+leg-bye (pad/shot contact) increment BF; NB-only and
+ * NB+bye do not. Legal-ball / over progression uses isLegalDelivery separately.
+ */
 function countsAsBallFaced(event) {
+  const isNoBall =
+    event.eventType === 'noBall' || event.runOutDeliveryKind === 'noBall';
+  if (isNoBall) {
+    const mode = event.noBallRunsMode || 'bat';
+    if (mode === 'bat') return (event.batsmanRuns || 0) > 0;
+    if (mode === 'legBye') {
+      const lb =
+        (event.noBallLegByeRuns || 0) > 0
+          ? event.noBallLegByeRuns || 0
+          : event.legByeRuns || 0;
+      return lb > 0;
+    }
+    return false;
+  }
   if (!event.isLegalDelivery) return false;
-  return event.eventType !== 'wide' && event.eventType !== 'noBall';
+  return event.eventType !== 'wide';
 }
 
 function strikerFacedDelivery(event) {
@@ -264,12 +283,18 @@ function markBatsmanRetiredHurt(list, playerId) {
   const idx = list.findIndex((b) => b.playerId === playerId);
   if (idx >= 0) {
     const next = [...list];
+    const cur = next[idx];
     next[idx] = {
-      ...next[idx],
+      ...cur,
       isOut: false,
       retiredHurt: true,
+      isRetiredHurt: true,
       isEligibleToReturn: true,
-      dismissalInfo: 'retired hurt',
+      canReturn: true,
+      status: 'retired_hurt',
+      dismissalInfo: 'Retired Hurt',
+      retiredAtScore: cur.runs || 0,
+      retiredAtBalls: cur.balls || 0,
     };
     return next;
   }
@@ -284,8 +309,13 @@ function markBatsmanRetiredHurt(list, playerId) {
       sixes: 0,
       isOut: false,
       retiredHurt: true,
+      isRetiredHurt: true,
       isEligibleToReturn: true,
-      dismissalInfo: 'retired hurt',
+      canReturn: true,
+      status: 'retired_hurt',
+      dismissalInfo: 'Retired Hurt',
+      retiredAtScore: 0,
+      retiredAtBalls: 0,
     },
   ];
 }
@@ -365,9 +395,20 @@ function upsertBatsmanNamed(list, playerId, playerName) {
   const idx = list.findIndex((b) => b.playerId === playerId);
   if (idx >= 0) {
     const next = [...list];
+    const cur = next[idx];
+    const wasRetired = !!cur.retiredHurt || !!cur.isRetiredHurt;
     next[idx] = {
-      ...next[idx],
-      playerName: playerName || next[idx].playerName || '',
+      ...cur,
+      playerName: playerName || cur.playerName || '',
+      // Returning after retired hurt: keep runs/balls; clear RH flags.
+      retiredHurt: false,
+      isRetiredHurt: false,
+      isEligibleToReturn: false,
+      canReturn: false,
+      dismissalInfo: wasRetired ? '' : cur.dismissalInfo || '',
+      status: wasRetired ? null : cur.status,
+      retiredAtScore: wasRetired ? null : cur.retiredAtScore,
+      retiredAtBalls: wasRetired ? null : cur.retiredAtBalls,
     };
     return next;
   }
@@ -508,7 +549,12 @@ function applyEventToInnings(innings, event, rules) {
     }
   }
 
-  if (event.bowlerId) {
+  // Retirement must not affect bowling figures.
+  if (
+    event.bowlerId &&
+    !event.retiredHurt &&
+    event.wicketType !== 'retiredOut'
+  ) {
     const wicketCredit = bowlerGetsWicketFromEvent(event);
     bowlers = upsertBowler(bowlers, event.bowlerId, '');
     bowlers = updateBowler(

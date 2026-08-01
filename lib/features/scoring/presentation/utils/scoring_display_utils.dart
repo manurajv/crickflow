@@ -94,6 +94,93 @@ class ScoringDisplayUtils {
     return false;
   }
 
+  /// Retired hurt (not dismissed) — may return later in the innings.
+  static bool isPlayerRetiredHurt(InningsModel inn, String playerId) {
+    final b = batsman(inn, playerId);
+    return b != null && b.retiredHurt && !b.isOut;
+  }
+
+  /// Batting squad members who may still bat this innings.
+  ///
+  /// [excludeRecentlyRetiredHurtId]: the batter who just retired hurt must not
+  /// fill their own vacancy. Other RH returnable batters remain eligible when
+  /// a later vacancy opens (wicket / another RH).
+  ///
+  /// Retired Out batters have [BatsmanInningsModel.isOut] and never return.
+  /// When no fresh batters remain, RH returnable batters are included as a
+  /// last resort (except [excludeRecentlyRetiredHurtId]).
+  static List<T> eligibleBatters<T>(
+    InningsModel inn,
+    List<T> squad, {
+    required String Function(T) idOf,
+    String? excludePlayerId,
+    String? excludeRecentlyRetiredHurtId,
+    bool includeReturningRetiredHurt = true,
+  }) {
+    bool isReturningHurt(String id) {
+      final b = batsman(inn, id);
+      return b != null &&
+          b.retiredHurt &&
+          b.isEligibleToReturn &&
+          !b.isOut;
+    }
+
+    final fresh = <T>[];
+    final returning = <T>[];
+    for (final p in squad) {
+      final id = idOf(p);
+      if (id == excludePlayerId) continue;
+      if (id == excludeRecentlyRetiredHurtId) continue;
+      if (isPlayerOut(inn, id)) continue;
+      if (isReturningHurt(id)) {
+        returning.add(p);
+      } else {
+        fresh.add(p);
+      }
+    }
+
+    if (!includeReturningRetiredHurt) {
+      if (fresh.isNotEmpty) return fresh;
+      // No other eligible batter remains — allow RH return (Laws).
+      if (returning.isNotEmpty) return returning;
+      // Absolute last resort: the batter who just retired hurt (only option).
+      return _returningHurtOnly(
+        inn,
+        squad,
+        idOf: idOf,
+        excludePlayerId: excludePlayerId,
+      );
+    }
+
+    final combined = [...fresh, ...returning];
+    if (combined.isNotEmpty) return combined;
+    // Absolute last resort when excludeRecently left the list empty.
+    return _returningHurtOnly(
+      inn,
+      squad,
+      idOf: idOf,
+      excludePlayerId: excludePlayerId,
+    );
+  }
+
+  static List<T> _returningHurtOnly<T>(
+    InningsModel inn,
+    List<T> squad, {
+    required String Function(T) idOf,
+    String? excludePlayerId,
+  }) {
+    return squad.where((p) {
+      final id = idOf(p);
+      if (id == excludePlayerId) return false;
+      if (isPlayerOut(inn, id)) return false;
+      final b = batsman(inn, id);
+      return b != null &&
+          b.retiredHurt &&
+          b.isEligibleToReturn &&
+          !b.isOut;
+    }).toList();
+  }
+
   /// Bowling-side wicketkeeper from match setup (fallback when no events).
   static ({String? id, String? name}) bowlingWicketKeeper(
     MatchModel match,
@@ -153,20 +240,6 @@ class ScoringDisplayUtils {
       }
     }
     return keeper;
-  }
-
-  /// Batting squad members who may still bat this innings.
-  static List<T> eligibleBatters<T>(
-    InningsModel inn,
-    List<T> squad, {
-    required String Function(T) idOf,
-    String? excludePlayerId,
-  }) {
-    return squad.where((p) {
-      final id = idOf(p);
-      if (id == excludePlayerId) return false;
-      return !isPlayerOut(inn, id);
-    }).toList();
   }
 
   /// Bowler who completed the last over (from ball events, not [currentBowlerId]).
@@ -328,17 +401,11 @@ class ScoringDisplayUtils {
     return '${s.runs}(${s.balls})';
   }
 
-  static bool _strikerCountsBallFaced(BallEventModel event) {
-    if (!event.isLegalDelivery) return false;
-    return event.eventType != BallEventType.wide &&
-        event.eventType != BallEventType.noBall;
-  }
+  static bool _strikerCountsBallFaced(BallEventModel event) =>
+      ScoringEngine.countsAsBallFaced(event);
 
-  static bool _strikerFacedDeliveryInOver(BallEventModel event) {
-    if (!event.isLegalDelivery) return false;
-    return event.eventType != BallEventType.wide &&
-        event.eventType != BallEventType.noBall;
-  }
+  static bool _strikerFacedDeliveryInOver(BallEventModel event) =>
+      ScoringEngine.countsAsBallFaced(event);
 
   static String bowlerFigures(BowlerInningsModel? b, int ballsPerOver) {
     if (b == null) return '0-0-0-0';
@@ -423,6 +490,7 @@ class ScoringDisplayUtils {
 
   static String ballBubbleLabel(BallEventModel e) {
     if (e.eventType == BallEventType.lineupChange) return '';
+    if (e.retiredHurt || e.wicketType == WicketType.retiredHurt) return 'RH';
     if (e.isWicket || e.eventType == BallEventType.wicket) {
       return wicketBubbleLabel(e);
     }

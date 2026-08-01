@@ -332,6 +332,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     String? undoGroupId,
     String? previousBowlerId,
     String? bowlerChangeReason,
+    String? commentary,
     MatchModel? matchOverride,
   }) async {
     final matchForWrite =
@@ -357,9 +358,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               previousBowlerId: previousBowlerId,
               bowlerChangeReason: bowlerChangeReason,
               createdBy: scorerUid,
-              commentary: previousBowlerId != null
-                  ? 'Bowler changed'
-                  : 'Lineup updated',
+              commentary: commentary ??
+                  (previousBowlerId != null
+                      ? 'Bowler changed'
+                      : 'Lineup updated'),
               undoGroupId: undoGroupId,
             ),
             sequence: sequence,
@@ -781,12 +783,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               .map(
                 (p) {
                   final b = ScoringDisplayUtils.batsman(inn, p.id);
+                  final runs = b?.runs ?? 0;
+                  final balls = b?.balls ?? 0;
+                  final returning = b != null &&
+                      (b.retiredHurt || b.isEligibleToReturn) &&
+                      !b.isOut;
                   return CreaseBatterOption(
                     playerId: p.id,
                     name: p.name,
-                    runs: b?.runs ?? 0,
-                    balls: b?.balls ?? 0,
-                    roleLabel: 'Available',
+                    runs: runs,
+                    balls: balls,
+                    roleLabel: returning
+                        ? 'Returning · $runs($balls)'
+                        : 'Available',
                   );
                 },
               )
@@ -852,6 +861,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         wicketKeeperId = activeKeeper.id;
         wicketKeeperName = activeKeeper.name ?? fielder.name;
       }
+    } else if (wicketType == WicketType.retiredHurt ||
+        wicketType == WicketType.retiredOut) {
+      dismissedPlayerId = await showRetirementBatterPicker(
+        context,
+        innings: inn,
+        wicketType: wicketType,
+      );
+      if (dismissedPlayerId == null || !mounted) return;
     } else {
       dismissedPlayerId = DismissalFormatter.defaultDismissedPlayerId(
         type: wicketType,
@@ -865,10 +882,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           dismissedPlayerId,
         )?.playerName ??
         '';
+    final dismissedRuns = ScoringDisplayUtils.batsman(
+          inn,
+          dismissedPlayerId,
+        )?.runs ??
+        0;
 
     final isKeeperCatch = dismissalSubType == DismissalSubType.caughtBehind;
 
     final isRunOut = wicketType == WicketType.runOut;
+    final isRetiredHurt = wicketType == WicketType.retiredHurt;
+    final isRetiredOut = wicketType == WicketType.retiredOut;
 
     final recorded = await _record(
       BallEventInput(
@@ -894,13 +918,25 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         completedRuns:
             runOutResult?.completedRuns ?? runsBeforeDismissal,
         noBallRunsMode: runOutResult?.noBallRunsMode,
-        commentary: CommentaryService.forWicket(
-          wicketType: wicketType,
-          fielderName: isMankad ? bowlerName : fielderName,
-          bowlerName: bowlerName,
-          isMankad: isMankad,
-          isWicketKeeper: isKeeperCatch || wicketType == WicketType.stumped,
-        ),
+        commentary: isRetiredHurt
+            ? CommentaryService.forRetiredHurt(
+                batterName: dismissedPlayerName,
+                runs: dismissedRuns,
+              )
+            : isRetiredOut
+                ? CommentaryService.forRetiredOut(
+                    batterName: dismissedPlayerName,
+                    runs: dismissedRuns,
+                  )
+                : CommentaryService.forWicket(
+                    wicketType: wicketType,
+                    fielderName: isMankad ? bowlerName : fielderName,
+                    bowlerName: bowlerName,
+                    batterName: dismissedPlayerName,
+                    isMankad: isMankad,
+                    isWicketKeeper:
+                        isKeeperCatch || wicketType == WicketType.stumped,
+                  ),
       ),
       undoGroupId: undoGroupId,
       matchOverride: match,
@@ -948,6 +984,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           updated,
           updatedInn,
           undoGroupId: undoGroupId,
+          excludeRecentlyRetiredHurtId:
+              isRetiredHurt ? dismissedPlayerId : null,
         );
         if (!mounted) return;
         // Legal-ball count comes from the wicket; crease comes from lineup.
@@ -1031,6 +1069,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     MatchModel match,
     InningsModel inn, {
     String? undoGroupId,
+    String? excludeRecentlyRetiredHurtId,
   }) async {
     if (inn.strikerId != null && inn.nonStrikerId != null) return match;
 
@@ -1047,6 +1086,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       forStriker: needStriker,
       title: needStriker ? 'Select striker' : 'Select non-striker',
       undoGroupId: undoGroupId,
+      excludeRecentlyRetiredHurtId: excludeRecentlyRetiredHurtId,
     );
 
     // Only when both crease ends were empty (rare) do we need a second pick.
@@ -1071,6 +1111,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               ? 'Select striker'
               : 'Select non-striker',
           undoGroupId: undoGroupId,
+          excludeRecentlyRetiredHurtId: excludeRecentlyRetiredHurtId,
         );
       }
     }
@@ -1091,6 +1132,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     required bool forStriker,
     required String title,
     String? undoGroupId,
+    String? excludeRecentlyRetiredHurtId,
   }) async {
     final squads =
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
@@ -1102,6 +1144,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       squads.batting,
       idOf: (p) => p.id,
       excludePlayerId: otherId,
+      excludeRecentlyRetiredHurtId: excludeRecentlyRetiredHurtId,
+      // After RH of X, other RH returnable batters may fill X's spot;
+      // X themselves are excluded via excludeRecentlyRetiredHurtId.
+      includeReturningRetiredHurt: true,
     );
 
     if (eligible.isEmpty) {
@@ -1113,12 +1159,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         .map(
           (p) {
             final b = ScoringDisplayUtils.batsman(inn, p.id);
+            final runs = b?.runs ?? 0;
+            final balls = b?.balls ?? 0;
+            final returning = b != null &&
+                (b.retiredHurt || b.isEligibleToReturn) &&
+                !b.isOut;
             return CreaseBatterOption(
               playerId: p.id,
               name: p.name,
-              runs: b?.runs ?? 0,
-              balls: b?.balls ?? 0,
-              roleLabel: 'Available',
+              runs: runs,
+              balls: balls,
+              roleLabel: returning
+                  ? 'Returning · $runs($balls)'
+                  : 'Available',
             );
           },
         )
@@ -1162,6 +1215,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                 '',
             undoGroupId: undoGroupId,
             matchOverride: match,
+            commentary: CommentaryService.forIncomingBatter(picked.name),
           );
     } catch (e) {
       if (mounted) {
@@ -1512,12 +1566,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         .map(
           (p) {
             final b = ScoringDisplayUtils.batsman(inn, p.id);
+            final runs = b?.runs ?? 0;
+            final balls = b?.balls ?? 0;
+            final returning = b != null &&
+                (b.retiredHurt || b.isEligibleToReturn) &&
+                !b.isOut;
             return CreaseBatterOption(
               playerId: p.id,
               name: p.name,
-              runs: b?.runs ?? 0,
-              balls: b?.balls ?? 0,
-              roleLabel: 'Available',
+              runs: runs,
+              balls: balls,
+              roleLabel: returning
+                  ? 'Returning · $runs($balls)'
+                  : 'Available',
             );
           },
         )

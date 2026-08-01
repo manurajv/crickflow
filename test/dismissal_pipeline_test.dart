@@ -281,7 +281,7 @@ void main() {
           wicketType: WicketType.retiredHurt,
           dismissedPlayerId: 'striker',
         ),
-        expected: 'retired hurt',
+        expected: 'Retired Hurt',
       ),
       (
         label: 'retired out',
@@ -290,7 +290,7 @@ void main() {
           wicketType: WicketType.retiredOut,
           dismissedPlayerId: 'striker',
         ),
-        expected: 'retired out',
+        expected: 'Retired Out',
       ),
     ];
 
@@ -328,8 +328,7 @@ void main() {
           lineupInnings: _baseMatch().innings.first,
           allEvents: [read],
         );
-        if (c.input.wicketType != WicketType.retiredHurt &&
-            c.label != 'retired out') {
+        if (c.input.wicketType != WicketType.retiredHurt) {
           expect(derived.fallOfWickets.single.dismissal, c.expected,
               reason: 'aggregator FOW');
         }

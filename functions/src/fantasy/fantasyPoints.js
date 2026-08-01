@@ -24,13 +24,23 @@ function rawPlayerPoints(events) {
     }
 
     const isWicket =
-      e.wicketType ||
-      e.eventType === 'wicket' ||
-      e.dismissedPlayerId;
+      e.isWicket === true &&
+      e.eventType === 'wicket' &&
+      !e.retiredHurt &&
+      e.wicketType !== 'retiredHurt';
 
     if (isWicket) {
-      add(e.bowlerId, WICKET_POINTS);
-      add(e.fielderId, CATCH_POINTS);
+      // Bowler credit only when the event awards a bowler wicket.
+      if (e.bowlerGetsWicket) {
+        add(e.bowlerId, WICKET_POINTS);
+      }
+      if (
+        e.wicketType === 'caught' ||
+        e.wicketType === 'caughtBehind' ||
+        e.wicketType === 'caughtAndBowled'
+      ) {
+        add(e.fielderId || e.primaryFielderId, CATCH_POINTS);
+      }
     }
   }
 
