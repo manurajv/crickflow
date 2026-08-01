@@ -330,7 +330,7 @@ class CommentaryOverSummaryCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
-                        'END OF OVER',
+                        item.isComplete ? 'END OF OVER' : 'THIS OVER',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,

@@ -14,6 +14,16 @@ import 'dismissal_formatter.dart';
 class CommentaryFeedService {
   CommentaryFeedService._();
 
+  /// Descending feed: higher key = newer. Within one [sequence], higher
+  /// [phase] is later chronologically (so it sorts above earlier phases).
+  static const int _phasePowerplayStart = 0;
+  static const int _phaseBall = 1;
+  static const int _phaseNextBatter = 2;
+  static const int _phaseOverSummary = 5;
+  static const int _phasePowerplayEnd = 6;
+
+  static int _feedKey(int sequence, int phase) => sequence * 10 + phase;
+
   static CommentaryFeed build({
     required MatchModel match,
     required List<BallEventModel> allEvents,
@@ -96,15 +106,16 @@ class CommentaryFeedService {
             batterBalls: batterBalls,
             totalRuns: totalRuns,
             totalWickets: totalWickets,
-            sortKey: e.sequence,
+            sortKey: _feedKey(e.sequence, _phaseOverSummary),
+            isComplete: true,
           );
-          _maybeEndPowerplay(
+          final ppEnded = _maybeEndPowerplay(
             overNumber: e.overNumber,
             activeSlot: activePowerplaySlot,
             slots: powerplaySlots,
             labels: powerplayLabels,
             inningsNumber: innings.inningsNumber,
-            sortKey: e.sequence,
+            sortKey: _feedKey(e.sequence, _phasePowerplayEnd),
             items: items,
             runsScored: ppRuns,
             wicketsLost: ppWickets,
@@ -112,16 +123,19 @@ class CommentaryFeedService {
             ballsPerOver: bpo,
           );
           overAcc.reset();
-          activePowerplaySlot = null;
-          ppRuns = 0;
-          ppWickets = 0;
-          ppLegalBalls = 0;
+          if (ppEnded) {
+            activePowerplaySlot = null;
+            ppRuns = 0;
+            ppWickets = 0;
+            ppLegalBalls = 0;
+          }
         }
         continue;
       }
 
       if (!overAcc.hasStarted || overAcc.overNumber != e.overNumber) {
         if (overAcc.hasStarted) {
+          final prevSeq = e.sequence > 0 ? e.sequence - 1 : 0;
           _flushOverSummary(
             acc: overAcc,
             items: items,
@@ -133,15 +147,16 @@ class CommentaryFeedService {
             batterBalls: batterBalls,
             totalRuns: totalRuns,
             totalWickets: totalWickets,
-            sortKey: e.sequence - 1,
+            sortKey: _feedKey(prevSeq, _phaseOverSummary),
+            isComplete: true,
           );
-          _maybeEndPowerplay(
+          final ppEnded = _maybeEndPowerplay(
             overNumber: overAcc.overNumber,
             activeSlot: activePowerplaySlot,
             slots: powerplaySlots,
             labels: powerplayLabels,
             inningsNumber: innings.inningsNumber,
-            sortKey: e.sequence - 1,
+            sortKey: _feedKey(prevSeq, _phasePowerplayEnd),
             items: items,
             runsScored: ppRuns,
             wicketsLost: ppWickets,
@@ -149,10 +164,12 @@ class CommentaryFeedService {
             ballsPerOver: bpo,
           );
           overAcc.reset();
-          activePowerplaySlot = null;
-          ppRuns = 0;
-          ppWickets = 0;
-          ppLegalBalls = 0;
+          if (ppEnded) {
+            activePowerplaySlot = null;
+            ppRuns = 0;
+            ppWickets = 0;
+            ppLegalBalls = 0;
+          }
         }
         overAcc.overNumber = e.overNumber;
         overAcc.hasStarted = true;
@@ -168,11 +185,12 @@ class CommentaryFeedService {
               : 'Powerplay ${slot + 1}';
           items.add(
             MatchEventCommentaryItem(
-              sortKey: e.sequence,
+              // Before the first ball of this powerplay (same sequence, earlier phase).
+              sortKey: _feedKey(e.sequence, _phasePowerplayStart),
               inningsNumber: innings.inningsNumber,
               filters: {CommentaryFilter.powerplays, CommentaryFilter.full},
               eventKind: CommentaryMatchEventKind.powerplayStarted,
-              title: '$label Started',
+              title: '$label Running',
               detail: 'Fielding restrictions are now active.',
             ),
           );
@@ -278,7 +296,7 @@ class CommentaryFeedService {
 
         items.add(
           BallCommentaryItem(
-            sortKey: e.sequence,
+            sortKey: _feedKey(e.sequence, _phaseBall),
             inningsNumber: innings.inningsNumber,
             filters: filters,
             event: e,
@@ -309,7 +327,7 @@ class CommentaryFeedService {
           );
           items.add(
             NextBatterCommentaryItem(
-              sortKey: e.sequence,
+              sortKey: _feedKey(e.sequence, _phaseNextBatter),
               inningsNumber: innings.inningsNumber,
               filters: {CommentaryFilter.wickets, CommentaryFilter.full},
               playerId: e.nextStrikerId!,
@@ -332,15 +350,17 @@ class CommentaryFeedService {
           batterBalls: batterBalls,
           totalRuns: totalRuns,
           totalWickets: totalWickets,
-          sortKey: e.sequence,
+          // After the last ball of the over (same sequence, later phase).
+          sortKey: _feedKey(e.sequence, _phaseOverSummary),
+          isComplete: true,
         );
-        _maybeEndPowerplay(
+        final ppEnded = _maybeEndPowerplay(
           overNumber: e.overNumber,
           activeSlot: activePowerplaySlot,
           slots: powerplaySlots,
           labels: powerplayLabels,
           inningsNumber: innings.inningsNumber,
-          sortKey: e.sequence,
+          sortKey: _feedKey(e.sequence, _phasePowerplayEnd),
           items: items,
           runsScored: ppRuns,
           wicketsLost: ppWickets,
@@ -348,10 +368,12 @@ class CommentaryFeedService {
           ballsPerOver: bpo,
         );
         overAcc.reset();
-        activePowerplaySlot = null;
-        ppRuns = 0;
-        ppWickets = 0;
-        ppLegalBalls = 0;
+        if (ppEnded) {
+          activePowerplaySlot = null;
+          ppRuns = 0;
+          ppWickets = 0;
+          ppLegalBalls = 0;
+        }
       }
     }
 
@@ -367,7 +389,8 @@ class CommentaryFeedService {
         batterBalls: batterBalls,
         totalRuns: totalRuns,
         totalWickets: totalWickets,
-        sortKey: events.last.sequence,
+        sortKey: _feedKey(events.last.sequence, _phaseOverSummary),
+        isComplete: false,
       );
     }
 
@@ -386,6 +409,7 @@ class CommentaryFeedService {
     required int totalRuns,
     required int totalWickets,
     required int sortKey,
+    bool isComplete = true,
   }) {
     if (!acc.hasStarted || acc.symbols.isEmpty) return;
 
@@ -438,11 +462,13 @@ class CommentaryFeedService {
         batters: batters,
         bowler: bowlerLine,
         bowlerToLine: bowlerToLine,
+        isComplete: isComplete,
       ),
     );
   }
 
-  static void _maybeEndPowerplay({
+  /// Returns true when a powerplay-ended banner was added.
+  static bool _maybeEndPowerplay({
     required int overNumber,
     required int? activeSlot,
     required List<List<int>> slots,
@@ -455,11 +481,11 @@ class CommentaryFeedService {
     required int legalBalls,
     required int ballsPerOver,
   }) {
-    if (activeSlot == null) return;
+    if (activeSlot == null) return false;
     final slotOvers = slots[activeSlot];
-    if (slotOvers.isEmpty) return;
+    if (slotOvers.isEmpty) return false;
     final lastOver = slotOvers.reduce((a, b) => a > b ? a : b);
-    if (overNumber != lastOver) return;
+    if (overNumber != lastOver) return false;
 
     final label = labels.length > activeSlot
         ? labels[activeSlot]
@@ -467,7 +493,7 @@ class CommentaryFeedService {
     final crr = legalBalls > 0
         ? CricketMath.runRate(runsScored, legalBalls, ballsPerOver)
         : 0.0;
-  final wicketLabel = wicketsLost == 1 ? 'Wicket' : 'Wickets';
+    final wicketLabel = wicketsLost == 1 ? 'Wicket' : 'Wickets';
     items.add(
       MatchEventCommentaryItem(
         sortKey: sortKey,
@@ -482,6 +508,7 @@ class CommentaryFeedService {
         crr: crr,
       ),
     );
+    return true;
   }
 
   static int? _powerplaySlotForOver(int overNumber, List<List<int>> slots) {

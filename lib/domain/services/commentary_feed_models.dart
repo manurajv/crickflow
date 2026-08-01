@@ -109,7 +109,13 @@ class BallCommentaryItem extends CommentaryFeedItem {
   final int? batterRuns;
   final int? batterBalls;
 
-  String get ballLabel => '${event.overNumber}.${event.ballInOver}';
+  /// Cricket ball notation: completed overs.ball (first ball is `0.1`).
+  /// Stored [BallEventModel.overNumber] is 1-based; legacy 0-based is left as-is.
+  String get ballLabel {
+    final overDisplay =
+        event.overNumber >= 1 ? event.overNumber - 1 : event.overNumber;
+    return '$overDisplay.${event.ballInOver}';
+  }
 
   bool get isWicket =>
       event.eventType == BallEventType.wicket && event.isWicket;
@@ -133,6 +139,7 @@ class OverSummaryCommentaryItem extends CommentaryFeedItem {
     required this.batters,
     required this.bowler,
     this.bowlerToLine = '',
+    this.isComplete = true,
   }) : super(kind: CommentaryFeedKind.overSummary);
 
   final int overNumber;
@@ -145,6 +152,9 @@ class OverSummaryCommentaryItem extends CommentaryFeedItem {
   final List<CommentaryBatterLine> batters;
   final CommentaryBowlerLine bowler;
   final String bowlerToLine;
+
+  /// False while the over is still in progress (show as "This Over").
+  final bool isComplete;
 
   bool get hasBoundary =>
       ballSymbols.any((s) => s == '4' || s == '6');
@@ -254,7 +264,10 @@ class CommentaryFeed {
         }).toList();
       case CommentaryFilter.overs:
         return items
-            .where((i) => i.kind == CommentaryFeedKind.overSummary)
+            .where(
+              (i) =>
+                  i is OverSummaryCommentaryItem && i.isComplete,
+            )
             .toList();
       case CommentaryFilter.powerplays:
         return items
