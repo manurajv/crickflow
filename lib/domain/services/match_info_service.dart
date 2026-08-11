@@ -24,6 +24,8 @@ class MatchInfoService {
     String? tournamentName,
     String? tournamentRoundName,
     String? tournamentGroupName,
+    RoundType? tournamentRoundType,
+    TournamentFormat? tournamentFormat,
   }) {
     return MatchInfoSnapshot(
       overview: _overview(
@@ -31,6 +33,8 @@ class MatchInfoService {
         tournamentName,
         tournamentRoundName: tournamentRoundName,
         tournamentGroupName: tournamentGroupName,
+        tournamentRoundType: tournamentRoundType,
+        tournamentFormat: tournamentFormat,
       ),
       configuration: _configuration(match),
       officials: _officials(match),
@@ -55,6 +59,8 @@ class MatchInfoService {
     String? tournamentName, {
     String? tournamentRoundName,
     String? tournamentGroupName,
+    RoundType? tournamentRoundType,
+    TournamentFormat? tournamentFormat,
   }) {
     final rules = match.rules;
     final rows = <MatchInfoRow>[];
@@ -84,12 +90,15 @@ class MatchInfoService {
         tournamentMatchTypeLabel(
           match,
           groupName: tournamentGroupName,
+          roundType: tournamentRoundType,
+          tournamentFormat: tournamentFormat,
         ),
       );
       final round = tournamentMatchRoundLabel(
         match,
         roundName: tournamentRoundName,
         groupName: tournamentGroupName,
+        roundType: tournamentRoundType,
       );
       if (round != null && round.isNotEmpty) {
         add('Round', round);
@@ -101,12 +110,15 @@ class MatchInfoService {
         tournamentMatchTypeLabel(
           match,
           groupName: tournamentGroupName,
+          roundType: tournamentRoundType,
+          tournamentFormat: tournamentFormat,
         ),
       );
       final round = tournamentMatchRoundLabel(
         match,
         roundName: tournamentRoundName,
         groupName: tournamentGroupName,
+        roundType: tournamentRoundType,
       );
       if (round != null && round.isNotEmpty) {
         add('Round', round);

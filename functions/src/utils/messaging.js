@@ -51,6 +51,7 @@ async function createUserNotification(db, userId, payload) {
     teamId: payload.teamId || null,
     playerId: payload.playerId || null,
     tournamentId: payload.tournamentId || null,
+    requestId: payload.requestId || null,
     type: payload.type || null,
     category: payload.category || null,
     tab: payload.tab || null,

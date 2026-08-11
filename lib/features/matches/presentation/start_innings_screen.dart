@@ -92,7 +92,9 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
         ? ScoringDisplayUtils.wicketKeeperIdForTeam(match, bowlingTeamId)
         : null;
     final disabledIds = <String, String>{};
-    if (keeperId != null && keeperId.isNotEmpty) {
+    if (!match.rules.wicketKeeperCanBowl &&
+        keeperId != null &&
+        keeperId.isNotEmpty) {
       disabledIds[keeperId] = ScoringDisplayUtils.wicketKeeperCannotBowlReason;
     }
     final p = await SelectLineupPlayerSheet.show(
@@ -109,6 +111,26 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
 
   Future<void> _startScoring(MatchModel match) async {
     if (!_canStart) return;
+
+    final inn = match.currentInnings ?? match.innings.firstOrNull;
+    final bowlingTeamId = inn?.bowlingTeamId ?? _lineupBowlingTeamId;
+    final keeperId = bowlingTeamId != null
+        ? ScoringDisplayUtils.wicketKeeperIdForTeam(match, bowlingTeamId)
+        : null;
+    final violation = ScoringDisplayUtils.wicketKeeperBowlingViolation(
+      rules: match.rules,
+      bowlerId: _bowler?.id,
+      wicketKeeperId: keeperId,
+    );
+    if (violation != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(violation)),
+        );
+      }
+      return;
+    }
+
     setState(() => _starting = true);
     final uid = ref.read(authStateProvider).value?.uid;
     final profile = ref.read(currentUserProfileProvider).valueOrNull;
@@ -212,13 +234,42 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
           }
 
           final inn = match.currentInnings ?? match.innings.firstOrNull;
-          final alreadyScoring = MatchLifecycle.canOpenScoringScreen(match) &&
-              inn != null &&
-              (MatchLifecycle.hasScoringStarted(match) ||
-                  (inn.status == InningsStatus.inProgress &&
-                      inn.strikerId != null &&
-                      inn.nonStrikerId != null &&
-                      inn.currentBowlerId != null));
+
+          // Offline / race: innings ended but next innings not created yet.
+          final repo = ref.read(matchRepositoryProvider);
+          if (inn != null &&
+              inn.status == InningsStatus.completed &&
+              repo.canStartNextInnings(match)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted) return;
+              try {
+                await repo.startNextInnings(widget.matchId);
+              } catch (_) {}
+            });
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // Opening crease for this innings — same UI as match start (incl. 2nd+).
+          if (MatchLifecycle.currentInningsNeedsOpeningLineup(match)) {
+            return squadsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Squads: $e')),
+              data: (squads) => _buildLineupBody(match, squads, cf),
+            );
+          }
+
+          final hasFullCrease = inn != null &&
+              inn.strikerId != null &&
+              inn.strikerId!.isNotEmpty &&
+              inn.nonStrikerId != null &&
+              inn.nonStrikerId!.isNotEmpty &&
+              inn.currentBowlerId != null &&
+              inn.currentBowlerId!.isNotEmpty;
+          // Only auto-advance once lineup is on the match AND we are not mid-submit.
+          final alreadyScoring = !_starting &&
+              MatchLifecycle.canOpenScoringScreen(match) &&
+              hasFullCrease &&
+              !MatchLifecycle.currentInningsNeedsOpeningLineup(match);
           if (alreadyScoring) {
             WidgetsBinding.instance.addPostFrameCallback((_) async {
               if (!mounted) return;
@@ -240,107 +291,20 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
           return squadsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Squads: $e')),
-            data: (squads) {
-              if (squads.batting.isEmpty || squads.bowling.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: AppDimens.listPadding,
-                    child: Text(
-                      'Squads are empty. Add players to teams in match setup.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: cf.textSecondary),
-                    ),
-                  ),
-                );
-              }
-
-              return Stack(
-                children: [
-                  ListView(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppDimens.spaceMd,
-                      AppDimens.spaceSm,
-                      AppDimens.spaceMd,
-                      100,
-                    ),
-                    children: [
-                      Text(
-                        'Batting — ${_battingTeamName(match)}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: cf.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: AppDimens.spaceSm),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          InningsPlayerSlotCard(
-                            placeholder: 'Select striker',
-                            player: _striker,
-                            icon: Icons.sports_cricket,
-                            onTap: () => _pickStriker(squads.batting),
-                          ),
-                          const SizedBox(width: AppDimens.spaceSm),
-                          InningsPlayerSlotCard(
-                            placeholder: 'Select non-striker',
-                            player: _nonStriker,
-                            icon: Icons.directions_run,
-                            onTap: () => _pickNonStriker(squads.batting),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppDimens.spaceXl),
-                      Text(
-                        'Bowling — ${_bowlingTeamName(match)}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: cf.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: AppDimens.spaceSm),
-                      Row(
-                        children: [
-                          InningsPlayerSlotCard(
-                            placeholder: 'Select bowler',
-                            player: _bowler,
-                            icon: Icons.sports_baseball_outlined,
-                            flex: 1,
-                            onTap: () => _pickBowler(squads.bowling, match),
-                          ),
-                          const Spacer(flex: 1),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    right: AppDimens.spaceMd,
-                    bottom: 88,
-                    child: FloatingActionButton(
-                      heroTag: 'start_innings_photo_fab_${widget.matchId}',
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Opening photo — coming soon'),
-                          ),
-                        );
-                      },
-                      backgroundColor: cf.fabBackground,
-                      foregroundColor: cf.fabForeground,
-                      child: const Icon(Icons.photo_camera_outlined),
-                    ),
-                  ),
-                ],
-              );
-            },
+            data: (squads) => _buildLineupBody(match, squads, cf),
           );
         },
       ),
       bottomNavigationBar: matchAsync.maybeWhen(
         data: (match) {
           if (match == null) return null;
+          if (!MatchLifecycle.currentInningsNeedsOpeningLineup(match) &&
+              MatchLifecycle.canOpenScoringScreen(match) &&
+              match.currentInnings?.strikerId != null &&
+              match.currentInnings?.nonStrikerId != null &&
+              match.currentInnings?.currentBowlerId != null) {
+            return null;
+          }
           return SafeArea(
             child: Row(
               children: [
@@ -390,7 +354,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
                                   ),
                                 )
                               : Text(
-                                  'Start scoring',
+                                  'Continue scoring',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     color: _canStart
@@ -409,6 +373,122 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
         },
         orElse: () => null,
       ),
+    );
+  }
+
+  Widget _buildLineupBody(
+    MatchModel match,
+    MatchLineupSquads squads,
+    CfColors cf,
+  ) {
+    if (squads.batting.isEmpty || squads.bowling.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: AppDimens.listPadding,
+          child: Text(
+            'Squads are empty. Add players to teams in match setup.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: cf.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    final inn = match.currentInnings ?? match.innings.firstOrNull;
+    final inningsLabel = inn == null
+        ? 'Start innings'
+        : inn.isSuperOver
+            ? 'Start super over'
+            : 'Start innings ${inn.inningsNumber}';
+
+    return Stack(
+      children: [
+        ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.spaceMd,
+            AppDimens.spaceSm,
+            AppDimens.spaceMd,
+            100,
+          ),
+          children: [
+            Text(
+              inningsLabel,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: cf.textMuted,
+              ),
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+            Text(
+              'Batting — ${_battingTeamName(match)}',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: cf.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InningsPlayerSlotCard(
+                  placeholder: 'Select striker',
+                  player: _striker,
+                  icon: Icons.sports_cricket,
+                  onTap: () => _pickStriker(squads.batting),
+                ),
+                const SizedBox(width: AppDimens.spaceSm),
+                InningsPlayerSlotCard(
+                  placeholder: 'Select non-striker',
+                  player: _nonStriker,
+                  icon: Icons.directions_run,
+                  onTap: () => _pickNonStriker(squads.batting),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.spaceXl),
+            Text(
+              'Bowling — ${_bowlingTeamName(match)}',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: cf.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+            Row(
+              children: [
+                InningsPlayerSlotCard(
+                  placeholder: 'Select bowler',
+                  player: _bowler,
+                  icon: Icons.sports_baseball_outlined,
+                  flex: 1,
+                  onTap: () => _pickBowler(squads.bowling, match),
+                ),
+                const Spacer(flex: 1),
+              ],
+            ),
+          ],
+        ),
+        Positioned(
+          right: AppDimens.spaceMd,
+          bottom: 88,
+          child: FloatingActionButton(
+            heroTag: 'start_innings_photo_fab_${widget.matchId}',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Opening photo — coming soon'),
+                ),
+              );
+            },
+            backgroundColor: cf.fabBackground,
+            foregroundColor: cf.fabForeground,
+            child: const Icon(Icons.photo_camera_outlined),
+          ),
+        ),
+      ],
     );
   }
 }

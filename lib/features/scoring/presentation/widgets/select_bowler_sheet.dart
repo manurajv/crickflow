@@ -114,7 +114,8 @@ class SelectBowlerSheet extends StatelessWidget {
                   Divider(height: 1, color: cf.border),
               itemBuilder: (_, i) {
                 final p = bowlingSquad[i];
-                final isKeeper = wicketKeeperId != null &&
+                final isKeeper = !match.rules.wicketKeeperCanBowl &&
+                    wicketKeeperId != null &&
                     wicketKeeperId!.isNotEmpty &&
                     p.id == wicketKeeperId;
                 final excluded =

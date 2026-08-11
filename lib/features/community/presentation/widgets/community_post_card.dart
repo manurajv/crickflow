@@ -8,6 +8,7 @@ import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/currency_utils.dart';
 import '../../../../core/utils/date_utils.dart';
 import '../../../../core/utils/deep_link_utils.dart';
 import '../../../../data/models/community_post_model.dart';
@@ -16,6 +17,7 @@ import '../../../../shared/providers/community_provider.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
+import '../../../tournaments/presentation/utils/tournament_display_utils.dart';
 import '../../community_post_ui.dart';
 import 'community_comments_sheet.dart';
 import 'community_media_viewer.dart';
@@ -287,11 +289,14 @@ String? _tournamentMetaUnderTitle(WidgetRef ref, CommunityPostModel post) {
   var fee = snap.entryFee?.trim() ?? '';
   var budgetDay = snap.budgetPerDayLabel.trim();
   var budgetMatch = snap.budgetPerMatchLabel.trim();
+  var budgetByRole = List<String>.from(snap.budgetByRoleLabels);
 
   if ((format.isEmpty ||
           teams == null ||
           (isOfficials
-              ? (budgetDay.isEmpty && budgetMatch.isEmpty)
+              ? (budgetDay.isEmpty &&
+                  budgetMatch.isEmpty &&
+                  budgetByRole.isEmpty)
               : fee.isEmpty)) &&
       snap.tournamentId.isNotEmpty) {
     final tournament =
@@ -308,17 +313,34 @@ String? _tournamentMetaUnderTitle(WidgetRef ref, CommunityPostModel post) {
       teams ??= tournament.setupMeta.totalTeams ??
           (tournament.teamIds.isNotEmpty ? tournament.teamIds.length : null);
       if (!isOfficials && fee.isEmpty && tournament.entryFee != null) {
-        final v = tournament.entryFee!;
-        fee = v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(0);
+        fee = formatEntryFee(
+          tournament.entryFee,
+          currencyCode: tournamentCurrencyCode(tournament),
+          countryOrCode: tournament.location.country,
+        );
       }
       if (isOfficials) {
-        final day = tournament.setupMeta.budgetPerDay;
-        final match = tournament.setupMeta.budgetPerMatch;
-        if (budgetDay.isEmpty && day != null) {
-          budgetDay = officialBudgetLabel(day);
-        }
-        if (budgetMatch.isEmpty && match != null) {
-          budgetMatch = officialBudgetLabel(match);
+        final lines = officialBudgetSummaryLines(
+          tournament.setupMeta,
+          currencyCode: tournament.setupMeta.budgetCurrencyCode.isNotEmpty
+              ? tournament.setupMeta.budgetCurrencyCode
+              : currencyCodeForCountry(tournament.location.country),
+        );
+        if (budgetDay.isEmpty &&
+            budgetMatch.isEmpty &&
+            budgetByRole.isEmpty &&
+            lines.isNotEmpty) {
+          if (tournament.setupMeta.sameBudgetForAll) {
+            for (final line in lines) {
+              if (line.startsWith('Budget/day:')) {
+                budgetDay = line.replaceFirst('Budget/day:', '').trim();
+              } else if (line.startsWith('Budget/match:')) {
+                budgetMatch = line.replaceFirst('Budget/match:', '').trim();
+              }
+            }
+          } else {
+            budgetByRole = lines;
+          }
         }
       }
     }
@@ -328,8 +350,12 @@ String? _tournamentMetaUnderTitle(WidgetRef ref, CommunityPostModel post) {
     if (format.isNotEmpty) format,
     if (teams != null) '$teams teams',
     if (isOfficials) ...[
-      if (budgetDay.isNotEmpty) 'Budget/day: $budgetDay',
-      if (budgetMatch.isNotEmpty) 'Budget/match: $budgetMatch',
+      if (budgetByRole.isNotEmpty)
+        ...budgetByRole
+      else ...[
+        if (budgetDay.isNotEmpty) 'Budget/day: $budgetDay',
+        if (budgetMatch.isNotEmpty) 'Budget/match: $budgetMatch',
+      ],
     ] else if (fee.isNotEmpty)
       'Entry fee: $fee',
   ];

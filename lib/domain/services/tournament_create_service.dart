@@ -127,13 +127,16 @@ class TournamentCreateService {
     String? thumbnailUrl,
     required String organizerUserId,
   }) {
-    final visibility = _contactVisibility(meta.officialContactMethod);
+    final methods = _contactMethods(meta.officialContactMethods);
     final phone = meta.organizerPhone.isNotEmpty
         ? meta.organizerPhone
         : draft.organizerPhone;
     final email = meta.organizerEmail.isNotEmpty
         ? meta.organizerEmail
         : draft.organizerEmail;
+    final visibility = methods.isEmpty
+        ? CommunityContactVisibility.hide
+        : methods.first;
 
     final grounds = <String>[
       ...draft.grounds.map((g) => g.trim()).where((g) => g.isNotEmpty),
@@ -162,35 +165,54 @@ class TournamentCreateService {
       startDate: draft.startDate,
       endDate: draft.endDate,
       entryFee: draft.entryFeeText.isNotEmpty ? draft.entryFeeText : null,
-      budgetPerDayLabel: meta.budgetPerDay != null
-          ? officialBudgetLabel(meta.budgetPerDay!)
+      budgetPerDayLabel: meta.sameBudgetForAll && meta.budgetPerDay != null
+          ? _budgetLabelWithCurrency(meta.budgetPerDay!, meta.budgetCurrencyCode)
           : '',
-      budgetPerMatchLabel: meta.budgetPerMatch != null
-          ? officialBudgetLabel(meta.budgetPerMatch!)
+      budgetPerMatchLabel: meta.sameBudgetForAll && meta.budgetPerMatch != null
+          ? _budgetLabelWithCurrency(
+              meta.budgetPerMatch!,
+              meta.budgetCurrencyCode,
+            )
           : '',
+      budgetByRoleLabels: meta.sameBudgetForAll
+          ? const []
+          : officialBudgetSummaryLines(meta),
+      budgetCurrencyCode: meta.budgetCurrencyCode,
       ballType: draft.ballTypeOther ? 'Other' : draft.ballType.name,
       matchFormat: tournamentMatchFormatLabel(meta.matchFormat),
       formatLabel: _tournamentTypeLabel(draft.format),
       teamCount: meta.totalTeams ?? meta.teamsRequired,
       registrationStatus: draft.needMoreTeams ? 'Open' : '',
       contactVisibility: visibility,
-      contactPhone: visibility == CommunityContactVisibility.phone ? phone : '',
-      contactWhatsApp:
-          visibility == CommunityContactVisibility.whatsapp ? phone : '',
-      contactEmail: visibility == CommunityContactVisibility.email ? email : '',
+      contactMethods: methods,
+      contactPhone: methods.contains(CommunityContactVisibility.phone)
+          ? phone
+          : '',
+      contactWhatsApp: methods.contains(CommunityContactVisibility.whatsapp)
+          ? phone
+          : '',
+      contactEmail: methods.contains(CommunityContactVisibility.email)
+          ? email
+          : '',
       organizerUserId: organizerUserId,
     );
   }
 
-  CommunityContactVisibility _contactVisibility(OfficialContactMethod m) {
-    return switch (m) {
-      OfficialContactMethod.phoneCall => CommunityContactVisibility.phone,
-      OfficialContactMethod.whatsApp => CommunityContactVisibility.whatsapp,
-      OfficialContactMethod.email => CommunityContactVisibility.email,
-      OfficialContactMethod.hide => CommunityContactVisibility.hide,
-      OfficialContactMethod.inAppMessage =>
-        CommunityContactVisibility.crickflowDm,
-    };
+  List<CommunityContactVisibility> _contactMethods(
+    Set<OfficialContactMethod> methods,
+  ) {
+    final ordered = <CommunityContactVisibility>[];
+    void add(OfficialContactMethod src, CommunityContactVisibility dest) {
+      if (methods.contains(src) && !ordered.contains(dest)) {
+        ordered.add(dest);
+      }
+    }
+
+    add(OfficialContactMethod.inAppMessage, CommunityContactVisibility.crickflowDm);
+    add(OfficialContactMethod.whatsApp, CommunityContactVisibility.whatsapp);
+    add(OfficialContactMethod.phoneCall, CommunityContactVisibility.phone);
+    add(OfficialContactMethod.email, CommunityContactVisibility.email);
+    return ordered;
   }
 
   String _tournamentTypeLabel(TournamentFormat format) => switch (format) {
@@ -205,6 +227,13 @@ class TournamentCreateService {
     final roles = meta.requiredOfficialRoles.map((r) => r.name).join(', ');
     if (roles.isNotEmpty) return 'Looking for: $roles';
     return '';
+  }
+
+  String _budgetLabelWithCurrency(OfficialBudgetBand band, String currency) {
+    final label = officialBudgetLabel(band);
+    final code = currency.trim();
+    if (code.isEmpty) return label;
+    return '$label $code';
   }
 
   String _teamsPostBody(

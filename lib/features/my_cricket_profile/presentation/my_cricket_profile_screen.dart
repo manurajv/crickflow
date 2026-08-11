@@ -23,6 +23,7 @@ class MyCricketProfileScreen extends ConsumerStatefulWidget {
     super.key,
     this.playerId,
     this.playerDocId,
+    this.initialTab,
   });
 
   /// Public CF player id (CF000001).
@@ -30,6 +31,22 @@ class MyCricketProfileScreen extends ConsumerStatefulWidget {
 
   /// Firestore player doc id — used when opening from player repository.
   final String? playerDocId;
+
+  /// Deep-link tab: matches | stats | trophies | badges | teams | connections.
+  final String? initialTab;
+
+  static int? tabIndexFromName(String? name) {
+    if (name == null || name.isEmpty) return null;
+    return switch (name.trim().toLowerCase()) {
+      'matches' || 'match' => 0,
+      'stats' || 'stat' => 1,
+      'trophies' || 'trophy' => 2,
+      'badges' || 'badge' => 3,
+      'teams' || 'team' => 4,
+      'connections' || 'connection' => 5,
+      _ => int.tryParse(name),
+    };
+  }
 
   @override
   ConsumerState<MyCricketProfileScreen> createState() =>
@@ -74,8 +91,11 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
     _scrollController = ScrollController()..addListener(_syncTitleVisibility);
     _tabs.addListener(_onTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final initial = ref.read(profileInitialTabProvider);
-      if (initial > 0 && initial < _tabs.length) {
+      final fromRoute =
+          MyCricketProfileScreen.tabIndexFromName(widget.initialTab);
+      final fromProvider = ref.read(profileInitialTabProvider);
+      final initial = fromRoute ?? (fromProvider > 0 ? fromProvider : null);
+      if (initial != null && initial > 0 && initial < _tabs.length) {
         _tabs.animateTo(initial);
         ref.read(profileInitialTabProvider.notifier).state = 0;
       }

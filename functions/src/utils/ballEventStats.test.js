@@ -4,6 +4,7 @@
 const assert = require('assert');
 const {
   replayInnings,
+  applyEventToInnings,
   collectPlayerAggFromEvents,
   fieldersFromEvents,
   verifyMatchProjection,
@@ -260,30 +261,28 @@ const rhLineup = {
   partnershipBalls: 13,
 };
 
-const rhReplayed = replayInnings(
+const rhReplayed = applyEventToInnings(
   rhLineup,
-  [
-    {
-      sequence: 1,
-      inningsNumber: 1,
-      eventType: 'wicket',
-      wicketType: 'retiredHurt',
-      retiredHurt: true,
-      isEligibleToReturn: true,
-      isWicket: false,
-      runs: 0,
-      batsmanRuns: 0,
-      isLegalDelivery: false,
-      countsInOver: false,
-      countsToBowler: false,
-      dismissedPlayerId: 'b1',
-      strikerId: 'b1',
-      nonStrikerId: 'b2',
-      bowlerId: 'bowl1',
-      overNumber: 2,
-      ballInOver: 1,
-    },
-  ],
+  {
+    sequence: 1,
+    inningsNumber: 1,
+    eventType: 'wicket',
+    wicketType: 'retiredHurt',
+    retiredHurt: true,
+    isEligibleToReturn: true,
+    isWicket: false,
+    runs: 0,
+    batsmanRuns: 0,
+    isLegalDelivery: false,
+    countsInOver: false,
+    countsToBowler: false,
+    dismissedPlayerId: 'b1',
+    strikerId: 'b1',
+    nonStrikerId: 'b2',
+    bowlerId: 'bowl1',
+    overNumber: 2,
+    ballInOver: 1,
+  },
   rules,
 );
 assert.strictEqual(rhReplayed.totalWickets, 1);

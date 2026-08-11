@@ -299,7 +299,11 @@ class _TournamentInfoSection extends StatelessWidget {
             ),
           TournamentOverviewDetailRow(
             label: 'Entry fee',
-            value: formatEntryFee(tournament.entryFee),
+            value: formatEntryFee(
+              tournament.entryFee,
+              currencyCode: tournamentCurrencyCode(tournament),
+              countryOrCode: tournament.location.country,
+            ),
           ),
           TournamentOverviewDetailRow(
             label: 'Prize pool',

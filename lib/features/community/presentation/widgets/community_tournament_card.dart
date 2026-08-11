@@ -59,8 +59,8 @@ class CommunityTournamentCard extends ConsumerWidget {
     final cf = context.cf;
     final theme = Theme.of(context);
     final thumb = snapshot.thumbnailUrl;
-    final isDm =
-        snapshot.contactVisibility == CommunityContactVisibility.crickflowDm;
+    final methods = snapshot.resolvedContactMethods;
+    final isDm = methods.contains(CommunityContactVisibility.crickflowDm);
     final showExternalContact = _hasExternalContact(snapshot);
     var grounds = _grounds;
     if (grounds.isEmpty && snapshot.tournamentId.isNotEmpty) {
@@ -337,14 +337,13 @@ class CommunityTournamentCard extends ConsumerWidget {
   }
 
   bool _hasExternalContact(CommunityTournamentSnapshot s) {
-    return switch (s.contactVisibility) {
-      CommunityContactVisibility.phone => s.contactPhone.isNotEmpty,
-      CommunityContactVisibility.whatsapp => s.contactWhatsApp.isNotEmpty,
-      CommunityContactVisibility.email => s.contactEmail.isNotEmpty,
-      CommunityContactVisibility.hide ||
-      CommunityContactVisibility.crickflowDm =>
-        false,
-    };
+    final methods = s.resolvedContactMethods;
+    return (methods.contains(CommunityContactVisibility.phone) &&
+            s.contactPhone.isNotEmpty) ||
+        (methods.contains(CommunityContactVisibility.whatsapp) &&
+            s.contactWhatsApp.isNotEmpty) ||
+        (methods.contains(CommunityContactVisibility.email) &&
+            s.contactEmail.isNotEmpty);
   }
 
   String _dateRange(DateTime? start, DateTime? end) {
@@ -374,65 +373,77 @@ class _ExternalContactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    final (icon, label, onTap) = switch (snapshot.contactVisibility) {
-      CommunityContactVisibility.phone => (
-          Icons.phone_outlined,
-          snapshot.contactPhone,
-          () => launchUrl(Uri(scheme: 'tel', path: snapshot.contactPhone)),
-        ),
-      CommunityContactVisibility.whatsapp => (
-          Icons.chat_outlined,
-          snapshot.contactWhatsApp,
-          () {
-            final phone =
-                snapshot.contactWhatsApp.replaceAll(RegExp(r'\D'), '');
-            launchUrl(
-              Uri.parse('https://wa.me/$phone'),
-              mode: LaunchMode.externalApplication,
-            );
-          },
-        ),
-      CommunityContactVisibility.email => (
-          Icons.email_outlined,
-          snapshot.contactEmail,
-          () => launchUrl(
-                Uri(
-                  scheme: 'mailto',
-                  path: snapshot.contactEmail,
+    final methods = snapshot.resolvedContactMethods;
+    final rows = <Widget>[];
+
+    void addRow({
+      required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+    }) {
+      if (label.isEmpty) return;
+      rows.add(
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: cf.accent),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cf.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
                 ),
-              ),
-        ),
-      CommunityContactVisibility.hide ||
-      CommunityContactVisibility.crickflowDm => (
-          Icons.visibility_off_outlined,
-          '',
-          null,
-        ),
-    };
-
-    if (label.isEmpty) return const SizedBox.shrink();
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: cf.accent),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: cf.accent,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      );
+    }
+
+    if (methods.contains(CommunityContactVisibility.whatsapp)) {
+      addRow(
+        icon: Icons.chat_outlined,
+        label: snapshot.contactWhatsApp,
+        onTap: () {
+          final phone =
+              snapshot.contactWhatsApp.replaceAll(RegExp(r'\D'), '');
+          launchUrl(
+            Uri.parse('https://wa.me/$phone'),
+            mode: LaunchMode.externalApplication,
+          );
+        },
+      );
+    }
+    if (methods.contains(CommunityContactVisibility.phone)) {
+      addRow(
+        icon: Icons.phone_outlined,
+        label: snapshot.contactPhone,
+        onTap: () =>
+            launchUrl(Uri(scheme: 'tel', path: snapshot.contactPhone)),
+      );
+    }
+    if (methods.contains(CommunityContactVisibility.email)) {
+      addRow(
+        icon: Icons.email_outlined,
+        label: snapshot.contactEmail,
+        onTap: () => launchUrl(
+              Uri(scheme: 'mailto', path: snapshot.contactEmail),
+            ),
+      );
+    }
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
     );
   }
 }

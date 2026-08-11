@@ -80,14 +80,60 @@ class MatchRepository {
       _matchDoc(matchId).collection('activity_logs');
 
   /// Prefer Firestore when the scorer updates from another device.
+  ///
+  /// When versions tie, prefer the match with more innings progress so a stale
+  /// Firestore/cache snapshot cannot wipe a locally started next innings.
   MatchModel? _pickNewerMatch(MatchModel? local, MatchModel? remote) {
     if (local == null) return remote;
     if (remote == null) return local;
-    final overlayWinner =
-        remote.overlayVersion >= local.overlayVersion ? remote : local;
+
+    MatchModel overlayWinner;
+    if (remote.overlayVersion > local.overlayVersion) {
+      overlayWinner = remote;
+    } else if (local.overlayVersion > remote.overlayVersion) {
+      overlayWinner = local;
+    } else {
+      overlayWinner = _preferRicherMatchState(local, remote);
+    }
+
     final stream = _richerStreamMetadata(local.stream, remote.stream);
     if (stream == overlayWinner.stream) return overlayWinner;
     return overlayWinner.copyWith(stream: stream);
+  }
+
+  /// Tie-break: keep the copy that already advanced innings / crease locally.
+  MatchModel _preferRicherMatchState(MatchModel local, MatchModel remote) {
+    if (local.innings.length != remote.innings.length) {
+      return local.innings.length > remote.innings.length ? local : remote;
+    }
+    if (local.currentInningsIndex != remote.currentInningsIndex) {
+      return local.currentInningsIndex > remote.currentInningsIndex
+          ? local
+          : remote;
+    }
+    final localBalls =
+        local.innings.fold<int>(0, (total, i) => total + i.legalBalls);
+    final remoteBalls =
+        remote.innings.fold<int>(0, (total, i) => total + i.legalBalls);
+    if (localBalls != remoteBalls) {
+      return localBalls > remoteBalls ? local : remote;
+    }
+
+    final localInn = local.currentInnings;
+    final remoteInn = remote.currentInnings;
+    final localCrease = localInn != null &&
+        (localInn.strikerId?.isNotEmpty ?? false) &&
+        (localInn.nonStrikerId?.isNotEmpty ?? false) &&
+        (localInn.currentBowlerId?.isNotEmpty ?? false);
+    final remoteCrease = remoteInn != null &&
+        (remoteInn.strikerId?.isNotEmpty ?? false) &&
+        (remoteInn.nonStrikerId?.isNotEmpty ?? false) &&
+        (remoteInn.currentBowlerId?.isNotEmpty ?? false);
+    if (localCrease != remoteCrease) {
+      return localCrease ? local : remote;
+    }
+
+    return remote;
   }
 
   /// Keeps the fullest playback history when overlay and stream diverge.
@@ -561,6 +607,18 @@ class MatchRepository {
     MatchModel? localMatch;
     if (local != null) {
       localMatch = await local.getMatch(id);
+    }
+
+    // Queued offline writes are authoritative until sync clears them.
+    if (local != null && local.hasPendingSync(id) && localMatch != null) {
+      try {
+        final remoteMatch = await _getMatchFromFirestore(id);
+        return _mergeRemoteStreamForPendingLocal(localMatch, remoteMatch);
+      } on FirebaseException catch (e) {
+        if (e.code == 'unavailable') return localMatch;
+        // Prefer local pending state even if remote read fails.
+        return localMatch;
+      }
     }
 
     try {
@@ -1141,6 +1199,24 @@ class MatchRepository {
     if (match == null || match.currentInnings == null) return;
 
     final inn = match.currentInnings!;
+    var keeperId = inn.currentWicketKeeperId;
+    if (keeperId == null || keeperId.isEmpty) {
+      final setup = match.setup;
+      if (setup != null) {
+        if (inn.bowlingTeamId == match.teamAId) {
+          keeperId = setup.teamAWicketKeeperId;
+        } else if (inn.bowlingTeamId == match.teamBId) {
+          keeperId = setup.teamBWicketKeeperId;
+        }
+      }
+    }
+    if (match.rules.forbidsWicketKeeperAsBowler(
+      bowlerId: bowlerId,
+      wicketKeeperId: keeperId,
+    )) {
+      throw StateError('Wicket keeper cannot bowl in this match.');
+    }
+
     final batsmen = List<BatsmanInningsModel>.from(inn.batsmen);
     final bowlers = List<BowlerInningsModel>.from(inn.bowlers);
 
@@ -1214,7 +1290,10 @@ class MatchRepository {
     final inningsList = List<InningsModel>.from(match.innings);
     inningsList[match.currentInningsIndex] = updatedInnings;
 
-    final updated = match.copyWith(innings: inningsList);
+    final updated = match.copyWith(
+      innings: inningsList,
+      overlayVersion: match.overlayVersion + 1,
+    );
     final overlay = _scoringEngine.buildOverlayForMatch(updated);
 
     await _persistMatchLocally(updated, overlay: overlay);
@@ -1227,6 +1306,7 @@ class MatchRepository {
         overlay.toMap(),
       );
       await batch.commit();
+      await _syncPublicScorecard(updated, overlay: overlay);
     } else {
       await sync.enqueue(
         sync.newAction(
@@ -1952,6 +2032,7 @@ class MatchRepository {
     await _enqueueMatchPatch(matchId, {
       'innings': inningsList.map((i) => i.toMap()).toList(),
       'status': MatchStatus.inningsBreak.name,
+      'overlayVersion': match.overlayVersion + 1,
     });
 
     await finalizeMatchIfReady(matchId);

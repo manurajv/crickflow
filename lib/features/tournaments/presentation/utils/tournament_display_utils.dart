@@ -1,4 +1,5 @@
 import '../../../../core/constants/enums.dart';
+import '../../../../core/utils/currency_utils.dart';
 import '../../../../data/models/tournament_model.dart';
 
 export '../../../../core/utils/tournament_match_stage_utils.dart';
@@ -74,14 +75,28 @@ String tournamentCricketMatchTypeLabel(CricketMatchType type) => switch (type) {
       CricketMatchType.testMatch => 'Test Match',
     };
 
-String formatEntryFee(double? fee) {
-  if (fee == null) return '—';
-  if (fee == fee.roundToDouble()) return '₹${fee.toInt()}';
-  return '₹${fee.toStringAsFixed(0)}';
+/// Entry fee using tournament country / stored budget currency (not hardcoded INR).
+String formatEntryFee(
+  double? fee, {
+  String? countryOrCode,
+  String? currencyCode,
+}) {
+  return formatCurrencyAmount(
+    fee,
+    countryOrCode: countryOrCode,
+    currencyCode: currencyCode,
+  );
 }
 
 String formatPrizePool(TournamentModel tournament) {
   final prize = tournament.winningPrize?.trim();
   if (prize != null && prize.isNotEmpty) return prize;
   return winningPrizeTypeLabel(tournament.setupMeta.winningPrizeType);
+}
+
+/// Resolves currency for a tournament (setup meta, else location country).
+String tournamentCurrencyCode(TournamentModel tournament) {
+  final stored = tournament.setupMeta.budgetCurrencyCode.trim();
+  if (stored.isNotEmpty) return stored;
+  return currencyCodeForCountry(tournament.location.country);
 }

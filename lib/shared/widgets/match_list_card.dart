@@ -65,14 +65,26 @@ class MatchListCard extends ConsumerWidget {
     final roundLabel = showRoundBadge && !isTournament
         ? _roundLabel(ref, match)
         : null;
-    // Tournament stage/type lives in the bottom bar; keep top row for flag + badge.
-    final contentTypeLabel = isTournament
-        ? (matchTypeLabel != null &&
-                matchTypeLabel!.trim().isNotEmpty &&
-                matchTypeLabel != stageLabel
-            ? matchTypeLabel
-            : '')
-        : matchTypeLabel;
+    // Outside tournaments: stage stays in the footer (header shows tournament name).
+    // Inside a tournament: put stage/title on the card top — tournament name is redundant.
+    final String? contentTypeLabel;
+    if (!isTournament) {
+      contentTypeLabel = matchTypeLabel;
+    } else if (matchTypeLabel != null &&
+        matchTypeLabel!.trim().isNotEmpty &&
+        matchTypeLabel != stageLabel) {
+      contentTypeLabel = matchTypeLabel;
+    } else if (!showTournamentHeader) {
+      contentTypeLabel = (stageLabel != null && stageLabel.isNotEmpty)
+          ? stageLabel
+          : matchTypeDisplayLabel(match);
+    } else {
+      contentTypeLabel = '';
+    }
+    final showStageInFooter = isTournament &&
+        showTournamentHeader &&
+        stageLabel != null &&
+        stageLabel.isNotEmpty;
     final uid = ref.watch(authStateProvider).valueOrNull?.uid;
     final role = ref.watch(currentUserProfileProvider).valueOrNull?.role ??
         UserRole.organizer;
@@ -128,15 +140,14 @@ class MatchListCard extends ConsumerWidget {
             ),
           ),
           if (showQuickLinks &&
-              (actions.isNotEmpty ||
-                  (stageLabel != null && stageLabel.isNotEmpty))) ...[
+              (actions.isNotEmpty || showStageInFooter)) ...[
             Divider(height: 1, color: context.cf.border),
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (stageLabel != null && stageLabel.isNotEmpty)
+                  if (showStageInFooter)
                     Expanded(
                       child: Padding(
                         // Match [_LinkButton] horizontal inset; no extra vertical
@@ -199,15 +210,16 @@ class MatchListCard extends ConsumerWidget {
       return tournamentMatchStageLabel(match);
     }
 
+    final round = match.roundId != null && match.roundId!.isNotEmpty
+        ? ref.watch(
+            tournamentRoundByIdProvider(
+              (tournamentId: tournamentId, roundId: match.roundId),
+            ),
+          )
+        : null;
     final resolvedRoundName = match.roundName?.trim().isNotEmpty == true
         ? match.roundName!.trim()
-        : ref
-            .watch(
-              tournamentRoundByIdProvider(
-                (tournamentId: tournamentId, roundId: match.roundId),
-              ),
-            )
-            ?.name;
+        : round?.name;
 
     final groupName = match.groupId != null && match.groupId!.isNotEmpty
         ? ref
@@ -219,10 +231,15 @@ class MatchListCard extends ConsumerWidget {
             ?.name
         : null;
 
+    final tournament =
+        ref.watch(tournamentProvider(tournamentId)).valueOrNull;
+
     return tournamentMatchStageLabel(
       match,
       roundName: resolvedRoundName,
       groupName: groupName,
+      roundType: round?.roundType,
+      tournamentFormat: tournament?.format,
     );
   }
 

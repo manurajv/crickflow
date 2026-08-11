@@ -8,8 +8,9 @@ import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../core/utils/date_utils.dart';
 import '../../../../../core/utils/tournament_match_stage_utils.dart';
 import '../../../../../data/models/match_model.dart';
-import '../../../../../domain/scoring/match_lifecycle.dart';
 import '../../../../../shared/providers/tournament_match_providers.dart';
+import '../../../../../shared/providers/tournament_providers.dart';
+import '../../../../../shared/widgets/match_card_ui.dart';
 
 /// Read-only fixture schedule grouped by league, group stage, and knockout.
 class TournamentFixturesSchedule extends ConsumerWidget {
@@ -35,7 +36,10 @@ class TournamentFixturesSchedule extends ConsumerWidget {
       children: [
         for (var i = 0; i < sections.length; i++) ...[
           if (i > 0) const SizedBox(height: AppDimens.spaceLg),
-          _FixtureSectionView(section: sections[i]),
+          _FixtureSectionView(
+            section: sections[i],
+            tournamentId: tournamentId,
+          ),
         ],
       ],
     );
@@ -43,6 +47,8 @@ class TournamentFixturesSchedule extends ConsumerWidget {
 
   List<_FixtureSection> _buildSections(WidgetRef ref, List<MatchModel> all) {
     final sections = <_FixtureSection>[];
+    final tournamentFormat =
+        ref.watch(tournamentProvider(tournamentId)).valueOrNull?.format;
 
     int compareSchedule(MatchModel a, MatchModel b) {
       final ad = a.scheduledAt ?? DateTime(0);
@@ -52,8 +58,24 @@ class TournamentFixturesSchedule extends ConsumerWidget {
       return a.title.compareTo(b.title);
     }
 
+    bool isKnockoutMatch(MatchModel m) {
+      if (m.bracketRound != null) return true;
+      if (!_isBlank(m.groupId)) return false;
+      if (m.roundId != null && m.roundId!.isNotEmpty) {
+        final round = ref.watch(
+          tournamentRoundByIdProvider(
+            (tournamentId: tournamentId, roundId: m.roundId),
+          ),
+        );
+        if (round != null && isKnockoutRoundType(round.roundType)) {
+          return true;
+        }
+      }
+      return tournamentFormat == TournamentFormat.knockout;
+    }
+
     final league = all
-        .where((m) => m.bracketRound == null && _isBlank(m.groupId))
+        .where((m) => !isKnockoutMatch(m) && _isBlank(m.groupId))
         .toList()
       ..sort(compareSchedule);
     if (league.isNotEmpty) {
@@ -94,7 +116,7 @@ class TournamentFixturesSchedule extends ConsumerWidget {
     }
 
     if (showKnockoutSection) {
-      final knockout = all.where((m) => m.bracketRound != null).toList()
+      final knockout = all.where(isKnockoutMatch).toList()
         ..sort((a, b) {
           final round = (a.bracketRound ?? 0).compareTo(b.bracketRound ?? 0);
           if (round != 0) return round;
@@ -130,9 +152,13 @@ class _FixtureSection {
 }
 
 class _FixtureSectionView extends StatelessWidget {
-  const _FixtureSectionView({required this.section});
+  const _FixtureSectionView({
+    required this.section,
+    required this.tournamentId,
+  });
 
   final _FixtureSection section;
+  final String tournamentId;
 
   @override
   Widget build(BuildContext context) {
@@ -175,6 +201,7 @@ class _FixtureSectionView extends StatelessWidget {
                 _FixtureRow(
                   match: section.matches[i],
                   index: i + 1,
+                  tournamentId: tournamentId,
                 ),
               ],
             ],
@@ -185,31 +212,40 @@ class _FixtureSectionView extends StatelessWidget {
   }
 }
 
-class _FixtureRow extends StatelessWidget {
+class _FixtureRow extends ConsumerWidget {
   const _FixtureRow({
     required this.match,
     required this.index,
+    required this.tournamentId,
   });
 
   final MatchModel match;
   final int index;
+  final String tournamentId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
-    final status = MatchLifecycle.effectiveStatus(match);
-    final stage = tournamentMatchStageLabel(match);
-    final schedule = match.scheduledAt;
-    final scheduleText = schedule != null
-        ? AppDateUtils.formatCardSchedule(schedule)
+    final statusUi = matchStatusUi(match, cf);
+    final round = match.roundId != null && match.roundId!.isNotEmpty
+        ? ref.watch(
+            tournamentRoundByIdProvider(
+              (tournamentId: tournamentId, roundId: match.roundId),
+            ),
+          )
+        : null;
+    final tournamentFormat =
+        ref.watch(tournamentProvider(tournamentId)).valueOrNull?.format;
+    final stage = tournamentMatchStageLabel(
+      match,
+      roundName: match.roundName ?? round?.name,
+      roundType: round?.roundType,
+      tournamentFormat: tournamentFormat,
+    );
+    final displayAt = matchCardPrimaryDate(match);
+    final scheduleText = displayAt != null
+        ? AppDateUtils.formatCardSchedule(displayAt)
         : 'Date TBD';
-
-    final (statusLabel, statusColor) = switch (status) {
-      MatchStatus.live => ('Live', cf.error),
-      MatchStatus.completed => ('Done', cf.success),
-      MatchStatus.abandoned => ('Abandoned', cf.textMuted),
-      _ => ('Upcoming', cf.accent),
-    };
 
     return Material(
       color: cf.card,
@@ -260,20 +296,10 @@ class _FixtureRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.35)),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: statusColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
+              MatchStatusChip(
+                label: statusUi.label,
+                color: statusUi.color,
+                showLivePulse: statusUi.label == 'LIVE',
               ),
             ],
           ),

@@ -25,6 +25,13 @@ class ScoringEngine {
     final effectiveRules = InningsCompletionPolicy.effectiveRules(match, innings);
     final inningsBefore = innings;
 
+    _assertWicketKeeperMayBowl(
+      match: match,
+      innings: innings,
+      rules: effectiveRules,
+      input: input,
+    );
+
     var event = _buildEvent(match, innings, input, sequence, effectiveRules);
     final overMetadata = _overMetadataForEvent(
       before: inningsBefore,
@@ -62,6 +69,46 @@ class ScoringEngine {
   static int effectiveOverNumber(InningsModel innings, int ballsPerOver) {
     if (innings.currentOverNumber > 0) return innings.currentOverNumber;
     return innings.currentOverStartLegalBalls ~/ ballsPerOver + 1;
+  }
+
+  static const _wicketKeeperCannotBowlMessage =
+      'Wicket keeper cannot bowl in this match.';
+
+  /// Rejects assigning the current designated keeper as bowler when disallowed.
+  static void _assertWicketKeeperMayBowl({
+    required MatchModel match,
+    required InningsModel innings,
+    required MatchRulesModel rules,
+    required BallEventInput input,
+  }) {
+    if (rules.wicketKeeperCanBowl) return;
+
+    String? keeperId = innings.currentWicketKeeperId;
+    if (input.type == BallEventType.wicketKeeperChange &&
+        input.wicketKeeperId != null &&
+        input.wicketKeeperId!.isNotEmpty) {
+      keeperId = input.wicketKeeperId;
+    } else if (keeperId == null || keeperId.isEmpty) {
+      final setup = match.setup;
+      if (setup != null) {
+        if (innings.bowlingTeamId == match.teamAId) {
+          keeperId = setup.teamAWicketKeeperId;
+        } else if (innings.bowlingTeamId == match.teamBId) {
+          keeperId = setup.teamBWicketKeeperId;
+        }
+      }
+    }
+
+    final bowlerId = input.type == BallEventType.wicketKeeperChange
+        ? innings.currentBowlerId
+        : (input.bowlerId ?? innings.currentBowlerId);
+
+    if (rules.forbidsWicketKeeperAsBowler(
+      bowlerId: bowlerId,
+      wicketKeeperId: keeperId,
+    )) {
+      throw StateError(_wicketKeeperCannotBowlMessage);
+    }
   }
 
   static OverMetadataModel? _overMetadataForEvent({
@@ -491,10 +538,9 @@ class ScoringEngine {
       secondaryFielderName: secondaryFielder?.playerName.isNotEmpty == true
           ? secondaryFielder!.playerName
           : null,
-      teamScoreAtWicket:
-          input.type == BallEventType.wicket ? innings.totalRuns + runs : null,
-      overAtWicket: input.type == BallEventType.wicket ? overNum : null,
-      ballAtWicket: input.type == BallEventType.wicket ? ballInOver : null,
+      teamScoreAtWicket: isWicket ? innings.totalRuns + runs : null,
+      overAtWicket: isWicket ? overNum : null,
+      ballAtWicket: isWicket ? ballInOver : null,
       isMankad: isMankad,
       wicketNumber: wicketNumber,
       dismissalType: input.type == BallEventType.wicket
@@ -672,6 +718,9 @@ class ScoringEngine {
     if (event.eventType == BallEventType.noBall && rules.freeHitEnabled) {
       isFreeHit = true;
     }
+    if (!rules.freeHitEnabled) {
+      isFreeHit = false;
+    }
 
     var strikerId = innings.strikerId;
     var nonStrikerId = innings.nonStrikerId;
@@ -699,7 +748,8 @@ class ScoringEngine {
       }
     }
 
-    if (event.eventType == BallEventType.wicket && event.retiredHurt) {
+    if (event.eventType == BallEventType.wicket &&
+        DismissalFormatter.isRetiredHurtEvent(event)) {
       final retiredId =
           event.dismissedPlayerId ?? event.strikerId ?? strikerId;
       if (retiredId != null) {
@@ -707,7 +757,8 @@ class ScoringEngine {
         if (retiredId == strikerId) strikerId = null;
         if (retiredId == nonStrikerId) nonStrikerId = null;
       }
-    } else if (event.eventType == BallEventType.wicket && event.isWicket) {
+    } else if (event.eventType == BallEventType.wicket &&
+        DismissalFormatter.eventCountsAsWicket(event)) {
       totalWickets++;
       partnershipRuns = 0;
       partnershipBalls = 0;
@@ -737,8 +788,8 @@ class ScoringEngine {
 
     // Retirement must not affect bowling figures at all.
     if (event.bowlerId != null &&
-        !event.retiredHurt &&
-        event.wicketType != WicketType.retiredOut) {
+        !DismissalFormatter.isRetiredHurtEvent(event) &&
+        !DismissalFormatter.isRetiredOutEvent(event)) {
       final runsAgainstBowler = _runsAgainstBowler(event);
       bowlers = _updateBowler(
         bowlers,
@@ -754,8 +805,7 @@ class ScoringEngine {
     }
 
     if (event.eventType == BallEventType.wicket &&
-        event.isWicket &&
-        !event.retiredHurt) {
+        DismissalFormatter.eventCountsAsWicket(event)) {
       final dismissedId =
           event.dismissedPlayerId ?? event.strikerId ?? innings.strikerId;
       if (dismissedId != null) {
@@ -1567,9 +1617,7 @@ class ScoringEngine {
   }
 
   static bool _bowlerGetsWicketFromEvent(BallEventModel event) {
-    if (!event.isWicket || event.eventType != BallEventType.wicket) {
-      return false;
-    }
+    if (!DismissalFormatter.eventCountsAsWicket(event)) return false;
     if (event.bowlerGetsWicket) return true;
     return DismissalFormatter.creditsBowlerWicket(
       event.wicketType,

@@ -328,6 +328,7 @@ service cloud.firestore {
           'wideRuns',
           'noBallRuns',
           'freeHitEnabled',
+          'wicketKeeperCanBowl',
           'maxInnings',
           'maxWickets',
           'superOverEnabled',
@@ -371,7 +372,9 @@ service cloud.firestore {
         && (!('totalOvers' in rules) || !('oversPerBowler' in rules)
             || rules.oversPerBowler <= rules.totalOvers)
         && (!('wideRuns' in rules) || (rules.wideRuns is int && rules.wideRuns >= 0 && rules.wideRuns <= 10))
-        && (!('noBallRuns' in rules) || (rules.noBallRuns is int && rules.noBallRuns >= 0 && rules.noBallRuns <= 10));
+        && (!('noBallRuns' in rules) || (rules.noBallRuns is int && rules.noBallRuns >= 0 && rules.noBallRuns <= 10))
+        && (!('freeHitEnabled' in rules) || rules.freeHitEnabled is bool)
+        && (!('wicketKeeperCanBowl' in rules) || rules.wicketKeeperCanBowl is bool);
     }
 
     function validMatchPlayerSnapshotList(list) {
@@ -1188,10 +1191,14 @@ service cloud.firestore {
 
     match /tournaments/{tournamentId} {
       allow read: if true;
-      allow create: if isTournamentOrganizerOnCreate();
-      allow update: if isTournamentOrganizer(tournamentId)
-        || isTeamLeadershipAcceptingInvitation(tournamentId)
-        || canAdminUpdateTournamentDoc();
+      allow create: if isTournamentOrganizerOnCreate()
+        && (!('setupMeta' in request.resource.data)
+            || validTournamentSetupMeta(request.resource.data.setupMeta));
+      allow update: if (isTournamentOrganizer(tournamentId)
+          || isTeamLeadershipAcceptingInvitation(tournamentId)
+          || canAdminUpdateTournamentDoc())
+        && (!('setupMeta' in request.resource.data)
+            || validTournamentSetupMeta(request.resource.data.setupMeta));
       allow delete: if isTournamentOrganizer(tournamentId);
     }
 
@@ -1312,6 +1319,78 @@ service cloud.firestore {
         && hasApprovedInvitationByUser(tournamentId, marker)
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['teamIds', 'pointsTable', 'leadershipRosterTeamId', 'updatedAt']);
+    }
+
+    function validOfficialBudgetBand(v) {
+      return v in [
+        'day500to1000',
+        'day1100to1500',
+        'day1600to2000',
+        'day2000plus',
+        'dayNotDecided',
+        'match100to500',
+        'match600to1000',
+        'match1100to1500',
+        'match1500plus',
+        'matchNotDecided',
+      ];
+    }
+
+    function validOfficialBudgetRoleMap(m) {
+      return m.keys().hasOnly([
+        'umpire',
+        'scorer',
+        'streamer',
+        'commentator',
+        'photographer',
+        'videographer',
+      ])
+        && (!('umpire' in m) || validOfficialBudgetBand(m.umpire))
+        && (!('scorer' in m) || validOfficialBudgetBand(m.scorer))
+        && (!('streamer' in m) || validOfficialBudgetBand(m.streamer))
+        && (!('commentator' in m) || validOfficialBudgetBand(m.commentator))
+        && (!('photographer' in m) || validOfficialBudgetBand(m.photographer))
+        && (!('videographer' in m) || validOfficialBudgetBand(m.videographer));
+    }
+
+    function validTournamentSetupMeta(meta) {
+      return meta is map
+        && (!('sameBudgetForAll' in meta) || meta.sameBudgetForAll is bool)
+        && (!('budgetPerDay' in meta) || validOfficialBudgetBand(meta.budgetPerDay))
+        && (!('budgetPerMatch' in meta) || validOfficialBudgetBand(meta.budgetPerMatch))
+        && (!('budgetPerDayByRole' in meta)
+            || (meta.budgetPerDayByRole is map
+                && validOfficialBudgetRoleMap(meta.budgetPerDayByRole)))
+        && (!('budgetPerMatchByRole' in meta)
+            || (meta.budgetPerMatchByRole is map
+                && validOfficialBudgetRoleMap(meta.budgetPerMatchByRole)))
+        && (!('budgetCurrencyCode' in meta)
+            || (meta.budgetCurrencyCode is string
+                && meta.budgetCurrencyCode.size() <= 8))
+        && (!('officialContactMethod' in meta)
+            || validOfficialContactMethod(meta.officialContactMethod))
+        && (!('officialContactMethods' in meta)
+            || (meta.officialContactMethods is list
+                && meta.officialContactMethods.size() <= 4
+                && meta.officialContactMethods.toSet().hasOnly([
+                  'inAppMessage',
+                  'whatsApp',
+                  'phoneCall',
+                  'email',
+                ])))
+        && (!('requiredOfficialRoles' in meta)
+            || (meta.requiredOfficialRoles is list
+                && meta.requiredOfficialRoles.size() <= 12));
+    }
+
+    function validOfficialContactMethod(v) {
+      return v in [
+        'inAppMessage',
+        'whatsApp',
+        'phoneCall',
+        'email',
+        'hide',
+      ];
     }
 
     function validTournamentTeamRequestCreate() {

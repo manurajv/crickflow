@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/match_timeline_event_model.dart';
+import '../../core/constants/enums.dart';
 import '../../domain/services/match_info_models.dart';
 import '../../domain/services/match_info_service.dart';
 import 'match_analytics_provider.dart';
 import 'providers.dart';
 import 'tournament_match_providers.dart';
 import 'tournament_match_repair.dart';
+import 'tournament_providers.dart';
 
 final matchInfoServiceProvider = Provider((ref) => MatchInfoService());
 
@@ -39,20 +41,28 @@ final matchInfoProvider =
   String? tournamentName;
   String? tournamentRoundName;
   String? tournamentGroupName;
+  RoundType? tournamentRoundType;
+  TournamentFormat? tournamentFormat;
   final tournamentId = match.tournamentId;
   if (tournamentId != null && tournamentId.isNotEmpty) {
     tournamentName =
         ref.watch(matchInfoTournamentNameProvider(tournamentId)).valueOrNull;
-    if (match.roundName?.trim().isNotEmpty == true) {
+    tournamentFormat =
+        ref.watch(tournamentProvider(tournamentId)).valueOrNull?.format;
+    if (match.roundId != null && match.roundId!.isNotEmpty) {
+      final round = ref.watch(
+        tournamentRoundByIdProvider(
+          (tournamentId: tournamentId, roundId: match.roundId),
+        ),
+      );
+      tournamentRoundType = round?.roundType;
+      if (match.roundName?.trim().isNotEmpty == true) {
+        tournamentRoundName = match.roundName!.trim();
+      } else {
+        tournamentRoundName = round?.name;
+      }
+    } else if (match.roundName?.trim().isNotEmpty == true) {
       tournamentRoundName = match.roundName!.trim();
-    } else if (match.roundId != null && match.roundId!.isNotEmpty) {
-      tournamentRoundName = ref
-          .watch(
-            tournamentRoundByIdProvider(
-              (tournamentId: tournamentId, roundId: match.roundId),
-            ),
-          )
-          ?.name;
     }
     if (match.groupId != null && match.groupId!.isNotEmpty) {
       tournamentGroupName = ref
@@ -74,5 +84,7 @@ final matchInfoProvider =
         tournamentName: tournamentName,
         tournamentRoundName: tournamentRoundName,
         tournamentGroupName: tournamentGroupName,
+        tournamentRoundType: tournamentRoundType,
+        tournamentFormat: tournamentFormat,
       );
 });

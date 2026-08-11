@@ -20,6 +20,7 @@ import '../../../domain/services/commentary_service.dart';
 import '../../../domain/services/dismissal_formatter.dart';
 import '../../../domain/services/scoring_engine.dart';
 import '../../../domain/scoring/match_completion_policy.dart';
+import '../../../domain/scoring/match_lifecycle.dart';
 import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../shared/providers/providers.dart';
@@ -374,12 +375,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       return result.match;
     } catch (e) {
       if (mounted) {
+        final msg = e.toString();
+        final wkBlocked = msg.contains('Wicket keeper cannot bowl');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              previousBowlerId != null
-                  ? 'Unable to change bowler. Please try again.'
-                  : 'Lineup error: $e',
+              wkBlocked
+                  ? ScoringDisplayUtils.wicketKeeperCannotBowlReason
+                  : previousBowlerId != null
+                      ? 'Unable to change bowler. Please try again.'
+                      : 'Lineup error: $e',
             ),
           ),
         );
@@ -674,6 +679,24 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     final previousBowlerId = latestInn.currentBowlerId;
     if (picked.id == previousBowlerId) return;
+
+    final violation = ScoringDisplayUtils.wicketKeeperBowlingViolation(
+      rules: latest.rules,
+      bowlerId: picked.id,
+      wicketKeeperId: ScoringDisplayUtils.activeWicketKeeper(
+        match: latest,
+        inn: latestInn,
+        events: ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [],
+      ).id,
+    );
+    if (violation != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(violation)),
+        );
+      }
+      return;
+    }
 
     await _recordLineupChange(
       match: latest,
@@ -1308,16 +1331,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         return;
       }
 
-      if (fresh.innings.length == ended.inningsNumber &&
-          repo.canStartNextInnings(fresh)) {
+      if (repo.canStartNextInnings(fresh)) {
         await repo.startNextInnings(widget.matchId);
       }
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            context.go('/match/${widget.matchId}/start-innings');
-          }
-        });
+        context.go('/match/${widget.matchId}/start-innings');
       }
     } catch (e) {
       if (mounted) {
@@ -1621,24 +1639,38 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final squadsAsync = ref.read(matchLineupSquadsProvider(widget.matchId));
     squadsAsync.whenData((squads) {
       final inn = match.currentInnings;
-      final batting = inn == null
+      // Opening a new innings needs the full batting XI. Mid-innings edits
+      // filter to batters who may still bat.
+      final openingLineup =
+          MatchLifecycle.currentInningsNeedsOpeningLineup(match) ||
+              (inn != null &&
+                  inn.legalBalls == 0 &&
+                  (inn.strikerId == null || inn.nonStrikerId == null));
+      final batting = inn == null || openingLineup
           ? squads.batting
           : ScoringDisplayUtils.eligibleBatters(
               inn,
               squads.batting,
               idOf: (p) => p.id,
             );
+      final events =
+          ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
       final keeperId = inn != null
-          ? ScoringDisplayUtils.wicketKeeperIdForTeam(match, inn.bowlingTeamId)
+          ? ScoringDisplayUtils.activeWicketKeeper(
+              match: match,
+              inn: inn,
+              events: events,
+            ).id
           : null;
       PlayerLineupPicker.show(
         context,
         battingSquad: batting,
         bowlingSquad: squads.bowling,
-        initialStrikerId: inn?.strikerId,
-        initialNonStrikerId: inn?.nonStrikerId,
-        initialBowlerId: inn?.currentBowlerId,
+        initialStrikerId: openingLineup ? null : inn?.strikerId,
+        initialNonStrikerId: openingLineup ? null : inn?.nonStrikerId,
+        initialBowlerId: openingLineup ? null : inn?.currentBowlerId,
         wicketKeeperId: keeperId,
+        wicketKeeperCanBowl: match.rules.wicketKeeperCanBowl,
         onSave: ({
           required strikerId,
           required strikerName,
@@ -1647,6 +1679,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           required bowlerId,
           required bowlerName,
         }) async {
+          final violation = ScoringDisplayUtils.wicketKeeperBowlingViolation(
+            rules: match.rules,
+            bowlerId: bowlerId,
+            wicketKeeperId: keeperId,
+          );
+          if (violation != null) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(violation)),
+              );
+            }
+            return;
+          }
           final events =
               ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
           if (events.isNotEmpty) {
@@ -2061,6 +2106,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           final canScore = _canScoreThisMatch(match);
           final onBreak = match.isMatchBreakActive;
           final canRecord = canScore && !onBreak;
+
           final needsLineup =
               canRecord &&
               (displayInn.strikerId == null ||
@@ -2114,13 +2160,21 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               ),
               if (needsLineup)
                 MaterialBanner(
-                  content: const Text(
+                  backgroundColor: cf.surfaceElevated,
+                  content: Text(
                     'Tap to set striker, non-striker & bowler',
+                    style: TextStyle(color: cf.textPrimary),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => _openLineupSheet(match),
-                      child: const Text('Set lineup'),
+                      child: Text(
+                        'Set lineup',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: cf.accent,
+                        ),
+                      ),
                     ),
                   ],
                 ),

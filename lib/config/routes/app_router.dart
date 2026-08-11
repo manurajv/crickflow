@@ -668,7 +668,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
       GoRoute(
         path: '/my-cricket-profile',
-        builder: (_, __) => const MyCricketProfileScreen(),
+        builder: (_, state) => MyCricketProfileScreen(
+          initialTab: state.uri.queryParameters['tab'],
+        ),
       ),
       GoRoute(
         path: '/find-cricketers',
@@ -696,6 +698,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'cricket',
             builder: (_, state) => MyCricketProfileScreen(
               playerId: state.pathParameters['playerId'],
+              initialTab: state.uri.queryParameters['tab'],
             ),
           ),
           GoRoute(

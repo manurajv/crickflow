@@ -149,6 +149,7 @@ async function notifySingleUser(db, userId, built, type, extra = {}) {
     category: extra.category || categoryForType(type),
     tab: extra.tab || null,
     playerId: extra.playerId || null,
+    requestId: extra.requestId || null,
     pushSent: true,
   });
   await sendPushToUser(db, userId, {
@@ -160,6 +161,7 @@ async function notifySingleUser(db, userId, built, type, extra = {}) {
       playerId: extra.playerId || '',
       category: extra.category || categoryForType(type),
       tab: extra.tab || '',
+      requestId: extra.requestId || '',
     },
   });
 }

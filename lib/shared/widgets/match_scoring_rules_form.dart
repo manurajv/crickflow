@@ -170,6 +170,31 @@ class MatchScoringRulesForm extends StatelessWidget {
           enabled: enabled,
           onChanged: (v) => onChanged(rules.copyWith(noBallRuns: v)),
         ),
+        const SizedBox(height: AppDimens.spaceMd),
+        const MatchScoringRulesSectionTitle('Match rules'),
+        MatchScoringRulesDropdown<bool>(
+          label: 'Free Hits',
+          description: 'Allow a free hit after a No Ball.',
+          value: rules.freeHitEnabled,
+          enabled: enabled,
+          items: const [
+            (true, 'Enabled'),
+            (false, 'Disabled'),
+          ],
+          onChanged: (v) => onChanged(rules.copyWith(freeHitEnabled: v)),
+        ),
+        MatchScoringRulesDropdown<bool>(
+          label: 'Wicket Keeper Can Bowl',
+          description:
+              'Allow the designated wicket keeper to bowl during the match.',
+          value: rules.wicketKeeperCanBowl,
+          enabled: enabled,
+          items: const [
+            (true, 'Allowed'),
+            (false, 'Not Allowed'),
+          ],
+          onChanged: (v) => onChanged(rules.copyWith(wicketKeeperCanBowl: v)),
+        ),
       ],
     );
   }
@@ -217,6 +242,69 @@ class MatchScoringRulesSwitch extends StatelessWidget {
       value: value,
       onChanged: enabled ? onChanged : null,
       activeThumbColor: cf.accent,
+    );
+  }
+}
+
+class MatchScoringRulesDropdown<T> extends StatelessWidget {
+  const MatchScoringRulesDropdown({
+    super.key,
+    required this.label,
+    required this.description,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final String label;
+  final String description;
+  final T value;
+  final List<(T, String)> items;
+  final ValueChanged<T> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 15)),
+          const SizedBox(height: AppDimens.spaceSm),
+          DropdownButtonFormField<T>(
+            key: ValueKey<T>(value),
+            initialValue: value,
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            items: [
+              for (final item in items)
+                DropdownMenuItem<T>(
+                  value: item.$1,
+                  child: Text(item.$2),
+                ),
+            ],
+            onChanged: enabled
+                ? (v) {
+                    if (v != null) onChanged(v);
+                  }
+                : null,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            description,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cf.textSecondary,
+                  fontStyle: FontStyle.italic,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }

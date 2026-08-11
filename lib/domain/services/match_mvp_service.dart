@@ -7,6 +7,7 @@ import '../../data/models/match_model.dart';
 import '../../data/models/match_player_snapshot.dart';
 import '../../data/models/match_rules_model.dart';
 import '../scoring/ball_event_aggregator.dart';
+import 'dismissal_formatter.dart';
 import 'match_mvp_models.dart';
 import 'match_analytics_models.dart';
 import 'match_phase_service.dart';
@@ -507,12 +508,8 @@ class MatchMvpService {
     }
   }
 
-  static bool _isWicketEvent(BallEventModel e) {
-    if (e.retiredHurt) return false;
-    if (e.isWicket) return true;
-    if (e.eventType != BallEventType.wicket) return false;
-    return !(e.isFreeHit && e.wicketType != WicketType.runOut);
-  }
+  static bool _isWicketEvent(BallEventModel e) =>
+      DismissalFormatter.eventCountsAsWicket(e);
 
   static double _wicketValue(int battingOrder, int maxWickets) {
     final order = battingOrder.clamp(1, maxWickets.clamp(1, 10));

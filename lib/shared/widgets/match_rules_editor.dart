@@ -107,8 +107,17 @@ class _MatchRulesEditorState extends State<MatchRulesEditor> {
         }),
         SwitchListTile(
           title: const Text('Free Hit on No Ball'),
+          subtitle: const Text('Allow a free hit after a No Ball.'),
           value: _rules.freeHitEnabled,
           onChanged: (v) => _update(_rules.copyWith(freeHitEnabled: v)),
+        ),
+        SwitchListTile(
+          title: const Text('Wicket Keeper Can Bowl'),
+          subtitle: const Text(
+            'Allow the designated wicket keeper to bowl during the match.',
+          ),
+          value: _rules.wicketKeeperCanBowl,
+          onChanged: (v) => _update(_rules.copyWith(wicketKeeperCanBowl: v)),
         ),
         SwitchListTile(
           title: const Text('Last Man Standing'),

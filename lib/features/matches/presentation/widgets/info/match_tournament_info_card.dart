@@ -8,6 +8,7 @@ import '../../../../../core/utils/tournament_match_stage_utils.dart';
 import '../../../../../data/models/match_model.dart';
 import '../../../../../shared/providers/match_info_provider.dart';
 import '../../../../../shared/providers/tournament_match_providers.dart';
+import '../../../../../shared/providers/tournament_providers.dart';
 
 /// Prominent tournament link for live, completed, and upcoming Info tabs.
 class MatchTournamentInfoCard extends ConsumerWidget {
@@ -26,15 +27,16 @@ class MatchTournamentInfoCard extends ConsumerWidget {
     final tournamentName =
         ref.watch(matchInfoTournamentNameProvider(tournamentId)).valueOrNull;
 
+    final round = match.roundId != null && match.roundId!.isNotEmpty
+        ? ref.watch(
+            tournamentRoundByIdProvider(
+              (tournamentId: tournamentId, roundId: match.roundId),
+            ),
+          )
+        : null;
     final resolvedRoundName = match.roundName?.trim().isNotEmpty == true
         ? match.roundName!.trim()
-        : ref
-            .watch(
-              tournamentRoundByIdProvider(
-                (tournamentId: tournamentId, roundId: match.roundId),
-              ),
-            )
-            ?.name;
+        : round?.name;
 
     final groupName = match.groupId != null && match.groupId!.isNotEmpty
         ? ref
@@ -46,10 +48,17 @@ class MatchTournamentInfoCard extends ConsumerWidget {
             ?.name
         : null;
 
+    final tournamentFormat = ref
+        .watch(tournamentProvider(tournamentId))
+        .valueOrNull
+        ?.format;
+
     final stageLabel = tournamentMatchStageLabel(
       match,
       roundName: resolvedRoundName,
       groupName: groupName,
+      roundType: round?.roundType,
+      tournamentFormat: tournamentFormat,
     );
 
     final displayName = tournamentName?.trim().isNotEmpty == true

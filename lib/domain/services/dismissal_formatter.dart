@@ -81,6 +81,31 @@ class DismissalFormatter {
         type == WicketType.other;
   }
 
+  /// Retired Hurt — not a dismissal. Prefer this over reading flags alone.
+  static bool isRetiredHurtEvent(BallEventModel e) {
+    if (e.eventType != BallEventType.wicket) return false;
+    return e.retiredHurt || e.wicketType == WicketType.retiredHurt;
+  }
+
+  /// Retired Out — counts as a wicket; bowler never credited.
+  static bool isRetiredOutEvent(BallEventModel e) {
+    if (e.eventType != BallEventType.wicket) return false;
+    return e.wicketType == WicketType.retiredOut;
+  }
+
+  /// True when [e] ends a partnership / FOW / innings wicket count.
+  /// Retired Hurt never counts. Retired Out always does (including free hit).
+  static bool eventCountsAsWicket(BallEventModel e) {
+    if (e.eventType != BallEventType.wicket) return false;
+    if (isRetiredHurtEvent(e)) return false;
+    if (e.isWicket) return true;
+    if (isRetiredOutEvent(e)) return true;
+    if (!countsAsWicket(e.wicketType, isMankad: e.isMankad)) return false;
+    // Legacy free-hit void: only run-out (and RO via branches above) stand.
+    if (e.isFreeHit && e.wicketType != WicketType.runOut) return false;
+    return true;
+  }
+
   static bool needsDismissedBatterPicker(WicketType type) =>
       type == WicketType.runOut ||
       type == WicketType.retiredHurt ||

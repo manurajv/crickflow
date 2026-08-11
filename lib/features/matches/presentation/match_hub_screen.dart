@@ -62,7 +62,15 @@ class MatchHubScreen extends ConsumerWidget {
           );
         }
 
+        // Remount when tab layout changes (e.g. Live → Summary on complete).
+        // In-place TabController dispose during didUpdateWidget leaves
+        // InheritedElement dependents and crashes on back navigation.
+        final tabFingerprint = MatchHubTabConfig.forMatch(match)
+            .tabIds
+            .map((id) => id.name)
+            .join('|');
         return _MatchHubBody(
+          key: ValueKey('${matchId}_$tabFingerprint'),
           matchId: matchId,
           match: match,
           initialTab: initialTab,
@@ -78,6 +86,7 @@ class MatchHubScreen extends ConsumerWidget {
 
 class _MatchHubBody extends ConsumerStatefulWidget {
   const _MatchHubBody({
+    super.key,
     required this.matchId,
     required this.match,
     required this.initialTab,
@@ -102,12 +111,18 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
   bool? _streamVisibleOverride;
   late final MatchAudienceRepository _audienceRepo;
   ProviderSubscription<AsyncValue<User?>>? _authSubscription;
+  ProviderSubscription<MatchStreamSeekRequest?>? _seekSubscription;
 
   @override
   void activate() {
     super.activate();
-    if (_streamVisibleOverride != null && mounted) {
-      setState(() => _streamVisibleOverride = null);
+    // Never setState synchronously in activate — it races Overlay deactivation
+    // (`_dependents.isEmpty`) when returning from a pushed route.
+    if (_streamVisibleOverride != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _streamVisibleOverride == null) return;
+        setState(() => _streamVisibleOverride = null);
+      });
     }
   }
 
@@ -121,6 +136,18 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
         _trackAudience().catchError((_) {});
       }
     });
+    _seekSubscription = ref.listenManual(
+      matchStreamSeekProvider(widget.matchId),
+      (previous, next) {
+        if (next == null || !mounted) return;
+        final match = widget.match;
+        final hasStream = MatchStreamPlayback.hasWatchablePlayback(match);
+        if (!hasStream) return;
+        if (!_isStreamVisible(match)) {
+          setState(() => _streamVisibleOverride = true);
+        }
+      },
+    );
     _syncTabs(widget.match, applyInitialTab: true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _trackAudience().catchError((_) {});
@@ -177,7 +204,6 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
     final oldId = previousConfig?.idAt(oldIndex) ?? _config?.idAt(oldIndex);
 
     oldController?.removeListener(_onTabChanged);
-    oldController?.dispose();
 
     _config = config;
 
@@ -200,6 +226,13 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
     );
     _tabController!.addListener(_onTabChanged);
     if (applyInitialTab) _initialTabApplied = true;
+
+    // Dispose after the frame so TabBar/TabBarView can detach dependents first.
+    if (oldController != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oldController.dispose();
+      });
+    }
   }
 
   void _onTabChanged() {
@@ -209,6 +242,7 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
   @override
   void dispose() {
     _authSubscription?.close();
+    _seekSubscription?.close();
     if (_liveAudienceJoined && _audienceUid != null) {
       _audienceRepo
           .leaveLiveAudience(
@@ -217,15 +251,21 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
           )
           .catchError((_) {});
     }
-    _tabController?.dispose();
+    final controller = _tabController;
+    _tabController = null;
+    controller?.removeListener(_onTabChanged);
+    controller?.dispose();
     super.dispose();
   }
 
   void _exit(BuildContext context) {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      // For tournament matches, navigate back to the tournament dashboard.
+    // Defer so we never pop during an Overlay/build pass.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      if (context.canPop()) {
+        context.pop();
+        return;
+      }
       final match =
           ref.read(matchProvider(widget.matchId)).valueOrNull ?? widget.match;
       if (match.tournamentId != null && match.tournamentId!.isNotEmpty) {
@@ -236,7 +276,7 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
       } else {
         context.go('/home');
       }
-    }
+    });
   }
 
   void _navigateTab(String tabName) {
@@ -261,16 +301,6 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
     final controller = _tabController!;
     final hasStream = MatchStreamPlayback.hasWatchablePlayback(match);
     final showStream = hasStream && _isStreamVisible(match);
-
-    ref.listen<MatchStreamSeekRequest?>(
-      matchStreamSeekProvider(widget.matchId),
-      (previous, next) {
-        if (next == null || !hasStream) return;
-        if (!_isStreamVisible(match)) {
-          setState(() => _streamVisibleOverride = true);
-        }
-      },
-    );
 
     // Keep live feeds subscribed for the whole hub session — TabBarView
     // lazily builds tabs, so without this the Live tab streams may not start

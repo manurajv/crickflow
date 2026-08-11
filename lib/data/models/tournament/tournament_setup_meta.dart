@@ -21,7 +21,10 @@ class TournamentSetupMeta extends Equatable {
     this.sameBudgetForAll = true,
     this.budgetPerDay,
     this.budgetPerMatch,
-    this.officialContactMethod = OfficialContactMethod.inAppMessage,
+    this.budgetPerDayByRole = const {},
+    this.budgetPerMatchByRole = const {},
+    this.budgetCurrencyCode = '',
+    this.officialContactMethods = const {OfficialContactMethod.inAppMessage},
     this.teamLocation = const LocationModel(),
     this.totalTeams,
     this.teamsRequired,
@@ -50,7 +53,14 @@ class TournamentSetupMeta extends Equatable {
   final bool sameBudgetForAll;
   final OfficialBudgetBand? budgetPerDay;
   final OfficialBudgetBand? budgetPerMatch;
-  final OfficialContactMethod officialContactMethod;
+  /// Per-role day bands when [sameBudgetForAll] is false.
+  final Map<TournamentOfficialRole, OfficialBudgetBand> budgetPerDayByRole;
+  /// Per-role match bands when [sameBudgetForAll] is false.
+  final Map<TournamentOfficialRole, OfficialBudgetBand> budgetPerMatchByRole;
+  /// ISO currency code derived from tournament country (e.g. LKR, INR).
+  final String budgetCurrencyCode;
+  /// One or more ways officials may contact the organizer (never includes [hide]).
+  final Set<OfficialContactMethod> officialContactMethods;
   final LocationModel teamLocation;
   final int? totalTeams;
   final int? teamsRequired;
@@ -61,6 +71,24 @@ class TournamentSetupMeta extends Equatable {
   final bool informPreviousPlayers;
   final bool postedLookingForTeams;
   final bool postedLookingForOfficials;
+
+  OfficialBudgetBand? dayBudgetFor(TournamentOfficialRole role) {
+    if (sameBudgetForAll) return budgetPerDay;
+    return budgetPerDayByRole[role];
+  }
+
+  OfficialBudgetBand? matchBudgetFor(TournamentOfficialRole role) {
+    if (sameBudgetForAll) return budgetPerMatch;
+    return budgetPerMatchByRole[role];
+  }
+
+  /// First selected method — for legacy single-value consumers.
+  OfficialContactMethod get officialContactMethod {
+    final methods = officialContactMethods
+        .where((m) => m != OfficialContactMethod.hide);
+    if (methods.isEmpty) return OfficialContactMethod.inAppMessage;
+    return methods.first;
+  }
 
   factory TournamentSetupMeta.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const TournamentSetupMeta();
@@ -94,10 +122,10 @@ class TournamentSetupMeta extends Equatable {
       sameBudgetForAll: map['sameBudgetForAll'] as bool? ?? true,
       budgetPerDay: _budgetFromName(map['budgetPerDay'] as String?),
       budgetPerMatch: _budgetFromName(map['budgetPerMatch'] as String?),
-      officialContactMethod: OfficialContactMethod.values.firstWhere(
-        (e) => e.name == map['officialContactMethod'],
-        orElse: () => OfficialContactMethod.inAppMessage,
-      ),
+      budgetPerDayByRole: _budgetMapFrom(map['budgetPerDayByRole']),
+      budgetPerMatchByRole: _budgetMapFrom(map['budgetPerMatchByRole']),
+      budgetCurrencyCode: map['budgetCurrencyCode'] as String? ?? '',
+      officialContactMethods: _contactMethodsFrom(map),
       teamLocation: LocationModel.fromMap(
         map['teamLocation'] as Map<String, dynamic>?,
       ),
@@ -124,12 +152,69 @@ class TournamentSetupMeta extends Equatable {
   }
 
   static OfficialBudgetBand? _budgetFromName(String? name) {
-    if (name == null) return null;
-    return OfficialBudgetBand.values.firstWhere(
-      (e) => e.name == name,
-      orElse: () => OfficialBudgetBand.dayNotDecided,
-    );
+    if (name == null || name.isEmpty) return null;
+    for (final e in OfficialBudgetBand.values) {
+      if (e.name == name) return e;
+    }
+    return null;
   }
+
+  static Map<TournamentOfficialRole, OfficialBudgetBand> _budgetMapFrom(
+    dynamic raw,
+  ) {
+    if (raw is! Map) return const {};
+    final out = <TournamentOfficialRole, OfficialBudgetBand>{};
+    for (final entry in raw.entries) {
+      TournamentOfficialRole? role;
+      for (final r in TournamentOfficialRole.values) {
+        if (r.name == entry.key.toString()) {
+          role = r;
+          break;
+        }
+      }
+      final band = _budgetFromName(entry.value?.toString());
+      if (role != null && band != null) {
+        out[role] = band;
+      }
+    }
+    return out;
+  }
+
+  static OfficialContactMethod? _contactMethodFromName(String? name) {
+    if (name == null || name.isEmpty) return null;
+    for (final e in OfficialContactMethod.values) {
+      if (e.name == name) return e;
+    }
+    return null;
+  }
+
+  static Set<OfficialContactMethod> _contactMethodsFrom(
+    Map<String, dynamic> map,
+  ) {
+    final rawList = map['officialContactMethods'];
+    if (rawList is List && rawList.isNotEmpty) {
+      final parsed = rawList
+          .map((e) => _contactMethodFromName(e?.toString()))
+          .whereType<OfficialContactMethod>()
+          .where((m) => m != OfficialContactMethod.hide)
+          .toSet();
+      if (parsed.isNotEmpty) return parsed;
+    }
+    final legacy = _contactMethodFromName(
+      map['officialContactMethod'] as String?,
+    );
+    if (legacy != null && legacy != OfficialContactMethod.hide) {
+      return {legacy};
+    }
+    return const {OfficialContactMethod.inAppMessage};
+  }
+
+  static Map<String, String> _budgetMapTo(
+    Map<TournamentOfficialRole, OfficialBudgetBand> map,
+  ) =>
+      {
+        for (final e in map.entries) e.key.name: e.value.name,
+      };
 
   static CricketMatchType _cricketMatchTypeFromMap(Map<String, dynamic> map) {
     final stored = map['cricketMatchType'] as String?;
@@ -165,6 +250,17 @@ class TournamentSetupMeta extends Equatable {
         'sameBudgetForAll': sameBudgetForAll,
         if (budgetPerDay != null) 'budgetPerDay': budgetPerDay!.name,
         if (budgetPerMatch != null) 'budgetPerMatch': budgetPerMatch!.name,
+        if (budgetPerDayByRole.isNotEmpty)
+          'budgetPerDayByRole': _budgetMapTo(budgetPerDayByRole),
+        if (budgetPerMatchByRole.isNotEmpty)
+          'budgetPerMatchByRole': _budgetMapTo(budgetPerMatchByRole),
+        if (budgetCurrencyCode.isNotEmpty)
+          'budgetCurrencyCode': budgetCurrencyCode,
+        'officialContactMethods': officialContactMethods
+            .where((m) => m != OfficialContactMethod.hide)
+            .map((e) => e.name)
+            .toList(),
+        // Legacy single field for older clients / rules.
         'officialContactMethod': officialContactMethod.name,
         'teamLocation': teamLocation.toMap(),
         if (totalTeams != null) 'totalTeams': totalTeams,
@@ -195,6 +291,10 @@ class TournamentSetupMeta extends Equatable {
     bool? sameBudgetForAll,
     OfficialBudgetBand? budgetPerDay,
     OfficialBudgetBand? budgetPerMatch,
+    Map<TournamentOfficialRole, OfficialBudgetBand>? budgetPerDayByRole,
+    Map<TournamentOfficialRole, OfficialBudgetBand>? budgetPerMatchByRole,
+    String? budgetCurrencyCode,
+    Set<OfficialContactMethod>? officialContactMethods,
     OfficialContactMethod? officialContactMethod,
     LocationModel? teamLocation,
     int? totalTeams,
@@ -206,6 +306,8 @@ class TournamentSetupMeta extends Equatable {
     bool? informPreviousPlayers,
     bool? postedLookingForTeams,
     bool? postedLookingForOfficials,
+    bool clearBudgetPerDay = false,
+    bool clearBudgetPerMatch = false,
   }) {
     return TournamentSetupMeta(
       organizerName: organizerName ?? this.organizerName,
@@ -223,10 +325,25 @@ class TournamentSetupMeta extends Equatable {
       officialDays: officialDays ?? this.officialDays,
       matchesPerDay: matchesPerDay ?? this.matchesPerDay,
       sameBudgetForAll: sameBudgetForAll ?? this.sameBudgetForAll,
-      budgetPerDay: budgetPerDay ?? this.budgetPerDay,
-      budgetPerMatch: budgetPerMatch ?? this.budgetPerMatch,
-      officialContactMethod:
-          officialContactMethod ?? this.officialContactMethod,
+      budgetPerDay:
+          clearBudgetPerDay ? null : (budgetPerDay ?? this.budgetPerDay),
+      budgetPerMatch:
+          clearBudgetPerMatch ? null : (budgetPerMatch ?? this.budgetPerMatch),
+      budgetPerDayByRole: budgetPerDayByRole ?? this.budgetPerDayByRole,
+      budgetPerMatchByRole: budgetPerMatchByRole ?? this.budgetPerMatchByRole,
+      budgetCurrencyCode: budgetCurrencyCode ?? this.budgetCurrencyCode,
+      officialContactMethods: () {
+        if (officialContactMethods != null) {
+          return officialContactMethods
+              .where((m) => m != OfficialContactMethod.hide)
+              .toSet();
+        }
+        if (officialContactMethod != null &&
+            officialContactMethod != OfficialContactMethod.hide) {
+          return {officialContactMethod};
+        }
+        return this.officialContactMethods;
+      }(),
       teamLocation: teamLocation ?? this.teamLocation,
       totalTeams: totalTeams ?? this.totalTeams,
       teamsRequired: teamsRequired ?? this.teamsRequired,
@@ -244,7 +361,19 @@ class TournamentSetupMeta extends Equatable {
   }
 
   @override
-  List<Object?> get props => [category, matchFormat, needMoreTeams, needOfficials];
+  List<Object?> get props => [
+        category,
+        matchFormat,
+        needMoreTeams,
+        needOfficials,
+        sameBudgetForAll,
+        budgetPerDay,
+        budgetPerMatch,
+        budgetPerDayByRole,
+        budgetPerMatchByRole,
+        budgetCurrencyCode,
+        officialContactMethods,
+      ];
 }
 
 String tournamentCategoryLabel(TournamentCategory c) => switch (c) {
@@ -279,6 +408,58 @@ String officialBudgetLabel(OfficialBudgetBand b) => switch (b) {
       OfficialBudgetBand.matchNotDecided => 'Not Decided',
     };
 
+String officialRoleShortLabel(TournamentOfficialRole role) => switch (role) {
+      TournamentOfficialRole.umpire => 'Umpire',
+      TournamentOfficialRole.scorer => 'Scorer',
+      TournamentOfficialRole.streamer => 'Live Streamer',
+      TournamentOfficialRole.commentator => 'Commentator',
+      TournamentOfficialRole.photographer => 'Photographer',
+      TournamentOfficialRole.videographer => 'Videographer',
+    };
+
+/// Human-readable budget lines for community / overview (with optional currency).
+List<String> officialBudgetSummaryLines(
+  TournamentSetupMeta meta, {
+  String? currencyCode,
+}) {
+  final code = (currencyCode ?? meta.budgetCurrencyCode).trim();
+  String withCurrency(String label) =>
+      code.isEmpty ? label : '$label $code';
+
+  if (meta.sameBudgetForAll) {
+    final lines = <String>[];
+    if (meta.budgetPerDay != null) {
+      lines.add(
+        'Budget/day: ${withCurrency(officialBudgetLabel(meta.budgetPerDay!))}',
+      );
+    }
+    if (meta.budgetPerMatch != null) {
+      lines.add(
+        'Budget/match: ${withCurrency(officialBudgetLabel(meta.budgetPerMatch!))}',
+      );
+    }
+    return lines;
+  }
+
+  final roles = meta.requiredOfficialRoles.toList()
+    ..sort((a, b) => a.name.compareTo(b.name));
+  final lines = <String>[];
+  for (final role in roles) {
+    final day = meta.budgetPerDayByRole[role];
+    final match = meta.budgetPerMatchByRole[role];
+    if (day == null && match == null) continue;
+    final parts = <String>[];
+    if (day != null) {
+      parts.add('${withCurrency(officialBudgetLabel(day))}/day');
+    }
+    if (match != null) {
+      parts.add('${withCurrency(officialBudgetLabel(match))}/match');
+    }
+    lines.add('${officialRoleShortLabel(role)}: ${parts.join(' · ')}');
+  }
+  return lines;
+}
+
 String officialContactLabel(OfficialContactMethod m) => switch (m) {
       OfficialContactMethod.inAppMessage => 'CrickFlow DM',
       OfficialContactMethod.whatsApp => 'WhatsApp',
@@ -286,3 +467,11 @@ String officialContactLabel(OfficialContactMethod m) => switch (m) {
       OfficialContactMethod.email => 'Email',
       OfficialContactMethod.hide => 'Hide contact',
     };
+
+/// Contact chips offered in tournament create (excludes legacy hide).
+const selectableOfficialContactMethods = <OfficialContactMethod>[
+  OfficialContactMethod.inAppMessage,
+  OfficialContactMethod.whatsApp,
+  OfficialContactMethod.phoneCall,
+  OfficialContactMethod.email,
+];

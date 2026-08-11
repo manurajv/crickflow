@@ -104,6 +104,7 @@ class TournamentRoundsScreen extends ConsumerWidget {
       ),
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
+              heroTag: 'tournament_create_round_fab',
               onPressed: () => _createRound(context, ref),
               icon: const Icon(Icons.add),
               label: const Text('Create round'),

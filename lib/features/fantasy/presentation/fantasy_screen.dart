@@ -16,6 +16,7 @@ class FantasyScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Fantasy Cricket')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fantasy_join_code_fab',
         onPressed: () => _showJoinDialog(context, ref),
         icon: const Icon(Icons.vpn_key),
         label: const Text('Join code'),

@@ -90,7 +90,8 @@ class ChangeBowlerSheet extends StatefulWidget {
         innings.currentBowlerId == player.id) {
       return BowlerIneligibility.currentBowler;
     }
-    if (wicketKeeperId != null &&
+    if (!match.rules.wicketKeeperCanBowl &&
+        wicketKeeperId != null &&
         wicketKeeperId.isNotEmpty &&
         player.id == wicketKeeperId) {
       return BowlerIneligibility.wicketKeeper;
@@ -114,7 +115,7 @@ class ChangeBowlerSheet extends StatefulWidget {
     return switch (reason) {
       BowlerIneligibility.currentBowler => 'Current bowler',
       BowlerIneligibility.wicketKeeper =>
-        '${ScoringDisplayUtils.wicketKeeperCannotBowlReason}. Change wicketkeeper first.',
+        ScoringDisplayUtils.wicketKeeperCannotBowlReason,
       BowlerIneligibility.bowledLastOver => 'Bowled last over',
       BowlerIneligibility.maxOversReached =>
         'Maximum overs reached (${rules.oversPerBowler})',

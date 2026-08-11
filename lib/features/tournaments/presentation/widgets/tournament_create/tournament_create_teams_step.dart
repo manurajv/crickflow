@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/constants/enums.dart';
 import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../core/theme/cf_colors.dart';
+import '../../../../../core/utils/currency_utils.dart';
 import '../../../../../data/models/tournament/tournament_create_draft.dart';
 import '../../../../../data/models/tournament/tournament_setup_meta.dart';
 import '../../../../../shared/widgets/cf_underlined_field.dart';
@@ -79,6 +80,8 @@ class _TournamentCreateTeamsStepState
   @override
   Widget build(BuildContext context) {
     final setup = widget.draft.setup;
+    final currencyCode = currencyCodeForCountry(widget.draft.location.country);
+    final feePrefix = currencyDisplayPrefix(currencyCode);
 
     return ListView(
       padding: AppDimens.screenPadding,
@@ -112,9 +115,22 @@ class _TournamentCreateTeamsStepState
         const SizedBox(height: AppDimens.fieldSpacing),
         CfUnderlinedField(
           controller: _entryFeeController,
-          label: 'Entry fee',
+          label: currencyCode.isEmpty
+              ? 'Entry fee'
+              : 'Entry fee (in $currencyCode)',
           required: true,
           keyboardType: TextInputType.number,
+          prefix: feePrefix.isEmpty
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Text(
+                    feePrefix.trim(),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
           onChanged: (v) => _patch((d) => d.copyWith(entryFeeText: v)),
         ),
         const SizedBox(height: AppDimens.fieldSpacing),

@@ -13,6 +13,7 @@ void main() {
   MatchModel match({
     MatchStatus status = MatchStatus.tossCompleted,
     List<InningsModel> innings = const [],
+    int currentInningsIndex = 0,
   }) {
     return MatchModel(
       id: 'm1',
@@ -22,6 +23,7 @@ void main() {
       teamBName: 'B',
       rules: const MatchRulesModel(),
       innings: innings,
+      currentInningsIndex: currentInningsIndex,
     );
   }
 
@@ -63,6 +65,64 @@ void main() {
     expect(MatchLifecycle.needsStartInnings(m), isTrue);
     expect(MatchLifecycle.isActivelyLive(m), isFalse);
     expect(MatchLifecycle.isEffectivelyLive(m), isTrue);
+  });
+
+  test('2nd innings without crease needs start innings', () {
+    final m = match(
+      status: MatchStatus.live,
+      currentInningsIndex: 1,
+      innings: [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          legalBalls: 120,
+          totalRuns: 150,
+        ),
+        InningsModel(
+          inningsNumber: 2,
+          battingTeamId: 'b',
+          bowlingTeamId: 'a',
+          status: InningsStatus.notStarted,
+          targetRuns: 151,
+        ),
+      ],
+    );
+
+    expect(MatchLifecycle.hasScoringStarted(m), isTrue);
+    expect(MatchLifecycle.currentInningsNeedsOpeningLineup(m), isTrue);
+    expect(MatchLifecycle.needsStartInnings(m), isTrue);
+  });
+
+  test('2nd innings with crease does not need start innings', () {
+    final m = match(
+      status: MatchStatus.live,
+      currentInningsIndex: 1,
+      innings: [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          legalBalls: 120,
+          totalRuns: 150,
+        ),
+        InningsModel(
+          inningsNumber: 2,
+          battingTeamId: 'b',
+          bowlingTeamId: 'a',
+          status: InningsStatus.inProgress,
+          strikerId: 's1',
+          nonStrikerId: 's2',
+          currentBowlerId: 'b1',
+          targetRuns: 151,
+        ),
+      ],
+    );
+
+    expect(MatchLifecycle.currentInningsNeedsOpeningLineup(m), isFalse);
+    expect(MatchLifecycle.needsStartInnings(m), isFalse);
   });
 
   test('buildMatchAfterToss does not regress live status', () {

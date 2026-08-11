@@ -19,8 +19,11 @@ class NotificationNavigation {
     String? tab,
     String? requestId,
   }) {
-    if (type == 'badge_unlock' && playerId != null && playerId.isNotEmpty) {
-      return '/player/$playerId/cricket';
+    if (type == 'badge_unlock') {
+      // Always open the recipient's cricket profile badges tab.
+      // playerId on the payload is a players/{id} doc id, not /player/:cfId.
+      final badgeTab = (tab != null && tab.isNotEmpty) ? tab : 'badges';
+      return '/my-cricket-profile?tab=$badgeTab';
     }
     if (type == 'player_follow' || type == 'follower_milestone') {
       if (playerId != null && playerId.isNotEmpty) {
@@ -262,7 +265,7 @@ extension NotificationPresentation on NotificationModel {
         'bowling_milestone' => 'Bowling',
         'match_result' || 'match_drawn' || 'match_abandoned' => 'Result',
         'hero_of_match' => 'Hero',
-        'badge_unlock' => 'Badge',
+        'badge_unlock' => 'Badge unlocked',
         'stream_started' || 'stream_ended' => 'Stream',
         'tournament_completed' => 'Tournament',
         _ => categoryKey.replaceAll('_', ' '),

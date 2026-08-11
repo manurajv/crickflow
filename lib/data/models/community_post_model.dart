@@ -53,12 +53,15 @@ class CommunityTournamentSnapshot extends Equatable {
     this.entryFee,
     this.budgetPerDayLabel = '',
     this.budgetPerMatchLabel = '',
+    this.budgetByRoleLabels = const [],
+    this.budgetCurrencyCode = '',
     this.ballType = '',
     this.matchFormat = '',
     this.formatLabel = '',
     this.teamCount,
     this.registrationStatus = '',
     this.contactVisibility = CommunityContactVisibility.hide,
+    this.contactMethods = const [],
     this.contactPhone = '',
     this.contactWhatsApp = '',
     this.contactEmail = '',
@@ -82,6 +85,9 @@ class CommunityTournamentSnapshot extends Equatable {
   final String? entryFee;
   final String budgetPerDayLabel;
   final String budgetPerMatchLabel;
+  /// Per-role budget lines when budgets differ (e.g. "Umpire: 500 - 1000 LKR/day").
+  final List<String> budgetByRoleLabels;
+  final String budgetCurrencyCode;
   final String ballType;
   final String matchFormat;
   /// Human-readable tournament type (e.g. League Knockout).
@@ -89,6 +95,8 @@ class CommunityTournamentSnapshot extends Equatable {
   final int? teamCount;
   final String registrationStatus;
   final CommunityContactVisibility contactVisibility;
+  /// Selected contact channels (may include phone, whatsapp, email, crickflowDm).
+  final List<CommunityContactVisibility> contactMethods;
   final String contactPhone;
   final String contactWhatsApp;
   final String contactEmail;
@@ -134,6 +142,15 @@ class CommunityTournamentSnapshot extends Equatable {
       entryFee: map['entryFee']?.toString(),
       budgetPerDayLabel: map['budgetPerDayLabel'] as String? ?? '',
       budgetPerMatchLabel: map['budgetPerMatchLabel'] as String? ?? '',
+      budgetByRoleLabels: () {
+        final raw = map['budgetByRoleLabels'];
+        if (raw is! List) return const <String>[];
+        return raw
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }(),
+      budgetCurrencyCode: map['budgetCurrencyCode'] as String? ?? '',
       ballType: map['ballType'] as String? ?? '',
       matchFormat: map['matchFormat'] as String? ?? '',
       formatLabel: map['formatLabel'] as String? ?? '',
@@ -143,6 +160,27 @@ class CommunityTournamentSnapshot extends Equatable {
         (e) => e.name == map['contactVisibility'],
         orElse: () => CommunityContactVisibility.hide,
       ),
+      contactMethods: () {
+        final raw = map['contactMethods'];
+        if (raw is List && raw.isNotEmpty) {
+          return raw
+              .map(
+                (e) => CommunityContactVisibility.values.firstWhere(
+                  (v) => v.name == e.toString(),
+                  orElse: () => CommunityContactVisibility.hide,
+                ),
+              )
+              .where((v) => v != CommunityContactVisibility.hide)
+              .toList();
+        }
+        final single = CommunityContactVisibility.values.firstWhere(
+          (e) => e.name == map['contactVisibility'],
+          orElse: () => CommunityContactVisibility.hide,
+        );
+        return single == CommunityContactVisibility.hide
+            ? const <CommunityContactVisibility>[]
+            : [single];
+      }(),
       contactPhone: map['contactPhone'] as String? ?? '',
       contactWhatsApp: map['contactWhatsApp'] as String? ?? '',
       contactEmail: map['contactEmail'] as String? ?? '',
@@ -168,12 +206,18 @@ class CommunityTournamentSnapshot extends Equatable {
           'budgetPerDayLabel': budgetPerDayLabel,
         if (budgetPerMatchLabel.isNotEmpty)
           'budgetPerMatchLabel': budgetPerMatchLabel,
+        if (budgetByRoleLabels.isNotEmpty)
+          'budgetByRoleLabels': budgetByRoleLabels,
+        if (budgetCurrencyCode.isNotEmpty)
+          'budgetCurrencyCode': budgetCurrencyCode,
         'ballType': ballType,
         'matchFormat': matchFormat,
         if (formatLabel.isNotEmpty) 'formatLabel': formatLabel,
         if (teamCount != null) 'teamCount': teamCount,
         'registrationStatus': registrationStatus,
         'contactVisibility': contactVisibility.name,
+        if (contactMethods.isNotEmpty)
+          'contactMethods': contactMethods.map((e) => e.name).toList(),
         if (contactPhone.isNotEmpty) 'contactPhone': contactPhone,
         if (contactWhatsApp.isNotEmpty) 'contactWhatsApp': contactWhatsApp,
         if (contactEmail.isNotEmpty) 'contactEmail': contactEmail,
@@ -187,6 +231,21 @@ class CommunityTournamentSnapshot extends Equatable {
   @override
   List<Object?> get props =>
       [tournamentId, name, thumbnailUrl, thumbnailAspect, contactVisibility];
+}
+
+extension CommunityTournamentSnapshotContactX on CommunityTournamentSnapshot {
+  /// Prefer multi-select [contactMethods]; fall back to legacy single visibility.
+  List<CommunityContactVisibility> get resolvedContactMethods {
+    if (contactMethods.isNotEmpty) {
+      return contactMethods
+          .where((m) => m != CommunityContactVisibility.hide)
+          .toList();
+    }
+    if (contactVisibility == CommunityContactVisibility.hide) {
+      return const [];
+    }
+    return [contactVisibility];
+  }
 }
 
 class CommunityPostModel extends Equatable {

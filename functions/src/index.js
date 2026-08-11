@@ -15,6 +15,9 @@ const { onMatchRevisionCreated } = require('./match/onMatchRevisionCreated');
 const { onMatchBreak } = require('./match/onMatchBreak');
 const { verifyScoringIntegrity } = require('./match/verifyScoringIntegrity');
 const {
+  cleanupExpiredTournamentLookingPosts,
+} = require('./community/cleanupExpiredTournamentLookingPosts');
+const {
   syncPublicScorecard,
   syncPublicOverlay,
 } = require('./match/syncPublicScorecard');
@@ -54,6 +57,8 @@ exports.onBallEventCreated = onBallEventCreated;
 exports.onMatchRevisionCreated = onMatchRevisionCreated;
 exports.onMatchBreak = onMatchBreak;
 exports.verifyScoringIntegrity = verifyScoringIntegrity;
+exports.cleanupExpiredTournamentLookingPosts =
+  cleanupExpiredTournamentLookingPosts;
 exports.syncPublicScorecard = syncPublicScorecard;
 exports.syncPublicOverlay = syncPublicOverlay;
 exports.adminVerifyMatchIntegrity = adminVerifyMatchIntegrity;

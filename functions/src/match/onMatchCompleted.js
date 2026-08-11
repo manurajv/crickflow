@@ -31,17 +31,23 @@ const db = getFirestore();
 
 const BADGE_TITLES = {
   bat_30: { title: '30 in a Match', reason: 'Score 30+ runs in a match.' },
-  bat_50: { title: 'Half Century', reason: 'Score 50+ runs in a match.' },
+  bat_50: { title: '50 in a Match', reason: 'Score 50+ runs in a match.' },
   bat_75: { title: '75 in a Match', reason: 'Score 75+ runs in a match.' },
-  bat_100: { title: 'Century', reason: 'Score 100+ runs in a match.' },
+  bat_100: { title: '100 in a Match', reason: 'Score 100+ runs in a match.' },
   bat_150: { title: '150 in a Match', reason: 'Score 150+ runs in a match.' },
-  bat_200: { title: 'Double Century', reason: 'Score 200+ runs in a match.' },
-  bowl_3: { title: 'Three Wickets', reason: 'Take 3+ wickets in a match.' },
-  bowl_4: { title: 'Four Wickets', reason: 'Take 4+ wickets in a match.' },
-  bowl_5: { title: 'Five Wicket Haul', reason: 'Take 5+ wickets in a match.' },
-  bowl_6: { title: 'Six Wickets', reason: 'Take 6+ wickets in a match.' },
-  catch_3: { title: 'Three Catches', reason: 'Take 3+ catches in a match.' },
-  catch_5: { title: 'Five Catches', reason: 'Take 5+ catches in a match.' },
+  bat_200: { title: '200 in a Match', reason: 'Score 200+ runs in a match.' },
+  '6s_5': { title: '5 Sixes Match', reason: 'Hit 5+ sixes in a match.' },
+  '6s_10': { title: '10 Sixes Match', reason: 'Hit 10+ sixes in a match.' },
+  '6s_15': { title: '15 Sixes Match', reason: 'Hit 15+ sixes in a match.' },
+  bowl_3: { title: '3 Wicket Haul', reason: 'Take 3+ wickets in a match.' },
+  bowl_4: { title: '4 Wicket Haul', reason: 'Take 4+ wickets in a match.' },
+  bowl_5: { title: '5 Wicket Haul', reason: 'Take 5+ wickets in a match.' },
+  bowl_6: { title: '6 Wicket Haul', reason: 'Take 6+ wickets in a match.' },
+  catch_3: { title: '3 Catches Match', reason: 'Take 3+ catches in a match.' },
+  catch_5: { title: '5 Catches Match', reason: 'Take 5+ catches in a match.' },
+  sr_200: { title: '200+ SR Match', reason: 'Strike rate 200+ in a match.' },
+  sr_250: { title: '250+ SR Match', reason: 'Strike rate 250+ in a match.' },
+  sr_300: { title: '300+ SR Match', reason: 'Strike rate 300+ in a match.' },
 };
 
 async function fetchBallEvents(matchId) {
@@ -224,6 +230,7 @@ exports.onMatchCompleted = onDocumentUpdated(
             playerId,
             category: 'badge',
             tab: 'badges',
+            requestId: award.badgeId,
           },
         );
       }

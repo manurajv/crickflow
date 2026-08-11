@@ -83,73 +83,84 @@ class ScoringExtraDialogs {
       context,
       builder: (ctx) {
         final cf = ctx.cf;
-        final width = MediaQuery.sizeOf(ctx).width;
-        final hPad = AppDimens.spaceMd;
-        final gap = 10.0;
-        final cellW = (width - hPad * 2 - gap * 4) / 5;
-        final cellH = cellW;
-        final bigH = cellH * 1.1;
+        const hPad = AppDimens.spaceMd;
+        const gap = 10.0;
 
         return SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
+            padding: const EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 ScoringSheetHeader(title: 'Runs scored by running'),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: bigH,
-                        child: ScoringGridButton(
-                          label: '5',
-                          onTap: () => Navigator.pop(ctx, 5),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cellW =
+                        ((constraints.maxWidth - gap * 4) / 5).clamp(0.0, 120.0);
+                    final cellH = cellW;
+                    final bigH = cellH * 1.1;
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: bigH,
+                                child: ScoringGridButton(
+                                  label: '5',
+                                  onTap: () => Navigator.pop(ctx, 5),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: gap),
+                            Expanded(
+                              child: SizedBox(
+                                height: bigH,
+                                child: ScoringGridButton(
+                                  label: '7',
+                                  onTap: () => Navigator.pop(ctx, 7),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    SizedBox(width: gap),
-                    Expanded(
-                      child: SizedBox(
-                        height: bigH,
-                        child: ScoringGridButton(
-                          label: '7',
-                          onTap: () => Navigator.pop(ctx, 7),
+                        const SizedBox(height: gap),
+                        Row(
+                          children: [
+                            for (var i = 1; i <= 4; i++) ...[
+                              if (i > 1) const SizedBox(width: gap),
+                              Expanded(
+                                child: SizedBox(
+                                  height: cellH,
+                                  child: ScoringGridButton(
+                                    label: '$i',
+                                    onTap: () => Navigator.pop(ctx, i),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: gap),
+                            Expanded(
+                              child: SizedBox(
+                                height: cellH,
+                                child: ScoringGridButton(
+                                  label: '+',
+                                  onTap: () async {
+                                    final extra = await _showCustomRuns(ctx);
+                                    if (extra != null && ctx.mounted) {
+                                      Navigator.pop(ctx, extra);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: gap),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var i = 1; i <= 4; i++) ...[
-                      if (i > 1) SizedBox(width: gap),
-                      SizedBox(
-                        width: cellW,
-                        height: cellH,
-                        child: ScoringGridButton(
-                          label: '$i',
-                          onTap: () => Navigator.pop(ctx, i),
-                        ),
-                      ),
-                    ],
-                    SizedBox(width: gap),
-                    SizedBox(
-                      width: cellW,
-                      height: cellH,
-                      child: ScoringGridButton(
-                        label: '+',
-                        onTap: () async {
-                          final extra = await _showCustomRuns(ctx);
-                          if (extra != null && ctx.mounted) {
-                            Navigator.pop(ctx, extra);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: AppDimens.spaceSm),
                 Text(
@@ -178,49 +189,53 @@ class ScoringExtraDialogs {
     return ScoringUiKit.showSheet<BallEventInput>(
       context,
       builder: (ctx) {
-        final cf = ctx.cf;
-        final width = MediaQuery.sizeOf(ctx).width;
-        final hPad = AppDimens.spaceMd;
-        final gap = 10.0;
-        final cellW = (width - hPad * 2 - gap * 4) / 5;
-        final cellH = cellW;
+        const hPad = AppDimens.spaceMd;
+        const gap = 10.0;
 
         return SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
+            padding: const EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 ScoringSheetHeader(title: title),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var i = 1; i <= 4; i++) ...[
-                      if (i > 1) SizedBox(width: gap),
-                      SizedBox(
-                        width: cellW,
-                        height: cellH,
-                        child: ScoringGridButton(
-                          label: '$i',
-                          onTap: () => Navigator.pop(ctx, onSelect(i)),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cellH =
+                        ((constraints.maxWidth - gap * 4) / 5).clamp(0.0, 120.0);
+                    return Row(
+                      children: [
+                        for (var i = 1; i <= 4; i++) ...[
+                          if (i > 1) const SizedBox(width: gap),
+                          Expanded(
+                            child: SizedBox(
+                              height: cellH,
+                              child: ScoringGridButton(
+                                label: '$i',
+                                onTap: () =>
+                                    Navigator.pop(ctx, onSelect(i)),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: gap),
+                        Expanded(
+                          child: SizedBox(
+                            height: cellH,
+                            child: ScoringGridButton(
+                              label: '+',
+                              onTap: () async {
+                                final extra = await _showCustomRuns(ctx);
+                                if (extra != null && ctx.mounted) {
+                                  Navigator.pop(ctx, onSelect(extra));
+                                }
+                              },
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                    SizedBox(width: gap),
-                    SizedBox(
-                      width: cellW,
-                      height: cellH,
-                      child: ScoringGridButton(
-                        label: '+',
-                        onTap: () async {
-                          final extra = await _showCustomRuns(ctx);
-                          if (extra != null && ctx.mounted) {
-                            Navigator.pop(ctx, onSelect(extra));
-                          }
-                        },
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
                 if (footer != null) ...[
                   const SizedBox(height: AppDimens.spaceMd),
@@ -244,26 +259,12 @@ class ScoringExtraDialogs {
       context,
       builder: (ctx) {
         final cf = ctx.cf;
-        final width = MediaQuery.sizeOf(ctx).width;
-        final hPad = AppDimens.spaceMd;
-        final gap = 8.0;
-        final cellW = (width - hPad * 2 - gap * 3) / 4;
-        final cellH = cellW * 0.72;
-
-        Widget gridCell(String label, int extra) {
-          return SizedBox(
-            width: cellW,
-            height: cellH,
-            child: ScoringGridButton(
-              label: label,
-              onTap: () => Navigator.pop(ctx, onSelect(extra)),
-            ),
-          );
-        }
+        const hPad = AppDimens.spaceMd;
+        const gap = 8.0;
 
         return SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
+            padding: const EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -276,27 +277,46 @@ class ScoringExtraDialogs {
                     tooltip: 'Close',
                   ),
                 ),
-                Wrap(
-                  spacing: gap,
-                  runSpacing: gap,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (var i = 0; i <= 6; i++)
-                      gridCell('$prefix + $i', i),
-                    SizedBox(
-                      width: cellW,
-                      height: cellH,
-                      child: ScoringGridButton(
-                        label: '+',
-                        onTap: () async {
-                          final extra = await _showCustomRuns(ctx);
-                          if (extra != null && ctx.mounted) {
-                            Navigator.pop(ctx, onSelect(extra));
-                          }
-                        },
-                      ),
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cellW =
+                        ((constraints.maxWidth - gap * 3) / 4).clamp(0.0, 140.0);
+                    final cellH = cellW * 0.72;
+
+                    Widget gridCell(String label, int extra) {
+                      return SizedBox(
+                        width: cellW,
+                        height: cellH,
+                        child: ScoringGridButton(
+                          label: label,
+                          onTap: () => Navigator.pop(ctx, onSelect(extra)),
+                        ),
+                      );
+                    }
+
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        for (var i = 0; i <= 6; i++)
+                          gridCell('$prefix + $i', i),
+                        SizedBox(
+                          width: cellW,
+                          height: cellH,
+                          child: ScoringGridButton(
+                            label: '+',
+                            onTap: () async {
+                              final extra = await _showCustomRuns(ctx);
+                              if (extra != null && ctx.mounted) {
+                                Navigator.pop(ctx, onSelect(extra));
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -527,28 +547,13 @@ class _NoBallDetailsSheetState extends State<_NoBallDetailsSheet> {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    final width = MediaQuery.sizeOf(context).width;
-    final hPad = AppDimens.spaceMd;
-    final gap = 8.0;
-    final cellW = (width - hPad * 2 - gap * 3) / 4;
-    final cellH = cellW * 0.72;
+    const hPad = AppDimens.spaceMd;
+    const gap = 8.0;
     final nb = widget.rules.noBallRuns;
-
-    Widget gridCell(String label, int additional) {
-      return SizedBox(
-        width: cellW,
-        height: cellH,
-        child: ScoringGridButton(
-          label: label,
-          selected: _selectedRuns == additional,
-          onTap: () => _onRunsPicked(additional),
-        ),
-      );
-    }
 
     return SafeArea(
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
+        padding: const EdgeInsets.fromLTRB(hPad, 0, hPad, AppDimens.spaceMd),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -561,24 +566,44 @@ class _NoBallDetailsSheetState extends State<_NoBallDetailsSheet> {
                 tooltip: 'Close',
               ),
             ),
-            Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              alignment: WrapAlignment.center,
-              children: [
-                for (var i = 0; i <= 6; i++) gridCell('NB + $i', i),
-                SizedBox(
-                  width: cellW,
-                  height: cellH,
-                  child: ScoringGridButton(
-                    label: '+',
-                    onTap: () async {
-                      final extra = await _showCustomRuns(context);
-                      if (extra != null && mounted) _onRunsPicked(extra);
-                    },
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cellW =
+                    ((constraints.maxWidth - gap * 3) / 4).clamp(0.0, 140.0);
+                final cellH = cellW * 0.72;
+
+                Widget gridCell(String label, int additional) {
+                  return SizedBox(
+                    width: cellW,
+                    height: cellH,
+                    child: ScoringGridButton(
+                      label: label,
+                      selected: _selectedRuns == additional,
+                      onTap: () => _onRunsPicked(additional),
+                    ),
+                  );
+                }
+
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (var i = 0; i <= 6; i++) gridCell('NB + $i', i),
+                    SizedBox(
+                      width: cellW,
+                      height: cellH,
+                      child: ScoringGridButton(
+                        label: '+',
+                        onTap: () async {
+                          final extra = await _showCustomRuns(context);
+                          if (extra != null && mounted) _onRunsPicked(extra);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             if (_needsRunType) ...[
               const SizedBox(height: AppDimens.spaceMd),

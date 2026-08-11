@@ -17,7 +17,6 @@ class MatchWideNoBallRulesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -47,6 +46,33 @@ class MatchWideNoBallRulesSection extends StatelessWidget {
           min: 0,
           max: 10,
           onChanged: (v) => onChanged(rules.copyWith(noBallRuns: v)),
+        ),
+        const SizedBox(height: AppDimens.spaceMd),
+        const Divider(height: 1),
+        const SizedBox(height: AppDimens.spaceSm),
+        const _SubLabel('Match rules'),
+        const SizedBox(height: AppDimens.spaceSm),
+        _RuleDropdown<bool>(
+          label: 'Free Hits',
+          description: 'Allow a free hit after a No Ball.',
+          value: rules.freeHitEnabled,
+          items: const [
+            (true, 'Enabled'),
+            (false, 'Disabled'),
+          ],
+          onChanged: (v) => onChanged(rules.copyWith(freeHitEnabled: v)),
+        ),
+        const SizedBox(height: AppDimens.spaceMd),
+        _RuleDropdown<bool>(
+          label: 'Wicket Keeper Can Bowl',
+          description:
+              'Allow the designated wicket keeper to bowl during the match.',
+          value: rules.wicketKeeperCanBowl,
+          items: const [
+            (true, 'Allowed'),
+            (false, 'Not Allowed'),
+          ],
+          onChanged: (v) => onChanged(rules.copyWith(wicketKeeperCanBowl: v)),
         ),
       ],
     );
@@ -92,6 +118,61 @@ class _RuleSwitch extends StatelessWidget {
       value: value,
       onChanged: onChanged,
       activeThumbColor: cf.accent,
+    );
+  }
+}
+
+class _RuleDropdown<T> extends StatelessWidget {
+  const _RuleDropdown({
+    required this.label,
+    required this.description,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String description;
+  final T value;
+  final List<(T, String)> items;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 14)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<T>(
+          key: ValueKey<T>(value),
+          initialValue: value,
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          items: [
+            for (final item in items)
+              DropdownMenuItem<T>(
+                value: item.$1,
+                child: Text(item.$2),
+              ),
+          ],
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+        const SizedBox(height: 6),
+        Text(
+          description,
+          style: TextStyle(
+            fontSize: 11,
+            color: cf.textMuted,
+            height: 1.4,
+          ),
+        ),
+      ],
     );
   }
 }

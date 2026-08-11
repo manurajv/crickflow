@@ -186,6 +186,7 @@ class CommentaryService {
     BallEventModel event, {
     String? strikerName,
     String? bowlerName,
+    bool freeHitEnabled = true,
   }) {
     if (event.commentary.trim().isNotEmpty &&
         event.eventType != BallEventType.runs) {
@@ -197,7 +198,8 @@ class CommentaryService {
       BallEventType.runs => _runsDescription(event, idx),
       BallEventType.wicket => _wicketDescription(event, idx),
       BallEventType.wide => _pick(_wideDescriptions, idx),
-      BallEventType.noBall => _noBallDescription(event, idx),
+      BallEventType.noBall =>
+        _noBallDescription(event, idx, freeHitEnabled: freeHitEnabled),
       BallEventType.bye => 'They sneak ${_runsWord(event.runs)} as a bye.',
       BallEventType.legBye => 'Leg bye — ${_runsWord(event.runs)} added.',
       BallEventType.penalty => 'Penalty runs awarded to the batting side.',
@@ -267,10 +269,21 @@ class CommentaryService {
     return _pick(_wicketDescriptions, idx);
   }
 
-  static String _noBallDescription(BallEventModel event, int idx) {
+  static String _noBallDescription(
+    BallEventModel event,
+    int idx, {
+    bool freeHitEnabled = true,
+  }) {
     final add = event.runs - event.extraRuns;
-    if (add >= 6) return 'No ball — massive six off the free hit delivery!';
+    if (add >= 6) {
+      return freeHitEnabled
+          ? 'No ball — massive six off the free hit delivery!'
+          : 'No ball — massive six!';
+    }
     if (add == 4) return 'No ball — boundary off the bat!';
+    if (!freeHitEnabled) {
+      return _pick(_noBallDescriptionsNoFreeHit, idx);
+    }
     return _pick(_noBallDescriptions, idx);
   }
 
@@ -325,5 +338,11 @@ class CommentaryService {
     'No ball — overstepped the crease.',
     'No ball called by the umpire.',
     'Front foot no ball — free hit coming.',
+  ];
+
+  static const _noBallDescriptionsNoFreeHit = [
+    'No ball — overstepped the crease.',
+    'No ball called by the umpire.',
+    'Front foot no ball — extra run to the batting side.',
   ];
 }

@@ -188,6 +188,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         ),
       ],
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'discover_create_post_fab',
         onPressed: () => requireAuthVoid(
           context: context,
           ref: ref,

@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/tournament_code.dart';
+import '../../core/utils/tournament_match_stage_utils.dart';
 import '../../data/models/bracket_models.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/match_rules_model.dart';
@@ -843,6 +844,7 @@ class TournamentRepository {
     required String teamBId,
     String? roundId,
     String? roundName,
+    RoundType? roundType,
     String? groupId,
     String? venue,
     DateTime? scheduledAt,
@@ -862,6 +864,12 @@ class TournamentRepository {
       cricketMatchType: rules?.cricketMatchType ?? cricketMatchType,
     );
 
+    final asKnockout = shouldTagTournamentMatchAsKnockout(
+      tournamentFormat: tournament.format,
+      roundType: roundType,
+      groupId: groupId,
+    );
+
     final match = MatchModel(
       id: '',
       title: '${teamA.name} vs ${teamB.name}',
@@ -875,6 +883,7 @@ class TournamentRepository {
       roundId: roundId,
       roundName: roundName,
       groupId: groupId,
+      bracketRound: asKnockout ? 0 : null,
       venue: venue ?? '',
       location: tournament.location,
       scheduledAt: scheduledAt ?? DateTime.now().add(const Duration(days: 1)),

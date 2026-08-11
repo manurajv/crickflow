@@ -3,13 +3,26 @@
 
 
 
-**Last updated:** Retired Hurt / Retired Out edge cases
+**Last updated:** RH/RO partnership & analytics hardening
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Play launch:** [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Production certificate:** [PRODUCTION_READINESS_CERTIFICATE.md](PRODUCTION_READINESS_CERTIFICATE.md) · **Developer handbook:** [developer/README.md](developer/README.md) · **CI/CD:** [developer/cicd.md](developer/cicd.md) · **Continuity:** [developer/continuity.md](developer/continuity.md) · **Admin design:** [WEB_ADMIN_DESIGN.md](WEB_ADMIN_DESIGN.md) · **Production:** [WEB_ADMIN_PRODUCTION.md](WEB_ADMIN_PRODUCTION.md) · **i18n / a11y:** [WEB_ADMIN_I18N_A11Y.md](WEB_ADMIN_I18N_A11Y.md) · **QA report:** [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (RH/RO — partnerships & analytics)
+
+| Item | Status |
+|------|--------|
+| Central `DismissalFormatter.eventCountsAsWicket` / `isRetiredHurtEvent` / `isRetiredOutEvent` | Done |
+| Event-derived partnerships never close on RH; continue until real wicket / RO | Done |
+| FOW / fielding / MVP / team leaderboard / analytics use centralized classifier | Done |
+| RH does not stamp `teamScoreAtWicket` / over / ball FOW metadata | Done |
+| Manhattan counts RO wickets even when not `countsInOver` | Done |
+| Cloud Functions `ballEventStats` RH/RO classification hardened | Done |
 
 ---
 
@@ -698,6 +711,7 @@
 | Social feed cards, media crop, location multi-filter, create post kinds | Done |
 | Likes / comments (nested + like/report) / share / save | Done |
 | Chat FAB, list, requests, conversation, profile Message | Done |
+| Unique FAB `heroTag`s (Community/Discover/etc.) — fix duplicate default hero on push/pop chats | Done |
 | Search Posts category + AppBar search | Done |
 | Ranking: pinned → sponsored → following → nearby → popular | Done |
 | Deep link `/community?postId=` (highlight + pin missing posts) | Done |
@@ -1139,6 +1153,8 @@
 | Item | Status |
 |------|--------|
 | Unified `MatchListCard` — CricHeroes-style white cards (16px radius, subtle shadow) | Done |
+| Tournament match cards — stage label uses tournament format / round type (knockout no longer defaults to League) | Done |
+| Tournament match cards — stage title inside tournament; live/completed use actual start time; fixtures status chips match app | Done |
 | `MatchCardContent` — type header, date \| overs \| venue, vertical team rows, right-aligned scores | Done |
 | Status pills — Upcoming orange, LIVE red (+ pulse dot), Result grey, break/rain blue | Done |
 | State-specific actions — Squads/Details, Live Score/Scorecard/Insights, Scorecard/Insights/Leaderboard | Done |
@@ -1253,6 +1269,20 @@
 | Ground map picker — separate screen with search + draggable pin | Done |
 | Map pick requires ground name text field | Done |
 | Special cases — wide/no-ball rules (runs, legal delivery) on setup | Done |
+| Special cases — Free Hits (default Enabled) + Wicket Keeper Can Bowl (default Allowed) | Done |
+| Firestore `validMatchRules` allowlist — `wicketKeeperCanBowl` (+ bool checks) | Done — deploy rules |
+| 2nd+ innings opening — same Start Innings batter/bowler screen as match start | Done |
+| Set lineup sheet — theme-aware (light/dark); kept for mid-match Change Squad | Done |
+| Offline 2nd innings — prefer pending local match; bump overlay on innings break | Done |
+| Online Start Innings → live scoring loop — bump overlay on lineup; prefer local crease; no live→start-innings bounce | Done |
+| Start Innings primary CTA — "Continue scoring" | Done |
+| Match hub back after complete — remount tabs on layout change; defer TabController dispose / pop | Done |
+| Tournament officials budget — country currency (not hardcoded INR); per-role when not same-for-all | Done |
+| Tournament officials contact — multi-select methods; remove Hide contact | Done |
+| Badge unlock notifications — title = badge name; open My Cricket Profile → Badges | Done |
+| Tournament overview entry fee — country currency (not hardcoded ₹/INR) | Done |
+| Firestore — validate tournament `setupMeta` budget bands / by-role maps / currency | Done |
+| Set lineup — full batting XI for new innings; no duplicate striker/non-striker fill | Done |
 | Schedule / Next buttons — equal width, label "Schedule" | Done |
 | Ground map picker — WebView + Maps JavaScript API (tap/drag pin) | Done |
 | Players per team (1–25, default 11) on Start Match setup | Done |
@@ -1496,6 +1526,7 @@
 | Match MVP tab (format-aware bat/bowl/field scoring, POTM, Fighter, filters) | Done |
 | Match squads — side-by-side playing XI + substitutes from match setup snapshots, C/VC/WK badges | Done |
 | Community posts (`community_posts`, feed, create, filters) | Done |
+| Community tournament looking posts (Teams wanted / Officials needed) auto-hide + purge when start date ≤ today or end date already passed | Done |
 | Community Near filter — ~30 km radius around profile/device GPS | Done |
 | Discover → Community category deep links | Done |
 | Unified app bar + bottom nav colors (gold selected, surface chrome) | Done |

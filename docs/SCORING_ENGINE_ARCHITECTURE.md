@@ -278,7 +278,7 @@ Already has: `eventType`, `runs`, `batsmanRuns`, `extraRuns`, `isLegalDelivery`,
 | bye / leg bye | `bye`, `legBye` | ✅ |
 | wicket / run out / stumped | `wicket` + `WicketType` | ✅ extend enum |
 | overthrow | ❌ | Add `overthrow` + bat runs split |
-| retired hurt / out | ✅ `retiredHurt` (not a wicket) / `retiredOut` | RH: no FOW, partnership continues, returnable |
+| retired hurt / out | ✅ `retiredHurt` (not a wicket) / `retiredOut` | RH: no FOW, partnership continues (same stand until real wicket), returnable. RO: FOW + partnership ends; no bowler credit; never returnable. Classify via `DismissalFormatter.eventCountsAsWicket`. |
 | dead ball | ❌ | Add + rule flag |
 | penalty | `penalty` | Implement reducer branch |
 
@@ -363,27 +363,31 @@ BallCommand → ReduceResult → CommentaryEngine.textFor(event, context)
 
 ## 10. Partnership logic
 
-**Today:** `partnershipRuns`, `partnershipBalls` on `InningsModel`; reset on wicket.
+**Today:** Live counters `partnershipRuns` / `partnershipBalls` on `InningsModel`. Closed stands + FOW are **derived** from ball events via `BallEventAggregator.partnershipsFromEvents` / `fallOfWicketsFromEvents` (not mutated in the live reducer).
 
-**Target `PartnershipEngine`:**
+**Rules:**
 
-- Track pair `(batterA, batterB)` key (sorted ids)
-- On wicket: close partnership → append to `partnerships[]`
-- On new batter: start new partnership at 0
-- Expose highest partnership in innings summary
+| Event | Partnership | FOW / wickets |
+|-------|-------------|---------------|
+| Delivery | Accumulate runs/balls | — |
+| Retired Hurt | **Continue** same stand (replacement joins; no reset) | No |
+| Retired Out | Close stand; start next after lineup | Yes (no bowler credit) |
+| Other wicket | Close stand; start next after lineup | Yes |
+
+Classify with `DismissalFormatter.eventCountsAsWicket` / `isRetiredHurtEvent` — never assume every `eventType == wicket` ends a partnership.
 
 ```dart
 void onBall(InningsState inn, BallEvent e) {
   inn.partnershipRuns += e.runs;
   if (e.isLegalDelivery) inn.partnershipBalls++;
 }
-void onWicket(InningsState inn) {
-  inn.partnershipHistory.add(Partnership(...));
+void onWicket(InningsState inn, BallEvent e) {
+  if (DismissalFormatter.isRetiredHurtEvent(e)) return; // stand continues
+  // Close via event derivation; live counters reset only for real wickets / RO
   inn.partnershipRuns = 0;
   inn.partnershipBalls = 0;
 }
 ```
-
 ---
 
 ## 11. Strike rotation logic
@@ -657,7 +661,7 @@ Use [DEVICE_QA.md](DEVICE_QA.md) plus:
 
 Already supported fields (use in reducer, don’t ignore):
 
-`totalOvers`, `ballsPerOver`, `oversPerBowler`, `wideRuns`, `noBallRuns`, `freeHitEnabled`, `maxInnings`, `maxWickets`, `superOverEnabled`, `powerplaySlots`, `wideCountsAsLegalDelivery`, `noBallCountsAsLegalDelivery`, `extrasCountToBowler`, `lastManStanding`, `format`, `cricketMatchType`, wagon wheel flags.
+`totalOvers`, `ballsPerOver`, `oversPerBowler`, `wideRuns`, `noBallRuns`, `freeHitEnabled`, `wicketKeeperCanBowl`, `maxInnings`, `maxWickets`, `superOverEnabled`, `powerplaySlots`, `wideCountsAsLegalDelivery`, `noBallCountsAsLegalDelivery`, `extrasCountToBowler`, `lastManStanding`, `format`, `cricketMatchType`, wagon wheel flags.
 
 **Add when needed:** `byeRunBehavior`, `legByeRunBehavior`, `deadBallEnabled`, `overthrowSupport`, `customDismissalRules` as explicit enums/maps in rules v2.
 

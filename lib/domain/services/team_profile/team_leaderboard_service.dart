@@ -5,6 +5,7 @@ import '../../../data/models/innings_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/player_model.dart';
 import '../../scoring/ball_event_aggregator.dart';
+import '../dismissal_formatter.dart';
 import 'team_profile_models.dart';
 
 class _PlayerAgg {
@@ -437,7 +438,7 @@ class TeamLeaderboardService {
           playerBalls[striker] = (playerBalls[striker] ?? 0) + 1;
         }
       }
-      if (!e.isWicket) continue;
+      if (!DismissalFormatter.eventCountsAsWicket(e)) continue;
       if (closedIndex < closed.length) {
         final part = closed[closedIndex];
         if (part.runs > 0 || part.balls > 0) {
@@ -464,7 +465,8 @@ class TeamLeaderboardService {
     void Function(String id, String name) ensure,
   ) {
     for (final e in events) {
-      if (!e.isWicket) continue;
+      if (!DismissalFormatter.eventCountsAsWicket(e)) continue;
+      if (DismissalFormatter.isRetiredOutEvent(e)) continue;
       final wt = e.wicketType;
       if (wt == WicketType.caught || wt == WicketType.caughtBehind) {
         final id = e.fielderId ?? e.primaryFielderId ?? '';

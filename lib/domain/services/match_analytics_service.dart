@@ -769,9 +769,17 @@ class MatchAnalyticsService {
     final acc = <int, Map<int, _OverAccumulator>>{};
 
     for (final e in events) {
-      if (!_countsInOver(e)) continue;
       final innMap = acc.putIfAbsent(e.inningsNumber, () => {});
       final overAcc = innMap.putIfAbsent(e.overNumber, () => _OverAccumulator());
+
+      // Administrative retirements are not in-over deliveries, but Retired Out
+      // still counts as a wicket marker on that over.
+      if (!_countsInOver(e)) {
+        if (DismissalFormatter.eventCountsAsWicket(e)) {
+          overAcc.wickets++;
+        }
+        continue;
+      }
       overAcc.runs += e.runs;
       if (e.isLegalDelivery) overAcc.legalBalls++;
       if (_isWicket(e)) overAcc.wickets++;
@@ -1262,12 +1270,8 @@ class MatchAnalyticsService {
     return event.runs;
   }
 
-  bool _isWicket(BallEventModel e) {
-    if (e.retiredHurt) return false;
-    if (e.isWicket) return true;
-    if (e.eventType != BallEventType.wicket) return false;
-    return !(e.isFreeHit && e.wicketType != WicketType.runOut);
-  }
+  bool _isWicket(BallEventModel e) =>
+      DismissalFormatter.eventCountsAsWicket(e);
 
   double _fractionalOver(int legalBalls, int ballsPerOver) {
     if (legalBalls <= 0) return 0;

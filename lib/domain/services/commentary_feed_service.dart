@@ -257,6 +257,7 @@ class CommentaryFeedService {
           e,
           strikerName: strikerName,
           bowlerName: bowlerName,
+          freeHitEnabled: rules.freeHitEnabled,
         );
 
         String? dismissalShort;

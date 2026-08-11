@@ -12,7 +12,7 @@ class MapsConfig {
 
   /// Embedded fallback used when dart-define is omitted (dev convenience).
   /// Restrict this key in GCP before public launch — do not treat as a secret.
-  static const String _embeddedKey = 'AIzaSyD8TQN5NYuQnrgLvnA_eys6ubSYJ7BtZZc';
+  static const String _embeddedKey = 'AIzaSyDP52nxnlPNZNv5pLj_wav0uUJ8necc4MY';
 
   static const String apiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',

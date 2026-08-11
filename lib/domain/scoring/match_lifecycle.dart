@@ -52,8 +52,41 @@ class MatchLifecycle {
   }
 
   /// Needs the start-innings lineup picker (toss done, no scoring yet).
+  ///
+  /// Also true for 2nd+ innings that were created but still need openers /
+  /// opening bowler (same full-screen flow as the start of the match).
   static bool needsStartInnings(MatchModel match) {
-    return match.status == MatchStatus.tossCompleted && !hasScoringStarted(match);
+    if (match.status == MatchStatus.tossCompleted && !hasScoringStarted(match)) {
+      return true;
+    }
+    final status = effectiveStatus(match);
+    if (status != MatchStatus.live && status != MatchStatus.inningsBreak) {
+      return false;
+    }
+    return currentInningsNeedsOpeningLineup(match);
+  }
+
+  /// Current innings exists but openers / bowler are not set yet (no balls).
+  static bool currentInningsNeedsOpeningLineup(MatchModel match) {
+    final inn = match.currentInnings;
+    if (inn == null) return false;
+    if (inn.status == InningsStatus.completed) return false;
+    final missingCrease = inn.strikerId == null ||
+        inn.strikerId!.isEmpty ||
+        inn.nonStrikerId == null ||
+        inn.nonStrikerId!.isEmpty ||
+        inn.currentBowlerId == null ||
+        inn.currentBowlerId!.isEmpty;
+    if (!missingCrease) return false;
+    // Mid-innings vacant crease still has balls — not the opening picker.
+    if (inn.legalBalls > 0 ||
+        inn.totalRuns > 0 ||
+        inn.totalWickets > 0 ||
+        inn.extras > 0) {
+      return false;
+    }
+    return inn.status == InningsStatus.notStarted ||
+        inn.status == InningsStatus.inProgress;
   }
 
   /// Matches left at innings break after the final innings should read as completed.

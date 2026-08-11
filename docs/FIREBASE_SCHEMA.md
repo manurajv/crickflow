@@ -73,7 +73,8 @@
 | wideRuns, noBallRuns | number | |
 | wideCountsAsLegalDelivery | boolean | |
 | noBallCountsAsLegalDelivery | boolean | |
-| freeHitEnabled | boolean | |
+| freeHitEnabled | boolean | Default `true` — free hit after no-ball |
+| wicketKeeperCanBowl | boolean | Default `true` — designated keeper may bowl |
 | maxInnings, maxWickets | number | |
 | powerplaySlot1 | array | Over numbers for powerplay 1 |
 | powerplaySlot2 | array | Over numbers for powerplay 2 |

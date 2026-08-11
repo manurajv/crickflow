@@ -1,13 +1,16 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
+import '../../core/theme/cf_colors.dart';
 import '../../data/models/lineup_player.dart';
 import '../../features/matches/presentation/widgets/select_lineup_player_sheet.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import 'scoring_ui_kit.dart';
 
 /// Striker, non-striker, and bowler selection from squad lists.
+///
+/// Kept for mid-match lineup edits (Change Squad). Opening a new innings uses
+/// [StartInningsScreen] instead.
 class PlayerLineupPicker extends StatefulWidget {
   const PlayerLineupPicker({
     super.key,
@@ -17,6 +20,7 @@ class PlayerLineupPicker extends StatefulWidget {
     this.initialNonStrikerId,
     this.initialBowlerId,
     this.wicketKeeperId,
+    this.wicketKeeperCanBowl = true,
     required this.onSave,
     this.isLoading = false,
   });
@@ -27,6 +31,7 @@ class PlayerLineupPicker extends StatefulWidget {
   final String? initialNonStrikerId;
   final String? initialBowlerId;
   final String? wicketKeeperId;
+  final bool wicketKeeperCanBowl;
   final bool isLoading;
   final void Function({
     required String strikerId,
@@ -45,6 +50,7 @@ class PlayerLineupPicker extends StatefulWidget {
     String? initialNonStrikerId,
     String? initialBowlerId,
     String? wicketKeeperId,
+    bool wicketKeeperCanBowl = true,
     required void Function({
       required String strikerId,
       required String strikerName,
@@ -65,6 +71,7 @@ class PlayerLineupPicker extends StatefulWidget {
         initialNonStrikerId: initialNonStrikerId,
         initialBowlerId: initialBowlerId,
         wicketKeeperId: wicketKeeperId,
+        wicketKeeperCanBowl: wicketKeeperCanBowl,
         onSave: onSave,
       ),
     );
@@ -96,24 +103,28 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
 
   void _syncFromWidget() {
     _striker = _pick(
-          widget.battingSquad,
-          widget.initialStrikerId,
-          0,
-        ) ??
-        widget.battingSquad.firstOrNull;
+      widget.battingSquad,
+      widget.initialStrikerId,
+      0,
+    );
     _nonStriker = _pick(
-          widget.battingSquad,
-          widget.initialNonStrikerId,
-          1,
-        ) ??
-        widget.battingSquad.skip(1).firstOrNull ??
-        _striker;
-    _bowler = _pick(widget.bowlingSquad, widget.initialBowlerId, 0) ??
-        widget.bowlingSquad.firstOrNull;
+      widget.battingSquad,
+      widget.initialNonStrikerId,
+      _striker == null ? 0 : 1,
+    );
+    // Never pre-fill both crease ends with the same batter.
+    if (_nonStriker != null &&
+        _striker != null &&
+        _nonStriker!.id == _striker!.id) {
+      _nonStriker = widget.battingSquad
+          .where((p) => p.id != _striker!.id)
+          .firstOrNull;
+    }
+    _bowler = _pick(widget.bowlingSquad, widget.initialBowlerId, 0);
   }
 
   LineupPlayer? _pick(List<LineupPlayer> squad, String? id, int fallbackIndex) {
-    if (id != null) {
+    if (id != null && id.isNotEmpty) {
       return squad.where((p) => p.id == id).firstOrNull;
     }
     if (squad.length > fallbackIndex) return squad[fallbackIndex];
@@ -122,6 +133,7 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
 
   Map<String, String> get _bowlerDisabledIds {
     final keeperId = widget.wicketKeeperId;
+    if (widget.wicketKeeperCanBowl) return const {};
     if (keeperId == null || keeperId.isEmpty) return const {};
     return {keeperId: ScoringDisplayUtils.wicketKeeperCannotBowlReason};
   }
@@ -161,9 +173,11 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+
     if (widget.isLoading) {
       return Material(
-        color: AppColors.surface,
+        color: cf.surface,
         child: const Center(
           child: Padding(
             padding: EdgeInsets.all(AppDimens.spaceLg),
@@ -175,18 +189,18 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
 
     if (widget.battingSquad.isEmpty) {
       return Material(
-        color: AppColors.surface,
+        color: cf.surface,
         child: Column(
           children: [
             ScoringSheetHeader(
               title: 'Edit lineup',
               trailing: ScoringUiKit.sheetCloseButton(context),
             ),
-            const Padding(
-              padding: EdgeInsets.all(AppDimens.spaceMd),
+            Padding(
+              padding: const EdgeInsets.all(AppDimens.spaceMd),
               child: Text(
                 'Add players to teams in Firestore, or link team IDs on this match.',
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: cf.textSecondary),
               ),
             ),
           ],
@@ -195,7 +209,7 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
     }
 
     return Material(
-      color: AppColors.surface,
+      color: cf.surface,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -249,10 +263,10 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
                             bowlerName: _bowler!.name,
                           );
                         },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.gold,
-                    foregroundColor: Colors.black,
-                    minimumSize: const Size(double.infinity, 48),
+                  style: ScoringUiKit.primaryButtonStyle(context).copyWith(
+                    minimumSize: const WidgetStatePropertyAll(
+                      Size(double.infinity, 48),
+                    ),
                   ),
                   child: const Text(
                     'Apply lineup',
@@ -283,20 +297,25 @@ class _SlotRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Material(
-      color: AppColors.card,
+      color: cf.card,
       borderRadius: BorderRadius.circular(10),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: cf.border),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.surfaceElevated,
-                child: Icon(icon, size: 20, color: AppColors.gold),
+                backgroundColor: cf.sectionBackground,
+                child: Icon(icon, size: 20, color: cf.accent),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -305,10 +324,10 @@ class _SlotRow extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textMuted,
+                        color: cf.textMuted,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -318,16 +337,16 @@ class _SlotRow extends StatelessWidget {
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: player != null
-                            ? AppColors.textPrimary
-                            : AppColors.textMuted,
+                            ? cf.textPrimary
+                            : cf.textMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
-                color: AppColors.textMuted,
+                color: cf.textMuted,
               ),
             ],
           ),

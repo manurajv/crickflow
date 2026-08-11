@@ -17,6 +17,7 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 | `onNotificationCreated` | `notifications/{id}` created | FCM bridge for in-app notifications |
 | `onTeamJoinRequestCreated` | join request created | Push to owner/captain/VC |
 | `verifyScoringIntegrity` | Scheduled daily 03:00 (Asia/Colombo) | Logs + writes `scoringIntegrity` on mismatched live/completed matches |
+| `cleanupExpiredTournamentLookingPosts` | Scheduled daily 04:15 (Asia/Colombo) | Deletes community `tournamentNeed` looking posts after start date ≤ today or end date already passed |
 | `adminVerifyMatchIntegrity` | Callable | Returns replay vs cache issues (organizer / scorer) |
 | `adminPreviewMatchStatsFromEvents` | Callable | Preview per-player agg from events (no write) |
 | `adminReprocessMatchStats` | Callable | Apply stats from events when `statsProcessed` is false (or `force:true`) |

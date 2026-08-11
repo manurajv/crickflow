@@ -77,9 +77,9 @@ class MatchCardContent extends StatelessWidget {
 
     final nameColor = _isHero ? Colors.white : cf.textPrimary;
     final mutedColor = _isHero ? Colors.white70 : cf.textSecondary;
-    final typeText = matchTypeLabel != null
+    final typeText = (matchTypeLabel != null && matchTypeLabel!.trim().isNotEmpty)
         ? matchTypeLabel!.trim()
-        : matchTypeDisplayLabel(match);
+        : (matchTypeLabel == null ? matchTypeDisplayLabel(match) : '');
     final tournamentName = tournamentLabel?.trim() ?? '';
     final upcomingRound =
         _isUpcoming && roundLabel != null && roundLabel!.trim().isNotEmpty
@@ -632,6 +632,14 @@ String matchTypeDisplayLabel(MatchModel match) {
   return 'Individual Match';
 }
 
+/// Date shown on match cards: schedule while upcoming; actual start once underway.
+DateTime? matchCardPrimaryDate(MatchModel match) {
+  if (MatchLifecycle.isUpcoming(match)) {
+    return match.scheduledAt ?? match.startedAt;
+  }
+  return match.startedAt ?? match.completedAt ?? match.scheduledAt;
+}
+
 /// Date · overs · tappable venue (Directions / Ground profile).
 class _MatchCardMetaLine extends StatelessWidget {
   const _MatchCardMetaLine({
@@ -658,9 +666,13 @@ class _MatchCardMetaLine extends StatelessWidget {
           color: mutedColor,
         );
     final leading = <String>[];
-    final date = match.scheduledAt ?? match.startedAt ?? match.completedAt;
+    final date = matchCardPrimaryDate(match);
     if (date != null) {
-      leading.add(AppDateUtils.formatCardDate(date));
+      leading.add(
+        MatchLifecycle.isUpcoming(match)
+            ? AppDateUtils.formatCardDate(date)
+            : AppDateUtils.formatCardSchedule(date),
+      );
     }
     leading.add('${match.rules.totalOvers} Ov.');
     final leadingText = leading.join(' | ');
@@ -719,9 +731,13 @@ class _MatchCardMetaLine extends StatelessWidget {
 
 String matchCardMetaLine(MatchModel match) {
   final parts = <String>[];
-  final date = match.scheduledAt ?? match.startedAt ?? match.completedAt;
+  final date = matchCardPrimaryDate(match);
   if (date != null) {
-    parts.add(AppDateUtils.formatCardDate(date));
+    parts.add(
+      MatchLifecycle.isUpcoming(match)
+          ? AppDateUtils.formatCardDate(date)
+          : AppDateUtils.formatCardSchedule(date),
+    );
   }
   parts.add('${match.rules.totalOvers} Ov.');
   if (match.venue.isNotEmpty) {

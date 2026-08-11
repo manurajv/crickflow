@@ -188,6 +188,7 @@ enum OfficialContactMethod {
   whatsApp,
   phoneCall,
   email,
+  /// Legacy — no longer offered in create UI.
   hide,
 }
 

@@ -53,7 +53,16 @@ void main() {
     DateTime? timestamp,
     String? dismissedId,
     WicketType? wicketType,
+    String strikerId = 'b1',
+    String nonStrikerId = 'b2',
+    bool? isWicket,
+    bool retiredHurt = false,
+    bool countsInOver = true,
   }) {
+    final resolvedIsWicket = isWicket ??
+        (type == BallEventType.wicket &&
+            wicketType != WicketType.retiredHurt &&
+            !retiredHurt);
     return BallEventModel(
       id: 'e$sequence',
       matchId: 'm1',
@@ -65,14 +74,17 @@ void main() {
       batsmanRuns: batsmanRuns,
       extraRuns: extraRuns,
       isLegalDelivery: isLegal,
-      strikerId: 'b1',
-      nonStrikerId: 'b2',
+      strikerId: strikerId,
+      nonStrikerId: nonStrikerId,
       bowlerId: 'bowl1',
       timestamp: timestamp,
       sequence: sequence,
       dismissedPlayerId: dismissedId,
       wicketType: wicketType,
-      isWicket: type == BallEventType.wicket,
+      isWicket: resolvedIsWicket,
+      retiredHurt: retiredHurt || wicketType == WicketType.retiredHurt,
+      isEligibleToReturn: retiredHurt || wicketType == WicketType.retiredHurt,
+      countsInOver: countsInOver,
     );
   }
 
@@ -242,6 +254,150 @@ void main() {
 
       final symbols = BallEventAggregator.overSymbols(events, rules);
       expect(symbols[0], ['W+1']);
+    });
+  });
+
+  group('Retired Hurt / Retired Out partnerships & FOW', () {
+    test('RH does not close partnership or create FOW; stand continues', () {
+      final names = {
+        'b1': 'Alice',
+        'b2': 'Bob',
+        'b3': 'Chris',
+      };
+      final events = [
+        _event(
+          sequence: 1,
+          type: BallEventType.runs,
+          runs: 4,
+          batsmanRuns: 4,
+        ),
+        _event(
+          sequence: 2,
+          type: BallEventType.runs,
+          runs: 2,
+          batsmanRuns: 2,
+        ),
+        // Alice retires hurt — partnership must continue.
+        _event(
+          sequence: 3,
+          type: BallEventType.wicket,
+          dismissedId: 'b1',
+          wicketType: WicketType.retiredHurt,
+          isWicket: false,
+          retiredHurt: true,
+          countsInOver: false,
+          isLegal: false,
+        ),
+        BallEventModel(
+          id: 'e4',
+          matchId: 'm1',
+          inningsNumber: 1,
+          overNumber: 0,
+          ballInOver: 0,
+          eventType: BallEventType.lineupChange,
+          strikerId: 'b3',
+          nonStrikerId: 'b2',
+          sequence: 4,
+          countsInOver: false,
+          isLegalDelivery: false,
+        ),
+        _event(
+          sequence: 5,
+          type: BallEventType.runs,
+          runs: 3,
+          batsmanRuns: 3,
+          strikerId: 'b3',
+          nonStrikerId: 'b2',
+        ),
+        // Bob out — closes the continuous partnership (6+3=9).
+        _event(
+          sequence: 6,
+          type: BallEventType.wicket,
+          dismissedId: 'b2',
+          wicketType: WicketType.bowled,
+          strikerId: 'b3',
+          nonStrikerId: 'b2',
+        ),
+      ];
+
+      final fow =
+          BallEventAggregator.fallOfWicketsFromEvents(events, names);
+      expect(fow, hasLength(1));
+      expect(fow.single.batsmanId, 'b2');
+      expect(fow.single.wicketNumber, 1);
+
+      final parts =
+          BallEventAggregator.partnershipsFromEvents(events, names);
+      expect(parts, hasLength(1));
+      expect(parts.single.runs, 9);
+      expect(parts.single.balls, 4); // 2 before RH + 1 after + wicket ball
+      // Current crease pair at the closing wicket.
+      expect(
+        {parts.single.batterAId, parts.single.batterBId},
+        {'b2', 'b3'},
+      );
+    });
+
+    test('RH without retiredHurt flag still excluded via wicketType', () {
+      final names = {'b1': 'Alice', 'b2': 'Bob'};
+      final events = [
+        _event(sequence: 1, type: BallEventType.runs, runs: 1, batsmanRuns: 1),
+        BallEventModel(
+          id: 'e2',
+          matchId: 'm1',
+          inningsNumber: 1,
+          overNumber: 0,
+          ballInOver: 2,
+          eventType: BallEventType.wicket,
+          wicketType: WicketType.retiredHurt,
+          dismissedPlayerId: 'b1',
+          strikerId: 'b1',
+          nonStrikerId: 'b2',
+          // Legacy / partial write: flag missing, isWicket wrongly true.
+          retiredHurt: false,
+          isWicket: true,
+          sequence: 2,
+          countsInOver: false,
+          isLegalDelivery: false,
+        ),
+      ];
+
+      expect(
+        BallEventAggregator.fallOfWicketsFromEvents(events, names),
+        isEmpty,
+      );
+      expect(
+        BallEventAggregator.partnershipsFromEvents(events, names),
+        isEmpty,
+      );
+    });
+
+    test('RO closes partnership, creates FOW, no fielder credit', () {
+      final names = {'b1': 'Alice', 'b2': 'Bob'};
+      final events = [
+        _event(sequence: 1, type: BallEventType.runs, runs: 5, batsmanRuns: 5),
+        _event(
+          sequence: 2,
+          type: BallEventType.wicket,
+          dismissedId: 'b1',
+          wicketType: WicketType.retiredOut,
+          isWicket: true,
+          countsInOver: false,
+          isLegal: false,
+        ),
+      ];
+
+      final fow =
+          BallEventAggregator.fallOfWicketsFromEvents(events, names);
+      expect(fow, hasLength(1));
+      expect(fow.single.batsmanId, 'b1');
+
+      final parts =
+          BallEventAggregator.partnershipsFromEvents(events, names);
+      expect(parts, hasLength(1));
+      expect(parts.single.runs, 5);
+
+      expect(BallEventAggregator.fieldersFromEvents(events), isEmpty);
     });
   });
 }

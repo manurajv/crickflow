@@ -1,5 +1,4 @@
 import '../../../../core/constants/enums.dart';
-import '../../../../core/utils/cricket_math.dart';
 import '../../../../core/utils/overs_formatter.dart';
 import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
@@ -211,7 +210,36 @@ class ScoringDisplayUtils {
     return null;
   }
 
-  static const wicketKeeperCannotBowlReason = 'Wicketkeeper cannot bowl';
+  static const wicketKeeperCannotBowlReason =
+      'Wicket keeper cannot bowl in this match.';
+
+  /// Whether [bowlerId] is blocked as current wicket keeper under match rules.
+  static bool isWicketKeeperBowlingForbidden({
+    required MatchRulesModel rules,
+    required String? bowlerId,
+    required String? wicketKeeperId,
+  }) {
+    if (rules.wicketKeeperCanBowl) return false;
+    if (bowlerId == null || bowlerId.isEmpty) return false;
+    if (wicketKeeperId == null || wicketKeeperId.isEmpty) return false;
+    return bowlerId == wicketKeeperId;
+  }
+
+  /// Non-null message when assigning [bowlerId] violates WK bowling rules.
+  static String? wicketKeeperBowlingViolation({
+    required MatchRulesModel rules,
+    required String? bowlerId,
+    required String? wicketKeeperId,
+  }) {
+    if (!isWicketKeeperBowlingForbidden(
+      rules: rules,
+      bowlerId: bowlerId,
+      wicketKeeperId: wicketKeeperId,
+    )) {
+      return null;
+    }
+    return wicketKeeperCannotBowlReason;
+  }
 
   /// Active wicketkeeper for this innings (replay state + change events).
   static ({String? id, String? name}) activeWicketKeeper({

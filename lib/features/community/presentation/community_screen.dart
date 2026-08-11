@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../domain/community/tournament_looking_post_visibility.dart';
 import '../../../shared/providers/chat_provider.dart';
 import '../../../shared/providers/community_provider.dart';
 import '../../../shared/providers/providers.dart';
@@ -67,9 +70,26 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       final post =
           await ref.read(communityRepositoryProvider).getPost(postId);
       if (!mounted) return;
-      if (post != null) {
-        setState(() => _focusPost = post);
+      if (post == null) return;
+      if (isTournamentLookingPostExpired(post)) {
+        final uid = ref.read(authStateProvider).valueOrNull?.uid;
+        if (uid != null && uid == post.authorId) {
+          unawaited(() async {
+            try {
+              await ref.read(communityRepositoryProvider).deletePost(post.id);
+              ref
+                  .read(communityFeedControllerProvider.notifier)
+                  .removePost(post.id);
+            } catch (_) {}
+          }());
+        }
+        setState(() {
+          _focusPostId = null;
+          _focusPost = null;
+        });
+        return;
       }
+      setState(() => _focusPost = post);
     } catch (_) {}
   }
 
@@ -385,6 +405,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     return ShellTabScaffold(
       title: const Text('Community'),
       floatingActionButton: FloatingActionButton.extended(
+        // Shell keeps sibling tabs mounted; unique tag avoids default FAB hero clashes.
+        heroTag: 'community_chats_fab',
         tooltip: 'Chats',
         onPressed: () {
           requireAuthVoid(

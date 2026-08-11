@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/enums.dart';
+import '../../../core/utils/currency_utils.dart';
 import '../location_model.dart';
 import 'tournament_rules_model.dart';
 import 'tournament_setup_meta.dart';
@@ -188,6 +189,7 @@ class TournamentCreateDraft extends Equatable {
   TournamentSetupMeta mergedSetup() {
     final trimmedGrounds =
         grounds.map((g) => g.trim()).where((g) => g.isNotEmpty).toList();
+    final currency = currencyCodeForCountry(location.country);
     return setup.copyWith(
       organizerName: organizerName.trim(),
       organizerPhone: organizerPhone.trim(),
@@ -201,6 +203,9 @@ class TournamentCreateDraft extends Equatable {
       teamLocation: location.copyWith(city: city.trim()),
       totalTeams: int.tryParse(totalTeamsText),
       teamsRequired: int.tryParse(teamsRequiredText),
+      budgetCurrencyCode: currency.isNotEmpty
+          ? currency
+          : setup.budgetCurrencyCode,
     );
   }
 

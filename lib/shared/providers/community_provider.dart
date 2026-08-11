@@ -11,6 +11,7 @@ import '../../data/models/location_filter_selection.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/community_repository.dart';
 import '../../data/services/google_maps_location_service.dart';
+import '../../domain/community/tournament_looking_post_visibility.dart';
 import '../../features/community/data/community_location_filter_store.dart';
 import 'chat_provider.dart';
 import 'player_social_provider.dart';
@@ -156,6 +157,7 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
   Set<String> _savedIds = {};
   GeoCoords? _nearMeOrigin;
   var _nearMeResolveGen = 0;
+  final Set<String> _purgingLookingPostIds = {};
 
   CommunityRepository get _repo => _ref.read(communityRepositoryProvider);
 
@@ -346,10 +348,21 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
     final profile = _ref.read(currentUserProfileProvider).valueOrNull;
     final blocked =
         _ref.read(blockedUserIdsProvider).valueOrNull ?? const <String>{};
+    final uid = _ref.read(authStateProvider).valueOrNull?.uid;
+    final expiredOwned = <CommunityPostModel>[];
 
-    return posts.where((p) {
+    final visible = posts.where((p) {
       if (hidden.contains(p.id)) return false;
       if (blocked.contains(p.authorId)) return false;
+      if (isTournamentLookingPostExpired(p)) {
+        if (uid != null &&
+            uid.isNotEmpty &&
+            p.authorId == uid &&
+            !_purgingLookingPostIds.contains(p.id)) {
+          expiredOwned.add(p);
+        }
+        return false;
+      }
       if (filter.category != null &&
           filter.savedOnly &&
           p.category != filter.category) {
@@ -368,6 +381,32 @@ class CommunityFeedController extends StateNotifier<CommunityFeedState> {
       if (filter.locations.isEmpty) return true;
       return filter.locations.any((s) => s.matches(p.location));
     }).toList();
+
+    if (expiredOwned.isNotEmpty) {
+      unawaited(_purgeExpiredLookingPosts(expiredOwned));
+    }
+    return visible;
+  }
+
+  /// Best-effort hard delete for the signed-in author's expired looking posts.
+  Future<void> _purgeExpiredLookingPosts(
+    List<CommunityPostModel> posts,
+  ) async {
+    for (final p in posts) {
+      if (!_purgingLookingPostIds.add(p.id)) continue;
+      try {
+        await _repo.deletePost(p.id);
+        // Remove from local caches without re-entering purge via _visible.
+        _head = _head.where((e) => e.id != p.id).toList();
+        _older = _older.where((e) => e.id != p.id).toList();
+        _saved = _saved.where((e) => e.id != p.id).toList();
+        _savedIds.remove(p.id);
+      } catch (_) {
+        // Ignore; feed filter already hides the post.
+      } finally {
+        _purgingLookingPostIds.remove(p.id);
+      }
+    }
   }
 
   /// Within [kNearbyRadiusKm] of [_nearMeOrigin], else same-city fallback.

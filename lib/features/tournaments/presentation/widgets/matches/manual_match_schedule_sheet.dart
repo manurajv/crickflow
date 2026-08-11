@@ -423,6 +423,7 @@ class _ManualMatchScheduleSheetState
                               teamBId: _teamBId!,
                               roundId: _roundId,
                               roundName: round?.name,
+                              roundType: round?.roundType,
                               groupId: _groupId,
                               venue: _selectedGround!,
                               scheduledAt: _scheduledAt,

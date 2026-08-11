@@ -15,10 +15,36 @@ function normalizeRules(rules) {
 }
 
 function countsAsWicket(e) {
-  if (e.retiredHurt) return false;
+  if (!e || e.eventType !== 'wicket') return false;
+  if (e.retiredHurt === true || e.wicketType === 'retiredHurt') return false;
   if (e.isWicket === true) return true;
-  if (e.eventType !== 'wicket') return false;
-  return !(e.isFreeHit && e.wicketType !== 'runOut');
+  if (e.wicketType === 'retiredOut') return true;
+  if (e.isFreeHit && e.wicketType !== 'runOut') return false;
+  return [
+    'bowled',
+    'caught',
+    'caughtBehind',
+    'caughtAndBowled',
+    'lbw',
+    'stumped',
+    'hitWicket',
+    'runOut',
+    'mankad',
+    'retiredOut',
+    'obstructingField',
+    'timedOut',
+    'handledBall',
+    'hitBallTwice',
+    'other',
+  ].includes(e.wicketType);
+}
+
+function isRetiredHurtEvent(e) {
+  return (
+    e &&
+    e.eventType === 'wicket' &&
+    (e.retiredHurt === true || e.wicketType === 'retiredHurt')
+  );
 }
 
 function creditsBowlerWicketType(wicketType, isMankad = false) {
@@ -491,6 +517,9 @@ function applyEventToInnings(innings, event, rules) {
   if (event.eventType === 'noBall' && rules.freeHitEnabled) {
     isFreeHit = true;
   }
+  if (!rules.freeHitEnabled) {
+    isFreeHit = false;
+  }
 
   let strikerId = innings.strikerId;
   let nonStrikerId = innings.nonStrikerId;
@@ -513,7 +542,7 @@ function applyEventToInnings(innings, event, rules) {
     }
   }
 
-  if (event.eventType === 'wicket' && event.retiredHurt) {
+  if (event.eventType === 'wicket' && isRetiredHurtEvent(event)) {
     const retiredId =
       event.dismissedPlayerId || event.strikerId || strikerId;
     if (retiredId) {
@@ -552,7 +581,7 @@ function applyEventToInnings(innings, event, rules) {
   // Retirement must not affect bowling figures.
   if (
     event.bowlerId &&
-    !event.retiredHurt &&
+    !isRetiredHurtEvent(event) &&
     event.wicketType !== 'retiredOut'
   ) {
     const wicketCredit = bowlerGetsWicketFromEvent(event);
@@ -571,7 +600,7 @@ function applyEventToInnings(innings, event, rules) {
   if (
     event.eventType === 'wicket' &&
     countsAsWicket(event) &&
-    !event.retiredHurt
+    !isRetiredHurtEvent(event)
   ) {
     const dismissedId =
       event.dismissedPlayerId || event.strikerId || innings.strikerId;
@@ -855,8 +884,11 @@ function verifyMatchProjection(match, allEvents) {
 module.exports = {
   normalizeRules,
   replayInnings,
+  applyEventToInnings,
   fieldersFromEvents,
   collectPlayerAggFromEvents,
   deriveInningsList,
   verifyMatchProjection,
+  countsAsWicket,
+  isRetiredHurtEvent,
 };

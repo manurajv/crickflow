@@ -406,12 +406,14 @@ function buildHeroOfMatchNotification(match, hero, perspective = 'general') {
 }
 
 function buildBadgeUnlockNotification(badgeTitle, reason) {
+  const title = (badgeTitle && String(badgeTitle).trim()) || 'New badge';
+  const body = (reason && String(reason).trim()) || 'Unlocked on CrickFlow';
   return {
-    title: 'New badge',
-    body: [badgeTitle, reason].filter(Boolean).join('\n'),
+    title,
+    body,
     matchTitle: null,
-    pushTitle: 'New badge unlocked',
-    pushBody: [badgeTitle, reason].filter(Boolean).join('\n'),
+    pushTitle: title,
+    pushBody: body,
     category: 'badge',
   };
 }

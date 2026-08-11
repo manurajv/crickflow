@@ -171,6 +171,7 @@ class BallEventAggregator {
   }
 
   /// Fall-of-wicket lines from wicket events and running score.
+  /// Retired Hurt is excluded; Retired Out is included.
   static List<FallOfWicketRecord> fallOfWicketsFromEvents(
     List<BallEventModel> events,
     Map<String, String> playerNames,
@@ -184,7 +185,7 @@ class BallEventAggregator {
       totalRuns += e.runs;
       if (e.isLegalDelivery) legalBalls++;
 
-      if (!_countsAsWicket(e)) continue;
+      if (!DismissalFormatter.eventCountsAsWicket(e)) continue;
 
       wickets++;
       final dismissed = e.dismissedPlayerId ?? e.strikerId;
@@ -207,25 +208,86 @@ class BallEventAggregator {
     return result;
   }
 
-  /// Closed partnerships between wickets.
+  /// Closed partnerships between real wickets.
+  ///
+  /// Retired Hurt does **not** close a partnership: runs/balls keep accumulating
+  /// until a true wicket (including Retired Out). Pair names come from the
+  /// crease snapshot on the closing wicket (current partners at that moment).
   static List<PartnershipRecord> partnershipsFromEvents(
     List<BallEventModel> events,
     Map<String, String> playerNames,
   ) {
+    String? aId;
+    String? bId;
     var runs = 0;
     var balls = 0;
     final result = <PartnershipRecord>[];
 
+    void setCrease(String? striker, String? nonStriker) {
+      if (striker != null &&
+          striker.isNotEmpty &&
+          nonStriker != null &&
+          nonStriker.isNotEmpty &&
+          striker != nonStriker) {
+        aId = striker;
+        bId = nonStriker;
+        return;
+      }
+      // After RH one crease slot may be empty until lineup/replacement.
+      if (striker != null && striker.isNotEmpty) {
+        if (aId == null || aId == striker || bId == striker) {
+          aId ??= striker;
+        } else if (bId == null) {
+          bId = striker;
+        } else {
+          // New batter replacing a vacant/retired slot — keep the survivor.
+          if (aId != null && bId == null) {
+            bId = striker;
+          } else if (bId != null && aId == null) {
+            aId = striker;
+          }
+        }
+      }
+      if (nonStriker != null && nonStriker.isNotEmpty) {
+        if (bId == null && nonStriker != aId) {
+          bId = nonStriker;
+        } else if (aId == null && nonStriker != bId) {
+          aId = nonStriker;
+        }
+      }
+    }
+
     for (final e in events) {
+      if (e.eventType == BallEventType.lineupChange ||
+          e.eventType == BallEventType.batterSwap) {
+        setCrease(e.strikerId, e.nonStrikerId);
+        continue;
+      }
+
       runs += e.runs;
       if (e.isLegalDelivery) balls++;
+      setCrease(e.strikerId, e.nonStrikerId);
 
-      if (!_countsAsWicket(e)) continue;
+      if (DismissalFormatter.isRetiredHurtEvent(e)) {
+        final retired = e.dismissedPlayerId ?? e.strikerId;
+        if (retired != null && retired.isNotEmpty) {
+          if (retired == aId) aId = null;
+          if (retired == bId) bId = null;
+        }
+        continue;
+      }
 
-      final a = e.strikerId;
-      final b = e.nonStrikerId;
-      if ((runs > 0 || balls > 0) && a != null && b != null) {
-        final sorted = [a, b]..sort();
+      if (!DismissalFormatter.eventCountsAsWicket(e)) continue;
+
+      final left = e.strikerId ?? aId;
+      final right = e.nonStrikerId ?? bId;
+      if ((runs > 0 || balls > 0) &&
+          left != null &&
+          left.isNotEmpty &&
+          right != null &&
+          right.isNotEmpty &&
+          left != right) {
+        final sorted = [left, right]..sort();
         result.add(
           PartnershipRecord(
             batterAId: sorted[0],
@@ -239,7 +301,20 @@ class BallEventAggregator {
       }
       runs = 0;
       balls = 0;
+
+      final dismissed = e.dismissedPlayerId ?? e.strikerId;
+      if (dismissed != null && dismissed.isNotEmpty) {
+        final survivor = left == dismissed
+            ? right
+            : (right == dismissed ? left : null);
+        aId = survivor;
+        bId = null;
+      } else {
+        aId = null;
+        bId = null;
+      }
     }
+
     return result;
   }
 
@@ -250,7 +325,8 @@ class BallEventAggregator {
     final map = <String, FielderInningsModel>{};
 
     for (final e in events) {
-      if (!_countsAsWicket(e)) continue;
+      if (!DismissalFormatter.eventCountsAsWicket(e)) continue;
+      if (DismissalFormatter.isRetiredOutEvent(e)) continue;
       final type = e.wicketType;
       var fielderId = e.primaryFielderId ?? e.fielderId;
       if (type == null || fielderId == null || fielderId.isEmpty) {
@@ -305,13 +381,6 @@ class BallEventAggregator {
     return map.values.toList();
   }
 
-  static bool _countsAsWicket(BallEventModel e) {
-    if (e.retiredHurt) return false;
-    if (e.isWicket) return true;
-    if (e.eventType != BallEventType.wicket) return false;
-    return !(e.isFreeHit && e.wicketType != WicketType.runOut);
-  }
-
   InningsModel _replay(
     MatchModel match,
     InningsModel lineupInnings,
@@ -353,7 +422,9 @@ class BallEventAggregator {
           entry[id] = ts;
         }
       }
-      if (e.isWicket && e.dismissedPlayerId != null) {
+      // RH is not a dismissal — batter may return. RO and real wickets are.
+      if (DismissalFormatter.eventCountsAsWicket(e) &&
+          e.dismissedPlayerId != null) {
         dismissed[e.dismissedPlayerId!] = ts;
       }
     }

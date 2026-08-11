@@ -9,6 +9,7 @@ import '../../../../../domain/scoring/match_lifecycle.dart';
 import '../../../../../shared/providers/providers.dart';
 import '../../../../../shared/providers/tournament_match_providers.dart';
 import '../../../../../shared/providers/tournament_providers.dart';
+import '../../../../../shared/widgets/match_card_ui.dart';
 import '../../../../../shared/widgets/match_list_card.dart';
 import '../../utils/tournament_display_utils.dart';
 import '../teams/tournament_team_confirm_sheet.dart';
@@ -30,12 +31,12 @@ class TournamentMatchCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
-    final isLive = MatchLifecycle.isEffectivelyLive(match);
     final canDelete =
         canManage && isDeletableUpcomingMatch(match.status);
     final canWalkover =
         canManage && MatchLifecycle.isUpcoming(match);
     final isWalkover = match.resultSummary.toLowerCase().contains('walkover');
+    final displayAt = matchCardPrimaryDate(match);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -55,12 +56,6 @@ class TournamentMatchCard extends ConsumerWidget {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    if (isLive)
-                      _MetaChip(
-                        label: 'LIVE',
-                        color: cf.statusLive,
-                        filled: true,
-                      ),
                     if (isWalkover)
                       _MetaChip(
                         label: 'WALKOVER',
@@ -73,10 +68,10 @@ class TournamentMatchCard extends ConsumerWidget {
                         color: cf.textSecondary,
                         icon: Icons.place_outlined,
                       ),
-                    if (match.scheduledAt != null)
+                    if (displayAt != null)
                       _MetaChip(
                         label:
-                            '${AppDateUtils.formatCardDate(match.scheduledAt!)} · ${AppDateUtils.formatTime(match.scheduledAt!)}',
+                            '${AppDateUtils.formatCardDate(displayAt)} · ${AppDateUtils.formatTime(displayAt)}',
                         color: cf.textSecondary,
                         icon: Icons.schedule_outlined,
                       ),

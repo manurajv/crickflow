@@ -15,6 +15,7 @@ class MatchRulesModel extends Equatable {
     this.wideRuns = 1,
     this.noBallRuns = 1,
     this.freeHitEnabled = true,
+    this.wicketKeeperCanBowl = true,
     this.maxInnings = 2,
     this.maxWickets = 10,
     this.superOverEnabled = false,
@@ -53,6 +54,8 @@ class MatchRulesModel extends Equatable {
   final int wideRuns;
   final int noBallRuns;
   final bool freeHitEnabled;
+  /// When false, the current designated wicket keeper cannot bowl.
+  final bool wicketKeeperCanBowl;
   final int maxInnings;
   final int maxWickets;
   final bool superOverEnabled;
@@ -89,6 +92,17 @@ class MatchRulesModel extends Equatable {
 
   /// Primary ON/OFF toggle for wagon wheel capture during scoring.
   bool get wagonWheelActive => wagonWheelEnabled;
+
+  /// True when [bowlerId] is the current keeper and keepers may not bowl.
+  bool forbidsWicketKeeperAsBowler({
+    required String? bowlerId,
+    required String? wicketKeeperId,
+  }) {
+    if (wicketKeeperCanBowl) return false;
+    if (bowlerId == null || bowlerId.isEmpty) return false;
+    if (wicketKeeperId == null || wicketKeeperId.isEmpty) return false;
+    return bowlerId == wicketKeeperId;
+  }
 
   /// `ceil(totalOvers / 5)` — minimum 1.
   static int calculateOversPerBowler(int totalOvers) {
@@ -243,6 +257,7 @@ class MatchRulesModel extends Equatable {
       wideRuns: map['wideRuns'] as int? ?? 1,
       noBallRuns: map['noBallRuns'] as int? ?? 1,
       freeHitEnabled: map['freeHitEnabled'] as bool? ?? true,
+      wicketKeeperCanBowl: map['wicketKeeperCanBowl'] as bool? ?? true,
       maxInnings: map['maxInnings'] as int? ?? 2,
       maxWickets: map['maxWickets'] as int? ?? 10,
       superOverEnabled: map['superOverEnabled'] as bool? ?? false,
@@ -382,6 +397,7 @@ class MatchRulesModel extends Equatable {
         'wideRuns': wideRuns,
         'noBallRuns': noBallRuns,
         'freeHitEnabled': freeHitEnabled,
+        'wicketKeeperCanBowl': wicketKeeperCanBowl,
         'maxInnings': maxInnings,
         'maxWickets': maxWickets,
         'superOverEnabled': superOverEnabled,
@@ -417,6 +433,7 @@ class MatchRulesModel extends Equatable {
     int? wideRuns,
     int? noBallRuns,
     bool? freeHitEnabled,
+    bool? wicketKeeperCanBowl,
     int? maxInnings,
     int? maxWickets,
     bool? superOverEnabled,
@@ -452,6 +469,7 @@ class MatchRulesModel extends Equatable {
       wideRuns: wideRuns ?? this.wideRuns,
       noBallRuns: noBallRuns ?? this.noBallRuns,
       freeHitEnabled: freeHitEnabled ?? this.freeHitEnabled,
+      wicketKeeperCanBowl: wicketKeeperCanBowl ?? this.wicketKeeperCanBowl,
       maxInnings: maxInnings ?? this.maxInnings,
       maxWickets: maxWickets ?? this.maxWickets,
       superOverEnabled: superOverEnabled ?? this.superOverEnabled,
