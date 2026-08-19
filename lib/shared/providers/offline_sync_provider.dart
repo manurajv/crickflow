@@ -38,6 +38,7 @@ final matchSyncMetaProvider =
         pendingCount: local.pendingCountForMatch(matchId),
         lastSyncAt: local.lastSyncAt(matchId),
         status: sync.currentStatus,
+        lastError: local.lastSyncError(matchId),
       );
 
   return Stream.multi((multi) {

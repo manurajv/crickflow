@@ -405,17 +405,15 @@ function buildHeroOfMatchNotification(match, hero, perspective = 'general') {
   return pack(match, 'Hero of the Match', event, null);
 }
 
-function buildBadgeUnlockNotification(badgeTitle, reason) {
-  const title = (badgeTitle && String(badgeTitle).trim()) || 'New badge';
-  const body = (reason && String(reason).trim()) || 'Unlocked on CrickFlow';
-  return {
-    title,
-    body,
-    matchTitle: null,
-    pushTitle: title,
-    pushBody: body,
-    category: 'badge',
-  };
+function buildBadgeUnlockNotification(match, badgeTitle, reason) {
+  const name = (badgeTitle && String(badgeTitle).trim()) || 'New badge';
+  const detail = (reason && String(reason).trim()) || 'New badge unlocked';
+  // Same layout as Hero of the Match: push title = match; inbox title = badge;
+  // body = badge · detail (performance / unlock reason).
+  const event = detail.toLowerCase() === name.toLowerCase()
+    ? name
+    : `${name} · ${detail}`;
+  return pack(match, name, event, null, { category: 'badge' });
 }
 
 function buildMatchBreakStartedNotification(match, activeBreak) {

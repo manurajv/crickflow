@@ -113,11 +113,10 @@ service cloud.firestore {
       return isSignedIn() && (
         (('scorer1UserId' in data) && data.scorer1UserId == request.auth.uid) ||
         (('scorer2UserId' in data) && data.scorer2UserId == request.auth.uid) ||
+        request.auth.uid in data.get('scorerIds', []) ||
+        isOfficialScorerFromSnapshot(data) ||
         isActiveScorer(matchId) ||
-        (isLegacyMatchScorer(matchId) && (
-          isMatchCreator(matchId) ||
-          request.auth.uid in data.scorerIds
-        ))
+        (isLegacyMatchScorer(matchId) && isMatchCreator(matchId))
       );
     }
 
@@ -314,6 +313,10 @@ service cloud.firestore {
       return slot is list && slot.size() <= 50;
     }
 
+    function isWholeNumber(v) {
+      return v is int || (v is float && v == int(v));
+    }
+
     function validMatchRules(rules) {
       return rules is map
         && rules.keys().hasOnly([
@@ -364,15 +367,15 @@ service cloud.firestore {
         && (!('powerplaySlot3' in rules) || validPowerplaySlot(rules.powerplaySlot3))
         && (!('powerplayLabels' in rules)
             || (rules.powerplayLabels is list && rules.powerplayLabels.size() <= 10))
-        && (!('totalOvers' in rules) || (rules.totalOvers is int && rules.totalOvers > 0 && rules.totalOvers <= 200))
-        && (!('ballsPerOver' in rules) || (rules.ballsPerOver is int && rules.ballsPerOver >= 1 && rules.ballsPerOver <= 12))
-        && (!('playersPerTeam' in rules) || (rules.playersPerTeam is int && rules.playersPerTeam >= 1 && rules.playersPerTeam <= 25))
-        && (!('oversPerBowler' in rules) || (rules.oversPerBowler is int && rules.oversPerBowler >= 1 && rules.oversPerBowler <= 50))
+        && (!('totalOvers' in rules) || (isWholeNumber(rules.totalOvers) && rules.totalOvers > 0 && rules.totalOvers <= 200))
+        && (!('ballsPerOver' in rules) || (isWholeNumber(rules.ballsPerOver) && rules.ballsPerOver >= 1 && rules.ballsPerOver <= 12))
+        && (!('playersPerTeam' in rules) || (isWholeNumber(rules.playersPerTeam) && rules.playersPerTeam >= 1 && rules.playersPerTeam <= 25))
+        && (!('oversPerBowler' in rules) || (isWholeNumber(rules.oversPerBowler) && rules.oversPerBowler >= 1 && rules.oversPerBowler <= 50))
         && (!('isManualOversPerBowler' in rules) || rules.isManualOversPerBowler is bool)
         && (!('totalOvers' in rules) || !('oversPerBowler' in rules)
             || rules.oversPerBowler <= rules.totalOvers)
-        && (!('wideRuns' in rules) || (rules.wideRuns is int && rules.wideRuns >= 0 && rules.wideRuns <= 10))
-        && (!('noBallRuns' in rules) || (rules.noBallRuns is int && rules.noBallRuns >= 0 && rules.noBallRuns <= 10))
+        && (!('wideRuns' in rules) || (isWholeNumber(rules.wideRuns) && rules.wideRuns >= 0 && rules.wideRuns <= 10))
+        && (!('noBallRuns' in rules) || (isWholeNumber(rules.noBallRuns) && rules.noBallRuns >= 0 && rules.noBallRuns <= 10))
         && (!('freeHitEnabled' in rules) || rules.freeHitEnabled is bool)
         && (!('wicketKeeperCanBowl' in rules) || rules.wicketKeeperCanBowl is bool);
     }
@@ -398,16 +401,17 @@ service cloud.firestore {
     }
 
     function playingSquadWithinLimit(data) {
-      let rules = data.rules;
-      let limit = ('playersPerTeam' in rules && rules.playersPerTeam is int)
+      let rules = data.get('rules', {});
+      let base = ('playersPerTeam' in rules && isWholeNumber(rules.playersPerTeam))
         ? rules.playersPerTeam
         : 11;
+      // Allow impact / emergency extras beyond listed XI; squad id lists are
+      // capped separately in validMatchSetupFields (≤ 50).
+      let playingLimit = base + 2;
       return (!('teamAPlayingPlayers' in data)
-              || data.teamAPlayingPlayers.size() <= limit)
+              || data.teamAPlayingPlayers.size() <= playingLimit)
         && (!('teamBPlayingPlayers' in data)
-              || data.teamBPlayingPlayers.size() <= limit)
-        && (!('teamASquadIds' in data) || data.teamASquadIds.size() <= limit)
-        && (!('teamBSquadIds' in data) || data.teamBSquadIds.size() <= limit);
+              || data.teamBPlayingPlayers.size() <= playingLimit);
     }
 
     function isPlatformAdmin() {
@@ -434,19 +438,20 @@ service cloud.firestore {
     }
 
     function validMatchBreakField(br) {
-      return br is map
-        && br.breakType is string
-        && br.startTime is string
-        && br.startedBy is string
-        && br.status is string
-        && (!('reason' in br) || br.reason is string);
+      return br == null
+        || (br is map
+          && br.breakType is string
+          && br.startTime is string
+          && br.startedBy is string
+          && br.status is string
+          && (!('reason' in br) || br.reason is string));
     }
 
     function validMatchBreakHistoryEntry(entry) {
       return entry is map
         && entry.breakType is string
         && entry.startTime is string
-        && entry.durationSeconds is int
+        && isWholeNumber(entry.durationSeconds)
         && (!('endTime' in entry) || entry.endTime is string)
         && (!('reason' in entry) || entry.reason is string);
     }

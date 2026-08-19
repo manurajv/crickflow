@@ -771,6 +771,7 @@
 | **Match started / innings break / result** personalized for playing user vs followed network | Done — `onMatchLive.js`, `onMatchCompleted.js` |
 | **Post-match performance summary** on result when user played | Done |
 | **Hero of the Match + badge unlock** separate notifications | Done — `onMatchCompleted.js` |
+| **Badge unlock push** — same layout as Hero (match title → badge name → reason) | Done — redeploy `onMatchCompleted` |
 | **Compact inbox cards** — thin rows, read/unread accent, no Update chip; mark read on tap | Done — `notifications_screen.dart` |
 | **Action status chips** (Accepted/Rejected) after invite response | Done — `actionStatus` field |
 | **Deep links** — match tabs (live/summary), badges → cricket profile, fallback to inbox | Done — `notification_navigation.dart` |
@@ -1392,6 +1393,10 @@
 |------|--------|
 | Hive local store — match snapshots, ball events, overlay (`MatchLocalStore`) | Done |
 | Offline sync queue — ball commits, undo, match updates, Firestore batches | Done |
+| Offline sync — wait for Firebase Auth + token refresh; reclaim scorer ownership before flush; surface sync errors | Done |
+| Offline sync — ball/undo/overlay write scoring fields only (full `toMap` was failing rules as PERMISSION_DENIED for the active scorer) | Done |
+| Firestore rules — listed `scorerIds` / official scorers can write live scoring (fixes offline sync PERMISSION_DENIED) | Done — deploy rules |
+| Firestore rules — accept whole-number floats in match rules; relax playing-XI limit; allow null match break clear | Done — deploy rules |
 | `OfflineSyncService` — connectivity-aware sequential flush | Done |
 | `MatchRepository` — local-first writes; hybrid match/event/overlay streams | Done |
 | `MatchTargetRevisionRepository` — DLS, target revision, end innings, match result offline | Done |

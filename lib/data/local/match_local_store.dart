@@ -18,6 +18,7 @@ class MatchLocalStore {
   static const _overlayPrefix = 'overlay:';
   static const _syncQueueKey = 'sync_queue';
   static const _lastSyncPrefix = 'last_sync:';
+  static const _syncErrorPrefix = 'sync_error:';
 
   Box<String>? _box;
   bool _initialized = false;
@@ -50,6 +51,7 @@ class MatchLocalStore {
   String _eventsKey(String matchId) => '$_eventsPrefix$matchId';
   String _overlayKey(String matchId) => '$_overlayPrefix$matchId';
   String _lastSyncKey(String matchId) => '$_lastSyncPrefix$matchId';
+  String _syncErrorKey(String matchId) => '$_syncErrorPrefix$matchId';
 
   Future<void> saveSnapshot({
     required String matchId,
@@ -205,6 +207,23 @@ class MatchLocalStore {
 
   Future<void> setLastSyncAt(String matchId, DateTime time) async {
     await _storage.put(_lastSyncKey(matchId), time.toIso8601String());
+    await clearSyncError(matchId);
+    _notifySyncMeta(matchId);
+  }
+
+  String? lastSyncError(String matchId) {
+    final raw = _storage.get(_syncErrorKey(matchId));
+    if (raw is! String || raw.isEmpty) return null;
+    return raw;
+  }
+
+  Future<void> setSyncError(String matchId, String message) async {
+    await _storage.put(_syncErrorKey(matchId), message);
+    _notifySyncMeta(matchId);
+  }
+
+  Future<void> clearSyncError(String matchId) async {
+    await _storage.delete(_syncErrorKey(matchId));
     _notifySyncMeta(matchId);
   }
 
@@ -252,6 +271,7 @@ class MatchLocalStore {
         pendingCount: pendingCountForMatch(matchId),
         lastSyncAt: lastSyncAt(matchId),
         status: status ?? ConnectivityStatus.online,
+        lastError: lastSyncError(matchId),
       ),
     );
   }

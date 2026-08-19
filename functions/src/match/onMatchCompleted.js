@@ -223,10 +223,11 @@ exports.onMatchCompleted = onDocumentUpdated(
         await notifySingleUser(
           db,
           uid,
-          buildBadgeUnlockNotification(meta.title, reason),
+          buildBadgeUnlockNotification(matchWithInnings, meta.title, reason),
           'badge_unlock',
           {
             matchId,
+            match: matchWithInnings,
             playerId,
             category: 'badge',
             tab: 'badges',

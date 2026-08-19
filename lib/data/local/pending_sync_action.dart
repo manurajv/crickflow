@@ -119,10 +119,13 @@ class MatchSyncMeta {
     required this.pendingCount,
     this.lastSyncAt,
     required this.status,
+    this.lastError,
   });
 
   final String matchId;
   final int pendingCount;
   final DateTime? lastSyncAt;
   final ConnectivityStatus status;
+  /// Last flush failure message for this match (cleared after a successful sync).
+  final String? lastError;
 }

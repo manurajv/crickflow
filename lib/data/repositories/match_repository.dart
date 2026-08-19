@@ -1779,6 +1779,44 @@ class MatchRepository {
     await _enqueueMatchPatch(matchId, {'scorerIds': scorerIds});
   }
 
+  /// Sets [scorerId] as the live ownership holder without restarting innings.
+  /// Used when resuming / starting a later innings so offline sync stays authorized.
+  Future<void> claimActiveScorer(
+    String matchId, {
+    required String scorerId,
+    String? scorerName,
+    String? scorerPhoto,
+  }) async {
+    final match = await getMatch(matchId);
+    if (match == null) throw StateError('Match not found');
+
+    final scorerIds = <String>{...match.scorerIds, scorerId};
+    if (match.scorer1UserId != null && match.scorer1UserId!.isNotEmpty) {
+      scorerIds.add(match.scorer1UserId!);
+    }
+    if (match.scorer2UserId != null && match.scorer2UserId!.isNotEmpty) {
+      scorerIds.add(match.scorer2UserId!);
+    }
+
+    final alreadyActive = match.currentScorerId == scorerId;
+    final patch = <String, dynamic>{
+      'scorerIds': scorerIds.toList(),
+      'currentScorerId': scorerId,
+      if (scorerName != null && scorerName.isNotEmpty)
+        'currentScorerName': scorerName,
+      if (scorerPhoto != null && scorerPhoto.isNotEmpty)
+        'currentScorerPhoto': scorerPhoto,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    if (!alreadyActive) {
+      // Keep existing token when reclaiming so takeover rules stay satisfied.
+      patch['scorerOwnershipToken'] =
+          match.scorerOwnershipToken ?? _uuid.v4();
+      patch['lastScorerTransferAt'] = DateTime.now().toIso8601String();
+    }
+    await _enqueueMatchPatch(matchId, patch);
+  }
+
   /// Ensures ownership token exists (for QR takeover on legacy matches).
   Future<String> ensureScorerOwnershipToken(String matchId) async {
     final match = await getMatch(matchId);

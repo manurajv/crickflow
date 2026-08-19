@@ -1,0 +1,50 @@
+name: CrickFlow Web
+
+# Quality gates for the consumer web app only.
+# Never deploys. Never touches root firebase.json / mobile Hosting.
+on:
+  pull_request:
+    paths:
+      - "crickflow-web/**"
+      - ".github/workflows/crickflow-web.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crickflow-web/**"
+      - ".github/workflows/crickflow-web.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: crickflow-web-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crickflow-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: crickflow-web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Public env for build
+        run: cp .env.example .env.local
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Production gate
+        run: npm run gate
+      - name: Build
+        run: npm run build
+      - name: Health file present
+        run: test -f public/health.json

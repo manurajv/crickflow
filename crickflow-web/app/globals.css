@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f7f9;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --muted: #eef1f6;
+  --muted-foreground: #555555;
+  --border: #e2e6ee;
+  --primary: #1e88e5;
+  --primary-foreground: #ffffff;
+  --secondary: #e8f5e9;
+  --secondary-foreground: #1b5e20;
+  --ring: #1e88e5;
+  --cricket: #2e7d32;
+  --gold: #ffc107;
+  --live: #e53935;
+  --navy: #0a0e17;
+  --chrome: #ffffff;
+  --scoreboard: #0d47a1;
+}
+
+.dark {
+  --background: #0a0e17;
+  --foreground: #f4f6fb;
+  --card: #141b2d;
+  --card-foreground: #f4f6fb;
+  --muted: #1c2438;
+  --muted-foreground: #9aa3b5;
+  --border: #243049;
+  --primary: #1e88e5;
+  --primary-foreground: #ffffff;
+  --secondary: #163024;
+  --secondary-foreground: #c8e6c9;
+  --ring: #ffc107;
+  --cricket: #66bb6a;
+  --gold: #ffc107;
+  --live: #e53935;
+  --navy: #0a0e17;
+  --chrome: #141b2d;
+  --scoreboard: #0d47a1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-ring: var(--ring);
+  --color-cricket: var(--cricket);
+  --color-gold: var(--gold);
+  --color-live: var(--live);
+  --color-navy: var(--navy);
+  --color-chrome: var(--chrome);
+  --color-scoreboard: var(--scoreboard);
+  --font-sans: var(--font-plus-jakarta);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-plus-jakarta), system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

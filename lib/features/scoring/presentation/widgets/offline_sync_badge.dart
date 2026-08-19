@@ -71,12 +71,19 @@ class OfflineSyncBadge extends ConsumerWidget {
                       ),
                       Text(
                         meta.pendingCount > 0
-                            ? '$lastSyncLabel · ${meta.pendingCount} pending'
+                            ? (meta.lastError != null &&
+                                    meta.lastError!.trim().isNotEmpty
+                                ? meta.lastError!
+                                : '$lastSyncLabel · ${meta.pendingCount} pending')
                             : lastSyncLabel,
                         style: TextStyle(
                           fontSize: 11,
-                          color: cf.textSecondary,
+                          color: meta.lastError != null && meta.pendingCount > 0
+                              ? cf.error
+                              : cf.textSecondary,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -101,6 +108,22 @@ class OfflineSyncBadge extends ConsumerWidget {
                             return;
                           }
                           await sync.flush(matchId: matchId);
+                          if (!context.mounted) return;
+                          final err = ref
+                              .read(matchLocalStoreProvider)
+                              .lastSyncError(matchId);
+                          final pending = ref
+                              .read(matchLocalStoreProvider)
+                              .pendingCountForMatch(matchId);
+                          if (err != null && pending > 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(err)),
+                            );
+                          } else if (pending == 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Scores synced')),
+                            );
+                          }
                         },
                   icon: meta.status == ConnectivityStatus.syncing
                       ? SizedBox(
@@ -119,7 +142,7 @@ class OfflineSyncBadge extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 }

@@ -176,7 +176,12 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
               scorerPhoto: profile?.photoUrl,
             );
       } else if (uid != null) {
-        await ref.read(matchRepositoryProvider).addScorer(widget.matchId, uid);
+        await ref.read(matchRepositoryProvider).claimActiveScorer(
+              widget.matchId,
+              scorerId: uid,
+              scorerName: profile?.displayName,
+              scorerPhoto: profile?.photoUrl,
+            );
       }
 
       if (mounted) context.go('/match/${widget.matchId}/score');

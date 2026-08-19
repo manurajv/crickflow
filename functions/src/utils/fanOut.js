@@ -139,7 +139,7 @@ async function fanOutMatchNotification(
  */
 async function notifySingleUser(db, userId, built, type, extra = {}) {
   if (!userId) return;
-  const normalized = normalizeBuilt(built, {});
+  const normalized = normalizeBuilt(built, extra.match || {});
   await createUserNotification(db, userId, {
     title: normalized.title,
     body: normalized.body,
@@ -153,7 +153,7 @@ async function notifySingleUser(db, userId, built, type, extra = {}) {
     pushSent: true,
   });
   await sendPushToUser(db, userId, {
-    title: normalized.pushTitle || normalized.title,
+    title: normalized.pushTitle || normalized.matchTitle || normalized.title,
     body: normalized.pushBody || normalized.body,
     data: {
       type,
