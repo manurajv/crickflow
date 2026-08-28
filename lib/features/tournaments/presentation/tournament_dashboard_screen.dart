@@ -85,6 +85,7 @@ class _TournamentDashboardScreenState
     final completed = tournament.status == TournamentStatus.completed;
     final sections = TournamentDashboardSection.tabOrderForStatus(completed);
     final justCompleted = _wasCompleted == false && completed;
+    final hadTabs = _tabs != null;
     _wasCompleted = completed;
 
     final sectionsChanged = !_sectionsEqual(_visibleSections, sections);
@@ -107,7 +108,7 @@ class _TournamentDashboardScreenState
     );
     _visibleSections = List<TournamentDashboardSection>.from(sections);
 
-    if (_wasCompleted != null && sectionsChanged && mounted) {
+    if (hadTabs && sectionsChanged && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() {});
       });

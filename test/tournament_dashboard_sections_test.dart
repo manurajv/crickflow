@@ -3,23 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crickflow/features/tournaments/presentation/tournament_dashboard_sections.dart';
 
 void main() {
-  test('dashboard tab order keeps Summary in the first two tabs', () {
+  test('Summary tab is hidden until the tournament is completed', () {
+    final active = TournamentDashboardSection.tabOrderForStatus(false);
+    final completed = TournamentDashboardSection.tabOrderForStatus(true);
+
+    expect(active, isNot(contains(TournamentDashboardSection.summary)));
+    expect(completed, contains(TournamentDashboardSection.summary));
+    expect(completed.length, active.length + 1);
     expect(
-      TournamentDashboardSection.tabOrder.take(2).toList(),
+      completed.take(2).toList(),
       [
         TournamentDashboardSection.overview,
         TournamentDashboardSection.summary,
       ],
-    );
-    expect(
-      TournamentDashboardSection.tabOrderForStatus(false).length,
-      TournamentDashboardSection.tabOrderForStatus(true).length,
-    );
-    expect(
-      TournamentDashboardSection.indexOfSection(
-        TournamentDashboardSection.summary,
-      ),
-      1,
     );
   });
 
@@ -44,6 +40,30 @@ void main() {
         requested: TournamentDashboardSection.overview,
       ),
       TournamentDashboardSection.overview,
+    );
+    expect(
+      TournamentDashboardSection.landingSection(
+        isCompleted: false,
+        requested: TournamentDashboardSection.summary,
+      ),
+      TournamentDashboardSection.overview,
+    );
+  });
+
+  test('indexOfSection respects completion status', () {
+    expect(
+      TournamentDashboardSection.indexOfSection(
+        TournamentDashboardSection.matches,
+        isCompleted: false,
+      ),
+      1,
+    );
+    expect(
+      TournamentDashboardSection.indexOfSection(
+        TournamentDashboardSection.matches,
+        isCompleted: true,
+      ),
+      2,
     );
   });
 }
