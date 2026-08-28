@@ -81,40 +81,62 @@ class _TournamentDashboardScreenState
     });
   }
 
-  void _syncSummaryLanding(TournamentModel tournament) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final completed = tournament.status == TournamentStatus.completed;
-      final justCompleted = _wasCompleted == false && completed;
-      _wasCompleted = completed;
+  void _ensureTabs(TournamentModel tournament) {
+    final completed = tournament.status == TournamentStatus.completed;
+    final sections = TournamentDashboardSection.tabOrderForStatus(completed);
+    final justCompleted = _wasCompleted == false && completed;
+    _wasCompleted = completed;
 
-      if (justCompleted) {
-        _appliedCompletedLanding = true;
-        _selectTab(TournamentDashboardSection.summary, animate: true);
-        return;
-      }
+    final sectionsChanged = !_sectionsEqual(_visibleSections, sections);
+    if (_tabs != null && !sectionsChanged && !justCompleted) return;
 
-      if (_appliedCompletedLanding || !completed) return;
-      if (widget.initialSection != TournamentDashboardSection.overview) {
-        _appliedCompletedLanding = true;
-        return;
-      }
+    final landing = justCompleted
+        ? TournamentDashboardSection.summary
+        : TournamentDashboardSection.landingSection(
+            isCompleted: completed,
+            requested: widget.initialSection,
+          );
+    var initialIndex = sections.indexOf(landing);
+    if (initialIndex < 0) initialIndex = 0;
 
-      _appliedCompletedLanding = true;
-      _selectTab(TournamentDashboardSection.summary, animate: false);
-    });
+    _tabs?.dispose();
+    _tabs = TabController(
+      length: sections.length,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
+    _visibleSections = List<TournamentDashboardSection>.from(sections);
+
+    if (_wasCompleted != null && sectionsChanged && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  bool _sectionsEqual(
+    List<TournamentDashboardSection> a,
+    List<TournamentDashboardSection> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   void _selectTab(
     TournamentDashboardSection section, {
     required bool animate,
   }) {
-    final index = TournamentDashboardSection.indexOfSection(section);
-    if (_tabs.index == index) return;
+    final tabs = _tabs;
+    if (tabs == null) return;
+    final index = _visibleSections.indexOf(section);
+    if (index < 0 || tabs.index == index) return;
     if (animate) {
-      _tabs.animateTo(index);
+      tabs.animateTo(index);
     } else {
-      _tabs.index = index;
+      tabs.index = index;
     }
   }
 
@@ -130,8 +152,8 @@ class _TournamentDashboardScreenState
           tournament: tournament,
           role: role,
           onNavigateToSection: (TournamentDashboardSection next) {
-            final index = _sections.indexOf(next);
-            if (index >= 0) _tabs.animateTo(index);
+            final index = _visibleSections.indexOf(next);
+            if (index >= 0) _tabs?.animateTo(index);
           },
         );
       case TournamentDashboardSection.summary:
@@ -196,21 +218,33 @@ class _TournamentDashboardScreenState
           );
         }
 
-        _syncSummaryLanding(tournament);
+        _ensureTabs(tournament);
+        final tabs = _tabs;
+        if (tabs == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Tournament')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final tabLabels =
+            TournamentDashboardSection.labelsForStatus(
+              tournament.status == TournamentStatus.completed,
+            );
 
         final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
         _titleThreshold = _coverHeight - topInset - 1;
 
         final appBarTheme = Theme.of(context).appBarTheme;
         final tabBar = TabBar(
-          controller: _tabs,
+          controller: tabs,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           indicatorColor: cf.accent,
           labelColor: cf.accent,
           unselectedLabelColor: cf.textSecondary,
           dividerColor: cf.border,
-          tabs: _labels.map((l) => Tab(text: l)).toList(),
+          tabs: tabLabels.map((l) => Tab(text: l)).toList(),
         );
 
         return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -299,9 +333,9 @@ class _TournamentDashboardScreenState
               ];
               },
               body: TabBarView(
-                controller: _tabs,
+                controller: tabs,
                 children: [
-                  for (final section in _sections)
+                  for (final section in _visibleSections)
                     _pageFor(
                       section: section,
                       tournament: tournament,
