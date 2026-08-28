@@ -1026,3 +1026,29 @@ export function filterNearby<T extends { location: { latitude?: number; longitud
 }
 
 export { LIVE_STATUSES, startAfter, serverTimestamp, arrayUnion };
+
+export type PlayerInvite = {
+  id: string;
+  phoneNumber: string;
+  displayName?: string;
+  invitedByName: string;
+  inviteType?: string;
+  status: string;
+  expiresAt?: string;
+};
+
+export async function getPlayerInvite(id: string): Promise<PlayerInvite | null> {
+  if (!id) return null;
+  const snap = await getDoc(doc(getDb(), collections.playerInvites, id));
+  if (!snap.exists()) return null;
+  const data = dataOf(snap);
+  return {
+    id: snap.id,
+    phoneNumber: String(data.phoneNumber ?? ""),
+    displayName: typeof data.displayName === "string" ? data.displayName : undefined,
+    invitedByName: String(data.invitedByName || "A CrickFlow user"),
+    inviteType: typeof data.inviteType === "string" ? data.inviteType : undefined,
+    status: String(data.status || "pending"),
+    expiresAt: typeof data.expiresAt === "string" ? data.expiresAt : undefined,
+  };
+}

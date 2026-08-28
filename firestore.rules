@@ -167,18 +167,18 @@ service cloud.firestore {
         && (!('targetRevisionMethod' in ts)
             || ts.targetRevisionMethod in ['DLS', 'dls', 'manual'])
         && (!('originalOvers' in ts)
-            || (ts.originalOvers is int && ts.originalOvers > 0))
+            || (isWholeNumber(ts.originalOvers) && ts.originalOvers > 0))
         && (!('revisedOvers' in ts)
-            || (ts.revisedOvers is int && ts.revisedOvers > 0))
+            || (isWholeNumber(ts.revisedOvers) && ts.revisedOvers > 0))
         && (!('revisedTarget' in ts)
-            || (ts.revisedTarget is int && ts.revisedTarget > 0))
+            || (isWholeNumber(ts.revisedTarget) && ts.revisedTarget > 0))
         && (!('originalTarget' in ts)
-            || (ts.originalTarget is int && ts.originalTarget > 0))
+            || (isWholeNumber(ts.originalTarget) && ts.originalTarget > 0))
         && (!('dlsApplied' in ts) || ts.dlsApplied is bool)
         && (!('pendingChaseTarget' in ts)
-            || (ts.pendingChaseTarget is int && ts.pendingChaseTarget > 0))
+            || (isWholeNumber(ts.pendingChaseTarget) && ts.pendingChaseTarget > 0))
         && (!('revisedTotalOvers' in ts)
-            || (ts.revisedTotalOvers is int && ts.revisedTotalOvers > 0))
+            || (isWholeNumber(ts.revisedTotalOvers) && ts.revisedTotalOvers > 0))
         && (!('considerAllOversForNrr' in ts) || ts.considerAllOversForNrr is bool)
         && (!('matchOutcome' in ts) || ts.matchOutcome in ['draw', 'abandoned'])
         && (!('abandonedReason' in ts) || ts.abandonedReason is string)
@@ -217,6 +217,100 @@ service cloud.firestore {
       let data = request.resource.data;
       return validMatchUpdate()
         && (!('targetState' in data) || validTargetStateField(data.targetState));
+    }
+
+    /// Ball-by-ball / undo / overlay sync touches only live-scoring fields.
+    /// Skips full-doc validMatchUpdate() so legacy setup data on older tournament
+    /// match docs cannot block active scorers (surfaced as PERMISSION_DENIED).
+    function isLiveScoringOnlyUpdate() {
+      let keys = request.resource.data.diff(resource.data).affectedKeys();
+      return !keys.hasAny([
+        'title',
+        'matchType',
+        'teamAName',
+        'teamBName',
+        'teamAId',
+        'teamBId',
+        'rules',
+        'createdBy',
+        'createdAt',
+        'scheduledAt',
+        'location',
+        'venue',
+        'officials',
+        'setup',
+        'tossWinnerBatsFirst',
+        'tossWinnerIsTeamA',
+        'coinResult',
+        'teamAPlayingPlayers',
+        'teamASubstitutePlayers',
+        'teamBPlayingPlayers',
+        'teamBSubstitutePlayers',
+        'teamASquadIds',
+        'teamBSquadIds',
+        'teamACaptainId',
+        'teamAWicketKeeperId',
+        'teamBCaptainId',
+        'teamBWicketKeeperId',
+        'stream',
+        'mediaByCode',
+        'tournamentId',
+        'roundId',
+        'groupId',
+        'roundName',
+        'bracketRound',
+        'bracketSlot',
+        'organizationId',
+        'scorer1UserId',
+        'scorer2UserId',
+        'umpire1UserId',
+        'umpire2UserId',
+        'groundId',
+        'format',
+        'pitchType',
+        'ballType',
+      ]);
+    }
+
+    /// Validate only fields touched by this write (not legacy data on the full doc).
+    function validLiveScoringMatchUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      let keys = diff.affectedKeys();
+      let data = request.resource.data;
+      return (!keys.hasAny(['activeMatchBreak'])
+              || !('activeMatchBreak' in data)
+              || validMatchBreakField(data.activeMatchBreak))
+        && (!keys.hasAny(['matchBreakHistory'])
+            || !('matchBreakHistory' in data)
+            || (data.matchBreakHistory is list
+                && data.matchBreakHistory.size() <= 50))
+        && (!keys.hasAny(['targetState'])
+            || !('targetState' in data)
+            || validTargetStateField(data.targetState))
+        && (!keys.hasAny(['overlayVersion'])
+            || !('overlayVersion' in data)
+            || isWholeNumber(data.overlayVersion))
+        && (!keys.hasAny(['currentInningsIndex'])
+            || !('currentInningsIndex' in data)
+            || isWholeNumber(data.currentInningsIndex));
+    }
+
+    /// First scorer claim when [currentScorerId] was never set on the match doc.
+    function canClaimEmptyScorerSlot() {
+      let old = resource.data;
+      let neu = request.resource.data;
+      return isSignedIn()
+        && neu.currentScorerId == request.auth.uid
+        && (!('currentScorerId' in old)
+            || old.currentScorerId == null
+            || old.currentScorerId == '');
+    }
+
+    function canUpdateLiveScoringMatch(matchId) {
+      return isMatchScorer(matchId)
+        || isAssignedMatchScorer(matchId)
+        || isValidScorerTakeover()
+        || canClaimEmptyScorerSlot();
     }
 
     function isTargetRevisionRelatedUpdate() {
@@ -886,6 +980,42 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    /// Player join invites (unguessable doc id). Public read for the landing page.
+    match /player_invites/{inviteId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.invitedByUserId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && (
+          !('phoneNumber' in request.resource.data)
+          || request.resource.data.phoneNumber == null
+          || (
+            request.resource.data.phoneNumber is string
+            && request.resource.data.phoneNumber.size() >= 8
+          )
+        );
+      allow update: if isSignedIn() && (
+        resource.data.invitedByUserId == request.auth.uid
+          && request.resource.data.status == 'cancelled'
+        || (
+          resource.data.status == 'pending'
+          && request.resource.data.status == 'accepted'
+          && request.auth.uid == request.resource.data.acceptedByUserId
+        )
+      );
+      allow delete: if false;
+    }
+
+    /// Proxy registration audit (written by Admin SDK only).
+    match /registration_events/{eventId} {
+      allow read: if isSignedIn() && (
+        resource.data.registeredByUserId == request.auth.uid ||
+        resource.data.newUserId == request.auth.uid ||
+        isPlatformAdmin()
+      );
+      allow create, update, delete: if false;
+    }
+
     match /team_roster_reports/{reportId} {
       allow read: if isSignedIn() && (
         resource.data.reporterUserId == request.auth.uid || isPlatformAdmin()
@@ -1071,7 +1201,10 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if true;
       allow create: if isSignedIn() && validMatchCreate();
-      allow update: if (canUpdateMatchForTargetRevision(matchId)
+      allow update: if (canUpdateLiveScoringMatch(matchId)
+        && isLiveScoringOnlyUpdate()
+        && validLiveScoringMatchUpdate())
+        || (canUpdateMatchForTargetRevision(matchId)
         && validTargetRevisionMatchUpdate())
         || (canUpdateStreamMetadata(matchId) && isStreamMetadataUpdate())
         || canAdminUpdateMatchDoc();
@@ -1079,9 +1212,8 @@ service cloud.firestore {
 
       match /ball_events/{eventId} {
         allow read: if true;
-        allow create: if isMatchScorer(matchId);
+        allow create, update: if isMatchScorer(matchId);
         allow delete: if isMatchScorer(matchId);
-        allow update: if false;
       }
 
       match /overlay/{docId} {

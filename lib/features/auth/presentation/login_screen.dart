@@ -53,6 +53,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _goAfterAuth(UserModel profile) async {
     ref.invalidate(currentUserProfileProvider);
+    final pendingInvite = DeepLinkHandler.pendingPath;
+    final invitePath = pendingInvite?.split('?').first ?? '';
+    if (invitePath.startsWith('/invite/')) {
+      DeepLinkHandler.takePendingPath();
+      if (mounted) context.go(pendingInvite!);
+      return;
+    }
     if (profile.needsPlayerOnboarding) {
       if (mounted) context.go('/player-onboarding');
       return;

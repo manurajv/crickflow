@@ -175,4 +175,33 @@ void main() {
     );
     expect(statusAfterToss(existing), MatchStatus.live);
   });
+
+  test('effectiveStatus treats a finished live match as completed', () {
+    final m = match(
+      status: MatchStatus.live,
+      currentInningsIndex: 1,
+      innings: [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          legalBalls: 120,
+          totalRuns: 150,
+        ),
+        InningsModel(
+          inningsNumber: 2,
+          battingTeamId: 'b',
+          bowlingTeamId: 'a',
+          status: InningsStatus.completed,
+          legalBalls: 80,
+          totalRuns: 151,
+        ),
+      ],
+    );
+
+    expect(MatchLifecycle.effectiveStatus(m), MatchStatus.completed);
+    expect(MatchLifecycle.isCompleted(m), isTrue);
+    expect(MatchLifecycle.isEffectivelyLive(m), isFalse);
+  });
 }

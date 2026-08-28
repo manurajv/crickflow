@@ -24,18 +24,36 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [inviteLogin, setInviteLogin] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("cf_invite_phone");
+      if (stored) setPhone(stored);
+    } catch {
+      /* ignore */
+    }
+    setInviteLogin(nextPath().startsWith("/invite/"));
+  }, []);
+
   useEffect(() => {
     if (loading || !user || !profile) return;
-    router.replace(profile.onboardingCompleted ? nextPath() : "/register");
+    const next = nextPath();
+    if (next.startsWith("/invite/")) {
+      router.replace(next);
+      return;
+    }
+    router.replace(profile.onboardingCompleted ? next : "/register");
   }, [loading, user, profile, router]);
 
   return (
     <Card className="mx-auto max-w-md p-8">
       <h1 className="text-2xl font-bold">Sign in to CrickFlow</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Same Firebase Authentication as the mobile app — Google, phone, or email.
+        {inviteLogin
+          ? "Accept with Google or the invited mobile number — both work."
+          : "Same Firebase Authentication as the mobile app — Google, phone, or email."}
       </p>
-      <div id="recaptcha-container" />
       <Button
         className="mt-6 w-full"
         disabled={busy || loading}
@@ -112,6 +130,7 @@ export default function LoginPage() {
           onChange={(e) => setPhone(e.target.value)}
           autoComplete="tel"
         />
+        <div id="recaptcha-container" className="flex justify-center min-h-[78px]" />
         <Button
           variant="outline"
           className="w-full"

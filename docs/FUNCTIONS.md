@@ -31,6 +31,10 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 | `listYouTubeChannels` | Callable | Linked YouTube channel |
 | `getYouTubeLiveChat` | Callable | Read-only live chat messages |
 | `exportYouTubeChapters` | Callable | Replay markers → YouTube description chapters |
+| `lookupPlayerByPhone` | Callable | Registrar-only: does this phone already belong to a CrickFlow Auth/user (public fields only) |
+| `stampProxyPlayerRegistration` | Callable | Stamps `registrationSource` / `registeredByUserId` on a newly created player |
+| `createPlayerInvite` | Callable | Creates a web/app invite link (no SMS from the registrar) |
+| `acceptPlayerInvite` | Callable | Invitee (matching phone) accepts; stamps invite audit |
 
 ## Module layout
 
@@ -53,6 +57,9 @@ functions/src/
     streamFunctions.js
     youtubeOAuth.js
     youtubeLive.js
+  players/
+    lookupPlayerByPhone.js
+    playerInvites.js
 ```
 
 ## Idempotency
@@ -95,5 +102,20 @@ firebase emulators:start --only functions,firestore
 ```bash
 firebase deploy --only functions
 ```
+
+Windows — if deploy fails with **Cloud Run CPU quota** (`Quota exceeded for total allowable CPU per project per region`), deploy in batches:
+
+```powershell
+.\scripts\deploy-functions-batched.ps1 -RetryFailed -BatchSize 2
+```
+
+Or rules only / batched functions via the main script:
+
+```powershell
+.\scripts\deploy-firebase.ps1 -RulesOnly
+.\scripts\deploy-firebase.ps1 -FunctionsOnly
+```
+
+Global function defaults (`functions/src/index.js`): `256MiB`, `cpu: 0.25` — keeps ~35 Cloud Run services within regional quota. Request a quota increase in [GCP Quotas](https://console.cloud.google.com/iam-admin/quotas?project=crickflow-b06bc) for **Cloud Run CPU** in `us-central1` if needed.
 
 Requires Blaze plan for outbound FCM/network from functions.

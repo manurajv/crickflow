@@ -2,10 +2,12 @@
 
 import {
   GoogleAuthProvider,
+  PhoneAuthProvider,
   RecaptchaVerifier,
   createUserWithEmailAndPassword,
   getRedirectResult,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   signInWithPopup,
@@ -32,6 +34,29 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+let phoneVerifier: RecaptchaVerifier | null = null;
+
+/** Firebase Auth expects E.164 (`+94771234567`). */
+export function normalizePhoneE164(raw: string): string {
+  const trimmed = raw.trim().replace(/[\s\-()]/g, "");
+  if (!trimmed) return "";
+  if (trimmed.startsWith("+")) return `+${trimmed.slice(1).replace(/\D/g, "")}`;
+  const digits = trimmed.replace(/\D/g, "");
+  return digits ? `+${digits}` : "";
+}
+
+function clearPhoneVerifier(containerId: string) {
+  try {
+    phoneVerifier?.clear();
+  } catch {
+    /* already cleared */
+  }
+  phoneVerifier = null;
+  if (typeof document === "undefined") return;
+  const el = document.getElementById(containerId);
+  if (el) el.innerHTML = "";
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -109,13 +134,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       sendPhoneCode: async (phone, recaptchaId) => {
         const auth = getFirebaseAuth();
-        const verifier = new RecaptchaVerifier(auth, recaptchaId, { size: "invisible" });
-        const confirmation = await signInWithPhoneNumber(auth, phone, verifier);
-        return confirmation.verificationId;
+        const e164 = normalizePhoneE164(phone);
+        if (!/^\+[1-9]\d{6,14}$/.test(e164)) {
+          const err = new Error("Enter a full number with country code, for example +94…");
+          (err as Error & { code: string }).code = "auth/invalid-phone-number";
+          throw err;
+        }
+
+        clearPhoneVerifier(recaptchaId);
+        // Visible widget is more reliable than invisible on Hosting + CSP.
+        phoneVerifier = new RecaptchaVerifier(auth, recaptchaId, {
+          size: "normal",
+          callback: () => undefined,
+          "expired-callback": () => clearPhoneVerifier(recaptchaId),
+        });
+        await phoneVerifier.render();
+
+        try {
+          const confirmation = await signInWithPhoneNumber(auth, e164, phoneVerifier);
+          return confirmation.verificationId;
+        } catch (error) {
+          clearPhoneVerifier(recaptchaId);
+          throw error;
+        }
       },
       confirmPhoneCode: async (verificationId, code) => {
-        const { PhoneAuthProvider, signInWithCredential } = await import("firebase/auth");
-        const credential = PhoneAuthProvider.credential(verificationId, code);
+        const credential = PhoneAuthProvider.credential(verificationId, code.trim());
         await signInWithCredential(getFirebaseAuth(), credential);
       },
       logout: async () => {

@@ -27,6 +27,7 @@ class GuestRoutes {
     if (path == '/login' || path == '/splash' || path == '/onboarding') {
       return true;
     }
+    if (path.startsWith('/invite/')) return true;
     if (isProtectedRoute(path)) return false;
     if (shellTabs.contains(path)) return true;
     if (browseRoots.contains(path)) return true;
@@ -60,6 +61,7 @@ class GuestRoutes {
     }
     if (path == '/notifications' ||
         path == '/player-onboarding' ||
+        path == '/register-player' ||
         path == '/profile/edit' ||
         path.startsWith('/community/chats')) {
       return true;

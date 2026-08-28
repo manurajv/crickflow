@@ -11,14 +11,26 @@ import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/player_profile_constants.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../core/utils/phone_auth_utils.dart';
 import '../../../data/models/location_model.dart';
+import '../../../data/models/player_model.dart';
+import '../../../data/services/register_player_session.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
 import 'widgets/onboarding_location_section.dart';
 import 'widgets/onboarding_widgets.dart';
 
 class PlayerOnboardingScreen extends ConsumerStatefulWidget {
-  const PlayerOnboardingScreen({super.key});
+  const PlayerOnboardingScreen({
+    super.key,
+    this.proxySession,
+    this.onProxyComplete,
+  });
+
+  /// Isolated Auth/Firestore session used by Register New Player.
+  /// When null, this is the normal self-onboarding flow.
+  final RegisterPlayerSession? proxySession;
+  final ValueChanged<PlayerModel>? onProxyComplete;
 
   @override
   ConsumerState<PlayerOnboardingScreen> createState() =>
@@ -50,6 +62,8 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
   PlayerBowlingArm? _bowlingArm;
   PlayerBowlingStyle? _bowlingStyle;
 
+  bool get _isProxy => widget.proxySession != null;
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +71,21 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
   }
 
   Future<void> _prefillFromProfile() async {
+    if (_isProxy) {
+      _prefillLockedPhone(widget.proxySession!.phoneE164);
+      final uid = widget.proxySession!.auth.currentUser?.uid;
+      if (uid == null || !mounted) return;
+      final profile = await widget.proxySession!.userRepository.getUser(uid);
+      if (!mounted || profile == null) return;
+      setState(() {
+        if (profile.name.isNotEmpty) _nameController.text = profile.name;
+        if (profile.displayName.isNotEmpty) {
+          _displayNameController.text = profile.displayName;
+        }
+      });
+      return;
+    }
+
     final authUser = ref.read(authStateProvider).value;
     if (authUser == null || !mounted) return;
 
@@ -170,6 +199,14 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
     });
   }
 
+  void _prefillLockedPhone(String e164) {
+    final parts = PhoneAuthUtils.splitE164(e164);
+    setState(() {
+      _dialCode = parts.dialCode;
+      _mobileController.text = parts.national;
+    });
+  }
+
   void _syncDialCodeFromCountry(String countryName) {
     final match = CricketCountry.byName(countryName);
     if (match != null) {
@@ -278,6 +315,10 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
 
   void _back() {
     if (_step == 0) {
+      if (_isProxy) {
+        context.pop();
+        return;
+      }
       context.go('/home');
       return;
     }
@@ -289,20 +330,35 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
   }
 
   Future<void> _complete() async {
-    final authUser = ref.read(authStateProvider).value;
+    final session = widget.proxySession;
+    final authUser = session?.auth.currentUser ??
+        ref.read(authStateProvider).value;
     if (authUser == null) return;
+
+    final userRepo = session != null
+        ? session.userRepository
+        : ref.read(userRepositoryProvider);
+    final playerRepo = session != null
+        ? session.playerRepository
+        : ref.read(playerRepositoryProvider);
+    final storage = session != null
+        ? session.storageService
+        : ref.read(storageServiceProvider);
+    final authRepo = session != null
+        ? session.authRepository
+        : ref.read(authRepositoryProvider);
 
     setState(() => _saving = true);
     try {
-      var profile = await ref.read(userRepositoryProvider).getUser(authUser.uid);
-      profile ??=
-          await ref.read(authRepositoryProvider).ensureProfileForAuthUser(authUser);
+      var profile = await userRepo.getUser(authUser.uid);
+      profile ??= await authRepo.ensureProfileForAuthUser(authUser);
 
       String? photoUrl = _photoUrl;
       if (_photoFile != null) {
-        photoUrl = await ref
-            .read(storageServiceProvider)
-            .uploadUserProfilePhoto(authUser.uid, _photoFile!);
+        photoUrl = await storage.uploadUserProfilePhoto(
+          authUser.uid,
+          _photoFile!,
+        );
       }
 
       final name = _nameController.text.trim();
@@ -345,11 +401,9 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
         jerseyNumber: jerseyNumber,
       );
 
-      final saved = await ref
-          .read(userRepositoryProvider)
-          .completeOnboarding(updated);
+      final saved = await userRepo.completeOnboarding(updated);
 
-      await ref.read(playerRepositoryProvider).ensurePlayerProfileForUser(
+      await playerRepo.ensurePlayerProfileForUser(
             userId: authUser.uid,
             displayName: saved.displayName,
             fullName: saved.name,
@@ -358,11 +412,9 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
             playerId: saved.playerId,
           );
 
-      final player =
-          await ref.read(playerRepositoryProvider).getPlayerByUserId(authUser.uid);
+      var player = await playerRepo.getPlayerByUserId(authUser.uid);
       if (player != null) {
-        await ref.read(playerRepositoryProvider).updatePlayer(
-              player.copyWith(
+        player = player.copyWith(
                 name: saved.displayName,
                 fullName: saved.name,
                 photoUrl: photoUrl,
@@ -372,8 +424,22 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
                 jerseyNumber: jerseyNumber,
                 location: saved.location,
                 playerId: saved.playerId,
-              ),
-            );
+              );
+        await playerRepo.updatePlayer(player);
+      }
+
+      if (session != null) {
+        session.assertRegistrarUnchanged();
+        session.createdUser = saved;
+        session.createdPlayer = player;
+        try {
+          await session.writeClientRegistrationSource();
+        } catch (_) {}
+        if (!mounted) return;
+        if (player != null) {
+          widget.onProxyComplete?.call(player);
+        }
+        return;
       }
 
       ref.invalidate(currentUserProfileProvider);
@@ -497,6 +563,13 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
               ),
             ],
           ),
+          if (_isProxy) ...[
+            const SizedBox(height: AppDimens.spaceMd),
+            TextButton(
+              onPressed: _saving ? null : _next,
+              child: const Text('Skip photo'),
+            ),
+          ],
         ],
       ),
     );
@@ -559,9 +632,11 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
                       items: dialCodes
                           .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                           .toList(),
-                      onChanged: (v) {
-                        if (v != null) setState(() => _dialCode = v);
-                      },
+                      onChanged: _isProxy
+                          ? null
+                          : (v) {
+                              if (v != null) setState(() => _dialCode = v);
+                            },
                     );
                   },
                 ),
@@ -570,10 +645,13 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
               Expanded(
                 child: TextField(
                   controller: _mobileController,
+                  enabled: !_isProxy,
                   decoration: InputDecoration(
                     labelText: 'Phone number',
                     hintText: _phoneNumberHint,
-                    helperText: 'Optional — digits only',
+                    helperText: _isProxy
+                        ? 'Verified — cannot be changed here'
+                        : 'Optional — digits only',
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 16,

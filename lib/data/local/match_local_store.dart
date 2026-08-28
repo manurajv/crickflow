@@ -29,6 +29,7 @@ class MatchLocalStore {
   final _overlayControllers =
       <String, StreamController<OverlayStateModel?>>{};
   final _syncMetaController = StreamController<MatchSyncMeta>.broadcast();
+  final _snapshotsChanged = StreamController<void>.broadcast();
 
   bool get isInitialized => _initialized;
 
@@ -71,6 +72,7 @@ class MatchLocalStore {
       _emitOverlay(matchId, overlay);
     }
     _notifySyncMeta(matchId);
+    _notifySnapshotsChanged();
   }
 
   Future<void> importFromRemote({
@@ -80,6 +82,19 @@ class MatchLocalStore {
   }) async {
     await saveSnapshot(matchId: match.id, match: match, overlay: overlay);
     await setBallEvents(match.id, events);
+  }
+
+  Stream<void> get onSnapshotsChanged => _snapshotsChanged.stream;
+
+  Future<List<MatchModel>> listSnapshots() async {
+    final matches = <MatchModel>[];
+    for (final key in _storage.keys) {
+      if (key is! String || !key.startsWith(_snapshotPrefix)) continue;
+      final id = key.substring(_snapshotPrefix.length);
+      final match = await getMatch(id);
+      if (match != null) matches.add(match);
+    }
+    return matches;
   }
 
   Future<MatchModel?> getMatch(String matchId) async {
@@ -261,6 +276,7 @@ class MatchLocalStore {
       _syncQueueKey,
       jsonEncode(queue.map((a) => a.toMap()).toList()),
     );
+    _notifySnapshotsChanged();
   }
 
   void _notifySyncMeta(String matchId, {ConnectivityStatus? status}) {
@@ -342,5 +358,11 @@ class MatchLocalStore {
       c.close();
     }
     _syncMetaController.close();
+    _snapshotsChanged.close();
+  }
+
+  void _notifySnapshotsChanged() {
+    if (_snapshotsChanged.isClosed) return;
+    _snapshotsChanged.add(null);
   }
 }

@@ -24,6 +24,18 @@ export function authErrorMessage(error: unknown): string {
       return "Email or password is incorrect.";
     case "auth/too-many-requests":
       return "Too many attempts. Wait a bit and try again.";
+    case "auth/captcha-check-failed":
+    case "auth/invalid-app-credential":
+      return "Phone verification failed the security check. Refresh the page and try again, or use Google.";
+    case "auth/missing-phone-number":
+      return "Enter a full number with country code, for example +94…";
+    case "auth/quota-exceeded":
+      return "SMS quota exceeded for this project. Try Google sign-in or try again later.";
+    case "functions/permission-denied":
+    case "permission-denied":
+      return error instanceof Error && error.message
+        ? error.message
+        : "Sign in with Google or the invited mobile number to accept.";
     default:
       return error instanceof Error ? error.message : "Sign-in failed";
   }

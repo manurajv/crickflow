@@ -322,7 +322,10 @@ class TournamentModel extends Equatable {
       teamIds: List<String>.from(map['teamIds'] as List? ?? []),
       matchIds: List<String>.from(map['matchIds'] as List? ?? []),
       pointsTable: (map['pointsTable'] as List? ?? [])
-          .map((e) => PointsTableEntry.fromMap(e as Map<String, dynamic>))
+          .whereType<Map>()
+          .map(
+            (e) => PointsTableEntry.fromMap(Map<String, dynamic>.from(e)),
+          )
           .toList(),
       bracketRounds: bracketRoundsFromFirestore(map['bracketRounds']),
       location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
@@ -369,8 +372,20 @@ class TournamentModel extends Equatable {
       thirdPlaceTeamName: map['thirdPlaceTeamName'] as String?,
       podiumPlaces: _podiumPlacesFromMap(map),
       isLocked: map['isLocked'] as bool? ?? false,
-      awards: Map<String, String>.from(map['awards'] as Map? ?? {}),
+      awards: _awardsFromMap(map['awards']),
     );
+  }
+
+  static Map<String, String> _awardsFromMap(Object? raw) {
+    if (raw is! Map) return const {};
+    final out = <String, String>{};
+    for (final entry in raw.entries) {
+      final key = entry.key.toString();
+      final value = entry.value?.toString() ?? '';
+      if (key.isEmpty || value.isEmpty) continue;
+      out[key] = value;
+    }
+    return out;
   }
 
   static List<TournamentPodiumPlace> _podiumPlacesFromMap(

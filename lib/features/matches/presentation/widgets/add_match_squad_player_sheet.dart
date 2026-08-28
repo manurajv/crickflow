@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/player_profile_constants.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/cf_player_id_format.dart';
 import '../../../../data/models/match_player_snapshot.dart';
 import '../../../../data/models/player_model.dart';
+import '../../../../data/models/register_player_models.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
@@ -134,6 +136,26 @@ class _AddMatchSquadPlayerSheetState
     _search('');
   }
 
+  Future<void> _openRegisterPlayer() async {
+    final result = await context.push<Object>(
+      '/register-player',
+      extra: const RegisterPlayerArgs(popWithPlayer: true),
+    );
+    if (!mounted) return;
+    if (result == 'invited') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Invite sent. They’ll appear here after they join with their phone.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (result is! PlayerModel) return;
+    Navigator.of(context).pop(MatchPlayerSnapshot.fromPlayer(result));
+  }
+
   Future<void> _invitePermanent(PlayerModel player) async {
     setState(() => _addingPlayerId = player.id);
     try {
@@ -201,7 +223,6 @@ class _AddMatchSquadPlayerSheetState
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
 
@@ -262,6 +283,16 @@ class _AddMatchSquadPlayerSheetState
             title: 'Add match-only guest',
             subtitle: 'Guest players exist only for this match — not saved to the team.',
             onTap: () => setState(() => _mode = _AddMode.guest),
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          _OptionCard(
+            icon: Icons.person_add_alt_outlined,
+            iconColor: cf.link,
+            iconBackground: cf.accent.withValues(alpha: 0.12),
+            title: 'Invite a player',
+            subtitle:
+                'Send a link. They join with their phone, then you can add them.',
+            onTap: _openRegisterPlayer,
           ),
         ],
       ),
@@ -394,6 +425,12 @@ class _AddMatchSquadPlayerSheetState
                   : 'No players match your search',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppDimens.spaceLg),
+            TextButton.icon(
+              onPressed: _openRegisterPlayer,
+              icon: const Icon(Icons.person_add_alt_outlined),
+              label: const Text('Invite a player'),
             ),
           ],
         ),

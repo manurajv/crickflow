@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../data/models/player_model.dart';
+import '../../../data/models/register_player_models.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import 'widgets/team_add_method_tile.dart';
@@ -42,14 +44,53 @@ class TeamAddPlayersScreen extends ConsumerWidget {
   }
 }
 
-class _AddPlayersBody extends StatelessWidget {
+class _AddPlayersBody extends ConsumerWidget {
   const _AddPlayersBody({required this.team, required this.teamId});
 
   final TeamModel team;
   final String teamId;
 
+  Future<void> _registerAndInvite(BuildContext context, WidgetRef ref) async {
+    final result = await context.push<Object>(
+      '/register-player',
+      extra: const RegisterPlayerArgs(popWithPlayer: true),
+    );
+    if (!context.mounted) return;
+    if (result == 'invited') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Invite sent. They’ll appear here after they join with their phone.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (result is! PlayerModel) return;
+    final player = result;
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return;
+    try {
+      final profile = ref.read(currentUserProfileProvider).valueOrNull;
+      await ref.read(teamJoinRequestRepositoryProvider).createInvitation(
+            team: team,
+            player: player,
+            invitedByUserId: uid,
+            inviterName: profile?.displayName ?? profile?.name,
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invitation sent to ${player.name}')),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
 
     return ListView(
@@ -84,6 +125,14 @@ class _AddPlayersBody extends StatelessWidget {
           subtitle:
               'Search by name or Player ID and send an invitation to join.',
           onTap: () => context.push('/teams/$teamId/add-players/quick'),
+        ),
+        const SizedBox(height: AppDimens.spaceSm),
+        TeamAddMethodTile(
+          icon: Icons.person_add_alt_outlined,
+          title: 'Invite a player',
+          subtitle:
+              'Send a link. They join with their phone in the app or on the web.',
+          onTap: () => _registerAndInvite(context, ref),
         ),
         const SizedBox(height: AppDimens.spaceSm),
         TeamAddMethodTile(

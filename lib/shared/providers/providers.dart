@@ -66,7 +66,11 @@ final teamJoinRequestRepositoryProvider = Provider(
     notificationRepository: ref.watch(notificationRepositoryProvider),
   ),
 );
-final tournamentRepositoryProvider = Provider((ref) => TournamentRepository());
+final tournamentRepositoryProvider = Provider(
+  (ref) => TournamentRepository(
+    matchRepository: ref.watch(matchRepositoryProvider),
+  ),
+);
 final fantasyRepositoryProvider = Provider((ref) => FantasyRepository());
 final notificationServiceProvider = Provider((ref) => NotificationService());
 final notificationRepositoryProvider = Provider((ref) => NotificationRepository());

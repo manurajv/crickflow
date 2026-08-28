@@ -65,6 +65,8 @@ bool adsAllowedForRoute(String? location) {
     '/register',
     '/onboarding',
     '/player-onboarding',
+    '/register-player',
+    '/invite',
     '/match/create',
     '/scoring',
     '/store',

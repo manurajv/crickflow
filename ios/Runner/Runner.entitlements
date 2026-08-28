@@ -6,6 +6,7 @@
 	<array>
 		<string>applinks:crickflow.app</string>
 		<string>applinks:crickflow-b06bc.web.app</string>
+		<string>applinks:crickflow.web.app</string>
 	</array>
 </dict>
 </plist>

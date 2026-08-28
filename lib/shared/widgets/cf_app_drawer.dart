@@ -88,6 +88,24 @@ class CfAppDrawer extends ConsumerWidget {
                         );
                       },
                     ),
+                    _DrawerTile(
+                      icon: Icons.person_add_alt_outlined,
+                      label: 'Invite a player',
+                      subtitle: 'Send a link — they join on the app or web',
+                      onTap: () {
+                        Navigator.pop(context);
+                        requireAuthVoid(
+                          context: context,
+                          ref: ref,
+                          returnPath: '/register-player',
+                          action: () async {
+                            if (context.mounted) {
+                              context.push('/register-player');
+                            }
+                          },
+                        );
+                      },
+                    ),
                   ],
                   const _DrawerSectionHeader('My cricket'),
                   _DrawerTile(

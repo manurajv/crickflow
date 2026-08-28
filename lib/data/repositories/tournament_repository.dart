@@ -179,11 +179,11 @@ class TournamentRepository {
   }
 
   Stream<List<MatchModel>> watchTournamentMatches(String tournamentId) {
-    return _matchRepository.watchMatches().map((matches) => matches
-        .where((m) => m.tournamentId == tournamentId)
-        .toList()
-      ..sort((a, b) =>
-          (a.scheduledAt ?? DateTime(0)).compareTo(b.scheduledAt ?? DateTime(0))));
+    return _matchRepository
+        .watchMatchesForTournament(tournamentId)
+        .map((matches) => List<MatchModel>.from(matches)
+          ..sort((a, b) => (a.scheduledAt ?? DateTime(0))
+              .compareTo(b.scheduledAt ?? DateTime(0))));
   }
 
   Future<void> addTeamToTournament({

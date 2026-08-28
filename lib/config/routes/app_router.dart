@@ -36,6 +36,9 @@ import '../../features/matches/presentation/scorecard_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/player_onboarding/presentation/player_onboarding_screen.dart';
+import '../../features/register_player/presentation/register_player_flow_screen.dart';
+import '../../features/register_player/presentation/player_invite_accept_screen.dart';
+import '../../data/models/register_player_models.dart';
 import '../../features/overlay/presentation/live_overlay_screen.dart';
 import '../../features/player_rankings/presentation/player_rankings_screen.dart';
 import '../../features/players/presentation/player_cricket_profile_redirect.dart';
@@ -224,6 +227,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/player-onboarding',
         builder: (_, __) => const PlayerOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/register-player',
+        builder: (_, state) {
+          final extra = state.extra;
+          return RegisterPlayerFlowScreen(
+            args: extra is RegisterPlayerArgs
+                ? extra
+                : const RegisterPlayerArgs(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/invite/:token',
+        builder: (_, state) => PlayerInviteAcceptScreen(
+          token: state.pathParameters['token'] ?? '',
+        ),
       ),
       GoRoute(
         path: '/search',

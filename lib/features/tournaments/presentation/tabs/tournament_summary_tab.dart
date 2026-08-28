@@ -1,16 +1,25 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/enums.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/date_utils.dart';
+import '../../../../data/models/team_model.dart';
 import '../../../../data/models/tournament_model.dart';
 import '../../../../domain/services/tournament/tournament_analytics_models.dart';
 import '../../../../domain/services/tournament/tournament_hero_ranking_engine.dart';
 import '../../../../domain/services/tournament/tournament_leaderboard_models.dart';
+import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_analytics_providers.dart';
+import '../../../../shared/widgets/match_team_avatar.dart';
+import '../utils/tournament_display_utils.dart';
+import '../widgets/overview/tournament_overview_widgets.dart';
 import '../widgets/shared/tournament_async_tab.dart';
+import '../widgets/tournament_module_empty_state.dart';
 
-/// Premium tournament summary — only shown for completed tournaments.
+/// Completed-tournament report using the same card language as Overview.
 class TournamentSummaryTab extends ConsumerWidget {
   const TournamentSummaryTab({
     super.key,
@@ -23,6 +32,16 @@ class TournamentSummaryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (tournament.status != TournamentStatus.completed) {
+      return const TournamentModuleEmptyState(
+        icon: Icons.emoji_events_outlined,
+        title: 'Summary unlocks after the final',
+        description:
+            'Finish the tournament from Settings to lock the result and see champions, awards, and records.',
+      );
+    }
+
+    final teams = ref.watch(allTeamsProvider).valueOrNull ?? const <TeamModel>[];
     final analyticsAsync = ref.watch(
       tournamentAnalyticsProvider(
         TournamentAnalyticsParams(tournamentId: tournamentId),
@@ -39,45 +58,48 @@ class TournamentSummaryTab extends ConsumerWidget {
           ),
         );
       },
-      emptyIcon: Icons.emoji_events,
+      emptyIcon: Icons.emoji_events_outlined,
       emptyTitle: 'Summary unavailable',
       emptyDescription:
           'Tournament summary will be generated once match data is available.',
       builder: (snapshot) {
-        if (!snapshot.hasData) {
-          return ListView(
-            padding: AppDimens.screenPadding,
-            children: const [
-              SizedBox(height: 100),
-              Center(
-                child: Text('No scored matches to build summary from.'),
-              ),
-            ],
-          );
-        }
         return ListView(
           padding: AppDimens.screenPadding,
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
             _SummaryHeader(tournament: tournament),
-            const SizedBox(height: AppDimens.spaceLg),
-            _ChampionsSection(tournament: tournament),
-            const SizedBox(height: AppDimens.spaceLg),
-            _TournamentAwardsSection(awards: snapshot.awards),
-            const SizedBox(height: AppDimens.spaceLg),
-            _BattingLeadersSection(snapshot: snapshot),
-            const SizedBox(height: AppDimens.spaceLg),
-            _BowlingLeadersSection(snapshot: snapshot),
-            const SizedBox(height: AppDimens.spaceLg),
-            _FieldingLeadersSection(snapshot: snapshot),
-            const SizedBox(height: AppDimens.spaceLg),
-            _TeamStatisticsSection(snapshot: snapshot),
-            const SizedBox(height: AppDimens.spaceLg),
-            _TournamentRecordsSection(snapshot: snapshot),
-            const SizedBox(height: AppDimens.spaceLg),
-            _TournamentNumbersSection(snapshot: snapshot),
-            const SizedBox(height: AppDimens.spaceLg),
+            _ChampionsSection(tournament: tournament, teams: teams),
+            if (snapshot.hasData) ...[
+              _TournamentAwardsSection(awards: snapshot.awards),
+              _LeaderboardSection(
+                title: 'Batting leaders',
+                categories: kTournamentBattingCategories,
+                snapshot: snapshot,
+              ),
+              _LeaderboardSection(
+                title: 'Bowling leaders',
+                categories: kTournamentBowlingCategories,
+                snapshot: snapshot,
+              ),
+              _LeaderboardSection(
+                title: 'Fielding leaders',
+                categories: kTournamentFieldingCategories,
+                snapshot: snapshot,
+              ),
+              _TeamStatisticsSection(snapshot: snapshot),
+              _TournamentRecordsSection(snapshot: snapshot),
+              _TournamentNumbersSection(snapshot: snapshot),
+            ] else
+              const TournamentOverviewSectionCard(
+                title: 'Match data',
+                child: TournamentOverviewEmptyInline(
+                  message:
+                      'No scored matches yet. Summary stats appear once innings are recorded.',
+                  icon: Icons.sports_cricket_outlined,
+                ),
+              ),
             _TournamentTimelineSection(tournament: tournament),
-            const SizedBox(height: AppDimens.spaceXl),
+            const SizedBox(height: AppDimens.spaceLg),
           ],
         );
       },
@@ -85,165 +107,109 @@ class TournamentSummaryTab extends ConsumerWidget {
   }
 }
 
-
-// ─── Header ─────────────────────────────────────────────────────────────────
-
 class _SummaryHeader extends StatelessWidget {
   const _SummaryHeader({required this.tournament});
+
   final TournamentModel tournament;
 
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: cf.heroGradient,
-        borderRadius: AppDimens.cardRadius,
-        border: Border.all(color: cf.border),
-      ),
-      padding: const EdgeInsets.all(20),
+    final champion = tournament.championTeamName?.trim();
+    final details = <String>[
+      tournamentFormatLabel(tournament.format),
+      if (tournament.teamIds.isNotEmpty)
+        '${tournament.teamIds.length} teams',
+      if (tournament.matchIds.isNotEmpty)
+        '${tournament.matchIds.length} matches',
+      if (tournament.defaultRules.totalOvers > 0)
+        '${tournament.defaultRules.totalOvers} overs',
+    ];
+
+    return TournamentOverviewSectionCard(
+      title: 'Result',
+      trailing: const TournamentStatusChip(status: TournamentStatus.completed),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (tournament.logoUrl != null)
-            CircleAvatar(
-              radius: 32,
-              backgroundImage: NetworkImage(tournament.logoUrl!),
-            )
-          else
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: cf.accent.withValues(alpha: 0.2),
-              child: Icon(Icons.emoji_events, color: cf.accent, size: 32),
-            ),
-          const SizedBox(height: AppDimens.spaceMd),
-          Text(
-            tournament.name,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: cf.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppDimens.spaceSm),
-          if (tournament.championTeamName != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                gradient: CfColors.goldGradient,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '🏆 ${tournament.championTeamName}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: cf.onAccent,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          const SizedBox(height: AppDimens.spaceMd),
-          Wrap(
-            spacing: AppDimens.spaceMd,
-            runSpacing: AppDimens.spaceSm,
-            alignment: WrapAlignment.center,
+          Row(
             children: [
-              _HeaderChip(label: tournament.format.name.toUpperCase(), cf: cf),
-              _HeaderChip(
-                label: '${tournament.teamIds.length} Teams',
-                cf: cf,
+              if (tournament.logoUrl != null && tournament.logoUrl!.isNotEmpty)
+                CircleAvatar(
+                  radius: 24,
+                  backgroundImage:
+                      CachedNetworkImageProvider(tournament.logoUrl!),
+                )
+              else
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: cf.accent.withValues(alpha: 0.12),
+                  child: Icon(Icons.emoji_events_outlined, color: cf.accent),
+                ),
+              const SizedBox(width: AppDimens.spaceMd),
+              Expanded(
+                child: Text(
+                  tournament.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: cf.textPrimary,
+                      ),
+                ),
               ),
-              _HeaderChip(
-                label: '${tournament.matchIds.length} Matches',
-                cf: cf,
-              ),
-              if (tournament.defaultRules.totalOvers > 0)
-                _HeaderChip(
-                  label: '${tournament.defaultRules.totalOvers} Overs',
-                  cf: cf,
-                ),
-              if (tournament.grounds.isNotEmpty)
-                _HeaderChip(
-                  label: tournament.grounds.length == 1
-                      ? tournament.grounds.first
-                      : '${tournament.grounds.length} Venues',
-                  cf: cf,
-                ),
-              if (tournament.startDate != null && tournament.endDate != null)
-                _HeaderChip(
-                  label: _durationLabel(
-                    tournament.startDate!,
-                    tournament.endDate!,
-                  ),
-                  cf: cf,
-                ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  String _durationLabel(DateTime start, DateTime end) {
-    final days = end.difference(start).inDays;
-    if (days <= 1) return '1 Day';
-    return '$days Days';
-  }
-}
-
-class _HeaderChip extends StatelessWidget {
-  const _HeaderChip({required this.label, required this.cf});
-  final String label;
-  final CfColors cf;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: cf.surface.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cf.border),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: cf.textSecondary,
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Champions ──────────────────────────────────────────────────────────────
-
-class _ChampionsSection extends StatelessWidget {
-  const _ChampionsSection({required this.tournament});
-  final TournamentModel tournament;
-
-  @override
-  Widget build(BuildContext context) {
-    final cf = context.cf;
-    final podium = tournament.effectivePodiumPlaces;
-    if (podium.isEmpty) return const SizedBox.shrink();
-
-    return _SummarySection(
-      title: 'Champions',
-      icon: Icons.military_tech,
-      child: Column(
-        children: [
-          for (var i = 0; i < podium.length; i++) ...[
-            if (i > 0) const SizedBox(height: AppDimens.spaceSm),
-            _PodiumCard(
-              cf: cf,
-              rank: TournamentPodiumPlace.emojiFor(podium[i].place),
-              label: TournamentPodiumPlace.labelFor(podium[i].place),
-              teamName: podium[i].teamName.isNotEmpty
-                  ? podium[i].teamName
-                  : podium[i].teamId,
-              gradient: podium[i].place == 1 ? CfColors.goldGradient : null,
+          if (champion != null && champion.isNotEmpty) ...[
+            const SizedBox(height: AppDimens.spaceMd),
+            Container(
+              width: double.infinity,
+              padding: AppDimens.cardPadding,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    cf.accent.withValues(alpha: 0.18),
+                    cf.accent.withValues(alpha: 0.06),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cf.accent.withValues(alpha: 0.35)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.emoji_events, color: cf.accent, size: 22),
+                  const SizedBox(width: AppDimens.spaceSm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Champion',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: cf.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        Text(
+                          champion,
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: cf.textPrimary,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: AppDimens.spaceMd),
+            Wrap(
+              spacing: AppDimens.spaceSm,
+              runSpacing: AppDimens.spaceSm,
+              children: [
+                for (final label in details) _MetaChip(label: label),
+              ],
             ),
           ],
         ],
@@ -252,59 +218,140 @@ class _ChampionsSection extends StatelessWidget {
   }
 }
 
-class _PodiumCard extends StatelessWidget {
-  const _PodiumCard({
-    required this.cf,
-    required this.rank,
-    required this.label,
-    required this.teamName,
-    this.gradient,
-  });
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.label});
 
-  final CfColors cf;
-  final String rank;
   final String label;
-  final String teamName;
-  final LinearGradient? gradient;
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
     return Container(
-      width: double.infinity,
-      padding: AppDimens.cardPadding,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        gradient: gradient,
-        color: gradient == null ? cf.card : null,
-        borderRadius: AppDimens.cardRadius,
+        color: cf.sectionBackground,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cf.border),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: cf.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
+}
+
+class _ChampionsSection extends StatelessWidget {
+  const _ChampionsSection({
+    required this.tournament,
+    required this.teams,
+  });
+
+  final TournamentModel tournament;
+  final List<TeamModel> teams;
+
+  @override
+  Widget build(BuildContext context) {
+    final podium = tournament.effectivePodiumPlaces;
+    if (podium.isEmpty) return const SizedBox.shrink();
+
+    TeamModel? teamFor(String id) {
+      for (final team in teams) {
+        if (team.id == id) return team;
+      }
+      return null;
+    }
+
+    return TournamentOverviewSectionCard(
+      title: 'Podium',
+      child: Column(
+        children: [
+          for (var i = 0; i < podium.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppDimens.spaceSm),
+            _PodiumRow(
+              place: podium[i],
+              team: teamFor(podium[i].teamId),
+              highlight: podium[i].place == 1,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PodiumRow extends StatelessWidget {
+  const _PodiumRow({
+    required this.place,
+    required this.team,
+    required this.highlight,
+  });
+
+  final TournamentPodiumPlace place;
+  final TeamModel? team;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    final name = place.teamName.isNotEmpty
+        ? place.teamName
+        : (team?.name ?? place.teamId);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.spaceSm,
+        vertical: AppDimens.spaceSm,
+      ),
+      decoration: BoxDecoration(
+        color: highlight
+            ? cf.accent.withValues(alpha: 0.08)
+            : cf.sectionBackground,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: gradient != null
-              ? CfColors.gold.withValues(alpha: 0.5)
-              : cf.border,
+          color: highlight ? cf.accent.withValues(alpha: 0.28) : cf.border,
         ),
       ),
       child: Row(
         children: [
-          Text(rank, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: AppDimens.spaceMd),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '${place.place}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: highlight ? cf.accent : cf.textMuted,
+                  ),
+            ),
+          ),
+          MatchTeamAvatar(
+            name: name,
+            logoUrl: team?.profileImageUrl,
+            size: 36,
+          ),
+          const SizedBox(width: AppDimens.spaceSm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: gradient != null ? cf.onAccent : cf.textMuted,
-                  ),
+                  TournamentPodiumPlace.labelFor(place.place),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: cf.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 Text(
-                  teamName,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: gradient != null ? cf.onAccent : cf.textPrimary,
-                  ),
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cf.textPrimary,
+                      ),
                 ),
               ],
             ),
@@ -315,25 +362,22 @@ class _PodiumCard extends StatelessWidget {
   }
 }
 
-// ─── Awards ─────────────────────────────────────────────────────────────────
-
 class _TournamentAwardsSection extends StatelessWidget {
   const _TournamentAwardsSection({required this.awards});
+
   final TournamentHeroesSnapshot awards;
 
   @override
   Widget build(BuildContext context) {
     if (!awards.hasData) return const SizedBox.shrink();
-    final cf = context.cf;
 
-    return _SummarySection(
-      title: 'Tournament Awards',
-      icon: Icons.emoji_events,
+    return TournamentOverviewSectionCard(
+      title: 'Awards',
       child: Column(
         children: [
-          for (final entry in awards.heroes) ...[
-            _AwardCard(entry: entry, cf: cf),
-            const SizedBox(height: AppDimens.spaceSm),
+          for (var i = 0; i < awards.heroes.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppDimens.spaceSm),
+            _AwardRow(entry: awards.heroes[i]),
           ],
         ],
       ),
@@ -341,124 +385,63 @@ class _TournamentAwardsSection extends StatelessWidget {
   }
 }
 
-class _AwardCard extends StatelessWidget {
-  const _AwardCard({required this.entry, required this.cf});
+class _AwardRow extends StatelessWidget {
+  const _AwardRow({required this.entry});
+
   final TournamentHeroEntry entry;
-  final CfColors cf;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: AppDimens.cardPadding,
-      decoration: BoxDecoration(
-        color: cf.card,
-        borderRadius: AppDimens.cardRadius,
-        border: Border.all(color: cf.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: cf.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.emoji_events, color: cf.accent, size: 22),
+    final cf = context.cf;
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: cf.accent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(width: AppDimens.spaceMd),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.award.title,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: cf.accent,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                Text(
-                  entry.playerName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: cf.textPrimary,
-                  ),
-                ),
-                if (entry.teamName.isNotEmpty)
-                  Text(
-                    entry.teamName,
-                    style: TextStyle(fontSize: 11, color: cf.textSecondary),
-                  ),
-              ],
-            ),
-          ),
-          if (entry.valueLabel.isNotEmpty)
-            Text(
-              entry.valueLabel,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-                color: cf.accent,
+          child: Icon(Icons.emoji_events_outlined, color: cf.accent, size: 20),
+        ),
+        const SizedBox(width: AppDimens.spaceSm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                entry.award.title,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: cf.accent,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-
-// ─── Batting Leaders ────────────────────────────────────────────────────────
-
-class _BattingLeadersSection extends StatelessWidget {
-  const _BattingLeadersSection({required this.snapshot});
-  final TournamentAnalyticsSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    return _LeaderboardSection(
-      title: 'Batting Leaders',
-      icon: Icons.sports_baseball,
-      categories: kTournamentBattingCategories,
-      snapshot: snapshot,
-    );
-  }
-}
-
-// ─── Bowling Leaders ────────────────────────────────────────────────────────
-
-class _BowlingLeadersSection extends StatelessWidget {
-  const _BowlingLeadersSection({required this.snapshot});
-  final TournamentAnalyticsSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    return _LeaderboardSection(
-      title: 'Bowling Leaders',
-      icon: Icons.track_changes,
-      categories: kTournamentBowlingCategories,
-      snapshot: snapshot,
-    );
-  }
-}
-
-// ─── Fielding Leaders ───────────────────────────────────────────────────────
-
-class _FieldingLeadersSection extends StatelessWidget {
-  const _FieldingLeadersSection({required this.snapshot});
-  final TournamentAnalyticsSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    return _LeaderboardSection(
-      title: 'Fielding Leaders',
-      icon: Icons.front_hand,
-      categories: kTournamentFieldingCategories,
-      snapshot: snapshot,
+              Text(
+                entry.playerName.isNotEmpty ? entry.playerName : 'Player',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: cf.textPrimary,
+                    ),
+              ),
+              if (entry.teamName.isNotEmpty)
+                Text(
+                  entry.teamName,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cf.textSecondary,
+                      ),
+                ),
+            ],
+          ),
+        ),
+        if (entry.valueLabel.isNotEmpty)
+          Text(
+            entry.valueLabel,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: cf.accent,
+                ),
+          ),
+      ],
     );
   }
 }
@@ -466,37 +449,31 @@ class _FieldingLeadersSection extends StatelessWidget {
 class _LeaderboardSection extends StatelessWidget {
   const _LeaderboardSection({
     required this.title,
-    required this.icon,
     required this.categories,
     required this.snapshot,
   });
 
   final String title;
-  final IconData icon;
   final List<TournamentLeaderboardCategory> categories;
   final TournamentAnalyticsSnapshot snapshot;
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
-    // Only show categories that have data.
     final populated = categories
-        .where((c) => snapshot.entriesFor(c, limit: 10).isNotEmpty)
+        .where((c) => snapshot.entriesFor(c, limit: 5).isNotEmpty)
         .toList();
     if (populated.isEmpty) return const SizedBox.shrink();
 
-    return _SummarySection(
+    return TournamentOverviewSectionCard(
       title: title,
-      icon: icon,
       child: Column(
         children: [
-          for (final category in populated) ...[
-            _LeaderboardCategoryCard(
-              category: category,
-              entries: snapshot.entriesFor(category, limit: 10),
-              cf: cf,
+          for (var i = 0; i < populated.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppDimens.spaceMd),
+            _LeaderboardCategoryBlock(
+              category: populated[i],
+              entries: snapshot.entriesFor(populated[i], limit: 5),
             ),
-            const SizedBox(height: AppDimens.spaceSm),
           ],
         ],
       ),
@@ -504,78 +481,56 @@ class _LeaderboardSection extends StatelessWidget {
   }
 }
 
-class _LeaderboardCategoryCard extends StatelessWidget {
-  const _LeaderboardCategoryCard({
+class _LeaderboardCategoryBlock extends StatelessWidget {
+  const _LeaderboardCategoryBlock({
     required this.category,
     required this.entries,
-    required this.cf,
   });
 
   final TournamentLeaderboardCategory category;
   final List<TournamentLeaderboardEntry> entries;
-  final CfColors cf;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cf.card,
-        borderRadius: AppDimens.cardRadius,
-        border: Border.all(color: cf.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-            child: Text(
-              category.title,
-              style: TextStyle(
-                fontSize: 12,
+    final cf = context.cf;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          category.title,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: cf.accent,
               ),
-            ),
-          ),
-          for (int i = 0; i < entries.length; i++)
-            _LeaderboardRow(
-              entry: entries[i],
-              cf: cf,
-              isFirst: i == 0,
-            ),
-          const SizedBox(height: 4),
-        ],
-      ),
+        ),
+        const SizedBox(height: AppDimens.spaceSm),
+        for (final entry in entries) _LeaderboardRow(entry: entry),
+      ],
     );
   }
 }
 
 class _LeaderboardRow extends StatelessWidget {
-  const _LeaderboardRow({
-    required this.entry,
-    required this.cf,
-    this.isFirst = false,
-  });
+  const _LeaderboardRow({required this.entry});
 
   final TournamentLeaderboardEntry entry;
-  final CfColors cf;
-  final bool isFirst;
 
   @override
   Widget build(BuildContext context) {
+    final cf = context.cf;
+    final first = entry.rank == 1;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           SizedBox(
             width: 24,
             child: Text(
               '${entry.rank}',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-                color: isFirst ? cf.accent : cf.textMuted,
-              ),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: first ? cf.accent : cf.textMuted,
+                  ),
             ),
           ),
           Expanded(
@@ -584,29 +539,29 @@ class _LeaderboardRow extends StatelessWidget {
               children: [
                 Text(
                   entry.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isFirst ? FontWeight.w700 : FontWeight.w500,
-                    color: cf.textPrimary,
-                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: first ? FontWeight.w700 : FontWeight.w500,
+                        color: cf.textPrimary,
+                      ),
                 ),
                 if (entry.teamName.isNotEmpty)
                   Text(
                     entry.teamName,
-                    style: TextStyle(fontSize: 10, color: cf.textMuted),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: cf.textMuted,
+                        ),
                   ),
               ],
             ),
           ),
           Text(
             entry.valueLabel,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
-              color: isFirst ? cf.accent : cf.textPrimary,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: first ? cf.accent : cf.textPrimary,
+                ),
           ),
         ],
       ),
@@ -614,354 +569,160 @@ class _LeaderboardRow extends StatelessWidget {
   }
 }
 
-// ─── Team Statistics ────────────────────────────────────────────────────────
-
 class _TeamStatisticsSection extends StatelessWidget {
   const _TeamStatisticsSection({required this.snapshot});
+
   final TournamentAnalyticsSnapshot snapshot;
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
-    final section =
-        snapshot.sections[TournamentStatsSectionId.team];
-    final matchSection =
-        snapshot.sections[TournamentStatsSectionId.matchSummary];
     final metrics = <StatsMetric>[
-      ...?section?.metrics,
-      ...?matchSection?.metrics,
-    ];
+      ...?snapshot.sections[TournamentStatsSectionId.team]?.metrics,
+      ...?snapshot.sections[TournamentStatsSectionId.matchSummary]?.metrics,
+    ].where(_hasMetricValue).toList();
     if (metrics.isEmpty) return const SizedBox.shrink();
 
-    return _SummarySection(
-      title: 'Team Statistics',
-      icon: Icons.groups,
-      child: _MetricGrid(metrics: metrics, cf: cf),
+    return TournamentOverviewSectionCard(
+      title: 'Team statistics',
+      child: TournamentOverviewStatGrid(
+        stats: [
+          for (final metric in metrics.take(6))
+            TournamentOverviewStatItem(
+              label: metric.label,
+              value: metric.value,
+              icon: Icons.groups_outlined,
+            ),
+        ],
+      ),
     );
   }
 }
-
-// ─── Tournament Records ─────────────────────────────────────────────────────
 
 class _TournamentRecordsSection extends StatelessWidget {
   const _TournamentRecordsSection({required this.snapshot});
+
   final TournamentAnalyticsSnapshot snapshot;
+
+  static const _labels = {
+    'Highest individual score',
+    'Best bowling',
+    'Longest partnership',
+    'Highest team score',
+    'Lowest team score',
+    'Highest chase',
+    'Biggest win',
+    'Closest match',
+    'Most extras in a match',
+    'Most sixes in a match',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
-    final summary = snapshot.summary.metrics;
-    // Pick record-oriented metrics.
-    final recordLabels = {
-      'Highest individual score',
-      'Best bowling',
-      'Longest partnership',
-      'Highest team score',
-      'Lowest team score',
-      'Highest chase',
-      'Biggest win',
-      'Closest match',
-      'Most extras in a match',
-      'Most sixes in a match',
-    };
-    final records =
-        summary.where((m) => recordLabels.contains(m.label)).toList();
+    final records = snapshot.summary.metrics
+        .where((m) => _labels.contains(m.label) && _hasMetricValue(m))
+        .toList();
     if (records.isEmpty) return const SizedBox.shrink();
 
-    return _SummarySection(
-      title: 'Tournament Records',
-      icon: Icons.star,
-      child: _MetricGrid(metrics: records, cf: cf),
+    return TournamentOverviewSectionCard(
+      title: 'Records',
+      child: Column(
+        children: [
+          for (final record in records)
+            TournamentOverviewDetailRow(
+              label: record.label,
+              value: record.subtitle == null || record.subtitle!.isEmpty
+                  ? record.value
+                  : '${record.value} · ${record.subtitle}',
+            ),
+        ],
+      ),
     );
   }
 }
-
-// ─── Tournament Numbers ─────────────────────────────────────────────────────
 
 class _TournamentNumbersSection extends StatelessWidget {
   const _TournamentNumbersSection({required this.snapshot});
+
   final TournamentAnalyticsSnapshot snapshot;
+
+  static const _labels = {
+    'Matches',
+    'Completed',
+    'Overs bowled',
+    'Runs scored',
+    'Balls bowled',
+    'Boundaries',
+    'Sixes',
+    'Fours',
+    'Extras',
+    'Wickets fallen',
+    'Batting average',
+    'Run rate',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
-    final summary = snapshot.summary.metrics;
-    final numberLabels = {
-      'Matches',
-      'Completed',
-      'Overs bowled',
-      'Runs scored',
-      'Balls bowled',
-      'Boundaries',
-      'Sixes',
-      'Fours',
-      'Extras',
-      'Wickets fallen',
-      'Batting average',
-      'Run rate',
-    };
-    final numbers =
-        summary.where((m) => numberLabels.contains(m.label)).toList();
+    final numbers = snapshot.summary.metrics
+        .where((m) => _labels.contains(m.label) && _hasMetricValue(m))
+        .toList();
     if (numbers.isEmpty) return const SizedBox.shrink();
 
-    return _SummarySection(
-      title: 'Tournament Numbers',
-      icon: Icons.bar_chart,
-      child: _MetricGrid(metrics: numbers, cf: cf),
+    return TournamentOverviewSectionCard(
+      title: 'Tournament numbers',
+      child: TournamentOverviewStatGrid(
+        stats: [
+          for (final metric in numbers.take(8))
+            TournamentOverviewStatItem(
+              label: metric.label,
+              value: metric.value,
+              icon: Icons.bar_chart_outlined,
+            ),
+        ],
+      ),
     );
   }
 }
 
-// ─── Timeline ───────────────────────────────────────────────────────────────
-
 class _TournamentTimelineSection extends StatelessWidget {
   const _TournamentTimelineSection({required this.tournament});
+
   final TournamentModel tournament;
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
-    final events = <_TimelineEvent>[];
-
+    final events = <({String label, String value})>[];
     if (tournament.startDate != null) {
-      events.add(_TimelineEvent(
-        label: 'Tournament Started',
-        date: _formatDate(tournament.startDate!),
-        icon: Icons.flag,
+      events.add((
+        label: 'Started',
+        value: AppDateUtils.formatCardDate(tournament.startDate!),
       ));
     }
     if (tournament.endDate != null) {
-      events.add(_TimelineEvent(
-        label: 'Tournament Completed',
-        date: _formatDate(tournament.endDate!),
-        icon: Icons.emoji_events,
+      events.add((
+        label: 'Completed',
+        value: AppDateUtils.formatCardDate(tournament.endDate!),
       ));
     }
-    if (tournament.championTeamName != null) {
-      events.add(_TimelineEvent(
-        label: 'Champion Crowned',
-        date: tournament.championTeamName!,
-        icon: Icons.military_tech,
-      ));
+    final champion = tournament.championTeamName?.trim();
+    if (champion != null && champion.isNotEmpty) {
+      events.add((label: 'Champion', value: champion));
     }
-
     if (events.isEmpty) return const SizedBox.shrink();
 
-    return _SummarySection(
-      title: 'Tournament Timeline',
-      icon: Icons.timeline,
+    return TournamentOverviewSectionCard(
+      title: 'Timeline',
       child: Column(
         children: [
-          for (int i = 0; i < events.length; i++)
-            _TimelineTile(
-              event: events[i],
-              cf: cf,
-              isLast: i == events.length - 1,
-            ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-}
-
-class _TimelineEvent {
-  const _TimelineEvent({
-    required this.label,
-    required this.date,
-    required this.icon,
-  });
-  final String label;
-  final String date;
-  final IconData icon;
-}
-
-class _TimelineTile extends StatelessWidget {
-  const _TimelineTile({
-    required this.event,
-    required this.cf,
-    this.isLast = false,
-  });
-
-  final _TimelineEvent event;
-  final CfColors cf;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 32,
-            child: Column(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: cf.accent.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(event.icon, size: 14, color: cf.accent),
-                ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      color: cf.border,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppDimens.spaceSm),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AppDimens.spaceLg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: cf.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    event.date,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cf.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Shared Widgets ─────────────────────────────────────────────────────────
-
-class _SummarySection extends StatelessWidget {
-  const _SummarySection({
-    required this.title,
-    required this.icon,
-    required this.child,
-  });
-
-  final String title;
-  final IconData icon;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final cf = context.cf;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 18, color: cf.accent),
-            const SizedBox(width: AppDimens.spaceSm),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: cf.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppDimens.spaceMd),
-        child,
-      ],
-    );
-  }
-}
-
-class _MetricGrid extends StatelessWidget {
-  const _MetricGrid({required this.metrics, required this.cf});
-  final List<StatsMetric> metrics;
-  final CfColors cf;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppDimens.spaceSm,
-      runSpacing: AppDimens.spaceSm,
-      children: [
-        for (final m in metrics)
-          if (m.value != '—' && m.value != '0')
-            _MetricTile(metric: m, cf: cf),
-      ],
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({required this.metric, required this.cf});
-  final StatsMetric metric;
-  final CfColors cf;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: (MediaQuery.sizeOf(context).width - 36) / 2,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cf.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cf.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            metric.label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: cf.textMuted,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            metric.value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: cf.textPrimary,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (metric.subtitle != null)
-            Text(
-              metric.subtitle!,
-              style: TextStyle(fontSize: 9, color: cf.textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          for (final event in events)
+            TournamentOverviewDetailRow(
+              label: event.label,
+              value: event.value,
             ),
         ],
       ),
     );
   }
 }
+
+bool _hasMetricValue(StatsMetric metric) =>
+    metric.value.isNotEmpty && metric.value != '—' && metric.value != '0';

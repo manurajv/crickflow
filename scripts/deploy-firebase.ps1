@@ -3,13 +3,19 @@
 # Usage:
 #   .\scripts\deploy-firebase.ps1              # full deploy
 #   .\scripts\deploy-firebase.ps1 -RulesOnly  # firestore rules only (fast)
+#   .\scripts\deploy-firebase.ps1 -FunctionsOnly  # functions only (batched)
+#
+# If Functions fail with Cloud Run "Quota exceeded for total allowable CPU",
+# use batched deploy instead:
+#   .\scripts\deploy-functions-batched.ps1 -RetryFailed -BatchSize 2
 #
 # If Functions fail with "Timeout after 10000" during discovery, deploy rules
 # separately first, then retry functions with a higher discovery timeout:
 #   $env:FUNCTIONS_DISCOVERY_TIMEOUT = "60000"
 #   firebase deploy --only functions
 param(
-  [switch]$RulesOnly
+  [switch]$RulesOnly,
+  [switch]$FunctionsOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +26,11 @@ if ($RulesOnly) {
   firebase deploy --non-interactive --only "firestore:rules"
   Write-Host "Done." -ForegroundColor Green
   exit 0
+}
+
+if ($FunctionsOnly) {
+  & (Join-Path $PSScriptRoot "deploy-functions-batched.ps1")
+  exit $LASTEXITCODE
 }
 
 Write-Host "Installing Cloud Functions dependencies..." -ForegroundColor Cyan

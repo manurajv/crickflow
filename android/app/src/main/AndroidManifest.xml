@@ -62,6 +62,12 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="https" android:host="crickflow-b06bc.web.app"/>
             </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="crickflow.web.app" android:pathPrefix="/invite"/>
+            </intent-filter>
         </activity>
         <service
             android:name=".StreamForegroundService"

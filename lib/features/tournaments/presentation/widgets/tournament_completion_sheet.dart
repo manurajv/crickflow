@@ -314,11 +314,16 @@ class _TournamentCompletionSheetState
   Future<void> _finish() async {
     setState(() => _saving = true);
     try {
-      final heroes = await widget.ref
-          .read(tournamentHeroesProvider(widget.tournament.id).future);
-      final awards = <String, String>{};
-      for (final h in heroes.heroes) {
-        awards[h.award.name] = h.playerId;
+      var awards = <String, String>{};
+      try {
+        final heroes = await widget.ref
+            .read(tournamentHeroesProvider(widget.tournament.id).future);
+        for (final h in heroes.heroes) {
+          if (h.playerId.isEmpty) continue;
+          awards[h.award.name] = h.playerId;
+        }
+      } catch (_) {
+        // Awards are optional — finishing must still succeed.
       }
 
       final podium = <TournamentPodiumPlace>[];

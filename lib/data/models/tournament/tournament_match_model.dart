@@ -27,7 +27,7 @@ class TournamentMatchModel {
 
   bool get isUpcoming => MatchLifecycle.isUpcoming(match);
 
-  bool get isCompleted => match.status == MatchStatus.completed;
+  bool get isCompleted => MatchLifecycle.isCompleted(match);
 
   factory TournamentMatchModel.fromMatch(MatchModel match) =>
       TournamentMatchModel(match: match);

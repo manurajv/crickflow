@@ -3,7 +3,57 @@
 
 
 
-**Last updated:** RH/RO partnership & analytics hardening
+**Last updated:** Player invite links (web + app)
+
+**Firebase project:** `crickflow-b06bc`
+
+**Android package:** `com.mavixas.crickflow`
+
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Play launch:** [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Production certificate:** [PRODUCTION_READINESS_CERTIFICATE.md](PRODUCTION_READINESS_CERTIFICATE.md) · **Developer handbook:** [developer/README.md](developer/README.md) · **CI/CD:** [developer/cicd.md](developer/cicd.md) · **Continuity:** [developer/continuity.md](developer/continuity.md) · **Admin design:** [WEB_ADMIN_DESIGN.md](WEB_ADMIN_DESIGN.md) · **Production:** [WEB_ADMIN_PRODUCTION.md](WEB_ADMIN_PRODUCTION.md) · **i18n / a11y:** [WEB_ADMIN_I18N_A11Y.md](WEB_ADMIN_I18N_A11Y.md) · **QA report:** [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (Player invite links)
+
+| Item | Status |
+|------|--------|
+| Registrar creates a shareable invite (no SMS from their device) | Done |
+| Invite URL lands on consumer web `https://crickflow.web.app/invite/{token}/` | Done |
+| Player verifies **their own** phone OTP in the app or on web | Done |
+| Callables `createPlayerInvite` / `acceptPlayerInvite` (phone and/or Google accept) | Done |
+| Invite create: Mobile number or Google/link mode | Done |
+| Web OTP: visible reCAPTCHA + E.164 normalize + CSP for recaptcha.net | Done |
+| Existing-number lookup still uses `lookupPlayerByPhone` | Done |
+| Drawer / team / match entry points send an invite instead of proxy OTP | Done |
+| Same-day play without an account still uses Walk-in | Unchanged |
+| Login / self-onboarding / scoring core logic | Unchanged |
+
+**Deploy:** `firebase deploy --only functions,firestore:rules` and deploy **crickflow-web** hosting (`site: crickflow`).
+
+**Note:** Bulk OTP from one registrar device is blocked by Firebase (`17010`). Invites move OTP onto the player’s phone.
+
+---
+
+## Previous (Register new player)
+
+| Item | Status |
+|------|--------|
+| Side drawer + team add-player + match squad “Register new player” | Done |
+| Phone + OTP on a **secondary Firebase Auth app** (registrar session unchanged) | Done |
+| Existing-number lookup via callable `lookupPlayerByPhone` (public fields only) | Done |
+| Same `PlayerOnboardingScreen` (photo skip only in proxy mode) | Done |
+| Player ID via existing `completeOnboarding` / `app_meta/cf_player_ids` | Done |
+| Audit stamp `registrationSource` / `registeredByUserId` via callable | Done |
+| Login / self-onboarding / scoring / match create core logic | Unchanged |
+| OTP send uses **default** Auth (reCAPTCHA); sign-in only on secondary app | Done |
+
+**Deploy:** `firebase deploy --only functions,firestore:rules` then verify OTP on a second phone.
+
+**Note:** Firebase may temporarily block a device (`17010` / “unusual activity”) after many SMS OTP attempts. Wait 15–60+ minutes, or add test phone numbers in Firebase Console → Authentication → Phone.
+
+---
+
+## Previous (RH/RO — partnerships & analytics)
 
 **Firebase project:** `crickflow-b06bc`
 
@@ -868,7 +918,8 @@
 | Item | Status |
 |------|--------|
 | **Tournament Lifecycle Management** — auto-status transitions (upcoming → live → completed) based on match progress; `TournamentLifecycleService` + `tournamentLifecycleAutoSyncProvider` | Done |
-| **Tournament Summary tab** — premium completed-tournament report (champions, awards, batting/bowling/fielding leaders, team stats, records, numbers, timeline); only visible for completed tournaments | Done |
+| **Tournament Summary tab** — completed-tournament report using Overview cards (podium, awards, leaders, records); second dashboard tab; completed events open on Summary | Done |
+| **Finish tournament crash** — dashboard no longer recreates TabController on complete (null-check / multiple tickers); finish works with 1–5 podium places | Done |
 | **Points Table NRR fix** — proper cumulative NRR formula (RF/OF − RA/OB), ICC all-out rule, group tables rebuilt client-side from match data, CF stores runsFor/oversFaced/runsAgainst/oversBowled | Done |
 | **Tournament Leaderboard tab** — live stats from ball events; batting/bowling/fielding/team categories; group & round filters | Done |
 | **Tournament Heroes tab** — Orange/Purple cap, POT, MVP, best batter/bowler/fielder/all-rounder; hero ranking engine | Done |
@@ -885,7 +936,7 @@
 | Points table engine (client) + Cloud Function standings (existing) | Done |
 | RBAC — `TournamentPermissionService` + `tournament_members` | Done |
 | Discovery screen — 6 tabs + join-by-code | Done |
-| Tournament dashboard — 14 tabs (overview, matches, leaderboard, points table, stats, teams, groups, fixtures, officials, sponsors, heroes, rules, settings + summary for completed) | Done |
+| Tournament dashboard — Overview, Summary, then matches…settings; completed tournaments land on Summary | Done |
 | Dashboard section routes — `/tournaments/:id/{section}` + `?tab=` query | Done |
 | **Tournament Overview screen** — header, stats grid, organizer, info cards, QR/sharing, activity timeline, quick actions | Done |
 | Overview providers — `tournamentOverviewStatsProvider`, `tournamentRecentActivityProvider`, `userProfileByIdProvider` | Done |
@@ -1395,13 +1446,17 @@
 | Offline sync queue — ball commits, undo, match updates, Firestore batches | Done |
 | Offline sync — wait for Firebase Auth + token refresh; reclaim scorer ownership before flush; surface sync errors | Done |
 | Offline sync — ball/undo/overlay write scoring fields only (full `toMap` was failing rules as PERMISSION_DENIED for the active scorer) | Done |
+| Offline sync — require fresh auth token + server scorer check before flush; omit stale ownership fields from ball commits; retry with backoff on flaky links | Done |
 | Firestore rules — listed `scorerIds` / official scorers can write live scoring (fixes offline sync PERMISSION_DENIED) | Done — deploy rules |
 | Firestore rules — accept whole-number floats in match rules; relax playing-XI limit; allow null match break clear | Done — deploy rules |
+| Firestore rules — accept whole-number floats in `targetState` numeric fields (offline queue JSON) | Done — deploy rules |
+| Firestore rules — `isLiveScoringOnlyUpdate` path (ball/undo/overlay sync skips full-doc validation on legacy match docs) | Done — deploy rules |
 | `OfflineSyncService` — connectivity-aware sequential flush | Done |
 | `MatchRepository` — local-first writes; hybrid match/event/overlay streams | Done |
 | `MatchTargetRevisionRepository` — DLS, target revision, end innings, match result offline | Done |
 | Match snapshot on start + first score (`ensureLocalSnapshot`) | Done |
 | Live scoring badge — ONLINE / OFFLINE / SYNCING + pending count | Done |
+| Offline complete — local status `completed` overlays list feeds (tournament Matches + individual) while queued; scoring-patch sync of result when online | Done |
 | Settings offline sync info updated | Done |
 | Firestore persistence retained as secondary cache (`firebase_bootstrap.dart`) | Done |
 

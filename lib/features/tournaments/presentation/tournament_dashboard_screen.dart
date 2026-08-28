@@ -43,29 +43,18 @@ class TournamentDashboardScreen extends ConsumerStatefulWidget {
 class _TournamentDashboardScreenState
     extends ConsumerState<TournamentDashboardScreen>
     with SingleTickerProviderStateMixin {
-  late TabController _tabs;
+  TabController? _tabs;
   late ScrollController _scrollController;
   bool _showAppBarTitle = false;
   double _titleThreshold = 0;
-  bool _isCompleted = false;
+  List<TournamentDashboardSection> _visibleSections = const [];
+  bool? _wasCompleted;
 
   static const _coverHeight = 168.0;
-
-  List<String> get _labels =>
-      TournamentDashboardSection.labelsForStatus(_isCompleted);
-
-  List<TournamentDashboardSection> get _sections =>
-      TournamentDashboardSection.tabOrderForStatus(_isCompleted);
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(
-      length: _labels.length,
-      vsync: this,
-      initialIndex: TournamentDashboardSection.tabOrder
-          .indexOf(widget.initialSection),
-    );
     _scrollController = ScrollController()..addListener(_syncTitleVisibility);
   }
 
@@ -73,7 +62,7 @@ class _TournamentDashboardScreenState
   void dispose() {
     _scrollController.removeListener(_syncTitleVisibility);
     _scrollController.dispose();
-    _tabs.dispose();
+    _tabs?.dispose();
     super.dispose();
   }
 
@@ -90,6 +79,100 @@ class _TournamentDashboardScreenState
         setState(() => _showAppBarTitle = nextShow);
       }
     });
+  }
+
+  void _syncSummaryLanding(TournamentModel tournament) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final completed = tournament.status == TournamentStatus.completed;
+      final justCompleted = _wasCompleted == false && completed;
+      _wasCompleted = completed;
+
+      if (justCompleted) {
+        _appliedCompletedLanding = true;
+        _selectTab(TournamentDashboardSection.summary, animate: true);
+        return;
+      }
+
+      if (_appliedCompletedLanding || !completed) return;
+      if (widget.initialSection != TournamentDashboardSection.overview) {
+        _appliedCompletedLanding = true;
+        return;
+      }
+
+      _appliedCompletedLanding = true;
+      _selectTab(TournamentDashboardSection.summary, animate: false);
+    });
+  }
+
+  void _selectTab(
+    TournamentDashboardSection section, {
+    required bool animate,
+  }) {
+    final index = TournamentDashboardSection.indexOfSection(section);
+    if (_tabs.index == index) return;
+    if (animate) {
+      _tabs.animateTo(index);
+    } else {
+      _tabs.index = index;
+    }
+  }
+
+  Widget _pageFor({
+    required TournamentDashboardSection section,
+    required TournamentModel tournament,
+    required TournamentRole role,
+  }) {
+    switch (section) {
+      case TournamentDashboardSection.overview:
+        return TournamentOverviewScreen(
+          tournamentId: widget.tournamentId,
+          tournament: tournament,
+          role: role,
+          onNavigateToSection: (TournamentDashboardSection next) {
+            final index = _sections.indexOf(next);
+            if (index >= 0) _tabs.animateTo(index);
+          },
+        );
+      case TournamentDashboardSection.summary:
+        return TournamentSummaryTab(
+          tournamentId: widget.tournamentId,
+          tournament: tournament,
+        );
+      case TournamentDashboardSection.matches:
+        return TournamentMatchesTab(tournament: tournament, role: role);
+      case TournamentDashboardSection.leaderboard:
+        return TournamentLeaderboardTab(tournamentId: widget.tournamentId);
+      case TournamentDashboardSection.pointsTable:
+        return TournamentPointsTab(tournament: tournament);
+      case TournamentDashboardSection.stats:
+        return TournamentStatsTab(tournamentId: widget.tournamentId);
+      case TournamentDashboardSection.teams:
+        return TournamentTeamsTab(tournament: tournament, role: role);
+      case TournamentDashboardSection.groups:
+        return TournamentGroupsTab(tournament: tournament, role: role);
+      case TournamentDashboardSection.fixtures:
+        return TournamentFixturesTab(tournament: tournament, role: role);
+      case TournamentDashboardSection.officials:
+        return TournamentOfficialsTab(
+          tournamentId: widget.tournamentId,
+          role: role,
+        );
+      case TournamentDashboardSection.sponsors:
+        return TournamentSponsorsTab(
+          tournamentId: widget.tournamentId,
+          role: role,
+        );
+      case TournamentDashboardSection.heroes:
+        return TournamentHeroesTab(tournamentId: widget.tournamentId);
+      case TournamentDashboardSection.rules:
+        return TournamentRulesTab(
+          tournamentId: widget.tournamentId,
+          role: role,
+        );
+      case TournamentDashboardSection.settings:
+        return TournamentSettingsTab(tournament: tournament, role: role);
+    }
   }
 
   @override
@@ -113,21 +196,7 @@ class _TournamentDashboardScreenState
           );
         }
 
-        // Rebuild tab controller if completed state changes.
-        final nowCompleted =
-            tournament.status == TournamentStatus.completed;
-        if (nowCompleted != _isCompleted) {
-          _isCompleted = nowCompleted;
-          final prevIndex = _tabs.index;
-          _tabs.dispose();
-          final newLabels =
-              TournamentDashboardSection.labelsForStatus(_isCompleted);
-          _tabs = TabController(
-            length: newLabels.length,
-            vsync: this,
-            initialIndex: prevIndex.clamp(0, newLabels.length - 1),
-          );
-        }
+        _syncSummaryLanding(tournament);
 
         final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
         _titleThreshold = _coverHeight - topInset - 1;
@@ -232,43 +301,11 @@ class _TournamentDashboardScreenState
               body: TabBarView(
                 controller: _tabs,
                 children: [
-                  TournamentOverviewScreen(
-                    tournamentId: widget.tournamentId,
-                    tournament: tournament,
-                    role: role,
-                    onNavigateToSection: (TournamentDashboardSection section) {
-                      final index = _sections.indexOf(section);
-                      if (index >= 0) _tabs.animateTo(index);
-                    },
-                  ),
-                  TournamentMatchesTab(
-                    tournament: tournament,
-                    role: role,
-                  ),
-                  TournamentLeaderboardTab(tournamentId: widget.tournamentId),
-                  TournamentPointsTab(tournament: tournament),
-                  TournamentStatsTab(tournamentId: widget.tournamentId),
-                  TournamentTeamsTab(tournament: tournament, role: role),
-                  TournamentGroupsTab(tournament: tournament, role: role),
-                  TournamentFixturesTab(tournament: tournament, role: role),
-                  TournamentOfficialsTab(
-                    tournamentId: widget.tournamentId,
-                    role: role,
-                  ),
-                  TournamentSponsorsTab(
-                    tournamentId: widget.tournamentId,
-                    role: role,
-                  ),
-                  TournamentHeroesTab(tournamentId: widget.tournamentId),
-                  TournamentRulesTab(
-                    tournamentId: widget.tournamentId,
-                    role: role,
-                  ),
-                  TournamentSettingsTab(tournament: tournament, role: role),
-                  if (_isCompleted)
-                    TournamentSummaryTab(
-                      tournamentId: widget.tournamentId,
+                  for (final section in _sections)
+                    _pageFor(
+                      section: section,
                       tournament: tournament,
+                      role: role,
                     ),
                 ],
               ),

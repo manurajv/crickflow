@@ -26,6 +26,7 @@ import '../../domain/services/commentary_service.dart';
 import '../../domain/services/scoring_engine.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../../domain/scoring/match_completion_policy.dart';
+import '../../domain/scoring/local_match_overlay.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../domain/scoring/ball_event_aggregator.dart';
 import '../../domain/scoring/scoring_integrity_check.dart';
@@ -88,7 +89,11 @@ class MatchRepository {
     if (remote == null) return local;
 
     MatchModel overlayWinner;
-    if (remote.overlayVersion > local.overlayVersion) {
+    if (LocalMatchOverlay.isTerminalAhead(local, remote)) {
+      overlayWinner = local;
+    } else if (LocalMatchOverlay.isTerminalAhead(remote, local)) {
+      overlayWinner = remote;
+    } else if (remote.overlayVersion > local.overlayVersion) {
       overlayWinner = remote;
     } else if (local.overlayVersion > remote.overlayVersion) {
       overlayWinner = local;
@@ -117,6 +122,12 @@ class MatchRepository {
         remote.innings.fold<int>(0, (total, i) => total + i.legalBalls);
     if (localBalls != remoteBalls) {
       return localBalls > remoteBalls ? local : remote;
+    }
+
+    final localDone = MatchLifecycle.isCompleted(local);
+    final remoteDone = MatchLifecycle.isCompleted(remote);
+    if (localDone != remoteDone) {
+      return localDone ? local : remote;
     }
 
     final localInn = local.currentInnings;
@@ -197,6 +208,89 @@ class MatchRepository {
     return base.copyWith(
       stream: _richerStreamMetadata(base.stream, remoteStream),
     );
+  }
+
+  /// Prefer a local completed/pending snapshot so list feeds do not stay LIVE
+  /// after the scorer finished the match offline.
+  Stream<List<MatchModel>> _overlayLocalOnListStream(
+    Stream<List<MatchModel>> remote, {
+    bool Function(MatchModel match)? includeLocalSnapshot,
+  }) {
+    final local = _localStore;
+    if (!_offlineEnabled || local == null) return remote;
+
+    late StreamController<List<MatchModel>> controller;
+    var latestRemote = const <MatchModel>[];
+    var emitGen = 0;
+    StreamSubscription<List<MatchModel>>? remoteSub;
+    StreamSubscription<void>? localSub;
+
+    Future<void> emit() async {
+      final gen = ++emitGen;
+      final overlaid = await _overlayLocalMatches(
+        latestRemote,
+        includeLocalSnapshot: includeLocalSnapshot,
+      );
+      if (gen != emitGen || controller.isClosed) return;
+      controller.add(overlaid);
+    }
+
+    controller = StreamController<List<MatchModel>>.broadcast(
+      onListen: () {
+        remoteSub = remote.listen((list) {
+          latestRemote = list;
+          unawaited(emit());
+        });
+        localSub = local.onSnapshotsChanged.listen((_) {
+          unawaited(emit());
+        });
+      },
+      onCancel: () {
+        remoteSub?.cancel();
+        localSub?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  Future<List<MatchModel>> _overlayLocalMatches(
+    List<MatchModel> remote, {
+    bool Function(MatchModel match)? includeLocalSnapshot,
+  }) async {
+    final local = _localStore;
+    if (local == null || !local.isInitialized) return remote;
+
+    final byId = <String, MatchModel>{
+      for (final match in remote) match.id: match,
+    };
+    final snapshots = await local.listSnapshots();
+    for (final snapshot in snapshots) {
+      final remoteMatch = byId[snapshot.id];
+      if (remoteMatch == null) {
+        if (includeLocalSnapshot != null &&
+            !includeLocalSnapshot(snapshot)) {
+          continue;
+        }
+        if (local.hasPendingSync(snapshot.id) ||
+            MatchLifecycle.isCompleted(snapshot) ||
+            snapshot.status == MatchStatus.abandoned) {
+          byId[snapshot.id] = snapshot;
+        }
+        continue;
+      }
+      if (LocalMatchOverlay.preferLocal(
+        local: snapshot,
+        remote: remoteMatch,
+        pendingSync: local.hasPendingSync(snapshot.id),
+      )) {
+        byId[snapshot.id] =
+            _mergeRemoteStreamForPendingLocal(snapshot, remoteMatch) ??
+                snapshot;
+      } else {
+        byId[snapshot.id] = _pickNewerMatch(snapshot, remoteMatch) ?? snapshot;
+      }
+    }
+    return byId.values.toList();
   }
 
   OverlayStateModel? _pickNewerOverlay(
@@ -668,10 +762,54 @@ class MatchRepository {
     if (createdBy != null) {
       query = query.where('createdBy', isEqualTo: createdBy);
     }
-    return query.limit(50).snapshots().map((snap) {
+
+    final remote = query.limit(50).snapshots().map((snap) {
       return snap.docs
           .map((d) => MatchModel.fromMap(d.id, d.data()))
           .toList();
+    });
+    return _overlayLocalOnListStream(remote);
+  }
+
+  /// Tournament fixtures — not limited by the global createdAt feed.
+  Stream<List<MatchModel>> watchMatchesForTournament(String tournamentId) {
+    if (tournamentId.isEmpty) {
+      return Stream.value(const <MatchModel>[]);
+    }
+    final remote = _matches
+        .where('tournamentId', isEqualTo: tournamentId)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => MatchModel.fromMap(d.id, d.data()))
+              .toList(),
+        );
+    return _overlayLocalOnListStream(
+      remote,
+      includeLocalSnapshot: (m) => m.tournamentId == tournamentId,
+    );
+  }
+
+  /// All recent matches; live matches sorted to the top.
+  Stream<List<MatchModel>> watchMatchFeed() {
+    final remote = _matches
+        .orderBy('updatedAt', descending: true)
+        .limit(40)
+        .snapshots()
+        .map((snap) {
+      return snap.docs
+          .map((d) => MatchModel.fromMap(d.id, d.data()))
+          .toList();
+    });
+    return _overlayLocalOnListStream(remote).map((list) {
+      final sorted = List<MatchModel>.from(list);
+      sorted.sort((a, b) {
+        final aLive = MatchLifecycle.isEffectivelyLive(a) ? 0 : 1;
+        final bLive = MatchLifecycle.isEffectivelyLive(b) ? 0 : 1;
+        if (aLive != bLive) return aLive.compareTo(bLive);
+        return 0;
+      });
+      return sorted;
     });
   }
 
@@ -697,25 +835,6 @@ class MatchRepository {
         )
         .take(limit)
         .toList();
-  }
-
-  /// All recent matches; live matches sorted to the top.
-  Stream<List<MatchModel>> watchMatchFeed() {
-    return _matches
-        .orderBy('updatedAt', descending: true)
-        .limit(40)
-        .snapshots()
-        .map((snap) {
-      final list =
-          snap.docs.map((d) => MatchModel.fromMap(d.id, d.data())).toList();
-      list.sort((a, b) {
-        final aLive = MatchLifecycle.isEffectivelyLive(a) ? 0 : 1;
-        final bLive = MatchLifecycle.isEffectivelyLive(b) ? 0 : 1;
-        if (aLive != bLive) return aLive.compareTo(bLive);
-        return 0;
-      });
-      return list;
-    });
   }
 
   /// Live + upcoming matches across all users (for Home discovery).
@@ -750,7 +869,14 @@ class MatchRepository {
     }
 
     final list = byId.values.toList();
-    list.sort((a, b) {
+    final overlaid = await _overlayLocalMatches(list);
+    overlaid.removeWhere(
+      (m) =>
+          m.status == MatchStatus.completed ||
+          m.status == MatchStatus.abandoned ||
+          MatchLifecycle.isCompleted(m),
+    );
+    overlaid.sort((a, b) {
       final aLive = MatchLifecycle.isEffectivelyLive(a) ? 0 : 1;
       final bLive = MatchLifecycle.isEffectivelyLive(b) ? 0 : 1;
       if (aLive != bLive) return aLive.compareTo(bLive);
@@ -761,7 +887,7 @@ class MatchRepository {
       if (bAt == null) return -1;
       return aAt.compareTo(bAt);
     });
-    return list;
+    return overlaid;
   }
 
   Future<List<BallEventModel>> fetchBallEvents(String matchId) async {
@@ -1367,6 +1493,7 @@ class MatchRepository {
       badgeIds: badgeIds,
       winnerTeamId: winnerId,
       resultSummary: summary,
+      overlayVersion: match.overlayVersion + 1,
       clearActiveMatchBreak: true,
     );
 

@@ -95,7 +95,8 @@ class MatchLifecycle {
         match.status == MatchStatus.abandoned) {
       return match.status;
     }
-    if (match.status == MatchStatus.inningsBreak &&
+    if ((match.status == MatchStatus.live ||
+            match.status == MatchStatus.inningsBreak) &&
         MatchCompletionPolicy.isMatchComplete(match)) {
       return MatchStatus.completed;
     }

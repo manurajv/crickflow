@@ -31,6 +31,7 @@ export const collections = {
   teamFollowers: "teamFollowers",
   matchFollowers: "matchFollowers",
   fantasyLeagues: "fantasy_leagues",
+  playerInvites: "player_invites",
 } as const;
 
 export const queryLimits: {

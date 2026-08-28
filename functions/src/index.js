@@ -5,8 +5,19 @@
  * Docs:   docs/FUNCTIONS.md
  */
 const { initializeApp } = require('firebase-admin/app');
+const { setGlobalOptions } = require('firebase-functions/v2');
 
 initializeApp();
+
+// 0.25 vCPU per service keeps ~35 Cloud Run functions under regional CPU quota.
+// concurrency must be 1 when cpu < 1 (Firebase requirement).
+setGlobalOptions({
+  region: 'us-central1',
+  memory: '256MiB',
+  cpu: 0.25,
+  concurrency: 1,
+  maxInstances: 20,
+});
 
 const { onMatchCompleted } = require('./match/onMatchCompleted');
 const { onMatchLive } = require('./match/onMatchLive');
@@ -50,6 +61,14 @@ const {
   createFacebookLiveStream,
   createTwitchLiveStream,
 } = require('./streaming/streamFunctions');
+const {
+  lookupPlayerByPhone,
+  stampProxyPlayerRegistration,
+} = require('./players/lookupPlayerByPhone');
+const {
+  createPlayerInvite,
+  acceptPlayerInvite,
+} = require('./players/playerInvites');
 
 exports.onMatchCompleted = onMatchCompleted;
 exports.onMatchLive = onMatchLive;
@@ -82,3 +101,7 @@ exports.startYouTubeLiveBroadcast = startYouTubeLiveBroadcast;
 exports.exportYouTubeChapters = exportYouTubeChapters;
 exports.createFacebookLiveStream = createFacebookLiveStream;
 exports.createTwitchLiveStream = createTwitchLiveStream;
+exports.lookupPlayerByPhone = lookupPlayerByPhone;
+exports.stampProxyPlayerRegistration = stampProxyPlayerRegistration;
+exports.createPlayerInvite = createPlayerInvite;
+exports.acceptPlayerInvite = acceptPlayerInvite;

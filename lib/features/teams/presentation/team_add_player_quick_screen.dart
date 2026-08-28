@@ -9,6 +9,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/cf_player_id_format.dart';
 import '../../../data/models/player_model.dart';
+import '../../../data/models/register_player_models.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 
@@ -132,6 +133,26 @@ class _TeamAddPlayerQuickScreenState
     } finally {
       if (mounted) setState(() => _invitingPlayerId = null);
     }
+  }
+
+  Future<void> _openRegisterPlayer() async {
+    final result = await context.push<Object>(
+      '/register-player',
+      extra: const RegisterPlayerArgs(popWithPlayer: true),
+    );
+    if (!mounted) return;
+    if (result == 'invited') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Invite sent. They’ll appear here after they join with their phone.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (result is! PlayerModel) return;
+    await _invitePlayer(result);
   }
 
   @override
@@ -265,6 +286,12 @@ class _TeamAddPlayerQuickScreenState
                   context.push('/teams/${widget.teamId}/add-players/walkin'),
               icon: const Icon(Icons.person_add_alt_1_outlined),
               label: const Text('Add walk-in player'),
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+            OutlinedButton.icon(
+              onPressed: _openRegisterPlayer,
+              icon: const Icon(Icons.person_add_alt_outlined),
+              label: const Text('Invite a player'),
             ),
           ],
         ),

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/enums.dart';
 import '../local/match_local_store.dart';
 import '../local/pending_sync_action.dart';
 import '../models/match_model.dart';
@@ -55,7 +56,10 @@ class OfflineSyncService {
     _authSub?.cancel();
     _connectivitySub = _connectivity.onStatusChanged.listen((online) {
       if (online) {
-        unawaited(flush());
+        // Brief delay so Firebase Auth + Firestore pick up the restored link.
+        Future<void>.delayed(const Duration(milliseconds: 400), () {
+          if (_connectivity.isOnline) unawaited(flush());
+        });
       } else {
         _emitStatus(ConnectivityStatus.offline);
       }
@@ -63,7 +67,11 @@ class OfflineSyncService {
     // Auth can restore after connectivity; flush again once the user is signed in.
     _authSub = _auth.authStateChanges().listen((user) {
       if (user != null && _connectivity.isOnline) {
-        unawaited(flush());
+        Future<void>.delayed(const Duration(milliseconds: 300), () {
+          if (_auth.currentUser != null && _connectivity.isOnline) {
+            unawaited(flush());
+          }
+        });
       }
     });
     _emitStatus(currentStatus);
@@ -103,10 +111,10 @@ class OfflineSyncService {
       return;
     }
 
-    try {
-      await user.getIdToken(true);
-    } catch (e) {
-      debugPrint('OfflineSyncService: token refresh failed: $e');
+    if (!await _refreshAuthToken(user)) {
+      debugPrint('OfflineSyncService: skip flush — auth token not ready');
+      _emitStatus(ConnectivityStatus.online);
+      return;
     }
 
     final pending = await _localStore.pendingActions(matchId: matchId);
@@ -129,13 +137,28 @@ class OfflineSyncService {
           await _localStore.setLastSyncAt(action.matchId, DateTime.now());
         } catch (e, st) {
           debugPrint('OfflineSyncService: flush failed for ${action.id}: $e\n$st');
+          if (_isPermissionDenied(e) && action.type == SyncActionType.ballCommit) {
+            debugPrint(
+              'OfflineSyncService: ball_commit queued payload keys: '
+              '${(action.payload['matchData'] as Map?)?.keys.join(', ') ?? 'none'}',
+            );
+          }
           final retried = action.copyWith(attemptCount: action.attemptCount + 1);
           await _localStore.updateSyncAction(retried);
 
-          // One recovery pass: refresh auth + reclaim ownership, then retry once.
-          if (_isPermissionDenied(e) && action.attemptCount < 2) {
+          // Transient auth / scorer races on flaky links — retry with backoff.
+          if (_isRecoverableSyncFailure(e) && action.attemptCount < 3) {
             try {
-              await user.getIdToken(true);
+              await Future<void>.delayed(
+                Duration(milliseconds: 350 * (action.attemptCount + 1)),
+              );
+              if (!await _refreshAuthToken(user)) {
+                throw FirebaseException(
+                  plugin: 'cloud_firestore',
+                  code: 'unavailable',
+                  message: 'Sign-in is still restoring. Try sync again shortly.',
+                );
+              }
               await _ensureScorerCanSync(action.matchId, user.uid);
               await _execute(action);
               await _localStore.removeSyncAction(action.id);
@@ -181,17 +204,40 @@ class OfflineSyncService {
     }
   }
 
+  /// Refreshes the ID token so Firestore writes are authenticated (not cached).
+  Future<bool> _refreshAuthToken(User user) async {
+    try {
+      await user.getIdToken(true);
+      return true;
+    } catch (e) {
+      debugPrint('OfflineSyncService: token refresh failed: $e');
+      return false;
+    }
+  }
+
+  /// Server-first match read for scorer checks (cache can be stale after reconnect).
+  Future<DocumentSnapshot<Map<String, dynamic>>> _fetchAuthoritativeMatch(
+    String matchId,
+  ) {
+    return _matchDoc(matchId).get(const GetOptions(source: Source.server));
+  }
+
   /// Makes sure the signed-in user is authorized to write scoring docs before
   /// flushing the queue (avoids PERMISSION_DENIED after offline/reopen).
   Future<void> _ensureScorerCanSync(String matchId, String uid) async {
-    final snap = await _matchDoc(matchId).get();
+    final snap = await _fetchAuthoritativeMatch(matchId);
     if (!snap.exists) return;
 
     final remote = snap.data() ?? const <String, dynamic>{};
     final remoteScorer = (remote['currentScorerId'] as String?)?.trim() ?? '';
     if (remoteScorer == uid) {
-      // Already the active scorer — do not write a pre-flight patch (that can
-      // fail validation on older match docs and block the whole sync queue).
+      // Stay listed in scorerIds so assigned-scorer rule paths keep working.
+      final scorerIds = _stringList(remote['scorerIds']);
+      if (scorerIds.contains(uid)) return;
+      await _matchDoc(matchId).update({
+        'scorerIds': FieldValue.arrayUnion([uid]),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
       return;
     }
 
@@ -293,6 +339,15 @@ class OfflineSyncService {
         text.contains('missing or insufficient permissions');
   }
 
+  bool _isRecoverableSyncFailure(Object error) {
+    if (error is FirebaseException) {
+      return error.code == 'permission-denied' ||
+          error.code == 'unavailable' ||
+          error.code == 'unauthenticated';
+    }
+    return _isPermissionDenied(error);
+  }
+
   String _userFacingSyncError(Object error) {
     if (error is FirebaseException) {
       if (error.code == 'permission-denied') {
@@ -302,6 +357,11 @@ class OfflineSyncService {
       }
       if (error.code == 'unauthenticated') {
         return 'Sign in again to sync pending scores.';
+      }
+      if (error.code == 'unavailable') {
+        return error.message?.trim().isNotEmpty == true
+            ? error.message!.trim()
+            : 'Connection is still restoring. Try sync again in a moment.';
       }
       return error.message ?? error.code;
     }
@@ -343,6 +403,12 @@ class OfflineSyncService {
     if (rules is Map) {
       data['rules'] = _sanitizeRules(Map<String, dynamic>.from(rules));
     }
+    final targetState = data['targetState'];
+    if (targetState is Map) {
+      data['targetState'] = _sanitizeTargetState(
+        Map<String, dynamic>.from(targetState),
+      );
+    }
     _coerceIntFields(data, const [
       'overlayVersion',
       'currentInningsIndex',
@@ -350,11 +416,42 @@ class OfflineSyncService {
     return data;
   }
 
+  Map<String, dynamic> _sanitizeTargetState(Map<String, dynamic> ts) {
+    const intKeys = <String>{
+      'originalOvers',
+      'revisedOvers',
+      'revisedTarget',
+      'originalTarget',
+      'pendingChaseTarget',
+      'revisedTotalOvers',
+      'oversLostPerInnings',
+    };
+    final out = Map<String, dynamic>.from(ts);
+    for (final key in intKeys) {
+      final value = out[key];
+      if (value is num) out[key] = value.toInt();
+    }
+    return out;
+  }
+
+  bool _shouldUseScoringPatchForMatchUpdate(Map<String, dynamic> raw) {
+    final status = raw['status'] as String?;
+    if (status == null) return false;
+    return status == MatchStatus.live.name ||
+        status == MatchStatus.inningsBreak.name ||
+        status == MatchStatus.tossCompleted.name ||
+        status == MatchStatus.completed.name ||
+        status == MatchStatus.abandoned.name;
+  }
+
   /// Ball/undo/overlay sync must not rewrite the full match doc (rules/squads/
   /// stream). Full rewrites often fail Firestore validation as PERMISSION_DENIED
   /// even for the active scorer.
-  Map<String, dynamic> _scoringPatch(Map<String, dynamic> full) {
-    const keys = <String>{
+  Map<String, dynamic> _scoringPatch(
+    Map<String, dynamic> full, {
+    bool includeOwnership = false,
+  }) {
+    final keys = <String>{
       'innings',
       'currentInningsIndex',
       'status',
@@ -369,18 +466,22 @@ class OfflineSyncService {
       'resultSummary',
       'completedAt',
       'startedAt',
-      'currentScorerId',
-      'currentScorerName',
-      'currentScorerPhoto',
-      'scorerIds',
-      'scorerOwnershipToken',
-      'lastScorerTransferAt',
-      'scorerTransferHistory',
       'badgeIds',
       'matchHero',
       'playerOfMatchId',
       'publicMatchId',
     };
+    if (includeOwnership) {
+      keys.addAll({
+        'currentScorerId',
+        'currentScorerName',
+        'currentScorerPhoto',
+        'scorerIds',
+        'scorerOwnershipToken',
+        'lastScorerTransferAt',
+        'scorerTransferHistory',
+      });
+    }
     final patch = <String, dynamic>{};
     for (final key in keys) {
       if (!full.containsKey(key)) continue;
@@ -483,9 +584,22 @@ class OfflineSyncService {
       action.payload['overlayData'] as Map,
     );
 
+    if (kDebugMode) {
+      debugPrint(
+        'OfflineSyncService: ball_commit firestore patch keys: '
+        '${matchData.keys.join(', ')}',
+      );
+    }
+
     final batch = _firestore.batch();
     batch.update(_matchDoc(matchId), matchData);
-    batch.set(_ballEvents(matchId).doc(eventId), eventData);
+    final eventRef = _ballEvents(matchId).doc(eventId);
+    final existingEvent = await eventRef.get(
+      const GetOptions(source: Source.server),
+    );
+    if (!existingEvent.exists) {
+      batch.set(eventRef, eventData);
+    }
     batch.set(_overlayDoc(matchId), overlayData);
     await batch.commit();
 
@@ -551,10 +665,15 @@ class OfflineSyncService {
 
   Future<void> _executeMatchUpdate(PendingSyncAction action) async {
     final matchId = action.matchId;
-    final rawMatchData = _sanitizeMatchData(
-      Map<String, dynamic>.from(action.payload['matchData'] as Map),
+    final rawMatchData = Map<String, dynamic>.from(
+      action.payload['matchData'] as Map,
     );
-    final updateData = Map<String, dynamic>.from(rawMatchData);
+    // Full toMap() fails live-scoring rules; use the scoring patch for in-match
+    // updates (start, breaks, result) so offline sync stays authorized.
+    final sanitized = _shouldUseScoringPatchForMatchUpdate(rawMatchData)
+        ? _scoringPatch(rawMatchData, includeOwnership: true)
+        : _sanitizeMatchData(rawMatchData);
+    final updateData = Map<String, dynamic>.from(sanitized);
     final fieldDeletes = (action.payload['fieldDeletes'] as List<dynamic>?)
             ?.map((e) => e as String)
             .toList() ??

@@ -7,6 +7,8 @@ class DeepLinkUtils {
   static const String httpsHost = 'crickflow.app';
   /// Default Firebase Hosting site (works without custom domain).
   static const String firebaseHostingHost = 'crickflow-b06bc.web.app';
+  /// Consumer web (invite landing when the app is not installed).
+  static const String webHost = 'crickflow.web.app';
 
   static String matchPath(String matchId) => '/match/$matchId';
 
@@ -18,6 +20,14 @@ class DeepLinkUtils {
   static String teamPath(String teamId) => '/teams/$teamId';
 
   static String playerPath(String playerId) => '/player/$playerId';
+
+  static String playerInvitePath(String token) => '/invite/$token';
+
+  static Uri playerInviteUri(String token) => Uri(
+        scheme: 'https',
+        host: webHost,
+        path: playerInvitePath(token),
+      );
 
   static String findCricketersPath() => '/find-cricketers';
 
@@ -138,11 +148,16 @@ class DeepLinkUtils {
     }
 
     if (uri.scheme == 'https' &&
-        (uri.host == httpsHost || uri.host == firebaseHostingHost)) {
-      final path = uri.path;
+        (uri.host == httpsHost ||
+            uri.host == firebaseHostingHost ||
+            uri.host == webHost)) {
+      var path = uri.path;
       if (path.isEmpty) return null;
-      final normalized = path.startsWith('/') ? path : '/$path';
-      return legalAppPath(normalized) ?? normalized;
+      if (!path.startsWith('/')) path = '/$path';
+      if (path.length > 1 && path.endsWith('/')) {
+        path = path.substring(0, path.length - 1);
+      }
+      return legalAppPath(path) ?? path;
     }
 
     return null;
