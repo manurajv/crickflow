@@ -391,6 +391,7 @@ export function mapPlayer(id: string, data: Record<string, unknown>): Player {
 }
 
 export function mapUser(id: string, data: Record<string, unknown>): UserProfile {
+  const jerseyRaw = data.jerseyNumber;
   return {
     id,
     email: asString(data.email),
@@ -402,6 +403,11 @@ export function mapUser(id: string, data: Record<string, unknown>): UserProfile 
     location: mapLocation(data.location),
     playerId: asString(data.playerId) || undefined,
     bio: asString(data.bio),
+    playingRole:
+      asString(data.playingRole) || asString(data.playerRole) || undefined,
+    battingStyle: asString(data.battingStyle) || undefined,
+    bowlingStyle: asString(data.bowlingStyle) || undefined,
+    jerseyNumber: typeof jerseyRaw === "number" ? jerseyRaw : undefined,
     onboardingCompleted: asBoolean(data.onboardingCompleted),
   };
 }

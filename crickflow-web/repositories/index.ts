@@ -43,6 +43,15 @@ import {
   mapTournament,
   mapUser,
 } from "@/lib/firebase/mappers";
+import {
+  BATTING_STYLE_LABELS,
+  BOWLING_STYLE_LABELS,
+  PLAYING_ROLE_LABELS,
+  formatCfPlayerId,
+  type BattingStyle,
+  type BowlingStyle,
+  type PlayingRole,
+} from "@/lib/cricket/player-profile";
 import { haversineKm, slugify } from "@/lib/utils";
 import { chatIdFor, chatBlockId } from "@/lib/chat";
 import { followCollection, followDocId, followPayload, type FollowKind } from "@/lib/follow";
@@ -415,8 +424,138 @@ export async function upsertUserProfile(profile: Partial<UserProfile> & { id: st
   if (profile.bio !== undefined) payload.bio = profile.bio;
   if (profile.location !== undefined) payload.location = profile.location;
   if (profile.playerId !== undefined) payload.playerId = profile.playerId || null;
+  if (profile.playingRole !== undefined) {
+    payload.playingRole = profile.playingRole || null;
+    payload.playerRole = profile.playingRole || null;
+  }
+  if (profile.battingStyle !== undefined) payload.battingStyle = profile.battingStyle || null;
+  if (profile.bowlingStyle !== undefined) payload.bowlingStyle = profile.bowlingStyle || null;
+  if (profile.jerseyNumber !== undefined) payload.jerseyNumber = profile.jerseyNumber ?? null;
   if (profile.onboardingCompleted !== undefined) payload.onboardingCompleted = profile.onboardingCompleted;
   await setDoc(doc(getDb(), collections.users, profile.id), payload, { merge: true });
+}
+
+export async function allocatePlayerId(): Promise<string> {
+  const counterRef = doc(getDb(), "app_meta", "cf_player_ids");
+  const id = await runTransaction(getDb(), async (tx) => {
+    const snap = await tx.get(counterRef);
+    const last = typeof snap.data()?.lastNumber === "number" ? snap.data()!.lastNumber : 0;
+    const next = last + 1;
+    tx.set(
+      counterRef,
+      { lastNumber: next, updatedAt: new Date().toISOString() },
+      { merge: true },
+    );
+    return formatCfPlayerId(next);
+  });
+  return id;
+}
+
+export async function ensurePlayerProfileForUser(payload: {
+  userId: string;
+  displayName: string;
+  fullName?: string;
+  photoUrl?: string;
+  email?: string;
+  playerId?: string;
+}) {
+  const ref = doc(getDb(), collections.players, payload.userId);
+  const existing = await getDoc(ref);
+  const now = new Date().toISOString();
+  if (existing.exists()) {
+    const merge: Record<string, unknown> = { updatedAt: now };
+    if (payload.playerId) merge.playerId = payload.playerId;
+    if (payload.fullName) merge.fullName = payload.fullName;
+    if (Object.keys(merge).length > 1) {
+      await setDoc(ref, merge, { merge: true });
+    }
+    return mapPlayer(payload.userId, dataOf(await getDoc(ref)));
+  }
+  const data: Record<string, unknown> = {
+    name: payload.displayName || "Player",
+    fullName: payload.fullName ?? "",
+    userId: payload.userId,
+    createdBy: payload.userId,
+    role: "",
+    battingStyle: "",
+    bowlingStyle: "",
+    location: {
+      country: "",
+      stateProvince: "",
+      district: "",
+      city: "",
+      placeName: "",
+    },
+    stats: {},
+    badgeIds: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  if (payload.playerId) data.playerId = payload.playerId;
+  if (payload.photoUrl) data.photoUrl = payload.photoUrl;
+  if (payload.email) data.email = payload.email;
+  await setDoc(ref, data);
+  return mapPlayer(payload.userId, data);
+}
+
+export async function updatePlayerProfile(
+  playerId: string,
+  patch: Partial<Player> & { id?: string },
+) {
+  const payload: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+  if (patch.name !== undefined) payload.name = patch.name;
+  if (patch.photoUrl !== undefined) payload.photoUrl = patch.photoUrl ?? null;
+  if (patch.role !== undefined) payload.role = patch.role;
+  if (patch.battingStyle !== undefined) payload.battingStyle = patch.battingStyle;
+  if (patch.bowlingStyle !== undefined) payload.bowlingStyle = patch.bowlingStyle;
+  if (patch.jerseyNumber !== undefined) payload.jerseyNumber = patch.jerseyNumber ?? null;
+  if (patch.playerId !== undefined) payload.playerId = patch.playerId;
+  await setDoc(doc(getDb(), collections.players, playerId), payload, { merge: true });
+}
+
+export async function completePlayerOnboarding(
+  profile: Partial<UserProfile> & {
+    id: string;
+    email: string;
+    name: string;
+    displayName: string;
+    role: string;
+    location: UserProfile["location"];
+    bio: string;
+    playingRole: PlayingRole;
+    battingStyle: BattingStyle;
+    bowlingStyle: BowlingStyle;
+  },
+) {
+  let playerId = profile.playerId;
+  if (!playerId) {
+    playerId = await allocatePlayerId();
+  }
+
+  await upsertUserProfile({
+    ...profile,
+    playerId,
+    onboardingCompleted: true,
+  });
+
+  await ensurePlayerProfileForUser({
+    userId: profile.id,
+    displayName: profile.displayName,
+    fullName: profile.name,
+    photoUrl: profile.photoUrl,
+    email: profile.email,
+    playerId,
+  });
+
+  await updatePlayerProfile(profile.id, {
+    name: profile.displayName,
+    photoUrl: profile.photoUrl,
+    role: PLAYING_ROLE_LABELS[profile.playingRole],
+    battingStyle: BATTING_STYLE_LABELS[profile.battingStyle],
+    bowlingStyle: BOWLING_STYLE_LABELS[profile.bowlingStyle],
+    jerseyNumber: profile.jerseyNumber,
+    playerId,
+  });
 }
 
 export function watchNotifications(

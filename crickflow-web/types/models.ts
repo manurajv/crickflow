@@ -272,6 +272,10 @@ export interface UserProfile {
   location: LocationData;
   playerId?: string;
   bio: string;
+  playingRole?: string;
+  battingStyle?: string;
+  bowlingStyle?: string;
+  jerseyNumber?: number;
   onboardingCompleted: boolean;
 }
 

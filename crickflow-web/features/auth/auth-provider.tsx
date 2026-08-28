@@ -2,14 +2,11 @@
 
 import {
   GoogleAuthProvider,
-  PhoneAuthProvider,
-  RecaptchaVerifier,
   createUserWithEmailAndPassword,
   getRedirectResult,
+  initializeRecaptchaConfig,
   onAuthStateChanged,
-  signInWithCredential,
   signInWithEmailAndPassword,
-  signInWithPhoneNumber,
   signInWithPopup,
   signInWithRedirect,
   signOut,
@@ -17,8 +14,15 @@ import {
 } from "firebase/auth";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase/client";
+import {
+  confirmPhoneVerificationCode,
+  normalizePhoneE164,
+  sendPhoneVerificationCode,
+} from "@/lib/firebase/phone-auth";
 import { getUserProfile, upsertUserProfile } from "@/repositories";
 import type { UserProfile } from "@/types/models";
+
+export { normalizePhoneE164 } from "@/lib/firebase/phone-auth";
 
 interface AuthContextValue {
   user: User | null;
@@ -35,39 +39,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-let phoneVerifier: RecaptchaVerifier | null = null;
-
-/** Firebase Auth expects E.164 (`+94771234567`). */
-export function normalizePhoneE164(raw: string): string {
-  const trimmed = raw.trim().replace(/[\s\-()]/g, "");
-  if (!trimmed) return "";
-  if (trimmed.startsWith("+")) return `+${trimmed.slice(1).replace(/\D/g, "")}`;
-  const digits = trimmed.replace(/\D/g, "");
-  return digits ? `+${digits}` : "";
-}
-
-function clearPhoneVerifier(containerId: string) {
-  try {
-    phoneVerifier?.clear();
-  } catch {
-    /* already cleared */
-  }
-  phoneVerifier = null;
-  if (typeof document === "undefined") return;
-  const el = document.getElementById(containerId);
-  if (el) el.innerHTML = "";
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(() => isFirebaseConfigured());
 
   useEffect(() => {
-    if (!isFirebaseConfigured()) {
-      return;
-    }
+    if (!isFirebaseConfigured()) return;
     const auth = getFirebaseAuth();
+    void initializeRecaptchaConfig(auth).catch(() => undefined);
     void getRedirectResult(auth).catch(() => undefined);
     const unsub = onAuthStateChanged(auth, async (next) => {
       setUser(next);
@@ -133,34 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await createUserWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
       },
       sendPhoneCode: async (phone, recaptchaId) => {
-        const auth = getFirebaseAuth();
-        const e164 = normalizePhoneE164(phone);
-        if (!/^\+[1-9]\d{6,14}$/.test(e164)) {
-          const err = new Error("Enter a full number with country code, for example +94…");
-          (err as Error & { code: string }).code = "auth/invalid-phone-number";
-          throw err;
-        }
-
-        clearPhoneVerifier(recaptchaId);
-        // Visible widget is more reliable than invisible on Hosting + CSP.
-        phoneVerifier = new RecaptchaVerifier(auth, recaptchaId, {
-          size: "normal",
-          callback: () => undefined,
-          "expired-callback": () => clearPhoneVerifier(recaptchaId),
-        });
-        await phoneVerifier.render();
-
-        try {
-          const confirmation = await signInWithPhoneNumber(auth, e164, phoneVerifier);
-          return confirmation.verificationId;
-        } catch (error) {
-          clearPhoneVerifier(recaptchaId);
-          throw error;
-        }
+        return sendPhoneVerificationCode(getFirebaseAuth(), phone, recaptchaId);
       },
       confirmPhoneCode: async (verificationId, code) => {
-        const credential = PhoneAuthProvider.credential(verificationId, code.trim());
-        await signInWithCredential(getFirebaseAuth(), credential);
+        await confirmPhoneVerificationCode(getFirebaseAuth(), verificationId, code);
       },
       logout: async () => {
         await signOut(getFirebaseAuth());

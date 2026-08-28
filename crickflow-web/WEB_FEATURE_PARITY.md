@@ -37,6 +37,6 @@ Mobile is the functional source of truth. Web is a **web-native viewer/creator**
 | Location filters | Implemented | Shared filter | `location` maps | Opt-in geolocation | Completed |
 | Sharing / deep links | Implemented | All public entities | Web Share + copy | `crickflow.web.app` URLs | Completed |
 | Store / IAP | Not on web | — | — | Mobile roadmap | Deferred |
-| Player onboarding | Implemented | `/register` | `users` | Name / display name / bio after first sign-in | Completed |
+| Player onboarding | Implemented | `/register` | `users`, `players`, `app_meta/cf_player_ids` | 5-step flow (photo optional; role, batting, bowling required); global guard blocks skip | Completed |
 
 Legend: **Completed** = web viewer/action shipped · **Partial** = view or subset · **Deferred** = mobile-only by design.

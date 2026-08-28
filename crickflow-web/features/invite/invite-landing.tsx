@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/auth-provider";
+import { PhoneRecaptchaHost } from "@/components/auth/phone-recaptcha-host";
 import { getFirebaseFunctions } from "@/lib/firebase/client";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { usePathParam } from "@/lib/use-path-param";
@@ -167,13 +168,13 @@ export function InviteLanding() {
               </Button>
               {showPhone ? (
                 <div className="space-y-3 rounded-xl border border-border p-4">
+                  <PhoneRecaptchaHost id="invite-recaptcha" />
                   <Input
                     placeholder="+94…"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     autoComplete="tel"
                   />
-                  <div id="invite-recaptcha" className="flex justify-center" />
                   <Button
                     variant="outline"
                     className="w-full"

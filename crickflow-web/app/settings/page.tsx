@@ -90,7 +90,6 @@ function ProfileForm({ user, profile }: { user: User; profile: UserProfile | nul
             photoUrl,
             role: profile?.role ?? "organizer",
             location: profile?.location,
-            onboardingCompleted: true,
           });
           await refreshProfile();
           setPhotos([]);

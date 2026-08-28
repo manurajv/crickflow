@@ -1,6 +1,12 @@
 export function authErrorMessage(error: unknown): string {
   const code =
     typeof error === "object" && error && "code" in error ? String((error as { code: string }).code) : "";
+  const message = error instanceof Error ? error.message : String(error ?? "");
+
+  if (code.includes("-39") || /error[- ]?code:?\s*-?39/i.test(message)) {
+    return "SMS could not be sent right now (Firebase rate limit or carrier block). Try Google sign-in, or wait an hour and try again.";
+  }
+
   switch (code) {
     case "auth/unauthorized-domain":
       return "This site is not yet on Firebase Auth authorized domains. Add crickflow.web.app in the Firebase Console.";
@@ -33,10 +39,8 @@ export function authErrorMessage(error: unknown): string {
       return "SMS quota exceeded for this project. Try Google sign-in or try again later.";
     case "functions/permission-denied":
     case "permission-denied":
-      return error instanceof Error && error.message
-        ? error.message
-        : "Sign in with Google or the invited mobile number to accept.";
+      return message || "Sign in with Google or the invited mobile number to accept.";
     default:
-      return error instanceof Error ? error.message : "Sign-in failed";
+      return message || "Sign-in failed";
   }
 }

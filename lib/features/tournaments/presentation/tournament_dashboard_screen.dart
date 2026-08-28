@@ -126,21 +126,6 @@ class _TournamentDashboardScreenState
     return true;
   }
 
-  void _selectTab(
-    TournamentDashboardSection section, {
-    required bool animate,
-  }) {
-    final tabs = _tabs;
-    if (tabs == null) return;
-    final index = _visibleSections.indexOf(section);
-    if (index < 0 || tabs.index == index) return;
-    if (animate) {
-      tabs.animateTo(index);
-    } else {
-      tabs.index = index;
-    }
-  }
-
   Widget _pageFor({
     required TournamentDashboardSection section,
     required TournamentModel tournament,

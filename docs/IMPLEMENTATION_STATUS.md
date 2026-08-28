@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Player invite links (web + app)
+**Last updated:** Web player onboarding parity (crickflow-web)
 
 **Firebase project:** `crickflow-b06bc`
 
@@ -13,7 +13,21 @@
 
 ---
 
-## Latest (Player invite links)
+## Latest (Web player onboarding)
+
+| Item | Status |
+|------|--------|
+| First Google / phone sign-in on **crickflow-web** must complete `/register` onboarding | Done |
+| Global `OnboardingGuard` — cannot browse the site until onboarding is done | Done |
+| Photo optional; playing role, batting style, bowling style required | Done |
+| Allocates `CF` player ID + links `players/{uid}` (same as mobile `completeOnboarding`) | Done |
+| Settings no longer marks `onboardingCompleted` without finishing onboarding | Done |
+
+**Deploy:** `cd crickflow-web; .\scripts\deploy-web.ps1`
+
+---
+
+## Previous (Player invite links)
 
 | Item | Status |
 |------|--------|

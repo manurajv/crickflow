@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/auth-provider";
+import { PhoneRecaptchaHost } from "@/components/auth/phone-recaptcha-host";
 import { authErrorMessage } from "@/lib/auth-errors";
 
 function nextPath() {
@@ -130,7 +131,7 @@ export default function LoginPage() {
           onChange={(e) => setPhone(e.target.value)}
           autoComplete="tel"
         />
-        <div id="recaptcha-container" className="flex justify-center min-h-[78px]" />
+        <PhoneRecaptchaHost id="recaptcha-container" />
         <Button
           variant="outline"
           className="w-full"
