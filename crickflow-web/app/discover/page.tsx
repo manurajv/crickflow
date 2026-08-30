@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { toast } from "sonner";
+import { FilterChip } from "@/components/shared/filter-chip";
+import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
 import { LocationOptIn } from "@/components/shared/location-opt-in";
 import { MediaGallery, PhotoPicker } from "@/components/shared/media";
@@ -52,42 +54,40 @@ export default function DiscoverPage() {
   return (
     <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
       <div>
-        <h1 className="text-3xl font-bold">Discover</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Find a team, player, umpire, coach, scorer, ground, and more.
-        </p>
-        <div className="mt-3">
+        <PageHeader
+          title="Discover"
+          eyebrow="Opportunities"
+          description="Find a team, player, umpire, coach, scorer, ground, and more near you."
+        />
+        <div className="mb-4">
           <LocationOptIn />
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            className={`rounded-full px-3 py-1 text-xs ${!savedOnly && category === "" ? "bg-primary text-white" : "bg-muted"}`}
+        <div className="flex flex-wrap gap-2">
+          <FilterChip
+            active={!savedOnly && category === ""}
             onClick={() => {
               setSavedOnly(false);
               setCategory("");
             }}
           >
             All
-          </button>
+          </FilterChip>
           {OPPORTUNITY_CATEGORIES.filter((c) => c !== "findTournament").map((c) => (
-            <button
+            <FilterChip
               key={c}
-              className={`rounded-full px-3 py-1 text-xs ${!savedOnly && category === c ? "bg-primary text-white" : "bg-muted"}`}
+              active={!savedOnly && category === c}
               onClick={() => {
                 setSavedOnly(false);
                 setCategory(c);
               }}
             >
               {OPPORTUNITY_LABELS[c]}
-            </button>
+            </FilterChip>
           ))}
           {user ? (
-            <button
-              className={`rounded-full px-3 py-1 text-xs ${savedOnly ? "bg-primary text-white" : "bg-muted"}`}
-              onClick={() => setSavedOnly(true)}
-            >
+            <FilterChip active={savedOnly} onClick={() => setSavedOnly(true)}>
               Saved
-            </button>
+            </FilterChip>
           ) : null}
         </div>
         <Input
@@ -100,7 +100,7 @@ export default function DiscoverPage() {
           {(() => {
             const loading = savedOnly ? saved.isPending : posts.isPending;
             const errored = savedOnly ? saved.isError : posts.isError;
-            if (loading) return <p>Loading listings…</p>;
+            if (loading) return <LoadingGrid count={4} className="md:grid-cols-1" />;
             if (errored) return <EmptyState title="Could not load listings" />;
             const source = savedOnly ? saved.data ?? [] : posts.data ?? [];
             const list = (origin && !savedOnly ? filterNearby(source, origin) : source).filter((post) => {
@@ -115,7 +115,7 @@ export default function DiscoverPage() {
               <>
                 {list.map((post) => (
                   <Link key={post.id} href={`/discover/${post.id}`}>
-                    <Card className="p-5">
+                    <Card className="p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md">
                       <p className="text-xs uppercase text-primary">
                         {OPPORTUNITY_LABELS[post.category as keyof typeof OPPORTUNITY_LABELS] ?? post.category}
                       </p>

@@ -1,14 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MatchCard } from "@/components/shared/cards";
+import { FilterChip } from "@/components/shared/filter-chip";
+import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
 import { Input } from "@/components/ui/input";
-import { cn, searchHaystack } from "@/lib/utils";
-import { listMatches, watchLiveMatches } from "@/repositories";
+import { searchHaystack } from "@/lib/utils";import { listMatches, watchLiveMatches } from "@/repositories";
 import type { Match } from "@/types/models";
 import type { MatchStatus } from "@/types/enums";
 
@@ -49,8 +49,12 @@ function MatchesList() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">Matches</h1>
-      <div className="mt-4 flex flex-wrap gap-2 text-sm">
+      <PageHeader
+        title="Matches"
+        eyebrow="Fixtures & results"
+        description="Live scores, upcoming fixtures, and recent results from across CrickFlow."
+      />
+      <div className="flex flex-wrap gap-2">
         <FilterChip href="/matches" active={current === "all"}>
           All
         </FilterChip>
@@ -66,7 +70,7 @@ function MatchesList() {
       </div>
       <Input className="mt-4 max-w-md" placeholder="Search matches" value={query} onChange={(e) => setQuery(e.target.value)} />
       {matches === null ? (
-        <p className="mt-8">Loading matches…</p>
+        <LoadingGrid className="mt-8" />
       ) : visible.length === 0 ? (
         <div className="mt-8">
           <EmptyState title="No matches found" />
@@ -87,35 +91,9 @@ function MatchesList() {
   );
 }
 
-function FilterChip({
-  href,
-  active,
-  live,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  live?: boolean;
-  children: string;
-}) {
-  return (
-    <Link
-      className={cn(
-        "rounded-full px-3 py-1",
-        active && live && "bg-live text-white",
-        active && !live && "bg-primary text-white",
-        !active && "bg-muted",
-      )}
-      href={href}
-    >
-      {children}
-    </Link>
-  );
-}
-
 export default function MatchesPage() {
   return (
-    <Suspense fallback={<p>Loading matches…</p>}>
+    <Suspense fallback={<LoadingGrid className="mt-8" />}>
       <MatchesList />
     </Suspense>
   );

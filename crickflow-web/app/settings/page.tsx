@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/states";
+import { PageHeader, LoadingPage } from "@/components/shared/page-shell";
 import { LocationOptIn } from "@/components/shared/location-opt-in";
 import { PhotoPicker } from "@/components/shared/media";
 import { useAuth } from "@/features/auth/auth-provider";
@@ -20,17 +21,22 @@ export default function SettingsPage() {
   const { user, profile, loading, logout } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <LoadingPage title="Loading settings" />;
   if (!user) {
     return <EmptyState title="Sign in to manage settings" action={<Link href="/login">Sign in</Link>} />;
   }
 
   return (
-    <Card className="mx-auto max-w-xl space-y-6 p-6">
-      <h1 className="text-3xl font-bold">Settings</h1>
+    <div className="mx-auto max-w-xl space-y-6">
+      <PageHeader
+        title="Settings"
+        eyebrow="Account"
+        description="Profile, appearance, location preferences, and sign out."
+      />
+      <Card className="space-y-6 p-6 shadow-sm">
       <section>
         <h2 className="font-semibold">Appearance</h2>
-        <p className="mt-1 text-sm text-muted-foreground">CrickFlow light / dark tokens.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Light mode is the default. Choose dark or match your system.</p>
         <div className="mt-3 flex gap-2">
           <Button variant={theme === "light" ? "default" : "outline"} onClick={() => setTheme("light")}>
             Light
@@ -57,7 +63,8 @@ export default function SettingsPage() {
           Log out
         </Button>
       </section>
-    </Card>
+      </Card>
+    </div>
   );
 }
 

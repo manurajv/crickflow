@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/states";
+import { FilterChip } from "@/components/shared/filter-chip";
+import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { LocationOptIn } from "@/components/shared/location-opt-in";
 import { MediaGallery, PhotoPicker } from "@/components/shared/media";
 import { useAuth } from "@/features/auth/auth-provider";
@@ -58,39 +60,40 @@ export default function CommunityPage() {
   return (
     <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
       <div>
-        <h1 className="text-3xl font-bold">Community</h1>
-        <div className="mt-3">
+        <PageHeader
+          title="Community"
+          eyebrow="Cricket social"
+          description="Share updates, photos, and stories with players and fans near you."
+        />
+        <div className="mb-4">
           <LocationOptIn />
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            className={`rounded-full px-3 py-1 text-xs ${!savedOnly && category === "" ? "bg-primary text-white" : "bg-muted"}`}
+        <div className="flex flex-wrap gap-2">
+          <FilterChip
+            active={!savedOnly && category === ""}
             onClick={() => {
               setSavedOnly(false);
               setCategory("");
             }}
           >
             All
-          </button>
+          </FilterChip>
           {COMMUNITY_CATEGORIES.map((c) => (
-            <button
+            <FilterChip
               key={c}
-              className={`rounded-full px-3 py-1 text-xs ${!savedOnly && category === c ? "bg-primary text-white" : "bg-muted"}`}
+              active={!savedOnly && category === c}
               onClick={() => {
                 setSavedOnly(false);
                 setCategory(c);
               }}
             >
               {COMMUNITY_LABELS[c]}
-            </button>
+            </FilterChip>
           ))}
           {user ? (
-            <button
-              className={`rounded-full px-3 py-1 text-xs ${savedOnly ? "bg-primary text-white" : "bg-muted"}`}
-              onClick={() => setSavedOnly(true)}
-            >
+            <FilterChip active={savedOnly} onClick={() => setSavedOnly(true)}>
               Saved
-            </button>
+            </FilterChip>
           ) : null}
         </div>
         <Input
@@ -101,13 +104,13 @@ export default function CommunityPage() {
         />
         <div className="mt-6 space-y-3">
           {(savedOnly ? saved.isPending : posts.isPending) ? (
-            <p>Loading posts…</p>
+            <LoadingGrid count={4} className="md:grid-cols-1" />
           ) : (savedOnly ? saved.isError : posts.isError) ? (
             <EmptyState title="Could not load posts" />
           ) : feed.length ? (
             feed.map((post) => (
               <Link key={post.id} href={`/community/${post.id}`}>
-                <Card className="p-5">
+                <Card className="p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md">
                   <p className="text-xs text-muted-foreground">
                     {post.authorName} · {COMMUNITY_LABELS[post.category as keyof typeof COMMUNITY_LABELS] ?? post.category}
                     {post.createdAt ? ` · ${formatRelativeTime(post.createdAt)}` : ""}

@@ -18,7 +18,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <QueryClientProvider client={client}>
         <AuthProvider>
           <OnboardingGuard>{children}</OnboardingGuard>

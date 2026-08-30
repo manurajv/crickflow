@@ -81,6 +81,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   bool _sequenceLoaded = false;
   bool _inningsBreakDialogOpen = false;
   bool _suppressInningsBreakCheck = false;
+  bool _bowlerPickerOpen = false;
   BowlingSide _bowlingSide = BowlingSide.over;
   /// After "Continue over", skip re-prompt until this over ends.
   bool _overContinuationActive = false;
@@ -524,19 +525,31 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       finishedBowlerId ?? innings.currentBowlerId,
     );
 
-    await OverCompleteDialog.show(
+    final shouldPickNextBowler = await OverCompleteDialog.show(
       context,
       overNumber: overNum,
       bowlerName: bowler?.playerName ?? 'Bowler',
       overEvents: overEvents,
       innings: innings,
       rules: match.rules,
-      onStartNextOver: () {
-        final fresh =
-            ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
-        _pickBowlerForNextOver(fresh, overNum + 1);
-      },
     );
+    if (shouldPickNextBowler && mounted) {
+      final fresh =
+          ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
+      await _pickBowlerForNextOver(fresh, overNum + 1);
+    }
+  }
+
+  Future<void> _runExclusiveBowlerFlow(Future<void> Function() flow) async {
+    if (_bowlerPickerOpen) return;
+    _bowlerPickerOpen = true;
+    if (mounted) setState(() {});
+    try {
+      await flow();
+    } finally {
+      _bowlerPickerOpen = false;
+      if (mounted) setState(() {});
+    }
   }
 
   Future<void> _pickBowlerForNextOver(
@@ -544,51 +557,55 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     int overNumber, {
     bool excludeLastOverBowler = true,
   }) async {
-    await _openBowlerPicker(
-      match,
-      overNumber: overNumber,
-      mode: BowlerPickMode.nextOver,
-      excludeLastOverBowler: excludeLastOverBowler,
+    await _runExclusiveBowlerFlow(
+      () => _openBowlerPicker(
+        match,
+        overNumber: overNumber,
+        mode: BowlerPickMode.nextOver,
+        excludeLastOverBowler: excludeLastOverBowler,
+      ),
     );
   }
 
   Future<void> _changeBowler(MatchModel match) async {
-    debugPrint('Change Bowler tapped');
-    if (!_guardActiveScorer(match)) return;
-    final inn = match.currentInnings;
-    if (inn == null) return;
-    if (inn.strikerId == null || inn.nonStrikerId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Set lineup before changing bowler')),
-        );
+    await _runExclusiveBowlerFlow(() async {
+      debugPrint('Change Bowler tapped');
+      if (!_guardActiveScorer(match)) return;
+      final inn = match.currentInnings;
+      if (inn == null) return;
+      if (inn.strikerId == null || inn.nonStrikerId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Set lineup before changing bowler')),
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    final bpo = match.rules.ballsPerOver;
-    final overNum = ScoringDisplayUtils.currentOverNumber(inn, bpo);
-    final ballsInOver = ScoringDisplayUtils.ballsInCurrentOver(inn);
-    String? changeReason;
+      final bpo = match.rules.ballsPerOver;
+      final overNum = ScoringDisplayUtils.currentOverNumber(inn, bpo);
+      final ballsInOver = ScoringDisplayUtils.ballsInCurrentOver(inn);
+      String? changeReason;
 
-    if (ballsInOver > 0) {
-      final overDisplay =
-          ScoringDisplayUtils.inningsOversDisplay(inn, match.rules);
-      changeReason = await MidOverBowlerChangeDialog.show(
-        context,
-        overDisplay: overDisplay,
-        ballInOver: ballsInOver,
+      if (ballsInOver > 0) {
+        final overDisplay =
+            ScoringDisplayUtils.inningsOversDisplay(inn, match.rules);
+        changeReason = await MidOverBowlerChangeDialog.show(
+          context,
+          overDisplay: overDisplay,
+          ballInOver: ballsInOver,
+        );
+        if (!mounted || changeReason == null) return;
+      }
+
+      await _openBowlerPicker(
+        match,
+        overNumber: overNum,
+        mode: BowlerPickMode.changeBowler,
+        excludeLastOverBowler: false,
+        bowlerChangeReason: changeReason,
       );
-      if (!mounted || changeReason == null) return;
-    }
-
-    await _openBowlerPicker(
-      match,
-      overNumber: overNum,
-      mode: BowlerPickMode.changeBowler,
-      excludeLastOverBowler: false,
-      bowlerChangeReason: changeReason,
-    );
+    });
   }
 
   Future<void> _openBowlerPicker(
@@ -2117,6 +2134,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             inn: displayInn,
             ballsPerOver: match.rules.ballsPerOver,
           );
+          final needsNextOverBowler = canRecord &&
+              ScoringDisplayUtils.needsNextOverBowler(
+                displayInn,
+                match.rules.ballsPerOver,
+                events,
+              );
+          final nextOverNumber = ScoringDisplayUtils.currentOverNumber(
+            displayInn,
+            match.rules.ballsPerOver,
+          );
 
           return Column(
             children: [
@@ -2199,9 +2226,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                 onChangeBatters: needsLineup || !canRecord
                     ? null
                     : () => _changeBatters(match),
-                onReplaceBowler: needsLineup || !canRecord
+                onReplaceBowler: needsLineup ||
+                        !canRecord ||
+                        needsNextOverBowler ||
+                        _bowlerPickerOpen
                     ? null
                     : () => _replaceBowler(match),
+                onTapBowler: needsNextOverBowler && !_bowlerPickerOpen
+                    ? () => _pickBowlerForNextOver(match, nextOverNumber)
+                    : null,
               ),
               Flexible(
                 flex: 40,

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/states";
+import { PageHeader, LoadingPage } from "@/components/shared/page-shell";
 import { useAuth } from "@/features/auth/auth-provider";
 import { notificationCategoryLabel, notificationHref } from "@/lib/cricket/events";
 import { formatRelativeTime } from "@/lib/cricket/format";
@@ -22,7 +23,7 @@ export default function NotificationsPage() {
     return watchNotifications(user.uid, setItems);
   }, [user]);
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <LoadingPage title="Loading notifications" />;
   if (!user) {
     return (
       <EmptyState
@@ -36,19 +37,23 @@ export default function NotificationsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">Notifications</h1>
-      <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-        <p>{unread} unread</p>
-        {unread > 0 ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => markNotificationsRead(items.filter((item) => !item.read).map((item) => item.id))}
-          >
-            Mark all read
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Notifications"
+        eyebrow="Updates"
+        description="Match alerts, follows, and activity from across CrickFlow."
+        actions={
+          unread > 0 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => markNotificationsRead(items.filter((item) => !item.read).map((item) => item.id))}
+            >
+              Mark all read
+            </Button>
+          ) : null
+        }
+      />
+      <p className="-mt-4 mb-6 text-sm text-muted-foreground">{unread} unread</p>
       <div className="mt-6 space-y-2">
         {items.length === 0 ? (
           <EmptyState title="You're all caught up" />

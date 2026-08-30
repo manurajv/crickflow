@@ -1,7 +1,7 @@
 # CrickFlow Web — Development Status
 
 **Project:** `crickflow-web` (independent of mobile / Admin / Super Admin)  
-**Last updated:** 2026-08-19
+**Last updated:** 2026-08-28
 
 Do not mix this file with `docs/IMPLEMENTATION_STATUS.md` (mobile) or web-admin tracking.
 
@@ -53,6 +53,8 @@ Do not mix this file with `docs/IMPLEMENTATION_STATUS.md` (mobile) or web-admin 
 | Followed matches | Profile lists `matchFollowers` |
 | Chat search / archive | Inbox search plus per-user archive |
 | Close Discover listing | Owner sets `status: removed` (stays out of the active feed) |
+| Player registration | 5-step onboarding at `/register`; global guard redirects incomplete profiles |
+| UI polish — cricket sports theme | Light default; scoreboard hero; navy footer; logo header; theme toggle; `PageHeader` / skeleton loading on list pages; auth split layout |
 
 ---
 

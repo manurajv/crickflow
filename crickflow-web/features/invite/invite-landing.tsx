@@ -32,21 +32,19 @@ export function InviteLanding() {
     confirmPhoneCode,
     refreshProfile,
   } = useAuth();
+  const invalidToken = !token || token === "_";
   const [invite, setInvite] = useState<PlayerInvite | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(invalidToken ? "This invite link is not valid" : "");
   const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(invalidToken);
   const [showPhone, setShowPhone] = useState(false);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [verificationId, setVerificationId] = useState("");
+  const [nowMs] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!token || token === "_") {
-      setReady(true);
-      setError("This invite link is not valid");
-      return;
-    }
+    if (invalidToken) return;
     let cancelled = false;
     void getPlayerInvite(token)
       .then((next) => {
@@ -67,7 +65,7 @@ export function InviteLanding() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, invalidToken]);
 
   async function acceptInvite() {
     if (!token) return;
@@ -134,7 +132,7 @@ export function InviteLanding() {
 
   const expired =
     invite?.status === "expired" ||
-    (invite?.expiresAt ? Date.parse(invite.expiresAt) < Date.now() : false);
+    (invite?.expiresAt ? Date.parse(invite.expiresAt) < nowMs : false);
   const pending = invite?.status === "pending" && !expired;
   const hasPhoneTarget = Boolean(invite?.phoneNumber);
 

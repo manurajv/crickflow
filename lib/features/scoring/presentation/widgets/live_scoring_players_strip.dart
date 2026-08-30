@@ -22,6 +22,7 @@ class LiveScoringPlayersStrip extends StatelessWidget {
     this.onReplaceNonStriker,
     this.onChangeBatters,
     this.onReplaceBowler,
+    this.onTapBowler,
   });
 
   final InningsModel innings;
@@ -33,6 +34,8 @@ class LiveScoringPlayersStrip extends StatelessWidget {
   final VoidCallback? onReplaceNonStriker;
   final VoidCallback? onChangeBatters;
   final VoidCallback? onReplaceBowler;
+  /// Opens the bowler picker (e.g. after an over ends).
+  final VoidCallback? onTapBowler;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +44,10 @@ class LiveScoringPlayersStrip extends StatelessWidget {
     final nonStriker =
         ScoringDisplayUtils.batsman(innings, innings.nonStrikerId);
     final bowler = ScoringDisplayUtils.bowler(innings, innings.currentBowlerId);
+    final awaitingNextOverBowler = onTapBowler != null;
+    final bowlerLabel = awaitingNextOverBowler
+        ? 'Select bowler for next over'
+        : (bowler?.playerName ?? 'Select bowler');
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -111,36 +118,56 @@ class LiveScoringPlayersStrip extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Text(
-                      bowler?.playerName ?? 'Select bowler',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: cf.textPrimary,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onTapBowler ?? onReplaceBowler,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                            bowlerLabel,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: awaitingNextOverBowler
+                                  ? cf.link
+                                  : cf.textPrimary,
+                              decoration: awaitingNextOverBowler
+                                  ? TextDecoration.underline
+                                  : null,
+                              decorationColor: cf.link,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text(
-                    ScoringDisplayUtils.bowlerFigures(
-                      bowler,
-                      rules.ballsPerOver,
+                  if (!awaitingNextOverBowler)
+                    Text(
+                      ScoringDisplayUtils.bowlerFigures(
+                        bowler,
+                        rules.ballsPerOver,
+                      ),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: cf.textSecondary,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
                     ),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: cf.textSecondary,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
                   if (onReplaceBowler != null &&
-                      !ScoringDisplayUtils.bowlerHasBowledBall(
-                        innings,
-                        innings.currentBowlerId,
-                      )) ...[
+                      !awaitingNextOverBowler &&
+                      ScoringDisplayUtils.ballsInCurrentOver(innings) ==
+                          0) ...[
                     const SizedBox(width: 8),
                     _ReplaceLink(label: 'Change', onTap: onReplaceBowler!),
+                  ],
+                  if (awaitingNextOverBowler) ...[
+                    const SizedBox(width: 8),
+                    _ReplaceLink(label: 'Select', onTap: onTapBowler!),
                   ],
                 ],
               ),

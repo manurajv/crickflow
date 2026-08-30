@@ -1,14 +1,16 @@
 "use client";
 
 import { SearchPanel } from "@/features/search/search-dialog";
+import { PageHeader } from "@/components/shared/page-shell";
 
 export default function SearchPage() {
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="text-3xl font-bold">Search</h1>
-      <p className="mt-2 mb-4 text-sm text-muted-foreground">
-        Press Ctrl+K from anywhere, or search here.
-      </p>
+      <PageHeader
+        title="Search"
+        eyebrow="Find cricket"
+        description="Press Ctrl+K from anywhere, or search players, teams, matches, and more here."
+      />
       <SearchPanel autoFocus />
     </div>
   );

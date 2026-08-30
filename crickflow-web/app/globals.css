@@ -1,24 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f9;
-  --foreground: #111111;
+  --background: #f4f6f8;
+  --foreground: #0f172a;
   --card: #ffffff;
-  --card-foreground: #111111;
-  --muted: #eef1f6;
-  --muted-foreground: #555555;
-  --border: #e2e6ee;
-  --primary: #1e88e5;
+  --card-foreground: #0f172a;
+  --muted: #e8edf3;
+  --muted-foreground: #475569;
+  --border: #d7dee8;
+  --primary: #1565c0;
   --primary-foreground: #ffffff;
   --secondary: #e8f5e9;
   --secondary-foreground: #1b5e20;
-  --ring: #1e88e5;
+  --ring: #1565c0;
   --cricket: #2e7d32;
-  --gold: #ffc107;
-  --live: #e53935;
-  --navy: #0a0e17;
+  --gold: #f9a825;
+  --live: #d32f2f;
+  --navy: #0d1b2a;
   --chrome: #ffffff;
-  --scoreboard: #0d47a1;
+  --scoreboard: linear-gradient(135deg, #0d47a1 0%, #1565c0 45%, #1b5e20 100%);
+  --pitch: #1b5e20;
+  --accent: #e3f2fd;
 }
 
 .dark {
@@ -29,17 +31,19 @@
   --muted: #1c2438;
   --muted-foreground: #9aa3b5;
   --border: #243049;
-  --primary: #1e88e5;
-  --primary-foreground: #ffffff;
+  --primary: #42a5f5;
+  --primary-foreground: #0a0e17;
   --secondary: #163024;
   --secondary-foreground: #c8e6c9;
   --ring: #ffc107;
   --cricket: #66bb6a;
   --gold: #ffc107;
-  --live: #e53935;
+  --live: #ef5350;
   --navy: #0a0e17;
   --chrome: #141b2d;
-  --scoreboard: #0d47a1;
+  --scoreboard: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1b5e20 100%);
+  --pitch: #2e7d32;
+  --accent: #1c2438;
 }
 
 @theme inline {
@@ -61,7 +65,23 @@
   --color-navy: var(--navy);
   --color-chrome: var(--chrome);
   --color-scoreboard: var(--scoreboard);
+  --color-pitch: var(--pitch);
+  --color-accent: var(--accent);
   --font-sans: var(--font-plus-jakarta);
+}
+
+@utility bg-scoreboard {
+  background: var(--scoreboard);
+}
+
+@utility bg-pitch-stripes {
+  background-image: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pitch) 12%, transparent),
+    color-mix(in srgb, var(--pitch) 12%, transparent) 12px,
+    transparent 12px,
+    transparent 24px
+  );
 }
 
 * {
@@ -76,6 +96,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-plus-jakarta), system-ui, sans-serif;
+  background-image: radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 6%, transparent), transparent 42%);
 }
 
 @media (prefers-reduced-motion: reduce) {

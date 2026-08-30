@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/states";
+import { FilterChip } from "@/components/shared/filter-chip";
+import { PageHeader } from "@/components/shared/page-shell";
 import { queryLimits } from "@/config/site";
 import { OVERS_LABELS, RANKING_YEAR_OPTIONS, aggregateRankingsFromMatches, rankPlayers } from "@/lib/cricket/rankings";
 import { locationMatchesTextFilter } from "@/lib/cricket/location";
@@ -62,22 +64,16 @@ export default function RankingsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">Player Rankings</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Ranked from completed matches (same ball / year / overs filters as mobile). Fastest fifty, hundred, and best bowling figures stay empty until ball-event replay.
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
+      <PageHeader
+        title="Player Rankings"
+        eyebrow="Leaderboards"
+        description="Ranked from completed matches with the same ball, year, and overs filters as the mobile app."
+      />
+      <div className="flex flex-wrap gap-2">
         {BALLS.map((b) => (
-          <button
-            key={b}
-            className={`rounded-full px-3 py-1 text-xs capitalize ${ball === b ? "bg-primary text-white" : "bg-muted"}`}
-            onClick={() => {
-              setBall(b);
-              if (b !== "indoor") setIndoorMaterial(null);
-            }}
-          >
+          <FilterChip key={b} active={ball === b} onClick={() => { setBall(b); if (b !== "indoor") setIndoorMaterial(null); }}>
             {b}
-          </button>
+          </FilterChip>
         ))}
       </div>
       {ball === "indoor" ? (

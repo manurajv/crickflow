@@ -79,13 +79,6 @@ class ScoringDisplayUtils {
     return b != null && b.balls > 0;
   }
 
-  /// True once this bowler has bowled at least one legal delivery.
-  static bool bowlerHasBowledBall(InningsModel inn, String? playerId) {
-    if (playerId == null) return false;
-    final b = bowler(inn, playerId);
-    return b != null && b.oversBowledBalls > 0;
-  }
-
   static bool isPlayerOut(InningsModel inn, String playerId) {
     for (final b in inn.batsmen) {
       if (b.playerId == playerId) return b.isOut;

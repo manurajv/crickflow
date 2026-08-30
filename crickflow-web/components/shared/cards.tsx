@@ -16,7 +16,7 @@ export function MatchCard({ match }: { match: Match }) {
   const live = match.status === "live" || match.status === "inningsBreak";
   return (
     <Link href={`/matches/${match.id}`} className="block">
-      <Card className={cn("p-5 transition hover:border-primary/40", live && "ring-1 ring-live/40")}>
+      <Card className={cn("p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md", live && "ring-2 ring-live/30")}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-muted-foreground">
@@ -70,7 +70,7 @@ export function EntityCard({
 }) {
   return (
     <Link href={href} className="block">
-      <Card className="flex items-center gap-4 p-4 transition hover:border-primary/40">
+      <Card className="flex items-center gap-4 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
         <div
           className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-lg font-bold"
           suppressHydrationWarning

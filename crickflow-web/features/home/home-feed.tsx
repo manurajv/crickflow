@@ -1,15 +1,14 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MatchCard, EntityCard } from "@/components/shared/cards";
+import { ContentGrid, LoadingGrid, PageSection } from "@/components/shared/page-shell";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/states";
 import { useAuth } from "@/features/auth/auth-provider";
 import { locationLabel } from "@/lib/cricket/format";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
-import { siteConfig } from "@/config/site";
 import {
   listCommunityPosts,
   listFollowedPlayers,
@@ -93,7 +92,7 @@ export function HomeFeed() {
     return (
       <div className="space-y-12">
         <Hero />
-        <p>Loading live cricket…</p>
+        <LoadingGrid count={6} />
       </div>
     );
   }
@@ -115,7 +114,11 @@ export function HomeFeed() {
       {promotions.length > 0 ? (
         <section className="grid gap-4 md:grid-cols-3">
           {promotions.map((promo) => (
-            <a key={promo.id} href={promo.redirectUrl || "/"} className="rounded-2xl border border-border bg-card p-5">
+            <a
+              key={promo.id}
+              href={promo.redirectUrl || "/"}
+              className="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md"
+            >
               <p className="text-xs uppercase text-muted-foreground">{promo.kind}</p>
               <h3 className="mt-1 font-semibold">{promo.title}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{promo.description}</p>
@@ -125,13 +128,13 @@ export function HomeFeed() {
       ) : null}
 
       {showFollowing ? (
-        <Section title="Following" href="/profile">
+        <PageSection title="Following" href="/profile">
           {yourMatches.length > 0 ? (
-            <Grid>
+            <ContentGrid>
               {yourMatches.slice(0, 6).map((match) => (
                 <MatchCard key={match.id} match={match} />
               ))}
-            </Grid>
+            </ContentGrid>
           ) : null}
           {followedTeams.length > 0 ? (
             <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -159,9 +162,9 @@ export function HomeFeed() {
               ))}
             </div>
           ) : null}
-        </Section>
+        </PageSection>
       ) : user ? (
-        <Section title="Following" href="/teams">
+        <PageSection title="Following" href="/teams">
           <EmptyState
             title="Follow teams and players"
             description="Matches from people you follow will appear here."
@@ -171,51 +174,51 @@ export function HomeFeed() {
               </Link>
             }
           />
-        </Section>
+        </PageSection>
       ) : null}
 
-      <Section title="Live matches" href="/matches?status=live">
+      <PageSection title="Live matches" href="/matches?status=live">
         {live.length === 0 ? (
           <EmptyState title="No live matches right now" description="Upcoming fixtures appear below." />
         ) : (
-          <Grid>
+          <ContentGrid>
             {live.map((match) => (
               <MatchCard key={match.id} match={match} />
             ))}
-          </Grid>
+          </ContentGrid>
         )}
-      </Section>
+      </PageSection>
 
-      <Section title="Watch live" href="/matches">
+      <PageSection title="Watch live" href="/matches">
         {broadcasts.length === 0 ? (
           <EmptyState title="No live broadcasts" description="When a match is streamed, Watch Live appears here." />
         ) : (
-          <Grid>
+          <ContentGrid>
             {broadcasts.map((match) => (
               <MatchCard key={match.id} match={match} />
             ))}
-          </Grid>
+          </ContentGrid>
         )}
-      </Section>
+      </PageSection>
 
-      <Section title="Upcoming" href="/matches?status=upcoming">
-        <Grid>
+      <PageSection title="Upcoming" href="/matches?status=upcoming">
+        <ContentGrid>
           {upcoming.map((match) => (
             <MatchCard key={match.id} match={match} />
           ))}
-        </Grid>
-      </Section>
+        </ContentGrid>
+      </PageSection>
 
-      <Section title="Recent results" href="/matches?status=completed">
-        <Grid>
+      <PageSection title="Recent results" href="/matches?status=completed">
+        <ContentGrid>
           {recent.map((match) => (
             <MatchCard key={match.id} match={match} />
           ))}
-        </Grid>
-      </Section>
+        </ContentGrid>
+      </PageSection>
 
-      <Section title="Tournaments" href="/tournaments">
-        <Grid>
+      <PageSection title="Tournaments" href="/tournaments">
+        <ContentGrid>
           {tournaments.map((t) => (
             <EntityCard
               key={t.id}
@@ -226,11 +229,11 @@ export function HomeFeed() {
               meta={String(t.status)}
             />
           ))}
-        </Grid>
-      </Section>
+        </ContentGrid>
+      </PageSection>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        <Section title="Featured teams" href="/teams">
+        <PageSection title="Featured teams" href="/teams">
           <div className="grid gap-3">
             {teams.map((t) => (
               <EntityCard
@@ -242,8 +245,8 @@ export function HomeFeed() {
               />
             ))}
           </div>
-        </Section>
-        <Section title="Featured players" href="/players">
+        </PageSection>
+        <PageSection title="Featured players" href="/players">
           <div className="grid gap-3">
             {players.map((p) => (
               <EntityCard
@@ -255,11 +258,11 @@ export function HomeFeed() {
               />
             ))}
           </div>
-        </Section>
+        </PageSection>
       </div>
 
-      <Section title="Community" href="/community">
-        <Grid>
+      <PageSection title="Community" href="/community">
+        <ContentGrid>
           {posts.map((post) => (
             <EntityCard
               key={post.id}
@@ -269,53 +272,41 @@ export function HomeFeed() {
               image={post.media[0]?.url}
             />
           ))}
-        </Grid>
-      </Section>
+        </ContentGrid>
+      </PageSection>
     </div>
   );
 }
 
 function Hero() {
   return (
-    <section className="overflow-hidden rounded-3xl bg-scoreboard px-6 py-14 text-white md:px-12">
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">CrickFlow Web</p>
-      <h1 className="mt-3 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">
-        Live cricket for every ground, team, and tournament.
-      </h1>
-      <p className="mt-4 max-w-2xl text-lg text-white/80">
-        Watch scores, follow players, discover games near you, and share match centres — the same CrickFlow ecosystem, built for the web.
-      </p>
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Button variant="gold" asChild>
-          <Link href="/matches">Live matches</Link>
-        </Button>
-        <Button variant="outline" className="border-white/30 text-white hover:bg-white/10" asChild>
-          <Link href="/discover">Discover cricket</Link>
-        </Button>
-        <Button variant="outline" className="border-white/30 text-white hover:bg-white/10" asChild>
-          <a href={siteConfig.playStoreUrl} target="_blank" rel="noreferrer">
-            Get the app
-          </a>
-        </Button>
+    <section className="relative overflow-hidden rounded-3xl bg-scoreboard bg-pitch-stripes px-6 py-14 text-white md:px-12">
+      <div className="relative">
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-gold">Live cricket platform</p>
+        <h1 className="mt-3 max-w-3xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
+          Scores, stats & stories from every ground.
+        </h1>
+        <p className="mt-4 max-w-2xl text-lg text-white/85">
+          Follow live matches, register as a player, discover opportunities, and connect with teams — synced with the CrickFlow mobile app.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Button variant="gold" size="lg" asChild>
+            <Link href="/matches?status=live">Live scores</Link>
+          </Button>
+          <Button variant="outline" className="border-white/35 text-white hover:bg-white/10" asChild>
+            <Link href="/register">Player registration</Link>
+          </Button>
+          <Button variant="outline" className="border-white/35 text-white hover:bg-white/10" asChild>
+            <Link href="/discover">Discover cricket</Link>
+          </Button>
+        </div>
+        <div className="mt-10 flex flex-wrap gap-6 border-t border-white/20 pt-6 text-sm text-white/75">
+          <Link href="/rankings" className="hover:text-white">Rankings</Link>
+          <Link href="/statistics" className="hover:text-white">Statistics</Link>
+          <Link href="/tournaments" className="hover:text-white">Tournaments</Link>
+          <Link href="/community" className="hover:text-white">Community</Link>
+        </div>
       </div>
     </section>
   );
-}
-
-function Section({ title, href, children }: { title: string; href: string; children: ReactNode }) {
-  return (
-    <section>
-      <div className="mb-4 flex items-end justify-between">
-        <h2 className="text-2xl font-bold">{title}</h2>
-        <Link href={href} className="text-sm font-semibold text-primary">
-          View all
-        </Link>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Grid({ children }: { children: ReactNode }) {
-  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { EntityCard } from "@/components/shared/cards";
+import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
 import { GetTheApp } from "@/components/shared/get-the-app";
 import { Button } from "@/components/ui/button";
@@ -32,13 +33,17 @@ export default function TeamsPage() {
   }, [teams, query]);
   return (
     <div>
-      <h1 className="text-3xl font-bold">Teams</h1>
+      <PageHeader
+        title="Teams"
+        eyebrow="Clubs & squads"
+        description="Browse cricket teams, follow your favourites, and see their match records."
+      />
       <div className="mt-4">
         <GetTheApp title="Create a team in the CrickFlow app" />
       </div>
       <Input className="mt-4 max-w-md" placeholder="Search teams" value={query} onChange={(e) => setQuery(e.target.value)} />
       {teams === null ? (
-        <p className="mt-8">Loading teams…</p>
+        <LoadingGrid count={8} className="mt-8 md:grid-cols-2" />
       ) : visible.length === 0 ? (
         <div className="mt-8">
           <EmptyState title="No teams yet" />

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/shared/states";
+import { LoadingPage } from "@/components/shared/page-shell";
 import { PlayerOnboardingForm } from "@/features/onboarding/player-onboarding-form";
 import { useAuth } from "@/features/auth/auth-provider";
 
@@ -17,7 +18,7 @@ export default function RegisterPage() {
     if (profile?.onboardingCompleted) router.replace("/");
   }, [loading, user, profile, router]);
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <LoadingPage title="Loading registration" />;
   if (!user) {
     return (
       <EmptyState

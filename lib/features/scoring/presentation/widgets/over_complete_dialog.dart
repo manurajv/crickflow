@@ -17,7 +17,6 @@ class OverCompleteDialog extends StatelessWidget {
     required this.overEvents,
     required this.innings,
     required this.rules,
-    required this.onStartNextOver,
   });
 
   final int overNumber;
@@ -25,18 +24,16 @@ class OverCompleteDialog extends StatelessWidget {
   final List<BallEventModel> overEvents;
   final InningsModel innings;
   final MatchRulesModel rules;
-  final VoidCallback onStartNextOver;
 
-  static Future<void> show(
+  static Future<bool> show(
     BuildContext context, {
     required int overNumber,
     required String bowlerName,
     required List<BallEventModel> overEvents,
     required InningsModel innings,
     required MatchRulesModel rules,
-    required VoidCallback onStartNextOver,
   }) {
-    return ScoringUiKit.showSheet<void>(
+    return ScoringUiKit.showSheet<bool>(
       context,
       isScrollControlled: true,
       isDismissible: false,
@@ -51,10 +48,9 @@ class OverCompleteDialog extends StatelessWidget {
           overEvents: overEvents,
           innings: innings,
           rules: rules,
-          onStartNextOver: onStartNextOver,
         ),
       ),
-    );
+    ).then((value) => value ?? false);
   }
 
   @override
@@ -180,10 +176,7 @@ class OverCompleteDialog extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
             child: FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onStartNextOver();
-              },
+              onPressed: () => Navigator.pop(context, true),
               style: ScoringUiKit.primaryButtonStyle(context),
               child: const Text(
                 'Select bowler for next over',

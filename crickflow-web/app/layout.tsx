@@ -14,7 +14,10 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#1e88e5",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#1565c0" },
+    { media: "(prefers-color-scheme: dark)", color: "#42a5f5" },
+  ],
   width: "device-width",
   initialScale: 1,
 };
@@ -35,7 +38,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: siteConfig.name,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
   openGraph: {
     title: siteConfig.name,

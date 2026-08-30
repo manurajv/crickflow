@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { EntityCard } from "@/components/shared/cards";
+import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,10 +36,14 @@ export default function PlayersPage() {
   }, [players, query]);
   return (
     <div>
-      <h1 className="text-3xl font-bold">Players</h1>
+      <PageHeader
+        title="Players"
+        eyebrow="Profiles & stats"
+        description="Search registered players, view career stats, and follow your favourites."
+      />
       <Input className="mt-4 max-w-md" placeholder="Search players" value={query} onChange={(e) => setQuery(e.target.value)} />
       {players === null ? (
-        <p className="mt-8">Loading players…</p>
+        <LoadingGrid count={8} className="mt-8 md:grid-cols-2" />
       ) : visible.length === 0 ? (
         <div className="mt-8">
           <EmptyState title="No players yet" />

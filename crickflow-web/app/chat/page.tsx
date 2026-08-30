@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/states";
+import { PageHeader, LoadingPage } from "@/components/shared/page-shell";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useBlockedUserIds } from "@/features/chat/use-blocked";
 import { formatRelativeTime } from "@/lib/cricket/format";
@@ -40,7 +41,7 @@ export default function ChatListPage() {
     });
   }, [chats, user, blocked, query, showArchived]);
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <LoadingPage title="Loading chat" />;
   if (!user) {
     return (
       <EmptyState
@@ -59,11 +60,15 @@ export default function ChatListPage() {
   const requests = visibleChats.filter((c) => c.status === "request" && c.requestFrom !== user.uid);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div>
+      <PageHeader
+        title="Chat"
+        eyebrow="Messages"
+        description="Direct messages synced with the CrickFlow mobile app."
+      />
+      <div className="grid gap-8 lg:grid-cols-2">
       <section>
-        <h1 className="text-3xl font-bold">Chat</h1>
         <Input
-          className="mt-4"
           placeholder="Search conversations"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -85,7 +90,7 @@ export default function ChatListPage() {
               const unread = chat.unread[user.uid] || 0;
               return (
                 <Link key={chat.id} href={`/chat/${chat.id}`}>
-                  <Card className="p-4">
+                  <Card className="p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md">
                     <div className="flex justify-between gap-3">
                       <p className="font-semibold">{name}</p>
                       {unread > 0 ? (
@@ -122,6 +127,7 @@ export default function ChatListPage() {
           )}
         </div>
       </section>
+      </div>
     </div>
   );
 }

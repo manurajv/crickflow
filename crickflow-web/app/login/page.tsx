@@ -1,23 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { AuthShell } from "@/components/layout/auth-shell";
+import { LoadingPage } from "@/components/shared/page-shell";
 import { useAuth } from "@/features/auth/auth-provider";
 import { PhoneRecaptchaHost } from "@/components/auth/phone-recaptcha-host";
 import { authErrorMessage } from "@/lib/auth-errors";
 
-function nextPath() {
-  const next = new URLSearchParams(window.location.search).get("next");
-  return next?.startsWith("/") ? next : "/";
+function readInvitePhone() {
+  if (typeof window === "undefined") return "";
+  try {
+    return sessionStorage.getItem("cf_invite_phone") ?? "";
+  } catch {
+    return "";
+  }
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const { user, profile, loading, signInGoogle, signInEmail, registerEmail, sendPhoneCode, confirmPhoneCode } = useAuth();
   const router = useRouter();
-  const [phone, setPhone] = useState("");
+  const searchParams = useSearchParams();
+  const [phone, setPhone] = useState(readInvitePhone);
   const [code, setCode] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,39 +31,34 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const [inviteLogin, setInviteLogin] = useState(false);
-
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("cf_invite_phone");
-      if (stored) setPhone(stored);
-    } catch {
-      /* ignore */
-    }
-    setInviteLogin(nextPath().startsWith("/invite/"));
-  }, []);
+  const next = searchParams.get("next");
+  const nextPath = next?.startsWith("/") ? next : "/";
+  const inviteLogin = nextPath.startsWith("/invite/");
 
   useEffect(() => {
     if (loading || !user || !profile) return;
-    const next = nextPath();
-    if (next.startsWith("/invite/")) {
-      router.replace(next);
+    if (nextPath.startsWith("/invite/")) {
+      router.replace(nextPath);
       return;
     }
-    router.replace(profile.onboardingCompleted ? next : "/register");
-  }, [loading, user, profile, router]);
+    router.replace(profile.onboardingCompleted ? nextPath : "/register");
+  }, [loading, user, profile, router, nextPath]);
+
+  if (loading) return <LoadingPage title="Loading sign in" />;
 
   return (
-    <Card className="mx-auto max-w-md p-8">
-      <h1 className="text-2xl font-bold">Sign in to CrickFlow</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {inviteLogin
+    <AuthShell
+      title="Sign in to CrickFlow"
+      subtitle={
+        inviteLogin
           ? "Accept with Google or the invited mobile number — both work."
-          : "Same Firebase Authentication as the mobile app — Google, phone, or email."}
-      </p>
+          : "Same Firebase account as the mobile app — Google, phone, or email."
+      }
+    >
       <Button
-        className="mt-6 w-full"
-        disabled={busy || loading}
+        className="w-full"
+        size="lg"
+        disabled={busy}
         onClick={async () => {
           setBusy(true);
           setError("");
@@ -72,17 +73,23 @@ export default function LoginPage() {
       >
         Continue with Google
       </Button>
-      <div className="mt-6 space-y-3">
+
+      <div className="relative my-6 text-center text-xs uppercase tracking-wider text-muted-foreground">
+        <span className="bg-card px-2">or email</span>
+        <div className="absolute inset-x-0 top-1/2 -z-10 border-t border-border" aria-hidden />
+      </div>
+
+      <div className="space-y-3">
         <Input
           type="email"
-          placeholder="Email"
+          placeholder="Email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
         />
         <Input
           type="password"
-          placeholder="Password"
+          placeholder="Password (min 6 characters)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
@@ -103,10 +110,10 @@ export default function LoginPage() {
               }
             }}
           >
-            Email sign in
+            Sign in
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             disabled={busy || !email.trim() || password.length < 6}
             onClick={async () => {
               setBusy(true);
@@ -124,9 +131,15 @@ export default function LoginPage() {
           </Button>
         </div>
       </div>
-      <div className="mt-6 space-y-3">
+
+      <div className="relative my-6 text-center text-xs uppercase tracking-wider text-muted-foreground">
+        <span className="bg-card px-2">or phone</span>
+        <div className="absolute inset-x-0 top-1/2 -z-10 border-t border-border" aria-hidden />
+      </div>
+
+      <div className="space-y-3">
         <Input
-          placeholder="+94…"
+          placeholder="+94 mobile number"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           autoComplete="tel"
@@ -175,12 +188,21 @@ export default function LoginPage() {
                 }
               }}
             >
-              Verify
+              Verify & sign in
             </Button>
           </>
         ) : null}
       </div>
-      {error ? <p className="mt-4 text-sm text-live">{error}</p> : null}
-    </Card>
+
+      {error ? <p className="mt-4 rounded-xl bg-live/10 px-3 py-2 text-sm text-live">{error}</p> : null}
+    </AuthShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoadingPage title="Loading sign in" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

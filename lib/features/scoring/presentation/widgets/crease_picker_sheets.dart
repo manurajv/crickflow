@@ -315,65 +315,77 @@ class _CreasePickerBodyState extends State<_CreasePickerBody> {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final media = MediaQuery.of(context);
+    final maxHeight = media.size.height * 0.85;
+
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           AppDimens.spaceMd,
           AppDimens.spaceMd,
           AppDimens.spaceMd,
-          AppDimens.spaceLg,
+          AppDimens.spaceLg + media.viewInsets.bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ScoringSheetHeader(title: widget.title),
-            const SizedBox(height: AppDimens.spaceXs),
-            Text(
-              widget.subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: cf.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: AppDimens.spaceMd),
-            ...widget.options.map((o) {
-              final selected = _selectedId == o.playerId;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
-                child: _BatterCard(
-                  option: o,
-                  selected: selected,
-                  onTap: () => setState(() => _selectedId = o.playerId),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ScoringSheetHeader(title: widget.title),
+              const SizedBox(height: AppDimens.spaceXs),
+              Text(
+                widget.subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: cf.textSecondary,
+                  fontSize: 14,
                 ),
-              );
-            }),
-            const SizedBox(height: AppDimens.spaceSm),
-            FilledButton(
-              onPressed: _selectedId == null
-                  ? null
-                  : () {
-                      if (widget.returnFullOption) {
-                        final picked = widget.options.firstWhere(
-                          (o) => o.playerId == _selectedId,
-                        );
-                        Navigator.pop(context, picked);
-                      } else {
-                        Navigator.pop(context, _selectedId);
-                      }
-                    },
-              style: FilledButton.styleFrom(
-                backgroundColor: cf.accent,
-                foregroundColor: cf.background,
-                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: Text(
-                widget.confirmLabel,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              const SizedBox(height: AppDimens.spaceMd),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: widget.options.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppDimens.spaceSm),
+                  itemBuilder: (context, index) {
+                    final o = widget.options[index];
+                    final selected = _selectedId == o.playerId;
+                    return _BatterCard(
+                      option: o,
+                      selected: selected,
+                      onTap: () => setState(() => _selectedId = o.playerId),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: AppDimens.spaceSm),
+              FilledButton(
+                onPressed: _selectedId == null
+                    ? null
+                    : () {
+                        if (widget.returnFullOption) {
+                          final picked = widget.options.firstWhere(
+                            (o) => o.playerId == _selectedId,
+                          );
+                          Navigator.pop(context, picked);
+                        } else {
+                          Navigator.pop(context, _selectedId);
+                        }
+                      },
+                style: FilledButton.styleFrom(
+                  backgroundColor: cf.accent,
+                  foregroundColor: cf.background,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(
+                  widget.confirmLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
