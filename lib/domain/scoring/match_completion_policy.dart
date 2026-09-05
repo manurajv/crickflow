@@ -128,6 +128,14 @@ class MatchCompletionPolicy {
         (regular.first.status == InningsStatus.completed ||
             InningsCompletionPolicy.isInningsComplete(match, regular.first) ||
             match.status == MatchStatus.completed)) {
+      // Quick Match (and any multi-innings format) must not resolve a winner
+      // from the first innings alone.
+      if (match.effectiveMaxInnings > 1) {
+        return const MatchResult(
+          summary: 'Match completed',
+          method: MatchResultMethod.noResult,
+        );
+      }
       final winner = teamName(match, regular.first.battingTeamId);
       return MatchResult(
         winnerTeamId: regular.first.battingTeamId,
@@ -177,8 +185,25 @@ class MatchCompletionPolicy {
     return inn.totalRuns == first.totalRuns;
   }
 
+  /// Whether ending [ended] should continue to another innings (not match result).
+  static bool shouldContinueAfterInnings(MatchModel match, InningsModel ended) {
+    if (isTiedChaseComplete(match, ended)) return true;
+    if (ended.isSuperOver) {
+      return match.innings.where((i) => i.isSuperOver).length < 2;
+    }
+    final regularCount = match.innings.where((i) => !i.isSuperOver).length;
+    if (regularCount < match.effectiveMaxInnings) return true;
+    // Quick Match always chases after innings 1 (even if a stale snapshot
+    // already includes innings 2 while still reporting completed innings 1).
+    if (match.isQuickMatch && ended.inningsNumber == 1) {
+      return true;
+    }
+    return false;
+  }
+
   static bool isMatchComplete(MatchModel match) {
-    if (match.rules.maxInnings <= 1) {
+    final maxInnings = match.effectiveMaxInnings;
+    if (maxInnings <= 1) {
       final inn = match.currentInnings;
       return inn != null &&
           InningsCompletionPolicy.isInningsComplete(match, inn);

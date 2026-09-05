@@ -265,4 +265,188 @@ void main() {
       );
     });
   });
+
+  group('lineup prompts', () {
+    InningsModel _inn({
+      String? strikerId,
+      String? nonStrikerId,
+      String? bowlerId,
+      int legalBalls = 0,
+      int totalWickets = 0,
+    }) {
+      return InningsModel(
+        inningsNumber: 1,
+        battingTeamId: 'a',
+        bowlingTeamId: 'b',
+        strikerId: strikerId,
+        nonStrikerId: nonStrikerId,
+        currentBowlerId: bowlerId,
+        legalBalls: legalBalls,
+        totalWickets: totalWickets,
+      );
+    }
+
+    test('needsVacantCreaseFill when one end empty mid-innings', () {
+      final inn = _inn(
+        strikerId: null,
+        nonStrikerId: 'ns1',
+        bowlerId: 'b1',
+        legalBalls: 6,
+        totalWickets: 1,
+      );
+      expect(ScoringDisplayUtils.needsVacantCreaseFill(inn), isTrue);
+      expect(
+        ScoringDisplayUtils.needsOpeningLineupPicker(_matchWithToss(), inn),
+        isFalse,
+      );
+    });
+
+    test('needsOpeningLineupPicker before first ball', () {
+      final inn = _inn();
+      expect(ScoringDisplayUtils.needsVacantCreaseFill(inn), isFalse);
+      expect(
+        ScoringDisplayUtils.needsOpeningLineupPicker(_matchWithToss(), inn),
+        isTrue,
+      );
+    });
+
+    test('full crease does not need lineup prompt', () {
+      final inn = _inn(
+        strikerId: 's1',
+        nonStrikerId: 'ns1',
+        bowlerId: 'b1',
+        legalBalls: 6,
+      );
+      expect(ScoringDisplayUtils.needsVacantCreaseFill(inn), isFalse);
+      expect(
+        ScoringDisplayUtils.needsOpeningLineupPicker(_matchWithToss(), inn),
+        isFalse,
+      );
+    });
+  });
+
+  group('needsNextOverBowler', () {
+    InningsModel _innAtOverBreak({
+      required String bowlerId,
+      int legalBalls = 6,
+    }) {
+      return InningsModel(
+        inningsNumber: 1,
+        battingTeamId: 'a',
+        bowlingTeamId: 'b',
+        legalBalls: legalBalls,
+        currentOverStartLegalBalls: legalBalls,
+        currentOverNumber: 2,
+        currentBowlerId: bowlerId,
+        strikerId: 's1',
+        nonStrikerId: 'ns1',
+      );
+    }
+
+    BallEventModel _endOver({required int sequence, required String bowlerId}) {
+      return BallEventModel(
+        id: 'e$sequence',
+        matchId: 'm1',
+        sequence: sequence,
+        inningsNumber: 1,
+        overNumber: 1,
+        ballInOver: 6,
+        eventType: BallEventType.endOver,
+        bowlerId: bowlerId,
+        isLegalDelivery: false,
+      );
+    }
+
+    BallEventModel _legalBall({
+      required int sequence,
+      required String bowlerId,
+      int overNumber = 1,
+      int ballInOver = 1,
+    }) {
+      return BallEventModel(
+        id: 'b$sequence',
+        matchId: 'm1',
+        sequence: sequence,
+        inningsNumber: 1,
+        overNumber: overNumber,
+        ballInOver: ballInOver,
+        eventType: BallEventType.runs,
+        bowlerId: bowlerId,
+        strikerId: 's1',
+        nonStrikerId: 'ns1',
+        runs: 1,
+        batsmanRuns: 1,
+        isLegalDelivery: true,
+      );
+    }
+
+    test('true when last event is endOver', () {
+      final inn = _innAtOverBreak(bowlerId: 'bowler1');
+      final events = [
+        _legalBall(sequence: 1, bowlerId: 'bowler1'),
+        _endOver(sequence: 2, bowlerId: 'bowler1'),
+      ];
+      expect(
+        ScoringDisplayUtils.needsNextOverBowler(inn, 6, events),
+        isTrue,
+      );
+    });
+
+    test('false after lineup change for next over', () {
+      final inn = _innAtOverBreak(bowlerId: 'bowler2');
+      final events = [
+        _legalBall(sequence: 1, bowlerId: 'bowler1'),
+        _endOver(sequence: 2, bowlerId: 'bowler1'),
+        BallEventModel(
+          id: 'l3',
+          matchId: 'm1',
+          sequence: 3,
+          inningsNumber: 1,
+          overNumber: 2,
+          ballInOver: 0,
+          eventType: BallEventType.lineupChange,
+          bowlerId: 'bowler2',
+          strikerId: 's1',
+          nonStrikerId: 'ns1',
+          isLegalDelivery: false,
+        ),
+      ];
+      expect(
+        ScoringDisplayUtils.needsNextOverBowler(inn, 6, events),
+        isFalse,
+      );
+    });
+
+    test('true at over break when events still loading but bowler unchanged', () {
+      final inn = _innAtOverBreak(bowlerId: 'bowler1');
+      final events = [
+        for (var i = 1; i <= 6; i++)
+          _legalBall(
+            sequence: i,
+            bowlerId: 'bowler1',
+            overNumber: 1,
+            ballInOver: i,
+          ),
+      ];
+      expect(
+        ScoringDisplayUtils.needsNextOverBowler(inn, 6, events),
+        isTrue,
+      );
+    });
+
+    test('false mid-over', () {
+      final inn = InningsModel(
+        inningsNumber: 1,
+        battingTeamId: 'a',
+        bowlingTeamId: 'b',
+        legalBalls: 3,
+        currentOverStartLegalBalls: 0,
+        currentBowlerId: 'bowler1',
+      );
+      expect(
+        ScoringDisplayUtils.needsNextOverBowler(inn, 6, const []),
+        isFalse,
+      );
+    });
+  });
 }

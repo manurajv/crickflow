@@ -61,10 +61,10 @@ class CfAppDrawer extends ConsumerWidget {
                         requireAuthVoid(
                           context: context,
                           ref: ref,
-                          returnPath: '/match/create',
+                          returnPath: '/match/start',
                           action: () async {
                             if (context.mounted) {
-                              context.push('/match/create');
+                              context.push('/match/start');
                             }
                           },
                         );

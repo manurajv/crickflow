@@ -2185,6 +2185,8 @@ class MatchRepository {
       strikerId: inn.strikerId,
       nonStrikerId: inn.nonStrikerId,
       currentBowlerId: inn.currentBowlerId,
+      currentWicketKeeperId: inn.currentWicketKeeperId,
+      currentWicketKeeperName: inn.currentWicketKeeperName,
       batsmen: inn.batsmen,
       bowlers: inn.bowlers,
       partnershipRuns: inn.partnershipRuns,
@@ -2192,6 +2194,14 @@ class MatchRepository {
       isFreeHitActive: false,
       targetRuns: inn.targetRuns,
       isSuperOver: inn.isSuperOver,
+      currentOverStartLegalBalls: inn.currentOverStartLegalBalls,
+      currentOverNumber: inn.currentOverNumber,
+      currentOverSegment: inn.currentOverSegment,
+      currentSegmentStartLegalBalls: inn.currentSegmentStartLegalBalls,
+      endReason: inn.endReason,
+      penaltyRuns: inn.penaltyRuns,
+      penaltyReason: inn.penaltyReason,
+      considerAllOversForNrr: inn.considerAllOversForNrr,
     );
 
     await _enqueueMatchPatch(matchId, {
@@ -2219,7 +2229,7 @@ class MatchRepository {
     }
 
     final nextNumber = prev.inningsNumber + 1;
-    final maxInnings = match.rules.maxInnings;
+    final maxInnings = match.effectiveMaxInnings;
     if (!prev.isSuperOver && regularCount >= maxInnings) {
       throw StateError('Maximum innings reached');
     }
@@ -2266,7 +2276,7 @@ class MatchRepository {
 
     final regularCount =
         match.innings.where((i) => !i.isSuperOver).length;
-    return regularCount < match.rules.maxInnings;
+    return regularCount < match.effectiveMaxInnings;
   }
 
   InningsScoreSummary? firstInningsTarget(MatchModel match) {
@@ -2337,6 +2347,40 @@ class MatchRepository {
       subsKey: substitutes.map((p) => p.toMap()).toList(),
       squadIdsKey: playing.map((p) => p.id).toList(),
     });
+  }
+
+  /// Ensures Quick Match selected players are stored on the match setup squad.
+  Future<void> ensurePlayersOnMatchSquad({
+    required String matchId,
+    required bool isTeamA,
+    required List<MatchPlayerSnapshot> players,
+  }) async {
+    if (players.isEmpty) return;
+    final match = await getMatch(matchId);
+    if (match == null) return;
+    final setup = match.setup ?? const MatchSetupData();
+    final existing = [
+      ...setup.playingPlayersForTeam(isTeamA),
+      ...setup.substitutePlayersForTeam(isTeamA),
+    ];
+    final byId = <String, MatchPlayerSnapshot>{
+      for (final p in existing) p.id: p,
+    };
+    var changed = false;
+    for (final p in players) {
+      if (!byId.containsKey(p.id)) {
+        byId[p.id] = p;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    final playing = byId.values.toList();
+    await updateMatchSquad(
+      matchId: matchId,
+      isTeamA: isTeamA,
+      playing: playing,
+      substitutes: setup.substitutePlayersForTeam(isTeamA),
+    );
   }
 
   Future<void> updateMatchRules(String matchId, MatchRulesModel rules) async {

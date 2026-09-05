@@ -82,7 +82,7 @@ class SelectBowlerSheet extends StatelessWidget {
             ),
             child: Text(
               '$_battingLabel: ${innings.totalRuns}/${innings.totalWickets} '
-              '(${CricketMath.formatOvers(innings.legalBalls, ballsPerOver)} ov)',
+              '(${ScoringDisplayUtils.inningsOversDisplay(innings, match.rules)} ov)',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: cf.textPrimary,

@@ -19,6 +19,14 @@ void main() {
       expect(OversFormatter.formatOvers(12, 5), '2.2');
     });
 
+    test('5 balls per over — 30 legal balls = 6.0', () {
+      expect(OversFormatter.formatOvers(30, 5), '6.0');
+    });
+
+    test('6 balls per over — 30 legal balls = 5.0', () {
+      expect(OversFormatter.formatOvers(30, 6), '5.0');
+    });
+
     test('8 balls per over — 16 legal balls = 2.0', () {
       expect(OversFormatter.formatOvers(16, 8), '2.0');
     });

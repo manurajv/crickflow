@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/utils/cricket_math.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/widgets/cf_slide_to_confirm.dart';
@@ -64,12 +63,10 @@ class InningsBreakDialog extends StatelessWidget {
     final rules = match.rules;
     final reason = ScoringDisplayUtils.inningsCompleteReason(match, innings);
     final team = ScoringDisplayUtils.battingTeamName(match, innings);
-    final overs = CricketMath.formatOvers(innings.legalBalls, rules.ballsPerOver);
+    final overs = ScoringDisplayUtils.inningsOversDisplay(innings, rules);
     final tiedSuperOver = MatchCompletionPolicy.isTiedChaseComplete(match, innings);
-    final hasNext = tiedSuperOver ||
-        innings.inningsNumber < rules.maxInnings ||
-        (innings.isSuperOver &&
-            match.innings.where((i) => i.isSuperOver).length < 2);
+    final hasNext =
+        MatchCompletionPolicy.shouldContinueAfterInnings(match, innings);
     final target = hasNext && !tiedSuperOver
         ? (innings.targetRuns ??
             match.targetState.pendingChaseTarget ??

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/enums.dart';
 import '../../core/utils/match_media_naming.dart';
 import '../../data/models/location_model.dart';
 import '../../data/models/match_model.dart';
@@ -8,6 +9,15 @@ import '../../data/models/match_player_snapshot.dart';
 import '../../data/models/match_rules_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../data/models/team_model.dart';
+
+/// Synthetic match-only team ids (not written to the `teams` collection).
+abstract final class MatchOnlyTeamIds {
+  static const teamA = 'team_a';
+  static const teamB = 'team_b';
+
+  static bool isSynthetic(String? id) =>
+      id == null || id.isEmpty || id == teamA || id == teamB;
+}
 
 class MatchDraftMedia {
   const MatchDraftMedia({
@@ -24,6 +34,7 @@ class MatchDraftMedia {
 class StartMatchDraft {
   StartMatchDraft({
     required this.matchId,
+    this.matchMode = MatchMode.normal,
     this.teamA,
     this.teamB,
     this.teamAName = '',
@@ -40,6 +51,7 @@ class StartMatchDraft {
   }) : rules = rules ?? MatchRulesModel.standardT20();
 
   final String matchId;
+  final MatchMode matchMode;
   final String? tournamentId;
   final TeamModel? teamA;
   final TeamModel? teamB;
@@ -54,10 +66,21 @@ class StartMatchDraft {
   final bool isExistingMatch;
   final bool tournamentOfficialsAutoFilled;
 
+  bool get isQuickMatch => matchMode == MatchMode.quick;
+
   String get resolvedTeamAName =>
       teamA?.name ?? (teamAName.isNotEmpty ? teamAName : '');
   String get resolvedTeamBName =>
       teamB?.name ?? (teamBName.isNotEmpty ? teamBName : '');
+
+  /// Registered team id, or synthetic match-only id when a typed name is used.
+  String? get resolvedTeamAId =>
+      teamA?.id ??
+      (resolvedTeamAName.isNotEmpty ? MatchOnlyTeamIds.teamA : null);
+
+  String? get resolvedTeamBId =>
+      teamB?.id ??
+      (resolvedTeamBName.isNotEmpty ? MatchOnlyTeamIds.teamB : null);
 
   bool get hasBothTeams =>
       resolvedTeamAName.isNotEmpty && resolvedTeamBName.isNotEmpty;
@@ -65,10 +88,14 @@ class StartMatchDraft {
   bool get canProceedToSquad =>
       hasBothTeams && venue.trim().isNotEmpty && location.city.trim().isNotEmpty;
 
+  /// Quick Match: teams + venue/city enough to reach toss.
+  bool get canProceedToQuickToss => canProceedToSquad;
+
   int get nextMediaIndex =>
       MatchMediaNaming.nextIndex(media.map((m) => m.code));
 
   StartMatchDraft copyWith({
+    MatchMode? matchMode,
     TeamModel? teamA,
     TeamModel? teamB,
     bool clearTeamA = false,
@@ -88,6 +115,7 @@ class StartMatchDraft {
   }) {
     return StartMatchDraft(
       matchId: matchId,
+      matchMode: matchMode ?? this.matchMode,
       teamA: clearTeamA ? null : (teamA ?? this.teamA),
       teamB: clearTeamB ? null : (teamB ?? this.teamB),
       teamAName: teamAName ?? this.teamAName,
@@ -117,12 +145,17 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
           ),
         );
 
-  void reset() {
+  void reset({MatchMode mode = MatchMode.normal}) {
     state = StartMatchDraft(
       matchId: const Uuid().v4(),
+      matchMode: mode,
       rules: MatchRulesModel.standardT20(),
       scheduledAt: DateTime.now(),
     );
+  }
+
+  void setMatchMode(MatchMode mode) {
+    state = state.copyWith(matchMode: mode);
   }
 
   /// Hydrates the in-memory wizard from an existing scheduled match.
@@ -133,6 +166,7 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
   }) {
     state = StartMatchDraft(
       matchId: match.id,
+      matchMode: match.matchMode,
       teamA: teamA,
       teamB: teamB,
       teamAName: match.teamAName,

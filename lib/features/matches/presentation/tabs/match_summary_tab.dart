@@ -97,7 +97,7 @@ class _SummaryBody extends ConsumerWidget {
     final isLive = match.status == MatchStatus.live;
     final isBreak = match.status == MatchStatus.inningsBreak;
     final isCompleted = match.status == MatchStatus.completed;
-    final multiInnings = match.rules.maxInnings > 1;
+    final multiInnings = match.effectiveMaxInnings > 1;
     final canNext = multiInnings && repo.canStartNextInnings(match);
 
     return ListView(
@@ -163,7 +163,12 @@ class _SummaryBody extends ConsumerWidget {
   Future<void> _startNextInnings(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(matchRepositoryProvider).startNextInnings(matchId);
-      if (context.mounted) {
+      if (!context.mounted) return;
+      final match = await ref.read(matchRepositoryProvider).getMatch(matchId);
+      if (!context.mounted) return;
+      if (match != null && match.isQuickMatch) {
+        context.push('/match/$matchId/score');
+      } else {
         context.push('/match/$matchId/start-innings');
       }
     } catch (e) {

@@ -44,8 +44,13 @@ class MatchLifecycle {
   }
 
   /// Ready for the live scoring UI (real live/break, or scoring already underway).
+  ///
+  /// Quick Match opens live scoring after toss and sets openers there.
   static bool canOpenScoringScreen(MatchModel match) {
     final status = effectiveStatus(match);
+    if (match.isQuickMatch && status == MatchStatus.tossCompleted) {
+      return true;
+    }
     return status == MatchStatus.live ||
         status == MatchStatus.inningsBreak ||
         hasScoringStarted(match);
@@ -55,7 +60,10 @@ class MatchLifecycle {
   ///
   /// Also true for 2nd+ innings that were created but still need openers /
   /// opening bowler (same full-screen flow as the start of the match).
+  ///
+  /// Quick Match never uses this screen — openers are picked on live scoring.
   static bool needsStartInnings(MatchModel match) {
+    if (match.isQuickMatch) return false;
     if (match.status == MatchStatus.tossCompleted && !hasScoringStarted(match)) {
       return true;
     }
@@ -125,7 +133,8 @@ class MatchLifecycle {
 
   static bool canScore(MatchModel match) =>
       match.status == MatchStatus.live ||
-      (match.status == MatchStatus.tossCompleted && hasScoringStarted(match));
+      (match.status == MatchStatus.tossCompleted &&
+          (hasScoringStarted(match) || match.isQuickMatch));
 
   static bool canStartInnings(MatchModel match) =>
       match.status == MatchStatus.tossCompleted ||

@@ -3,7 +3,7 @@ import '../constants/app_constants.dart';
 /// Single source of truth for cricket overs display and rate calculations.
 ///
 /// Stores only legal ball counts in Firestore; all overs text and rates derive
-/// from [ballsPerOver] on the match rules.
+/// from [ballsPerOver] on the match rules (supports any balls-per-over setting).
 class OversFormatter {
   OversFormatter._();
 
@@ -29,7 +29,7 @@ class OversFormatter {
     return legalBalls / bpo;
   }
 
-  /// Cricket notation: completedOvers.remainingBalls (e.g. 7 @ 4 bpo → `1.3`).
+  /// Cricket notation: completedOvers.ballsInOver (e.g. 7 @ 4 bpo → `1.3`).
   static String formatOvers(int legalBalls, int ballsPerOver) {
     final bpo = normalizeBallsPerOver(ballsPerOver);
     if (legalBalls <= 0) return '0.0';

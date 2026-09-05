@@ -7,6 +7,7 @@ import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/theme/scorecard_theme_extension.dart';
 import '../../../../core/utils/cricket_math.dart';
 import '../../../../core/utils/overs_formatter.dart';
+import '../../../../domain/scoring/innings_overs_display.dart';
 import '../../../../domain/scoring/innings_completion_policy.dart';
 import '../../../../core/utils/match_score_display.dart';
 import '../../../../data/models/ball_event_model.dart';
@@ -208,10 +209,7 @@ class _InningsScorecardCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final teamName = MatchScoreDisplay.battingTeamName(match, innings);
-    final overs = OversFormatter.formatOvers(
-      innings.legalBalls,
-      rules.ballsPerOver,
-    );
+    final overs = InningsOversDisplay.format(innings, rules.ballsPerOver);
     final scoreLine =
         '${innings.totalRuns}/${innings.totalWickets} ($overs)';
 
@@ -356,15 +354,8 @@ class _InningsExpandedBody extends StatelessWidget {
       extraNames: squadNames,
       events: inningsEvents,
     );
-    final crr = OversFormatter.calculateRunRate(
-      displayInnings.totalRuns,
-      displayInnings.legalBalls,
-      rules.ballsPerOver,
-    );
-    final overs = OversFormatter.formatOvers(
-      displayInnings.legalBalls,
-      rules.ballsPerOver,
-    );
+    final crr = InningsOversDisplay.runRate(displayInnings, rules.ballsPerOver);
+    final overs = InningsOversDisplay.format(displayInnings, rules.ballsPerOver);
     final wicketByBatsman = ScorecardDisplayService.wicketEventsByBatsman(
       innings: displayInnings,
       events: inningsEvents,

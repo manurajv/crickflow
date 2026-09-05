@@ -44,6 +44,11 @@ Future<RunOutResult?> showRunOutSheet(
   required InningsModel innings,
   required MatchRulesModel rules,
   required List<LineupPlayer> bowlingSquad,
+  /// When set (e.g. Quick Match), used instead of the fixed bowling squad list.
+  Future<LineupPlayer?> Function({
+    required String title,
+    required Set<String> excludeIds,
+  })? pickFielder,
 }) {
   return ScoringUiKit.showDraggableSheet<RunOutResult>(
     context,
@@ -56,6 +61,7 @@ Future<RunOutResult?> showRunOutSheet(
       rules: rules,
       bowlingSquad: bowlingSquad,
       scrollController: controller,
+      pickFielder: pickFielder,
     ),
   );
 }
@@ -67,12 +73,17 @@ class RunOutSheet extends StatefulWidget {
     required this.rules,
     required this.bowlingSquad,
     required this.scrollController,
+    this.pickFielder,
   });
 
   final InningsModel innings;
   final MatchRulesModel rules;
   final List<LineupPlayer> bowlingSquad;
   final ScrollController scrollController;
+  final Future<LineupPlayer?> Function({
+    required String title,
+    required Set<String> excludeIds,
+  })? pickFielder;
 
   @override
   State<RunOutSheet> createState() => _RunOutSheetState();
@@ -110,12 +121,17 @@ class _RunOutSheetState extends State<RunOutSheet> {
       if (slot == 1 && _fielder2 != null) _fielder2!.playerId,
       if (slot == 2 && _fielder1 != null) _fielder1!.playerId,
     };
-    final picked = await FielderPickerSheet.show(
-      context,
-      title: slot == 1 ? 'Select fielder' : 'Select assisting fielder',
-      players: widget.bowlingSquad,
-      excludeIds: exclude,
-    );
+    final title =
+        slot == 1 ? 'Select fielder' : 'Select assisting fielder';
+    final pickCustom = widget.pickFielder;
+    final picked = pickCustom != null
+        ? await pickCustom(title: title, excludeIds: exclude)
+        : await FielderPickerSheet.show(
+            context,
+            title: title,
+            players: widget.bowlingSquad,
+            excludeIds: exclude,
+          );
     if (picked == null || !mounted) return;
     setState(() {
       final f = DismissalFielder(playerId: picked.id, playerName: picked.name);

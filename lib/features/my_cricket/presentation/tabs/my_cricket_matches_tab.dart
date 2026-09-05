@@ -89,7 +89,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
           MyCricketActionBanner(
             title: 'Want to start a match?',
             actionLabel: 'Start',
-            onAction: () => context.push('/match/create'),
+            onAction: () => context.push('/match/start'),
           ),
         _scopeChips(context),
         Expanded(

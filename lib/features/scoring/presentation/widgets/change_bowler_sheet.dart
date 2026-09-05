@@ -197,7 +197,7 @@ class _ChangeBowlerSheetState extends State<ChangeBowlerSheet> {
             child: Text(
               '${ScoringDisplayUtils.battingTeamName(widget.match, widget.innings)}: '
               '${widget.innings.totalRuns}/${widget.innings.totalWickets} '
-              '(${CricketMath.formatOvers(widget.innings.legalBalls, _ballsPerOver)} ov)',
+              '(${ScoringDisplayUtils.inningsOversDisplay(widget.innings, widget.match.rules)} ov)',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: cf.textPrimary,

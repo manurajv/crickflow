@@ -176,6 +176,7 @@ class MatchModel extends Equatable {
     required this.id,
     required this.title,
     this.matchType = MatchType.single,
+    this.matchMode = MatchMode.normal,
     this.status = MatchStatus.draft,
     this.teamAId,
     this.teamBId,
@@ -226,6 +227,8 @@ class MatchModel extends Equatable {
   final String id;
   final String title;
   final MatchType matchType;
+  /// Setup path — defaults to [MatchMode.normal] for legacy matches.
+  final MatchMode matchMode;
   final MatchStatus status;
   final String? teamAId;
   final String? teamBId;
@@ -280,6 +283,15 @@ class MatchModel extends Equatable {
       matchType == MatchType.tournament ||
       (tournamentId != null && tournamentId!.isNotEmpty);
 
+  bool get isQuickMatch => matchMode == MatchMode.quick;
+
+  /// Quick Match always plays two innings (chase), even if rules say indoor/1.
+  int get effectiveMaxInnings {
+    final configured = rules.maxInnings;
+    if (!isQuickMatch) return configured;
+    return configured < 2 ? 2 : configured;
+  }
+
   bool get isMatchBreakActive =>
       activeMatchBreak != null && activeMatchBreak!.isActive;
 
@@ -295,6 +307,10 @@ class MatchModel extends Equatable {
       matchType: MatchType.values.firstWhere(
         (e) => e.name == map['matchType'],
         orElse: () => MatchType.single,
+      ),
+      matchMode: MatchMode.values.firstWhere(
+        (e) => e.name == map['matchMode'],
+        orElse: () => MatchMode.normal,
       ),
       status: MatchStatus.values.firstWhere(
         (e) => e.name == map['status'],
@@ -383,6 +399,7 @@ class MatchModel extends Equatable {
   Map<String, dynamic> toMap() => {
         'title': title,
         'matchType': matchType.name,
+        'matchMode': matchMode.name,
         'status': status.name,
         if (teamAId != null) 'teamAId': teamAId,
         if (teamBId != null) 'teamBId': teamBId,
@@ -442,6 +459,7 @@ class MatchModel extends Equatable {
 
   MatchModel copyWith({
     String? title,
+    MatchMode? matchMode,
     MatchStatus? status,
     String? teamAId,
     String? teamBId,
@@ -481,6 +499,7 @@ class MatchModel extends Equatable {
       id: id,
       title: title ?? this.title,
       matchType: matchType,
+      matchMode: matchMode ?? this.matchMode,
       status: status ?? this.status,
       teamAId: teamAId ?? this.teamAId,
       teamBId: teamBId ?? this.teamBId,

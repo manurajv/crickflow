@@ -4,10 +4,10 @@ import '../../core/constants/enums.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
 import '../../core/utils/country_flag_utils.dart';
-import '../../domain/scoring/match_lifecycle.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/match_score_display.dart';
-import '../../core/utils/overs_formatter.dart';
+import '../../domain/scoring/innings_overs_display.dart';
+import '../../domain/scoring/match_lifecycle.dart';
 import '../../data/models/match_model.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
@@ -752,7 +752,7 @@ String? matchCardScoreLine(MatchModel match, String? teamId) {
   final inn = MatchScoreDisplay.inningsBattingTeam(match, teamId);
   if (inn == null) return null;
   final rules = InningsCompletionPolicy.effectiveRules(match, inn);
-  final overs = OversFormatter.formatOvers(inn.legalBalls, rules.ballsPerOver);
+  final overs = InningsOversDisplay.format(inn, rules.ballsPerOver);
   return '${inn.totalRuns}/${inn.totalWickets} ($overs)';
 }
 

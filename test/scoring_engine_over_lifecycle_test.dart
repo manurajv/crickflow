@@ -179,6 +179,46 @@ void main() {
     });
   });
 
+  group('irregular over display', () {
+    test('seven-ball over then endOver — scoreboard shows 2.0 then 2.1', () {
+      var match = baseMatch();
+      var seq = 0;
+      for (var i = 0; i < 6; i++) {
+        seq++;
+        match = recordRun(match, sequence: seq).match;
+      }
+      seq++;
+      match = engine.recordBall(
+        match: match,
+        input: const BallEventInput(type: BallEventType.endOver),
+        sequence: seq,
+      ).match;
+      for (var i = 0; i < 7; i++) {
+        seq++;
+        match = recordRun(match, sequence: seq).match;
+      }
+      seq++;
+      match = engine.recordBall(
+        match: match,
+        input: const BallEventInput(type: BallEventType.endOver),
+        sequence: seq,
+      ).match;
+      final afterOver2 = match.currentInnings!;
+      expect(afterOver2.currentOverNumber, 3);
+      expect(afterOver2.legalBalls, 13);
+
+      seq++;
+      match = recordRun(match, sequence: seq).match;
+      final afterBall1Over3 = match.currentInnings!;
+      expect(afterBall1Over3.currentOverNumber, 3);
+      expect(afterBall1Over3.legalBalls, 14);
+      expect(
+        ScoringDisplayUtils.ballsInCurrentOver(afterBall1Over3),
+        1,
+      );
+    });
+  });
+
   group('mid-over bowler change', () {
     test('creates new segment and preserves all deliveries in over', () {
       var match = baseMatch();

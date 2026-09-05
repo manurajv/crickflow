@@ -152,7 +152,7 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
           : switch (_tabs.index) {
               0 when canCreate => FloatingActionButton.extended(
                   heroTag: 'my_cricket_start_match_fab',
-                  onPressed: () => context.push('/match/create'),
+                  onPressed: () => context.push('/match/start'),
                   backgroundColor: cf.fabBackground,
                   foregroundColor: cf.fabForeground,
                   icon: const Icon(Icons.sports_cricket),

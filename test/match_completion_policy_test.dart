@@ -245,4 +245,252 @@ void main() {
     expect(InningsCompletionPolicy.chaseTarget(match, chase), 151);
     expect(InningsCompletionPolicy.remainingRuns(match, chase), 101);
   });
+
+  test('quick match limited overs treats first innings as not match complete', () {
+    final match = MatchModel(
+      id: 'qm1',
+      title: 'A vs B',
+      matchMode: MatchMode.quick,
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      rules: const MatchRulesModel(
+        cricketMatchType: CricketMatchType.limitedOvers,
+        maxInnings: 1,
+      ),
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          totalRuns: 120,
+          totalWickets: 8,
+          legalBalls: 120,
+        ),
+      ],
+    );
+    expect(match.effectiveMaxInnings, 2);
+    expect(MatchCompletionPolicy.isMatchComplete(match), isFalse);
+    expect(
+      MatchCompletionPolicy.shouldContinueAfterInnings(
+        match,
+        match.innings.first,
+      ),
+      isTrue,
+    );
+  });
+
+  test('quick match indoor first innings continues to chase', () {
+    final match = MatchModel(
+      id: 'qm-indoor',
+      title: 'A vs B',
+      matchMode: MatchMode.quick,
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      rules: const MatchRulesModel(
+        cricketMatchType: CricketMatchType.indoor,
+        maxInnings: 1,
+        totalOvers: 6,
+      ),
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          totalRuns: 48,
+          totalWickets: 5,
+          legalBalls: 36,
+        ),
+      ],
+    );
+    expect(match.effectiveMaxInnings, 2);
+    expect(MatchCompletionPolicy.isMatchComplete(match), isFalse);
+    expect(
+      MatchCompletionPolicy.shouldContinueAfterInnings(
+        match,
+        match.innings.first,
+      ),
+      isTrue,
+    );
+  });
+
+  test('quick match continues after innings 1 even if innings 2 already exists',
+      () {
+    final match = MatchModel(
+      id: 'qm-stale',
+      title: 'A vs B',
+      matchMode: MatchMode.quick,
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      rules: const MatchRulesModel(
+        cricketMatchType: CricketMatchType.limitedOvers,
+        maxInnings: 2,
+      ),
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          totalRuns: 120,
+          totalWickets: 8,
+          legalBalls: 120,
+        ),
+        InningsModel(
+          inningsNumber: 2,
+          battingTeamId: 'b',
+          bowlingTeamId: 'a',
+          status: InningsStatus.inProgress,
+          totalRuns: 0,
+          totalWickets: 0,
+          legalBalls: 0,
+        ),
+      ],
+    );
+    expect(
+      MatchCompletionPolicy.shouldContinueAfterInnings(
+        match,
+        match.innings.first,
+      ),
+      isTrue,
+    );
+  });
+
+  test('quick match indoor also requires second innings', () {
+    final match = MatchModel(
+      id: 'qm2',
+      title: 'A vs B',
+      matchMode: MatchMode.quick,
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      rules: const MatchRulesModel(
+        cricketMatchType: CricketMatchType.indoor,
+        maxInnings: 1,
+        totalOvers: 6,
+        ballsPerOver: 5,
+      ),
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.completed,
+          totalRuns: 80,
+          legalBalls: 30,
+        ),
+      ],
+    );
+    expect(match.effectiveMaxInnings, 2);
+    expect(MatchCompletionPolicy.isMatchComplete(match), isFalse);
+    expect(MatchCompletionPolicy.compute(match).winnerTeamId, isNull);
+  });
+
+  test('quick match last over needs full ballsPerOver after long prior over', () {
+    // 2 overs × 5 balls; over 1 continued to 6 legal balls, then ended.
+    // Last over must still allow 5 balls — must not end on the 4th.
+    final match = MatchModel(
+      id: 'qm3',
+      title: 'A vs B',
+      matchMode: MatchMode.quick,
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      rules: const MatchRulesModel(
+        totalOvers: 2,
+        ballsPerOver: 5,
+        maxInnings: 2,
+      ),
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.inProgress,
+          legalBalls: 10, // 6 in over 1 + 4 in over 2
+          currentOverNumber: 2,
+          currentOverStartLegalBalls: 6,
+        ),
+      ],
+    );
+    final inn = match.currentInnings!;
+    expect(InningsCompletionPolicy.isOversComplete(match, inn), isFalse);
+    expect(InningsCompletionPolicy.isInningsComplete(match, inn), isFalse);
+    expect(InningsCompletionPolicy.remainingBalls(match, inn), 1);
+
+    final afterFifth = MatchModel(
+      id: 'qm3',
+      title: 'A vs B',
+      matchMode: MatchMode.quick,
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      rules: const MatchRulesModel(
+        totalOvers: 2,
+        ballsPerOver: 5,
+        maxInnings: 2,
+      ),
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.inProgress,
+          legalBalls: 11, // 6 + 5
+          currentOverNumber: 2,
+          currentOverStartLegalBalls: 6,
+        ),
+      ],
+    );
+    expect(
+      InningsCompletionPolicy.isOversComplete(
+        afterFifth,
+        afterFifth.currentInnings!,
+      ),
+      isTrue,
+    );
+  });
+
+  test('normal match overs complete still uses total legal balls', () {
+    // Normal match: 2 overs × 5 = 10 balls — complete at 10 even mid "display".
+    final match = MatchModel(
+      id: 'nm1',
+      title: 'A vs B',
+      matchMode: MatchMode.normal,
+      teamAId: 'a',
+      teamBId: 'b',
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      rules: const MatchRulesModel(
+        totalOvers: 2,
+        ballsPerOver: 5,
+        maxInnings: 2,
+      ),
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.inProgress,
+          legalBalls: 10,
+          currentOverNumber: 2,
+          currentOverStartLegalBalls: 6,
+        ),
+      ],
+    );
+    expect(
+      InningsCompletionPolicy.isOversComplete(match, match.currentInnings!),
+      isTrue,
+    );
+  });
 }

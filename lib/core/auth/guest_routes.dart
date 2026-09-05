@@ -53,7 +53,10 @@ class GuestRoutes {
   }
 
   static bool isProtectedRoute(String path) {
-    if (path == '/match/create' || path.startsWith('/match/create/')) {
+    if (path == '/match/create' ||
+        path.startsWith('/match/create/') ||
+        path == '/match/start' ||
+        path == '/match/quick') {
       return true;
     }
     if (path == '/teams/create') {

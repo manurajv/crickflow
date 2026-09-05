@@ -81,7 +81,14 @@ class _EditTossDecisionSheetState extends ConsumerState<EditTossDecisionSheet> {
           const SnackBar(content: Text('Toss decision updated')),
         );
         if (widget.redirectToLineup) {
-          context.go('/match/${widget.matchId}/start-innings');
+          final match =
+              await ref.read(matchRepositoryProvider).getMatch(widget.matchId);
+          if (!mounted) return;
+          if (match != null && match.isQuickMatch) {
+            context.go('/match/${widget.matchId}/score');
+          } else {
+            context.go('/match/${widget.matchId}/start-innings');
+          }
         }
       }
     } catch (e) {

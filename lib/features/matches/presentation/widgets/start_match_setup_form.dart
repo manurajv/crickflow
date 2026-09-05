@@ -659,12 +659,15 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    return Container(
-      decoration: BoxDecoration(
-        color: cf.card,
+    // Material (not DecoratedBox) so nested ListTiles/SwitchListTiles can
+    // paint ink splashes on this ancestor instead of asserting in debug.
+    return Material(
+      color: cf.card,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        border: Border.all(color: cf.border, width: 0.5),
+        side: BorderSide(color: cf.border, width: 0.5),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spaceMd),
         child: Column(
@@ -965,7 +968,6 @@ class _MatchTypePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cf = context.cf;
     final types = CricketMatchType.uiValues;
 
     return Row(

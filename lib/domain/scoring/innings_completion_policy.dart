@@ -49,6 +49,18 @@ class InningsCompletionPolicy {
 
   static int remainingBalls(MatchModel match, InningsModel inn) {
     final rules = effectiveRules(match, inn);
+    // Quick Match: allot balls by overs so a long earlier over does not
+    // shorten the last over (and a short over does not lengthen it).
+    if (match.isQuickMatch && inn.currentOverNumber > 0) {
+      final completedOvers = max(0, inn.currentOverNumber - 1);
+      final ballsInOver =
+          max(0, inn.legalBalls - inn.currentOverStartLegalBalls);
+      final oversLeftAfterThis =
+          max(0, rules.totalOvers - completedOvers - 1);
+      final ballsLeftThisOver =
+          max(0, rules.ballsPerOver - ballsInOver);
+      return oversLeftAfterThis * rules.ballsPerOver + ballsLeftThisOver;
+    }
     return max(0, rules.totalBalls - inn.legalBalls);
   }
 
@@ -60,23 +72,40 @@ class InningsCompletionPolicy {
 
   static int maxDismissals(MatchModel match, InningsModel inn) {
     final rules = effectiveRules(match, inn);
+    final fromRules = rules.playersPerTeam > 0
+        ? rules.playersPerTeam - 1
+        : rules.maxWickets;
+
+    // Quick Match adds players during scoring — configured team size applies.
+    if (match.isQuickMatch) {
+      return min(rules.maxWickets, fromRules);
+    }
+
     final setup = match.setup;
-    var squadSize = 11;
+    var squadSize = rules.playersPerTeam;
     if (setup != null) {
       final isTeamA = inn.battingTeamId == match.teamAId;
       final ids = setup.squadIdsForTeam(isTeamA);
       if (ids.isNotEmpty) squadSize = ids.length;
     }
-    final fromSquad = squadSize > 0 ? squadSize - 1 : 10;
+    final fromSquad = squadSize > 0 ? squadSize - 1 : rules.maxWickets;
     return min(rules.maxWickets, fromSquad);
   }
 
   static bool isAllOut(MatchModel match, InningsModel inn) {
     if (inn.totalWickets >= maxDismissals(match, inn)) return true;
+    return noBattersAvailable(match, inn);
+  }
+
+  /// True when the crease cannot be filled from the playing squad (normal matches).
+  static bool noBattersAvailable(MatchModel match, InningsModel inn) {
     return _noBattersAvailable(match, inn);
   }
 
   static bool _noBattersAvailable(MatchModel match, InningsModel inn) {
+    // Quick Match always allows picking new batters until the wicket cap is hit.
+    if (match.isQuickMatch) return false;
+
     final setup = match.setup;
     if (setup == null) return false;
 
@@ -105,6 +134,23 @@ class InningsCompletionPolicy {
 
   static bool isOversComplete(MatchModel match, InningsModel inn) {
     final rules = effectiveRules(match, inn);
+    if (rules.totalOvers <= 0) return false;
+
+    // Quick Match: each over counts as one toward totalOvers (via endOver /
+    // currentOverNumber), so the last over still gets a full ballsPerOver
+    // even if an earlier over was 4 or 7 balls.
+    if (match.isQuickMatch && inn.currentOverNumber > 0) {
+      final completedOvers = max(0, inn.currentOverNumber - 1);
+      if (completedOvers >= rules.totalOvers) return true;
+      final ballsInOver =
+          max(0, inn.legalBalls - inn.currentOverStartLegalBalls);
+      if (completedOvers == rules.totalOvers - 1 &&
+          ballsInOver >= rules.ballsPerOver) {
+        return true;
+      }
+      return false;
+    }
+
     return inn.legalBalls >= rules.totalBalls;
   }
 

@@ -78,9 +78,11 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
   Future<void> _letsPlay() async {
     var draft = ref.read(startMatchDraftProvider);
     var setup = draft.setup;
+    final isQuick = draft.isQuickMatch;
 
-    if (!setup.playingSquadsReady(draft.rules.playersPerTeam) ||
-        !setup.rolesReady) {
+    if (!isQuick &&
+        (!setup.playingSquadsReady(draft.rules.playersPerTeam) ||
+            !setup.rolesReady)) {
       final playersPerTeam = draft.rules.playersPerTeam;
       final teamAError =
           setup.playingSquadError(draft.resolvedTeamAName, playersPerTeam, true);
@@ -119,8 +121,14 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     try {
       await commitTossToFirestore(ref);
       final matchId = draft.matchId;
+      final quick = draft.isQuickMatch;
       ref.read(startMatchDraftProvider.notifier).reset();
-      if (mounted) context.go('/match/$matchId/start-innings');
+      if (!mounted) return;
+      if (quick) {
+        context.go('/match/$matchId/score');
+      } else {
+        context.go('/match/$matchId/start-innings');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -149,7 +157,9 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     final draft = ref.watch(startMatchDraftProvider);
     final setup = draft.setup;
 
-    if (!setup.squadsReady) {
+    final isQuick = draft.isQuickMatch;
+
+    if (!isQuick && !setup.squadsReady) {
       return Scaffold(
         appBar: StartMatchWizardAppBar(title: const Text('Toss')),
         body: Center(
@@ -168,7 +178,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
       );
     }
 
-    if (!setup.rolesReady) {
+    if (!isQuick && !setup.rolesReady) {
       return Scaffold(
         appBar: StartMatchWizardAppBar(title: const Text('Toss')),
         body: Center(
@@ -190,7 +200,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     return Scaffold(
       backgroundColor: cf.background,
       appBar: StartMatchWizardAppBar(
-        title: const Text('Toss'),
+        title: Text(isQuick ? 'Quick Match — Toss' : 'Toss'),
         actions: [
           IconButton(
             icon: const Icon(Icons.photo_camera_outlined),
@@ -206,7 +216,24 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const StartMatchFlowProgress(currentIndex: StartMatchFlowStep.toss),
+          if (isQuick)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+                AppDimens.spaceMd,
+                AppDimens.spaceSm,
+              ),
+              child: Text(
+                'Step 3 of 3 · Toss — then pick players on live scoring',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: cf.textSecondary,
+                ),
+              ),
+            )
+          else
+            const StartMatchFlowProgress(currentIndex: StartMatchFlowStep.toss),
           Expanded(
             child: ListView(
               padding: AppDimens.listPadding,

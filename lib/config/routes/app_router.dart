@@ -25,6 +25,8 @@ import '../../features/matches/presentation/select_match_squad_screen.dart';
 import '../../features/matches/presentation/ground_map_picker_screen.dart';
 import '../../features/matches/presentation/select_team_for_match_screen.dart';
 import '../../features/matches/presentation/start_match_flow_screen.dart';
+import '../../features/matches/presentation/match_type_choice_screen.dart';
+import '../../features/matches/presentation/quick_match_flow_screen.dart';
 import '../../data/models/location_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../features/matches/presentation/match_highlights_screen.dart';
@@ -179,7 +181,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           return homeRouteForRole(profile?.role ?? UserRole.organizer);
         }
 
-        if (path == '/match/create' &&
+        if ((path == '/match/create' ||
+                path == '/match/start' ||
+                path == '/match/quick') &&
             profile != null &&
             !canCreateMatches(profile.role)) {
           return '/home';
@@ -304,6 +308,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/match/start',
+        builder: (_, __) => const MatchTypeChoiceScreen(),
+      ),
+      GoRoute(
+        path: '/match/quick',
+        builder: (_, __) => const QuickMatchFlowScreen(),
       ),
       GoRoute(
         path: '/match/create',

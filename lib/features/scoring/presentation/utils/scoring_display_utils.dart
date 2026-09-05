@@ -4,6 +4,7 @@ import '../../../../data/models/ball_event_model.dart';
 import '../../../../data/models/innings_model.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_rules_model.dart';
+import '../../../../domain/scoring/innings_overs_display.dart';
 import '../../../../domain/services/scoring_engine.dart';
 import '../../../../domain/scoring/innings_completion_policy.dart';
 
@@ -287,13 +288,36 @@ class ScoringDisplayUtils {
     int ballsPerOver,
     List<BallEventModel> events,
   ) {
+    if (inn.status == InningsStatus.completed) return false;
+    if (inn.legalBalls <= 0) return false;
+    if (ballsInCurrentOver(inn) > 0) return false;
+    if (inn.currentBowlerId == null || inn.currentBowlerId!.isEmpty) {
+      return false;
+    }
+
     final inningsEvents = events
         .where((e) => e.inningsNumber == inn.inningsNumber)
         .toList()
       ..sort((a, b) => a.sequence.compareTo(b.sequence));
-    if (inningsEvents.isEmpty) return false;
-    if (inningsEvents.last.eventType == BallEventType.endOver) return true;
-    return false;
+
+    if (inningsEvents.isNotEmpty) {
+      final last = inningsEvents.last;
+      if (last.eventType == BallEventType.endOver) return true;
+      if (last.eventType == BallEventType.lineupChange) return false;
+    }
+
+    // Events may still be loading — infer from completed over vs current bowler.
+    final completed = completedOverEvents(
+      events: events,
+      inn: inn,
+      ballsPerOver: ballsPerOver,
+    );
+    if (completed.isEmpty) return false;
+
+    final lastOverBowler = completed.last.bowlerId;
+    return lastOverBowler != null &&
+        lastOverBowler.isNotEmpty &&
+        lastOverBowler == inn.currentBowlerId;
   }
 
   static int currentOverExtras(List<BallEventModel> overEvents) =>
@@ -333,11 +357,7 @@ class ScoringDisplayUtils {
     final runsNeeded = InningsCompletionPolicy.remainingRuns(match, inn);
     final ballsRemaining = InningsCompletionPolicy.remainingBalls(match, inn);
     final effective = InningsCompletionPolicy.effectiveRules(match, inn);
-    final crr = OversFormatter.calculateRunRate(
-      inn.totalRuns,
-      inn.legalBalls,
-      effective.ballsPerOver,
-    );
+    final crr = InningsOversDisplay.runRate(inn, effective.ballsPerOver);
     final rrr = runsNeeded > 0 && ballsRemaining > 0
         ? OversFormatter.calculateRequiredRunRate(
             runsNeeded: runsNeeded,
@@ -356,22 +376,17 @@ class ScoringDisplayUtils {
   }
 
   static double currentRunRate(InningsModel inn, MatchRulesModel rules) {
-    return OversFormatter.calculateRunRate(
-      inn.totalRuns,
-      inn.legalBalls,
-      rules.ballsPerOver,
-    );
+    return InningsOversDisplay.runRate(inn, rules.ballsPerOver);
   }
 
   static String oversLabel(InningsModel inn, MatchRulesModel rules) {
-    final overs =
-        OversFormatter.formatOvers(inn.legalBalls, rules.ballsPerOver);
+    final overs = InningsOversDisplay.format(inn, rules.ballsPerOver);
     return '($overs/${rules.totalOvers})';
   }
 
   /// Overs.balls for scoreboard header, e.g. `0.2` of `20` overs.
   static String inningsOversDisplay(InningsModel inn, MatchRulesModel rules) {
-    return OversFormatter.formatOvers(inn.legalBalls, rules.ballsPerOver);
+    return InningsOversDisplay.format(inn, rules.ballsPerOver);
   }
 
   static BatsmanInningsModel? batsman(InningsModel inn, String? id) {
@@ -600,11 +615,13 @@ class ScoringDisplayUtils {
 
   /// Playing XI size for the batting side (from match setup squads).
   static int battingPlayingSquadSize(MatchModel match, InningsModel inn) {
+    final rules = match.rules;
+    if (match.isQuickMatch) return rules.playersPerTeam;
     final setup = match.setup;
-    if (setup == null) return 11;
+    if (setup == null) return rules.playersPerTeam;
     final isTeamA = inn.battingTeamId == match.teamAId;
     final ids = setup.squadIdsForTeam(isTeamA);
-    return ids.isNotEmpty ? ids.length : 11;
+    return ids.isNotEmpty ? ids.length : rules.playersPerTeam;
   }
 
   /// Selected squad ids for the batting side in this innings.
@@ -620,21 +637,29 @@ class ScoringDisplayUtils {
       InningsCompletionPolicy.maxDismissals(match, inn);
 
   /// True when the crease needs a batter and no playing-squad member can fill it.
-  static bool noBattersAvailable(MatchModel match, InningsModel inn) {
-    final squadIds = battingSquadIds(match, inn);
-    if (squadIds.isEmpty) return false;
+  static bool noBattersAvailable(MatchModel match, InningsModel inn) =>
+      InningsCompletionPolicy.noBattersAvailable(match, inn);
 
-    final notOut =
-        squadIds.where((id) => !isPlayerOut(inn, id)).toSet();
-    if (notOut.isEmpty) return true;
+  /// Mid-innings: bowler is set and exactly one crease end is vacant (e.g. after a wicket).
+  static bool needsVacantCreaseFill(InningsModel inn) {
+    if (inn.currentBowlerId == null || inn.currentBowlerId!.isEmpty) {
+      return false;
+    }
+    final strikerVacant = inn.strikerId == null || inn.strikerId!.isEmpty;
+    final nonStrikerVacant =
+        inn.nonStrikerId == null || inn.nonStrikerId!.isEmpty;
+    return strikerVacant != nonStrikerVacant;
+  }
 
-    if (inn.strikerId != null && inn.nonStrikerId != null) return false;
-
-    final onCrease = {
-      if (inn.strikerId != null) inn.strikerId!,
-      if (inn.nonStrikerId != null) inn.nonStrikerId!,
-    };
-    return notOut.difference(onCrease).isEmpty;
+  /// Opening or full lineup edit — not a single vacant crease end after a wicket.
+  static bool needsOpeningLineupPicker(MatchModel match, InningsModel inn) {
+    if (needsVacantCreaseFill(inn)) return false;
+    final strikerMissing = inn.strikerId == null || inn.strikerId!.isEmpty;
+    final nonStrikerMissing =
+        inn.nonStrikerId == null || inn.nonStrikerId!.isEmpty;
+    final bowlerMissing =
+        inn.currentBowlerId == null || inn.currentBowlerId!.isEmpty;
+    return strikerMissing || nonStrikerMissing || bowlerMissing;
   }
 
   /// True when recording one more wicket would end the innings (all out).

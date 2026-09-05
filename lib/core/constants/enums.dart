@@ -28,6 +28,12 @@ enum CricketBallType { leather, tennis, indoor }
 
 enum MatchType { single, tournament }
 
+/// How the match was set up before scoring.
+///
+/// [normal] — full wizard (squads, roles, start-innings).
+/// [quick] — skip Playing XI; pick players on the live scoring screen.
+enum MatchMode { normal, quick }
+
 enum MatchStatus {
   draft,
   scheduled,

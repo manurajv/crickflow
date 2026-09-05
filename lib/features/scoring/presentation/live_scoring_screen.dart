@@ -9,6 +9,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/tournament/tournament_official_model.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../core/utils/match_share_utils.dart';
+import '../../../core/utils/quick_match_squad_utils.dart';
 import '../../../core/utils/tournament_match_permissions.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../data/models/ball_event_model.dart';
@@ -25,8 +26,10 @@ import '../../../shared/providers/lineup_providers.dart';
 import '../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_analytics_providers.dart';
+import '../../../data/models/lineup_player.dart';
 import '../../../shared/widgets/player_lineup_picker.dart';
 import '../../../data/models/dismissal_fielder.dart';
+import '../../matches/presentation/widgets/select_quick_match_player_sheet.dart';
 import 'package:uuid/uuid.dart';
 import '../../../domain/services/dismissal_sub_type.dart';
 import 'widgets/crease_picker_sheets.dart';
@@ -80,11 +83,20 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   bool _isRecording = false;
   bool _sequenceLoaded = false;
   bool _inningsBreakDialogOpen = false;
+  /// True while ending/starting next innings after slide confirm — blocks
+  /// the match listener from re-opening the break sheet mid-confirm.
+  bool _inningsBreakConfirmInFlight = false;
   bool _suppressInningsBreakCheck = false;
+  /// Innings numbers whose break was already confirmed this session.
+  /// Blocks stale `inningsBreak` snapshots from re-opening the slide sheet
+  /// (Quick Match race: overlay/stream can still show completed innings 1).
+  final Set<int> _dismissedInningsBreakNumbers = {};
   bool _bowlerPickerOpen = false;
   BowlingSide _bowlingSide = BowlingSide.over;
   /// After "Continue over", skip re-prompt until this over ends.
   bool _overContinuationActive = false;
+  /// Set when an over ends until the next bowler is picked (offline-safe).
+  bool _awaitingNextOverBowlerPick = false;
   String? _lastKnownScorerId;
   String? _scorerTransferBanner;
 
@@ -209,11 +221,12 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     final events =
         ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
-    if (ScoringDisplayUtils.needsNextOverBowler(
-      inn,
-      match.rules.ballsPerOver,
-      events,
-    )) {
+    if (_awaitingNextOverBowlerPick ||
+        ScoringDisplayUtils.needsNextOverBowler(
+          inn,
+          match.rules.ballsPerOver,
+          events,
+        )) {
       if (mounted) {
         final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
         final overNum = ScoringDisplayUtils.currentOverNumber(
@@ -485,6 +498,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           );
       setState(() => _ballSequence = result.event.sequence);
       setState(() => _overContinuationActive = false);
+      setState(() => _awaitingNextOverBowlerPick = true);
       final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull ?? match;
       final freshInn = fresh.currentInnings;
       if (freshInn != null && mounted) {
@@ -608,6 +622,31 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     });
   }
 
+  Future<MatchLineupSquads> _resolveLineupSquads(MatchModel match) async {
+    final cached =
+        ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
+    if (cached != null &&
+        (cached.bowling.isNotEmpty || cached.batting.isNotEmpty)) {
+      return cached;
+    }
+
+    final offline = matchLineupSquadsFromMatch(match);
+    if (offline.bowling.isNotEmpty || match.isQuickMatch) {
+      return offline;
+    }
+
+    try {
+      return await ref
+          .read(matchLineupSquadsProvider(widget.matchId).future)
+          .timeout(const Duration(seconds: 12));
+    } catch (_) {
+      if (offline.bowling.isNotEmpty || offline.batting.isNotEmpty) {
+        return offline;
+      }
+      rethrow;
+    }
+  }
+
   Future<void> _openBowlerPicker(
     MatchModel match, {
     required int overNumber,
@@ -618,20 +657,25 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     debugPrint('Loading bowlers');
     MatchLineupSquads squads;
     try {
-      squads = await ref.read(matchLineupSquadsProvider(widget.matchId).future);
+      squads = await _resolveLineupSquads(match);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to load bowlers. Please try again.'),
+          SnackBar(
+            content: Text(
+              match.isQuickMatch
+                  ? 'Unable to load bowlers. You can still add a walk-in player.'
+                  : 'Unable to load bowlers. Check connection or try again.',
+            ),
           ),
         );
       }
-      return;
+      if (!match.isQuickMatch) return;
+      squads = matchLineupSquadsFromMatch(match);
     }
 
     if (!mounted) return;
-    if (squads.bowling.isEmpty) {
+    if (squads.bowling.isEmpty && !match.isQuickMatch) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No eligible bowlers available.')),
       );
@@ -656,33 +700,91 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       if (id != null) excluded.add(id);
     }
 
-    final eligible = ChangeBowlerSheet.eligibleCount(
-      squad: squads.bowling,
-      match: match,
-      innings: inn,
-      mode: mode,
-      excludedBowlerIds: excluded,
-      wicketKeeperId: activeKeeper.id,
-    );
-    if (eligible == 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No eligible bowlers available.')),
+    final LineupPlayer? picked;
+    if (match.isQuickMatch) {
+      final bowlingTeamId = inn.bowlingTeamId;
+      final bowlingIsA = matchTeamIsTeamA(match, bowlingTeamId);
+      final walkIns = quickMatchWalkInsForTeam(
+        match: match,
+        teamId: bowlingTeamId,
+        teamPlayers: squads.bowling,
+      );
+      // Same eligibility as ChangeBowlerSheet (max overs, WK, last over, current).
+      final disabled = <String, String>{};
+      final seen = <String>{};
+      for (final p in [...squads.bowling, ...walkIns]) {
+        if (!seen.add(p.id)) continue;
+        final reason = ChangeBowlerSheet.ineligibility(
+          player: p,
+          match: match,
+          innings: inn,
+          mode: mode,
+          excludedBowlerIds: excluded,
+          wicketKeeperId: activeKeeper.id,
         );
+        if (reason != BowlerIneligibility.none) {
+          disabled[p.id] =
+              ChangeBowlerSheet.ineligibilityLabel(reason, match.rules);
+        }
       }
-      return;
+      picked = await SelectQuickMatchPlayerSheet.show(
+        context,
+        title: mode == BowlerPickMode.nextOver
+            ? 'Select bowler — over $overNumber'
+            : 'Change bowler',
+        teamPlayers: squads.bowling,
+        walkInPlayers: walkIns,
+        disabledIds: disabled,
+        playerSubtitles: buildBowlerPickerSubtitles(
+          inn,
+          match.rules.ballsPerOver,
+        ),
+        teamSectionLabel:
+            '${quickMatchTeamLabel(match, bowlingTeamId)} · bowlers',
+      );
+      if (picked != null) {
+        final pickReason = ChangeBowlerSheet.ineligibility(
+          player: picked,
+          match: match,
+          innings: inn,
+          mode: mode,
+          excludedBowlerIds: excluded,
+          wicketKeeperId: activeKeeper.id,
+        );
+        if (pickReason != BowlerIneligibility.none) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  ChangeBowlerSheet.ineligibilityLabel(
+                    pickReason,
+                    match.rules,
+                  ),
+                ),
+              ),
+            );
+          }
+          return;
+        }
+        await ref.read(matchRepositoryProvider).ensurePlayersOnMatchSquad(
+              matchId: widget.matchId,
+              isTeamA: bowlingIsA,
+              players: [snapshotFromLineupPlayer(picked)],
+            );
+        ref.invalidate(matchLineupSquadsProvider(widget.matchId));
+      }
+    } else {
+      picked = await ChangeBowlerSheet.show(
+        context,
+        match: match,
+        innings: inn,
+        bowlingSquad: squads.bowling,
+        overNumber: overNumber,
+        mode: mode,
+        excludedBowlerIds: excluded,
+        wicketKeeperId: activeKeeper.id,
+      );
     }
-
-    final picked = await ChangeBowlerSheet.show(
-      context,
-      match: match,
-      innings: inn,
-      bowlingSquad: squads.bowling,
-      overNumber: overNumber,
-      mode: mode,
-      excludedBowlerIds: excluded,
-      wicketKeeperId: activeKeeper.id,
-    );
     if (picked == null || !mounted) return;
 
     final latest =
@@ -734,6 +836,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       previousBowlerId: previousBowlerId,
       bowlerChangeReason: bowlerChangeReason,
     );
+    if (mounted) {
+      setState(() => _awaitingNextOverBowlerPick = false);
+    }
   }
 
   Future<void> _recordWicket() async {
@@ -797,6 +902,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         innings: inn,
         rules: match.rules,
         bowlingSquad: squads.bowling,
+        pickFielder: match.isQuickMatch
+            ? ({required title, required excludeIds}) =>
+                _pickBowlingSidePlayer(
+                  match: match,
+                  inn: inn,
+                  bowlingSquad: squads.bowling,
+                  title: title,
+                  excludeIds: excludeIds,
+                )
+            : null,
       );
       if (runOutResult == null || !mounted) return;
 
@@ -873,10 +988,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       ];
     } else if (wicketType == WicketType.caught) {
       dismissedPlayerId = inn.strikerId;
-      final fielder = await FielderPickerSheet.show(
-        context,
+      final fielder = await _pickBowlingSidePlayer(
+        match: match,
+        inn: inn,
+        bowlingSquad: squads.bowling,
         title: DismissalFormatter.fielderPickerTitle(wicketType),
-        players: squads.bowling,
       );
       if (fielder == null || !mounted) return;
       fielderId = fielder.id;
@@ -1190,43 +1306,80 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       includeReturningRetiredHurt: true,
     );
 
-    if (eligible.isEmpty) {
+    if (eligible.isEmpty && !match.isQuickMatch) {
       await _showInningsCompleteIfNeeded(match, inn);
       return null;
     }
 
-    final cardOptions = eligible
-        .map(
-          (p) {
-            final b = ScoringDisplayUtils.batsman(inn, p.id);
-            final runs = b?.runs ?? 0;
-            final balls = b?.balls ?? 0;
-            final returning = b != null &&
-                (b.retiredHurt || b.isEligibleToReturn) &&
-                !b.isOut;
-            return CreaseBatterOption(
-              playerId: p.id,
-              name: p.name,
-              runs: runs,
-              balls: balls,
-              roleLabel: returning
-                  ? 'Returning · $runs($balls)'
-                  : 'Available',
-            );
-          },
-        )
-        .toList();
+    late final String pickedPlayerId;
+    late final String pickedPlayerName;
 
-    CreaseBatterOption? picked;
-    while (picked == null && mounted) {
-      picked = await showNewBatterPicker(
+    if (match.isQuickMatch) {
+      final battingTeamId = inn.battingTeamId;
+      final battingIsA = matchTeamIsTeamA(match, battingTeamId);
+      final walkIns = quickMatchWalkInsForTeam(
+        match: match,
+        teamId: battingTeamId,
+        teamPlayers: squads.batting,
+      );
+      final quickPick = await SelectQuickMatchPlayerSheet.show(
         context,
         title: title,
-        subtitle: 'Select the incoming batter',
-        options: cardOptions,
+        teamPlayers: eligible.isNotEmpty ? eligible : squads.batting,
+        walkInPlayers: walkIns,
+        excludeIds: {
+          if (otherId != null) otherId,
+          if (excludeRecentlyRetiredHurtId != null)
+            excludeRecentlyRetiredHurtId,
+        },
+        teamSectionLabel:
+            '${quickMatchTeamLabel(match, battingTeamId)} · batters',
       );
+      if (quickPick == null || !mounted) return null;
+      pickedPlayerId = quickPick.id;
+      pickedPlayerName = quickPick.name;
+      await ref.read(matchRepositoryProvider).ensurePlayersOnMatchSquad(
+            matchId: widget.matchId,
+            isTeamA: battingIsA,
+            players: [snapshotFromLineupPlayer(quickPick)],
+          );
+      ref.invalidate(matchLineupSquadsProvider(widget.matchId));
+    } else {
+      final cardOptions = eligible
+          .map(
+            (p) {
+              final b = ScoringDisplayUtils.batsman(inn, p.id);
+              final runs = b?.runs ?? 0;
+              final balls = b?.balls ?? 0;
+              final returning = b != null &&
+                  (b.retiredHurt || b.isEligibleToReturn) &&
+                  !b.isOut;
+              return CreaseBatterOption(
+                playerId: p.id,
+                name: p.name,
+                runs: runs,
+                balls: balls,
+                roleLabel: returning
+                    ? 'Returning · $runs($balls)'
+                    : 'Available',
+              );
+            },
+          )
+          .toList();
+
+      CreaseBatterOption? picked;
+      while (picked == null && mounted) {
+        picked = await showNewBatterPicker(
+          context,
+          title: title,
+          subtitle: 'Select the incoming batter',
+          options: cardOptions,
+        );
+      }
+      if (picked == null || !mounted) return null;
+      pickedPlayerId = picked.playerId;
+      pickedPlayerName = picked.name;
     }
-    if (picked == null || !mounted) return null;
 
     final bowlerId = inn.currentBowlerId;
     if (bowlerId == null) return null;
@@ -1235,27 +1388,27 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       return await _recordLineupChange(
             match: match,
             strikerId: forStriker
-                ? picked.playerId
-                : (inn.strikerId ?? picked.playerId),
+                ? pickedPlayerId
+                : (inn.strikerId ?? pickedPlayerId),
             strikerName: forStriker
-                ? picked.name
+                ? pickedPlayerName
                 : ScoringDisplayUtils.batsman(inn, inn.strikerId)
                         ?.playerName ??
-                    picked.name,
+                    pickedPlayerName,
             nonStrikerId: forStriker
-                ? (inn.nonStrikerId ?? picked.playerId)
-                : picked.playerId,
+                ? (inn.nonStrikerId ?? pickedPlayerId)
+                : pickedPlayerId,
             nonStrikerName: forStriker
                 ? ScoringDisplayUtils.batsman(inn, inn.nonStrikerId)
                         ?.playerName ??
-                    picked.name
-                : picked.name,
+                    pickedPlayerName
+                : pickedPlayerName,
             bowlerId: bowlerId,
             bowlerName: ScoringDisplayUtils.bowler(inn, bowlerId)?.playerName ??
                 '',
             undoGroupId: undoGroupId,
             matchOverride: match,
-            commentary: CommentaryService.forIncomingBatter(picked.name),
+            commentary: CommentaryService.forIncomingBatter(pickedPlayerName),
           );
     } catch (e) {
       if (mounted) {
@@ -1279,51 +1432,66 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     InningsModel innings, {
     required bool allowUndo,
   }) async {
-    if (_inningsBreakDialogOpen || !mounted) return;
+    if (_inningsBreakDialogOpen ||
+        _inningsBreakConfirmInFlight ||
+        !mounted) {
+      return;
+    }
     setState(() => _inningsBreakDialogOpen = true);
 
-    await InningsBreakDialog.show(
-      context,
-      match: match,
-      innings: innings,
-      allowUndo: allowUndo,
-      onUndo: () async {
-        Navigator.pop(context);
-        setState(() => _inningsBreakDialogOpen = false);
-        await _performUndo(showConfirm: false);
-        if (!mounted) return;
-        final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
-        final freshInn = fresh?.currentInnings;
-        if (fresh != null &&
-            freshInn != null &&
-            fresh.status == MatchStatus.live &&
-            ScoringDisplayUtils.isInningsComplete(fresh, freshInn)) {
-          await _showInningsBreakDialog(fresh, freshInn, allowUndo: true);
-        }
-      },
-      onConfirm: () async {
-        Navigator.pop(context);
-        setState(() => _inningsBreakDialogOpen = false);
-        await _confirmInningsBreak(match, innings);
-      },
-    );
-
-    if (mounted) setState(() => _inningsBreakDialogOpen = false);
+    try {
+      await InningsBreakDialog.show(
+        context,
+        match: match,
+        innings: innings,
+        allowUndo: allowUndo,
+        onUndo: () async {
+          Navigator.pop(context);
+          await _performUndo(showConfirm: false);
+          if (!mounted) return;
+          final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
+          final freshInn = fresh?.currentInnings;
+          if (fresh != null &&
+              freshInn != null &&
+              fresh.status == MatchStatus.live &&
+              ScoringDisplayUtils.isInningsComplete(fresh, freshInn)) {
+            await _showInningsBreakDialog(fresh, freshInn, allowUndo: true);
+          }
+        },
+        onConfirm: () async {
+          // Confirm before pop so the sheet future stays open and the
+          // listener cannot reopen another slide while we end/start innings.
+          _inningsBreakConfirmInFlight = true;
+          await _confirmInningsBreak(match, innings);
+          if (mounted) Navigator.pop(context);
+        },
+      );
+    } finally {
+      _inningsBreakConfirmInFlight = false;
+      if (mounted) setState(() => _inningsBreakDialogOpen = false);
+    }
   }
 
   Future<void> _confirmInningsBreak(
     MatchModel match,
     InningsModel innings,
   ) async {
-    setState(() => _isRecording = true);
+    setState(() {
+      _isRecording = true;
+      _suppressInningsBreakCheck = true;
+    });
+    // Mark before async work so stale stream snapshots cannot reopen the sheet.
+    _dismissedInningsBreakNumbers.add(innings.inningsNumber);
     try {
       final repo = ref.read(matchRepositoryProvider);
 
-      if (innings.status == InningsStatus.inProgress) {
+      if (innings.status == InningsStatus.inProgress ||
+          (match.status == MatchStatus.live &&
+              match.currentInnings?.status == InningsStatus.inProgress)) {
         await repo.endCurrentInnings(widget.matchId);
       }
 
-      final fresh = await repo.getMatch(widget.matchId) ?? match;
+      var fresh = await repo.getMatch(widget.matchId) ?? match;
       final ended = fresh.innings.length > innings.inningsNumber - 1
           ? fresh.innings[innings.inningsNumber - 1]
           : innings;
@@ -1331,31 +1499,63 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       if (MatchCompletionPolicy.shouldOfferSuperOver(fresh) ||
           MatchCompletionPolicy.isTiedChaseComplete(fresh, ended)) {
         await repo.startSuperOver(widget.matchId);
-        if (mounted) context.go('/match/${widget.matchId}/start-innings');
+        if (!mounted) return;
+        if (fresh.isQuickMatch) {
+          ref.invalidate(matchProvider(widget.matchId));
+          ref.invalidate(matchLineupSquadsProvider(widget.matchId));
+        } else {
+          context.go('/match/${widget.matchId}/start-innings');
+        }
         return;
       }
 
-      final superOvers = fresh.innings.where((i) => i.isSuperOver).length;
-      final regularCount =
-          fresh.innings.where((i) => !i.isSuperOver).length;
-      final hasNext = ended.isSuperOver
-          ? superOvers < 2
-          : regularCount < fresh.rules.maxInnings;
+      final wantsNext =
+          MatchCompletionPolicy.shouldContinueAfterInnings(fresh, ended);
+      final nextAlreadyStarted = !ended.isSuperOver &&
+          fresh.innings.any(
+            (i) => !i.isSuperOver && i.inningsNumber > ended.inningsNumber,
+          );
 
-      if (!hasNext) {
+      if (!wantsNext && !nextAlreadyStarted) {
         if (await _tryAutoCompleteMatch(fresh)) return;
         await _showMatchResultDialog(fresh, ended);
         return;
       }
 
+      // Start chase when first innings is done (retry once if patch lagging).
+      if (!repo.canStartNextInnings(fresh)) {
+        fresh = await repo.getMatch(widget.matchId) ?? fresh;
+      }
       if (repo.canStartNextInnings(fresh)) {
         await repo.startNextInnings(widget.matchId);
+        fresh = await repo.getMatch(widget.matchId) ?? fresh;
+      } else if (wantsNext &&
+          !nextAlreadyStarted &&
+          fresh.isQuickMatch &&
+          ended.inningsNumber == 1) {
+        throw StateError(
+          'Could not start 2nd innings — try Slide again',
+        );
       }
-      if (mounted) {
+      if (!mounted) return;
+      if (fresh.isQuickMatch) {
+        // Stay on live scoring — openers are picked via the lineup banner.
+        ref.invalidate(matchProvider(widget.matchId));
+        ref.invalidate(matchLineupSquadsProvider(widget.matchId));
+        final latest = await repo.getMatch(widget.matchId) ?? fresh;
+        if (mounted &&
+            MatchLifecycle.currentInningsNeedsOpeningLineup(latest)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openLineupSheet(latest);
+          });
+        }
+      } else {
         context.go('/match/${widget.matchId}/start-innings');
       }
     } catch (e) {
+      _dismissedInningsBreakNumbers.remove(innings.inningsNumber);
       if (mounted) {
+        setState(() => _suppressInningsBreakCheck = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not continue: $e')),
         );
@@ -1366,11 +1566,28 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   }
 
   void _handleInningsBreakState(MatchModel match) {
-    if (_inningsBreakDialogOpen || _suppressInningsBreakCheck || !mounted) {
+    if (_inningsBreakDialogOpen ||
+        _inningsBreakConfirmInFlight ||
+        !mounted) {
       return;
     }
+    // Keep suppress until we leave inningsBreak so stale snapshots cannot reopen.
+    if (_suppressInningsBreakCheck) {
+      if (match.status == MatchStatus.inningsBreak) return;
+      _suppressInningsBreakCheck = false;
+    }
+
     final inn = match.currentInnings;
     if (inn == null) return;
+
+    // Chase already started (or opening lineup needed) — never re-prompt break.
+    final nextAlreadyStarted = !inn.isSuperOver &&
+        match.innings.any(
+          (i) => !i.isSuperOver && i.inningsNumber > inn.inningsNumber,
+        );
+    if (nextAlreadyStarted) return;
+    if (MatchLifecycle.currentInningsNeedsOpeningLineup(match)) return;
+    if (_dismissedInningsBreakNumbers.contains(inn.inningsNumber)) return;
 
     if (match.status == MatchStatus.inningsBreak &&
         inn.status == InningsStatus.completed) {
@@ -1440,7 +1657,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           _suppressInningsBreakCheck = false;
         });
         final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
+        final freshEvents =
+            ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
         final freshInn = fresh?.currentInnings;
+        if (fresh != null && freshInn != null) {
+          final stillNeeds = ScoringDisplayUtils.needsNextOverBowler(
+            freshInn,
+            fresh.rules.ballsPerOver,
+            freshEvents,
+          );
+          setState(() => _awaitingNextOverBowlerPick = stillNeeds);
+        } else {
+          setState(() => _awaitingNextOverBowlerPick = false);
+        }
         if (fresh != null &&
             freshInn != null &&
             fresh.status == MatchStatus.live &&
@@ -1556,7 +1785,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     final match = ref.read(matchProvider(widget.matchId)).valueOrNull;
     if (match == null || !_guardActiveScorer(match)) return;
 
-    if (match.rules.maxInnings <= 1) {
+    if (match.effectiveMaxInnings <= 1) {
       final go = await ScoringUiKit.confirmAction(
         context,
         title: 'End match?',
@@ -1653,6 +1882,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
   void _openLineupSheet(MatchModel match) {
     if (!_guardActiveScorer(match)) return;
+    final inn = match.currentInnings;
+    if (inn != null && ScoringDisplayUtils.needsVacantCreaseFill(inn)) {
+      _fillVacantCrease(match, inn);
+      return;
+    }
     final squadsAsync = ref.read(matchLineupSquadsProvider(widget.matchId));
     squadsAsync.whenData((squads) {
       final inn = match.currentInnings;
@@ -1662,8 +1896,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           MatchLifecycle.currentInningsNeedsOpeningLineup(match) ||
               (inn != null &&
                   inn.legalBalls == 0 &&
+                  inn.totalWickets == 0 &&
                   (inn.strikerId == null || inn.nonStrikerId == null));
-      final batting = inn == null || openingLineup
+      final batting = inn == null || openingLineup || match.isQuickMatch
           ? squads.batting
           : ScoringDisplayUtils.eligibleBatters(
               inn,
@@ -1679,10 +1914,35 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
               events: events,
             ).id
           : null;
+      final battingTeamId = inn?.battingTeamId;
+      final bowlingTeamId = inn?.bowlingTeamId;
+      final battingWalkIns = quickMatchWalkInsForTeam(
+        match: match,
+        teamId: battingTeamId,
+        teamPlayers: batting,
+      );
+      final bowlingWalkIns = quickMatchWalkInsForTeam(
+        match: match,
+        teamId: bowlingTeamId,
+        teamPlayers: squads.bowling,
+      );
+      final bowlerSubtitles = inn != null
+          ? buildBowlerPickerSubtitles(inn, match.rules.ballsPerOver)
+          : const <String, String>{};
+      final battingTeamLabel = quickMatchTeamLabel(match, battingTeamId);
+      final bowlingTeamLabel = quickMatchTeamLabel(match, bowlingTeamId);
+
       PlayerLineupPicker.show(
         context,
         battingSquad: batting,
         bowlingSquad: squads.bowling,
+        battingWalkIns: battingWalkIns,
+        bowlingWalkIns: bowlingWalkIns,
+        bowlerSubtitles: bowlerSubtitles,
+        battingTeamSectionLabel: '$battingTeamLabel · batters',
+        bowlingTeamSectionLabel: '$bowlingTeamLabel · bowlers',
+        quickMatchMode: match.isQuickMatch,
+        openingLineup: openingLineup,
         initialStrikerId: openingLineup ? null : inn?.strikerId,
         initialNonStrikerId: openingLineup ? null : inn?.nonStrikerId,
         initialBowlerId: openingLineup ? null : inn?.currentBowlerId,
@@ -1709,33 +1969,157 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
             }
             return;
           }
-          final events =
-              ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
-          if (events.isNotEmpty) {
-            await _recordLineupChange(
-              match: match,
-              strikerId: strikerId,
-              strikerName: strikerName,
-              nonStrikerId: nonStrikerId,
-              nonStrikerName: nonStrikerName,
-              bowlerId: bowlerId,
-              bowlerName: bowlerName,
-            );
-          } else {
-            await ref.read(matchRepositoryProvider).updateLineup(
-                  matchId: widget.matchId,
-                  strikerId: strikerId,
-                  strikerName: strikerName,
-                  nonStrikerId: nonStrikerId,
-                  nonStrikerName: nonStrikerName,
-                  bowlerId: bowlerId,
-                  bowlerName: bowlerName,
-                );
-          }
+          await _applyOpeningOrEditedLineup(
+            match: match,
+            strikerId: strikerId,
+            strikerName: strikerName,
+            nonStrikerId: nonStrikerId,
+            nonStrikerName: nonStrikerName,
+            bowlerId: bowlerId,
+            bowlerName: bowlerName,
+          );
           if (mounted) Navigator.pop(context);
         },
       );
     });
+  }
+
+  Future<void> _applyOpeningOrEditedLineup({
+    required MatchModel match,
+    required String strikerId,
+    required String strikerName,
+    required String nonStrikerId,
+    required String nonStrikerName,
+    required String bowlerId,
+    required String bowlerName,
+  }) async {
+    final repo = ref.read(matchRepositoryProvider);
+    final inn = match.currentInnings;
+    if (match.isQuickMatch && inn != null) {
+      final battingIsA = matchTeamIsTeamA(match, inn.battingTeamId);
+      await repo.ensurePlayersOnMatchSquad(
+        matchId: widget.matchId,
+        isTeamA: battingIsA,
+        players: [
+          snapshotFromLineupPlayer(
+            LineupPlayer(id: strikerId, name: strikerName),
+          ),
+          snapshotFromLineupPlayer(
+            LineupPlayer(id: nonStrikerId, name: nonStrikerName),
+          ),
+        ],
+      );
+      await repo.ensurePlayersOnMatchSquad(
+        matchId: widget.matchId,
+        isTeamA: !battingIsA,
+        players: [
+          snapshotFromLineupPlayer(
+            LineupPlayer(id: bowlerId, name: bowlerName),
+          ),
+        ],
+      );
+    }
+
+    final events =
+        ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
+    if (events.isNotEmpty) {
+      await _recordLineupChange(
+        match: match,
+        strikerId: strikerId,
+        strikerName: strikerName,
+        nonStrikerId: nonStrikerId,
+        nonStrikerName: nonStrikerName,
+        bowlerId: bowlerId,
+        bowlerName: bowlerName,
+      );
+    } else {
+      await repo.updateLineup(
+        matchId: widget.matchId,
+        strikerId: strikerId,
+        strikerName: strikerName,
+        nonStrikerId: nonStrikerId,
+        nonStrikerName: nonStrikerName,
+        bowlerId: bowlerId,
+        bowlerName: bowlerName,
+      );
+    }
+
+    // Promote Quick Match (or any post-toss) to live after opening lineup.
+    final fresh = await repo.getMatch(widget.matchId);
+    final freshInn = fresh?.currentInnings;
+    if (fresh != null &&
+        freshInn != null &&
+        fresh.status == MatchStatus.tossCompleted) {
+      final uid = ref.read(authStateProvider).value?.uid;
+      final profile = ref.read(currentUserProfileProvider).valueOrNull;
+      await repo.startMatch(
+        widget.matchId,
+        InningsModel(
+          inningsNumber: freshInn.inningsNumber,
+          battingTeamId: freshInn.battingTeamId,
+          bowlingTeamId: freshInn.bowlingTeamId,
+          status: InningsStatus.inProgress,
+          strikerId: freshInn.strikerId,
+          nonStrikerId: freshInn.nonStrikerId,
+          currentBowlerId: freshInn.currentBowlerId,
+          batsmen: freshInn.batsmen,
+          bowlers: freshInn.bowlers,
+          targetRuns: freshInn.targetRuns,
+          isSuperOver: freshInn.isSuperOver,
+        ),
+        scorerId: uid,
+        scorerName: profile?.displayName,
+        scorerPhoto: profile?.photoUrl,
+      );
+    }
+
+    ref.invalidate(matchLineupSquadsProvider(widget.matchId));
+  }
+
+  /// Fielder / keeper from bowling side. Quick Match: team + walk-in + add.
+  Future<LineupPlayer?> _pickBowlingSidePlayer({
+    required MatchModel match,
+    required InningsModel inn,
+    required List<LineupPlayer> bowlingSquad,
+    required String title,
+    Set<String> excludeIds = const {},
+    String? currentWicketKeeperId,
+  }) async {
+    if (match.isQuickMatch) {
+      final bowlingTeamId = inn.bowlingTeamId;
+      final bowlingIsA = matchTeamIsTeamA(match, bowlingTeamId);
+      final walkIns = quickMatchWalkInsForTeam(
+        match: match,
+        teamId: bowlingTeamId,
+        teamPlayers: bowlingSquad,
+      );
+      final picked = await SelectQuickMatchPlayerSheet.show(
+        context,
+        title: title,
+        teamPlayers: bowlingSquad,
+        walkInPlayers: walkIns,
+        excludeIds: excludeIds,
+        teamSectionLabel:
+            '${quickMatchTeamLabel(match, bowlingTeamId)} · fielders',
+      );
+      if (picked != null) {
+        await ref.read(matchRepositoryProvider).ensurePlayersOnMatchSquad(
+              matchId: widget.matchId,
+              isTeamA: bowlingIsA,
+              players: [snapshotFromLineupPlayer(picked)],
+            );
+        ref.invalidate(matchLineupSquadsProvider(widget.matchId));
+      }
+      return picked;
+    }
+
+    return FielderPickerSheet.show(
+      context,
+      title: title,
+      players: bowlingSquad,
+      excludeIds: excludeIds,
+      currentWicketKeeperId: currentWicketKeeperId,
+    );
   }
 
   Future<void> _changeWicketKeeper(MatchModel match) async {
@@ -1745,7 +2129,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
 
     final squads =
         ref.read(matchLineupSquadsProvider(widget.matchId)).valueOrNull;
-    if (squads == null || squads.bowling.isEmpty) return;
+    if (squads == null) return;
+    if (!match.isQuickMatch && squads.bowling.isEmpty) return;
 
     final events =
         ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
@@ -1755,10 +2140,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       events: events,
     );
 
-    final picked = await FielderPickerSheet.show(
-      context,
+    final picked = await _pickBowlingSidePlayer(
+      match: match,
+      inn: inn,
+      bowlingSquad: squads.bowling,
       title: 'Select wicketkeeper',
-      players: squads.bowling,
       currentWicketKeeperId: activeKeeper.id,
     );
     if (picked == null || !mounted) return;
@@ -2124,22 +2510,29 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           final onBreak = match.isMatchBreakActive;
           final canRecord = canScore && !onBreak;
 
-          final needsLineup =
-              canRecord &&
-              (displayInn.strikerId == null ||
-                  displayInn.currentBowlerId == null);
+          final needsVacantCrease = canRecord &&
+              ScoringDisplayUtils.needsVacantCreaseFill(displayInn);
+          final needsOpeningLineup = canRecord &&
+              ScoringDisplayUtils.needsOpeningLineupPicker(match, displayInn);
+          final needsLineup = needsVacantCrease || needsOpeningLineup;
+          final vacantCreaseLabel = displayInn.strikerId == null ||
+                  displayInn.strikerId!.isEmpty
+              ? 'Select striker'
+              : 'Select non-striker';
 
           final overEvents = ScoringDisplayUtils.currentOverEvents(
             events: events,
             inn: displayInn,
             ballsPerOver: match.rules.ballsPerOver,
           );
-          final needsNextOverBowler = canRecord &&
+          final needsNextOverBowlerFromEvents = canRecord &&
               ScoringDisplayUtils.needsNextOverBowler(
                 displayInn,
                 match.rules.ballsPerOver,
                 events,
               );
+          final needsNextOverBowler = canRecord &&
+              (_awaitingNextOverBowlerPick || needsNextOverBowlerFromEvents);
           final nextOverNumber = ScoringDisplayUtils.currentOverNumber(
             displayInn,
             match.rules.ballsPerOver,
@@ -2189,14 +2582,22 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                 MaterialBanner(
                   backgroundColor: cf.surfaceElevated,
                   content: Text(
-                    'Tap to set striker, non-striker & bowler',
+                    needsVacantCrease
+                        ? vacantCreaseLabel
+                        : 'Tap to set striker, non-striker & bowler',
                     style: TextStyle(color: cf.textPrimary),
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => _openLineupSheet(match),
+                      onPressed: () {
+                        if (needsVacantCrease) {
+                          _fillVacantCrease(match, displayInn);
+                        } else {
+                          _openLineupSheet(match);
+                        }
+                      },
                       child: Text(
-                        'Set lineup',
+                        needsVacantCrease ? 'Select batter' : 'Set lineup',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: cf.accent,

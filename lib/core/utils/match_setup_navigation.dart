@@ -89,8 +89,8 @@ Future<void> persistMatchSetupDraft(WidgetRef ref) async {
         scheduledAt: draft.scheduledAt,
         teamAName: draft.resolvedTeamAName,
         teamBName: draft.resolvedTeamBName,
-        teamAId: draft.teamA?.id,
-        teamBId: draft.teamB?.id,
+        teamAId: draft.resolvedTeamAId,
+        teamBId: draft.resolvedTeamBId,
         setup: draft.setup,
       );
 }
@@ -130,8 +130,9 @@ InningsModel _firstInningsAfterToss(StartMatchDraft draft, MatchSetupData setup)
   final tossSetupMatch = MatchModel(
     id: draft.matchId,
     title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-    teamAId: draft.teamA?.id,
-    teamBId: draft.teamB?.id,
+    matchMode: draft.matchMode,
+    teamAId: draft.resolvedTeamAId,
+    teamBId: draft.resolvedTeamBId,
     teamAName: draft.resolvedTeamAName,
     teamBName: draft.resolvedTeamBName,
     setup: setup,
@@ -164,8 +165,9 @@ MatchModel buildMatchAfterToss({
         id: draft.matchId,
         title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
         matchType: MatchType.single,
-        teamAId: draft.teamA?.id,
-        teamBId: draft.teamB?.id,
+        matchMode: draft.matchMode,
+        teamAId: draft.resolvedTeamAId,
+        teamBId: draft.resolvedTeamBId,
         teamAName: draft.resolvedTeamAName,
         teamBName: draft.resolvedTeamBName,
         rules: draft.rules,
@@ -179,12 +181,17 @@ MatchModel buildMatchAfterToss({
   final innings = inningsAfterToss(existing, firstInnings);
   return baseMatch.copyWith(
     title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
+    matchMode: draft.matchMode,
     status: statusAfterToss(existing),
-    teamAId: draft.teamA?.id,
-    teamBId: draft.teamB?.id,
+    teamAId: draft.resolvedTeamAId,
+    teamBId: draft.resolvedTeamBId,
     teamAName: draft.resolvedTeamAName,
     teamBName: draft.resolvedTeamBName,
-    rules: draft.rules,
+    rules: draft.isQuickMatch
+        ? draft.rules.copyWith(
+            maxInnings: draft.rules.maxInnings < 2 ? 2 : draft.rules.maxInnings,
+          )
+        : draft.rules,
     location: draft.location.copyWith(city: city),
     venue: ground,
     setup: setup,

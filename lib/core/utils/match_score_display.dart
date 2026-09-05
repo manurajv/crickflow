@@ -1,3 +1,4 @@
+import '../../domain/scoring/innings_overs_display.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../constants/enums.dart';
 import '../../data/models/innings_model.dart';
@@ -133,15 +134,8 @@ class MatchScoreDisplay {
     return FirstInningsSummary(
       runs: first.totalRuns,
       wickets: first.totalWickets,
-      overs: OversFormatter.formatOvers(
-        first.legalBalls,
-        match.rules.ballsPerOver,
-      ),
-      runRate: OversFormatter.calculateRunRate(
-        first.totalRuns,
-        first.legalBalls,
-        match.rules.ballsPerOver,
-      ),
+      overs: InningsOversDisplay.format(first, match.rules.ballsPerOver),
+      runRate: InningsOversDisplay.runRate(first, match.rules.ballsPerOver),
       target: first.totalRuns + 1,
       battingTeamName: battingTeamName(match, first),
     );
@@ -155,11 +149,7 @@ class MatchScoreDisplay {
     final ballsPerOver = match != null
         ? InningsCompletionPolicy.effectiveRules(match, inn).ballsPerOver
         : rules.ballsPerOver;
-    return OversFormatter.calculateRunRate(
-      inn.totalRuns,
-      inn.legalBalls,
-      ballsPerOver,
-    );
+    return InningsOversDisplay.runRate(inn, ballsPerOver);
   }
 
   /// Chase line for 2nd innings in progress, e.g. "Need 42 off 54 balls · RRR 4.67".

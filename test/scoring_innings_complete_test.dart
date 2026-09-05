@@ -1,21 +1,28 @@
 import 'package:crickflow/core/constants/enums.dart';
 import 'package:crickflow/data/models/innings_model.dart';
 import 'package:crickflow/data/models/match_model.dart';
+import 'package:crickflow/data/models/match_player_snapshot.dart';
+import 'package:crickflow/data/models/match_rules_model.dart';
 import 'package:crickflow/data/models/match_setup_draft_models.dart';
 import 'package:crickflow/features/scoring/presentation/utils/scoring_display_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   MatchModel matchWithSquad(int squadSize, {int wickets = 0, int legalBalls = 0}) {
-    final ids = List.generate(squadSize, (i) => 'p$i');
+    final playing = List.generate(
+      squadSize,
+      (i) => MatchPlayerSnapshot(id: 'p$i', name: 'Player $i'),
+    );
     return MatchModel(
       id: 'm1',
       title: 'Test',
       teamAId: 'a',
       teamBId: 'b',
       setup: MatchSetupData(
-        teamASquadIds: ids,
-        teamBSquadIds: const ['b1'],
+        teamAPlayingPlayers: playing,
+        teamBPlayingPlayers: const [
+          MatchPlayerSnapshot(id: 'b1', name: 'Bowler'),
+        ],
       ),
       innings: [
         InningsModel(
@@ -46,7 +53,10 @@ void main() {
   });
 
   test('all out when no batters available to fill vacant crease', () {
-    final ids = List.generate(11, (i) => 'p$i');
+    final playing = List.generate(
+      11,
+      (i) => MatchPlayerSnapshot(id: 'p$i', name: 'Player $i'),
+    );
     final outBatters = List.generate(
       10,
       (i) => BatsmanInningsModel(playerId: 'p$i', isOut: true),
@@ -57,8 +67,10 @@ void main() {
       teamAId: 'a',
       teamBId: 'b',
       setup: MatchSetupData(
-        teamASquadIds: ids,
-        teamBSquadIds: const ['b1'],
+        teamAPlayingPlayers: playing,
+        teamBPlayingPlayers: const [
+          MatchPlayerSnapshot(id: 'b1', name: 'Bowler'),
+        ],
       ),
       innings: [
         InningsModel(
@@ -80,6 +92,63 @@ void main() {
     expect(ScoringDisplayUtils.noBattersAvailable(match, inn), isTrue);
     expect(ScoringDisplayUtils.isAllOut(match, inn), isTrue);
     expect(ScoringDisplayUtils.isInningsComplete(match, inn), isTrue);
+  });
+
+  test('quick match uses playersPerTeam not tiny dynamic squad', () {
+    final match = MatchModel(
+      id: 'm1',
+      title: 'Test',
+      matchMode: MatchMode.quick,
+      teamAId: 'a',
+      teamBId: 'b',
+      rules: const MatchRulesModel(playersPerTeam: 11, maxWickets: 10),
+      setup: MatchSetupData(
+        teamAPlayingPlayers: [
+          for (var i = 0; i < 2; i++)
+            MatchPlayerSnapshot(
+              id: 'p$i',
+              name: 'Player $i',
+            ),
+        ],
+      ),
+      innings: [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.inProgress,
+          totalWickets: 1,
+          strikerId: null,
+          nonStrikerId: 'p1',
+        ),
+      ],
+    );
+    final inn = match.currentInnings!;
+    expect(ScoringDisplayUtils.maxDismissals(match, inn), 10);
+    expect(ScoringDisplayUtils.isAllOut(match, inn), isFalse);
+    expect(ScoringDisplayUtils.noBattersAvailable(match, inn), isFalse);
+  });
+
+  test('quick match all out at playersPerTeam minus one wickets', () {
+    final match = MatchModel(
+      id: 'm1',
+      title: 'Test',
+      matchMode: MatchMode.quick,
+      teamAId: 'a',
+      teamBId: 'b',
+      rules: const MatchRulesModel(playersPerTeam: 11, maxWickets: 10),
+      innings: const [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'a',
+          bowlingTeamId: 'b',
+          status: InningsStatus.inProgress,
+          totalWickets: 10,
+        ),
+      ],
+    );
+    final inn = match.currentInnings!;
+    expect(ScoringDisplayUtils.isAllOut(match, inn), isTrue);
   });
 
   test('cannot undo after innings marked complete', () {

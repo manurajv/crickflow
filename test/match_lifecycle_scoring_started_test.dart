@@ -67,6 +67,61 @@ void main() {
     expect(MatchLifecycle.isEffectivelyLive(m), isTrue);
   });
 
+  test('quick match tossCompleted opens scoring without start-innings', () {
+    final m = MatchModel(
+      id: 'm1',
+      title: 'A vs B',
+      matchMode: MatchMode.quick,
+      status: MatchStatus.tossCompleted,
+      teamAName: 'A',
+      teamBName: 'B',
+      rules: const MatchRulesModel(),
+      innings: [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'team_a',
+          bowlingTeamId: 'team_b',
+        ),
+      ],
+    );
+
+    expect(MatchLifecycle.needsStartInnings(m), isFalse);
+    expect(MatchLifecycle.canOpenScoringScreen(m), isTrue);
+    expect(MatchLifecycle.canScore(m), isTrue);
+  });
+
+  test('quick match 2nd innings without crease stays on scoring path', () {
+    final m = MatchModel(
+      id: 'm1',
+      title: 'A vs B',
+      matchMode: MatchMode.quick,
+      status: MatchStatus.live,
+      teamAName: 'A',
+      teamBName: 'B',
+      rules: const MatchRulesModel(),
+      currentInningsIndex: 1,
+      innings: [
+        InningsModel(
+          inningsNumber: 1,
+          battingTeamId: 'team_a',
+          bowlingTeamId: 'team_b',
+          status: InningsStatus.completed,
+          legalBalls: 120,
+          totalRuns: 150,
+        ),
+        InningsModel(
+          inningsNumber: 2,
+          battingTeamId: 'team_b',
+          bowlingTeamId: 'team_a',
+        ),
+      ],
+    );
+
+    expect(MatchLifecycle.needsStartInnings(m), isFalse);
+    expect(MatchLifecycle.currentInningsNeedsOpeningLineup(m), isTrue);
+    expect(MatchLifecycle.canOpenScoringScreen(m), isTrue);
+  });
+
   test('2nd innings without crease needs start innings', () {
     final m = match(
       status: MatchStatus.live,

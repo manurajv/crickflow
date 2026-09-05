@@ -3,7 +3,7 @@
 
 
 
-**Last updated:** Web player onboarding parity (crickflow-web)
+**Last updated:** Quick Match (mobile)
 
 **Firebase project:** `crickflow-b06bc`
 
@@ -13,7 +13,35 @@
 
 ---
 
-## Latest (Web player onboarding)
+## Latest (Quick Match)
+
+| Item | Status |
+|------|--------|
+| Start a Match → Normal / Quick choice (`/match/start`) | Done |
+| Normal Match keeps full wizard (squads, roles, start-innings) | Done |
+| Quick Match: teams (registered or typed) → settings → toss → live scoring | Done |
+| Typed teams use synthetic `team_a` / `team_b` ids — not saved to `teams` | Done |
+| `matchMode: normal \| quick` on match docs (defaults to normal) | Done |
+| Quick Match skips Playing XI + start-innings screens | Done |
+| Live scoring picks striker / non-striker / bowler (team / registered / walk-in) | Done |
+| Quick Match player pickers scoped to batting/bowling team (typed + registered) | Done |
+| Quick Match fielder / keeper pickers (catch, run-out, WK) allow add + team players | Done |
+| Bowler picker shows overs · runs · wkts in Quick Match | Done |
+| Quick Match bowler picker enforces max overs / WK / consecutive-over rules | Done |
+| Quick Match always continues to 2nd innings (no match-end after 1st) | Done |
+| Quick Match innings-break: dismiss tracking + stale-snapshot guards (no double slide / false "complete match") | Done |
+| Lineup sheet scrolls when keyboard open (no RenderFlex overflow) | Done |
+| Setup section cards use Material so SwitchListTile ink does not assert | Done |
+| Quick Match last over uses full balls/over (not shortened by long prior over) | Done |
+| Overs display uses legalBalls ÷ ballsPerOver everywhere (scorecard, cards, etc.) | Done |
+| Second innings for Quick Match stays on live scoring | Done |
+| Scoring engine / Normal Match second-innings setup unchanged | Done |
+
+**Entry points updated:** drawer, My Cricket FAB, My Cricket empty action, tournament Start Match.
+
+---
+
+## Previous (Web player onboarding)
 
 | Item | Status |
 |------|--------|
