@@ -30,6 +30,9 @@
 | Quick Match bowler picker enforces max overs / WK / consecutive-over rules | Done |
 | Quick Match always continues to 2nd innings (no match-end after 1st) | Done |
 | Quick Match innings-break: dismiss tracking + stale-snapshot guards (no double slide / false "complete match") | Done |
+| Quick Match: dismissed batters cannot bat again (same as Normal) | Done |
+| Quick Match: next batter after any out (incl. run-out) uses team / registered / walk-in sheet | Done |
+| Quick Match: players added as batter/bowler/fielder stay on that team's selectable list | Done |
 | Lineup sheet scrolls when keyboard open (no RenderFlex overflow) | Done |
 | Setup section cards use Material so SwitchListTile ink does not assert | Done |
 | Quick Match last over uses full balls/over (not shortened by long prior over) | Done |

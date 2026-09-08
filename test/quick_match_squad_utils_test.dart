@@ -92,6 +92,34 @@ void main() {
       expect(teamB.map((p) => p.id), isNot(contains('a2')));
     });
 
+    test('includes fielders and keeper from bowling side', () {
+      const inn = InningsModel(
+        inningsNumber: 1,
+        battingTeamId: 'team_a',
+        bowlingTeamId: 'team_b',
+        currentWicketKeeperId: 'b_keeper',
+        currentWicketKeeperName: 'Keeper',
+        fielders: [
+          FielderInningsModel(playerId: 'b_f1', playerName: 'Fielder One'),
+        ],
+        bowlers: [
+          BowlerInningsModel(playerId: 'b1', playerName: 'Beta One'),
+        ],
+      );
+      final match = _quickMatch(innings: [inn]);
+
+      final teamB = buildQuickMatchTeamSquad(
+        match: match,
+        teamId: 'team_b',
+        loadedRoster: const [],
+      );
+
+      expect(
+        teamB.map((p) => p.id),
+        containsAll(['b1', 'b_f1', 'b_keeper']),
+      );
+    });
+
     test('merges registered roster with match-only setup and innings usage', () {
       final setup = MatchSetupData(
         teamAPlayingPlayers: [

@@ -87,6 +87,12 @@ class ScoringDisplayUtils {
     return false;
   }
 
+  /// Player ids already dismissed this innings (cannot bat again).
+  static Set<String> dismissedBatterIds(InningsModel inn) => {
+        for (final b in inn.batsmen)
+          if (b.isOut && b.playerId.isNotEmpty) b.playerId,
+      };
+
   /// Retired hurt (not dismissed) — may return later in the innings.
   static bool isPlayerRetiredHurt(InningsModel inn, String playerId) {
     final b = batsman(inn, playerId);

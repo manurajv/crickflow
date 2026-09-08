@@ -924,46 +924,73 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       runsBeforeDismissal = runOutResult.completedRuns;
 
       if (!ScoringDisplayUtils.isInningsComplete(match, inn)) {
-        final survivorId =
-            runOutSurvivorId(inn, runOutResult.dismissedPlayerId);
-        final eligible = ScoringDisplayUtils.eligibleBatters(
-          inn,
-          squads.batting,
-          idOf: (p) => p.id,
-          excludePlayerId: runOutResult.dismissedPlayerId,
-        ).where((p) => survivorId == null || p.id != survivorId).toList();
-
-        if (eligible.isNotEmpty) {
-          final newBatterOptions = eligible
-              .map(
-                (p) {
-                  final b = ScoringDisplayUtils.batsman(inn, p.id);
-                  final runs = b?.runs ?? 0;
-                  final balls = b?.balls ?? 0;
-                  final returning = b != null &&
-                      (b.retiredHurt || b.isEligibleToReturn) &&
-                      !b.isOut;
-                  return CreaseBatterOption(
-                    playerId: p.id,
-                    name: p.name,
-                    runs: runs,
-                    balls: balls,
-                    roleLabel: returning
-                        ? 'Returning · $runs($balls)'
-                        : 'Available',
-                  );
-                },
-              )
-              .toList();
-
-          runOutLineup = await showRunOutNextStrikerFlow(
-            context,
-            innings: inn,
+        if (match.isQuickMatch) {
+          // Same QM next-batter sheet as other outs (team / registered / walk-in).
+          runOutLineup = await _pickQuickMatchRunOutLineup(
+            match: match,
+            inn: inn,
             dismissedPlayerId: runOutResult.dismissedPlayerId,
-            newBatterOptions: newBatterOptions,
+            battingSquad: squads.batting,
           );
           if (runOutLineup == null || !mounted) return;
+        } else {
+          final survivorId =
+              runOutSurvivorId(inn, runOutResult.dismissedPlayerId);
+          final eligible = ScoringDisplayUtils.eligibleBatters(
+            inn,
+            squads.batting,
+            idOf: (p) => p.id,
+            excludePlayerId: runOutResult.dismissedPlayerId,
+          ).where((p) => survivorId == null || p.id != survivorId).toList();
+
+          if (eligible.isNotEmpty) {
+            final newBatterOptions = eligible
+                .map(
+                  (p) {
+                    final b = ScoringDisplayUtils.batsman(inn, p.id);
+                    final runs = b?.runs ?? 0;
+                    final balls = b?.balls ?? 0;
+                    final returning = b != null &&
+                        (b.retiredHurt || b.isEligibleToReturn) &&
+                        !b.isOut;
+                    return CreaseBatterOption(
+                      playerId: p.id,
+                      name: p.name,
+                      runs: runs,
+                      balls: balls,
+                      roleLabel: returning
+                          ? 'Returning · $runs($balls)'
+                          : 'Available',
+                    );
+                  },
+                )
+                .toList();
+
+            runOutLineup = await showRunOutNextStrikerFlow(
+              context,
+              innings: inn,
+              dismissedPlayerId: runOutResult.dismissedPlayerId,
+              newBatterOptions: newBatterOptions,
+            );
+            if (runOutLineup == null || !mounted) return;
+          }
         }
+      }
+
+      if (match.isQuickMatch && fielders.isNotEmpty) {
+        final bowlingIsA = matchTeamIsTeamA(match, inn.bowlingTeamId);
+        await ref.read(matchRepositoryProvider).ensurePlayersOnMatchSquad(
+              matchId: widget.matchId,
+              isTeamA: bowlingIsA,
+              players: [
+                for (final f in fielders)
+                  if (f.playerId.isNotEmpty)
+                    snapshotFromLineupPlayer(
+                      LineupPlayer(id: f.playerId, name: f.playerName),
+                    ),
+              ],
+            );
+        ref.invalidate(matchLineupSquadsProvider(widget.matchId));
       }
     } else if (DismissalFormatter.usesWicketKeeper(wicketType)) {
       dismissedPlayerId = inn.strikerId;
@@ -1322,16 +1349,18 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         teamId: battingTeamId,
         teamPlayers: squads.batting,
       );
+      // Full team list for reuse; dismissed / other end never selectable (incl. search).
+      final excludeIds = <String>{
+        ...ScoringDisplayUtils.dismissedBatterIds(inn),
+        ?otherId,
+        ?excludeRecentlyRetiredHurtId,
+      };
       final quickPick = await SelectQuickMatchPlayerSheet.show(
         context,
         title: title,
-        teamPlayers: eligible.isNotEmpty ? eligible : squads.batting,
+        teamPlayers: squads.batting,
         walkInPlayers: walkIns,
-        excludeIds: {
-          if (otherId != null) otherId,
-          if (excludeRecentlyRetiredHurtId != null)
-            excludeRecentlyRetiredHurtId,
-        },
+        excludeIds: excludeIds,
         teamSectionLabel:
             '${quickMatchTeamLabel(match, battingTeamId)} · batters',
       );
@@ -1418,6 +1447,76 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       }
       return null;
     }
+  }
+
+  /// After run out in Quick Match: who faces next + incoming batter via QM sheet.
+  Future<RunOutLineupResult?> _pickQuickMatchRunOutLineup({
+    required MatchModel match,
+    required InningsModel inn,
+    required String dismissedPlayerId,
+    required List<LineupPlayer> battingSquad,
+  }) async {
+    final survivorId = runOutSurvivorId(inn, dismissedPlayerId);
+    if (survivorId == null) return null;
+
+    final nextFace = await showRunOutNextStrikerPicker(
+      context,
+      innings: inn,
+      dismissedPlayerId: dismissedPlayerId,
+    );
+    if (nextFace == null || !mounted) return null;
+
+    final survivorName =
+        ScoringDisplayUtils.batsman(inn, survivorId)?.playerName ?? survivorId;
+
+    final battingTeamId = inn.battingTeamId;
+    final battingIsA = matchTeamIsTeamA(match, battingTeamId);
+    final walkIns = quickMatchWalkInsForTeam(
+      match: match,
+      teamId: battingTeamId,
+      teamPlayers: battingSquad,
+    );
+    final excludeIds = <String>{
+      ...ScoringDisplayUtils.dismissedBatterIds(inn),
+      dismissedPlayerId,
+      survivorId,
+    };
+
+    final newBatter = await SelectQuickMatchPlayerSheet.show(
+      context,
+      title: 'Select new batter',
+      teamPlayers: battingSquad,
+      walkInPlayers: walkIns,
+      excludeIds: excludeIds,
+      teamSectionLabel:
+          '${quickMatchTeamLabel(match, battingTeamId)} · batters',
+    );
+    if (newBatter == null || !mounted) return null;
+
+    await ref.read(matchRepositoryProvider).ensurePlayersOnMatchSquad(
+          matchId: widget.matchId,
+          isTeamA: battingIsA,
+          players: [snapshotFromLineupPlayer(newBatter)],
+        );
+    ref.invalidate(matchLineupSquadsProvider(widget.matchId));
+
+    if (nextFace == kNewBatterNextStrikerToken) {
+      return (
+        strikerId: newBatter.id,
+        strikerName: newBatter.name,
+        nonStrikerId: survivorId,
+        nonStrikerName: survivorName,
+      );
+    }
+
+    final pickedName =
+        ScoringDisplayUtils.batsman(inn, nextFace)?.playerName ?? nextFace;
+    return (
+      strikerId: nextFace,
+      strikerName: pickedName,
+      nonStrikerId: newBatter.id,
+      nonStrikerName: newBatter.name,
+    );
   }
 
   Future<void> _recordExtra(
@@ -1898,13 +1997,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                   inn.legalBalls == 0 &&
                   inn.totalWickets == 0 &&
                   (inn.strikerId == null || inn.nonStrikerId == null));
-      final batting = inn == null || openingLineup || match.isQuickMatch
+      final batting = inn == null || openingLineup
           ? squads.batting
           : ScoringDisplayUtils.eligibleBatters(
               inn,
               squads.batting,
               idOf: (p) => p.id,
             );
+      final battingExcludeIds = inn == null || openingLineup
+          ? const <String>{}
+          : ScoringDisplayUtils.dismissedBatterIds(inn);
       final events =
           ref.read(ballEventsProvider(widget.matchId)).valueOrNull ?? [];
       final keeperId = inn != null
@@ -1939,6 +2041,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         battingWalkIns: battingWalkIns,
         bowlingWalkIns: bowlingWalkIns,
         bowlerSubtitles: bowlerSubtitles,
+        battingExcludeIds: battingExcludeIds,
         battingTeamSectionLabel: '$battingTeamLabel · batters',
         bowlingTeamSectionLabel: '$bowlingTeamLabel · bowlers',
         quickMatchMode: match.isQuickMatch,

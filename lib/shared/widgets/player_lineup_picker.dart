@@ -28,6 +28,7 @@ class PlayerLineupPicker extends StatefulWidget {
     this.battingWalkIns = const [],
     this.bowlingWalkIns = const [],
     this.bowlerSubtitles = const {},
+    this.battingExcludeIds = const {},
     this.battingTeamSectionLabel,
     this.bowlingTeamSectionLabel,
     required this.onSave,
@@ -39,6 +40,8 @@ class PlayerLineupPicker extends StatefulWidget {
   final List<LineupPlayer> battingWalkIns;
   final List<LineupPlayer> bowlingWalkIns;
   final Map<String, String> bowlerSubtitles;
+  /// Mid-innings: dismissed batters (and similar) must not be re-picked via search.
+  final Set<String> battingExcludeIds;
   final String? battingTeamSectionLabel;
   final String? bowlingTeamSectionLabel;
   final String? initialStrikerId;
@@ -75,6 +78,7 @@ class PlayerLineupPicker extends StatefulWidget {
     bool wicketKeeperCanBowl = true,
     bool quickMatchMode = false,
     bool openingLineup = true,
+    Set<String> battingExcludeIds = const {},
     required void Function({
       required String strikerId,
       required String strikerName,
@@ -94,6 +98,7 @@ class PlayerLineupPicker extends StatefulWidget {
         battingWalkIns: battingWalkIns,
         bowlingWalkIns: bowlingWalkIns,
         bowlerSubtitles: bowlerSubtitles,
+        battingExcludeIds: battingExcludeIds,
         battingTeamSectionLabel: battingTeamSectionLabel,
         bowlingTeamSectionLabel: bowlingTeamSectionLabel,
         initialStrikerId: initialStrikerId,
@@ -227,7 +232,10 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
       title: 'Select striker',
       squad: widget.battingSquad,
       walkIns: widget.battingWalkIns,
-      excludeIds: {_nonStriker?.id ?? ''},
+      excludeIds: {
+        ...widget.battingExcludeIds,
+        if (_nonStriker != null) _nonStriker!.id,
+      },
       teamSectionLabel: widget.battingTeamSectionLabel,
     );
     if (p != null && mounted) setState(() => _striker = p);
@@ -238,7 +246,10 @@ class _PlayerLineupPickerState extends State<PlayerLineupPicker> {
       title: 'Select non-striker',
       squad: widget.battingSquad,
       walkIns: widget.battingWalkIns,
-      excludeIds: {_striker?.id ?? ''},
+      excludeIds: {
+        ...widget.battingExcludeIds,
+        if (_striker != null) _striker!.id,
+      },
       teamSectionLabel: widget.battingTeamSectionLabel,
     );
     if (p != null && mounted) setState(() => _nonStriker = p);

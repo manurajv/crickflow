@@ -68,6 +68,17 @@ List<LineupPlayer> buildQuickMatchTeamSquad({
       for (final b in inn.bowlers) {
         add(b.playerId, b.playerName);
       }
+      for (final f in inn.fielders) {
+        add(f.playerId, f.playerName);
+      }
+      final keeperId = inn.currentWicketKeeperId;
+      final keeperName = inn.currentWicketKeeperName;
+      if (keeperId != null &&
+          keeperId.isNotEmpty &&
+          keeperName != null &&
+          keeperName.isNotEmpty) {
+        add(keeperId, keeperName);
+      }
     }
   }
 
