@@ -100,6 +100,9 @@ final playerStatsBreakdownByIdProvider =
             stats: fromMatches.stats,
             ballsPerOver: fromMatches.ballsPerOver,
             bowlingActualOvers: fromMatches.bowlingActualOvers,
+            dotBalls: fromMatches.dotBalls,
+            wides: fromMatches.wides,
+            noBalls: fromMatches.noBalls,
           ),
         );
       }
@@ -117,6 +120,9 @@ final playerStatsBreakdownByIdProvider =
     return PlayerStatsBreakdown(
       overall: overall.stats,
       typedSections: typedSections,
+      overallDotBalls: overall.dotBalls,
+      overallWides: overall.wides,
+      overallNoBalls: overall.noBalls,
     );
   },
 );
@@ -187,6 +193,9 @@ PlayerStatsBreakdown buildProfileFilteredStatsBreakdown({
           stats: fromMatches.stats,
           ballsPerOver: fromMatches.ballsPerOver,
           bowlingActualOvers: fromMatches.bowlingActualOvers,
+          dotBalls: fromMatches.dotBalls,
+          wides: fromMatches.wides,
+          noBalls: fromMatches.noBalls,
         ),
       );
     }
@@ -204,5 +213,8 @@ PlayerStatsBreakdown buildProfileFilteredStatsBreakdown({
   return PlayerStatsBreakdown(
     overall: overallResult.stats,
     typedSections: typedSections,
+    overallDotBalls: overallResult.dotBalls,
+    overallWides: overallResult.wides,
+    overallNoBalls: overallResult.noBalls,
   );
 }

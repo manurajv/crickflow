@@ -49,8 +49,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!mounted) return;
 
     final prefs = await SharedPreferences.getInstance();
-    final onboardingDone =
-        prefs.getBool(PrefsKeys.onboardingComplete) ?? false;
+    final onboardingDone = prefs.getBool(PrefsKeys.onboardingComplete) ?? false;
 
     if (!onboardingDone) {
       context.go('/onboarding');
@@ -58,15 +57,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
 
     // Re-read in case the uriLinkStream delivered the link after our first poll.
-    final launchRoute = DeepLinkHandler.takePendingPath() ??
+    final launchRoute =
+        DeepLinkHandler.takePendingPath() ??
         await _launchRouteFuture ??
         await DeepLinkHandler.resolveInitialLocation(retry: true);
 
     if (!mounted) return;
 
     final router = GoRouter.of(context);
-    final currentPath =
-        router.routerDelegate.currentConfiguration.uri.path;
+    final currentPath = router.routerDelegate.currentConfiguration.uri.path;
 
     // Stream/deep-link handler may have navigated off splash already — don't reset to home.
     if (launchRoute == null &&
@@ -81,14 +80,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       return;
     }
 
+    // Never hijack normal app launch with the stream studio. Users can resume
+    // from My Cricket > Matches > Streaming; this only removes stale sessions.
     if (launchRoute == null) {
-      final liveRoute = await ActiveStreamSession.resolveResumeRoute(
-        ref.read(matchRepositoryProvider),
-      );
-      if (liveRoute != null) {
-        if (mounted) context.go(liveRoute);
-        return;
-      }
+      await ActiveStreamSession.validate(ref.read(matchRepositoryProvider));
     }
 
     UserModel? profile;
@@ -145,30 +140,30 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   AppConstants.appName,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: const Color(0xFF0A0E17),
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
+                    color: const Color(0xFF0A0E17),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   '• Score • Stream • Connect',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFF1565C0),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,   
-                        height: 1.2,
-                      ),
+                    color: const Color(0xFF1565C0),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                    height: 1.2,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Your complete cricket platform',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: const Color(0xFF555555),
-                        height: 1.35,
-                      ),
+                    color: const Color(0xFF555555),
+                    height: 1.35,
+                  ),
                 ),
                 const SizedBox(height: 48),
                 const CircularProgressIndicator(color: CfColors.primaryBlue),

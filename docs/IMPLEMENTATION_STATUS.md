@@ -3,13 +3,54 @@
 
 
 
-**Last updated:** Quick Match (mobile)
+**Last updated:** My Cricket sorting (mobile)
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
 > **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Play launch:** [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Production certificate:** [PRODUCTION_READINESS_CERTIFICATE.md](PRODUCTION_READINESS_CERTIFICATE.md) · **Developer handbook:** [developer/README.md](developer/README.md) · **CI/CD:** [developer/cicd.md](developer/cicd.md) · **Continuity:** [developer/continuity.md](developer/continuity.md) · **Admin design:** [WEB_ADMIN_DESIGN.md](WEB_ADMIN_DESIGN.md) · **Production:** [WEB_ADMIN_PRODUCTION.md](WEB_ADMIN_PRODUCTION.md) · **i18n / a11y:** [WEB_ADMIN_I18N_A11Y.md](WEB_ADMIN_I18N_A11Y.md) · **QA report:** [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Latest (My Cricket — active scoring and streaming)
+
+| Item | Status |
+|------|--------|
+| Matches tab has Matches / Scoring / Streaming views | Done |
+| Scoring view identifies assigned scorer matches and links straight back to live scoring | Done |
+| Streaming view uses per-session broadcaster history and links back to the stream studio | Done |
+| Normal app launch no longer redirects automatically into a saved stream studio | Done |
+| Saved stream sessions are cleared when the match is completed or abandoned | Done |
+| Active-work filtering and stale-stream regression tests | Done |
+| Matches and tournaments default to true newest-first date ordering, including completed items | Done |
+| Sorting menu supports Newest first, Oldest first, and Name A–Z | Done |
+| Scoring view honors match and tournament scorer permissions and setup-aware navigation | Done |
+| Assigned streamers appear before first broadcast; actual broadcasters use playback history | Done |
+| Match completion authoritatively ends stream metadata and cannot be overwritten by stale live state | Done |
+
+---
+
+## Latest (Player stats — bowling detail)
+
+| Item | Status |
+|------|--------|
+| Bowling stats show Dot Balls, Wides, and No Balls | Done |
+| Overall and Leather / Tennis / Indoor sections use filtered match data | Done |
+| Dot Balls require legal, zero-run, bowler-attributed deliveries | Done |
+
+---
+
+## Latest (Player rankings — replay-backed metrics)
+
+| Item | Status |
+|------|--------|
+| Fastest Fifty / Fastest Hundred from cumulative batter ball events | Done |
+| Best Bowling Figures from each completed-match innings | Done |
+| Maidens (completed, single-bowler overs only) and bowler-attributed Dot Balls | Done |
+| Replay-backed rankings support ball type, year, overs, and location filters | Done |
+| Empty state no longer labels these available rankings as “coming soon” | Done |
+| Player rankings replay aggregation / ordering tests | Done |
 
 ---
 

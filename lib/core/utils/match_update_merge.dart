@@ -47,20 +47,21 @@ abstract final class MatchUpdateMerge {
     if (incoming == null) return;
 
     final current = existing.status;
-    final advanced = current == MatchStatus.live ||
+    final advanced =
+        current == MatchStatus.live ||
         current == MatchStatus.inningsBreak ||
         current == MatchStatus.completed ||
         current == MatchStatus.abandoned;
     if (!advanced) return;
 
-    final isDowngrade = incoming == MatchStatus.draft ||
+    final isDowngrade =
+        incoming == MatchStatus.draft ||
         incoming == MatchStatus.scheduled ||
         incoming == MatchStatus.tossCompleted ||
         (current == MatchStatus.completed && incoming == MatchStatus.live) ||
         (current == MatchStatus.completed &&
             incoming == MatchStatus.inningsBreak) ||
-        (current == MatchStatus.abandoned &&
-            incoming != MatchStatus.abandoned);
+        (current == MatchStatus.abandoned && incoming != MatchStatus.abandoned);
     if (isDowngrade) {
       patch['status'] = current.name;
     }
@@ -134,12 +135,14 @@ abstract final class MatchUpdateMerge {
 
     final existingStream = existing.stream;
     final merged = Map<String, dynamic>.from(incomingStream);
-    final incomingEntries =
-        parseStreamPlaybackEntries(merged['playbackEntries']);
+    final incomingEntries = parseStreamPlaybackEntries(
+      merged['playbackEntries'],
+    );
 
     if (existingStream.playbackEntries.isNotEmpty && incomingEntries.isEmpty) {
-      merged['playbackEntries'] =
-          existingStream.playbackEntries.map((e) => e.toMap()).toList();
+      merged['playbackEntries'] = existingStream.playbackEntries
+          .map((e) => e.toMap())
+          .toList();
     }
 
     final incomingWatch = (merged['youtubeWatchUrl'] as String?)?.trim();
@@ -150,8 +153,8 @@ abstract final class MatchUpdateMerge {
       merged['youtubeWatchUrl'] = existingWatch;
     }
 
-    final incomingSecondary =
-        (merged['secondaryYoutubeWatchUrl'] as String?)?.trim();
+    final incomingSecondary = (merged['secondaryYoutubeWatchUrl'] as String?)
+        ?.trim();
     final existingSecondary = existingStream.secondaryYoutubeWatchUrl?.trim();
     if ((incomingSecondary == null || incomingSecondary.isEmpty) &&
         existingSecondary != null &&
@@ -160,11 +163,20 @@ abstract final class MatchUpdateMerge {
     }
 
     final incomingStatus = merged['status'] as String?;
-    final existingActive = existingStream.status == StreamStatus.live ||
+    final existingActive =
+        existingStream.status == StreamStatus.live ||
         existingStream.status == StreamStatus.connecting;
-    final incomingActive = incomingStatus == StreamStatus.live.name ||
+    final incomingActive =
+        incomingStatus == StreamStatus.live.name ||
         incomingStatus == StreamStatus.connecting.name;
-    if (existingActive && !incomingActive) {
+    final matchIsEnding =
+        patch['status'] == MatchStatus.completed.name ||
+        patch['status'] == MatchStatus.abandoned.name;
+    final streamIsExplicitlyEnding = incomingStatus == StreamStatus.ended.name;
+    if (existingActive &&
+        !incomingActive &&
+        !matchIsEnding &&
+        !streamIsExplicitlyEnding) {
       merged['status'] = existingStream.status.name;
       if (merged['startedAt'] == null && existingStream.startedAt != null) {
         merged['startedAt'] = existingStream.startedAt!.toIso8601String();
@@ -181,9 +193,7 @@ abstract final class MatchUpdateMerge {
     if (existing.isEmpty || incomingRaw is! List) return false;
 
     final incoming = incomingRaw
-        .map((e) => InningsModel.fromMap(
-              Map<String, dynamic>.from(e as Map),
-            ))
+        .map((e) => InningsModel.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
 
     if (incoming.isEmpty) return true;

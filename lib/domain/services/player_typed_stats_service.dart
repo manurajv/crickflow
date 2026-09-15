@@ -13,11 +13,17 @@ class PlayerTypedStatsResult {
     required this.stats,
     this.ballsPerOver,
     this.bowlingActualOvers,
+    this.dotBalls = 0,
+    this.wides = 0,
+    this.noBalls = 0,
   });
 
   final PlayerStatsModel stats;
   final int? ballsPerOver;
   final double? bowlingActualOvers;
+  final int dotBalls;
+  final int wides;
+  final int noBalls;
 }
 
 /// Builds per-ball-type stats from completed match innings (client fallback).
@@ -86,6 +92,9 @@ class PlayerTypedStatsService {
       ballsPerOver: bpoCounts.length == 1 ? bpoCounts.keys.first : null,
       bowlingActualOvers:
           agg.bowlingActualOvers > 0 ? agg.bowlingActualOvers : null,
+      dotBalls: agg.dotBalls,
+      wides: agg.wides,
+      noBalls: agg.noBalls,
     );
   }
 
@@ -129,6 +138,9 @@ class PlayerTypedStatsService {
       ballsPerOver: bpoCounts.length == 1 ? bpoCounts.keys.first : null,
       bowlingActualOvers:
           agg.bowlingActualOvers > 0 ? agg.bowlingActualOvers : null,
+      dotBalls: agg.dotBalls,
+      wides: agg.wides,
+      noBalls: agg.noBalls,
     );
   }
 
@@ -168,6 +180,16 @@ class PlayerTypedStatsService {
 
     // Fielding: prefer ball events (innings.fielders are not persisted).
     if (events != null && events.isNotEmpty) {
+      for (final event in events) {
+        if (event.bowlerId != playerId ||
+            !event.countsToBowler ||
+            !event.isLegalDelivery ||
+            event.runs != 0) {
+          continue;
+        }
+        found = true;
+        agg.dotBalls += 1;
+      }
       for (final f in BallEventAggregator.fieldersFromEvents(events)) {
         if (f.playerId != playerId) continue;
         found = true;
@@ -226,6 +248,8 @@ class PlayerTypedStatsService {
       agg.wickets += bowler.wickets;
       agg.oversBowledBalls += bowler.oversBowledBalls;
       agg.runsConceded += bowler.runsConceded;
+      agg.wides += bowler.wides;
+      agg.noBalls += bowler.noBalls;
       agg.bowlingActualOvers += OversFormatter.calculateOvers(
         bowler.oversBowledBalls,
         ballsPerOver,
@@ -263,6 +287,9 @@ class _Agg {
   int catches = 0;
   int runOuts = 0;
   int stumpings = 0;
+  int dotBalls = 0;
+  int wides = 0;
+  int noBalls = 0;
   double bowlingActualOvers = 0;
 
   PlayerStatsModel toStats() => PlayerStatsModel(

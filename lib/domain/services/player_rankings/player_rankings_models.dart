@@ -37,6 +37,7 @@ enum PlayerRankingsOversFilter {
   overs1to12,
   overs13to20,
   overs21to99,
+
   /// Deferred with [CricketMatchType.testMatch] — hidden from rankings UI.
   testMatch;
 
@@ -49,13 +50,9 @@ enum PlayerRankingsOversFilter {
   ];
 }
 
-
 /// Years shown in the rankings year dropdown (newest first).
 /// Published from 2026; new years appear automatically when the calendar rolls.
-List<int> playerRankingsYearOptions({
-  DateTime? now,
-  int earliestYear = 2026,
-}) {
+List<int> playerRankingsYearOptions({DateTime? now, int earliestYear = 2026}) {
   final current = (now ?? DateTime.now()).year;
   final start = earliestYear > current ? current : earliestYear;
   return [for (var y = current; y >= start; y--) y];
@@ -63,99 +60,95 @@ List<int> playerRankingsYearOptions({
 
 extension PlayerRankingsCategoryX on PlayerRankingsCategory {
   PlayerRankingsSection get section => switch (this) {
-        PlayerRankingsCategory.mostRuns ||
-        PlayerRankingsCategory.highestScore ||
-        PlayerRankingsCategory.bestAverage ||
-        PlayerRankingsCategory.strikeRate ||
-        PlayerRankingsCategory.mostFifties ||
-        PlayerRankingsCategory.mostHundreds ||
-        PlayerRankingsCategory.mostSixes ||
-        PlayerRankingsCategory.mostFours ||
-        PlayerRankingsCategory.fastestFifty ||
-        PlayerRankingsCategory.fastestHundred =>
-          PlayerRankingsSection.batting,
-        PlayerRankingsCategory.mostWickets ||
-        PlayerRankingsCategory.bestBowlingFigures ||
-        PlayerRankingsCategory.economy ||
-        PlayerRankingsCategory.bowlingStrikeRate ||
-        PlayerRankingsCategory.maidens ||
-        PlayerRankingsCategory.dotBalls ||
-        PlayerRankingsCategory.fiveWicketHauls =>
-          PlayerRankingsSection.bowling,
-        PlayerRankingsCategory.mostCatches ||
-        PlayerRankingsCategory.mostRunOuts ||
-        PlayerRankingsCategory.mostStumpings ||
-        PlayerRankingsCategory.mostDirectHits =>
-          PlayerRankingsSection.fielding,
-      };
+    PlayerRankingsCategory.mostRuns ||
+    PlayerRankingsCategory.highestScore ||
+    PlayerRankingsCategory.bestAverage ||
+    PlayerRankingsCategory.strikeRate ||
+    PlayerRankingsCategory.mostFifties ||
+    PlayerRankingsCategory.mostHundreds ||
+    PlayerRankingsCategory.mostSixes ||
+    PlayerRankingsCategory.mostFours ||
+    PlayerRankingsCategory.fastestFifty ||
+    PlayerRankingsCategory.fastestHundred => PlayerRankingsSection.batting,
+    PlayerRankingsCategory.mostWickets ||
+    PlayerRankingsCategory.bestBowlingFigures ||
+    PlayerRankingsCategory.economy ||
+    PlayerRankingsCategory.bowlingStrikeRate ||
+    PlayerRankingsCategory.maidens ||
+    PlayerRankingsCategory.dotBalls ||
+    PlayerRankingsCategory.fiveWicketHauls => PlayerRankingsSection.bowling,
+    PlayerRankingsCategory.mostCatches ||
+    PlayerRankingsCategory.mostRunOuts ||
+    PlayerRankingsCategory.mostStumpings ||
+    PlayerRankingsCategory.mostDirectHits => PlayerRankingsSection.fielding,
+  };
 
   String get title => switch (this) {
-        PlayerRankingsCategory.mostRuns => 'Most Runs',
-        PlayerRankingsCategory.highestScore => 'Highest Score',
-        PlayerRankingsCategory.bestAverage => 'Best Average',
-        PlayerRankingsCategory.strikeRate => 'Strike Rate',
-        PlayerRankingsCategory.mostFifties => 'Most Fifties',
-        PlayerRankingsCategory.mostHundreds => 'Most Hundreds',
-        PlayerRankingsCategory.mostSixes => 'Most Sixes',
-        PlayerRankingsCategory.mostFours => 'Most Fours',
-        PlayerRankingsCategory.fastestFifty => 'Fastest Fifty',
-        PlayerRankingsCategory.fastestHundred => 'Fastest Hundred',
-        PlayerRankingsCategory.mostWickets => 'Most Wickets',
-        PlayerRankingsCategory.bestBowlingFigures => 'Best Bowling Figures',
-        PlayerRankingsCategory.economy => 'Economy',
-        PlayerRankingsCategory.bowlingStrikeRate => 'Strike Rate',
-        PlayerRankingsCategory.maidens => 'Maidens',
-        PlayerRankingsCategory.dotBalls => 'Dot Balls',
-        PlayerRankingsCategory.fiveWicketHauls => 'Five Wicket Hauls',
-        PlayerRankingsCategory.mostCatches => 'Most Catches',
-        PlayerRankingsCategory.mostRunOuts => 'Most Run Outs',
-        PlayerRankingsCategory.mostStumpings => 'Most Stumpings',
-        PlayerRankingsCategory.mostDirectHits => 'Most Direct Hits',
-      };
+    PlayerRankingsCategory.mostRuns => 'Most Runs',
+    PlayerRankingsCategory.highestScore => 'Highest Score',
+    PlayerRankingsCategory.bestAverage => 'Best Average',
+    PlayerRankingsCategory.strikeRate => 'Strike Rate',
+    PlayerRankingsCategory.mostFifties => 'Most Fifties',
+    PlayerRankingsCategory.mostHundreds => 'Most Hundreds',
+    PlayerRankingsCategory.mostSixes => 'Most Sixes',
+    PlayerRankingsCategory.mostFours => 'Most Fours',
+    PlayerRankingsCategory.fastestFifty => 'Fastest Fifty',
+    PlayerRankingsCategory.fastestHundred => 'Fastest Hundred',
+    PlayerRankingsCategory.mostWickets => 'Most Wickets',
+    PlayerRankingsCategory.bestBowlingFigures => 'Best Bowling Figures',
+    PlayerRankingsCategory.economy => 'Economy',
+    PlayerRankingsCategory.bowlingStrikeRate => 'Strike Rate',
+    PlayerRankingsCategory.maidens => 'Maidens',
+    PlayerRankingsCategory.dotBalls => 'Dot Balls',
+    PlayerRankingsCategory.fiveWicketHauls => 'Five Wicket Hauls',
+    PlayerRankingsCategory.mostCatches => 'Most Catches',
+    PlayerRankingsCategory.mostRunOuts => 'Most Run Outs',
+    PlayerRankingsCategory.mostStumpings => 'Most Stumpings',
+    PlayerRankingsCategory.mostDirectHits => 'Most Direct Hits',
+  };
 
   /// Categories that need match/ball-event replay and are not on career docs.
   bool get requiresMatchReplay => switch (this) {
-        PlayerRankingsCategory.fastestFifty ||
-        PlayerRankingsCategory.fastestHundred ||
-        PlayerRankingsCategory.bestBowlingFigures ||
-        PlayerRankingsCategory.maidens ||
-        PlayerRankingsCategory.dotBalls =>
-          true,
-        _ => false,
-      };
+    PlayerRankingsCategory.fastestFifty ||
+    PlayerRankingsCategory.fastestHundred ||
+    PlayerRankingsCategory.bestBowlingFigures ||
+    PlayerRankingsCategory.maidens ||
+    PlayerRankingsCategory.dotBalls => true,
+    _ => false,
+  };
 }
 
 extension PlayerRankingsSectionX on PlayerRankingsSection {
   String get title => switch (this) {
-        PlayerRankingsSection.batting => 'Batting',
-        PlayerRankingsSection.bowling => 'Bowling',
-        PlayerRankingsSection.fielding => 'Fielding',
-      };
+    PlayerRankingsSection.batting => 'Batting',
+    PlayerRankingsSection.bowling => 'Bowling',
+    PlayerRankingsSection.fielding => 'Fielding',
+  };
 
   List<PlayerRankingsCategory> get categories => switch (this) {
-        PlayerRankingsSection.batting => kPlayerRankingsBattingCategories,
-        PlayerRankingsSection.bowling => kPlayerRankingsBowlingCategories,
-        PlayerRankingsSection.fielding => kPlayerRankingsFieldingCategories,
-      };
+    PlayerRankingsSection.batting => kPlayerRankingsBattingCategories,
+    PlayerRankingsSection.bowling => kPlayerRankingsBowlingCategories,
+    PlayerRankingsSection.fielding => kPlayerRankingsFieldingCategories,
+  };
 }
 
 extension PlayerRankingsOversFilterX on PlayerRankingsOversFilter {
   String get title => switch (this) {
-        PlayerRankingsOversFilter.all => 'All',
-        PlayerRankingsOversFilter.overs1to12 => '1–12 Overs',
-        PlayerRankingsOversFilter.overs13to20 => '13–20 Overs',
-        PlayerRankingsOversFilter.overs21to99 => '21–99 Overs',
-        PlayerRankingsOversFilter.testMatch => 'Test Match',
-      };
+    PlayerRankingsOversFilter.all => 'All',
+    PlayerRankingsOversFilter.overs1to12 => '1–12 Overs',
+    PlayerRankingsOversFilter.overs13to20 => '13–20 Overs',
+    PlayerRankingsOversFilter.overs21to99 => '21–99 Overs',
+    PlayerRankingsOversFilter.testMatch => 'Test Match',
+  };
 
   /// Compact label for the rankings subtitle (e.g. "1–12 overs", "All overs").
   String get summaryLabel => switch (this) {
-        PlayerRankingsOversFilter.all => 'All overs',
-        PlayerRankingsOversFilter.overs1to12 => '1–12 overs',
-        PlayerRankingsOversFilter.overs13to20 => '13–20 overs',
-        PlayerRankingsOversFilter.overs21to99 => '21–99 overs',
-        PlayerRankingsOversFilter.testMatch => 'Test Match',
-      };
+    PlayerRankingsOversFilter.all => 'All overs',
+    PlayerRankingsOversFilter.overs1to12 => '1–12 overs',
+    PlayerRankingsOversFilter.overs13to20 => '13–20 overs',
+    PlayerRankingsOversFilter.overs21to99 => '21–99 overs',
+    PlayerRankingsOversFilter.testMatch => 'Test Match',
+  };
 }
 
 const kPlayerRankingsBattingCategories = [
@@ -290,8 +283,8 @@ class PlayerRankingsFilter extends Equatable {
     final nextIndoorMaterial = nextBall != CricketBallType.indoor
         ? null
         : (clearIndoorBallMaterial
-            ? null
-            : (indoorBallMaterial ?? this.indoorBallMaterial));
+              ? null
+              : (indoorBallMaterial ?? this.indoorBallMaterial));
 
     return PlayerRankingsFilter(
       ballType: nextBall,
@@ -300,22 +293,24 @@ class PlayerRankingsFilter extends Equatable {
       category: nextCategory,
       year: clearYear ? null : (year ?? this.year),
       overs: overs ?? this.overs,
-      location: clearLocation ? const LocationModel() : (location ?? this.location),
+      location: clearLocation
+          ? const LocationModel()
+          : (location ?? this.location),
       searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 
   @override
   List<Object?> get props => [
-        ballType,
-        indoorBallMaterial,
-        section,
-        category,
-        year,
-        overs,
-        location,
-        searchQuery,
-      ];
+    ballType,
+    indoorBallMaterial,
+    section,
+    category,
+    year,
+    overs,
+    location,
+    searchQuery,
+  ];
 }
 
 class PlayerRankingStat extends Equatable {
@@ -326,6 +321,25 @@ class PlayerRankingStat extends Equatable {
 
   @override
   List<Object?> get props => [label, value];
+}
+
+/// Ball-by-ball / innings-best values that are not stored in career stats.
+class PlayerRankingReplayStats {
+  const PlayerRankingReplayStats({
+    this.fastestFiftyBalls,
+    this.fastestHundredBalls,
+    this.bestBowlingWickets = 0,
+    this.bestBowlingRuns = 0,
+    this.maidens = 0,
+    this.dotBalls = 0,
+  });
+
+  final int? fastestFiftyBalls;
+  final int? fastestHundredBalls;
+  final int bestBowlingWickets;
+  final int bestBowlingRuns;
+  final int maidens;
+  final int dotBalls;
 }
 
 class PlayerRankingEntry extends Equatable {

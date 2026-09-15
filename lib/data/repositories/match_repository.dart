@@ -47,13 +47,13 @@ class MatchRepository {
     PublicScorecardSync? publicScorecardSync,
     MatchLocalStore? localStore,
     OfflineSyncService? syncService,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _scoringEngine = scoringEngine ?? ScoringEngine(),
-        _badgeService = badgeService ?? BadgeService(),
-        _publicSync = publicScorecardSync ?? PublicScorecardSync(),
-        _localStore = localStore,
-        _syncService = syncService,
-        _uuid = const Uuid();
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _scoringEngine = scoringEngine ?? ScoringEngine(),
+       _badgeService = badgeService ?? BadgeService(),
+       _publicSync = publicScorecardSync ?? PublicScorecardSync(),
+       _localStore = localStore,
+       _syncService = syncService,
+       _uuid = const Uuid();
 
   final FirebaseFirestore _firestore;
   final ScoringEngine _scoringEngine;
@@ -116,10 +116,14 @@ class MatchRepository {
           ? local
           : remote;
     }
-    final localBalls =
-        local.innings.fold<int>(0, (total, i) => total + i.legalBalls);
-    final remoteBalls =
-        remote.innings.fold<int>(0, (total, i) => total + i.legalBalls);
+    final localBalls = local.innings.fold<int>(
+      0,
+      (total, i) => total + i.legalBalls,
+    );
+    final remoteBalls = remote.innings.fold<int>(
+      0,
+      (total, i) => total + i.legalBalls,
+    );
     if (localBalls != remoteBalls) {
       return localBalls > remoteBalls ? local : remote;
     }
@@ -132,11 +136,13 @@ class MatchRepository {
 
     final localInn = local.currentInnings;
     final remoteInn = remote.currentInnings;
-    final localCrease = localInn != null &&
+    final localCrease =
+        localInn != null &&
         (localInn.strikerId?.isNotEmpty ?? false) &&
         (localInn.nonStrikerId?.isNotEmpty ?? false) &&
         (localInn.currentBowlerId?.isNotEmpty ?? false);
-    final remoteCrease = remoteInn != null &&
+    final remoteCrease =
+        remoteInn != null &&
         (remoteInn.strikerId?.isNotEmpty ?? false) &&
         (remoteInn.nonStrikerId?.isNotEmpty ?? false) &&
         (remoteInn.currentBowlerId?.isNotEmpty ?? false);
@@ -152,8 +158,10 @@ class MatchRepository {
     StreamMetadataModel local,
     StreamMetadataModel remote,
   ) {
-    final mergedEntries =
-        StreamPlaybackMerger.unionEntries(local.playbackEntries, remote.playbackEntries);
+    final mergedEntries = StreamPlaybackMerger.unionEntries(
+      local.playbackEntries,
+      remote.playbackEntries,
+    );
     final base = _pickStreamBase(local, remote, mergedEntries);
     if (mergedEntries == base.playbackEntries) return base;
     return base.copyWith(playbackEntries: mergedEntries);
@@ -174,9 +182,11 @@ class MatchRepository {
     if (remoteLive && !localLive) return remote;
     if (localLive && !remoteLive) return local;
 
-    final remoteActive = remote.status == StreamStatus.live ||
+    final remoteActive =
+        remote.status == StreamStatus.live ||
         remote.status == StreamStatus.connecting;
-    final localActive = local.status == StreamStatus.live ||
+    final localActive =
+        local.status == StreamStatus.live ||
         local.status == StreamStatus.connecting;
     if (remoteActive && !localActive) return remote;
     if (localActive && !remoteActive) return local;
@@ -199,7 +209,8 @@ class MatchRepository {
     if (base == null || remote == null || local == null) return base;
 
     final remoteStream = remote.stream;
-    final hasRemotePlayback = remoteStream.playbackEntries.isNotEmpty ||
+    final hasRemotePlayback =
+        remoteStream.playbackEntries.isNotEmpty ||
         (remoteStream.youtubeWatchUrl?.trim().isNotEmpty ?? false) ||
         remoteStream.status == StreamStatus.live ||
         remoteStream.status == StreamStatus.connecting;
@@ -267,8 +278,7 @@ class MatchRepository {
     for (final snapshot in snapshots) {
       final remoteMatch = byId[snapshot.id];
       if (remoteMatch == null) {
-        if (includeLocalSnapshot != null &&
-            !includeLocalSnapshot(snapshot)) {
+        if (includeLocalSnapshot != null && !includeLocalSnapshot(snapshot)) {
           continue;
         }
         if (local.hasPendingSync(snapshot.id) ||
@@ -285,7 +295,7 @@ class MatchRepository {
       )) {
         byId[snapshot.id] =
             _mergeRemoteStreamForPendingLocal(snapshot, remoteMatch) ??
-                snapshot;
+            snapshot;
       } else {
         byId[snapshot.id] = _pickNewerMatch(snapshot, remoteMatch) ?? snapshot;
       }
@@ -305,8 +315,7 @@ class MatchRepository {
   List<BallEventModel> _mergeBallEvents(
     List<BallEventModel> local,
     List<BallEventModel> remote,
-  ) =>
-      BallEventAggregator.mergeEventLogs(local, remote);
+  ) => BallEventAggregator.mergeEventLogs(local, remote);
 
   Future<MatchModel?> _getMatchFromFirestore(String id) async {
     try {
@@ -315,8 +324,9 @@ class MatchRepository {
       return MatchModel.fromMap(doc.id, doc.data()!);
     } on FirebaseException catch (e) {
       if (e.code == 'unavailable') {
-        final cached =
-            await _matches.doc(id).get(const GetOptions(source: Source.cache));
+        final cached = await _matches
+            .doc(id)
+            .get(const GetOptions(source: Source.cache));
         if (!cached.exists) return null;
         return MatchModel.fromMap(cached.id, cached.data()!);
       }
@@ -339,11 +349,7 @@ class MatchRepository {
   }) async {
     final local = _localStore;
     if (local == null) return;
-    await local.saveSnapshot(
-      matchId: match.id,
-      match: match,
-      overlay: overlay,
-    );
+    await local.saveSnapshot(matchId: match.id, match: match, overlay: overlay);
   }
 
   Future<void> _enqueueMatchUpdate(
@@ -351,8 +357,9 @@ class MatchRepository {
     List<String> fieldDeletes = const [],
   }) async {
     final existing = await getMatch(match.id);
-    final toSave =
-        existing != null ? MatchUpdateMerge.merge(existing, match) : match;
+    final toSave = existing != null
+        ? MatchUpdateMerge.merge(existing, match)
+        : match;
     final sync = _syncService;
     final local = _localStore;
     if (sync == null || local == null) {
@@ -383,14 +390,11 @@ class MatchRepository {
   ) async {
     final existing = await getMatch(matchId);
     if (existing == null) throw StateError('Match not found');
-    final merged = MatchModel.fromMap(
-      matchId,
-      {
-        ...existing.toMap(),
-        ...patch,
-        'updatedAt': DateTime.now().toIso8601String(),
-      },
-    );
+    final merged = MatchModel.fromMap(matchId, {
+      ...existing.toMap(),
+      ...patch,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
     await _enqueueMatchUpdate(merged);
   }
 
@@ -419,9 +423,7 @@ class MatchRepository {
       sync.newAction(
         matchId: matchId,
         type: SyncActionType.firestoreBatch,
-        payload: {
-          'operations': operations.map((o) => o.toMap()).toList(),
-        },
+        payload: {'operations': operations.map((o) => o.toMap()).toList()},
       ),
     );
   }
@@ -444,10 +446,9 @@ class MatchRepository {
     final events = await _fetchBallEventsFromFirestore(matchId);
     OverlayStateModel? overlay;
     try {
-      final overlayDoc = await _matchDoc(matchId)
-          .collection('overlay')
-          .doc('current')
-          .get();
+      final overlayDoc = await _matchDoc(
+        matchId,
+      ).collection('overlay').doc('current').get();
       if (overlayDoc.exists) {
         overlay = OverlayStateModel.fromMap(overlayDoc.data()!);
       }
@@ -520,12 +521,20 @@ class MatchRepository {
           remote.stream.playbackEntries,
           stream.playbackEntries,
         );
-        final richer = _richerStreamMetadata(remote.stream, stream);
-        toWrite = richer.copyWith(
-          playbackEntries: mergedEntries.isNotEmpty
-              ? mergedEntries
-              : richer.playbackEntries,
-        );
+        if (stream.status == StreamStatus.ended) {
+          toWrite = stream.copyWith(
+            playbackEntries: mergedEntries.isNotEmpty
+                ? mergedEntries
+                : stream.playbackEntries,
+          );
+        } else {
+          final richer = _richerStreamMetadata(remote.stream, stream);
+          toWrite = richer.copyWith(
+            playbackEntries: mergedEntries.isNotEmpty
+                ? mergedEntries
+                : richer.playbackEntries,
+          );
+        }
       }
     } catch (_) {}
 
@@ -537,12 +546,16 @@ class MatchRepository {
     if (local != null) {
       final cached = await local.getMatch(matchId);
       if (cached != null) {
-        final mergedStream = _richerStreamMetadata(cached.stream, toWrite).copyWith(
-          playbackEntries: StreamPlaybackMerger.unionEntries(
-            cached.stream.playbackEntries,
-            toWrite.playbackEntries,
-          ),
+        final cachedEntries = StreamPlaybackMerger.unionEntries(
+          cached.stream.playbackEntries,
+          toWrite.playbackEntries,
         );
+        final mergedStream = toWrite.status == StreamStatus.ended
+            ? toWrite.copyWith(playbackEntries: cachedEntries)
+            : _richerStreamMetadata(
+                cached.stream,
+                toWrite,
+              ).copyWith(playbackEntries: cachedEntries);
         await _persistMatchLocally(cached.copyWith(stream: mergedStream));
       }
     }
@@ -556,14 +569,16 @@ class MatchRepository {
     String? addedByName,
   }) async {
     final normalized = MatchStreamPlayback.canonicalWatchUrl(watchUrl);
-    if (normalized == null || !MatchStreamPlayback.isValidWatchUrl(normalized)) {
+    if (normalized == null ||
+        !MatchStreamPlayback.isValidWatchUrl(normalized)) {
       throw ArgumentError('Invalid watch URL');
     }
 
     final match = await getMatch(matchId);
     if (match == null) return;
 
-    final isActive = match.stream.status == StreamStatus.live ||
+    final isActive =
+        match.stream.status == StreamStatus.live ||
         match.stream.status == StreamStatus.connecting;
     final now = DateTime.now();
 
@@ -603,14 +618,16 @@ class MatchRepository {
       );
     }
 
-    final latestUrl = StreamPlaybackMerger.latestWatchUrl(playbackEntries) ??
-        normalized;
+    final latestUrl =
+        StreamPlaybackMerger.latestWatchUrl(playbackEntries) ?? normalized;
 
     final stream = match.stream.copyWith(
       youtubeWatchUrl: latestUrl,
       playbackEntries: playbackEntries,
       status: isActive ? StreamStatus.live : match.stream.status,
-      startedAt: isActive ? (match.stream.startedAt ?? now) : match.stream.startedAt,
+      startedAt: isActive
+          ? (match.stream.startedAt ?? now)
+          : match.stream.startedAt,
     );
     await updateStreamMetadata(matchId, stream);
   }
@@ -630,8 +647,7 @@ class MatchRepository {
 
     var entries = List.of(match.stream.playbackEntries);
     final now = DateTime.now();
-    final isLive =
-        markLive || match.stream.status == StreamStatus.live;
+    final isLive = markLive || match.stream.status == StreamStatus.live;
 
     void addUrl(String? url, {bool isSecondary = false}) {
       final normalized = url?.trim();
@@ -675,8 +691,7 @@ class MatchRepository {
           entries,
         );
       }
-      patch['stream.playbackEntries'] =
-          entries.map((e) => e.toMap()).toList();
+      patch['stream.playbackEntries'] = entries.map((e) => e.toMap()).toList();
     }
     if (patch.length <= 1) return;
     await _matches.doc(matchId).update(patch);
@@ -688,7 +703,8 @@ class MatchRepository {
           youtubeWatchUrl: primaryUrl?.trim() ?? cached.stream.youtubeWatchUrl,
           secondaryYoutubeWatchUrl: clearSecondary
               ? null
-              : (secondaryUrl?.trim() ?? cached.stream.secondaryYoutubeWatchUrl),
+              : (secondaryUrl?.trim() ??
+                    cached.stream.secondaryYoutubeWatchUrl),
           playbackEntries: entries,
         );
         await _persistMatchLocally(cached.copyWith(stream: stream));
@@ -757,16 +773,16 @@ class MatchRepository {
   }
 
   Stream<List<MatchModel>> watchMatches({String? createdBy}) {
-    Query<Map<String, dynamic>> query =
-        _matches.orderBy('createdAt', descending: true);
+    Query<Map<String, dynamic>> query = _matches.orderBy(
+      'createdAt',
+      descending: true,
+    );
     if (createdBy != null) {
       query = query.where('createdBy', isEqualTo: createdBy);
     }
 
     final remote = query.limit(50).snapshots().map((snap) {
-      return snap.docs
-          .map((d) => MatchModel.fromMap(d.id, d.data()))
-          .toList();
+      return snap.docs.map((d) => MatchModel.fromMap(d.id, d.data())).toList();
     });
     return _overlayLocalOnListStream(remote);
   }
@@ -780,9 +796,8 @@ class MatchRepository {
         .where('tournamentId', isEqualTo: tournamentId)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((d) => MatchModel.fromMap(d.id, d.data()))
-              .toList(),
+          (snap) =>
+              snap.docs.map((d) => MatchModel.fromMap(d.id, d.data())).toList(),
         );
     return _overlayLocalOnListStream(
       remote,
@@ -797,10 +812,10 @@ class MatchRepository {
         .limit(40)
         .snapshots()
         .map((snap) {
-      return snap.docs
-          .map((d) => MatchModel.fromMap(d.id, d.data()))
-          .toList();
-    });
+          return snap.docs
+              .map((d) => MatchModel.fromMap(d.id, d.data()))
+              .toList();
+        });
     return _overlayLocalOnListStream(remote).map((list) {
       final sorted = List<MatchModel>.from(list);
       sorted.sort((a, b) {
@@ -925,14 +940,17 @@ class MatchRepository {
     latest = _withChaseTargetBackfill(latest);
 
     final existingEvents = await fetchBallEvents(match.id);
-    latest = BallEventAggregator.reprojectMatchFromEvents(latest, existingEvents);
+    latest = BallEventAggregator.reprojectMatchFromEvents(
+      latest,
+      existingEvents,
+    );
 
     final resolvedSequence = existingEvents.isEmpty
         ? sequence
         : existingEvents
-                .map((e) => e.sequence)
-                .reduce((a, b) => a > b ? a : b) +
-            1;
+                  .map((e) => e.sequence)
+                  .reduce((a, b) => a > b ? a : b) +
+              1;
 
     final result = _scoringEngine.recordBall(
       match: latest,
@@ -961,8 +979,10 @@ class MatchRepository {
     var allEvents = [...existingEvents, event]
       ..sort((a, b) => a.sequence.compareTo(b.sequence));
 
-    final projectedMatch =
-        BallEventAggregator.reprojectMatchFromEvents(latest, allEvents);
+    final projectedMatch = BallEventAggregator.reprojectMatchFromEvents(
+      latest,
+      allEvents,
+    );
     final overlay = _scoringEngine.buildOverlayForMatch(projectedMatch);
 
     ScoringIntegrityCheck.assertProjectionMatchesEvents(
@@ -1269,10 +1289,7 @@ class MatchRepository {
 
     final overlay = _scoringEngine.buildOverlayForMatch(replayed);
 
-    await _localStore?.removeBallEvents(
-      matchId,
-      toRemove.map((e) => e.id),
-    );
+    await _localStore?.removeBallEvents(matchId, toRemove.map((e) => e.id));
     await _persistMatchLocally(replayed, overlay: overlay);
     await _localStore?.setBallEvents(matchId, allEvents);
 
@@ -1481,18 +1498,28 @@ class MatchRepository {
     final result = MatchCompletionPolicy.compute(match);
     final winnerId = match.winnerTeamId ?? result.winnerTeamId;
     final storedSummary = match.resultSummary.trim();
-    final useStored = storedSummary.isNotEmpty &&
+    final useStored =
+        storedSummary.isNotEmpty &&
         storedSummary.toLowerCase() != 'match completed';
     final summary = useStored ? storedSummary : result.summary;
 
+    final completedAt = DateTime.now();
+    final endedPlaybackEntries = StreamPlaybackMerger.endAllLiveSessions(
+      existing: match.stream.playbackEntries,
+      endedAt: completedAt,
+    );
     final completed = match.copyWith(
       status: MatchStatus.completed,
-      completedAt: DateTime.now(),
+      completedAt: completedAt,
       matchHero: hero,
       playerOfMatchId: hero?.playerId,
       badgeIds: badgeIds,
       winnerTeamId: winnerId,
       resultSummary: summary,
+      stream: match.stream.copyWith(
+        status: StreamStatus.ended,
+        playbackEntries: endedPlaybackEntries,
+      ),
       overlayVersion: match.overlayVersion + 1,
       clearActiveMatchBreak: true,
     );
@@ -1595,9 +1622,7 @@ class MatchRepository {
       final notes = List<Map<String, dynamic>>.from(
         data['overNotes'] as List? ?? [],
       );
-      notes.add(
-        overNote.copyWith(ballEventId: ballEventId).toMap(),
-      );
+      notes.add(overNote.copyWith(ballEventId: ballEventId).toMap());
       data['overNotes'] = notes;
     }
     if (overMetadata != null) {
@@ -1659,11 +1684,9 @@ class MatchRepository {
 
   Stream<OverlayStateModel?> watchOverlay(String matchId) {
     if (!_offlineEnabled) {
-      return _matchDoc(matchId)
-          .collection('overlay')
-          .doc('current')
-          .snapshots()
-          .map((doc) {
+      return _matchDoc(
+        matchId,
+      ).collection('overlay').doc('current').snapshots().map((doc) {
         if (!doc.exists) return null;
         return OverlayStateModel.fromMap(doc.data()!);
       });
@@ -1690,12 +1713,13 @@ class MatchRepository {
         .doc('current')
         .snapshots()
         .map((doc) {
-      if (!doc.exists) return null;
-      return OverlayStateModel.fromMap(doc.data()!);
-    }).listen((overlay) {
-      remoteOverlay = overlay;
-      emit();
-    });
+          if (!doc.exists) return null;
+          return OverlayStateModel.fromMap(doc.data()!);
+        })
+        .listen((overlay) {
+          remoteOverlay = overlay;
+          emit();
+        });
     controller.onCancel = () {
       localSub.cancel();
       remoteSub.cancel();
@@ -1708,9 +1732,11 @@ class MatchRepository {
       return _ballEvents(matchId)
           .orderBy('sequence')
           .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => BallEventModel.fromMap(d.id, d.data()))
-              .toList());
+          .map(
+            (snap) => snap.docs
+                .map((d) => BallEventModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
     }
 
     final controller = StreamController<List<BallEventModel>>.broadcast();
@@ -1728,13 +1754,15 @@ class MatchRepository {
     final remoteSub = _ballEvents(matchId)
         .orderBy('sequence')
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => BallEventModel.fromMap(d.id, d.data()))
-            .toList())
+        .map(
+          (snap) => snap.docs
+              .map((d) => BallEventModel.fromMap(d.id, d.data()))
+              .toList(),
+        )
         .listen((events) {
-      remoteEvents = events;
-      emit();
-    });
+          remoteEvents = events;
+          emit();
+        });
     controller.onCancel = () {
       localSub.cancel();
       remoteSub.cancel();
@@ -1753,9 +1781,7 @@ class MatchRepository {
     if (match.status != MatchStatus.tossCompleted) return;
     if (!MatchLifecycle.hasScoringStarted(match)) return;
 
-    final data = <String, dynamic>{
-      'status': MatchStatus.live.name,
-    };
+    final data = <String, dynamic>{'status': MatchStatus.live.name};
     if (match.startedAt == null) {
       data['startedAt'] = DateTime.now().toIso8601String();
     }
@@ -1784,7 +1810,8 @@ class MatchRepository {
 
     final data = <String, dynamic>{
       'status': MatchStatus.live.name,
-      'startedAt': existing?.startedAt?.toIso8601String() ??
+      'startedAt':
+          existing?.startedAt?.toIso8601String() ??
           DateTime.now().toIso8601String(),
       if (!preserveScoredInnings) ...{
         'innings': [firstInnings.toMap()],
@@ -1937,8 +1964,7 @@ class MatchRepository {
     };
     if (!alreadyActive) {
       // Keep existing token when reclaiming so takeover rules stay satisfied.
-      patch['scorerOwnershipToken'] =
-          match.scorerOwnershipToken ?? _uuid.v4();
+      patch['scorerOwnershipToken'] = match.scorerOwnershipToken ?? _uuid.v4();
       patch['lastScorerTransferAt'] = DateTime.now().toIso8601String();
     }
     await _enqueueMatchPatch(matchId, patch);
@@ -2089,7 +2115,9 @@ class MatchRepository {
     final now = DateTime.now();
     final record = ScorerTransferRecord(
       fromUserId: previous.userId ?? '',
-      fromUserName: previous.name.isNotEmpty ? previous.name : 'Previous scorer',
+      fromUserName: previous.name.isNotEmpty
+          ? previous.name
+          : 'Previous scorer',
       toUserId: replacement.userId ?? '',
       toUserName: replacement.name,
       timestamp: now,
@@ -2220,8 +2248,7 @@ class MatchRepository {
 
     final prev = match.innings.last;
     final superOvers = match.innings.where((i) => i.isSuperOver).length;
-    final regularCount =
-        match.innings.where((i) => !i.isSuperOver).length;
+    final regularCount = match.innings.where((i) => !i.isSuperOver).length;
 
     if (prev.isSuperOver && superOvers == 1) {
       await startSecondSuperOver(matchId);
@@ -2274,8 +2301,7 @@ class MatchRepository {
     final superOvers = match.innings.where((i) => i.isSuperOver).length;
     if (last.isSuperOver && superOvers == 1) return true;
 
-    final regularCount =
-        match.innings.where((i) => !i.isSuperOver).length;
+    final regularCount = match.innings.where((i) => !i.isSuperOver).length;
     return regularCount < match.effectiveMaxInnings;
   }
 
@@ -2337,10 +2363,10 @@ class MatchRepository {
   }) async {
     final match = await getMatch(matchId);
     if (match == null) throw StateError('Match not found');
-    final playingKey =
-        isTeamA ? 'teamAPlayingPlayers' : 'teamBPlayingPlayers';
-    final subsKey =
-        isTeamA ? 'teamASubstitutePlayers' : 'teamBSubstitutePlayers';
+    final playingKey = isTeamA ? 'teamAPlayingPlayers' : 'teamBPlayingPlayers';
+    final subsKey = isTeamA
+        ? 'teamASubstitutePlayers'
+        : 'teamBSubstitutePlayers';
     final squadIdsKey = isTeamA ? 'teamASquadIds' : 'teamBSquadIds';
     await _enqueueMatchPatch(matchId, {
       playingKey: playing.map((p) => p.toMap()).toList(),
@@ -2409,9 +2435,7 @@ class MatchRepository {
     );
     final updated = match.copyWith(activeMatchBreak: active);
     await _persistMatchLocally(updated);
-    await _enqueueMatchPatch(matchId, {
-      'activeMatchBreak': active.toMap(),
-    });
+    await _enqueueMatchPatch(matchId, {'activeMatchBreak': active.toMap()});
   }
 
   Future<void> endMatchBreak(String matchId) async {

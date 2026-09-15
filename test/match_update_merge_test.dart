@@ -28,27 +28,30 @@ void main() {
     );
   }
 
-  test('merge preserves tournament metadata when incoming uses single matchType', () {
-    final existing = tournamentMatch();
-    final incoming = existing.copyWith(status: MatchStatus.live);
-    final merged = MatchUpdateMerge.merge(
-      existing,
-      MatchModel(
-        id: existing.id,
-        title: existing.title,
-        matchType: MatchType.single,
-        status: MatchStatus.live,
-        teamAName: existing.teamAName,
-        teamBName: existing.teamBName,
-        rules: existing.rules,
-      ),
-    );
+  test(
+    'merge preserves tournament metadata when incoming uses single matchType',
+    () {
+      final existing = tournamentMatch();
+      final incoming = existing.copyWith(status: MatchStatus.live);
+      final merged = MatchUpdateMerge.merge(
+        existing,
+        MatchModel(
+          id: existing.id,
+          title: existing.title,
+          matchType: MatchType.single,
+          status: MatchStatus.live,
+          teamAName: existing.teamAName,
+          teamBName: existing.teamBName,
+          rules: existing.rules,
+        ),
+      );
 
-    expect(merged.matchType, MatchType.tournament);
-    expect(merged.tournamentId, 't1');
-    expect(merged.roundId, 'r1');
-    expect(merged.groupId, 'g1');
-  });
+      expect(merged.matchType, MatchType.tournament);
+      expect(merged.tournamentId, 't1');
+      expect(merged.roundId, 'r1');
+      expect(merged.groupId, 'g1');
+    },
+  );
 
   test('merge blocks toss reset from wiping scored innings', () {
     final scoredInnings = InningsModel(
@@ -62,11 +65,7 @@ void main() {
     final existing = tournamentMatch(innings: [scoredInnings]);
     final incoming = existing.copyWith(
       innings: [
-        InningsModel(
-          inningsNumber: 1,
-          battingTeamId: 'a',
-          bowlingTeamId: 'b',
-        ),
+        InningsModel(inningsNumber: 1, battingTeamId: 'a', bowlingTeamId: 'b'),
       ],
     );
 
@@ -104,11 +103,41 @@ void main() {
     expect(merged['roundId'], 'r1');
   });
 
-  test('merge preserves stream playback history when incoming omits entries', () {
+  test(
+    'merge preserves stream playback history when incoming omits entries',
+    () {
+      final existing = tournamentMatch().copyWith(
+        stream: const StreamMetadataModel(
+          status: StreamStatus.live,
+          youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc',
+          playbackEntries: [
+            StreamPlaybackEntryModel(
+              sessionId: 'sess-1',
+              url: 'https://www.youtube.com/watch?v=abc',
+              isLive: true,
+            ),
+          ],
+        ),
+      );
+      final incoming = existing.copyWith(
+        stream: const StreamMetadataModel(status: StreamStatus.live),
+      );
+
+      final merged = MatchUpdateMerge.merge(existing, incoming);
+      expect(merged.stream.playbackEntries.length, 1);
+      expect(
+        merged.stream.youtubeWatchUrl,
+        'https://www.youtube.com/watch?v=abc',
+      );
+      expect(merged.stream.status, StreamStatus.live);
+    },
+  );
+
+  test('merge does not revive stream when match completes', () {
     final existing = tournamentMatch().copyWith(
+      status: MatchStatus.live,
       stream: const StreamMetadataModel(
         status: StreamStatus.live,
-        youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc',
         playbackEntries: [
           StreamPlaybackEntryModel(
             sessionId: 'sess-1',
@@ -118,14 +147,28 @@ void main() {
         ],
       ),
     );
+    final endedAt = DateTime(2026, 9, 8, 12);
     final incoming = existing.copyWith(
-      stream: const StreamMetadataModel(status: StreamStatus.live),
+      status: MatchStatus.completed,
+      completedAt: endedAt,
+      stream: StreamMetadataModel(
+        status: StreamStatus.ended,
+        playbackEntries: [
+          StreamPlaybackEntryModel(
+            sessionId: 'sess-1',
+            url: 'https://www.youtube.com/watch?v=abc',
+            endedAt: endedAt,
+            isLive: false,
+          ),
+        ],
+      ),
     );
 
     final merged = MatchUpdateMerge.merge(existing, incoming);
-    expect(merged.stream.playbackEntries.length, 1);
-    expect(merged.stream.youtubeWatchUrl, 'https://www.youtube.com/watch?v=abc');
-    expect(merged.stream.status, StreamStatus.live);
+
+    expect(merged.status, MatchStatus.completed);
+    expect(merged.stream.status, StreamStatus.ended);
+    expect(merged.stream.playbackEntries.single.isLive, isFalse);
   });
 
   test('merge blocks live → tossCompleted status regression', () {
@@ -137,9 +180,9 @@ void main() {
       legalBalls: 4,
       totalRuns: 8,
     );
-    final existing = tournamentMatch(innings: [scoredInnings]).copyWith(
-      status: MatchStatus.live,
-    );
+    final existing = tournamentMatch(
+      innings: [scoredInnings],
+    ).copyWith(status: MatchStatus.live);
     final incoming = existing.copyWith(status: MatchStatus.tossCompleted);
 
     final merged = MatchUpdateMerge.merge(existing, incoming);

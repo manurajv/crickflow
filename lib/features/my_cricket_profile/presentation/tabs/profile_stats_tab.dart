@@ -86,6 +86,9 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
                   cells: playerStatCells(
                     breakdown.overall,
                     _mode.asViewMode,
+                    dotBalls: breakdown.overallDotBalls,
+                    wides: breakdown.overallWides,
+                    noBalls: breakdown.overallNoBalls,
                   ),
                 ),
                 ...breakdown.typedSections.expand(
@@ -98,6 +101,9 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
                         _mode.asViewMode,
                         ballsPerOver: section.ballsPerOver,
                         bowlingActualOvers: section.bowlingActualOvers,
+                        dotBalls: section.dotBalls,
+                        wides: section.wides,
+                        noBalls: section.noBalls,
                       ),
                     ),
                   ],

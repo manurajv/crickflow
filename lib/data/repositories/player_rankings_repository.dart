@@ -15,8 +15,8 @@ class PlayerRankingsRepository {
   PlayerRankingsRepository({
     FirebaseFirestore? firestore,
     PlayerRankingsService? rankingsService,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _rankings = rankingsService ?? const PlayerRankingsService();
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _rankings = rankingsService ?? const PlayerRankingsService();
 
   final FirebaseFirestore _firestore;
   final PlayerRankingsService _rankings;
@@ -43,6 +43,7 @@ class PlayerRankingsRepository {
     String? viewerPublicPlayerId,
   }) async {
     Map<String, PlayerStatsModel>? yearStats;
+    Map<String, PlayerRankingReplayStats>? replayStats;
     List<PlayerModel> players;
 
     Map<String, int>? bowlingInningsByPlayerId;
@@ -55,19 +56,22 @@ class PlayerRankingsRepository {
       );
 
       Map<String, List<BallEventModel>>? ballEventsByMatchId;
-      if (filter.section == PlayerRankingsSection.fielding) {
-        ballEventsByMatchId = await _loadBallEventsForFielding(
+      if (filter.section == PlayerRankingsSection.fielding ||
+          filter.category.requiresMatchReplay) {
+        ballEventsByMatchId = await _loadBallEvents(
           matches: matches,
           filter: filter,
         );
       }
 
       bowlingInningsByPlayerId = <String, int>{};
+      replayStats = <String, PlayerRankingReplayStats>{};
       yearStats = _rankings.aggregateFromMatches(
         matches: matches,
         filter: filter,
         bowlingInningsOut: bowlingInningsByPlayerId,
         ballEventsByMatchId: ballEventsByMatchId,
+        replayStatsOut: replayStats,
       );
       players = await _playersForIds(yearStats.keys.toList());
     } else {
@@ -79,9 +83,7 @@ class PlayerRankingsRepository {
       );
     }
 
-    final teamIds = <String>{
-      for (final p in players) ...p.effectiveTeamIds,
-    };
+    final teamIds = <String>{for (final p in players) ...p.effectiveTeamIds};
     final teamNames = await _teamNames(teamIds);
 
     final ranked = _rankings.rank(
@@ -90,6 +92,7 @@ class PlayerRankingsRepository {
       teamNamesById: teamNames,
       statsByPlayerId: yearStats,
       bowlingInningsByPlayerId: bowlingInningsByPlayerId,
+      replayStatsByPlayerId: replayStats,
     );
 
     final myEntry = _findViewerEntry(
@@ -183,7 +186,9 @@ class PlayerRankingsRepository {
     return null;
   }
 
-  Future<List<PlayerModel>> _fetchCareerPlayers({required int poolLimit}) async {
+  Future<List<PlayerModel>> _fetchCareerPlayers({
+    required int poolLimit,
+  }) async {
     final snap = await _players
         .orderBy('stats.matchesPlayed', descending: true)
         .limit(poolLimit)
@@ -238,7 +243,8 @@ class PlayerRankingsRepository {
       var match = MatchModel.fromMap(doc.id, data);
       match = _withParsedDates(match, data);
       if (year != null) {
-        final date = match.completedAt ??
+        final date =
+            match.completedAt ??
             match.startedAt ??
             match.scheduledAt ??
             match.createdAt;
@@ -249,10 +255,7 @@ class PlayerRankingsRepository {
     return list;
   }
 
-  MatchModel _withParsedDates(
-    MatchModel match,
-    Map<String, dynamic> data,
-  ) {
+  MatchModel _withParsedDates(MatchModel match, Map<String, dynamic> data) {
     final completed = _parseDate(data['completedAt']);
     final started = _parseDate(data['startedAt']);
     if (completed == null && started == null) return match;
@@ -269,12 +272,12 @@ class PlayerRankingsRepository {
     return DateTime.tryParse(value.toString());
   }
 
-  /// Fielding is stored only on ball events — load events for matches that
-  /// pass the current rankings filters (capped for latency).
-  Future<Map<String, List<BallEventModel>>> _loadBallEventsForFielding({
+  /// Loads event logs for rankings that need fielding or delivery-level stats.
+  /// Only matches passing the active filters are read (capped for latency).
+  Future<Map<String, List<BallEventModel>>> _loadBallEvents({
     required List<MatchModel> matches,
     required PlayerRankingsFilter filter,
-    int maxMatches = 400,
+    int maxMatches = 2500,
     int batchSize = 20,
   }) async {
     final relevant = matches
@@ -300,9 +303,7 @@ class PlayerRankingsRepository {
                 .toList();
             return MapEntry(m.id, events);
           } catch (e) {
-            debugPrint(
-              'PlayerRankings: ball_events for ${m.id} failed: $e',
-            );
+            debugPrint('PlayerRankings: ball_events for ${m.id} failed: $e');
             return MapEntry(m.id, const <BallEventModel>[]);
           }
         }),
@@ -319,8 +320,9 @@ class PlayerRankingsRepository {
     final byId = <String, PlayerModel>{};
     for (var i = 0; i < ids.length; i += 10) {
       final chunk = ids.skip(i).take(10).toList();
-      final snap =
-          await _players.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _players
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       for (final doc in snap.docs) {
         final player = PlayerModel.fromMap(doc.id, doc.data());
         // Skip walk-in / guest profiles (no linked CrickFlow account).
@@ -338,8 +340,9 @@ class PlayerRankingsRepository {
     final list = ids.toList();
     for (var i = 0; i < list.length; i += 10) {
       final chunk = list.skip(i).take(10).toList();
-      final snap =
-          await _teams.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _teams
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       for (final doc in snap.docs) {
         final team = TeamModel.fromMap(doc.id, doc.data());
         out[doc.id] = team.name;

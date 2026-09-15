@@ -58,6 +58,9 @@ void main() {
     bool? isWicket,
     bool retiredHurt = false,
     bool countsInOver = true,
+    bool countsToBowler = true,
+    int overNumber = 0,
+    String bowlerId = 'bowl1',
   }) {
     final resolvedIsWicket = isWicket ??
         (type == BallEventType.wicket &&
@@ -67,7 +70,7 @@ void main() {
       id: 'e$sequence',
       matchId: 'm1',
       inningsNumber: 1,
-      overNumber: 0,
+      overNumber: overNumber,
       ballInOver: sequence,
       eventType: type,
       runs: runs,
@@ -76,7 +79,7 @@ void main() {
       isLegalDelivery: isLegal,
       strikerId: strikerId,
       nonStrikerId: nonStrikerId,
-      bowlerId: 'bowl1',
+      bowlerId: bowlerId,
       timestamp: timestamp,
       sequence: sequence,
       dismissedPlayerId: dismissedId,
@@ -85,6 +88,7 @@ void main() {
       retiredHurt: retiredHurt || wicketType == WicketType.retiredHurt,
       isEligibleToReturn: retiredHurt || wicketType == WicketType.retiredHurt,
       countsInOver: countsInOver,
+      countsToBowler: countsToBowler,
     );
   }
 
@@ -155,6 +159,43 @@ void main() {
       final maidens =
           BallEventAggregator.maidenOversFromEvents(events, rules);
       expect(maidens['bowl1'], isNull);
+    });
+
+    test('does not count an incomplete zero-run over', () {
+      final events = [
+        _event(sequence: 1, type: BallEventType.runs),
+        _event(sequence: 2, type: BallEventType.runs),
+      ];
+
+      final maidens =
+          BallEventAggregator.maidenOversFromEvents(events, rules);
+      expect(maidens, isEmpty);
+    });
+
+    test('uses custom balls per over and ignores split overs', () {
+      const fourBallRules = MatchRulesModel(ballsPerOver: 4);
+      final events = [
+        for (var i = 1; i <= 4; i++)
+          _event(
+            sequence: i,
+            type: BallEventType.runs,
+            overNumber: 0,
+          ),
+        for (var i = 5; i <= 8; i++)
+          _event(
+            sequence: i,
+            type: BallEventType.runs,
+            overNumber: 1,
+            bowlerId: i < 7 ? 'bowl1' : 'bowl2',
+          ),
+      ];
+
+      final maidens = BallEventAggregator.maidenOversFromEvents(
+        events,
+        fourBallRules,
+      );
+      expect(maidens['bowl1'], 1);
+      expect(maidens['bowl2'], isNull);
     });
   });
 

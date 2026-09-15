@@ -21,9 +21,8 @@ class PlayerRankingsService {
     required Map<String, String> teamNamesById,
     Map<String, PlayerStatsModel>? statsByPlayerId,
     Map<String, int>? bowlingInningsByPlayerId,
+    Map<String, PlayerRankingReplayStats>? replayStatsByPlayerId,
   }) {
-    if (filter.category.requiresMatchReplay) return const [];
-
     final scored = <_ScoredPlayer>[];
     for (final player in players) {
       // Walk-in / match-only guest players have no linked account.
@@ -33,14 +32,19 @@ class PlayerRankingsService {
       final stats = statsByPlayerId != null
           ? (statsByPlayerId[player.id] ?? const PlayerStatsModel())
           : _statsFor(player, filter.ballType);
-      final metric = _metricFor(stats, filter.category);
+      final metric = _metricFor(
+        stats,
+        filter.category,
+        replayStatsByPlayerId?[player.id],
+      );
       if (metric == null || !metric.include) continue;
 
       scored.add(
         _ScoredPlayer(
           player: player,
           stats: stats,
-          bowlingInnings: bowlingInningsByPlayerId?[player.id] ??
+          bowlingInnings:
+              bowlingInningsByPlayerId?[player.id] ??
               ((stats.oversBowledBalls > 0 || stats.wickets > 0)
                   ? stats.matchesPlayed
                   : 0),
@@ -86,16 +90,20 @@ class PlayerRankingsService {
     required PlayerRankingsFilter filter,
     Map<String, int>? bowlingInningsOut,
     Map<String, List<BallEventModel>>? ballEventsByMatchId,
+    Map<String, PlayerRankingReplayStats>? replayStatsOut,
   }) {
     final byId = <String, _MatchAgg>{};
+    final replayById = <String, _ReplayAgg>{};
 
-    _MatchAgg ensure(String id) =>
-        byId.putIfAbsent(id, _MatchAgg.new);
+    _MatchAgg ensure(String id) => byId.putIfAbsent(id, _MatchAgg.new);
+    _ReplayAgg ensureReplay(String id) =>
+        replayById.putIfAbsent(id, _ReplayAgg.new);
 
     for (final match in matches) {
       if (!matchPassesRankingsFilters(match, filter)) continue;
 
       final played = <String>{};
+      final matchEvents = ballEventsByMatchId?[match.id] ?? const [];
 
       for (final inn in match.innings) {
         for (final b in inn.batsmen) {
@@ -134,6 +142,22 @@ class PlayerRankingsService {
           } else if (bowler.wickets >= 3) {
             agg.threeWickets += 1;
           }
+          ensureReplay(bowler.playerId).recordBowlingFigures(
+            wickets: bowler.wickets,
+            runs: bowler.runsConceded,
+          );
+        }
+
+        final inningsEvents = BallEventAggregator.eventsForInnings(
+          matchEvents,
+          inn.inningsNumber,
+        );
+        if (inningsEvents.isNotEmpty) {
+          _aggregateReplayEvents(
+            events: inningsEvents,
+            match: match,
+            ensure: ensureReplay,
+          );
         }
       }
 
@@ -173,14 +197,62 @@ class PlayerRankingsService {
     if (bowlingInningsOut != null) {
       bowlingInningsOut
         ..clear()
+        ..addAll({for (final e in byId.entries) e.key: e.value.bowlingInnings});
+    }
+    if (replayStatsOut != null) {
+      replayStatsOut
+        ..clear()
         ..addAll({
-          for (final e in byId.entries) e.key: e.value.bowlingInnings,
+          for (final e in replayById.entries) e.key: e.value.toStats(),
         });
     }
 
-    return {
-      for (final e in byId.entries) e.key: e.value.toStats(),
-    };
+    return {for (final e in byId.entries) e.key: e.value.toStats()};
+  }
+
+  void _aggregateReplayEvents({
+    required List<BallEventModel> events,
+    required MatchModel match,
+    required _ReplayAgg Function(String id) ensure,
+  }) {
+    final batterRuns = <String, int>{};
+    final batterBalls = <String, int>{};
+
+    for (final event in events) {
+      final strikerId = event.strikerId?.trim() ?? '';
+      if (strikerId.isNotEmpty) {
+        final previousRuns = batterRuns[strikerId] ?? 0;
+        final nextRuns = previousRuns + event.batsmanRuns;
+        final nextBalls =
+            (batterBalls[strikerId] ?? 0) + (event.countsAsBallFaced ? 1 : 0);
+        batterRuns[strikerId] = nextRuns;
+        batterBalls[strikerId] = nextBalls;
+
+        final replay = ensure(strikerId);
+        if (previousRuns < 50 && nextRuns >= 50) {
+          replay.recordFifty(nextBalls);
+        }
+        if (previousRuns < 100 && nextRuns >= 100) {
+          replay.recordHundred(nextBalls);
+        }
+      }
+
+      final bowlerId = event.bowlerId?.trim() ?? '';
+      if (bowlerId.isNotEmpty &&
+          event.countsToBowler &&
+          event.isLegalDelivery &&
+          event.runs == 0) {
+        ensure(bowlerId).dotBalls += 1;
+      }
+    }
+
+    final maidens = BallEventAggregator.maidenOversFromEvents(
+      events,
+      match.rules,
+    );
+    for (final entry in maidens.entries) {
+      ensure(entry.key).maidens += entry.value;
+    }
   }
 
   void _creditFielder(
@@ -208,7 +280,8 @@ class PlayerRankingsService {
     if (!_matchesRankingsBallFilter(match, filter)) return false;
     if (!_matchesOversFilter(match, filter.overs)) return false;
     if (filter.year != null) {
-      final date = match.completedAt ??
+      final date =
+          match.completedAt ??
           match.startedAt ??
           match.scheduledAt ??
           match.createdAt;
@@ -225,7 +298,7 @@ class PlayerRankingsService {
     if (filter.ballType == CricketBallType.indoor) {
       final isIndoorMatch =
           match.rules.cricketMatchType == CricketMatchType.indoor ||
-              match.rules.ballType == CricketBallType.indoor;
+          match.rules.ballType == CricketBallType.indoor;
       if (!isIndoorMatch) return false;
       final material = filter.indoorBallMaterial;
       if (material == null) return true;
@@ -268,8 +341,7 @@ class PlayerRankingsService {
       PlayerRankingsOversFilter.overs13to20 => total >= 13 && total <= 20,
       PlayerRankingsOversFilter.overs21to99 => total >= 21 && total <= 99,
       PlayerRankingsOversFilter.all ||
-      PlayerRankingsOversFilter.testMatch =>
-        false,
+      PlayerRankingsOversFilter.testMatch => false,
     };
   }
 
@@ -315,14 +387,14 @@ class PlayerRankingsService {
     return locationMatchesTextFilter(player.location, filter.location);
   }
 
-  _Metric? _metricFor(PlayerStatsModel s, PlayerRankingsCategory category) {
+  _Metric? _metricFor(
+    PlayerStatsModel s,
+    PlayerRankingsCategory category,
+    PlayerRankingReplayStats? replay,
+  ) {
     switch (category) {
       case PlayerRankingsCategory.mostRuns:
-        return _Metric(
-          value: s.runs,
-          label: '${s.runs}',
-          include: s.runs > 0,
-        );
+        return _Metric(value: s.runs, label: '${s.runs}', include: s.runs > 0);
       case PlayerRankingsCategory.highestScore:
         return _Metric(
           value: s.highScore,
@@ -374,8 +446,11 @@ class PlayerRankingsService {
           include: s.wickets > 0,
         );
       case PlayerRankingsCategory.economy:
-        final eco =
-            CricketMath.economyRate(s.runsConceded, s.oversBowledBalls, 6);
+        final eco = CricketMath.economyRate(
+          s.runsConceded,
+          s.oversBowledBalls,
+          6,
+        );
         return _Metric(
           value: eco,
           label: eco.toStringAsFixed(2),
@@ -418,11 +493,35 @@ class PlayerRankingsService {
           include: s.stumpings > 0,
         );
       case PlayerRankingsCategory.fastestFifty:
+        final balls = replay?.fastestFiftyBalls;
+        return _Metric(
+          value: balls ?? 9999,
+          label: balls == null ? '—' : '$balls balls',
+          include: balls != null && balls > 0,
+          ascendingBetter: true,
+        );
       case PlayerRankingsCategory.fastestHundred:
+        final balls = replay?.fastestHundredBalls;
+        return _Metric(
+          value: balls ?? 9999,
+          label: balls == null ? '—' : '$balls balls',
+          include: balls != null && balls > 0,
+          ascendingBetter: true,
+        );
       case PlayerRankingsCategory.bestBowlingFigures:
+        final wickets = replay?.bestBowlingWickets ?? 0;
+        final runs = replay?.bestBowlingRuns ?? 0;
+        return _Metric(
+          value: wickets * 100000 - runs,
+          label: '$wickets/$runs',
+          include: wickets > 0,
+        );
       case PlayerRankingsCategory.maidens:
+        final maidens = replay?.maidens ?? 0;
+        return _Metric(value: maidens, label: '$maidens', include: maidens > 0);
       case PlayerRankingsCategory.dotBalls:
-        return null;
+        final dots = replay?.dotBalls ?? 0;
+        return _Metric(value: dots, label: '$dots', include: dots > 0);
     }
   }
 
@@ -433,16 +532,18 @@ class PlayerRankingsService {
     required Map<String, String> teamNamesById,
   }) {
     final player = ranked.player;
-    final teamId =
-        player.effectiveTeamIds.isNotEmpty ? player.effectiveTeamIds.first : null;
+    final teamId = player.effectiveTeamIds.isNotEmpty
+        ? player.effectiveTeamIds.first
+        : null;
     final teamName = teamId != null ? (teamNamesById[teamId] ?? '') : '';
 
     return PlayerRankingEntry(
       rank: rank,
       playerDocId: player.id,
       publicPlayerId: player.playerId,
-      playerName:
-          player.name.isNotEmpty ? player.name : player.effectiveFullName,
+      playerName: player.name.isNotEmpty
+          ? player.name
+          : player.effectiveFullName,
       photoUrl: player.photoUrl,
       role: player.role,
       teamName: teamName,
@@ -466,8 +567,11 @@ class PlayerRankingsService {
   }) {
     final avg = CricketMath.battingAverage(stats.runs, stats.dismissals);
     final batSr = CricketMath.strikeRate(stats.runs, stats.ballsFaced);
-    final eco =
-        CricketMath.economyRate(stats.runsConceded, stats.oversBowledBalls, 6);
+    final eco = CricketMath.economyRate(
+      stats.runsConceded,
+      stats.oversBowledBalls,
+      6,
+    );
     final bowlSr = stats.wickets == 0
         ? null
         : stats.oversBowledBalls / stats.wickets;
@@ -475,27 +579,27 @@ class PlayerRankingsService {
 
     return switch (section) {
       PlayerRankingsSection.batting => [
-          PlayerRankingStat(label: 'Inn', value: '${stats.inningsPlayed}'),
-          PlayerRankingStat(label: 'R', value: '${stats.runs}'),
-          PlayerRankingStat(label: 'Avg', value: avg.toStringAsFixed(1)),
-          PlayerRankingStat(label: 'SR', value: batSr.toStringAsFixed(1)),
-        ],
+        PlayerRankingStat(label: 'Inn', value: '${stats.inningsPlayed}'),
+        PlayerRankingStat(label: 'R', value: '${stats.runs}'),
+        PlayerRankingStat(label: 'Avg', value: avg.toStringAsFixed(1)),
+        PlayerRankingStat(label: 'SR', value: batSr.toStringAsFixed(1)),
+      ],
       PlayerRankingsSection.bowling => [
-          PlayerRankingStat(label: 'Inn', value: '$bowlingInnings'),
-          PlayerRankingStat(label: 'W', value: '${stats.wickets}'),
-          PlayerRankingStat(label: 'Eco', value: eco.toStringAsFixed(2)),
-          PlayerRankingStat(
-            label: 'SR',
-            value: bowlSr == null ? '—' : bowlSr.toStringAsFixed(1),
-          ),
-        ],
+        PlayerRankingStat(label: 'Inn', value: '$bowlingInnings'),
+        PlayerRankingStat(label: 'W', value: '${stats.wickets}'),
+        PlayerRankingStat(label: 'Eco', value: eco.toStringAsFixed(2)),
+        PlayerRankingStat(
+          label: 'SR',
+          value: bowlSr == null ? '—' : bowlSr.toStringAsFixed(1),
+        ),
+      ],
       PlayerRankingsSection.fielding => [
-          PlayerRankingStat(label: 'Mat', value: '${stats.matchesPlayed}'),
-          PlayerRankingStat(label: 'Dis', value: '$fieldDismissals'),
-          PlayerRankingStat(label: 'Ct', value: '${stats.catches}'),
-          PlayerRankingStat(label: 'St', value: '${stats.stumpings}'),
-          PlayerRankingStat(label: 'RO', value: '${stats.runOuts}'),
-        ],
+        PlayerRankingStat(label: 'Mat', value: '${stats.matchesPlayed}'),
+        PlayerRankingStat(label: 'Dis', value: '$fieldDismissals'),
+        PlayerRankingStat(label: 'Ct', value: '${stats.catches}'),
+        PlayerRankingStat(label: 'St', value: '${stats.stumpings}'),
+        PlayerRankingStat(label: 'RO', value: '${stats.runOuts}'),
+      ],
     };
   }
 }
@@ -556,25 +660,67 @@ class _MatchAgg {
   int stumpings = 0;
 
   PlayerStatsModel toStats() => PlayerStatsModel(
-        runs: runs,
-        ballsFaced: ballsFaced,
-        fours: fours,
-        sixes: sixes,
-        wickets: wickets,
-        oversBowledBalls: oversBowledBalls,
-        runsConceded: runsConceded,
-        matchesPlayed: matchesPlayed,
-        inningsPlayed: inningsPlayed,
-        dismissals: dismissals,
-        highScore: highScore,
-        thirties: thirties,
-        fifties: fifties,
-        hundreds: hundreds,
-        ducks: ducks,
-        threeWickets: threeWickets,
-        fiveWickets: fiveWickets,
-        catches: catches,
-        runOuts: runOuts,
-        stumpings: stumpings,
-      );
+    runs: runs,
+    ballsFaced: ballsFaced,
+    fours: fours,
+    sixes: sixes,
+    wickets: wickets,
+    oversBowledBalls: oversBowledBalls,
+    runsConceded: runsConceded,
+    matchesPlayed: matchesPlayed,
+    inningsPlayed: inningsPlayed,
+    dismissals: dismissals,
+    highScore: highScore,
+    thirties: thirties,
+    fifties: fifties,
+    hundreds: hundreds,
+    ducks: ducks,
+    threeWickets: threeWickets,
+    fiveWickets: fiveWickets,
+    catches: catches,
+    runOuts: runOuts,
+    stumpings: stumpings,
+  );
+}
+
+class _ReplayAgg {
+  int? fastestFiftyBalls;
+  int? fastestHundredBalls;
+  int bestBowlingWickets = 0;
+  int bestBowlingRuns = 0;
+  int maidens = 0;
+  int dotBalls = 0;
+
+  void recordFifty(int balls) {
+    if (balls <= 0) return;
+    if (fastestFiftyBalls == null || balls < fastestFiftyBalls!) {
+      fastestFiftyBalls = balls;
+    }
+  }
+
+  void recordHundred(int balls) {
+    if (balls <= 0) return;
+    if (fastestHundredBalls == null || balls < fastestHundredBalls!) {
+      fastestHundredBalls = balls;
+    }
+  }
+
+  void recordBowlingFigures({required int wickets, required int runs}) {
+    if (wickets > bestBowlingWickets ||
+        (wickets == bestBowlingWickets &&
+            wickets > 0 &&
+            runs < bestBowlingRuns)) {
+      bestBowlingWickets = wickets;
+      bestBowlingRuns = runs;
+    }
+  }
+
+  PlayerRankingReplayStats toStats() => PlayerRankingReplayStats(
+    fastestFiftyBalls: fastestFiftyBalls,
+    fastestHundredBalls: fastestHundredBalls,
+    bestBowlingWickets: bestBowlingWickets,
+    bestBowlingRuns: bestBowlingRuns,
+    maidens: maidens,
+    dotBalls: dotBalls,
+  );
 }

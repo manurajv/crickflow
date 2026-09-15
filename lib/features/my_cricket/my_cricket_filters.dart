@@ -1,4 +1,5 @@
 import '../../core/constants/enums.dart';
+import '../../core/utils/match_scorer_utils.dart';
 import '../../data/models/match_model.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../../data/models/match_player_snapshot.dart';
@@ -9,9 +10,104 @@ import '../../data/models/user_model.dart';
 /// Your · Played · Network · All filters for My Cricket tabs.
 enum MyCricketListScope { yours, played, network, all }
 
+/// Focus inside the Matches tab for quickly returning to active work.
+enum MyCricketMatchView { matches, scoring, streaming }
+
+enum MyCricketSort { newest, oldest, name }
+
+String myCricketSortLabel(MyCricketSort sort) => switch (sort) {
+  MyCricketSort.newest => 'Newest first',
+  MyCricketSort.oldest => 'Oldest first',
+  MyCricketSort.name => 'Name A–Z',
+};
+
+DateTime _matchSortDate(MatchModel match) =>
+    match.completedAt ??
+    match.startedAt ??
+    match.scheduledAt ??
+    match.createdAt ??
+    DateTime.fromMillisecondsSinceEpoch(0);
+
+List<MatchModel> sortMyCricketMatches(
+  Iterable<MatchModel> matches,
+  MyCricketSort sort,
+) {
+  final result = matches.toList();
+  result.sort((a, b) {
+    return switch (sort) {
+      MyCricketSort.newest => _matchSortDate(b).compareTo(_matchSortDate(a)),
+      MyCricketSort.oldest => _matchSortDate(a).compareTo(_matchSortDate(b)),
+      MyCricketSort.name => a.title.toLowerCase().compareTo(
+        b.title.toLowerCase(),
+      ),
+    };
+  });
+  return result;
+}
+
+DateTime _tournamentSortDate(TournamentModel tournament) =>
+    (tournament.status == TournamentStatus.completed
+        ? tournament.endDate
+        : null) ??
+    tournament.startDate ??
+    tournament.createdAt ??
+    tournament.updatedAt ??
+    DateTime.fromMillisecondsSinceEpoch(0);
+
+List<TournamentModel> sortMyCricketTournaments(
+  Iterable<TournamentModel> tournaments,
+  MyCricketSort sort,
+) {
+  final result = tournaments.toList();
+  result.sort((a, b) {
+    return switch (sort) {
+      MyCricketSort.newest => _tournamentSortDate(
+        b,
+      ).compareTo(_tournamentSortDate(a)),
+      MyCricketSort.oldest => _tournamentSortDate(
+        a,
+      ).compareTo(_tournamentSortDate(b)),
+      MyCricketSort.name => a.name.toLowerCase().compareTo(
+        b.name.toLowerCase(),
+      ),
+    };
+  });
+  return result;
+}
+
 bool userOwnsOrScoresMatch(MatchModel m, String? uid) {
   if (uid == null) return false;
   return m.createdBy == uid || m.scorerIds.contains(uid);
+}
+
+bool userScoresMatch(MatchModel match, String? uid) =>
+    isAssignedMatchScorer(match: match, userId: uid);
+
+bool userStreamedMatch(MatchModel match, String? uid) {
+  if (uid == null || uid.isEmpty) return false;
+  final assigned =
+      match.setup?.liveStreamers.any((streamer) => streamer.userId == uid) ??
+      false;
+  return assigned ||
+      match.stream.playbackEntries.any((entry) => entry.addedByUserId == uid);
+}
+
+bool canResumeScoring(MatchModel match, String? uid) {
+  if (!userScoresMatch(match, uid)) return false;
+  if (match.status == MatchStatus.abandoned ||
+      MatchLifecycle.isCompleted(match)) {
+    return false;
+  }
+  return MatchLifecycle.canOpenScoringScreen(match);
+}
+
+bool canResumeStreaming(MatchModel match, String? uid) {
+  if (!userStreamedMatch(match, uid)) return false;
+  if (match.status == MatchStatus.abandoned ||
+      MatchLifecycle.isCompleted(match)) {
+    return false;
+  }
+  return match.stream.status == StreamStatus.live;
 }
 
 bool userTeamParticipatedInMatch(
@@ -41,11 +137,7 @@ bool userParticipatedInMatch(
   );
 }
 
-bool _playerIdMatches(
-  PlayerModel player, {
-  String? docId,
-  String? cfPlayerId,
-}) {
+bool _playerIdMatches(PlayerModel player, {String? docId, String? cfPlayerId}) {
   if (docId != null && docId.isNotEmpty) {
     if (docId == player.id) return true;
     if (player.userId != null &&
@@ -306,10 +398,7 @@ bool tournamentInvolvesFollowedUser(
 
 /// Resolves which followed person made this match appear in Network.
 /// Prefer creator → scorer → playing player.
-String? networkMatchAttribution(
-  MatchModel m,
-  List<UserModel> following,
-) {
+String? networkMatchAttribution(MatchModel m, List<UserModel> following) {
   if (following.isEmpty) return null;
 
   final byUid = <String, UserModel>{
@@ -341,11 +430,7 @@ String? networkMatchAttribution(
     final u = byUid[uid];
     if (u != null) return labelFor(u);
   }
-  for (final uid in [
-    m.scorer1UserId,
-    m.scorer2UserId,
-    m.currentScorerId,
-  ]) {
+  for (final uid in [m.scorer1UserId, m.scorer2UserId, m.currentScorerId]) {
     if (uid == null || uid.isEmpty) continue;
     final u = byUid[uid];
     if (u != null) return labelFor(u);
@@ -372,8 +457,9 @@ String? networkMatchAttribution(
       final u = byDocOrCf(docId: snapshot.id, cfPlayerId: snapshot.playerId);
       if (u != null) return labelFor(u);
       // Snapshot name fallback when follow graph matches by id but user list miss
-      if (FollowedPlayerRefs.fromUsers(following)
-          .matches(docId: snapshot.id, cfPlayerId: snapshot.playerId)) {
+      if (FollowedPlayerRefs.fromUsers(
+        following,
+      ).matches(docId: snapshot.id, cfPlayerId: snapshot.playerId)) {
         final name = snapshot.name.trim();
         if (name.isNotEmpty) return "$name's match";
       }
@@ -437,11 +523,7 @@ bool filterTournamentByScope(
       return t.status == TournamentStatus.completed &&
           userParticipatedInTournament(t, uid: uid, userTeamIds: userTeamIds);
     case MyCricketListScope.network:
-      if (userParticipatedInTournament(
-        t,
-        uid: uid,
-        userTeamIds: userTeamIds,
-      )) {
+      if (userParticipatedInTournament(t, uid: uid, userTeamIds: userTeamIds)) {
         return false;
       }
       return tournamentInvolvesFollowedUser(t, followedPlayers);

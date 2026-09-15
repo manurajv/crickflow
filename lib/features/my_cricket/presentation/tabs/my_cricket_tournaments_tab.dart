@@ -12,6 +12,7 @@ import '../../../../shared/widgets/tournament_list_card.dart';
 import '../../my_cricket_filters.dart';
 import '../widgets/my_cricket_action_banner.dart';
 import '../widgets/my_cricket_guest_sign_in_prompt.dart';
+import '../widgets/my_cricket_sort_button.dart';
 
 class MyCricketTournamentsTab extends ConsumerStatefulWidget {
   const MyCricketTournamentsTab({super.key});
@@ -21,8 +22,10 @@ class MyCricketTournamentsTab extends ConsumerStatefulWidget {
       _MyCricketTournamentsTabState();
 }
 
-class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTab> {
+class _MyCricketTournamentsTabState
+    extends ConsumerState<MyCricketTournamentsTab> {
   MyCricketListScope _scope = MyCricketListScope.yours;
+  MyCricketSort _sort = MyCricketSort.newest;
 
   @override
   void initState() {
@@ -58,8 +61,10 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<MyCricketListScope?>(myCricketTournamentsInitialScopeProvider,
-        (prev, next) {
+    ref.listen<MyCricketListScope?>(myCricketTournamentsInitialScopeProvider, (
+      prev,
+      next,
+    ) {
       if (next == null || !mounted) return;
       setState(() => _scope = next);
       ref.read(myCricketTournamentsInitialScopeProvider.notifier).state = null;
@@ -73,6 +78,8 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
         scope: _scope,
         onScopeChanged: (scope) => setState(() => _scope = scope),
         onOpenTournament: _openTournament,
+        sort: _sort,
+        onSortChanged: (sort) => setState(() => _sort = sort),
       );
     }
 
@@ -80,8 +87,7 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
     final search = ref.watch(myCricketSearchProvider);
     final userTeams = ref.watch(teamsProvider).valueOrNull ?? [];
     final userTeamIds = userTeams.map((t) => t.id).toSet();
-    final following =
-        ref.watch(playerFollowingProvider(uid)).valueOrNull ?? [];
+    final following = ref.watch(playerFollowingProvider(uid)).valueOrNull ?? [];
     final followedPlayers = FollowedPlayerRefs.fromUsers(following);
 
     return Column(
@@ -93,6 +99,10 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
           onAction: _registerTournament,
         ),
         _scopeChips(context),
+        MyCricketSortButton(
+          value: _sort,
+          onChanged: (sort) => setState(() => _sort = sort),
+        ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async => ref.invalidate(tournamentsProvider),
@@ -116,6 +126,7 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
                       .where((t) => t.name.toLowerCase().contains(q))
                       .toList();
                 }
+                list = sortMyCricketTournaments(list, _sort);
 
                 if (list.isEmpty) {
                   return ListView(
@@ -160,9 +171,7 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
                       trailing: t.tournamentCode != null
                           ? Text(
                               t.tournamentCode!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
+                              style: Theme.of(context).textTheme.labelMedium
                                   ?.copyWith(color: context.cf.accent),
                             )
                           : null,
@@ -170,8 +179,7 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
                   },
                 );
               },
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('$e')),
             ),
           ),
@@ -221,9 +229,9 @@ class _MyCricketTournamentsTabState extends ConsumerState<MyCricketTournamentsTa
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: selected ? cf.onAccent : cf.textSecondary,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
+              color: selected ? cf.onAccent : cf.textSecondary,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
           ),
         ),
       ),
@@ -236,11 +244,15 @@ class _GuestTournamentsBody extends ConsumerWidget {
     required this.scope,
     required this.onScopeChanged,
     required this.onOpenTournament,
+    required this.sort,
+    required this.onSortChanged,
   });
 
   final MyCricketListScope scope;
   final ValueChanged<MyCricketListScope> onScopeChanged;
   final void Function(TournamentModel) onOpenTournament;
+  final MyCricketSort sort;
+  final ValueChanged<MyCricketSort> onSortChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -249,6 +261,7 @@ class _GuestTournamentsBody extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _guestScopeChips(context),
+          MyCricketSortButton(value: sort, onChanged: onSortChanged),
           const Expanded(child: MyCricketGuestSignInPrompt()),
         ],
       );
@@ -268,6 +281,7 @@ class _GuestTournamentsBody extends ConsumerWidget {
               'and network.',
         ),
         _guestScopeChips(context),
+        MyCricketSortButton(value: sort, onChanged: onSortChanged),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async => ref.invalidate(tournamentsProvider),
@@ -281,6 +295,7 @@ class _GuestTournamentsBody extends ConsumerWidget {
                       .where((t) => t.name.toLowerCase().contains(q))
                       .toList();
                 }
+                list = sortMyCricketTournaments(list, sort);
 
                 if (list.isEmpty) {
                   return ListView(
@@ -309,9 +324,7 @@ class _GuestTournamentsBody extends ConsumerWidget {
                       trailing: t.tournamentCode != null
                           ? Text(
                               t.tournamentCode!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
+                              style: Theme.of(context).textTheme.labelMedium
                                   ?.copyWith(color: context.cf.accent),
                             )
                           : null,
@@ -319,8 +332,7 @@ class _GuestTournamentsBody extends ConsumerWidget {
                   },
                 );
               },
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('$e')),
             ),
           ),
@@ -370,9 +382,9 @@ class _GuestTournamentsBody extends ConsumerWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: selected ? cf.onAccent : cf.textSecondary,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
+              color: selected ? cf.onAccent : cf.textSecondary,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
           ),
         ),
       ),

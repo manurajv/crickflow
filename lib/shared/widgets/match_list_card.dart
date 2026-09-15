@@ -28,6 +28,8 @@ class MatchListCard extends ConsumerWidget {
     this.showQuickLinks = true,
     this.showTournamentHeader = true,
     this.showRoundBadge = true,
+    this.primaryActionLabel,
+    this.onPrimaryAction,
     this.margin = const EdgeInsets.symmetric(
       horizontal: AppDimens.spaceMd,
       vertical: AppDimens.spaceXs,
@@ -37,11 +39,14 @@ class MatchListCard extends ConsumerWidget {
   final MatchModel match;
   final String? tournamentLabel;
   final String? matchTypeLabel;
+
   /// e.g. Network feed: "Alex's match"
   final String? attributionLabel;
   final bool showQuickLinks;
   final bool showTournamentHeader;
   final bool showRoundBadge;
+  final String? primaryActionLabel;
+  final VoidCallback? onPrimaryAction;
   final EdgeInsetsGeometry margin;
 
   bool get _isUpcoming => MatchLifecycle.isUpcoming(match);
@@ -60,8 +65,7 @@ class MatchListCard extends ConsumerWidget {
         ? _resolveTournamentName(tournaments, tournamentLabel)
         : null;
     final isTournament = match.isTournamentMatch;
-    final stageLabel =
-        isTournament ? _tournamentStageLabel(ref, match) : null;
+    final stageLabel = isTournament ? _tournamentStageLabel(ref, match) : null;
     final roundLabel = showRoundBadge && !isTournament
         ? _roundLabel(ref, match)
         : null;
@@ -81,12 +85,14 @@ class MatchListCard extends ConsumerWidget {
     } else {
       contentTypeLabel = '';
     }
-    final showStageInFooter = isTournament &&
+    final showStageInFooter =
+        isTournament &&
         showTournamentHeader &&
         stageLabel != null &&
         stageLabel.isNotEmpty;
     final uid = ref.watch(authStateProvider).valueOrNull?.uid;
-    final role = ref.watch(currentUserProfileProvider).valueOrNull?.role ??
+    final role =
+        ref.watch(currentUserProfileProvider).valueOrNull?.role ??
         UserRole.organizer;
     final tournamentId = match.tournamentId;
     final scoringAccess = resolveTournamentMatchScoringAccess(
@@ -98,7 +104,7 @@ class MatchListCard extends ConsumerWidget {
           : null,
       officials: tournamentId != null && tournamentId.isNotEmpty
           ? ref.watch(tournamentOfficialsProvider(tournamentId)).valueOrNull ??
-              []
+                []
           : const [],
     );
     final actions = _actions(
@@ -139,8 +145,7 @@ class MatchListCard extends ConsumerWidget {
               ),
             ),
           ),
-          if (showQuickLinks &&
-              (actions.isNotEmpty || showStageInFooter)) ...[
+          if (showQuickLinks && (actions.isNotEmpty || showStageInFooter)) ...[
             Divider(height: 1, color: context.cf.border),
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
@@ -157,9 +162,7 @@ class MatchListCard extends ConsumerWidget {
                           stageLabel,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelLarge
+                          style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
                                 color: context.cf.textSecondary,
                                 fontWeight: FontWeight.w600,
@@ -212,9 +215,10 @@ class MatchListCard extends ConsumerWidget {
 
     final round = match.roundId != null && match.roundId!.isNotEmpty
         ? ref.watch(
-            tournamentRoundByIdProvider(
-              (tournamentId: tournamentId, roundId: match.roundId),
-            ),
+            tournamentRoundByIdProvider((
+              tournamentId: tournamentId,
+              roundId: match.roundId,
+            )),
           )
         : null;
     final resolvedRoundName = match.roundName?.trim().isNotEmpty == true
@@ -223,16 +227,16 @@ class MatchListCard extends ConsumerWidget {
 
     final groupName = match.groupId != null && match.groupId!.isNotEmpty
         ? ref
-            .watch(
-              tournamentGroupByIdProvider(
-                (tournamentId: tournamentId, groupId: match.groupId),
-              ),
-            )
-            ?.name
+              .watch(
+                tournamentGroupByIdProvider((
+                  tournamentId: tournamentId,
+                  groupId: match.groupId,
+                )),
+              )
+              ?.name
         : null;
 
-    final tournament =
-        ref.watch(tournamentProvider(tournamentId)).valueOrNull;
+    final tournament = ref.watch(tournamentProvider(tournamentId)).valueOrNull;
 
     return tournamentMatchStageLabel(
       match,
@@ -257,9 +261,10 @@ class MatchListCard extends ConsumerWidget {
     }
     return ref
         .watch(
-          tournamentRoundByIdProvider(
-            (tournamentId: tournamentId, roundId: roundId),
-          ),
+          tournamentRoundByIdProvider((
+            tournamentId: tournamentId,
+            roundId: roundId,
+          )),
         )
         ?.name;
   }
@@ -268,25 +273,25 @@ class MatchListCard extends ConsumerWidget {
     context.push('/match/${match.id}');
   }
 
-  List<Widget> _actions(
-    BuildContext context, {
-    required bool showLiveScore,
-  }) {
+  List<Widget> _actions(BuildContext context, {required bool showLiveScore}) {
+    final primaryAction = primaryActionLabel != null && onPrimaryAction != null
+        ? _LinkButton(label: primaryActionLabel!, onTap: onPrimaryAction!)
+        : null;
     if (_isUpcoming) {
       return [
+        ?primaryAction,
         _LinkButton(
           label: 'Squads',
           onTap: () => context.push('/match/${match.id}?tab=squads'),
         ),
-        _LinkButton(
-          label: 'Details',
-          onTap: () => _openMatchHub(context),
-        ),
+        _LinkButton(label: 'Details', onTap: () => _openMatchHub(context)),
       ];
     }
     if (_isLive) {
       return [
-        if (showLiveScore)
+        if (primaryAction != null)
+          primaryAction
+        else if (showLiveScore)
           _LinkButton(
             label: 'Live Score',
             onTap: () => context.push('/match/${match.id}/score'),
@@ -299,6 +304,7 @@ class MatchListCard extends ConsumerWidget {
     }
     if (_isCompleted) {
       return [
+        ?primaryAction,
         _LinkButton(
           label: 'Scorecard',
           onTap: () => context.push('/match/${match.id}?tab=scorecard'),
@@ -310,10 +316,8 @@ class MatchListCard extends ConsumerWidget {
       ];
     }
     return [
-      _LinkButton(
-        label: 'Details',
-        onTap: () => _openMatchHub(context),
-      ),
+      ?primaryAction,
+      _LinkButton(label: 'Details', onTap: () => _openMatchHub(context)),
     ];
   }
 }
@@ -338,11 +342,11 @@ class _LinkButton extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: cf.link,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              height: 1.0,
-            ),
+          color: cf.link,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          height: 1.0,
+        ),
       ),
     );
   }
@@ -382,9 +386,9 @@ class MatchListEmptyState extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: cf.textSecondary,
-                ),
+              fontWeight: FontWeight.w600,
+              color: cf.textSecondary,
+            ),
           ),
           if (onCreateMatch != null || onClearFilters != null) ...[
             const SizedBox(height: AppDimens.spaceLg),

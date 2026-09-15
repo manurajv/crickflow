@@ -114,6 +114,26 @@ void main() {
     expect(merged.single.url, 'https://www.youtube.com/watch?v=abc');
   });
 
+  test('unionEntries never revives an ended copy of the same session', () {
+    final endedAt = DateTime(2026, 9, 8, 12);
+    const live = StreamPlaybackEntryModel(
+      sessionId: 'sess-ended',
+      url: 'https://www.youtube.com/watch?v=abc',
+      isLive: true,
+    );
+    final ended = StreamPlaybackEntryModel(
+      sessionId: 'sess-ended',
+      url: 'https://www.youtube.com/watch?v=abc',
+      endedAt: endedAt,
+      isLive: false,
+    );
+
+    final merged = StreamPlaybackMerger.unionEntries([live], [ended]);
+
+    expect(merged.single.isLive, isFalse);
+    expect(merged.single.endedAt, endedAt);
+  });
+
   test('attachWatchUrlToSession updates only matching session', () {
     final first = StreamPlaybackEntryModel(
       sessionId: 'sess-1',
@@ -136,10 +156,7 @@ void main() {
       requireLive: true,
     );
 
-    expect(
-      updated.firstWhere((e) => e.sessionId == 'sess-1').url,
-      first.url,
-    );
+    expect(updated.firstWhere((e) => e.sessionId == 'sess-1').url, first.url);
     expect(
       updated.firstWhere((e) => e.sessionId == 'sess-2').url,
       'https://www.facebook.com/share/v/abc',

@@ -16,6 +16,9 @@ class PlayerStatsSection {
     this.isOverall = false,
     this.ballsPerOver,
     this.bowlingActualOvers,
+    this.dotBalls = 0,
+    this.wides = 0,
+    this.noBalls = 0,
   });
 
   final String title;
@@ -24,16 +27,25 @@ class PlayerStatsSection {
   /// When set, used for bowling overs/economy display for this section.
   final int? ballsPerOver;
   final double? bowlingActualOvers;
+  final int dotBalls;
+  final int wides;
+  final int noBalls;
 }
 
 class PlayerStatsBreakdown {
   const PlayerStatsBreakdown({
     required this.overall,
     required this.typedSections,
+    this.overallDotBalls = 0,
+    this.overallWides = 0,
+    this.overallNoBalls = 0,
   });
 
   final PlayerStatsModel overall;
   final List<PlayerStatsSection> typedSections;
+  final int overallDotBalls;
+  final int overallWides;
+  final int overallNoBalls;
 }
 
 final playerTypedStatsServiceProvider =
@@ -79,6 +91,9 @@ final myPlayerStatsBreakdownProvider =
           stats: fromMatches.stats,
           ballsPerOver: fromMatches.ballsPerOver,
           bowlingActualOvers: fromMatches.bowlingActualOvers,
+          dotBalls: fromMatches.dotBalls,
+          wides: fromMatches.wides,
+          noBalls: fromMatches.noBalls,
         ),
       );
     }
@@ -96,6 +111,9 @@ final myPlayerStatsBreakdownProvider =
   return PlayerStatsBreakdown(
     overall: overall.stats,
     typedSections: typedSections,
+    overallDotBalls: overall.dotBalls,
+    overallWides: overall.wides,
+    overallNoBalls: overall.noBalls,
   );
 });
 

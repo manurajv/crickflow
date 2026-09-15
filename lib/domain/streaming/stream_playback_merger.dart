@@ -32,7 +32,8 @@ class StreamPlaybackMerger {
         StreamPlaybackEntryModel(
           url: primary,
           addedAt: stream.startedAt,
-          isLive: stream.status == StreamStatus.live ||
+          isLive:
+              stream.status == StreamStatus.live ||
               stream.status == StreamStatus.connecting,
         ),
       );
@@ -43,7 +44,8 @@ class StreamPlaybackMerger {
         StreamPlaybackEntryModel(
           url: secondary,
           addedAt: stream.startedAt,
-          isLive: stream.status == StreamStatus.live ||
+          isLive:
+              stream.status == StreamStatus.live ||
               stream.status == StreamStatus.connecting,
         ),
       );
@@ -143,7 +145,8 @@ class StreamPlaybackMerger {
     return out;
   }
 
-  static bool _isPendingWatchUrl(String url) => url.trim().startsWith('pending:');
+  static bool _isPendingWatchUrl(String url) =>
+      url.trim().startsWith('pending:');
 
   /// Ensures an in-progress YouTube live appears even when only [youtubeWatchUrl]
   /// was synced, or upgrades a pending placeholder to the real watch link.
@@ -151,13 +154,13 @@ class StreamPlaybackMerger {
     StreamMetadataModel stream,
     List<StreamPlaybackEntryModel> entries,
   ) {
-    final active = stream.status == StreamStatus.live ||
+    final active =
+        stream.status == StreamStatus.live ||
         stream.status == StreamStatus.connecting;
     if (!active) return entries;
 
     final canonical = stream.youtubeWatchUrl?.trim() ?? '';
-    final hasCanonical =
-        canonical.isNotEmpty && !_isPendingWatchUrl(canonical);
+    final hasCanonical = canonical.isNotEmpty && !_isPendingWatchUrl(canonical);
 
     final liveIdx = entries.lastIndexWhere((e) => e.isLive);
     if (liveIdx >= 0) {
@@ -403,9 +406,7 @@ class StreamPlaybackMerger {
   }) {
     final end = endedAt ?? DateTime.now();
     return existing
-        .map(
-          (e) => e.isLive ? e.copyWith(isLive: false, endedAt: end) : e,
-        )
+        .map((e) => e.isLive ? e.copyWith(isLive: false, endedAt: end) : e)
         .toList();
   }
 
@@ -464,8 +465,11 @@ class StreamPlaybackMerger {
         sessionId: target.sessionId.isNotEmpty
             ? target.sessionId
             : (sid.isNotEmpty
-                ? sid
-                : _fallbackSessionId(target.addedAt ?? DateTime.now(), trimmed)),
+                  ? sid
+                  : _fallbackSessionId(
+                      target.addedAt ?? DateTime.now(),
+                      trimmed,
+                    )),
         addedAt: target.addedAt ?? sessionStartedAt,
         endedAt: target.isLive ? null : target.endedAt,
         addedByUserId: addedByUserId ?? target.addedByUserId,
@@ -508,11 +512,15 @@ class StreamPlaybackMerger {
     StreamPlaybackEntryModel existing,
     StreamPlaybackEntryModel incoming,
   ) {
+    // Ending a session is terminal. A stale live copy of the same session must
+    // never override an entry that already has an end marker.
+    if (existing.isLive != incoming.isLive) {
+      return existing.isLive ? incoming : existing;
+    }
     final existingScore = _playbackEntryRichness(existing);
     final incomingScore = _playbackEntryRichness(incoming);
     if (incomingScore > existingScore) return incoming;
     if (existingScore > incomingScore) return existing;
-    if (incoming.isLive && !existing.isLive) return incoming;
     return existing;
   }
 

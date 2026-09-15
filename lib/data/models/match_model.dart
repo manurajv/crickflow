@@ -35,11 +35,11 @@ class MatchHeroModel extends Equatable {
   }
 
   Map<String, dynamic> toMap() => {
-        if (playerId != null) 'playerId': playerId,
-        'playerName': playerName,
-        'reason': reason,
-        if (badgeId != null) 'badgeId': badgeId,
-      };
+    if (playerId != null) 'playerId': playerId,
+    'playerName': playerName,
+    'reason': reason,
+    if (badgeId != null) 'badgeId': badgeId,
+  };
 
   @override
   List<Object?> get props => [playerId, playerName];
@@ -70,16 +70,21 @@ class StreamMetadataModel extends Equatable {
   final int viewerCount;
   final DateTime? startedAt;
   final DateTime? lastHeartbeatAt;
+
   /// Public YouTube watch URL for in-app embed (from Studio after going live).
   final String? youtubeWatchUrl;
+
   /// Second angle (drone / stump cam) — separate YouTube live link.
   final String? secondaryYoutubeWatchUrl;
+
   /// Full history of watch links (multiple broadcasters / re-go-lives).
   final List<StreamPlaybackEntryModel> playbackEntries;
   final String cameraALabel;
   final String cameraBLabel;
+
   /// Experimental low-latency WebRTC room (Phase 3.3).
   final bool webrtcEnabled;
+
   /// `portrait` or `landscape` — set when the streamer goes live.
   final String? broadcastOrientation;
 
@@ -98,8 +103,9 @@ class StreamMetadataModel extends Equatable {
       streamKey: map['streamKey'] as String?,
       viewerCount: map['viewerCount'] as int? ?? 0,
       startedAt: DateTime.tryParse(map['startedAt']?.toString() ?? ''),
-      lastHeartbeatAt:
-          DateTime.tryParse(map['lastHeartbeatAt']?.toString() ?? ''),
+      lastHeartbeatAt: DateTime.tryParse(
+        map['lastHeartbeatAt']?.toString() ?? '',
+      ),
       youtubeWatchUrl: map['youtubeWatchUrl'] as String?,
       secondaryYoutubeWatchUrl: map['secondaryYoutubeWatchUrl'] as String?,
       playbackEntries: parseStreamPlaybackEntries(map['playbackEntries']),
@@ -113,23 +119,23 @@ class StreamMetadataModel extends Equatable {
   /// Public Firestore projection — never persists ingest secrets.
   /// [rtmpUrl] / [streamKey] stay in-memory / local prefs only.
   Map<String, dynamic> toMap() => {
-        'status': status.name,
-        'destination': destination.name,
-        'viewerCount': viewerCount,
-        if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
-        if (lastHeartbeatAt != null)
-          'lastHeartbeatAt': lastHeartbeatAt!.toIso8601String(),
-        if (youtubeWatchUrl != null) 'youtubeWatchUrl': youtubeWatchUrl,
-        if (secondaryYoutubeWatchUrl != null)
-          'secondaryYoutubeWatchUrl': secondaryYoutubeWatchUrl,
-        if (playbackEntries.isNotEmpty)
-          'playbackEntries': playbackEntries.map((e) => e.toMap()).toList(),
-        'cameraALabel': cameraALabel,
-        'cameraBLabel': cameraBLabel,
-        'webrtcEnabled': webrtcEnabled,
-        if (broadcastOrientation != null)
-          'broadcastOrientation': broadcastOrientation,
-      };
+    'status': status.name,
+    'destination': destination.name,
+    'viewerCount': viewerCount,
+    if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
+    if (lastHeartbeatAt != null)
+      'lastHeartbeatAt': lastHeartbeatAt!.toIso8601String(),
+    if (youtubeWatchUrl != null) 'youtubeWatchUrl': youtubeWatchUrl,
+    if (secondaryYoutubeWatchUrl != null)
+      'secondaryYoutubeWatchUrl': secondaryYoutubeWatchUrl,
+    if (playbackEntries.isNotEmpty)
+      'playbackEntries': playbackEntries.map((e) => e.toMap()).toList(),
+    'cameraALabel': cameraALabel,
+    'cameraBLabel': cameraBLabel,
+    'webrtcEnabled': webrtcEnabled,
+    if (broadcastOrientation != null)
+      'broadcastOrientation': broadcastOrientation,
+  };
 
   StreamMetadataModel copyWith({
     StreamStatus? status,
@@ -162,8 +168,7 @@ class StreamMetadataModel extends Equatable {
       cameraALabel: cameraALabel ?? this.cameraALabel,
       cameraBLabel: cameraBLabel ?? this.cameraBLabel,
       webrtcEnabled: webrtcEnabled ?? this.webrtcEnabled,
-      broadcastOrientation:
-          broadcastOrientation ?? this.broadcastOrientation,
+      broadcastOrientation: broadcastOrientation ?? this.broadcastOrientation,
     );
   }
 
@@ -227,6 +232,7 @@ class MatchModel extends Equatable {
   final String id;
   final String title;
   final MatchType matchType;
+
   /// Setup path — defaults to [MatchMode.normal] for legacy matches.
   final MatchMode matchMode;
   final MatchStatus status;
@@ -265,9 +271,11 @@ class MatchModel extends Equatable {
   final List<String> badgeIds;
   final StreamMetadataModel stream;
   final int overlayVersion;
+
   /// Match photos/videos keyed by code (CM1, CM2, …).
   final Map<String, String> mediaByCode;
   final DateTime? createdAt;
+
   /// Squad, roles, officials, and toss captured at match start.
   final MatchSetupData? setup;
   final List<OverNoteModel> overNotes;
@@ -275,6 +283,7 @@ class MatchModel extends Equatable {
   final MatchTargetStateModel targetState;
   final ActiveMatchBreakModel? activeMatchBreak;
   final List<MatchBreakHistoryEntry> matchBreakHistory;
+
   /// Short numeric id assigned when scoring starts (shown in Info tab).
   final String? publicMatchId;
 
@@ -297,8 +306,8 @@ class MatchModel extends Equatable {
 
   InningsModel? get currentInnings =>
       innings.isNotEmpty && currentInningsIndex < innings.length
-          ? innings[currentInningsIndex]
-          : null;
+      ? innings[currentInningsIndex]
+      : null;
 
   factory MatchModel.fromMap(String id, Map<String, dynamic> map) {
     return MatchModel(
@@ -344,12 +353,11 @@ class MatchModel extends Equatable {
       currentScorerName: map['currentScorerName'] as String? ?? '',
       currentScorerPhoto: map['currentScorerPhoto'] as String?,
       scorerOwnershipToken: map['scorerOwnershipToken'] as String?,
-      lastScorerTransferAt:
-          DateTime.tryParse(map['lastScorerTransferAt']?.toString() ?? ''),
+      lastScorerTransferAt: DateTime.tryParse(
+        map['lastScorerTransferAt']?.toString() ?? '',
+      ),
       scorerTransferHistory: (map['scorerTransferHistory'] as List? ?? [])
-          .map((e) => ScorerTransferRecord.fromMap(
-                _asStringMap(e) ?? const {},
-              ))
+          .map((e) => ScorerTransferRecord.fromMap(_asStringMap(e) ?? const {}))
           .toList(),
       winnerTeamId: map['winnerTeamId'] as String?,
       resultSummary: map['resultSummary'] as String? ?? '',
@@ -369,17 +377,15 @@ class MatchModel extends Equatable {
       overMetadata: (map['overMetadata'] as List? ?? [])
           .map((e) => OverMetadataModel.fromMap(e as Map<String, dynamic>))
           .toList(),
-      targetState: MatchTargetStateModel.fromMap(_asStringMap(map['targetState'])),
+      targetState: MatchTargetStateModel.fromMap(
+        _asStringMap(map['targetState']),
+      ),
       activeMatchBreak: map['activeMatchBreak'] != null
-          ? ActiveMatchBreakModel.fromMap(
-              _asStringMap(map['activeMatchBreak']),
-            )
+          ? ActiveMatchBreakModel.fromMap(_asStringMap(map['activeMatchBreak']))
           : null,
       matchBreakHistory: (map['matchBreakHistory'] as List? ?? [])
           .map(
-            (e) => MatchBreakHistoryEntry.fromMap(
-              _asStringMap(e) ?? const {},
-            ),
+            (e) => MatchBreakHistoryEntry.fromMap(_asStringMap(e) ?? const {}),
           )
           .toList(),
       publicMatchId: map['publicMatchId'] as String?,
@@ -397,65 +403,64 @@ class MatchModel extends Equatable {
   }
 
   Map<String, dynamic> toMap() => {
-        'title': title,
-        'matchType': matchType.name,
-        'matchMode': matchMode.name,
-        'status': status.name,
-        if (teamAId != null) 'teamAId': teamAId,
-        if (teamBId != null) 'teamBId': teamBId,
-        'teamAName': teamAName,
-        'teamBName': teamBName,
-        if (tournamentId != null) 'tournamentId': tournamentId,
-        if (roundId != null) 'roundId': roundId,
-        if (groupId != null) 'groupId': groupId,
-        if (roundName != null && roundName!.isNotEmpty) 'roundName': roundName,
-        if (bracketRound != null) 'bracketRound': bracketRound,
-        if (bracketSlot != null) 'bracketSlot': bracketSlot,
-        'rules': rules.toMap(),
-        'innings': innings.map((i) => i.toMap()).toList(),
-        'currentInningsIndex': currentInningsIndex,
-        'location': location.toMap(),
-        'venue': venue,
-        if (scheduledAt != null) 'scheduledAt': scheduledAt!.toIso8601String(),
-        if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
-        if (completedAt != null) 'completedAt': completedAt!.toIso8601String(),
-        if (createdBy != null) 'createdBy': createdBy,
-        'scorerIds': scorerIds,
-        if (currentScorerId != null) 'currentScorerId': currentScorerId,
-        if (currentScorerName.isNotEmpty) 'currentScorerName': currentScorerName,
-        if (currentScorerPhoto != null) 'currentScorerPhoto': currentScorerPhoto,
-        if (scorerOwnershipToken != null)
-          'scorerOwnershipToken': scorerOwnershipToken,
-        if (lastScorerTransferAt != null)
-          'lastScorerTransferAt': lastScorerTransferAt!.toIso8601String(),
-        if (scorerTransferHistory.isNotEmpty)
-          'scorerTransferHistory':
-              scorerTransferHistory.map((e) => e.toMap()).toList(),
-        if (winnerTeamId != null) 'winnerTeamId': winnerTeamId,
-        'resultSummary': resultSummary,
-        if (matchHero != null) 'matchHero': matchHero!.toMap(),
-        if (playerOfMatchId != null) 'playerOfMatchId': playerOfMatchId,
-        'badgeIds': badgeIds,
-        'stream': stream.toMap(),
-        'overlayVersion': overlayVersion,
-        if (mediaByCode.isNotEmpty) 'mediaByCode': mediaByCode,
-        'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
-        if (setup != null) ...setup!.toMap(),
-        if (overNotes.isNotEmpty)
-          'overNotes': overNotes.map((n) => n.toMap()).toList(),
-        if (overMetadata.isNotEmpty)
-          'overMetadata': overMetadata.map((m) => m.toMap()).toList(),
-        if (targetState != const MatchTargetStateModel())
-          'targetState': targetState.toMap(),
-        if (activeMatchBreak != null)
-          'activeMatchBreak': activeMatchBreak!.toMap(),
-        if (matchBreakHistory.isNotEmpty)
-          'matchBreakHistory':
-              matchBreakHistory.map((e) => e.toMap()).toList(),
-        if (publicMatchId != null && publicMatchId!.isNotEmpty)
-          'publicMatchId': publicMatchId,
-      };
+    'title': title,
+    'matchType': matchType.name,
+    'matchMode': matchMode.name,
+    'status': status.name,
+    if (teamAId != null) 'teamAId': teamAId,
+    if (teamBId != null) 'teamBId': teamBId,
+    'teamAName': teamAName,
+    'teamBName': teamBName,
+    if (tournamentId != null) 'tournamentId': tournamentId,
+    if (roundId != null) 'roundId': roundId,
+    if (groupId != null) 'groupId': groupId,
+    if (roundName != null && roundName!.isNotEmpty) 'roundName': roundName,
+    if (bracketRound != null) 'bracketRound': bracketRound,
+    if (bracketSlot != null) 'bracketSlot': bracketSlot,
+    'rules': rules.toMap(),
+    'innings': innings.map((i) => i.toMap()).toList(),
+    'currentInningsIndex': currentInningsIndex,
+    'location': location.toMap(),
+    'venue': venue,
+    if (scheduledAt != null) 'scheduledAt': scheduledAt!.toIso8601String(),
+    if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
+    if (completedAt != null) 'completedAt': completedAt!.toIso8601String(),
+    if (createdBy != null) 'createdBy': createdBy,
+    'scorerIds': scorerIds,
+    if (currentScorerId != null) 'currentScorerId': currentScorerId,
+    if (currentScorerName.isNotEmpty) 'currentScorerName': currentScorerName,
+    if (currentScorerPhoto != null) 'currentScorerPhoto': currentScorerPhoto,
+    if (scorerOwnershipToken != null)
+      'scorerOwnershipToken': scorerOwnershipToken,
+    if (lastScorerTransferAt != null)
+      'lastScorerTransferAt': lastScorerTransferAt!.toIso8601String(),
+    if (scorerTransferHistory.isNotEmpty)
+      'scorerTransferHistory': scorerTransferHistory
+          .map((e) => e.toMap())
+          .toList(),
+    if (winnerTeamId != null) 'winnerTeamId': winnerTeamId,
+    'resultSummary': resultSummary,
+    if (matchHero != null) 'matchHero': matchHero!.toMap(),
+    if (playerOfMatchId != null) 'playerOfMatchId': playerOfMatchId,
+    'badgeIds': badgeIds,
+    'stream': stream.toMap(),
+    'overlayVersion': overlayVersion,
+    if (mediaByCode.isNotEmpty) 'mediaByCode': mediaByCode,
+    'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
+    'updatedAt': DateTime.now().toIso8601String(),
+    if (setup != null) ...setup!.toMap(),
+    if (overNotes.isNotEmpty)
+      'overNotes': overNotes.map((n) => n.toMap()).toList(),
+    if (overMetadata.isNotEmpty)
+      'overMetadata': overMetadata.map((m) => m.toMap()).toList(),
+    if (targetState != const MatchTargetStateModel())
+      'targetState': targetState.toMap(),
+    if (activeMatchBreak != null) 'activeMatchBreak': activeMatchBreak!.toMap(),
+    if (matchBreakHistory.isNotEmpty)
+      'matchBreakHistory': matchBreakHistory.map((e) => e.toMap()).toList(),
+    if (publicMatchId != null && publicMatchId!.isNotEmpty)
+      'publicMatchId': publicMatchId,
+  };
 
   MatchModel copyWith({
     String? title,
@@ -472,6 +477,9 @@ class MatchModel extends Equatable {
     String? venue,
     DateTime? startedAt,
     DateTime? completedAt,
+    List<String>? scorerIds,
+    String? scorer1UserId,
+    String? scorer2UserId,
     String? winnerTeamId,
     String? resultSummary,
     MatchHeroModel? matchHero,
@@ -520,7 +528,9 @@ class MatchModel extends Equatable {
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
       createdBy: createdBy,
-      scorerIds: scorerIds,
+      scorerIds: scorerIds ?? this.scorerIds,
+      scorer1UserId: scorer1UserId ?? this.scorer1UserId,
+      scorer2UserId: scorer2UserId ?? this.scorer2UserId,
       currentScorerId: currentScorerId ?? this.currentScorerId,
       currentScorerName: currentScorerName ?? this.currentScorerName,
       currentScorerPhoto: currentScorerPhoto ?? this.currentScorerPhoto,

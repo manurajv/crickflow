@@ -447,22 +447,36 @@ class BallEventAggregator {
     List<BallEventModel> events,
     MatchRulesModel rules,
   ) {
-    final runsInOver = <String, int>{};
-    final legalInOver = <String, bool>{};
+    final eventsByOver = <String, List<BallEventModel>>{};
 
     for (final e in events) {
-      final bowlerId = e.bowlerId;
-      if (bowlerId == null || bowlerId.isEmpty) continue;
-      final key = '$bowlerId|${e.inningsNumber}|${e.overNumber}';
-      runsInOver[key] = (runsInOver[key] ?? 0) + _runsAgainstBowler(e);
-      if (e.isLegalDelivery) legalInOver[key] = true;
+      if (!e.countsInOver || !e.countsToBowler) continue;
+      final bowlerId = e.bowlerId?.trim() ?? '';
+      if (bowlerId.isEmpty) continue;
+      final key = '${e.inningsNumber}|${e.overNumber}';
+      eventsByOver.putIfAbsent(key, () => []).add(e);
     }
 
     final maidens = <String, int>{};
-    for (final entry in runsInOver.entries) {
-      final bowlerId = entry.key.split('|').first;
-      final key = entry.key;
-      if ((legalInOver[key] ?? false) && entry.value == 0) {
+    final ballsPerOver = MatchRulesModel.clampBallsPerOver(rules.ballsPerOver);
+    for (final overEvents in eventsByOver.values) {
+      final legalBalls = overEvents.where((e) => e.isLegalDelivery).length;
+      if (legalBalls < ballsPerOver) continue;
+
+      final bowlers = {
+        for (final e in overEvents)
+          if (e.bowlerId != null && e.bowlerId!.trim().isNotEmpty)
+            e.bowlerId!.trim(),
+      };
+      // A split over is not a complete maiden over for either bowler.
+      if (bowlers.length != 1) continue;
+
+      final runsConceded = overEvents.fold<int>(
+        0,
+        (total, event) => total + _runsAgainstBowler(event),
+      );
+      if (runsConceded == 0) {
+        final bowlerId = bowlers.single;
         maidens[bowlerId] = (maidens[bowlerId] ?? 0) + 1;
       }
     }

@@ -56,10 +56,7 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 250), () {
-      updatePlayerRankingsFilter(
-        ref,
-        (f) => f.copyWith(searchQuery: value),
-      );
+      updatePlayerRankingsFilter(ref, (f) => f.copyWith(searchQuery: value));
     });
   }
 
@@ -183,7 +180,8 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
                       padding: const EdgeInsets.only(right: AppDimens.spaceXs),
                       child: FilterChip(
                         label: const Text('Leather'),
-                        selected: filter.indoorBallMaterial ==
+                        selected:
+                            filter.indoorBallMaterial ==
                             CricketBallType.leather,
                         onSelected: (_) => updatePlayerRankingsFilter(
                           ref,
@@ -283,16 +281,15 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
                   child: Text(
                     filter.advancedFilterSummary,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cf.textSecondary,
-                          fontWeight: FontWeight.w500,
-                          height: 1.35,
-                        ),
+                      color: cf.textSecondary,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ),
               Expanded(child: _buildBody(context, cf, feed, filter)),
-              if (feed.myEntry != null)
-                _MyRankBar(entry: feed.myEntry!),
+              if (feed.myEntry != null) _MyRankBar(entry: feed.myEntry!),
             ],
           ),
         ),
@@ -322,20 +319,14 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
     }
 
     if (feed.entries.isEmpty) {
-      final needsReplay = filter.category.requiresMatchReplay;
       final yearLabel = filter.year != null ? ' for ${filter.year}' : '';
       return _EmptyState(
         icon: Icons.leaderboard_outlined,
-        title: needsReplay
-            ? 'Detailed ranking coming soon'
-            : 'No rankings yet$yearLabel',
-        subtitle: needsReplay
-            ? '${filter.category.title} needs ball-by-ball match data. '
-                'Try another performance filter.'
-            : filter.year != null
-                ? 'No completed matches with scored stats found for ${filter.year}. '
-                    'Try All Time, another ball type, or clear location.'
-                : 'No players match these filters yet. Try another category or clear location.',
+        title: 'No rankings yet$yearLabel',
+        subtitle: filter.year != null
+            ? 'No completed matches with scored stats found for ${filter.year}. '
+                  'Try All Time, another ball type, or clear location.'
+            : 'No players match these filters yet. Try another category or clear location.',
       );
     }
 
@@ -435,15 +426,15 @@ class _RankingCard extends StatelessWidget {
             color: highlightAsYou
                 ? youAccent.withValues(alpha: cf.isLight ? 0.10 : 0.14)
                 : isTopThree
-                    ? rankColor.withValues(alpha: fillAlpha)
-                    : cf.card,
+                ? rankColor.withValues(alpha: fillAlpha)
+                : cf.card,
             borderRadius: BorderRadius.circular(AppDimens.radiusMd),
             border: Border.all(
               color: highlightAsYou
                   ? youAccent.withValues(alpha: 0.55)
                   : isTopThree
-                      ? rankColor.withValues(alpha: borderAlpha)
-                      : cf.border.withValues(alpha: 0.5),
+                  ? rankColor.withValues(alpha: borderAlpha)
+                  : cf.border.withValues(alpha: 0.5),
               width: highlightAsYou || isTopThree ? 1.4 : 1,
             ),
             boxShadow: isTopThree || highlightAsYou
@@ -468,25 +459,26 @@ class _RankingCard extends StatelessWidget {
                 height: compact ? 36 : 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: (highlightAsYou ? youAccent : rankColor)
-                      .withValues(alpha: cf.isLight ? 0.22 : 0.18),
+                  color: (highlightAsYou ? youAccent : rankColor).withValues(
+                    alpha: cf.isLight ? 0.22 : 0.18,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '#${entry.rank}',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: highlightAsYou ? youAccent : rankColor,
-                        fontSize: compact ? 12 : null,
-                      ),
+                    fontWeight: FontWeight.w800,
+                    color: highlightAsYou ? youAccent : rankColor,
+                    fontSize: compact ? 12 : null,
+                  ),
                 ),
               ),
               const SizedBox(width: AppDimens.spaceMd),
               CircleAvatar(
                 radius: compact ? 18 : 22,
                 backgroundColor: cf.border,
-                backgroundImage: entry.photoUrl != null &&
-                        entry.photoUrl!.isNotEmpty
+                backgroundImage:
+                    entry.photoUrl != null && entry.photoUrl!.isNotEmpty
                     ? CachedNetworkImageProvider(entry.photoUrl!)
                     : null,
                 child: entry.photoUrl == null || entry.photoUrl!.isEmpty
@@ -510,9 +502,7 @@ class _RankingCard extends StatelessWidget {
                             entry.playerName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
+                            style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
@@ -529,9 +519,7 @@ class _RankingCard extends StatelessWidget {
                             ),
                             child: Text(
                               'You',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
+                              style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: youAccent,
                                     fontWeight: FontWeight.w800,
@@ -549,10 +537,8 @@ class _RankingCard extends StatelessWidget {
                           entry.role,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: cf.textSecondary,
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: cf.textSecondary),
                         ),
                       ],
                       if (entry.detailStats.isNotEmpty) ...[
@@ -570,13 +556,13 @@ class _RankingCard extends StatelessWidget {
               Text(
                 entry.valueLabel,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: highlightAsYou
-                          ? youAccent
-                          : isTopThree
-                              ? rankColor
-                              : cf.textPrimary,
-                    ),
+                  fontWeight: FontWeight.w800,
+                  color: highlightAsYou
+                      ? youAccent
+                      : isTopThree
+                      ? rankColor
+                      : cf.textPrimary,
+                ),
               ),
             ],
           ),
@@ -614,17 +600,13 @@ class _MyRankBar extends StatelessWidget {
               Text(
                 'YOUR RANK',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: cf.textMuted,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
+                  color: cf.textMuted,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
               ),
               const SizedBox(height: 6),
-              _RankingCard(
-                entry: entry,
-                highlightAsYou: true,
-                compact: true,
-              ),
+              _RankingCard(entry: entry, highlightAsYou: true, compact: true),
             ],
           ),
         ),
@@ -642,17 +624,17 @@ class _DetailStatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cf = context.cf;
     final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: cf.textMuted,
-          fontWeight: FontWeight.w600,
-          fontSize: 10,
-          height: 1.1,
-        );
+      color: cf.textMuted,
+      fontWeight: FontWeight.w600,
+      fontSize: 10,
+      height: 1.1,
+    );
     final valueStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: cf.textSecondary,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-          height: 1.1,
-        );
+      color: cf.textSecondary,
+      fontWeight: FontWeight.w700,
+      fontSize: 11,
+      height: 1.1,
+    );
 
     return Wrap(
       spacing: 10,
@@ -699,25 +681,22 @@ class _EmptyState extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: AppDimens.spaceXs),
         Text(
           subtitle,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: cf.textSecondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: cf.textSecondary),
         ),
         if (actionLabel != null && onAction != null) ...[
           const SizedBox(height: AppDimens.spaceLg),
           Center(
-            child: FilledButton(
-              onPressed: onAction,
-              child: Text(actionLabel!),
-            ),
+            child: FilledButton(onPressed: onAction, child: Text(actionLabel!)),
           ),
         ],
       ],

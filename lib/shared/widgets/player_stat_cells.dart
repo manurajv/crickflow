@@ -10,6 +10,9 @@ List<StatCellData> playerStatCells(
   PlayerStatViewMode mode, {
   int? ballsPerOver,
   double? bowlingActualOvers,
+  int dotBalls = 0,
+  int wides = 0,
+  int noBalls = 0,
 }) {
   final bpo = ballsPerOver ?? AppConstants.defaultBallsPerOver;
   final notOuts = (stats.inningsPlayed - stats.dismissals).clamp(0, 999);
@@ -58,6 +61,9 @@ List<StatCellData> playerStatCells(
       StatCellData(value: bowlAvg.toStringAsFixed(2), label: 'Avg'),
       StatCellData(value: '${stats.threeWickets}', label: '3W'),
       StatCellData(value: '${stats.fiveWickets}', label: '5W'),
+      StatCellData(value: '$dotBalls', label: 'Dots'),
+      StatCellData(value: '$wides', label: 'Wd'),
+      StatCellData(value: '$noBalls', label: 'NB'),
     ],
     PlayerStatViewMode.fielding => [
       StatCellData(value: '${stats.matchesPlayed}', label: 'Mat'),
