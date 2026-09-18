@@ -22,6 +22,9 @@ import {
   useUpdateSeriesSettings,
 } from "@/features/series/hooks";
 import { usePathParam } from "@/lib/use-path-param";
+import { uploadSeriesRegistrationImage } from "@/lib/media-upload";
+
+type Tab = "overview" | "players" | "approvals" | "clubs" | "fixtures" | "admins";
 
 export default function SeriesDetailPage() {
   const seriesId = usePathParam("seriesId", 1);
@@ -42,12 +45,23 @@ export default function SeriesDetailPage() {
   const [clubDesc, setClubDesc] = useState("");
   const [joinClubId, setJoinClubId] = useState("");
   const [joinName, setJoinName] = useState("");
+  const [joinPlayerId, setJoinPlayerId] = useState("");
+  const [joinPhone, setJoinPhone] = useState("");
+  const [joinAddress, setJoinAddress] = useState("");
+  const [joinNationalId, setJoinNationalId] = useState("");
+  const [joinPassport, setJoinPassport] = useState("");
+  const [joinDob, setJoinDob] = useState("");
+  const [joinProfilePhoto, setJoinProfilePhoto] = useState<File | null>(null);
+  const [joinNationalIdDoc, setJoinNationalIdDoc] = useState<File | null>(null);
+  const [joinPassportDoc, setJoinPassportDoc] = useState<File | null>(null);
+  const [uploadingRegDoc, setUploadingRegDoc] = useState(false);
   const [clubAId, setClubAId] = useState("");
   const [clubBId, setClubBId] = useState("");
   const [tournamentId, setTournamentId] = useState("");
   const [adminUserId, setAdminUserId] = useState("");
   const [maxSquad, setMaxSquad] = useState(20);
   const [identityText, setIdentityText] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   if (!seriesId || isLoading) return <p>Loading…</p>;
   if (!data) return <EmptyState title="Series not found" />;
@@ -64,12 +78,82 @@ export default function SeriesDetailPage() {
   async function onJoin(e: FormEvent) {
     e.preventDefault();
     if (!joinClubId || !joinName.trim()) return;
-    await joinClub.mutateAsync({
-      clubId: joinClubId,
-      fullName: joinName.trim(),
-      crickFlowPlayerId: user?.uid,
-    });
-    setJoinName("");
+
+    const s = series.settings;
+
+    if (s.requireDateOfBirth && !joinDob) {
+      window.alert("Date of birth is required");
+      return;
+    }
+    if (s.requireProfilePhoto && !joinProfilePhoto) {
+      window.alert("Profile photo is required");
+      return;
+    }
+
+    try {
+      let profilePhotoUrl: string | undefined;
+      let nationalIdDocUrl: string | undefined;
+      let passportDocUrl: string | undefined;
+
+      if (joinProfilePhoto || joinNationalIdDoc || joinPassportDoc) {
+        setUploadingRegDoc(true);
+        if (joinProfilePhoto && user?.uid) {
+          profilePhotoUrl = await uploadSeriesRegistrationImage(
+            seriesId,
+            user.uid,
+            joinProfilePhoto,
+            "photo"
+          );
+        }
+        if (joinNationalIdDoc && user?.uid) {
+          nationalIdDocUrl = await uploadSeriesRegistrationImage(
+            seriesId,
+            user.uid,
+            joinNationalIdDoc,
+            "doc"
+          );
+        }
+        if (joinPassportDoc && user?.uid) {
+          passportDocUrl = await uploadSeriesRegistrationImage(
+            seriesId,
+            user.uid,
+            joinPassportDoc,
+            "doc"
+          );
+        }
+        setUploadingRegDoc(false);
+      }
+
+      await joinClub.mutateAsync({
+        clubId: joinClubId,
+        fullName: joinName.trim(),
+        crickFlowPlayerId: joinPlayerId.trim() || user?.uid,
+        phoneNumber: joinPhone.trim(),
+        address: joinAddress.trim(),
+        dateOfBirth: joinDob || undefined,
+        nationalId: joinNationalId.trim() || undefined,
+        passportNumber: joinPassport.trim() || undefined,
+        profilePhotoUrl,
+        nationalIdDocUrl,
+        passportDocUrl,
+      });
+
+      setJoinName("");
+      setJoinPlayerId("");
+      setJoinPhone("");
+      setJoinAddress("");
+      setJoinNationalId("");
+      setJoinPassport("");
+      setJoinDob("");
+      setJoinProfilePhoto(null);
+      setJoinNationalIdDoc(null);
+      setJoinPassportDoc(null);
+    } catch (err) {
+      console.error("Join club failed:", err);
+      window.alert("Could not submit join request. Please try again.");
+    } finally {
+      setUploadingRegDoc(false);
+    }
   }
 
   async function onPropose(e: FormEvent) {
@@ -114,91 +198,266 @@ export default function SeriesDetailPage() {
         ) : null}
       </header>
 
-      <section>
-        <h2 className="mb-3 text-xl font-bold">Clubs</h2>
-        {!clubs.length ? (
-          <EmptyState title="No clubs published" />
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {clubs.map((club) => (
-              <Card key={club.id} className="p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold">{club.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {club.squadCount} players · {club.status}
-                    </p>
-                  </div>
-                  {club.logoUrl ? (
-                    <Image
-                      unoptimized
-                      src={club.logoUrl}
-                      alt=""
-                      width={48}
-                      height={48}
-                      className="h-12 w-12 rounded-full object-cover"
-                    />
-                  ) : null}
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {user ? (
-        <section className="grid gap-6 lg:grid-cols-2">
-          <Card className="space-y-3 p-4">
-            <h2 className="text-lg font-bold">Create club</h2>
-            <form className="space-y-3" onSubmit={onCreateClub}>
-              <input
-                className="w-full rounded-md border border-border bg-background px-3 py-2"
-                placeholder="Club name"
-                value={clubName}
-                onChange={(e) => setClubName(e.target.value)}
-                required
-              />
-              <textarea
-                className="w-full rounded-md border border-border bg-background px-3 py-2"
-                placeholder="Description"
-                value={clubDesc}
-                onChange={(e) => setClubDesc(e.target.value)}
-              />
-              <Button type="submit" disabled={createClub.isPending}>
-                {createClub.isPending ? "Submitting…" : "Submit for approval"}
-              </Button>
-            </form>
-          </Card>
-          <Card className="space-y-3 p-4">
-            <h2 className="text-lg font-bold">Register & join club</h2>
-            <form className="space-y-3" onSubmit={onJoin}>
-              <select
-                className="w-full rounded-md border border-border bg-background px-3 py-2"
-                value={joinClubId}
-                onChange={(e) => setJoinClubId(e.target.value)}
-                required
-              >
-                <option value="">Select approved club</option>
-                {approvedClubs.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="w-full rounded-md border border-border bg-background px-3 py-2"
-                placeholder="Full name"
-                value={joinName}
-                onChange={(e) => setJoinName(e.target.value)}
-                required
-              />
-              <Button type="submit" disabled={joinClub.isPending}>
-                {joinClub.isPending ? "Submitting…" : "Submit join request"}
-              </Button>
-            </form>
-          </Card>
-        </section>
+      {data.canManage ? (
+        <nav className="flex flex-wrap gap-2 border-b border-border">
+          {([
+            ["overview", "Overview"],
+            ["clubs", "Clubs"],
+            ["players", "Players"],
+            ["approvals", "Approvals"],
+            ["fixtures", "Fixtures"],
+            ["admins", "Admins"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
       ) : null}
+
+      {activeTab === "clubs" && (
+        <>
+          <section>
+            <h2 className="mb-3 text-xl font-bold">Clubs</h2>
+            {!clubs.length ? (
+              <EmptyState title="No clubs published" />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {clubs.map((club) => (
+                  <Card key={club.id} className="p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold">{club.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {club.squadCount} players · {club.status}
+                        </p>
+                      </div>
+                      {club.logoUrl ? (
+                        <Image
+                          unoptimized
+                          src={club.logoUrl}
+                          alt=""
+                          width={48}
+                          height={48}
+                          className="h-12 w-12 rounded-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {user ? (
+            <section className="grid gap-6 lg:grid-cols-2">
+              <Card className="space-y-3 p-4">
+                <h2 className="text-lg font-bold">Create club</h2>
+                <form className="space-y-3" onSubmit={onCreateClub}>
+                  <input
+                    className="w-full rounded-md border border-border bg-background px-3 py-2"
+                    placeholder="Club name"
+                    value={clubName}
+                    onChange={(e) => setClubName(e.target.value)}
+                    required
+                  />
+                  <textarea
+                    className="w-full rounded-md border border-border bg-background px-3 py-2"
+                    placeholder="Description"
+                    value={clubDesc}
+                    onChange={(e) => setClubDesc(e.target.value)}
+                  />
+                  <Button type="submit" disabled={createClub.isPending}>
+                    {createClub.isPending ? "Submitting…" : "Submit for approval"}
+                  </Button>
+                </form>
+              </Card>
+              <Card className="space-y-3 p-4">
+                <h2 className="text-lg font-bold">Register & join club</h2>
+                <p className="text-sm text-muted-foreground">
+                  Fill in the required information. ID numbers and document photos are private to organization admins.
+                </p>
+                <form className="space-y-3" onSubmit={onJoin}>
+                  <select
+                    className="w-full rounded-md border border-border bg-background px-3 py-2"
+                    value={joinClubId}
+                    onChange={(e) => setJoinClubId(e.target.value)}
+                    required
+                  >
+                    <option value="">Select approved club</option>
+                    {approvedClubs.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {series.settings.requireFullName && (
+                    <input
+                      className="w-full rounded-md border border-border bg-background px-3 py-2"
+                      placeholder="Full name *"
+                      value={joinName}
+                      onChange={(e) => setJoinName(e.target.value)}
+                      required
+                    />
+                  )}
+
+                  {series.settings.requireCrickFlowPlayerId && (
+                    <input
+                      className="w-full rounded-md border border-border bg-background px-3 py-2"
+                      placeholder="CrickFlow Player ID *"
+                      value={joinPlayerId}
+                      onChange={(e) => setJoinPlayerId(e.target.value)}
+                      required={series.settings.requireCrickFlowPlayerId}
+                    />
+                  )}
+
+                  {series.settings.requirePhoneNumber && (
+                    <input
+                      type="tel"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2"
+                      placeholder="Phone number *"
+                      value={joinPhone}
+                      onChange={(e) => setJoinPhone(e.target.value)}
+                      required
+                    />
+                  )}
+
+                  {series.settings.requireDateOfBirth && (
+                    <input
+                      type="date"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2"
+                      placeholder="Date of birth *"
+                      value={joinDob}
+                      onChange={(e) => setJoinDob(e.target.value)}
+                      required
+                    />
+                  )}
+
+                  {series.settings.requireAddress && (
+                    <textarea
+                      className="w-full rounded-md border border-border bg-background px-3 py-2"
+                      placeholder="Address *"
+                      value={joinAddress}
+                      onChange={(e) => setJoinAddress(e.target.value)}
+                      required
+                      rows={2}
+                    />
+                  )}
+
+                  {series.settings.requireNationalId && (
+                    <>
+                      <input
+                        className="w-full rounded-md border border-border bg-background px-3 py-2"
+                        placeholder="National ID / ID number *"
+                        value={joinNationalId}
+                        onChange={(e) => setJoinNationalId(e.target.value)}
+                        required
+                      />
+                      <div>
+                        <label className="block text-sm font-medium mb-1">National ID Document Photo</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="block w-full text-sm text-muted-foreground
+                            file:mr-4 file:py-2 file:px-4 file:rounded-md
+                            file:border-0 file:text-sm file:font-semibold
+                            file:bg-primary file:text-primary-foreground
+                            hover:file:bg-primary/90 file:cursor-pointer"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setJoinNationalIdDoc(file);
+                          }}
+                        />
+                        {joinNationalIdDoc && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Selected: {joinNationalIdDoc.name}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {series.settings.requirePassport && (
+                    <>
+                      <input
+                        className="w-full rounded-md border border-border bg-background px-3 py-2"
+                        placeholder="Passport number *"
+                        value={joinPassport}
+                        onChange={(e) => setJoinPassport(e.target.value)}
+                        required
+                      />
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Passport Document Photo</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="block w-full text-sm text-muted-foreground
+                            file:mr-4 file:py-2 file:px-4 file:rounded-md
+                            file:border-0 file:text-sm file:font-semibold
+                            file:bg-primary file:text-primary-foreground
+                            hover:file:bg-primary/90 file:cursor-pointer"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setJoinPassportDoc(file);
+                          }}
+                        />
+                        {joinPassportDoc && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Selected: {joinPassportDoc.name}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {series.settings.requireProfilePhoto && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Profile Photo *</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="block w-full text-sm text-muted-foreground
+                          file:mr-4 file:py-2 file:px-4 file:rounded-md
+                          file:border-0 file:text-sm file:font-semibold
+                          file:bg-primary file:text-primary-foreground
+                          hover:file:bg-primary/90 file:cursor-pointer"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setJoinProfilePhoto(file);
+                        }}
+                        required
+                      />
+                      {joinProfilePhoto && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Selected: {joinProfilePhoto.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <Button type="submit" disabled={joinClub.isPending || uploadingRegDoc}>
+                    {uploadingRegDoc
+                      ? "Uploading documents…"
+                      : joinClub.isPending
+                        ? "Submitting…"
+                        : "Submit join request"}
+                  </Button>
+                </form>
+              </Card>
+            </section>
+          ) : null}
+        </>
+      )}
 
       {data.canManage ? (
         <Card className="space-y-3 p-4">
@@ -348,68 +607,83 @@ export default function SeriesDetailPage() {
         </Card>
       ) : null}
 
-      <section>
-        <h2 className="mb-3 text-xl font-bold">Club rankings</h2>
-        {!clubRankings.length ? (
-          <EmptyState title="Rankings not published" />
-        ) : (
-          <Card className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left">
-                <tr>
-                  <th className="p-3">#</th>
-                  <th>Club</th>
-                  <th>P</th>
-                  <th>W</th>
-                  <th>L</th>
-                  <th>Pts</th>
-                  <th>NRR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clubRankings.map((row, index) => (
-                  <tr key={row.id} className="border-t border-border">
-                    <td className="p-3">{index + 1}</td>
-                    <td>{row.clubName}</td>
-                    <td>{row.played}</td>
-                    <td>{row.won}</td>
-                    <td>{row.lost}</td>
-                    <td className="font-bold">{row.points}</td>
-                    <td>{row.netRunRate.toFixed(3)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        )}
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-xl font-bold">Player leaders</h2>
-        {!playerRankings.length ? (
-          <EmptyState title="Player rankings not published" />
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {playerRankings.slice(0, 12).map((row, index) => (
-              <Card key={row.id} className="flex items-center justify-between p-4">
-                <div>
-                  <span className="mr-3 text-gold">#{index + 1}</span>
-                  {row.userId ? (
-                    <Link href={`/players/${row.userId}`} className="font-bold text-primary">
-                      {row.displayName}
-                    </Link>
-                  ) : (
-                    row.displayName
-                  )}
-                </div>
-                <span className="text-sm">
-                  {row.runs} runs · {row.wickets} wkts
-                </span>
+      {activeTab === "overview" && (
+        <>
+          <section>
+            <h2 className="mb-3 text-xl font-bold">Club rankings</h2>
+            {!clubRankings.length ? (
+              <EmptyState title="Rankings not published" />
+            ) : (
+              <Card className="overflow-x-auto p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-left">
+                    <tr>
+                      <th className="p-3">#</th>
+                      <th>Club</th>
+                      <th>P</th>
+                      <th>W</th>
+                      <th>L</th>
+                      <th>Pts</th>
+                      <th>NRR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clubRankings.map((row, index) => (
+                      <tr key={row.id} className="border-t border-border">
+                        <td className="p-3">{index + 1}</td>
+                        <td>{row.clubName}</td>
+                        <td>{row.played}</td>
+                        <td>{row.won}</td>
+                        <td>{row.lost}</td>
+                        <td className="font-bold">{row.points}</td>
+                        <td>{row.netRunRate.toFixed(3)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </Card>
-            ))}
-          </div>
-        )}
-      </section>
+            )}
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xl font-bold">Top player leaders</h2>
+            {!playerRankings.length ? (
+              <EmptyState title="Player rankings not published" />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {playerRankings.slice(0, 6).map((row, index) => (
+                  <Card key={row.id} className="flex items-center justify-between p-4">
+                    <div>
+                      <span className="mr-3 text-gold">#{index + 1}</span>
+                      {row.userId ? (
+                        <Link href={`/players/${row.userId}`} className="font-bold text-primary">
+                          {row.displayName}
+                        </Link>
+                      ) : (
+                        row.displayName
+                      )}
+                    </div>
+                    <span className="text-sm">
+                      {row.runs} runs · {row.wickets} wkts
+                    </span>
+                  </Card>
+                ))}
+              </div>
+            )}
+            {playerRankings.length > 6 && (
+              <p className="mt-3 text-center text-sm text-muted-foreground">
+                <button
+                  type="button"
+                  className="text-primary underline"
+                  onClick={() => setActiveTab("players")}
+                >
+                  View all {playerRankings.length} players
+                </button>
+              </p>
+            )}
+          </section>
+        </>
+      )}
 
       {data.canManage ? (
         <section>
