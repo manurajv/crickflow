@@ -1692,7 +1692,13 @@ service cloud.firestore {
           'tournament_official_invitation',
           'tournament_official_invitation_accepted',
           'tournament_official_invitation_rejected',
-          'tournament_completed'
+          'tournament_completed',
+          'series_approval_pending',
+          'series_approval_approved',
+          'series_approval_rejected',
+          'series_club_join_request',
+          'series_member_added',
+          'series_member_removed'
         ];
     }
 
@@ -2267,6 +2273,248 @@ service cloud.firestore {
     match /admin_legal_pages/{id} {
       allow read: if isActiveAdminUser();
       allow create, update, delete: if isSuperAdminUser();
+    }
+
+    // ============================================================
+    // Competition organizations (Series / League / Company / …)
+    // Collection id remains `series`; document `kind` distinguishes type.
+    // Privileged mutations go through Cloud Functions (Admin SDK).
+    // Clients may read public docs and create limited draft/pending docs.
+    // ============================================================
+
+    function seriesDoc(seriesId) {
+      return get(/databases/$(database)/documents/series/$(seriesId)).data;
+    }
+
+    function isValidSeriesKind(kind) {
+      return kind in [
+        'series', 'league', 'association', 'federation', 'club', 'company', 'cup', 'other'
+      ];
+    }
+
+    function isValidSeriesName(name) {
+      return name is string
+        && name.size() >= 3
+        && name.size() <= 120;
+    }
+
+    // Optional URL fields (logo / cover) — null or string up to 2048 chars.
+    function isOptionalSeriesMediaUrl(value) {
+      return value == null
+        || (value is string && value.size() <= 2048);
+    }
+
+    function isValidSeriesPlaceField(value) {
+      return value is string && value.size() <= 80;
+    }
+
+    function seriesSettingsValid(settings) {
+      return settings is map
+        && (!('maxSquadSize' in settings)
+          || (settings.maxSquadSize is int
+            && settings.maxSquadSize >= 1
+            && settings.maxSquadSize <= 50));
+    }
+
+    function seriesCommonFieldsValid(d) {
+      return isValidSeriesName(d.name)
+        && isValidSeriesKind(d.get('kind', 'series'))
+        && d.get('description', '') is string
+        && d.get('description', '').size() <= 2000
+        && d.get('rulesText', '') is string
+        && d.get('rulesText', '').size() <= 10000
+        && isValidSeriesPlaceField(d.get('region', ''))
+        && isValidSeriesPlaceField(d.get('location', ''))
+        && isValidSeriesPlaceField(d.get('country', ''))
+        && isOptionalSeriesMediaUrl(d.get('logoUrl', null))
+        && isOptionalSeriesMediaUrl(d.get('coverImageUrl', null))
+        && (!('settings' in d) || seriesSettingsValid(d.settings));
+    }
+
+    function seriesCreatePayloadValid() {
+      let d = request.resource.data;
+      return seriesCommonFieldsValid(d)
+        && d.get('status', 'draft') in ['draft', 'active'];
+    }
+
+    function seriesUpdatePayloadValid() {
+      let d = request.resource.data;
+      return seriesCommonFieldsValid(d)
+        && d.get('status', 'active') in ['draft', 'active', 'suspended', 'archived'];
+    }
+
+    // Prefer superAdminUserId when it is a non-empty string; otherwise createdBy.
+    // map.get(key, default) returns null when the field exists and is null — handle that.
+    function seriesOwnerUid(seriesId) {
+      let d = seriesDoc(seriesId);
+      let superId = d.get('superAdminUserId', '');
+      return superId is string && superId.size() > 0
+        ? superId
+        : d.get('createdBy', '');
+    }
+
+    function isSeriesSuperAdmin(seriesId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/series/$(seriesId))
+        && seriesOwnerUid(seriesId) == request.auth.uid;
+    }
+
+    function isSeriesAdminMember(seriesId) {
+      let adminId = seriesId + '_' + request.auth.uid;
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/series_admins/$(adminId))
+        && get(/databases/$(database)/documents/series_admins/$(adminId))
+          .data.get('status', '') == 'active';
+    }
+
+    function canManageSeries(seriesId) {
+      return isSeriesSuperAdmin(seriesId) || isSeriesAdminMember(seriesId);
+    }
+
+    match /series/{seriesId} {
+      allow read: if true;
+      // Draft create only; authoritative create uses callable createSeries.
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.get('status', 'draft') == 'draft'
+        && seriesCreatePayloadValid()
+        && !('superAdminUserId' in request.resource.data
+            && request.resource.data.superAdminUserId != request.auth.uid);
+      allow update: if (
+          isSeriesSuperAdmin(seriesId)
+          && seriesUpdatePayloadValid()
+          && request.resource.data.get('superAdminUserId', '')
+            == resource.data.get('superAdminUserId', '')
+          && request.resource.data.get('createdBy', '')
+            == resource.data.get('createdBy', '')
+        )
+        // Platform Super Admin may suspend/restore status only.
+        || (
+          isSuperAdminUser()
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status in ['active', 'suspended', 'archived']
+        );
+      allow delete: if false;
+
+      // Path-scoped approvals so list queries can evaluate canManageSeries(seriesId)
+      // without depending on resource.data (top-level OR+get list queries fail).
+      match /approvals/{approvalId} {
+        allow read: if isSignedIn() && (
+          resource.data.requestedBy == request.auth.uid
+          || canManageSeries(seriesId)
+          || isActiveAdminUser()
+        );
+        allow create, update, delete: if false; // CF Admin SDK only
+      }
+    }
+
+    match /series_admins/{adminId} {
+      allow read: if true;
+      allow create, update, delete: if false; // callable only
+    }
+
+    match /series_clubs/{clubId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.get('status', 'pending') == 'pending'
+        && request.resource.data.seriesId is string
+        && request.resource.data.seriesId.size() > 0
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.get('description', '') is string
+        && request.resource.data.get('description', '').size() <= 2000
+        && isOptionalSeriesMediaUrl(request.resource.data.get('logoUrl', null));
+      // Creator may attach logo after upload; status / membership via callable only.
+      allow update: if isSignedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['logoUrl', 'updatedAt'])
+        && isOptionalSeriesMediaUrl(request.resource.data.get('logoUrl', null))
+        && request.resource.data.seriesId == resource.data.seriesId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.get('status', '') == resource.data.get('status', '');
+      allow delete: if false;
+    }
+
+    match /series_club_admins/{id} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /series_registrations/{regId} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || canManageSeries(resource.data.seriesId)
+          || isActiveAdminUser()
+        );
+      allow create: if false; // callable writes public + private identity
+      allow update, delete: if false;
+
+      match /private/{docId} {
+        allow read: if isSignedIn()
+          && canManageSeries(
+            get(/databases/$(database)/documents/series_registrations/$(regId)).data.seriesId
+          );
+        allow write: if false;
+      }
+    }
+
+    match /series_memberships/{id} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    // Legacy top-level approvals (still written for compatibility). Prefer
+    // series/{seriesId}/approvals for manager list queries.
+    match /series_approvals/{id} {
+      allow read: if isSignedIn() && resource.data.requestedBy == request.auth.uid;
+      allow read: if isSignedIn() && canManageSeries(resource.data.seriesId);
+      allow read: if isActiveAdminUser();
+      allow create: if isSignedIn()
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.get('status', 'pending') == 'pending'
+        && request.resource.data.seriesId is string
+        && request.resource.data.targetType is string
+        && request.resource.data.targetId is string;
+      allow update, delete: if false; // review via callable
+    }
+
+    match /series_competitions/{id} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.get('status', 'draft') in
+          ['draft', 'pendingApproval']
+        && request.resource.data.seriesId is string;
+      allow update, delete: if false;
+    }
+
+    match /series_club_rankings/{id} {
+      allow read: if true;
+      allow write: if false; // CF only
+    }
+
+    match /series_player_rankings/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /series_audit_logs/{id} {
+      allow read: if isSignedIn()
+        && (
+          canManageSeries(resource.data.seriesId)
+          || isActiveAdminUser()
+        );
+      // Append-only: Series CF uses Admin SDK; platform Super Admin may log suspend.
+      allow create: if isSuperAdminUser()
+        && request.resource.data.actorUserId == request.auth.uid
+        && request.resource.data.seriesId is string
+        && request.resource.data.action is string;
+      allow update, delete: if false;
     }
   }
 }

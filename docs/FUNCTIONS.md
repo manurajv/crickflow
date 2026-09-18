@@ -1,5 +1,27 @@
 # CrickFlow Cloud Functions
 
+## Series callables
+
+Privileged Series operations are exported from `functions/src/series/seriesFunctions.js`:
+
+- `createSeries`, `addSeriesAdmin`, `removeSeriesAdmin`, `updateSeriesSettings`
+- `createSeriesClub`, `reviewSeriesApproval`, `reviewClubJoinRequest`
+- `addSeriesClubAdmin`, `removeSeriesClubAdmin`
+- `submitSeriesRegistration`, `submitPlayerJoinRequest`, `submitPlayerAddRequest`, `submitPlayerRemovalRequest`
+- `proposeSeriesMatch` (optional `createMatchDraft: true` creates a linked draft match), `proposeSeriesTournament`
+- `suspendSeriesEntity`, `getSeriesRegistrationIdentity`
+
+Player join is two-step: Club Admin clears via `reviewClubJoinRequest`, then Series Admin
+finalizes with `reviewSeriesApproval` (Super Admin may bypass club clearance).
+
+All callables require Firebase Authentication and enforce Series/club role checks
+server-side. Ranking updates run from `onMatchCompleted` via
+`functions/src/series/updateSeriesRankings.js` when
+`seriesId` is set and `seriesOfficialStatus == approved` (idempotent via
+`seriesRankingsProcessed`). Sensitive identity is stored under
+`series_registrations/{id}/private/identity` and readable only via
+`getSeriesRegistrationIdentity`.
+
 ## Overview
 
 Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The earlier single-file stub only aggregated basic stats; the current layout is the **Phase 1.5** target.

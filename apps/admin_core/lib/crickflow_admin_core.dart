@@ -90,6 +90,11 @@ export 'features/tournaments/models/managed_tournament.dart';
 export 'features/tournaments/models/tournament_enums.dart';
 export 'features/tournaments/models/tournament_filters.dart';
 
+// Series investigation (Super Admin)
+export 'features/series/presentation/series_investigation_screen.dart';
+export 'features/series/providers/series_admin_providers.dart';
+export 'features/series/models/managed_series.dart';
+
 // Match Management
 export 'features/matches/presentation/matches_screen.dart';
 export 'features/matches/providers/matches_providers.dart';

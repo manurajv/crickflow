@@ -69,6 +69,26 @@ const {
   createPlayerInvite,
   acceptPlayerInvite,
 } = require('./players/playerInvites');
+const {
+  createSeries,
+  addSeriesAdmin,
+  removeSeriesAdmin,
+  updateSeriesSettings,
+  createSeriesClub,
+  reviewSeriesApproval,
+  submitSeriesRegistration,
+  submitPlayerJoinRequest,
+  submitPlayerAddRequest,
+  submitPlayerRemovalRequest,
+  proposeSeriesMatch,
+  proposeSeriesTournament,
+  suspendSeriesEntity,
+  getSeriesRegistrationIdentity,
+  reviewClubJoinRequest,
+  addSeriesClubAdmin,
+  removeSeriesClubAdmin,
+  syncSeriesApprovalMirrors,
+} = require('./series/seriesFunctions');
 
 exports.onMatchCompleted = onMatchCompleted;
 exports.onMatchLive = onMatchLive;
@@ -105,3 +125,21 @@ exports.lookupPlayerByPhone = lookupPlayerByPhone;
 exports.stampProxyPlayerRegistration = stampProxyPlayerRegistration;
 exports.createPlayerInvite = createPlayerInvite;
 exports.acceptPlayerInvite = acceptPlayerInvite;
+exports.createSeries = createSeries;
+exports.addSeriesAdmin = addSeriesAdmin;
+exports.removeSeriesAdmin = removeSeriesAdmin;
+exports.updateSeriesSettings = updateSeriesSettings;
+exports.createSeriesClub = createSeriesClub;
+exports.reviewSeriesApproval = reviewSeriesApproval;
+exports.submitSeriesRegistration = submitSeriesRegistration;
+exports.submitPlayerJoinRequest = submitPlayerJoinRequest;
+exports.submitPlayerAddRequest = submitPlayerAddRequest;
+exports.submitPlayerRemovalRequest = submitPlayerRemovalRequest;
+exports.proposeSeriesMatch = proposeSeriesMatch;
+exports.proposeSeriesTournament = proposeSeriesTournament;
+exports.suspendSeriesEntity = suspendSeriesEntity;
+exports.getSeriesRegistrationIdentity = getSeriesRegistrationIdentity;
+exports.reviewClubJoinRequest = reviewClubJoinRequest;
+exports.addSeriesClubAdmin = addSeriesClubAdmin;
+exports.removeSeriesClubAdmin = removeSeriesClubAdmin;
+exports.syncSeriesApprovalMirrors = syncSeriesApprovalMirrors;

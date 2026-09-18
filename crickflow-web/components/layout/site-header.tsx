@@ -17,6 +17,7 @@ const NAV = [
   { href: "/", label: "Home" },
   { href: "/matches", label: "Matches" },
   { href: "/tournaments", label: "Tournaments" },
+  { href: "/series", label: "Series" },
   { href: "/teams", label: "Teams" },
   { href: "/players", label: "Players" },
   { href: "/community", label: "Community" },
@@ -174,6 +175,7 @@ const FOOTER_LINKS = {
     { href: "/rankings", label: "Rankings" },
   ],
   Explore: [
+    { href: "/series", label: "Series" },
     { href: "/tournaments", label: "Tournaments" },
     { href: "/teams", label: "Teams" },
     { href: "/players", label: "Players" },

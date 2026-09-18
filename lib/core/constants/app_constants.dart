@@ -45,6 +45,21 @@ class AppConstants {
   static const String chatBlocksCollection = 'chat_blocks';
   static const String teamRosterReportsCollection = 'team_roster_reports';
 
+  // Series / Competition Organization (additive — parallel to teams/tournaments)
+  static const String seriesCollection = 'series';
+  static const String seriesAdminsCollection = 'series_admins';
+  static const String seriesClubsCollection = 'series_clubs';
+  static const String seriesClubAdminsCollection = 'series_club_admins';
+  static const String seriesRegistrationsCollection = 'series_registrations';
+  static const String seriesMembershipsCollection = 'series_memberships';
+  static const String seriesApprovalsCollection = 'series_approvals';
+  static const String seriesCompetitionsCollection = 'series_competitions';
+  static const String seriesClubRankingsCollection = 'series_club_rankings';
+  static const String seriesPlayerRankingsCollection = 'series_player_rankings';
+  static const String seriesAuditLogsCollection = 'series_audit_logs';
+  static const String seriesPrivateSubcollection = 'private';
+  static const String seriesIdentityDoc = 'identity';
+
   // Match defaults (standard cricket)
   static const int defaultOvers = 20;
   static const int defaultBallsPerOver = 6;

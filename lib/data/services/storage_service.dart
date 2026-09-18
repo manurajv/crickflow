@@ -91,6 +91,36 @@ class StorageService {
     return ref.getDownloadURL();
   }
 
+  Future<String> uploadSeriesLogo(String seriesId, File file) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    final ref = _storage.ref().child('series/$seriesId/logo_$uid.jpg');
+    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    return ref.getDownloadURL();
+  }
+
+  Future<String> uploadSeriesCover(String seriesId, File file) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    final ref = _storage.ref().child('series/$seriesId/cover_$uid.jpg');
+    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    return ref.getDownloadURL();
+  }
+
+  /// Profile / ID document photo for Series registration (private metadata may reference URL).
+  Future<String> uploadSeriesRegistrationImage(
+    String seriesId,
+    File file, {
+    String kind = 'photo',
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    final safeKind = kind == 'doc' ? 'doc' : 'photo';
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final ref = _storage
+        .ref()
+        .child('series/$seriesId/${safeKind}_${uid}_$stamp.jpg');
+    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    return ref.getDownloadURL();
+  }
+
   Future<String> uploadTournamentThumbnail(String tournamentId, File file) async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
     final ref =

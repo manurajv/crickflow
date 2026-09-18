@@ -34,63 +34,58 @@ GoRouter createSuperAdminRouter(Ref ref) {
         routes: [
           GoRoute(
             path: AdminRoutePaths.dashboard,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: DashboardScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: DashboardScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.profile,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ProfileScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProfileScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.accountSettings,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: AccountSettingsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AccountSettingsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.users,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: UsersScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: UsersScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.tournaments,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: TournamentsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: TournamentsScreen()),
+          ),
+          GoRoute(
+            path: AdminRoutePaths.series,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SeriesInvestigationScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.matches,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: MatchesScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MatchesScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.teams,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: TeamsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: TeamsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.players,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: PlayersScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PlayersScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.grounds,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: GroundsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: GroundsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.broadcast,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: BroadcastsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: BroadcastsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.community,
@@ -125,93 +120,78 @@ GoRouter createSuperAdminRouter(Ref ref) {
           ),
           GoRoute(
             path: AdminRoutePaths.notifications,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: NotificationsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: NotificationsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.ads,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: AdsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AdsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.organizations,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: OrganizationsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: OrganizationsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.analytics,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: AnalyticsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AnalyticsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.monitoring,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: MonitoringScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MonitoringScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.support,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: SupportScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SupportScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.aiOps,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: AiOpsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AiOpsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.security,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: SecurityScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SecurityScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.devops,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: DevOpsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: DevOpsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.continuity,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ContinuityScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ContinuityScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.docs,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: DeveloperDocsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: DeveloperDocsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.settings,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: SettingsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SettingsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.cms,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: CmsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: CmsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.logs,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: AuditScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AuditScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.revenue,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: RevenueScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: RevenueScreen()),
           ),
         ],
       ),

@@ -16,6 +16,7 @@ abstract final class AdminRoutePermissions {
     AdminRoutePaths.players: AdminPermission.canManagePlayers,
     AdminRoutePaths.matches: AdminPermission.canManageMatches,
     AdminRoutePaths.tournaments: AdminPermission.canManageTournaments,
+    AdminRoutePaths.series: AdminPermission.canAccessGlobalData,
     AdminRoutePaths.grounds: AdminPermission.canManageGrounds,
     AdminRoutePaths.community: AdminPermission.canModerateCommunity,
     AdminRoutePaths.discover: AdminPermission.canManageDiscover,

@@ -69,6 +69,13 @@ List<AdminNavSection> buildSuperAdminNav() {
           permission: AdminPermission.canManageTournaments,
         ),
         AdminNavItem(
+          id: 'series',
+          label: 'Series',
+          icon: Icons.hub_outlined,
+          route: AdminRoutePaths.series,
+          permission: AdminPermission.canAccessGlobalData,
+        ),
+        AdminNavItem(
           id: 'broadcast',
           label: 'Broadcasts',
           icon: Icons.live_tv_outlined,

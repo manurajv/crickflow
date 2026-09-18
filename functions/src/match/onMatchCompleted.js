@@ -3,6 +3,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { pickMatchHero } = require('../utils/badges');
 const { evaluateMatchBadges, applyBadgeAwards } = require('../utils/badgeProgression');
 const { updateTournamentStandings } = require('../utils/tournament');
+const { updateSeriesRankings } = require('../series/updateSeriesRankings');
 const { fanOutMatchNotification, notifySingleUser } = require('../utils/fanOut');
 const {
   buildMatchResultNotification,
@@ -127,6 +128,15 @@ exports.onMatchCompleted = onDocumentUpdated(
 
     if (after.tournamentId) {
       await updateTournamentStandings(db, after.tournamentId, matchWithInnings);
+    }
+
+    // Parallel Series rankings (isolated from global / tournament tables).
+    if (after.seriesId && after.seriesOfficialStatus === 'approved') {
+      try {
+        await updateSeriesRankings(db, matchWithInnings);
+      } catch (err) {
+        console.error('updateSeriesRankings failed', matchId, err);
+      }
     }
 
     const resultType =

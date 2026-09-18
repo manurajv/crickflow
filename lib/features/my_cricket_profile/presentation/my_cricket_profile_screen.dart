@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/user_model.dart';
@@ -91,8 +92,9 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
     _scrollController = ScrollController()..addListener(_syncTitleVisibility);
     _tabs.addListener(_onTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final fromRoute =
-          MyCricketProfileScreen.tabIndexFromName(widget.initialTab);
+      final fromRoute = MyCricketProfileScreen.tabIndexFromName(
+        widget.initialTab,
+      );
       final fromProvider = ref.read(profileInitialTabProvider);
       final initial = fromRoute ?? (fromProvider > 0 ? fromProvider : null);
       if (initial != null && initial > 0 && initial < _tabs.length) {
@@ -126,7 +128,9 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
     }
     _recordedView = true;
     try {
-      await ref.read(playerFollowRepositoryProvider).recordProfileView(
+      await ref
+          .read(playerFollowRepositoryProvider)
+          .recordProfileView(
             profileUserId: profileUserId,
             viewerUserId: viewerId,
           );
@@ -150,9 +154,8 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
           viewerId: viewerId,
           title: user?.effectiveName ?? 'Cricket Profile',
         ),
-        loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
       );
     }
@@ -168,9 +171,8 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
         snapshot: snapshot,
         title: user?.effectiveName ?? 'My Cricket Profile',
       ),
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
     );
   }
@@ -183,8 +185,7 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
     PlayerCricketProfileSnapshot? snapshot,
   }) {
     final isOwn = user != null && viewerId == user.id;
-    final playerDocId =
-        snapshot?.player.id ?? widget.playerDocId ?? user?.id;
+    final playerDocId = snapshot?.player.id ?? widget.playerDocId ?? user?.id;
 
     if (playerDocId == null && snapshot == null && user == null) {
       return Scaffold(
@@ -196,8 +197,8 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
     final profileAsync = snapshot != null
         ? AsyncValue.data(snapshot)
         : playerDocId != null
-            ? ref.watch(playerCricketProfileByIdProvider(playerDocId))
-            : const AsyncValue<PlayerCricketProfileSnapshot?>.loading();
+        ? ref.watch(playerCricketProfileByIdProvider(playerDocId))
+        : const AsyncValue<PlayerCricketProfileSnapshot?>.loading();
 
     final barColor = CricketProfileHeader.heroBarColor(cf);
 
@@ -210,10 +211,8 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
             if (snap == null) {
               return const Center(child: Text('No cricket profile data'));
             }
-            final expandedHeight =
-                CricketProfileHeader.expandedHeight(context);
-            final topInset =
-                MediaQuery.paddingOf(context).top + kToolbarHeight;
+            final expandedHeight = CricketProfileHeader.expandedHeight(context);
+            final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
             // Title appears once the flexible profile card has fully collapsed.
             _titleThreshold = expandedHeight - topInset - 1;
 
@@ -241,16 +240,15 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
                     color: Colors.white,
-                    tooltip:
-                        MaterialLocalizations.of(context).backButtonTooltip,
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).backButtonTooltip,
                     onPressed: () => Navigator.maybePop(context),
                   ),
                   title: _showAppBarTitle
                       ? Text(
                           title,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
@@ -258,6 +256,12 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
                         )
                       : null,
                   actions: [
+                    if (isOwn)
+                      IconButton(
+                        icon: const Icon(Icons.hub_outlined),
+                        tooltip: 'Series',
+                        onPressed: () => context.push('/series'),
+                      ),
                     if (_tabs.index == 0 || _tabs.index == 1)
                       ProfileMatchFilterButton(
                         matches: snap.participatedMatches,
@@ -271,8 +275,7 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
                       fit: StackFit.expand,
                       children: [
                         DecoratedBox(
-                          decoration:
-                              BoxDecoration(gradient: cf.heroGradient),
+                          decoration: BoxDecoration(gradient: cf.heroGradient),
                         ),
                         Positioned(
                           top: topInset,
@@ -291,48 +294,48 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
                   ),
                 ),
                 SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _TabBarDelegate(
-                      TabBar(
-                        controller: _tabs,
-                        isScrollable: true,
-                        tabAlignment: TabAlignment.start,
-                        indicatorColor: cf.accent,
-                        labelColor: cf.accent,
-                        unselectedLabelColor: cf.textSecondary,
-                        dividerColor: cf.border,
-                        tabs: const [
-                          Tab(text: 'Matches'),
-                          Tab(text: 'Stats'),
-                          Tab(text: 'Trophies'),
-                          Tab(text: 'Badges'),
-                          Tab(text: 'Teams'),
-                          Tab(text: 'Connections'),
-                        ],
-                      ),
-                      cf.surface,
+                  pinned: true,
+                  delegate: _TabBarDelegate(
+                    TabBar(
+                      controller: _tabs,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      indicatorColor: cf.accent,
+                      labelColor: cf.accent,
+                      unselectedLabelColor: cf.textSecondary,
+                      dividerColor: cf.border,
+                      tabs: const [
+                        Tab(text: 'Matches'),
+                        Tab(text: 'Stats'),
+                        Tab(text: 'Trophies'),
+                        Tab(text: 'Badges'),
+                        Tab(text: 'Teams'),
+                        Tab(text: 'Connections'),
+                      ],
                     ),
+                    cf.surface,
+                  ),
+                ),
+              ],
+              body: TabBarView(
+                controller: _tabs,
+                children: [
+                  ProfileMatchesTab(matches: snap.participatedMatches),
+                  ProfileStatsTab(
+                    player: snap.player,
+                    matches: snap.participatedMatches,
+                  ),
+                  ProfileTrophiesTab(trophies: snap.trophies),
+                  ProfileBadgesTab(badges: snap.badges),
+                  ProfileTeamsTab(teams: snap.teams),
+                  ProfileConnectionsTab(
+                    userId: user?.id ?? snap.player.userId ?? '',
+                    playerId: user?.playerId ?? snap.player.playerId ?? '',
+                    isOwnProfile: isOwn,
+                    viewerId: viewerId,
                   ),
                 ],
-                body: TabBarView(
-                  controller: _tabs,
-                  children: [
-                    ProfileMatchesTab(matches: snap.participatedMatches),
-                    ProfileStatsTab(
-                      player: snap.player,
-                      matches: snap.participatedMatches,
-                    ),
-                    ProfileTrophiesTab(trophies: snap.trophies),
-                    ProfileBadgesTab(badges: snap.badges),
-                    ProfileTeamsTab(teams: snap.teams),
-                    ProfileConnectionsTab(
-                      userId: user?.id ?? snap.player.userId ?? '',
-                      playerId: user?.playerId ?? snap.player.playerId ?? '',
-                      isOwnProfile: isOwn,
-                      viewerId: viewerId,
-                    ),
-                  ],
-                ),
+              ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),

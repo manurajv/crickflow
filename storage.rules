@@ -177,5 +177,18 @@ service firebase.storage {
           )
         );
     }
+
+    // Series / Orgs logos, covers, registration photos, ID document images.
+    // Path prefix is `series/{id}` regardless of organization `kind`.
+    match /series/{seriesId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn()
+        && fileName.matches('(logo|cover|photo|doc)_.*\\.(jpg|jpeg|png|webp)')
+        && isProfileImage()
+        && (
+          (fileName.matches('(cover|doc)_.*') && under5Mb())
+          || under2Mb()
+        );
+    }
   }
 }

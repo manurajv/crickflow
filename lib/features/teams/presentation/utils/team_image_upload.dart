@@ -4,16 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cf_colors.dart';
 
 enum TeamImageKind { profile, cover }
 
-/// Pick from camera/gallery, crop (1:1 profile / 16:9 cover), return local file.
+/// Pick from camera/gallery, crop (1:1 profile/logo / 16:9 cover), return local file.
 Future<File?> pickAndCropTeamImage(
   BuildContext context, {
   required TeamImageKind kind,
   required ImageSource source,
+  String? cropTitle,
 }) async {
+  final isProfile = kind == TeamImageKind.profile;
+  final title = cropTitle ??
+      (isProfile ? 'Crop profile photo' : 'Crop cover photo');
+  final cf = context.cf;
   final picker = ImagePicker();
   final picked = await picker.pickImage(
     source: source,
@@ -22,8 +27,6 @@ Future<File?> pickAndCropTeamImage(
     maxHeight: kind == TeamImageKind.cover ? 1080 : 1024,
   );
   if (picked == null) return null;
-
-  final isProfile = kind == TeamImageKind.profile;
   final cropped = await ImageCropper().cropImage(
     sourcePath: picked.path,
     aspectRatio: isProfile
@@ -33,16 +36,16 @@ Future<File?> pickAndCropTeamImage(
     compressQuality: 85,
     uiSettings: [
       AndroidUiSettings(
-        toolbarTitle: isProfile ? 'Crop profile photo' : 'Crop cover photo',
-        toolbarColor: AppColors.surface,
-        toolbarWidgetColor: Colors.white,
+        toolbarTitle: title,
+        toolbarColor: cf.surface,
+        toolbarWidgetColor: cf.textPrimary,
         initAspectRatio: isProfile
             ? CropAspectRatioPreset.square
             : CropAspectRatioPreset.ratio16x9,
         lockAspectRatio: true,
       ),
       IOSUiSettings(
-        title: isProfile ? 'Crop profile photo' : 'Crop cover photo',
+        title: title,
         aspectRatioLockEnabled: true,
       ),
     ],

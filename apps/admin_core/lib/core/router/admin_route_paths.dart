@@ -9,6 +9,7 @@ abstract final class AdminRoutePaths {
   static const players = '/players';
   static const matches = '/matches';
   static const tournaments = '/tournaments';
+  static const series = '/series';
   static const grounds = '/grounds';
   static const community = '/community';
   static const discover = '/discover';

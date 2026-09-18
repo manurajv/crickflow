@@ -28,6 +28,7 @@ import '../../features/matches/presentation/start_match_flow_screen.dart';
 import '../../features/matches/presentation/match_type_choice_screen.dart';
 import '../../features/matches/presentation/quick_match_flow_screen.dart';
 import '../../data/models/location_model.dart';
+import '../../data/models/user_model.dart';
 import '../../data/models/match_setup_draft_models.dart';
 import '../../features/matches/presentation/match_highlights_screen.dart';
 import '../../features/matches/presentation/match_hub_screen.dart';
@@ -60,6 +61,24 @@ import '../../features/scoring/presentation/scorer_takeover_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/notification_settings_screen.dart';
 import '../../features/settings/presentation/legal_document_screen.dart';
+import '../../data/models/series/series.dart';
+import '../../features/series/presentation/orgs_directory_screen.dart';
+import '../../features/series/presentation/series_add_player_screen.dart';
+import '../../features/series/presentation/series_admins_screen.dart';
+import '../../features/series/presentation/series_approvals_screen.dart';
+import '../../features/series/presentation/series_audit_screen.dart';
+import '../../features/series/presentation/series_club_create_screen.dart';
+import '../../features/series/presentation/series_club_detail_screen.dart';
+import '../../features/series/presentation/series_competitions_screen.dart';
+import '../../features/series/presentation/series_create_screen.dart';
+import '../../features/series/presentation/series_detail_screen.dart';
+import '../../features/series/presentation/series_list_screen.dart';
+import '../../features/series/presentation/series_my_requests_screen.dart';
+import '../../features/series/presentation/series_propose_match_screen.dart';
+import '../../features/series/presentation/series_propose_tournament_screen.dart';
+import '../../features/series/presentation/series_rankings_screen.dart';
+import '../../features/series/presentation/series_registration_screen.dart';
+import '../../features/series/presentation/series_settings_screen.dart';
 import '../../features/shell/presentation/main_shell_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/streaming/presentation/streaming_dashboard_screen.dart';
@@ -136,7 +155,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final normalizedCurrent =
           DeepLinkUtils.normalizeLocation(state.matchedLocation) ??
-              state.matchedLocation;
+          state.matchedLocation;
 
       if (deepPath != null &&
           deepPath != normalizedCurrent &&
@@ -203,9 +222,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       final failedLocation = state.matchedLocation;
-      final recoveredPath = DeepLinkUtils.pathFromUri(state.uri) ??
+      final recoveredPath =
+          DeepLinkUtils.pathFromUri(state.uri) ??
           DeepLinkUtils.normalizeLocation(state.matchedLocation);
-      final target = (recoveredPath != null &&
+      final target =
+          (recoveredPath != null &&
               recoveredPath.isNotEmpty &&
               recoveredPath != failedLocation &&
               recoveredPath != '/splash' &&
@@ -321,9 +342,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/match/create',
         builder: (_, state) {
           final stepParam = state.uri.queryParameters['step'];
-          final initialStep = stepParam == 'setup'
-              ? 1
-              : 0;
+          final initialStep = stepParam == 'setup' ? 1 : 0;
           return StartMatchFlowScreen(
             resumeMatchId: state.uri.queryParameters['matchId'],
             initialStep: initialStep,
@@ -435,16 +454,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'mvp/how',
             parentNavigatorKey: rootNavigatorKey,
-            builder: (_, state) => MatchMvpHowScreen(
-              matchId: state.pathParameters['id']!,
-            ),
+            builder: (_, state) =>
+                MatchMvpHowScreen(matchId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: 'head-to-head',
             parentNavigatorKey: rootNavigatorKey,
-            builder: (_, state) => TeamHeadToHeadScreen(
-              matchId: state.pathParameters['id']!,
-            ),
+            builder: (_, state) =>
+                TeamHeadToHeadScreen(matchId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: 'start-innings',
@@ -508,9 +525,138 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/tournaments/:id/join',
         builder: (_, state) => TournamentJoinScreen(
           tournamentId: state.pathParameters['id']!,
-          fromExternalLink: state.uri.queryParameters['from'] == 'qr' ||
+          fromExternalLink:
+              state.uri.queryParameters['from'] == 'qr' ||
               state.uri.queryParameters.containsKey('code'),
         ),
+      ),
+      GoRoute(
+        path: '/associations',
+        builder: (_, __) =>
+            const OrgsDirectoryScreen(family: OrgFamily.associations),
+      ),
+      GoRoute(
+        path: '/clubs',
+        builder: (_, __) => const OrgsDirectoryScreen(family: OrgFamily.clubs),
+      ),
+      GoRoute(
+        path: '/series',
+        builder: (_, __) => const SeriesListScreen(),
+        routes: [
+          GoRoute(
+            path: 'create',
+            builder: (_, state) {
+              final family = OrgFamily.parse(
+                state.uri.queryParameters['family'],
+              );
+              return SeriesCreateScreen(initialFamily: family);
+            },
+          ),
+          GoRoute(
+            path: ':seriesId',
+            builder: (_, state) =>
+                SeriesDetailScreen(seriesId: state.pathParameters['seriesId']!),
+            routes: [
+              GoRoute(
+                path: 'clubs/create',
+                builder: (_, state) => SeriesClubCreateScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'clubs/:clubId',
+                builder: (_, state) => SeriesClubDetailScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                  clubId: state.pathParameters['clubId']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'add-player',
+                    builder: (_, state) {
+                      final player = state.extra;
+                      if (player is! UserModel) {
+                        return const Scaffold(
+                          body: Center(
+                            child: Text('Select a player to continue'),
+                          ),
+                        );
+                      }
+                      return SeriesAddPlayerScreen(
+                        seriesId: state.pathParameters['seriesId']!,
+                        clubId: state.pathParameters['clubId']!,
+                        player: player,
+                      );
+                    },
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'register',
+                builder: (_, state) => SeriesRegistrationScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                  clubId: state.uri.queryParameters['clubId'],
+                  afterJoin: state.uri.queryParameters['join'] == '1',
+                ),
+              ),
+              GoRoute(
+                path: 'settings',
+                builder: (_, state) => SeriesSettingsScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'propose-match',
+                builder: (_, state) => SeriesProposeMatchScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                  clubId: state.uri.queryParameters['clubId'],
+                ),
+              ),
+              GoRoute(
+                path: 'propose-tournament',
+                builder: (_, state) => SeriesProposeTournamentScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                  clubId: state.uri.queryParameters['clubId'],
+                ),
+              ),
+              GoRoute(
+                path: 'my-requests',
+                builder: (_, state) => SeriesMyRequestsScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'fixtures',
+                builder: (_, state) => SeriesCompetitionsScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'admins',
+                builder: (_, state) => SeriesAdminsScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'audit',
+                builder: (_, state) => SeriesAuditScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'approvals',
+                builder: (_, state) => SeriesApprovalsScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'rankings',
+                builder: (_, state) => SeriesRankingsScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: '/tournaments',
@@ -547,8 +693,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   final id = state.pathParameters['id']!;
                   return Consumer(
                     builder: (context, ref, _) {
-                      final tournament =
-                          ref.watch(tournamentProvider(id)).valueOrNull;
+                      final tournament = ref
+                          .watch(tournamentProvider(id))
+                          .valueOrNull;
                       final uid = ref.watch(authStateProvider).value?.uid;
                       final role = ref.watch(
                         tournamentMemberRoleProvider((id, uid)),
@@ -650,9 +797,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: ':chatId',
-            builder: (_, state) => ChatConversationScreen(
-              chatId: state.pathParameters['chatId']!,
-            ),
+            builder: (_, state) =>
+                ChatConversationScreen(chatId: state.pathParameters['chatId']!),
           ),
         ],
       ),
@@ -669,9 +815,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'analysis',
-            builder: (_, state) => PlayerAnalysisScreen(
-              playerId: state.pathParameters['id']!,
-            ),
+            builder: (_, state) =>
+                PlayerAnalysisScreen(playerId: state.pathParameters['id']!),
           ),
         ],
       ),
@@ -687,15 +832,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/legal/privacy',
-        builder: (_, __) => const LegalDocumentScreen(
-          kind: LegalDocumentKind.privacyPolicy,
-        ),
+        builder: (_, __) =>
+            const LegalDocumentScreen(kind: LegalDocumentKind.privacyPolicy),
       ),
       GoRoute(
         path: '/legal/terms',
-        builder: (_, __) => const LegalDocumentScreen(
-          kind: LegalDocumentKind.termsOfService,
-        ),
+        builder: (_, __) =>
+            const LegalDocumentScreen(kind: LegalDocumentKind.termsOfService),
       ),
       GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
       GoRoute(
@@ -735,9 +878,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'qr',
-            builder: (_, state) => PlayerQrScreen(
-              playerId: state.pathParameters['playerId']!,
-            ),
+            builder: (_, state) =>
+                PlayerQrScreen(playerId: state.pathParameters['playerId']!),
           ),
         ],
       ),

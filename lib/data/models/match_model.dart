@@ -227,6 +227,12 @@ class MatchModel extends Equatable {
     this.activeMatchBreak,
     this.matchBreakHistory = const [],
     this.publicMatchId,
+    this.seriesId,
+    this.seriesCompetitionId,
+    this.seriesClubAId,
+    this.seriesClubBId,
+    this.seriesOfficialStatus,
+    this.seriesRankingsProcessed = false,
   });
 
   final String id;
@@ -275,6 +281,14 @@ class MatchModel extends Equatable {
   /// Match photos/videos keyed by code (CM1, CM2, …).
   final Map<String, String> mediaByCode;
   final DateTime? createdAt;
+
+  /// Optional Series ecosystem refs (additive; null for normal matches).
+  final String? seriesId;
+  final String? seriesCompetitionId;
+  final String? seriesClubAId;
+  final String? seriesClubBId;
+  final String? seriesOfficialStatus;
+  final bool seriesRankingsProcessed;
 
   /// Squad, roles, officials, and toss captured at match start.
   final MatchSetupData? setup;
@@ -389,6 +403,12 @@ class MatchModel extends Equatable {
           )
           .toList(),
       publicMatchId: map['publicMatchId'] as String?,
+      seriesId: map['seriesId'] as String?,
+      seriesCompetitionId: map['seriesCompetitionId'] as String?,
+      seriesClubAId: map['seriesClubAId'] as String?,
+      seriesClubBId: map['seriesClubBId'] as String?,
+      seriesOfficialStatus: map['seriesOfficialStatus'] as String?,
+      seriesRankingsProcessed: map['seriesRankingsProcessed'] as bool? ?? false,
     );
   }
 
@@ -460,6 +480,13 @@ class MatchModel extends Equatable {
       'matchBreakHistory': matchBreakHistory.map((e) => e.toMap()).toList(),
     if (publicMatchId != null && publicMatchId!.isNotEmpty)
       'publicMatchId': publicMatchId,
+    if (seriesId != null) 'seriesId': seriesId,
+    if (seriesCompetitionId != null) 'seriesCompetitionId': seriesCompetitionId,
+    if (seriesClubAId != null) 'seriesClubAId': seriesClubAId,
+    if (seriesClubBId != null) 'seriesClubBId': seriesClubBId,
+    if (seriesOfficialStatus != null)
+      'seriesOfficialStatus': seriesOfficialStatus,
+    if (seriesRankingsProcessed) 'seriesRankingsProcessed': true,
   };
 
   MatchModel copyWith({
@@ -502,6 +529,12 @@ class MatchModel extends Equatable {
     bool clearActiveMatchBreak = false,
     List<MatchBreakHistoryEntry>? matchBreakHistory,
     String? publicMatchId,
+    String? seriesId,
+    String? seriesCompetitionId,
+    String? seriesClubAId,
+    String? seriesClubBId,
+    String? seriesOfficialStatus,
+    bool? seriesRankingsProcessed,
   }) {
     return MatchModel(
       id: id,
@@ -556,6 +589,13 @@ class MatchModel extends Equatable {
           : (activeMatchBreak ?? this.activeMatchBreak),
       matchBreakHistory: matchBreakHistory ?? this.matchBreakHistory,
       publicMatchId: publicMatchId ?? this.publicMatchId,
+      seriesId: seriesId ?? this.seriesId,
+      seriesCompetitionId: seriesCompetitionId ?? this.seriesCompetitionId,
+      seriesClubAId: seriesClubAId ?? this.seriesClubAId,
+      seriesClubBId: seriesClubBId ?? this.seriesClubBId,
+      seriesOfficialStatus: seriesOfficialStatus ?? this.seriesOfficialStatus,
+      seriesRankingsProcessed:
+          seriesRankingsProcessed ?? this.seriesRankingsProcessed,
     );
   }
 

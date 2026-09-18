@@ -3,13 +3,181 @@
 
 
 
-**Last updated:** My Cricket sorting (mobile)
+**Last updated:** Orgs permission UX — manager auto-approve + player docs
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
-> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Play launch:** [PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md) · **Web admin:** [WEB_ADMIN_ARCHITECTURE.md](WEB_ADMIN_ARCHITECTURE.md) · **Production certificate:** [PRODUCTION_READINESS_CERTIFICATE.md](PRODUCTION_READINESS_CERTIFICATE.md) · **Developer handbook:** [developer/README.md](developer/README.md) · **CI/CD:** [developer/cicd.md](developer/cicd.md) · **Continuity:** [developer/continuity.md](developer/continuity.md) · **Admin design:** [WEB_ADMIN_DESIGN.md](WEB_ADMIN_DESIGN.md) · **Production:** [WEB_ADMIN_PRODUCTION.md](WEB_ADMIN_PRODUCTION.md) · **i18n / a11y:** [WEB_ADMIN_I18N_A11Y.md](WEB_ADMIN_I18N_A11Y.md) · **QA report:** [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md) · **Admin schema:** [ADMIN_USERS_SCHEMA.md](ADMIN_USERS_SCHEMA.md) · **Doc index:** [README.md](README.md)
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+
+---
+
+## Orgs (product name)
+
+**Orgs** = Competition Organizations. One backend (`series` collection); three drawer surfaces:
+
+| Surface | Route | `kind` values |
+|---------|-------|----------------|
+| Associations | `/associations` | association, federation |
+| Clubs | `/clubs` | club, company |
+| Series | `/series` | series, league, cup, other |
+
+Detail hub remains `/series/:id` for all kinds (Overview · Fixtures · Leaderboard · Clubs · About).
+
+## Latest (Manager permissions + registration docs)
+
+| Item | Status |
+|------|--------|
+| Super/Series Admin creating a club/team → active immediately (no approval) | Done |
+| Super/Series Admin adding a player → squad membership immediate | Done |
+| Club Admin add-player still queues Series approval | Done |
+| Add-player form: required org fields + ID/passport number + document photos | Done |
+| Self-registration: profile photo + ID/passport document upload | Done |
+| Super/Series Admin propose match/tournament → auto-official fixture | Done |
+| Storage `series/{id}/doc_*` for ID document images | Done |
+
+### Still remaining vs original master spec (honest)
+
+| Gap | Notes |
+|-----|--------|
+| Deep E2E + security test suite (Phase 11) | Unit tests exist; full E2E matrix not finished |
+| Web native image upload (file picker → Storage) | Web create accepts logo/cover URLs; mobile uploads files |
+| Full web Org Admin sections density (Players / Registrations tabs) | Approvals + clubs + fixtures present; denser tabs still incremental |
+| Web parity for add-player docs + manager auto-approve UX copy | Mobile shipped; web still uses older submit paths |
+
+## Latest (Pending approvals + Fixtures UX)
+
+| Item | Status |
+|------|--------|
+| Pending approvals `permission-denied` on manager list query | Fixed — path-scoped `series/{id}/approvals` + `syncSeriesApprovalMirrors` |
+| Fixtures showing raw enum/IDs | Fixed — human labels + club names / vs titles |
+
+## Latest (Orgs collapsing dashboard)
+
+| Item | Status |
+|------|--------|
+| Tournament-style NestedScrollView + collapsing cover (168px) + logo overlay | Done — Associations / Clubs / Series share `SeriesDetailScreen` |
+| Title appears in chrome on scroll; white icons over cover when expanded | Done |
+| Pinned tab bar under header | Done |
+| Light-theme `context.cf` banner/scrim/gradient | Done |
+
+## Latest (Orgs directory + profile hub)
+
+| Item | Status |
+|------|--------|
+| Drawer: Associations + Clubs + Series | Done |
+| Cover-card directories with search + kind chips | Done |
+| Org profile hub tabs (reuse Series data) | Done |
+| Create form scoped by family + region/location | Done |
+| `club` kind + region/location on org docs | Done |
+
+## Latest (Orgs rules + branding)
+
+| Item | Status |
+|------|--------|
+| Firestore: `region` / `location` / `country` / `logoUrl` / `coverImageUrl` validation on series docs | Done |
+| Firestore: `series_clubs` create validation + post-create logo patch by creator | Done |
+| Mobile create (Associations / Clubs / Series): camera/gallery + crop (1:1 logo · 16:9 cover) | Done — reuses team/tournament picker |
+| Country on create — auto from profile, editable via picker | Done |
+| `createSeries` UNAVAILABLE — explicit `us-central1`, token refresh, retries, friendlier errors; CF 512MiB/1CPU | Done — redeploy `createSeries` required |
+| Storage rules for `series/{id}/logo_*` & `cover_*` (covers up to 5MB) | Done — deployed |
+| Create succeeds even if logo/cover upload fails (warn + open org) | Done |
+
+## Latest (Create Series completeness)
+
+| Item | Status |
+|------|--------|
+| Mobile create: name + description only | Fixed — full wizard |
+| Logo + cover on create (mobile upload / web URL) | Done |
+| Series rules / playing conditions (`rulesText`) | Done |
+| Kind, max squad, registration toggles, ranking points at create | Done |
+| Settings screen also edits rules | Done |
+
+### Still remaining vs original master spec (honest)
+
+| Gap | Notes |
+|-----|--------|
+| Deep E2E + security test suite (Phase 11) | Unit tests exist; full E2E matrix not finished |
+| Web native image upload (file picker → Storage) | Web create accepts logo/cover URLs; mobile uploads files |
+| Full web Org Admin sections density (Players / Registrations tabs) | Approvals + clubs + fixtures present; denser tabs still incremental |
+| Firebase deploy of latest Series callables | Required before live testing |
+
+## Latest (Series access + workflow hardening)
+
+| Item | Status |
+|------|--------|
+| Mobile side drawer → Series (`/series`) under My cricket | Done |
+| Two-step player join (Club Admin clearance → Series Admin) | Done |
+| `reviewClubJoinRequest` / `addSeriesClubAdmin` / `removeSeriesClubAdmin` callables | Done |
+| Registration identity viewer (mobile + web Series approvals) | Done |
+| Propose match creates linked draft `matches` doc (`createMatchDraft`) | Done |
+| Consumer web Create Series on `/series` | Done |
+
+## Latest (Series MVP expansion)
+
+| Item | Status |
+|------|--------|
+| Series Admins screen (add/remove Super Admin only) | Done |
+| Fixtures/competitions screen + propose tournament | Done |
+| Audit log screen for Series Admins | Done |
+| Club Admin player search for add-player requests | Done |
+| Approval pending/result notifications (CF → inbox/FCM) | Done |
+| Web fixtures, admins, propose tournament parity | Done |
+
+## Latest (Series MVP gap-closure)
+
+| Item | Status |
+|------|--------|
+| `reviewSeriesApproval` allows Series Admins (not Super Admin only) | Done |
+| Membership counters no longer double-increment on re-approve | Done |
+| Mobile create club, registration+join, editable settings, propose match, squad add/remove requests | Done |
+| Web club create, join/register, propose match, settings, denser admin actions | Done |
+| Platform Super Admin can suspend Series (rules allow status-only update + audit create) | Done |
+
+## Latest (Series / Club ecosystem — Phases 1–11)
+
+| Phase | Item | Status |
+|------|------|--------|
+| 1 | Models, collections constants, Firestore rules, indexes, storage, CF callables, audit writer | Done |
+| 2 | Series create + Super Admin / Series Admin roles (callables) | Done |
+| 3 | Clubs + Club Admins + club approval workflow | Done |
+| 4 | Registration, join/add/remove, squad max, PII private subdoc | Done |
+| 5 | Series match/tournament propose + approval | Done |
+| 6 | Optional `seriesId` / official status on matches & tournaments | Done |
+| 7 | Isolated Series club + player rankings via `onMatchCompleted` hook | Done |
+| 8 | Mobile Series UI (`/series`) + My Cricket entry | Done |
+| 9 | Consumer web Series pages + nav | Done |
+| 10 | Super Admin Series investigation module | Done |
+| 11 | Domain tests + ranking eligibility tests | Done |
+
+**Non-negotiable:** Existing teams, tournaments, scoring, global stats/rankings unchanged. Series is parallel and additive.
+
+| Deploy note | |
+|-------------|--|
+| Rules + indexes | `firebase deploy --only firestore:rules,firestore:indexes,storage` |
+| Functions | `firebase deploy --only functions` (new Series callables + rankings hook) |
+
+## Latest (Series data layer)
+
+| Item | Status |
+|------|--------|
+| Firestore repositories for Series, clubs, approvals, registrations, memberships, competitions, rankings, and audit logs | Done |
+| Privileged Series mutations isolated behind Cloud Functions callable service | Done |
+| Registration identity data sent only through callable boundary, never written to public docs | Done |
+| Riverpod repository providers, Series-by-ID/club watches, and reactive current-user Series role | Done |
+| Series repository files pass targeted Dart analysis | Done |
+
+## Series ecosystem UI (Phases 8–10)
+
+| Surface | Status |
+|---|---|
+| Flutter Series discovery, detail, clubs/squads, rankings, approvals, and creation | Done |
+| Flutter `/series` route family and My Cricket entry point | Done |
+| Consumer web Series list/detail with real Firestore clubs and rankings | Done |
+| Consumer web role-aware Series admin summary | Done |
+| Super Admin Series investigation (clubs, admins, audit events, suspension) | Done |
+| Organization/Series administration in consumer web | Initial role-aware detail shipped; expanded workflows remain incremental |
 
 ---
 

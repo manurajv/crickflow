@@ -133,6 +133,31 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Highlights',
                     onTap: () => _goMyCricket(context, ref, tab: 4),
                   ),
+                  const _DrawerSectionHeader('Organizations'),
+                  _DrawerTile(
+                    icon: Icons.account_tree_outlined,
+                    label: 'Associations',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/associations');
+                    },
+                  ),
+                  _DrawerTile(
+                    icon: Icons.account_balance_outlined,
+                    label: 'Clubs',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/clubs');
+                    },
+                  ),
+                  _DrawerTile(
+                    icon: Icons.hub_outlined,
+                    label: 'Series',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/series');
+                    },
+                  ),
                   const _DrawerSectionHeader('Explore'),
                   _DrawerTile(
                     icon: Icons.explore_outlined,

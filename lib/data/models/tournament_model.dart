@@ -64,23 +64,23 @@ class PointsTableEntry extends Equatable {
   }
 
   Map<String, dynamic> toMap() => {
-        'teamId': teamId,
-        'teamName': teamName,
-        'played': played,
-        'won': won,
-        'lost': lost,
-        'tied': tied,
-        'noResult': noResult,
-        'points': points,
-        'netRunRate': netRunRate,
-        'position': position,
-        'runsFor': runsFor,
-        'oversFaced': oversFaced,
-        'runsAgainst': runsAgainst,
-        'oversBowled': oversBowled,
-        'bonusPoints': bonusPoints,
-        'penaltyPoints': penaltyPoints,
-      };
+    'teamId': teamId,
+    'teamName': teamName,
+    'played': played,
+    'won': won,
+    'lost': lost,
+    'tied': tied,
+    'noResult': noResult,
+    'points': points,
+    'netRunRate': netRunRate,
+    'position': position,
+    'runsFor': runsFor,
+    'oversFaced': oversFaced,
+    'runsAgainst': runsAgainst,
+    'oversBowled': oversBowled,
+    'bonusPoints': bonusPoints,
+    'penaltyPoints': penaltyPoints,
+  };
 
   PointsTableEntry copyWith({
     String? teamName,
@@ -144,10 +144,10 @@ class TournamentPodiumPlace extends Equatable {
   }
 
   Map<String, dynamic> toMap() => {
-        'place': place,
-        'teamId': teamId,
-        'teamName': teamName,
-      };
+    'place': place,
+    'teamId': teamId,
+    'teamName': teamName,
+  };
 
   static String labelFor(int place) {
     switch (place) {
@@ -222,6 +222,9 @@ class TournamentModel extends Equatable {
     this.podiumPlaces = const [],
     this.isLocked = false,
     this.awards = const {},
+    this.seriesId,
+    this.seriesCompetitionId,
+    this.seriesOfficialStatus,
   });
 
   final String id;
@@ -235,6 +238,7 @@ class TournamentModel extends Equatable {
   final LocationModel location;
   final String? bannerUrl;
   final String? logoUrl;
+
   /// Dedicated Community / feed thumbnail (falls back to [bannerUrl] in UI).
   final String? thumbnailUrl;
   final CommunityMediaAspect thumbnailAspect;
@@ -261,10 +265,16 @@ class TournamentModel extends Equatable {
   final String? runnerUpTeamName;
   final String? thirdPlaceTeamId;
   final String? thirdPlaceTeamName;
+
   /// Preferred ordered podium (1–5). Falls back to legacy champion fields when empty.
   final List<TournamentPodiumPlace> podiumPlaces;
   final bool isLocked;
   final Map<String, String> awards;
+
+  /// Optional Series ecosystem refs (additive; null for normal tournaments).
+  final String? seriesId;
+  final String? seriesCompetitionId;
+  final String? seriesOfficialStatus;
 
   String get effectiveOrganizerId => organizerId ?? createdBy ?? '';
 
@@ -273,7 +283,8 @@ class TournamentModel extends Equatable {
   /// Podium for UI: [podiumPlaces] or synthesized from legacy champion fields.
   List<TournamentPodiumPlace> get effectivePodiumPlaces {
     if (podiumPlaces.isNotEmpty) {
-      final sorted = [...podiumPlaces]..sort((a, b) => a.place.compareTo(b.place));
+      final sorted = [...podiumPlaces]
+        ..sort((a, b) => a.place.compareTo(b.place));
       return sorted;
     }
     final legacy = <TournamentPodiumPlace>[];
@@ -323,15 +334,14 @@ class TournamentModel extends Equatable {
       matchIds: List<String>.from(map['matchIds'] as List? ?? []),
       pointsTable: (map['pointsTable'] as List? ?? [])
           .whereType<Map>()
-          .map(
-            (e) => PointsTableEntry.fromMap(Map<String, dynamic>.from(e)),
-          )
+          .map((e) => PointsTableEntry.fromMap(Map<String, dynamic>.from(e)))
           .toList(),
       bracketRounds: bracketRoundsFromFirestore(map['bracketRounds']),
       location: LocationModel.fromMap(map['location'] as Map<String, dynamic>?),
       bannerUrl: map['bannerUrl'] as String?,
       logoUrl: map['logoUrl'] as String?,
-      thumbnailUrl: map['thumbnailUrl'] as String? ?? map['bannerUrl'] as String?,
+      thumbnailUrl:
+          map['thumbnailUrl'] as String? ?? map['bannerUrl'] as String?,
       thumbnailAspect: CommunityMediaAspectX.parse(
         map['thumbnailAspect'] as String?,
       ),
@@ -373,6 +383,9 @@ class TournamentModel extends Equatable {
       podiumPlaces: _podiumPlacesFromMap(map),
       isLocked: map['isLocked'] as bool? ?? false,
       awards: _awardsFromMap(map['awards']),
+      seriesId: map['seriesId'] as String?,
+      seriesCompetitionId: map['seriesCompetitionId'] as String?,
+      seriesOfficialStatus: map['seriesOfficialStatus'] as String?,
     );
   }
 
@@ -395,55 +408,55 @@ class TournamentModel extends Equatable {
     if (raw == null || raw.isEmpty) return const [];
     return raw
         .whereType<Map>()
-        .map(
-          (e) => TournamentPodiumPlace.fromMap(
-            Map<String, dynamic>.from(e),
-          ),
-        )
+        .map((e) => TournamentPodiumPlace.fromMap(Map<String, dynamic>.from(e)))
         .where((p) => p.teamId.isNotEmpty && p.place > 0)
         .toList()
       ..sort((a, b) => a.place.compareTo(b.place));
   }
 
   Map<String, dynamic> toMap() => {
-        'name': name,
-        'format': format.name,
-        'status': status.name,
-        'teamIds': teamIds,
-        'matchIds': matchIds,
-        'pointsTable': pointsTable.map((e) => e.toMap()).toList(),
-        'bracketRounds': bracketRoundsToFirestore(bracketRounds),
-        'location': location.toMap(),
-        if (bannerUrl != null) 'bannerUrl': bannerUrl,
-        if (logoUrl != null) 'logoUrl': logoUrl,
-        if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
-        'thumbnailAspect': thumbnailAspect.name,
-        'grounds': grounds,
-        if (startDate != null) 'startDate': startDate!.toIso8601String(),
-        if (endDate != null) 'endDate': endDate!.toIso8601String(),
-        'createdBy': createdBy ?? effectiveOrganizerId,
-        if (effectiveOrganizerId.isNotEmpty) 'organizerId': effectiveOrganizerId,
-        'description': description,
-        if (tournamentCode != null) 'tournamentCode': tournamentCode,
-        if (entryFee != null) 'entryFee': entryFee,
-        if (winningPrize != null) 'winningPrize': winningPrize,
-        if (ballType != null) 'ballType': ballType!.name,
-        if (pitchType != null) 'pitchType': pitchType!.name,
-        'defaultRules': defaultRules.toMap(),
-        'setupMeta': setupMeta.toMap(),
-        'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
-        if (championTeamId != null) 'championTeamId': championTeamId,
-        if (championTeamName != null) 'championTeamName': championTeamName,
-        if (runnerUpTeamId != null) 'runnerUpTeamId': runnerUpTeamId,
-        if (runnerUpTeamName != null) 'runnerUpTeamName': runnerUpTeamName,
-        if (thirdPlaceTeamId != null) 'thirdPlaceTeamId': thirdPlaceTeamId,
-        if (thirdPlaceTeamName != null) 'thirdPlaceTeamName': thirdPlaceTeamName,
-        if (podiumPlaces.isNotEmpty)
-          'podiumPlaces': podiumPlaces.map((e) => e.toMap()).toList(),
-        'isLocked': isLocked,
-        if (awards.isNotEmpty) 'awards': awards,
-      };
+    'name': name,
+    'format': format.name,
+    'status': status.name,
+    'teamIds': teamIds,
+    'matchIds': matchIds,
+    'pointsTable': pointsTable.map((e) => e.toMap()).toList(),
+    'bracketRounds': bracketRoundsToFirestore(bracketRounds),
+    'location': location.toMap(),
+    if (bannerUrl != null) 'bannerUrl': bannerUrl,
+    if (logoUrl != null) 'logoUrl': logoUrl,
+    if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+    'thumbnailAspect': thumbnailAspect.name,
+    'grounds': grounds,
+    if (startDate != null) 'startDate': startDate!.toIso8601String(),
+    if (endDate != null) 'endDate': endDate!.toIso8601String(),
+    'createdBy': createdBy ?? effectiveOrganizerId,
+    if (effectiveOrganizerId.isNotEmpty) 'organizerId': effectiveOrganizerId,
+    'description': description,
+    if (tournamentCode != null) 'tournamentCode': tournamentCode,
+    if (entryFee != null) 'entryFee': entryFee,
+    if (winningPrize != null) 'winningPrize': winningPrize,
+    if (ballType != null) 'ballType': ballType!.name,
+    if (pitchType != null) 'pitchType': pitchType!.name,
+    'defaultRules': defaultRules.toMap(),
+    'setupMeta': setupMeta.toMap(),
+    'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
+    'updatedAt': DateTime.now().toIso8601String(),
+    if (championTeamId != null) 'championTeamId': championTeamId,
+    if (championTeamName != null) 'championTeamName': championTeamName,
+    if (runnerUpTeamId != null) 'runnerUpTeamId': runnerUpTeamId,
+    if (runnerUpTeamName != null) 'runnerUpTeamName': runnerUpTeamName,
+    if (thirdPlaceTeamId != null) 'thirdPlaceTeamId': thirdPlaceTeamId,
+    if (thirdPlaceTeamName != null) 'thirdPlaceTeamName': thirdPlaceTeamName,
+    if (podiumPlaces.isNotEmpty)
+      'podiumPlaces': podiumPlaces.map((e) => e.toMap()).toList(),
+    'isLocked': isLocked,
+    if (awards.isNotEmpty) 'awards': awards,
+    if (seriesId != null) 'seriesId': seriesId,
+    if (seriesCompetitionId != null) 'seriesCompetitionId': seriesCompetitionId,
+    if (seriesOfficialStatus != null)
+      'seriesOfficialStatus': seriesOfficialStatus,
+  };
 
   TournamentModel copyWith({
     String? name,
@@ -478,6 +491,9 @@ class TournamentModel extends Equatable {
     List<TournamentPodiumPlace>? podiumPlaces,
     bool? isLocked,
     Map<String, String>? awards,
+    String? seriesId,
+    String? seriesCompetitionId,
+    String? seriesOfficialStatus,
   }) {
     return TournamentModel(
       id: id,
@@ -517,6 +533,9 @@ class TournamentModel extends Equatable {
       podiumPlaces: podiumPlaces ?? this.podiumPlaces,
       isLocked: isLocked ?? this.isLocked,
       awards: awards ?? this.awards,
+      seriesId: seriesId ?? this.seriesId,
+      seriesCompetitionId: seriesCompetitionId ?? this.seriesCompetitionId,
+      seriesOfficialStatus: seriesOfficialStatus ?? this.seriesOfficialStatus,
     );
   }
 

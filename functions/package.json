@@ -8,7 +8,7 @@
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
-    "test": "node src/utils/ballEventStats.test.js"
+    "test": "node src/utils/ballEventStats.test.js && node src/series/updateSeriesRankings.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",

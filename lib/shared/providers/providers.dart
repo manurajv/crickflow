@@ -198,6 +198,23 @@ final tournamentsProvider = StreamProvider<List<TournamentModel>>((ref) {
   return ref.watch(tournamentRepositoryProvider).watchTournaments();
 });
 
+/// Tournaments organized by the signed-in user (for Series linking).
+final myOrganizedTournamentsProvider =
+    StreamProvider<List<TournamentModel>>((ref) {
+  final uid = ref.watch(authStateProvider).value?.uid;
+  if (uid == null) return Stream.value(const []);
+  return ref.watch(tournamentRepositoryProvider).watchTournaments().map(
+        (list) => list
+            .where(
+              (t) =>
+                  t.createdBy == uid ||
+                  t.organizerId == uid ||
+                  t.effectiveOrganizerId == uid,
+            )
+            .toList(),
+      );
+});
+
 // Fantasy
 final fantasyUserEntriesProvider =
     StreamProvider<List<FantasyEntryWithLeague>>((ref) {
