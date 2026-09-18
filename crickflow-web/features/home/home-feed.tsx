@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { MatchCard, EntityCard } from "@/components/shared/cards";
 import { ContentGrid, LoadingGrid, PageSection } from "@/components/shared/page-shell";
 import { Button } from "@/components/ui/button";

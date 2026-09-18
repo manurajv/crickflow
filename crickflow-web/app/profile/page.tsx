@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/states";

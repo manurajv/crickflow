@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { Badge } from "@/components/ui/badge";

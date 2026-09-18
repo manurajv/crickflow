@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-provider";
 import { shareEntity } from "@/lib/share";

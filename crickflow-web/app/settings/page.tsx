@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

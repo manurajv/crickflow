@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { useEffect, useMemo, useState } from "react";
 import { Bell, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
