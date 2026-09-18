@@ -25,6 +25,7 @@ import type { CommunityPost, HomePromotion, Match, Player, Team, Tournament } fr
 export function HomeFeed() {
   const { user } = useAuth();
   const [ready, setReady] = useState(() => !isFirebaseConfigured());
+  const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState<Match[]>([]);
   const [upcoming, setUpcoming] = useState<Match[]>([]);
   const [recent, setRecent] = useState<Match[]>([]);
@@ -56,7 +57,11 @@ export function HomeFeed() {
       setPlayers(nextPlayers);
       setPosts(nextPosts);
       setPromotions(nextPromos);
-    }).catch(() => undefined).finally(() => setReady(true));
+      setError(null);
+    }).catch((err) => {
+      console.error("Home feed data error:", err);
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    }).finally(() => setReady(true));
   }, []);
 
   useEffect(() => {
@@ -73,7 +78,9 @@ export function HomeFeed() {
         setFollowedTeams(nextTeams);
         setFollowedPlayers(nextPlayers);
       })
-      .catch(() => undefined);
+      .catch((err) => {
+        console.error("Following data error:", err);
+      });
     return () => {
       cancelled = true;
     };
@@ -93,6 +100,26 @@ export function HomeFeed() {
       <div className="space-y-12">
         <Hero />
         <LoadingGrid count={6} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-12">
+        <Hero />
+        <EmptyState
+          title="Failed to load data"
+          description={error}
+          action={
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Retry
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -202,78 +229,102 @@ export function HomeFeed() {
       </PageSection>
 
       <PageSection title="Upcoming" href="/matches?status=upcoming">
-        <ContentGrid>
-          {upcoming.map((match) => (
-            <MatchCard key={match.id} match={match} />
-          ))}
-        </ContentGrid>
+        {upcoming.length === 0 ? (
+          <EmptyState title="No upcoming fixtures" description="Check back soon for scheduled matches." />
+        ) : (
+          <ContentGrid>
+            {upcoming.map((match) => (
+              <MatchCard key={match.id} match={match} />
+            ))}
+          </ContentGrid>
+        )}
       </PageSection>
 
       <PageSection title="Recent results" href="/matches?status=completed">
-        <ContentGrid>
-          {recent.map((match) => (
-            <MatchCard key={match.id} match={match} />
-          ))}
-        </ContentGrid>
+        {recent.length === 0 ? (
+          <EmptyState title="No recent results" description="Results will appear here when matches are completed." />
+        ) : (
+          <ContentGrid>
+            {recent.map((match) => (
+              <MatchCard key={match.id} match={match} />
+            ))}
+          </ContentGrid>
+        )}
       </PageSection>
 
       <PageSection title="Tournaments" href="/tournaments">
-        <ContentGrid>
-          {tournaments.map((t) => (
-            <EntityCard
-              key={t.id}
-              href={`/tournaments/${t.id}`}
-              title={t.name}
-              subtitle={locationLabel(t.location)}
-              image={t.bannerUrl}
-              meta={String(t.status)}
-            />
-          ))}
-        </ContentGrid>
-      </PageSection>
-
-      <div className="grid gap-8 lg:grid-cols-2">
-        <PageSection title="Featured teams" href="/teams">
-          <div className="grid gap-3">
-            {teams.map((t) => (
+        {tournaments.length === 0 ? (
+          <EmptyState 
+            title="No tournaments yet" 
+            description="Tournaments will appear here. Create one to get started!"
+            action={user ? <Link href="/tournaments" className="text-primary">Create a tournament</Link> : undefined}
+          />
+        ) : (
+          <ContentGrid>
+            {tournaments.map((t) => (
               <EntityCard
                 key={t.id}
-                href={`/teams/${t.id}`}
+                href={`/tournaments/${t.id}`}
                 title={t.name}
                 subtitle={locationLabel(t.location)}
-                image={t.logoUrl}
+                image={t.bannerUrl}
+                meta={String(t.status)}
               />
             ))}
-          </div>
-        </PageSection>
-        <PageSection title="Featured players" href="/players">
-          <div className="grid gap-3">
-            {players.map((p) => (
-              <EntityCard
-                key={p.id}
-                href={`/players/${p.id}`}
-                title={p.name}
-                subtitle={p.role || p.playerId}
-                image={p.photoUrl}
-              />
-            ))}
-          </div>
-        </PageSection>
-      </div>
-
-      <PageSection title="Community" href="/community">
-        <ContentGrid>
-          {posts.map((post) => (
-            <EntityCard
-              key={post.id}
-              href={`/community/${post.id}`}
-              title={post.title || post.body.slice(0, 80)}
-              subtitle={post.authorName}
-              image={post.media[0]?.url}
-            />
-          ))}
-        </ContentGrid>
+          </ContentGrid>
+        )}
       </PageSection>
+
+      {(teams.length > 0 || players.length > 0) && (
+        <div className="grid gap-8 lg:grid-cols-2">
+          {teams.length > 0 && (
+            <PageSection title="Featured teams" href="/teams">
+              <div className="grid gap-3">
+                {teams.map((t) => (
+                  <EntityCard
+                    key={t.id}
+                    href={`/teams/${t.id}`}
+                    title={t.name}
+                    subtitle={locationLabel(t.location)}
+                    image={t.logoUrl}
+                  />
+                ))}
+              </div>
+            </PageSection>
+          )}
+          {players.length > 0 && (
+            <PageSection title="Featured players" href="/players">
+              <div className="grid gap-3">
+                {players.map((p) => (
+                  <EntityCard
+                    key={p.id}
+                    href={`/players/${p.id}`}
+                    title={p.name}
+                    subtitle={p.role || p.playerId}
+                    image={p.photoUrl}
+                  />
+                ))}
+              </div>
+            </PageSection>
+          )}
+        </div>
+      )}
+
+      {posts.length > 0 && (
+        <PageSection title="Community" href="/community">
+          <ContentGrid>
+            {posts.map((post) => (
+              <EntityCard
+                key={post.id}
+                href={`/community/${post.id}`}
+                title={post.title || post.body.slice(0, 80)}
+                subtitle={post.authorName}
+                image={post.media[0]?.url}
+              />
+            ))}
+          </ContentGrid>
+        </PageSection>
+      )}
     </div>
   );
 }

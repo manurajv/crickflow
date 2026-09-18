@@ -55,21 +55,21 @@ Detail hub remains `/series/:id` for all kinds (Overview · Fixtures · Leaderbo
 | **Home & Discovery** | ✅ Complete | None — Home feed, Community, Discover, Search all working |
 | **Matches (Viewing)** | ✅ Complete | None — Match centre, scorecard, commentary, stats, watch stream all working |
 | **Match Creation/Scoring** | 🚫 Mobile-only | **Not a web gap** — Complex touch-optimized flows for scorer interface |
-| **Teams** | 🟡 View complete, Create missing | **Gap:** Team creation wizard (mobile has full wizard with logo picker, squad) |
+| **Teams** | ✅ Complete | **None** — Directory, profiles, **creation wizard with logo upload now working** |
 | **Players** | ✅ Complete | None — Directory, profiles, rankings, follow, edit profile all working |
-| **Tournaments** | 🟡 View complete, Create missing | **Gap:** Tournament creation wizard (mobile has full wizard with format, teams, bracket setup) |
+| **Tournaments** | ✅ Complete | **None** — Directory, profiles, **creation wizard with banner upload now working** |
 | **Series/Orgs** | ✅ Complete | None — Full CRUD, all admin workflows, registration with docs, approvals working |
 | **Notifications** | ✅ Complete | None — Inbox, preferences working |
 | **Settings & Profile** | ✅ Complete | None — All account management working |
 | **Chat** | ✅ Complete | None — DMs, block/unblock working |
 | **Invites** | ✅ Complete | None — Create/accept player invites working |
-| **My Cricket** | 🟡 Partial | **Gap:** Deep view of user's matches, teams, Series memberships; mobile has comprehensive "My Cricket" hub |
-| **Fantasy** | ❓ Unknown | **Gap:** Mobile has fantasy module; web status unclear (may be stub or missing) |
+| **My Cricket** | ✅ Complete | **None** — Profile shows My teams, tournaments, matches with stats overview |
+| **Fantasy** | ✅ Complete | **None** — Fantasy leagues visible in Match Centre for each match |
 | **Store** | 🚫 Mobile placeholder | **Not a web gap** — Mobile has placeholder screen; not a priority feature |
 | **Grounds** | ✅ Complete | None — Directory, ground profiles working |
 | **Rankings & Stats** | ✅ Complete | None — Player rankings, statistics pages working |
 
-**Consumer Web Overall:** ~85% feature parity for web-applicable features. Core viewing/browsing/social flows complete. Creation wizards (team/tournament) and My Cricket depth are main gaps.
+**Consumer Web Overall:** ~95% feature parity for web-applicable features. **All core creation/browsing/social flows complete. Team/tournament creation, My Cricket depth, fantasy now working.**
 
 ### Flutter Web Admin (`apps/superadmin`, `apps/admin`, `apps/admin_core`) — Current Status
 
