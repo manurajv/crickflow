@@ -121,3 +121,25 @@ export async function uploadSeriesRegistrationImage(
 ) {
   return uploadJpeg(seriesRegistrationImagePath(seriesId, userId, kind), file, SERIES_IMAGE_MAX_BYTES);
 }
+
+// Team images
+export const TEAM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+export function teamLogoPath(teamId: string, userId: string) {
+  return `teams/${teamId}/logo_${userId}.jpg`;
+}
+
+export async function uploadTeamLogo(teamId: string, userId: string, file: File) {
+  return uploadJpeg(teamLogoPath(teamId, userId), file, TEAM_IMAGE_MAX_BYTES);
+}
+
+// Tournament images
+export const TOURNAMENT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+export function tournamentBannerPath(tournamentId: string, userId: string) {
+  return `tournaments/${tournamentId}/banner_${userId}.jpg`;
+}
+
+export async function uploadTournamentBanner(tournamentId: string, userId: string, file: File) {
+  return uploadJpeg(tournamentBannerPath(tournamentId, userId), file, TOURNAMENT_IMAGE_MAX_BYTES);
+}

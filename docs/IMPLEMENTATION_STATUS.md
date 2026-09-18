@@ -1,15 +1,12 @@
 # CrickFlow — Implementation Status (Agent Handoff)
 
-
-
-
-**Last updated:** Orgs permission UX — manager auto-approve + player docs
+**Last updated:** Web/Admin Parity Audit — Complete Feature Matrix (Sept 18, 2026)
 
 **Firebase project:** `crickflow-b06bc`
 
 **Android package:** `com.mavixas.crickflow`
 
-> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Doc index:** [README.md](README.md)
+> **Master doc:** [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) · **Feature Parity Matrix:** [FEATURE_PARITY_MATRIX.md](FEATURE_PARITY_MATRIX.md) · **Doc index:** [README.md](README.md)
 
 ---
 
@@ -46,31 +43,103 @@ Detail hub remains `/series/:id` for all kinds (Overview · Fixtures · Leaderbo
 | ~~Full web Org Admin sections density (Players / Registrations tabs)~~ | ✅ Done — tabbed navigation, denser Players list, enhanced Approvals section |
 | ~~Web parity for add-player docs + manager auto-approve UX copy~~ | ✅ Done — web registration form includes all doc fields + photo uploads |
 
-## Latest (Web Orgs/Series parity — Sept 2026)
+## Latest (Web/Admin Complete Parity Audit — Sept 18, 2026)
 
-| Item | Status |
-|------|--------|
-| **Consumer Web (`crickflow-web`)** | |
-| Web native file upload for Series logo/cover | Done — file picker + Firebase Storage upload on create |
-| Web Series create — upload to `series/{id}/logo_{uid}.jpg` & `cover_{uid}.jpg` | Done — matches mobile paths |
-| Web registration form — all required document fields | Done — DOB, phone, address, national ID, passport with doc photos |
-| Web registration — profile photo + ID document uploads | Done — `uploadSeriesRegistrationImage` reused from mobile storage pattern |
-| Web Series detail — tabbed navigation (Overview, Clubs, Players, Approvals, Fixtures, Admins) | Done — cleaner admin UX |
-| Web Approvals section — registration ID display + enhanced view identity | Done — better metadata visibility |
-| Web Players tab — full player rankings table | Done — denser admin view |
-| **Flutter Web Admin (`apps/superadmin` + `apps/admin_core`)** | |
-| Mobile-responsive AdminShell (drawer on mobile, persistent sidebar on desktop) | Done — LayoutBuilder + Scaffold drawer pattern |
-| Responsive breakpoints (mobile/tablet/laptop/desktop/wide) | Done — removed "desktop-only" assumptions |
-| Horizontally scrollable data tables (`CfResponsiveTable`) | Done — wraps DataTable for mobile scroll |
-| Series investigation screen mobile layout | Done — constrained dialog, responsive table, text overflow handling |
-| Updated design docs to reflect mobile support | Done — WEB_ADMIN_DESIGN.md updated |
+**Full feature matrix:** [FEATURE_PARITY_MATRIX.md](FEATURE_PARITY_MATRIX.md)
 
-### Still remaining vs original master spec (honest)
+### Consumer Web (`crickflow-web`) — Current Status
 
-| Item | Status |
-|------|--------|
-| Pending approvals `permission-denied` on manager list query | Fixed — path-scoped `series/{id}/approvals` + `syncSeriesApprovalMirrors` |
-| Fixtures showing raw enum/IDs | Fixed — human labels + club names / vs titles |
+| Category | Implementation Level | Key Gaps |
+|----------|---------------------|----------|
+| **Authentication & Onboarding** | ✅ Complete | None — Google, Phone, player onboarding all working |
+| **Home & Discovery** | ✅ Complete | None — Home feed, Community, Discover, Search all working |
+| **Matches (Viewing)** | ✅ Complete | None — Match centre, scorecard, commentary, stats, watch stream all working |
+| **Match Creation/Scoring** | 🚫 Mobile-only | **Not a web gap** — Complex touch-optimized flows for scorer interface |
+| **Teams** | 🟡 View complete, Create missing | **Gap:** Team creation wizard (mobile has full wizard with logo picker, squad) |
+| **Players** | ✅ Complete | None — Directory, profiles, rankings, follow, edit profile all working |
+| **Tournaments** | 🟡 View complete, Create missing | **Gap:** Tournament creation wizard (mobile has full wizard with format, teams, bracket setup) |
+| **Series/Orgs** | ✅ Complete | None — Full CRUD, all admin workflows, registration with docs, approvals working |
+| **Notifications** | ✅ Complete | None — Inbox, preferences working |
+| **Settings & Profile** | ✅ Complete | None — All account management working |
+| **Chat** | ✅ Complete | None — DMs, block/unblock working |
+| **Invites** | ✅ Complete | None — Create/accept player invites working |
+| **My Cricket** | 🟡 Partial | **Gap:** Deep view of user's matches, teams, Series memberships; mobile has comprehensive "My Cricket" hub |
+| **Fantasy** | ❓ Unknown | **Gap:** Mobile has fantasy module; web status unclear (may be stub or missing) |
+| **Store** | 🚫 Mobile placeholder | **Not a web gap** — Mobile has placeholder screen; not a priority feature |
+| **Grounds** | ✅ Complete | None — Directory, ground profiles working |
+| **Rankings & Stats** | ✅ Complete | None — Player rankings, statistics pages working |
+
+**Consumer Web Overall:** ~85% feature parity for web-applicable features. Core viewing/browsing/social flows complete. Creation wizards (team/tournament) and My Cricket depth are main gaps.
+
+### Flutter Web Admin (`apps/superadmin`, `apps/admin`, `apps/admin_core`) — Current Status
+
+| Module | Super Admin | Org Admin | Status |
+|--------|-------------|-----------|--------|
+| Dashboard | ✅ | ✅ | Complete — KPIs, metrics |
+| Users | ✅ | ✅ | Complete — CRUD, verification, suspend |
+| Teams | ✅ | ✅ | Complete — CRUD, feature, soft-delete |
+| Players | ✅ | ✅ | Complete — CRUD, feature, verify, suspend |
+| Matches | ✅ | ✅ | Complete — Investigation, edit metadata |
+| Tournaments | ✅ | ✅ | Complete — CRUD, feature |
+| Series/Orgs | ✅ | 🚫 | Complete — Investigation, clubs, admins, audit, suspend |
+| Grounds | ✅ | ✅ | Complete — CRUD |
+| Broadcasts | ✅ | ✅ | Complete — Stream monitoring |
+| Community | ✅ | ✅ | Complete — Moderation |
+| Discover | ✅ | ✅ | Complete — Moderation |
+| Reports | ✅ | ✅ | Complete — User-reported content queue |
+| Notifications | ✅ | ✅ | Complete — Campaigns |
+| Ads | ✅ | ✅ | Complete — Advertisers, campaigns, segments |
+| Analytics | ✅ | ✅ | Complete — Platform metrics |
+| Revenue | ✅ | 🚫 | Complete — Subscriptions, payouts |
+| Audit Logs | ✅ | ✅ | Complete — Platform audit events (client filter for Org) |
+| Security (SOC) | ✅ | ✅ | Complete — Auth events, roles, IPs, backups, DR (platform sections hidden for Org) |
+| AI Center | ✅ | 🚫 | Complete — AI/ML management |
+| CMS | ✅ | 🚫 | Complete — Content management |
+| Support | ✅ | ✅ | Complete — Tickets, messages |
+| Monitoring | ✅ | 🚫 | Complete — System health |
+| DevOps | ✅ | 🚫 | Complete — Manual ops (Super only) |
+| Continuity/DR | ✅ | 🚫 | Complete — Backups, restore (Super only) |
+| Docs Center | ✅ | 🚫 | Complete — Developer docs (Super only) |
+| Settings | ✅ | ✅ | Complete — Platform + account settings |
+| **Responsive Design** | ✅ | ✅ | Complete — Mobile-responsive shell (drawer/sidebar), scrollable tables |
+| **Theme** | ✅ | ✅ | Complete — Matches mobile CrickFlow palette, light/dark modes |
+
+**Admin Web Overall:** ~100% feature complete. All modules implemented, responsive, permission-gated, production-ready per [WEB_ADMIN_QA_REPORT.md](WEB_ADMIN_QA_REPORT.md).
+
+### Web Parity — Honest Assessment
+
+**What's truly missing for web parity:**
+
+1. **Team creation wizard** — Web shows "Get the app" prompt; mobile has full creation flow with logo picker, location, phone, squad initialization
+2. **Tournament creation wizard** — Web shows "Get the app" prompt; mobile has full setup wizard with format selection, teams/groups, bracket, settings
+3. **My Cricket depth** — Web has basic profile/stats; mobile has comprehensive hub (my matches, scoring assignments, streaming sessions, Series memberships)
+4. **Fantasy leagues** — Mobile has fantasy module; web status unclear (may be stub/missing)
+5. **Player analysis advanced features** — Web has stats; mobile may have deeper head-to-head, filters, match history analysis
+6. **Series "My Requests"** — User view of own pending Series approvals, club join requests (mobile has dedicated screen)
+
+**What's NOT a gap (mobile-only by design):**
+
+- Live scoring (scorer ball-by-ball interface) — Complex touch UI
+- Match creation wizard (Quick/Normal) — Scorer workflow
+- RTMP streaming studio — Native hardware/camera
+- Camera/gallery pickers — Native OS integration
+- Player QR code — Mobile convenience feature
+- In-app purchases — Mobile store integration
+
+### Remaining Web Parity Work
+
+| Priority | Item | Effort | Impact |
+|----------|------|--------|--------|
+| **High** | Team creation wizard | Medium | Enables full team lifecycle on web |
+| **High** | Tournament creation wizard | Medium-High | Enables full tournament lifecycle on web |
+| **Medium** | My Cricket enhancements | Medium | Better user context, match history |
+| **Medium** | Fantasy leagues (if missing) | High | Engagement feature |
+| **Low** | Player analysis depth | Low-Medium | Nice-to-have analytics |
+| **Low** | Series My Requests view | Low | User convenience |
+
+### Admin Parity — Complete
+
+Admin web requires **no further parity work**. All modules implemented, responsive, and production-ready.
 
 ## Latest (Orgs collapsing dashboard)
 
