@@ -16,10 +16,12 @@ function MatchesList() {
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
   const [matches, setMatches] = useState<Match[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [take, setTake] = useState(40);
 
   useEffect(() => {
+    setError(null);
     if (status === "live") {
       return watchLiveMatches(setMatches, take);
     }
@@ -29,7 +31,16 @@ function MatchesList() {
         : status === "completed"
           ? ("completed" as MatchStatus)
           : undefined;
-    listMatches({ status: filter, take }).then(setMatches).catch(() => setMatches([]));
+    listMatches({ status: filter, take })
+      .then((data) => {
+        setMatches(data);
+        setError(null);
+      })
+      .catch((err) => {
+        console.error("Match list error:", err);
+        setError(err instanceof Error ? err.message : "Failed to load matches");
+        setMatches([]);
+      });
   }, [status, take]);
 
   const visible = useMemo(() => {
@@ -71,9 +82,24 @@ function MatchesList() {
       <Input className="mt-4 max-w-md" placeholder="Search matches" value={query} onChange={(e) => setQuery(e.target.value)} />
       {matches === null ? (
         <LoadingGrid className="mt-8" />
+      ) : error ? (
+        <div className="mt-8">
+          <EmptyState
+            title="Failed to load matches"
+            description={error}
+            action={
+              <button
+                onClick={() => window.location.reload()}
+                className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Retry
+              </button>
+            }
+          />
+        </div>
       ) : visible.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title="No matches found" />
+          <EmptyState title="No matches found" description={query.trim() ? "Try a different search term" : "No matches available yet"} />
         </div>
       ) : (
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

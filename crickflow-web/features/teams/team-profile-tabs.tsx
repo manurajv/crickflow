@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { useMemo, useState } from "react";
 import { MatchCard } from "@/components/shared/cards";
 import { Card } from "@/components/ui/card";

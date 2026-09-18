@@ -94,6 +94,13 @@ export function useJoinClub(seriesId: string) {
       fullName: string;
       crickFlowPlayerId?: string;
       phoneNumber?: string;
+      address?: string;
+      dateOfBirth?: string;
+      nationalId?: string;
+      passportNumber?: string;
+      profilePhotoUrl?: string;
+      nationalIdDocUrl?: string;
+      passportDocUrl?: string;
     }) => {
       const reg = await submitSeriesRegistration({
         seriesId,
@@ -101,6 +108,13 @@ export function useJoinClub(seriesId: string) {
         fullName: input.fullName,
         crickFlowPlayerId: input.crickFlowPlayerId,
         phoneNumber: input.phoneNumber,
+        address: input.address,
+        dateOfBirth: input.dateOfBirth,
+        nationalId: input.nationalId,
+        passportNumber: input.passportNumber,
+        profilePhotoUrl: input.profilePhotoUrl,
+        nationalIdDocUrl: input.nationalIdDocUrl,
+        passportDocUrl: input.passportDocUrl,
       });
       await submitPlayerJoinRequest({
         seriesId,

@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { doc, updateDoc } from "firebase/firestore";
 import { EntityCard } from "@/components/shared/cards";
 import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
@@ -10,6 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useActiveSeries, useCreateSeries } from "@/features/series/hooks";
+import { uploadSeriesCover, uploadSeriesLogo, storageUploadHint } from "@/lib/media-upload";
+import { getDb } from "@/lib/firebase/client";
+import { collections } from "@/config/site";
 
 export default function SeriesPage() {
   const { data, isLoading, error } = useActiveSeries();
@@ -24,6 +28,8 @@ export default function SeriesPage() {
   const [kind, setKind] = useState("series");
   const [logoUrl, setLogoUrl] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [maxSquad, setMaxSquad] = useState(20);
   const [requireFullName, setRequireFullName] = useState(true);
   const [requirePlayerId, setRequirePlayerId] = useState(true);
@@ -71,37 +77,78 @@ export default function SeriesPage() {
       window.alert("Logo and cover must be valid http(s) URLs when provided.");
       return;
     }
-    const result = await createSeries.mutateAsync({
-      name: trimmedName,
-      description: description.trim(),
-      rulesText: rulesText.trim(),
-      kind,
-      displayName: user?.displayName || "",
-      logoUrl: logo,
-      coverImageUrl: cover,
-      settings: {
-        maxSquadSize: maxSquad,
-        requireFullName,
-        requireCrickFlowPlayerId: requirePlayerId,
-        requireDateOfBirth: requireDob,
-        requireNationalId,
-        requirePassport,
-        requirePhoneNumber: requirePhone,
-        requireAddress,
-        requireProfilePhoto: requirePhoto,
-        rankingRules: {
-          winPoints,
-          lossPoints,
-          tiePoints,
-          noResultPoints: nrPoints,
-          bonusPointsEnabled: false,
-          useNetRunRate: useNrr,
-          useRunDifference: false,
+    
+    try {
+      const result = await createSeries.mutateAsync({
+        name: trimmedName,
+        description: description.trim(),
+        rulesText: rulesText.trim(),
+        kind,
+        displayName: user?.displayName || "",
+        logoUrl: logo,
+        coverImageUrl: cover,
+        settings: {
+          maxSquadSize: maxSquad,
+          requireFullName,
+          requireCrickFlowPlayerId: requirePlayerId,
+          requireDateOfBirth: requireDob,
+          requireNationalId,
+          requirePassport,
+          requirePhoneNumber: requirePhone,
+          requireAddress,
+          requireProfilePhoto: requirePhoto,
+          rankingRules: {
+            winPoints,
+            lossPoints,
+            tiePoints,
+            noResultPoints: nrPoints,
+            bonusPointsEnabled: false,
+            useNetRunRate: useNrr,
+            useRunDifference: false,
+          },
         },
-      },
-    });
-    setShowCreate(false);
-    if (result.seriesId) router.push(`/series/${result.seriesId}`);
+      });
+      
+      const seriesId = result.seriesId;
+      if (!seriesId) {
+        throw new Error("No series ID returned");
+      }
+
+      let mediaWarning = false;
+      try {
+        if (logoFile || coverFile) {
+          const updates: Record<string, string> = {};
+          if (logoFile && user?.uid) {
+            const logoDownloadUrl = await uploadSeriesLogo(seriesId, user.uid, logoFile);
+            updates.logoUrl = logoDownloadUrl;
+          }
+          if (coverFile && user?.uid) {
+            const coverDownloadUrl = await uploadSeriesCover(seriesId, user.uid, coverFile);
+            updates.coverImageUrl = coverDownloadUrl;
+          }
+          if (Object.keys(updates).length > 0) {
+            await updateDoc(doc(getDb(), collections.series, seriesId), {
+              ...updates,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Image upload failed:", err);
+        mediaWarning = true;
+      }
+
+      setShowCreate(false);
+      if (mediaWarning) {
+        window.alert(
+          `${kind.charAt(0).toUpperCase() + kind.slice(1)} created. Logo/cover could not be uploaded — add them in settings.`
+        );
+      }
+      if (seriesId) router.push(`/series/${seriesId}`);
+    } catch (err) {
+      console.error("Create series failed:", err);
+      window.alert("Could not create. Sign in and check the form values.");
+    }
   }
 
   return (
@@ -158,18 +205,80 @@ export default function SeriesPage() {
                 <option value="cup">Cup</option>
                 <option value="other">Other</option>
               </select>
-              <input
-                className="rounded-md border border-border bg-background px-3 py-2"
-                placeholder="Logo image URL (optional)"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-              />
-              <input
-                className="rounded-md border border-border bg-background px-3 py-2 md:col-span-2"
-                placeholder="Cover image URL (optional)"
-                value={coverImageUrl}
-                onChange={(e) => setCoverImageUrl(e.target.value)}
-              />
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-2">
+                  Logo image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-sm text-muted-foreground
+                    file:mr-4 file:py-2 file:px-4 file:rounded-md
+                    file:border-0 file:text-sm file:font-semibold
+                    file:bg-primary file:text-primary-foreground
+                    hover:file:bg-primary/90 file:cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setLogoFile(file);
+                      setLogoUrl("");
+                    }
+                  }}
+                />
+                {!logoFile && (
+                  <input
+                    className="mt-2 rounded-md border border-border bg-background px-3 py-2 w-full"
+                    placeholder="Or enter logo image URL"
+                    value={logoUrl}
+                    onChange={(e) => {
+                      setLogoUrl(e.target.value);
+                      if (e.target.value) setLogoFile(null);
+                    }}
+                  />
+                )}
+                {logoFile && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Selected: {logoFile.name}
+                  </p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-2">
+                  Cover image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-sm text-muted-foreground
+                    file:mr-4 file:py-2 file:px-4 file:rounded-md
+                    file:border-0 file:text-sm file:font-semibold
+                    file:bg-primary file:text-primary-foreground
+                    hover:file:bg-primary/90 file:cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setCoverFile(file);
+                      setCoverImageUrl("");
+                    }
+                  }}
+                />
+                {!coverFile && (
+                  <input
+                    className="mt-2 rounded-md border border-border bg-background px-3 py-2 w-full"
+                    placeholder="Or enter cover image URL"
+                    value={coverImageUrl}
+                    onChange={(e) => {
+                      setCoverImageUrl(e.target.value);
+                      if (e.target.value) setCoverFile(null);
+                    }}
+                  />
+                )}
+                {coverFile && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Selected: {coverFile.name}
+                  </p>
+                )}
+              </div>
               <textarea
                 className="rounded-md border border-border bg-background px-3 py-2 md:col-span-2"
                 placeholder="Description"
