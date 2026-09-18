@@ -42,9 +42,9 @@ Detail hub remains `/series/:id` for all kinds (Overview · Fixtures · Leaderbo
 | Gap | Notes |
 |-----|--------|
 | Deep E2E + security test suite (Phase 11) | Unit tests exist; full E2E matrix not finished |
-| Web native image upload (file picker → Storage) | Web create accepts logo/cover URLs; mobile uploads files |
-| Full web Org Admin sections density (Players / Registrations tabs) | Approvals + clubs + fixtures present; denser tabs still incremental |
-| Web parity for add-player docs + manager auto-approve UX copy | Mobile shipped; web still uses older submit paths |
+| ~~Web native image upload (file picker → Storage)~~ | ✅ Done — web create + settings support file upload to `series/{id}/logo_*` & `cover_*` |
+| ~~Full web Org Admin sections density (Players / Registrations tabs)~~ | ✅ Done — tabbed navigation, denser Players list, enhanced Approvals section |
+| ~~Web parity for add-player docs + manager auto-approve UX copy~~ | ✅ Done — web registration form includes all doc fields + photo uploads |
 
 ## Latest (Pending approvals + Fixtures UX)
 
@@ -99,8 +99,8 @@ Detail hub remains `/series/:id` for all kinds (Overview · Fixtures · Leaderbo
 | Gap | Notes |
 |-----|--------|
 | Deep E2E + security test suite (Phase 11) | Unit tests exist; full E2E matrix not finished |
-| Web native image upload (file picker → Storage) | Web create accepts logo/cover URLs; mobile uploads files |
-| Full web Org Admin sections density (Players / Registrations tabs) | Approvals + clubs + fixtures present; denser tabs still incremental |
+| ~~Web native image upload (file picker → Storage)~~ | ✅ Done — web create + settings support file upload to `series/{id}/logo_*` & `cover_*` |
+| ~~Full web Org Admin sections density (Players / Registrations tabs)~~ | ✅ Done — tabbed navigation, denser Players list, enhanced Approvals section |
 | Firebase deploy of latest Series callables | Required before live testing |
 
 ## Latest (Series access + workflow hardening)
