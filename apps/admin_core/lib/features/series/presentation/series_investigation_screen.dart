@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/permission_gate.dart';
 import '../../../models/admin_permission.dart';
+import '../../../shared/widgets/cf_responsive_table.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/managed_series.dart';
 import '../providers/series_admin_providers.dart';
@@ -41,33 +42,44 @@ class SeriesInvestigationScreen extends ConsumerWidget {
             error: (e, _) => Text('Could not load series: $e'),
             data: (series) => Card(
               clipBehavior: Clip.antiAlias,
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Series')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Clubs')),
-                  DataColumn(label: Text('Players')),
-                  DataColumn(label: Text('Action')),
-                ],
-                rows: series
-                    .map(
-                      (s) => DataRow(
-                        cells: [
-                          DataCell(Text(s.name)),
-                          DataCell(Text(s.status)),
-                          DataCell(Text('${s.clubCount}')),
-                          DataCell(Text('${s.playerCount}')),
-                          DataCell(
-                            IconButton(
-                              tooltip: 'Investigate',
-                              icon: const Icon(Icons.open_in_new),
-                              onPressed: () => _showDetail(context, ref, s),
+              child: CfResponsiveTable(
+                minWidth: 700,
+                child: DataTable(
+                  columns: const [
+                    DataColumn(label: Text('Series')),
+                    DataColumn(label: Text('Status')),
+                    DataColumn(label: Text('Clubs')),
+                    DataColumn(label: Text('Players')),
+                    DataColumn(label: Text('Action')),
+                  ],
+                  rows: series
+                      .map(
+                        (s) => DataRow(
+                          cells: [
+                            DataCell(
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 200),
+                                child: Text(
+                                  s.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    )
-                    .toList(),
+                            DataCell(Text(s.status)),
+                            DataCell(Text('${s.clubCount}')),
+                            DataCell(Text('${s.playerCount}')),
+                            DataCell(
+                              IconButton(
+                                tooltip: 'Investigate',
+                                icon: const Icon(Icons.open_in_new),
+                                onPressed: () => _showDetail(context, ref, s),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
             ),
           ),
@@ -90,15 +102,23 @@ class SeriesInvestigationScreen extends ConsumerWidget {
           );
           return AlertDialog(
             title: Text(series.name),
-            content: SizedBox(
-              width: 680,
-              child: detail.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Text('$e'),
-                data: (value) => value == null
-                    ? const Text('Series no longer exists')
-                    : SingleChildScrollView(
-                        child: Column(
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 680,
+                maxHeight: 600,
+              ),
+              child: SingleChildScrollView(
+                child: detail.when(
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (e, _) => Text('$e'),
+                  data: (value) => value == null
+                      ? const Text('Series no longer exists')
+                      : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Owner: ${value.series.superAdminUserId}'),
@@ -123,7 +143,7 @@ class SeriesInvestigationScreen extends ConsumerWidget {
                                 ),
                           ],
                         ),
-                      ),
+                ),
               ),
             ),
             actions: [

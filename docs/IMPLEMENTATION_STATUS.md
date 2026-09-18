@@ -46,7 +46,26 @@ Detail hub remains `/series/:id` for all kinds (Overview · Fixtures · Leaderbo
 | ~~Full web Org Admin sections density (Players / Registrations tabs)~~ | ✅ Done — tabbed navigation, denser Players list, enhanced Approvals section |
 | ~~Web parity for add-player docs + manager auto-approve UX copy~~ | ✅ Done — web registration form includes all doc fields + photo uploads |
 
-## Latest (Pending approvals + Fixtures UX)
+## Latest (Web Orgs/Series parity — Sept 2026)
+
+| Item | Status |
+|------|--------|
+| **Consumer Web (`crickflow-web`)** | |
+| Web native file upload for Series logo/cover | Done — file picker + Firebase Storage upload on create |
+| Web Series create — upload to `series/{id}/logo_{uid}.jpg` & `cover_{uid}.jpg` | Done — matches mobile paths |
+| Web registration form — all required document fields | Done — DOB, phone, address, national ID, passport with doc photos |
+| Web registration — profile photo + ID document uploads | Done — `uploadSeriesRegistrationImage` reused from mobile storage pattern |
+| Web Series detail — tabbed navigation (Overview, Clubs, Players, Approvals, Fixtures, Admins) | Done — cleaner admin UX |
+| Web Approvals section — registration ID display + enhanced view identity | Done — better metadata visibility |
+| Web Players tab — full player rankings table | Done — denser admin view |
+| **Flutter Web Admin (`apps/superadmin` + `apps/admin_core`)** | |
+| Mobile-responsive AdminShell (drawer on mobile, persistent sidebar on desktop) | Done — LayoutBuilder + Scaffold drawer pattern |
+| Responsive breakpoints (mobile/tablet/laptop/desktop/wide) | Done — removed "desktop-only" assumptions |
+| Horizontally scrollable data tables (`CfResponsiveTable`) | Done — wraps DataTable for mobile scroll |
+| Series investigation screen mobile layout | Done — constrained dialog, responsive table, text overflow handling |
+| Updated design docs to reflect mobile support | Done — WEB_ADMIN_DESIGN.md updated |
+
+### Still remaining vs original master spec (honest)
 
 | Item | Status |
 |------|--------|

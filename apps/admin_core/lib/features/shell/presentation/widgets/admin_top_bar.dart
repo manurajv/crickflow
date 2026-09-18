@@ -16,7 +16,14 @@ import '../../../users/models/admin_audit_log.dart';
 import '../../providers/shell_providers.dart';
 
 class AdminTopBar extends ConsumerWidget implements PreferredSizeWidget {
-  const AdminTopBar({super.key});
+  const AdminTopBar({
+    super.key,
+    this.showMenuButton = false,
+    this.onMenuTap,
+  });
+
+  final bool showMenuButton;
+  final VoidCallback? onMenuTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(64);
@@ -42,14 +49,21 @@ class AdminTopBar extends ConsumerWidget implements PreferredSizeWidget {
         ),
         child: Row(
           children: [
-            IconButton(
-              tooltip:
-                  collapsed ? l10n.actionExpandNav : l10n.actionCollapseNav,
-              onPressed: () {
-                ref.read(sidebarCollapsedProvider.notifier).state = !collapsed;
-              },
-              icon: const Icon(Icons.menu),
-            ),
+            if (showMenuButton && onMenuTap != null)
+              IconButton(
+                tooltip: l10n.actionExpandNav,
+                onPressed: onMenuTap,
+                icon: const Icon(Icons.menu),
+              )
+            else
+              IconButton(
+                tooltip:
+                    collapsed ? l10n.actionExpandNav : l10n.actionCollapseNav,
+                onPressed: () {
+                  ref.read(sidebarCollapsedProvider.notifier).state = !collapsed;
+                },
+                icon: const Icon(Icons.menu),
+              ),
             SizedBox(width: dimens.spaceSm),
             Expanded(child: _Breadcrumbs(crumbs: crumbs)),
             IconButton(
