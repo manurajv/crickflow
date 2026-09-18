@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/shared/states";
 import { EntityCard, MatchCard } from "@/components/shared/cards";
 import { useAuth } from "@/features/auth/auth-provider";
 import { locationLabel } from "@/lib/cricket/format";
-import { getPlayerByUserId, listCommunityPosts, listFollowedMatches, listFollowedPlayers, listFollowedTeams, listOpportunities, listSavedCommunityPosts, listSavedOpportunityPosts } from "@/repositories";
+import { getPlayerByUserId, listCommunityPosts, listFollowedMatches, listFollowedPlayers, listFollowedTeams, listMatches, listOpportunities, listSavedCommunityPosts, listSavedOpportunityPosts, listTeams, listTournaments } from "@/repositories";
 
 export default function ProfilePage() {
   const { user, profile, loading } = useAuth();
@@ -16,6 +16,38 @@ export default function ProfilePage() {
     queryFn: () => getPlayerByUserId(user!.uid),
     enabled: Boolean(user),
   });
+  
+  // My teams (where user is a member)
+  const allTeams = useQuery({
+    queryKey: ["all-teams-for-my"],
+    queryFn: () => listTeams(100),
+    enabled: Boolean(user && profile?.playerId),
+  });
+  const myTeams = allTeams.data?.filter(t => t.playerIds.includes(profile?.playerId || "")) || [];
+  
+  // My tournaments (created or participating)
+  const allTournaments = useQuery({
+    queryKey: ["all-tournaments-for-my"],
+    queryFn: () => listTournaments(100),
+    enabled: Boolean(user),
+  });
+  const myTournaments = allTournaments.data?.filter(t => 
+    t.createdBy === user?.uid || 
+    myTeams.some(team => t.teamIds.includes(team.id))
+  ) || [];
+  
+  // My matches (participated or created)
+  const allMatches = useQuery({
+    queryKey: ["all-matches-for-my"],
+    queryFn: () => listMatches({ take: 100 }),
+    enabled: Boolean(user),
+  });
+  const myMatches = allMatches.data?.filter(m => 
+    m.createdBy === user?.uid ||
+    m.teamAId && myTeams.some(t => t.id === m.teamAId) ||
+    m.teamBId && myTeams.some(t => t.id === m.teamBId)
+  ) || [];
+
   const followedTeams = useQuery({
     queryKey: ["followed-teams", user?.uid],
     queryFn: () => listFollowedTeams(user!.uid),
@@ -69,6 +101,13 @@ export default function ProfilePage() {
             <h1 className="text-3xl font-bold">{profile?.displayName || profile?.name || "CrickFlow User"}</h1>
             <p className="text-muted-foreground">{profile?.email || user.email || user.phoneNumber}</p>
             <p className="mt-2 text-sm">{linked?.playerId || profile?.playerId}</p>
+            {profile?.playingRole && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {profile.playingRole}
+                {profile.battingStyle && ` · ${profile.battingStyle}`}
+                {profile.bowlingStyle && ` · ${profile.bowlingStyle}`}
+              </p>
+            )}
           </div>
         </div>
         <p className="mt-4">{profile?.bio || "No bio yet."}</p>
@@ -90,6 +129,102 @@ export default function ProfilePage() {
           ) : null}
         </div>
       </Card>
+
+      <section>
+        <h2 className="text-xl font-bold">My Cricket</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">Teams</p>
+            <p className="text-2xl font-bold">{myTeams.length}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">Tournaments</p>
+            <p className="text-2xl font-bold">{myTournaments.length}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">Matches</p>
+            <p className="text-2xl font-bold">{myMatches.length}</p>
+          </Card>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-bold">My teams</h2>
+        {myTeams.length ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {myTeams.map((team) => (
+              <EntityCard
+                key={team.id}
+                href={`/teams/${team.id}`}
+                title={team.name}
+                subtitle={locationLabel(team.location)}
+                image={team.logoUrl}
+                meta={`${team.stats.matchesWon} wins`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4">
+            <EmptyState
+              title="You are not in any teams yet"
+              description="Create a team or get added by a captain."
+              action={
+                <Link className="text-primary" href="/teams">
+                  Browse teams
+                </Link>
+              }
+            />
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="text-xl font-bold">My tournaments</h2>
+        {myTournaments.length ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {myTournaments.map((t) => (
+              <EntityCard
+                key={t.id}
+                href={`/tournaments/${t.id}`}
+                title={t.name}
+                subtitle={locationLabel(t.location)}
+                image={t.bannerUrl}
+                meta={`${t.format} · ${t.status}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4">
+            <EmptyState
+              title="You are not in any tournaments yet"
+              description="Create a tournament or join with your team."
+              action={
+                <Link className="text-primary" href="/tournaments">
+                  Browse tournaments
+                </Link>
+              }
+            />
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="text-xl font-bold">My matches</h2>
+        {myMatches.length ? (
+          <div className="mt-4 grid gap-3">
+            {myMatches.slice(0, 10).map((match) => (
+              <MatchCard key={match.id} match={match} />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Matches you play, score, or stream appear here.{" "}
+            <Link className="text-primary" href="/matches">
+              Browse matches
+            </Link>
+          </p>
+        )}
+      </section>
 
       <section>
         <h2 className="text-xl font-bold">Following</h2>
