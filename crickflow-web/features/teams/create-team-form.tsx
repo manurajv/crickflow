@@ -133,7 +133,7 @@ export function CreateTeamForm({ onClose }: { onClose?: () => void }) {
           <PhotoPicker
             files={logoFile ? [logoFile] : []}
             onChange={(files) => setLogoFile(files[0] || null)}
-            maxFiles={1}
+            max={1}
           />
           <p className="mt-1 text-xs text-muted-foreground">Square logo recommended (1:1 aspect ratio)</p>
         </div>

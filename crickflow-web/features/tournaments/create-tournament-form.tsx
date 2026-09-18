@@ -141,7 +141,7 @@ export function CreateTournamentForm({ onClose }: { onClose?: () => void }) {
           <PhotoPicker
             files={bannerFile ? [bannerFile] : []}
             onChange={(files) => setBannerFile(files[0] || null)}
-            maxFiles={1}
+            max={1}
           />
           <p className="mt-1 text-xs text-muted-foreground">Wide banner recommended (16:9 aspect ratio)</p>
         </div>
