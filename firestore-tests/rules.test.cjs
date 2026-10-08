@@ -110,6 +110,7 @@ before(async () => {
     await w('admin_platform_settings/global', { maintenance: false });
     await w('series/s1', SERIES);
     await w('series/s2', { ...SERIES, name: 'Held Org', status: 'suspended', platformHold: true });
+    await w('series/s1/announcements/an1', { seriesId: 's1', title: 'Fixtures out', body: 'b', createdBy: 'owner', createdAt: NOW });
     await w('series_admins/s1_sadmin', { seriesId: 's1', userId: 'sadmin', status: 'active' });
     await w('series/s1/approvals/a1', { seriesId: 's1', requestedBy: 'u1', status: 'pending' });
     await w('series_approvals/a1', { seriesId: 's1', requestedBy: 'u1', status: 'pending' });
@@ -342,4 +343,10 @@ test('series flows used by mobile + web: queries, club create/logo, approvals', 
   await assertFails(updateDoc(doc(as('sa'), 'series_clubs/c2'), { status: 'approved', updatedAt: NOW })); // pending → approval flow only
   await assertSucceeds(setDoc(doc(u1, 'series_approvals/new1'), { seriesId: 's1', requestedBy: 'u1', status: 'pending', targetType: 'club', targetId: 'c2' }));
   await assertFails(getDocs(query(collection(as('u2'), 'series_approvals'), where('seriesId', '==', 's1'))));
+});
+
+test('announcements: signed-in read, callable-only writes', async () => {
+  await assertSucceeds(getDocs(collection(as('u2'), 'series/s1/announcements')));
+  await assertFails(getDocs(collection(anon(), 'series/s1/announcements')));
+  await assertFails(setDoc(doc(as('owner'), 'series/s1/announcements/x'), { title: 'x' }));
 });

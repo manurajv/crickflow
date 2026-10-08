@@ -2411,6 +2411,12 @@ service cloud.firestore {
         );
       allow delete: if false;
 
+      // Member announcements: written by callable sendSeriesAnnouncement only.
+      match /announcements/{announcementId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+
       // Path-scoped approvals so list queries can evaluate canManageSeries(seriesId)
       // without depending on resource.data (top-level OR+get list queries fail).
       match /approvals/{approvalId} {
