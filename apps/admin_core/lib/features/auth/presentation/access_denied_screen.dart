@@ -31,8 +31,11 @@ class AccessDeniedScreen extends ConsumerWidget {
         'This account is not authorized for the CrickFlow admin panel. '
             'Organization and series admins manage their orgs in the '
             'CrickFlow mobile app.',
+      AdminSessionStatus.profileLoadFailed =>
+        "Couldn't load your admin profile: ${session.error}",
       _ => null,
     };
+    final loadFailed = session.status == AdminSessionStatus.profileLoadFailed;
 
     return Scaffold(
       body: DecoratedBox(
@@ -70,13 +73,15 @@ class AccessDeniedScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Access denied',
+                      loadFailed ? 'Something went wrong' : 'Access denied',
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      "You don't have permission to access this application.",
+                      loadFailed
+                          ? 'Check your connection and try again.'
+                          : "You don't have permission to access this application.",
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: colors.textSecondary,
@@ -123,6 +128,17 @@ class AccessDeniedScreen extends ConsumerWidget {
                       ),
                     ],
                     const SizedBox(height: 28),
+                    if (loadFailed) ...[
+                      CfButton(
+                        label: 'Try again',
+                        expanded: true,
+                        onPressed: () {
+                          ref.invalidate(adminUserProvider);
+                          ref.invalidate(roleDefinitionProvider);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     CfButton(
                       label: 'Return to Login',
                       expanded: true,

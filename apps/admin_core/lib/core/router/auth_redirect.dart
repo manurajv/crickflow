@@ -22,6 +22,7 @@ String? adminAuthRedirect({
     case AdminSessionStatus.inactive:
     case AdminSessionStatus.unauthorizedRole:
     case AdminSessionStatus.wrongPanel:
+    case AdminSessionStatus.profileLoadFailed:
       return isDenied ? null : AdminRoutePaths.accessDenied;
     case AdminSessionStatus.authorized:
       // Staff roles without the dashboard (e.g. Viewer) land on their profile.

@@ -7,6 +7,7 @@ library;
 // Config
 export 'core/config/admin_app_type.dart';
 export 'core/config/admin_env_config.dart';
+export 'core/bootstrap/run_admin_panel.dart';
 export 'core/config/firebase_bootstrap.dart';
 export 'core/constants/admin_collections.dart';
 export 'core/constants/admin_query_limits.dart';

@@ -78,6 +78,9 @@ enum AdminSessionStatus {
   inactive,
   unauthorizedRole,
   wrongPanel,
+
+  /// The admin profile or role could not be read (network, rules, …).
+  profileLoadFailed,
   authorized,
 }
 
@@ -89,6 +92,7 @@ class AdminSession {
     this.role,
     this.permissions = const {},
     this.customClaims = const {},
+    this.error,
   });
 
   final AdminSessionStatus status;
@@ -97,6 +101,9 @@ class AdminSession {
   final RoleDefinition? role;
   final Set<AdminPermission> permissions;
   final Map<String, dynamic> customClaims;
+
+  /// Set when [status] is [AdminSessionStatus.profileLoadFailed].
+  final Object? error;
 
   bool get isAuthorized => status == AdminSessionStatus.authorized;
 
@@ -127,6 +134,14 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
       adminAsync.isLoading || (!adminAsync.hasValue && !adminAsync.hasError);
   if (adminPending) {
     return AdminSession(status: AdminSessionStatus.loading, firebaseUser: user);
+  }
+
+  if (adminAsync.hasError) {
+    return AdminSession(
+      status: AdminSessionStatus.profileLoadFailed,
+      firebaseUser: user,
+      error: adminAsync.error,
+    );
   }
 
   final admin = adminAsync.asData?.value;

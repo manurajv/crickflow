@@ -84,4 +84,35 @@ void main() {
       );
     });
   });
+
+  test('profile load failure goes to the error page, not a blank screen', () {
+    const s = AdminSession(
+      status: AdminSessionStatus.profileLoadFailed,
+      error: 'permission-denied',
+    );
+    expect(
+      adminAuthRedirect(session: s, matchedLocation: AdminRoutePaths.dashboard),
+      AdminRoutePaths.accessDenied,
+    );
+    expect(
+      adminAuthRedirect(session: s, matchedLocation: AdminRoutePaths.accessDenied),
+      isNull,
+    );
+  });
+
+  test('super admin lands on the dashboard from login and root', () {
+    final s = _session(AdminPermission.values.toSet());
+    expect(
+      adminAuthRedirect(session: s, matchedLocation: AdminRoutePaths.login),
+      AdminRoutePaths.dashboard,
+    );
+    expect(
+      adminAuthRedirect(session: s, matchedLocation: AdminRoutePaths.dashboard),
+      isNull,
+    );
+    expect(
+      adminAuthRedirect(session: s, matchedLocation: AdminRoutePaths.orgs),
+      isNull,
+    );
+  });
 }
