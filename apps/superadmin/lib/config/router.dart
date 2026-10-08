@@ -53,6 +53,11 @@ GoRouter createSuperAdminRouter(Ref ref) {
                 const NoTransitionPage(child: UsersScreen()),
           ),
           GoRoute(
+            path: AdminRoutePaths.admins,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AdminsScreen()),
+          ),
+          GoRoute(
             path: AdminRoutePaths.tournaments,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: TournamentsScreen()),

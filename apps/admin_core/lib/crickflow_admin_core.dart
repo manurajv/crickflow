@@ -77,6 +77,10 @@ export 'features/shell/presentation/module_placeholder_screen.dart';
 
 // User Management
 export 'features/users/presentation/users_screen.dart';
+export 'features/admins/presentation/admins_screen.dart';
+export 'features/admins/providers/admin_accounts_providers.dart';
+export 'features/admins/models/admin_account.dart';
+export 'features/admins/data/admin_accounts_repository.dart';
 export 'features/users/providers/users_providers.dart';
 export 'features/users/models/managed_user.dart';
 export 'features/users/models/user_account_status.dart';

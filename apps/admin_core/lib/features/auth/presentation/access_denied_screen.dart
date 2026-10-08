@@ -22,12 +22,20 @@ class AccessDeniedScreen extends ConsumerWidget {
     final detail = switch (session.status) {
       AdminSessionStatus.noAdminProfile =>
         'No administration profile is linked to this account.',
-      AdminSessionStatus.inactive => 'This administration account is inactive.',
+      AdminSessionStatus.inactive =>
+        session.adminUser?.isRevoked == true
+            ? 'Your administrator access has been revoked.'
+            : 'Your administrator access is suspended. Contact a Super Admin '
+                  'to restore it.',
+      AdminSessionStatus.organizationSuspended =>
+        'Your organization is suspended or archived, so its admin panel is '
+            'unavailable.',
       AdminSessionStatus.unauthorizedRole =>
         'Your role (${session.adminUser?.roleLabel ?? 'unknown'}) does not have permission to access the administration system.',
-      AdminSessionStatus.wrongPanel => appType == AdminAppType.superAdmin
-          ? 'This account is not authorized for the Super Admin panel.'
-          : 'This account is not authorized for the Organization Admin panel.',
+      AdminSessionStatus.wrongPanel =>
+        appType == AdminAppType.superAdmin
+            ? 'This account is not authorized for the Super Admin panel.'
+            : 'This account is not authorized for the Organization Admin panel.',
       _ => null,
     };
 
@@ -68,25 +76,24 @@ class AccessDeniedScreen extends ConsumerWidget {
                     const SizedBox(height: 24),
                     Text(
                       'Access denied',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       "You don't have permission to access this application.",
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: colors.textSecondary,
-                          ),
+                        color: colors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Contact your administrator if you believe this is an error.',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colors.textMuted,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: colors.textMuted),
                     ),
                     if (detail != null) ...[
                       const SizedBox(height: 16),
@@ -94,18 +101,30 @@ class AccessDeniedScreen extends ConsumerWidget {
                         detail,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.textMuted,
-                            ),
+                          color: colors.textMuted,
+                        ),
                       ),
                     ],
                     if (session.firebaseUser?.email != null) ...[
                       const SizedBox(height: 8),
                       Text(
                         session.firebaseUser!.email!,
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
                               color: AdminColors.primaryBlue,
                               fontWeight: FontWeight.w600,
                             ),
+                      ),
+                    ],
+                    if (session.firebaseUser != null) ...[
+                      const SizedBox(height: 4),
+                      // Lets the person send their UID to a Super Admin.
+                      SelectableText(
+                        'UID: ${session.firebaseUser!.uid}',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.textMuted,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 28),
@@ -150,9 +169,9 @@ class ForbiddenScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 Text(
                   'Permission required',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
                 Text(

@@ -27,6 +27,13 @@ List<AdminNavSection> buildSuperAdminNav() {
           permission: AdminPermission.canManageUsers,
         ),
         AdminNavItem(
+          id: 'admins',
+          label: 'Admins & Access',
+          icon: Icons.admin_panel_settings_outlined,
+          route: AdminRoutePaths.admins,
+          permission: AdminPermission.canManageSecurity,
+        ),
+        AdminNavItem(
           id: 'organizations',
           label: 'Organizations',
           icon: Icons.apartment_outlined,

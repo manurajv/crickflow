@@ -12,6 +12,7 @@ abstract final class AdminRoutePermissions {
   static const Map<String, AdminPermission?> _map = {
     AdminRoutePaths.dashboard: AdminPermission.canViewDashboard,
     AdminRoutePaths.users: AdminPermission.canManageUsers,
+    AdminRoutePaths.admins: AdminPermission.canManageSecurity,
     AdminRoutePaths.teams: AdminPermission.canManageTeams,
     AdminRoutePaths.players: AdminPermission.canManagePlayers,
     AdminRoutePaths.matches: AdminPermission.canManageMatches,

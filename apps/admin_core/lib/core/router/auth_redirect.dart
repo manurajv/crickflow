@@ -19,6 +19,7 @@ String? adminAuthRedirect({
       return isLogin ? null : AdminRoutePaths.login;
     case AdminSessionStatus.noAdminProfile:
     case AdminSessionStatus.inactive:
+    case AdminSessionStatus.organizationSuspended:
     case AdminSessionStatus.unauthorizedRole:
     case AdminSessionStatus.wrongPanel:
       return isDenied ? null : AdminRoutePaths.accessDenied;
@@ -26,10 +27,7 @@ String? adminAuthRedirect({
       if (isLogin || isDenied) return AdminRoutePaths.dashboard;
       if (isForbidden) return null;
 
-      if (!AdminRoutePermissions.isAllowed(
-        loc,
-        session.hasPermission,
-      )) {
+      if (!AdminRoutePermissions.isAllowed(loc, session.hasPermission)) {
         return AdminRoutePaths.forbidden;
       }
       return null;

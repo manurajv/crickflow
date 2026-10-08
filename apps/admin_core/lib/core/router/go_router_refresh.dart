@@ -16,6 +16,7 @@ class GoRouterRefreshNotifier extends ChangeNotifier {
       _ref.listen(authStateProvider, (_, _) => _scheduleRefresh()),
       _ref.listen(adminUserProvider, (_, _) => _scheduleRefresh()),
       _ref.listen(roleDefinitionProvider, (_, _) => _scheduleRefresh()),
+      _ref.listen(adminOrgAccessProvider, (_, _) => _scheduleRefresh()),
       _ref.listen(idTokenProvider, (_, _) => _scheduleRefresh()),
     ];
   }

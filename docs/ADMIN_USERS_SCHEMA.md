@@ -106,6 +106,35 @@ node scripts/seed-admin-roles.cjs --email you@example.com --password "YourSecure
 
 Same Auth project. `admin_users` doc with `roleId: "admin"` and a non-empty `organizationId`, then use the Org Admin app (`apps/admin`).
 
+## Admins & Access (Super Admin panel)
+
+Route `/admins` in `apps/superadmin` (nav: Management > Admins & Access,
+permission `canManageSecurity`, Super Admin only). Manages `admin_users/{uid}`:
+
+| Action | Writes |
+|--------|--------|
+| Add admin (by email or Auth UID) | New doc: `email`, `displayName`, `roleId`, `organizationId` / `organizationName` (org roles only), `permissionOverrides`, `isActive: true`, `accessStatus: active`, `createdAt/By`, `updatedAt/By`, `claimsVersion` +1 |
+| Change role / org scope / overrides | Same fields, `permissionOverrides` replaced wholesale |
+| Suspend | `isActive: false`, `accessStatus: suspended`, `statusReason`, `statusChangedAt/By` |
+| Revoke | `isActive: false`, `accessStatus: revoked` (doc kept; rules deny delete) |
+| Restore | `isActive: true`, `accessStatus: active` |
+
+Every change writes `admin_audit_logs` (`admin.access_granted`, `admin.access_updated`,
+`admin.suspended`, `admin.revoked`, `admin.reactivated`).
+
+Guards (client): only an active Super Admin in the Super Admin app; you cannot change
+your own role or status; the last active Super Admin cannot be demoted, suspended or
+revoked; organization roles (`allowedPanel: organizationAdmin`) require an organization.
+Server enforcement is the existing rule: only `isSuperAdminUser()` may write `admin_users`,
+and `isActive` / `organizationId` gate every org-admin rule.
+
+The person must already have a Firebase Auth account (mobile app, website, or Google /
+email on the admin login page). The Access denied page shows their UID to share.
+
+Org Admin app: suspension / revoke apply live (session watches `admin_users/{uid}`), and an
+organization whose `status` is `suspended` / `archived` / `deleted` (or `recordStatus`
+`soft_deleted` / `archived`) locks its admins out (client-side; see rules note in PR).
+
 ## Custom claims (later)
 
 Cloud Function can set `adminRoleId` / `organizationId` on the ID token. Client already refreshes tokens after login.

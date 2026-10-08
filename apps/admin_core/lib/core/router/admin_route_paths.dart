@@ -5,6 +5,9 @@ abstract final class AdminRoutePaths {
   static const dashboard = '/';
 
   static const users = '/users';
+
+  /// Super Admin: administrator accounts and access control.
+  static const admins = '/admins';
   static const teams = '/teams';
   static const players = '/players';
   static const matches = '/matches';
