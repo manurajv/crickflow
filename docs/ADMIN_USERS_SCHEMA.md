@@ -521,3 +521,10 @@ Hub at `/continuity` (`ContinuityScreen`, permission `canManageContinuity`). **S
 
 Audit: `continuity.backup_*`, `continuity.restore_requested`, `continuity.migration_started`, `continuity.plan_updated`, `continuity.validation_performed`.
 
+
+### Scope note (2026-10-08)
+
+The Super Admin panel is for platform staff only. Organization, club and series
+administration lives in the mobile app (`series_admins`, `series_club_admins`).
+Admins & Access no longer offers organization-scoped roles for new grants. See
+`docs/PLATFORM_ADMIN_SCOPE_PLAN.md`.

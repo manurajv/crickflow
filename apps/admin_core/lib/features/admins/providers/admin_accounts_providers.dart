@@ -45,6 +45,23 @@ final adminAccessControllerProvider = Provider<AdminAccessController>(
 bool roleNeedsOrganization(RoleDefinition? role) =>
     role?.allowedPanel == AdminAppType.organizationAdmin;
 
+/// Roles offered in Admins & Access. The web panel is for platform staff, so
+/// organization-scoped roles (legacy Organization Admin panel) are hidden for
+/// new grants. They stay listed only when [currentRoleId] already uses one, so
+/// an existing legacy record can still be edited or moved to a platform role.
+/// Organization and series administration lives in the mobile app.
+List<RoleDefinition> assignableAdminRoles(
+  List<RoleDefinition> roles, {
+  String? currentRoleId,
+}) {
+  return [
+    for (final r in roles)
+      if ((!r.archived && r.allowedPanel != AdminAppType.organizationAdmin) ||
+          r.id == currentRoleId)
+        r,
+  ];
+}
+
 /// Orchestrates guarded admin access changes and refreshes the list.
 class AdminAccessController {
   AdminAccessController(this._ref);

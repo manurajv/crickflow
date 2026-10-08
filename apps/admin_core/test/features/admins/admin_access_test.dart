@@ -218,4 +218,42 @@ void main() {
     });
     expect(u.isRevoked, isTrue);
   });
+
+  group('assignableAdminRoles', () {
+    const roles = [
+      RoleDefinition(
+        id: 'superAdmin',
+        label: 'Super Admin',
+        permissions: {},
+        allowedPanel: AdminAppType.superAdmin,
+      ),
+      RoleDefinition(
+        id: 'admin',
+        label: 'Admin',
+        permissions: {},
+        allowedPanel: AdminAppType.organizationAdmin,
+      ),
+      RoleDefinition(id: 'moderator', label: 'Moderator', permissions: {}),
+      RoleDefinition(
+        id: 'old',
+        label: 'Old',
+        permissions: {},
+        allowedPanel: AdminAppType.superAdmin,
+        archived: true,
+      ),
+    ];
+
+    test('hides org-scoped and archived roles for new grants', () {
+      final ids = assignableAdminRoles(roles).map((r) => r.id);
+      expect(ids, ['superAdmin', 'moderator']);
+    });
+
+    test('keeps the legacy org role when the record already uses it', () {
+      final ids = assignableAdminRoles(
+        roles,
+        currentRoleId: 'admin',
+      ).map((r) => r.id);
+      expect(ids, ['superAdmin', 'admin', 'moderator']);
+    });
+  });
 }

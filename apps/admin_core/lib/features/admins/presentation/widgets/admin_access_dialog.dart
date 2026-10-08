@@ -24,7 +24,7 @@ Future<bool?> showAdminAccessDialog(
 
 String panelLabel(RoleDefinition role) => switch (role.allowedPanel) {
   AdminAppType.superAdmin => 'Super Admin panel',
-  AdminAppType.organizationAdmin => 'Organization Admin panel',
+  AdminAppType.organizationAdmin => 'Legacy organization panel (retiring)',
   null => 'No panel access',
 };
 
@@ -116,7 +116,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
               'Saving will update it.';
         } else {
           _name.text = found.displayName ?? '';
-          _roleId ??= 'admin';
         }
       });
     } catch (e) {
@@ -132,7 +131,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
     if (uid.isEmpty || uid.contains('@')) return;
     setState(() {
       _candidate = AdminCandidate(uid: uid, email: '', source: 'uid');
-      _roleId ??= 'admin';
       _lookupMessage = 'Using UID $uid. Add their email below for reference.';
     });
   }
@@ -421,6 +419,10 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
     if (async.isLoading && roles.isEmpty) {
       return const LinearProgressIndicator();
     }
+    roles = assignableAdminRoles(
+      roles,
+      currentRoleId: widget.existing?.roleId ?? _candidate?.existing?.roleId,
+    );
     final hasCurrent = roles.any((r) => r.id == _roleId);
     return DropdownButtonFormField<String>(
       key: ValueKey('role-$_roleId-${roles.length}'),

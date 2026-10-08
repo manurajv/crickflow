@@ -672,11 +672,13 @@ class _HowItWorks extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
+            '• This panel is for CrickFlow platform staff only. Organization, '
+            'club and series admins are managed inside the CrickFlow mobile '
+            'app, not here.\n'
             '• Super Admin: full platform access in this panel.\n'
-            '• Admin (organization): signs in to the Organization Admin panel '
-            'and only sees data for the organization you assign.\n'
-            '• Other roles (Moderator, Support, …) have no panel access unless '
-            'their role definition in Security Center grants one.\n'
+            '• Other platform roles (Moderator, Support, Viewer, …) only sign in '
+            'here when their role definition in Security Center grants the '
+            'Super Admin panel; their permissions decide what they see.\n'
             '• To add someone, they need a CrickFlow sign-in first (mobile app, '
             'website, or Google / email on the admin login page). Then search '
             'their email here.\n'
