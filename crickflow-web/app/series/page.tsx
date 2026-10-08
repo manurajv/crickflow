@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useActiveSeries, useCreateSeries } from "@/features/series/hooks";
-import { uploadSeriesCover, uploadSeriesLogo, storageUploadHint } from "@/lib/media-upload";
+import { uploadSeriesCover, uploadSeriesLogo } from "@/lib/media-upload";
 import { getDb } from "@/lib/firebase/client";
 import { collections } from "@/config/site";
 

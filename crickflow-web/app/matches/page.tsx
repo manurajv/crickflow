@@ -8,7 +8,8 @@ import { FilterChip } from "@/components/shared/filter-chip";
 import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
 import { Input } from "@/components/ui/input";
-import { searchHaystack } from "@/lib/utils";import { listMatches, watchLiveMatches } from "@/repositories";
+import { searchHaystack } from "@/lib/utils";
+import { listMatches, watchLiveMatches } from "@/repositories";
 import type { Match } from "@/types/models";
 import type { MatchStatus } from "@/types/enums";
 
@@ -21,10 +22,13 @@ function MatchesList() {
   const [take, setTake] = useState(40);
 
   useEffect(() => {
-    setError(null);
     if (status === "live") {
-      return watchLiveMatches(setMatches, take);
+      return watchLiveMatches((data) => {
+        setMatches(data);
+        setError(null);
+      }, take);
     }
+    let cancelled = false;
     const filter =
       status === "upcoming"
         ? (["scheduled", "tossCompleted"] as MatchStatus[])
@@ -33,14 +37,19 @@ function MatchesList() {
           : undefined;
     listMatches({ status: filter, take })
       .then((data) => {
+        if (cancelled) return;
         setMatches(data);
         setError(null);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error("Match list error:", err);
         setError(err instanceof Error ? err.message : "Failed to load matches");
         setMatches([]);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [status, take]);
 
   const visible = useMemo(() => {
