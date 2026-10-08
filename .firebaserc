@@ -7,9 +7,6 @@
       "hosting": {
         "superadmin": [
           "crickflow-superadmin"
-        ],
-        "admin": [
-          "crickflow-admin"
         ]
       }
     }
