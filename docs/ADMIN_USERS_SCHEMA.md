@@ -119,12 +119,12 @@ admins are managed in the mobile app (`series_admins`, `series_club_admins`).
 ## Admins & Access (Super Admin panel)
 
 Route `/admins` in `apps/superadmin` (nav: Management > Admins & Access,
-permission `canManageSecurity`, Super Admin only). Manages `admin_users/{uid}`:
+permission `canManageSecurity`). Manages platform staff in `admin_users/{uid}`:
 
 | Action | Writes |
 |--------|--------|
-| Add admin (by email or Auth UID) | New doc: `email`, `displayName`, `roleId`, `organizationId` / `organizationName` (org roles only), `permissionOverrides`, `isActive: true`, `accessStatus: active`, `createdAt/By`, `updatedAt/By`, `claimsVersion` +1 |
-| Change role / org scope / overrides | Same fields, `permissionOverrides` replaced wholesale |
+| Add admin (by email or Auth UID) | New doc: `email`, `displayName`, `roleId`, `permissionOverrides`, `isActive: true`, `accessStatus: active`, `createdAt/By`, `updatedAt/By`, `claimsVersion` +1 (`organizationId` / `organizationName` are written as null) |
+| Change role / overrides | Same fields, `permissionOverrides` replaced wholesale |
 | Suspend | `isActive: false`, `accessStatus: suspended`, `statusReason`, `statusChangedAt/By` |
 | Revoke | `isActive: false`, `accessStatus: revoked` (doc kept; rules deny delete) |
 | Restore | `isActive: true`, `accessStatus: active` |
@@ -132,18 +132,52 @@ permission `canManageSecurity`, Super Admin only). Manages `admin_users/{uid}`:
 Every change writes `admin_audit_logs` (`admin.access_granted`, `admin.access_updated`,
 `admin.suspended`, `admin.revoked`, `admin.reactivated`).
 
-Guards (client): only an active Super Admin in the Super Admin app; you cannot change
-your own role or status; the last active Super Admin cannot be demoted, suspended or
-revoked; organization roles (`allowedPanel: organizationAdmin`) require an organization.
-Server enforcement is the existing rule: only `isSuperAdminUser()` may write `admin_users`,
-and `isActive` / `organizationId` gate every org-admin rule.
+Guards (client): you cannot change your own role or status, and the last active Super
+Admin cannot be demoted, suspended or revoked. Only roles with
+`allowedPanel: superAdmin` can be assigned. On the server, only `isSuperAdminUser()` may
+write `admin_users`.
 
 The person must already have a Firebase Auth account (mobile app, website, or Google /
 email on the admin login page). The Access denied page shows their UID to share.
 
-Org Admin app: suspension / revoke apply live (session watches `admin_users/{uid}`), and an
-organization whose `status` is `suspended` / `archived` / `deleted` (or `recordStatus`
-`soft_deleted` / `archived`) locks its admins out (client-side; see rules note in PR).
+### Platform staff roles and rules (2026-10-08)
+
+`superAdmin`, `moderator`, `tournamentAdmin`, `support` and `viewer` all have
+`allowedPanel: superAdmin`. The panel shows only the nav items and actions their
+permissions allow, and the landing page is the dashboard, or Profile if they have no
+dashboard.
+
+`firestore.rules` checks the same permissions with `hasAdminPermission(p)`. A permission
+is resolved in this order:
+
+1. `admin_users.permissionOverrides[p]`
+2. `admin_roles/{roleId}.permissions[p]`
+3. The built-in default (`builtinAdminRolePermissions`, which mirrors
+   `DefaultAdminRolePermissions`)
+
+Super Admins have every permission. Inactive, suspended or revoked records (`isActive`
+false, or `accessStatus` not `active`) and the retired `admin` role get none.
+
+| Data | Permission |
+|------|------------|
+| Community moderation, post delete, reports | `canModerateCommunity` (reports also `canViewReports`) |
+| Discover/opportunity moderation | `canManageDiscover` or `canModerateCommunity` |
+| `users` admin fields | `canManageUsers` |
+| `teams` / `players` / `matches` / `tournaments` admin fields | `canManageTeams` / `canManagePlayers` / `canManageMatches` / `canManageTournaments` |
+| `grounds` | `canManageGrounds` |
+| `notifications` read (all), `admin_notification_*` | `canSendNotifications` (read also `canViewSystemHealth`) |
+| `home_promotions` | `canManageAds` or `canSendNotifications` |
+| `admin_ad*`, `admin_advertisers`, `admin_sponsored_content` | `canManageAds` |
+| `admin_support_*` | `canManageSupport` |
+| `admin_ai_*` | `canManageAiOps` |
+| `admin_security_*` | `canManageSecurity` |
+| CMS / legal page writes | `canManageCms` |
+| `admin_audit_logs` read | `canViewLogs`, `canManageSecurity` or `canManageUsers` |
+| `admin_users` read (others) | `canManageUsers` or `canManageSecurity` |
+| Org moderation (`series` status + `platformHold`, `series_clubs` suspend/restore, series approvals/registrations/audit reads) | `canManageOrganizations` |
+| `organizations` (legacy, unused) | Super Admin only |
+
+Emulator tests for all of this are in `firestore-tests/`.
 
 ## Custom claims (later)
 
@@ -319,23 +353,25 @@ Permission: `canManageAds`.
 
 Audit actions: `ad.created`, `ad.approved`, `ad.rejected`, `ad.paused`, `ad.resumed`, `ad.archived`, `ad.deleted`, `admob.config_updated`, plus advertiser / sponsored keys.
 
-## Organization Management
+## Orgs & Series oversight
 
-Canonical admin collection `organizations/{id}` (Super Admin only via `canManageOrganizations`). Mobile app does not read this collection yet.
+Superadmin route `/orgs` ("Orgs & Series", permission `canManageOrganizations`). Read and
+moderate the mobile org model (`series` with `kind`, `series_admins`, `series_clubs`,
+`series/{id}/approvals`, `series_audit_logs`).
 
-| Field | Purpose |
-|-------|---------|
-| `name`, `slug` | Display + lookup |
-| `type` | `board` \| `club` \| `academy` \| `school` \| `university` \| `corporate` \| `league` \| `other` |
-| `status` | `active` \| `inactive` \| `suspended` |
-| `recordStatus` | `active` \| `soft_deleted` |
-| Contact / location | `email`, `phone`, `website`, `country`, `stateProvince`, `city`, `address` |
-| `logoUrl`, `description` | Branding |
-| `primaryAdminUid`, `primaryAdminEmail` | Linked Org Admin (denormalized) |
+| Action | Writes |
+|--------|--------|
+| Suspend / archive org | `series.status` = `suspended` / `archived`, `platformHold: true`, `updatedAt` |
+| Restore org | `series.status: active`, `platformHold: false` |
+| Suspend / restore club | `series_clubs.status` = `suspended` / `approved` |
 
-Org Admin linking updates `admin_users/{uid}` with `roleId: admin`, `organizationId`, `organizationName`. Resource scoping across users/teams/tournaments/matches/grounds continues to use additive `organizationId` equal to this document id.
+Every action writes `series_audit_logs` (`ENTITY_SUSPENDED` / `ENTITY_ARCHIVED` /
+`ENTITY_RESTORED`, actorRole `platformAdmin`) and `admin_audit_logs` (`org.*`). While
+`platformHold` is true, owners can't reactivate, archive or transfer the org from the
+mobile app.
 
-Audit actions: `organization.created`, `organization.edited`, `organization.activated`, `organization.deactivated`, `organization.suspended`, `organization.soft_deleted`, `organization.restored`, `organization.admin_linked`, `organization.admin_unlinked`.
+The legacy `organizations/{id}` collection (0 docs) is locked to Super Admin and has no
+UI.
 
 ## Analytics & Reports
 

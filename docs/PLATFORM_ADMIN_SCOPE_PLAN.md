@@ -1,6 +1,7 @@
 # Platform admin scope: plan
 
-Status: proposed, nothing destructive done yet. Last updated: 2026-10-08.
+Status: **done** (executed 2026-10-08 on branch `cursor/orgs-series-web-parity-e743`).
+See "Execution log" at the end for what shipped. Last updated: 2026-10-08.
 
 ## Decision
 
@@ -98,3 +99,28 @@ a permission. Today only super admins can really use the panel.
      (`AdminAppType.organizationAdmin`, `adminOrgAccessProvider`,
      `organizationSuspended`, `organizations` feature), and update CI/workflows.
    - Move the one `roleId: admin` record (no org) to a platform role or revoke it.
+
+## Execution log (2026-10-08)
+
+1. **Superadmin.** "Organizations" was replaced by **Orgs & Series** (`/orgs`). It reads and moderates
+   mobile `series`: owner/admins, clubs, approvals, audit, suspend/restore/archive with
+   `platformHold`. The `organizations` create/edit/link/transfer UI and code were removed.
+2. **Platform staff.** moderator / support / viewer / tournamentAdmin get
+   `allowedPanel: superAdmin` in code, in `scripts/seed-admin-roles.cjs` and in the production
+   `admin_roles` docs. Nav, routes and actions follow permissions. The rules use
+   `hasAdminPermission()`; see `docs/ADMIN_USERS_SCHEMA.md`.
+3. **Mobile.** Added the org dashboard, announcements, ownership transfer, and owner
+   archive/reactivate. They are backed by the callables `transferSeriesOwnership`,
+   `setSeriesLifecycle` and `sendSeriesAnnouncement`, and every action is audited.
+   Admin role tiers were not added (see below).
+4. **Rules.** The org-admin branches were removed, `organizations` is Super Admin only, and
+   `admin_users` reads are narrowed. Owners can no longer change `status` / `platformHold`
+   from the client. Emulator suite: `firestore-tests/`.
+5. **Org admin retired.** `apps/admin` was deleted, its hosting target and CI were removed, the
+   docs were updated, the legacy `admin` record was revoked, and the `crickflow-admin`
+   hosting site was disabled and deleted.
+
+Not done: **series admin role tiers** (e.g. scorer/viewer admins). Every series
+callable and the `canManageSeries()` rule treat any active `series_admins` doc as a full
+admin. Tiers need per-callable checks and rule changes, so they are left for a separate
+change.
