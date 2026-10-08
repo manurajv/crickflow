@@ -98,6 +98,9 @@ class SeriesAdminRepository {
     final batch = _db.batch();
     batch.update(_series.doc(series.id), {
       'status': nextStatus,
+      // Platform hold: owners cannot lift a platform suspension/archive via
+      // setSeriesLifecycle until platform staff restore the org.
+      'platformHold': nextStatus != 'active',
       'updatedAt': now,
     });
     _audit(
