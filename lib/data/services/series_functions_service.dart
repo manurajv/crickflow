@@ -147,6 +147,52 @@ class SeriesFunctionsService {
         'userId': userId,
       });
 
+  /// Owner-only: hand the organization to an existing active admin.
+  Future<Map<String, dynamic>> transferSeriesOwnership({
+    required String seriesId,
+    required String newOwnerUserId,
+    String reason = '',
+  }) =>
+      _call(
+        'transferSeriesOwnership',
+        {
+          'seriesId': seriesId,
+          'newOwnerUserId': newOwnerUserId,
+          'reason': reason,
+        },
+        maxAttempts: 1,
+      );
+
+  /// Owner-only archive / reactivate (`action`: archive | reactivate).
+  Future<Map<String, dynamic>> setSeriesLifecycle({
+    required String seriesId,
+    required String action,
+    String reason = '',
+  }) =>
+      _call(
+        'setSeriesLifecycle',
+        {'seriesId': seriesId, 'action': action, 'reason': reason},
+        maxAttempts: 1,
+      );
+
+  /// Series admins post an announcement (audience: all | admins | clubAdmins | members).
+  Future<Map<String, dynamic>> sendSeriesAnnouncement({
+    required String seriesId,
+    required String title,
+    required String body,
+    String audience = 'all',
+  }) =>
+      _call(
+        'sendSeriesAnnouncement',
+        {
+          'seriesId': seriesId,
+          'title': title,
+          'body': body,
+          'audience': audience,
+        },
+        maxAttempts: 1,
+      );
+
   /// Copies legacy top-level approvals into series/{id}/approvals for list rules.
   Future<Map<String, dynamic>> syncSeriesApprovalMirrors({
     required String seriesId,

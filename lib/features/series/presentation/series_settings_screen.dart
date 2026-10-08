@@ -8,6 +8,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/series/series.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
+import 'widgets/series_owner_section.dart';
 
 class SeriesSettingsScreen extends ConsumerStatefulWidget {
   const SeriesSettingsScreen({super.key, required this.seriesId});
@@ -246,6 +247,11 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
                     : const Icon(Icons.save_outlined),
                 label: Text(_saving ? 'Saving…' : 'Save settings'),
               ),
+              const SizedBox(height: AppDimens.spaceLg),
+              const Divider(),
+              const SizedBox(height: AppDimens.spaceSm),
+              SeriesOwnerSection(series: series),
+              const SizedBox(height: AppDimens.spaceLg),
             ],
           ),
         );

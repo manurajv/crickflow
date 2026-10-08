@@ -10,6 +10,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/series/series.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
+import 'widgets/series_status_banner.dart';
 import 'widgets/series_ui.dart';
 
 /// Orgs profile hub — Associations / Clubs / Series share this screen.
@@ -377,6 +378,24 @@ class _Overview extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppDimens.spaceMd),
       children: [
+        if (series.status != SeriesStatus.active || series.platformHold) ...[
+          SeriesStatusBanner(series: series),
+          const SizedBox(height: AppDimens.spaceMd),
+        ],
+        if (canAdmin) ...[
+          ListTile(
+            tileColor: cf.accent.withValues(alpha: cf.isLight ? 0.08 : 0.14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            leading: Icon(Icons.space_dashboard_outlined, color: cf.accent),
+            title: const Text('Org dashboard'),
+            subtitle: const Text('Approvals, admins, announcements, activity'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/series/${series.id}/dashboard'),
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
+        ],
         Text(
           series.description.isEmpty
               ? 'Official CrickFlow ${series.kind.label.toLowerCase()}'
@@ -408,6 +427,16 @@ class _Overview extends StatelessWidget {
           subtitle: const Text('Track join and registration status'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/series/${series.id}/my-requests'),
+        ),
+        const SizedBox(height: AppDimens.spaceSm),
+        ListTile(
+          tileColor: cf.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          leading: Icon(Icons.campaign_outlined, color: cf.accent),
+          title: const Text('Announcements'),
+          subtitle: const Text('News from the organizers'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/series/${series.id}/announcements'),
         ),
         if (canAdmin) ...[
           const SizedBox(height: AppDimens.spaceSm),
