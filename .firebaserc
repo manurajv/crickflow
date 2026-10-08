@@ -2,6 +2,17 @@
   "projects": {
     "crickflow": "crickflow-b06bc"
   },
-  "targets": {},
+  "targets": {
+    "crickflow-b06bc": {
+      "hosting": {
+        "superadmin": [
+          "crickflow-superadmin"
+        ],
+        "admin": [
+          "crickflow-admin"
+        ]
+      }
+    }
+  },
   "etags": {}
 }
