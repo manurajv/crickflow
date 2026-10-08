@@ -174,18 +174,6 @@ class AdminCandidate extends Equatable {
   List<Object?> get props => [uid, email, source, existing];
 }
 
-/// Lightweight organization option for scoping org admins.
-class AdminOrgOption extends Equatable {
-  const AdminOrgOption({required this.id, required this.name, this.status});
-
-  final String id;
-  final String name;
-  final String? status;
-
-  @override
-  List<Object?> get props => [id, name, status];
-}
-
 /// Pure guard rules for admin access changes (unit-testable, no Firebase).
 abstract final class AdminAccessPolicy {
   /// Returns an error message when [actorUid] may not change [target], else
@@ -197,8 +185,6 @@ abstract final class AdminAccessPolicy {
     required String nextRoleId,
     required AdminAccessStatus nextStatus,
     required int activeSuperAdminCount,
-    String? nextOrganizationId,
-    bool nextRoleNeedsOrganization = false,
   }) {
     if (!actorIsSuperAdmin) {
       return 'Only a Super Admin can change administrator access.';
@@ -217,11 +203,6 @@ abstract final class AdminAccessPolicy {
     if (losesSuperAdmin && activeSuperAdminCount <= 1) {
       return 'At least one active Super Admin must remain.';
     }
-    if (nextStatus.grantsAccess &&
-        nextRoleNeedsOrganization &&
-        (nextOrganizationId == null || nextOrganizationId.trim().isEmpty)) {
-      return 'Organization admins must be assigned to an organization.';
-    }
     return null;
   }
 
@@ -230,18 +211,12 @@ abstract final class AdminAccessPolicy {
     required String actorUid,
     required bool actorIsSuperAdmin,
     required AdminCandidate candidate,
-    String? organizationId,
-    bool roleNeedsOrganization = false,
   }) {
     if (!actorIsSuperAdmin) {
       return 'Only a Super Admin can grant administrator access.';
     }
     if (candidate.uid == actorUid) {
       return 'You already have Super Admin access.';
-    }
-    if (roleNeedsOrganization &&
-        (organizationId == null || organizationId.trim().isEmpty)) {
-      return 'Organization admins must be assigned to an organization.';
     }
     return null;
   }

@@ -1,4 +1,4 @@
-/// Shared foundation for CrickFlow Super Admin and Organization Admin web panels.
+/// Shared foundation for the CrickFlow Super Admin (platform staff) web panel.
 ///
 /// This package does **not** modify the mobile app or existing Firestore schemas.
 /// Admin roles live in additive `admin_users` + `admin_roles` collections.
@@ -95,7 +95,7 @@ export 'features/tournaments/models/tournament_enums.dart';
 export 'features/tournaments/models/tournament_filters.dart';
 
 // Series investigation (Super Admin)
-export 'features/series/presentation/series_investigation_screen.dart';
+export 'features/series/presentation/orgs_series_screen.dart';
 export 'features/series/providers/series_admin_providers.dart';
 export 'features/series/models/managed_series.dart';
 
@@ -119,11 +119,6 @@ export 'features/teams/models/team_enums.dart';
 export 'features/teams/models/team_filters.dart';
 
 // Organization Management
-export 'features/organizations/presentation/organizations_screen.dart';
-export 'features/organizations/providers/organizations_providers.dart';
-export 'features/organizations/models/managed_organization.dart';
-export 'features/organizations/models/organization_enums.dart';
-export 'features/organizations/models/organization_filters.dart';
 
 // Ground Management
 export 'features/grounds/presentation/grounds_screen.dart';

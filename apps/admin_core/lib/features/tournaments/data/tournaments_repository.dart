@@ -34,13 +34,6 @@ class TournamentsRepository {
   }) async {
     Query<Map<String, dynamic>> query = _tournaments;
 
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const TournamentPageResult(tournaments: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
 
     if (filters.statuses.length == 1) {
       query = query.where('status', isEqualTo: filters.statuses.first.wireValue);
@@ -93,12 +86,6 @@ class TournamentsRepository {
       snap = await query.limit(limit + 1).get();
     } on FirebaseException {
       var fallback = _tournaments.orderBy(FieldPath.documentId).limit(limit + 1);
-      if (appType == AdminAppType.organizationAdmin &&
-          actor?.organizationId != null) {
-        fallback = _tournaments
-            .where('organizationId', isEqualTo: actor!.organizationId)
-            .limit(limit + 1);
-      }
       snap = await fallback.get();
     }
 
@@ -201,10 +188,8 @@ class TournamentsRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) {
-    if (appType != AdminAppType.organizationAdmin) return true;
-    final orgId = actor?.organizationId;
-    if (orgId == null || orgId.isEmpty) return false;
-    return t.organizationId == orgId;
+    // Single platform panel: every record is in scope.
+    return true;
   }
 
   Stream<ManagedTournament?> watchById(
@@ -238,11 +223,6 @@ class TournamentsRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> base = _tournaments;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const TournamentSummaryStats();
-      base = base.where('organizationId', isEqualTo: orgId);
-    }
 
     try {
       final snap = await base.limit(AdminQueryLimits.summaryScanMax).get();

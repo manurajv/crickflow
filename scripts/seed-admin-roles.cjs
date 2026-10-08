@@ -1,5 +1,8 @@
 /**
  * Seeds additive admin_roles (+ optional super admin user).
+ * Every platform staff role enters the Super Admin panel (allowedPanel
+ * superAdmin); permissions decide what each role sees. Firestore rules mirror
+ * these defaults (see `builtinAdminRolePermissions` in firestore.rules).
  * Does NOT touch mobile users collection.
  *
  * Usage:
@@ -26,6 +29,12 @@ const ALL_PERMS = [
   'canModerateCommunity',
   'canManageBroadcast',
   'canViewAnalytics',
+  'canViewSystemHealth',
+  'canManageSupport',
+  'canManageAiOps',
+  'canManageSecurity',
+  'canManageDeployments',
+  'canManageContinuity',
   'canManageCms',
   'canViewReports',
   'canManageSettings',
@@ -55,8 +64,10 @@ const ROLES = {
   },
   admin: {
     label: 'Admin',
-    description: 'Organization administrator',
-    allowedPanel: 'organizationAdmin',
+    // Retired Organization Admin role: no panel. Org / series admin lives in
+    // the mobile app (series_admins / series_club_admins).
+    description: 'Retired organization admin (no panel access)',
+    allowedPanel: 'none',
     isSystem: true,
     permissions: permMap([
       'canViewDashboard',
@@ -79,8 +90,8 @@ const ROLES = {
   },
   moderator: {
     label: 'Moderator',
-    description: 'Community moderation (no panel access yet)',
-    allowedPanel: 'none',
+    description: 'Community, discover and report moderation',
+    allowedPanel: 'superAdmin',
     isSystem: true,
     permissions: permMap([
       'canViewDashboard',
@@ -92,8 +103,8 @@ const ROLES = {
   },
   tournamentAdmin: {
     label: 'Tournament Admin',
-    description: 'Tournament-scoped admin (no panel access yet)',
-    allowedPanel: 'none',
+    description: 'Matches, teams, players, tournaments and grounds',
+    allowedPanel: 'superAdmin',
     isSystem: true,
     permissions: permMap([
       'canViewDashboard',
@@ -109,8 +120,8 @@ const ROLES = {
   },
   support: {
     label: 'Support',
-    description: 'Support / read-heavy (no panel access yet)',
-    allowedPanel: 'none',
+    description: 'Help desk, reports, logs and analytics (read-heavy)',
+    allowedPanel: 'superAdmin',
     isSystem: true,
     permissions: permMap([
       'canViewDashboard',
@@ -119,12 +130,14 @@ const ROLES = {
       'canViewReports',
       'canViewLogs',
       'canViewAnalytics',
+      'canViewSystemHealth',
+      'canManageSupport',
     ]),
   },
   viewer: {
     label: 'Viewer',
-    description: 'No administration access',
-    allowedPanel: 'none',
+    description: 'Signs in to the panel; sees only what its permissions allow',
+    allowedPanel: 'superAdmin',
     isSystem: true,
     permissions: permMap(['canViewProfile']),
   },

@@ -24,8 +24,7 @@ Future<bool?> showAdminAccessDialog(
 
 String panelLabel(RoleDefinition role) => switch (role.allowedPanel) {
   AdminAppType.superAdmin => 'Super Admin panel',
-  AdminAppType.organizationAdmin => 'Legacy organization panel (retiring)',
-  null => 'No panel access',
+  null => 'No panel access (legacy role)',
 };
 
 enum _Override { roleDefault, allow, deny }
@@ -47,7 +46,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
 
   AdminCandidate? _candidate;
   String? _roleId;
-  String? _orgId;
   late Map<String, bool> _overrides;
   bool _busy = false;
   bool _lookingUp = false;
@@ -71,7 +69,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
         source: 'admin_users',
       );
       _roleId = e.roleId;
-      _orgId = e.organizationId;
       _name.text = e.displayName ?? '';
     }
   }
@@ -108,7 +105,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
         } else if (found.existing != null) {
           final ex = found.existing!;
           _roleId = ex.roleId;
-          _orgId = ex.organizationId;
           _overrides = {...ex.permissionOverrides};
           _name.text = ex.displayName ?? '';
           _lookupMessage =
@@ -135,10 +131,7 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
     });
   }
 
-  Future<void> _save(
-    List<RoleDefinition> roles,
-    List<AdminOrgOption> orgs,
-  ) async {
+  Future<void> _save(List<RoleDefinition> roles) async {
     final candidate = _candidate;
     if (candidate == null) {
       setState(() => _error = 'Find the person first (email or UID).');
@@ -151,10 +144,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
     if (role == null) {
       setState(() => _error = 'Choose a role.');
       return;
-    }
-    AdminOrgOption? org;
-    for (final o in orgs) {
-      if (o.id == _orgId) org = o;
     }
     final email = candidate.email.isNotEmpty
         ? candidate.email
@@ -177,7 +166,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
               source: candidate.source,
             ),
             role: role,
-            organization: org,
             permissionOverrides: Map.of(_overrides),
             displayName: _name.text.trim(),
             reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
@@ -200,17 +188,14 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
   @override
   Widget build(BuildContext context) {
     final rolesAsync = ref.watch(adminRoleOptionsProvider);
-    final orgsAsync = ref.watch(adminOrgOptionsProvider);
     final colors = context.adminColors;
     final width = MediaQuery.sizeOf(context).width;
 
     final roles = rolesAsync.asData?.value ?? const <RoleDefinition>[];
-    final orgs = orgsAsync.asData?.value ?? const <AdminOrgOption>[];
     RoleDefinition? role;
     for (final r in roles) {
       if (r.id == _roleId) role = r;
     }
-    final needsOrg = roleNeedsOrganization(role);
 
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
@@ -289,10 +274,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
                               ?.copyWith(color: colors.textMuted),
                         ),
                       ],
-                      if (needsOrg) ...[
-                        const SizedBox(height: 16),
-                        _orgField(context, orgsAsync, orgs),
-                      ],
                       if (role != null) ...[
                         const SizedBox(height: 12),
                         _overridesSection(context, role),
@@ -336,7 +317,7 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
                     isLoading: _busy,
                     onPressed: _busy || _candidate == null
                         ? null
-                        : () => _save(roles, orgs),
+                        : () => _save(roles),
                   ),
                 ],
               ),
@@ -440,48 +421,6 @@ class _AdminAccessDialogState extends ConsumerState<AdminAccessDialog> {
           ),
       ],
       onChanged: _busy ? null : (v) => setState(() => _roleId = v),
-    );
-  }
-
-  Widget _orgField(
-    BuildContext context,
-    AsyncValue<List<AdminOrgOption>> async,
-    List<AdminOrgOption> orgs,
-  ) {
-    if (async.isLoading && orgs.isEmpty) {
-      return const LinearProgressIndicator();
-    }
-    if (orgs.isEmpty) {
-      return Text(
-        'No organizations exist yet. Create one in Organizations first, '
-        'then come back to scope this admin.',
-        style: TextStyle(color: context.adminColors.warning),
-      );
-    }
-    final hasCurrent = orgs.any((o) => o.id == _orgId);
-    return DropdownButtonFormField<String>(
-      key: ValueKey('org-$_orgId-${orgs.length}'),
-      initialValue: hasCurrent ? _orgId : null,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Organization scope',
-        helperText:
-            'This admin only sees and manages data for this '
-            'organization.',
-      ),
-      items: [
-        for (final o in orgs)
-          DropdownMenuItem(
-            value: o.id,
-            child: Text(
-              o.status == null || o.status == 'active'
-                  ? o.name
-                  : '${o.name} (${o.status})',
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-      ],
-      onChanged: _busy ? null : (v) => setState(() => _orgId = v),
     );
   }
 

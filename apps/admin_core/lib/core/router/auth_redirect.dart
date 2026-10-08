@@ -1,4 +1,5 @@
 import '../../features/auth/providers/auth_providers.dart';
+import '../../models/admin_permission.dart';
 import 'admin_route_paths.dart';
 import 'admin_route_permissions.dart';
 
@@ -19,13 +20,17 @@ String? adminAuthRedirect({
       return isLogin ? null : AdminRoutePaths.login;
     case AdminSessionStatus.noAdminProfile:
     case AdminSessionStatus.inactive:
-    case AdminSessionStatus.organizationSuspended:
     case AdminSessionStatus.unauthorizedRole:
     case AdminSessionStatus.wrongPanel:
       return isDenied ? null : AdminRoutePaths.accessDenied;
     case AdminSessionStatus.authorized:
-      if (isLogin || isDenied) return AdminRoutePaths.dashboard;
+      // Staff roles without the dashboard (e.g. Viewer) land on their profile.
+      final home = session.hasPermission(AdminPermission.canViewDashboard)
+          ? AdminRoutePaths.dashboard
+          : AdminRoutePaths.profile;
+      if (isLogin || isDenied) return home;
       if (isForbidden) return null;
+      if (loc == AdminRoutePaths.dashboard && home != loc) return home;
 
       if (!AdminRoutePermissions.isAllowed(loc, session.hasPermission)) {
         return AdminRoutePaths.forbidden;

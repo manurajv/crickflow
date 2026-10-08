@@ -34,13 +34,6 @@ List<AdminNavSection> buildSuperAdminNav() {
           permission: AdminPermission.canManageSecurity,
         ),
         AdminNavItem(
-          id: 'organizations',
-          label: 'Organizations',
-          icon: Icons.apartment_outlined,
-          route: AdminRoutePaths.organizations,
-          permission: AdminPermission.canManageOrganizations,
-        ),
-        AdminNavItem(
           id: 'teams',
           label: 'Teams',
           icon: Icons.groups_outlined,
@@ -76,11 +69,11 @@ List<AdminNavSection> buildSuperAdminNav() {
           permission: AdminPermission.canManageTournaments,
         ),
         AdminNavItem(
-          id: 'series',
-          label: 'Series',
+          id: 'orgs',
+          label: 'Orgs & Series',
           icon: Icons.hub_outlined,
-          route: AdminRoutePaths.series,
-          permission: AdminPermission.canAccessGlobalData,
+          route: AdminRoutePaths.orgs,
+          permission: AdminPermission.canManageOrganizations,
         ),
         AdminNavItem(
           id: 'broadcast',

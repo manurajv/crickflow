@@ -1,11 +1,9 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/admin_app_type.dart';
-import '../../../core/constants/admin_collections.dart';
 import '../../../models/admin_permission.dart';
 import '../../../models/admin_role.dart';
 import '../../../models/admin_user.dart';
@@ -72,58 +70,12 @@ final roleDefinitionProvider = StreamProvider<RoleDefinition?>((ref) {
   return ref.watch(adminRoleServiceProvider).watchById(admin.roleId);
 });
 
-/// Organization access state for the signed-in Org Admin.
-enum AdminOrgAccess { allowed, blocked }
-
-/// Org statuses that lock their admins out of the Organization Admin panel.
-const _blockedOrgStatuses = {'suspended', 'archived', 'deleted'};
-const _blockedOrgRecordStatuses = {'soft_deleted', 'deleted', 'archived'};
-
-/// Pure helper (unit-tested): does this `organizations/{id}` doc block access?
-AdminOrgAccess resolveOrgAccess(Map<String, dynamic>? org) {
-  if (org == null) return AdminOrgAccess.allowed;
-  final status = (org['status'] as String?)?.toLowerCase();
-  final record = (org['recordStatus'] as String?)?.toLowerCase();
-  if (_blockedOrgStatuses.contains(status) ||
-      _blockedOrgRecordStatuses.contains(record)) {
-    return AdminOrgAccess.blocked;
-  }
-  return AdminOrgAccess.allowed;
-}
-
-/// Watches the Org Admin's organization so suspending / archiving the org
-/// locks its admins out immediately. Always `allowed` in the Super Admin app.
-final adminOrgAccessProvider = StreamProvider<AdminOrgAccess>((ref) {
-  final appType = ref.watch(adminAppTypeProvider);
-  if (appType != AdminAppType.organizationAdmin) {
-    return Stream.value(AdminOrgAccess.allowed);
-  }
-  final adminAsync = ref.watch(adminUserProvider);
-  if (adminAsync.isLoading || (!adminAsync.hasValue && !adminAsync.hasError)) {
-    return _pendingStream<AdminOrgAccess>();
-  }
-  final orgId = adminAsync.asData?.value?.organizationId?.trim() ?? '';
-  if (orgId.isEmpty) return Stream.value(AdminOrgAccess.allowed);
-  return FirebaseFirestore.instance
-      .collection(AdminCollections.organizations)
-      .doc(orgId)
-      .snapshots()
-      .map((snap) => resolveOrgAccess(snap.data()))
-      // Rules still enforce scope; a read failure should not lock users out.
-      .transform(
-        StreamTransformer<AdminOrgAccess, AdminOrgAccess>.fromHandlers(
-          handleError: (error, stack, sink) => sink.add(AdminOrgAccess.allowed),
-        ),
-      );
-});
-
 /// High-level session used by GoRouter redirects.
 enum AdminSessionStatus {
   loading,
   unauthenticated,
   noAdminProfile,
   inactive,
-  organizationSuspended,
   unauthorizedRole,
   wrongPanel,
   authorized,
@@ -226,38 +178,6 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
       role: role,
       permissions: admin.resolvePermissions(role),
     );
-  }
-
-  // Org admins must be scoped to an organization.
-  if (appType == AdminAppType.organizationAdmin &&
-      (admin.organizationId == null || admin.organizationId!.isEmpty)) {
-    return AdminSession(
-      status: AdminSessionStatus.noAdminProfile,
-      firebaseUser: user,
-      adminUser: admin,
-      role: role,
-    );
-  }
-
-  // Org Admins lose access while their organization is suspended / archived.
-  if (appType == AdminAppType.organizationAdmin) {
-    final orgAsync = ref.watch(adminOrgAccessProvider);
-    if (orgAsync.isLoading && !orgAsync.hasValue) {
-      return AdminSession(
-        status: AdminSessionStatus.loading,
-        firebaseUser: user,
-        adminUser: admin,
-        role: role,
-      );
-    }
-    if (orgAsync.asData?.value == AdminOrgAccess.blocked) {
-      return AdminSession(
-        status: AdminSessionStatus.organizationSuspended,
-        firebaseUser: user,
-        adminUser: admin,
-        role: role,
-      );
-    }
   }
 
   // Prefer custom claims when present (server-backed). Fall back to Firestore.

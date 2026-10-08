@@ -21,12 +21,8 @@ class DashboardRepository {
     // Simulate network latency for skeleton UX.
     await Future<void>.delayed(const Duration(milliseconds: 650));
 
-    final scoped = appType == AdminAppType.organizationAdmin;
-    final scopeLabel = scoped
-        ? (organizationName?.isNotEmpty == true
-            ? organizationName!
-            : 'Your organization')
-        : 'All of CrickFlow';
+    const scoped = false;
+    const scopeLabel = 'All of CrickFlow';
 
     return DashboardSnapshot(
       generatedAt: DateTime.now(),

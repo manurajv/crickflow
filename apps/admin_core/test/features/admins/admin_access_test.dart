@@ -105,11 +105,9 @@ void main() {
           actorUid: 'me',
           actorIsSuperAdmin: true,
           target: target,
-          nextRoleId: 'admin',
+          nextRoleId: 'moderator',
           nextStatus: AdminAccessStatus.active,
           activeSuperAdminCount: 1,
-          nextOrganizationId: 'org1',
-          nextRoleNeedsOrganization: true,
         ),
         contains('At least one'),
       );
@@ -125,57 +123,26 @@ void main() {
         isNull,
       );
     });
-
-    test('org admin needs an organization while active', () {
-      expect(
-        AdminAccessPolicy.checkChange(
-          actorUid: 'me',
-          actorIsSuperAdmin: true,
-          target: _account(org: null),
-          nextRoleId: 'admin',
-          nextStatus: AdminAccessStatus.active,
-          activeSuperAdminCount: 1,
-          nextRoleNeedsOrganization: true,
-        ),
-        contains('organization'),
-      );
-      // Suspending an unscoped org admin is still allowed.
-      expect(
-        AdminAccessPolicy.checkChange(
-          actorUid: 'me',
-          actorIsSuperAdmin: true,
-          target: _account(org: null),
-          nextRoleId: 'admin',
-          nextStatus: AdminAccessStatus.suspended,
-          activeSuperAdminCount: 1,
-          nextRoleNeedsOrganization: true,
-        ),
-        isNull,
-      );
-    });
   });
 
   group('AdminAccessPolicy.checkGrant', () {
     const candidate = AdminCandidate(uid: 'new', email: 'n@example.com');
-    test('requires org for org roles', () {
+    test('super admin may grant a platform role', () {
       expect(
         AdminAccessPolicy.checkGrant(
           actorUid: 'me',
           actorIsSuperAdmin: true,
           candidate: candidate,
-          roleNeedsOrganization: true,
         ),
-        isNotNull,
+        isNull,
       );
       expect(
         AdminAccessPolicy.checkGrant(
           actorUid: 'me',
-          actorIsSuperAdmin: true,
+          actorIsSuperAdmin: false,
           candidate: candidate,
-          organizationId: 'org1',
-          roleNeedsOrganization: true,
         ),
-        isNull,
+        isNotNull,
       );
     });
     test('cannot grant to self', () {
@@ -187,18 +154,6 @@ void main() {
         ),
         isNotNull,
       );
-    });
-  });
-
-  group('resolveOrgAccess', () {
-    test('blocks suspended / archived / deleted orgs', () {
-      expect(resolveOrgAccess({'status': 'suspended'}), AdminOrgAccess.blocked);
-      expect(
-        resolveOrgAccess({'status': 'active', 'recordStatus': 'soft_deleted'}),
-        AdminOrgAccess.blocked,
-      );
-      expect(resolveOrgAccess({'status': 'pending'}), AdminOrgAccess.allowed);
-      expect(resolveOrgAccess(null), AdminOrgAccess.allowed);
     });
   });
 
@@ -227,13 +182,13 @@ void main() {
         permissions: {},
         allowedPanel: AdminAppType.superAdmin,
       ),
+      RoleDefinition(id: 'admin', label: 'Admin', permissions: {}),
       RoleDefinition(
-        id: 'admin',
-        label: 'Admin',
+        id: 'moderator',
+        label: 'Moderator',
         permissions: {},
-        allowedPanel: AdminAppType.organizationAdmin,
+        allowedPanel: AdminAppType.superAdmin,
       ),
-      RoleDefinition(id: 'moderator', label: 'Moderator', permissions: {}),
       RoleDefinition(
         id: 'old',
         label: 'Old',
@@ -243,12 +198,12 @@ void main() {
       ),
     ];
 
-    test('hides org-scoped and archived roles for new grants', () {
+    test('hides panel-less and archived roles for new grants', () {
       final ids = assignableAdminRoles(roles).map((r) => r.id);
       expect(ids, ['superAdmin', 'moderator']);
     });
 
-    test('keeps the legacy org role when the record already uses it', () {
+    test('keeps the legacy role when the record already uses it', () {
       final ids = assignableAdminRoles(
         roles,
         currentRoleId: 'admin',

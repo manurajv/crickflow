@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/config/admin_app_type.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/router/admin_route_paths.dart';
 import '../../../core/theme/admin_colors.dart';
@@ -16,7 +15,6 @@ class AccessDeniedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(adminSessionProvider);
-    final appType = ref.watch(adminAppTypeProvider);
     final colors = context.adminColors;
 
     final detail = switch (session.status) {
@@ -27,15 +25,12 @@ class AccessDeniedScreen extends ConsumerWidget {
             ? 'Your administrator access has been revoked.'
             : 'Your administrator access is suspended. Contact a Super Admin '
                   'to restore it.',
-      AdminSessionStatus.organizationSuspended =>
-        'Your organization is suspended or archived, so its admin panel is '
-            'unavailable.',
       AdminSessionStatus.unauthorizedRole =>
         'Your role (${session.adminUser?.roleLabel ?? 'unknown'}) does not have permission to access the administration system.',
       AdminSessionStatus.wrongPanel =>
-        appType == AdminAppType.superAdmin
-            ? 'This account is not authorized for the Super Admin panel.'
-            : 'This account is not authorized for the Organization Admin panel.',
+        'This account is not authorized for the CrickFlow admin panel. '
+            'Organization and series admins manage their orgs in the '
+            'CrickFlow mobile app.',
       _ => null,
     };
 

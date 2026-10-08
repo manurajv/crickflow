@@ -43,13 +43,6 @@ class UsersRepository {
   }) async {
     Query<Map<String, dynamic>> query = _users;
 
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const UserPageResult(users: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
 
     // Server-side filters that map cleanly to Firestore.
     if (filters.statuses.length == 1) {
@@ -102,12 +95,6 @@ class UsersRepository {
     } on FirebaseException {
       // Fallback: unfiltered page by document id if composite index missing.
       var fallback = _users.orderBy(FieldPath.documentId).limit(limit + 1);
-      if (appType == AdminAppType.organizationAdmin &&
-          actor?.organizationId != null) {
-        fallback = _users
-            .where('organizationId', isEqualTo: actor!.organizationId)
-            .limit(limit + 1);
-      }
       snap = await fallback.get();
     }
 
@@ -270,10 +257,8 @@ class UsersRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) {
-    if (appType != AdminAppType.organizationAdmin) return true;
-    final orgId = actor?.organizationId;
-    if (orgId == null || orgId.isEmpty) return false;
-    return map['organizationId'] == orgId;
+    // Single platform panel: every record is in scope.
+    return true;
   }
 
   Future<UserSummaryStats> fetchSummary({
@@ -281,11 +266,6 @@ class UsersRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> base = _users;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const UserSummaryStats();
-      base = base.where('organizationId', isEqualTo: orgId);
-    }
 
     // Count via limited reads — placeholders when aggregation unavailable.
     try {

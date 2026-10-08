@@ -12,7 +12,6 @@ abstract final class AdminRoutePaths {
   static const players = '/players';
   static const matches = '/matches';
   static const tournaments = '/tournaments';
-  static const series = '/series';
   static const grounds = '/grounds';
   static const community = '/community';
   static const discover = '/discover';
@@ -34,7 +33,8 @@ abstract final class AdminRoutePaths {
   static const cms = '/cms';
   static const settings = '/settings';
   static const logs = '/logs';
-  static const organizations = '/organizations';
+  /// Orgs & Series oversight (mobile associations / clubs / series).
+  static const orgs = '/orgs';
   static const revenue = '/revenue';
   static const profile = '/profile';
   static const accountSettings = '/account-settings';

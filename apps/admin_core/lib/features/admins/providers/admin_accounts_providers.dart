@@ -26,11 +26,6 @@ final adminAccountsProvider = FutureProvider.autoDispose<List<AdminAccount>>((
   return sorted;
 });
 
-final adminOrgOptionsProvider =
-    FutureProvider.autoDispose<List<AdminOrgOption>>((ref) {
-      return ref.watch(adminAccountsRepositoryProvider).listOrganizations();
-    });
-
 /// Roles a Super Admin can assign (Firestore `admin_roles` + built-ins).
 final adminRoleOptionsProvider =
     FutureProvider.autoDispose<List<RoleDefinition>>((ref) {
@@ -41,22 +36,18 @@ final adminAccessControllerProvider = Provider<AdminAccessController>(
   (ref) => AdminAccessController(ref),
 );
 
-/// True when [role] grants the Organization Admin panel (needs an org scope).
-bool roleNeedsOrganization(RoleDefinition? role) =>
-    role?.allowedPanel == AdminAppType.organizationAdmin;
-
-/// Roles offered in Admins & Access. The web panel is for platform staff, so
-/// organization-scoped roles (legacy Organization Admin panel) are hidden for
-/// new grants. They stay listed only when [currentRoleId] already uses one, so
-/// an existing legacy record can still be edited or moved to a platform role.
-/// Organization and series administration lives in the mobile app.
+/// Roles offered in Admins & Access: every non-archived role that can enter
+/// the Super Admin panel. Roles without a panel (e.g. the retired `admin`
+/// organization role) stay listed only when [currentRoleId] already uses one,
+/// so a legacy record can still be moved to a platform role. Organization and
+/// series administration lives in the mobile app.
 List<RoleDefinition> assignableAdminRoles(
   List<RoleDefinition> roles, {
   String? currentRoleId,
 }) {
   return [
     for (final r in roles)
-      if ((!r.archived && r.allowedPanel != AdminAppType.organizationAdmin) ||
+      if ((!r.archived && r.allowedPanel == AdminAppType.superAdmin) ||
           r.id == currentRoleId)
         r,
   ];
@@ -90,14 +81,12 @@ class AdminAccessController {
   Future<void> saveAccess({
     required AdminCandidate candidate,
     required RoleDefinition role,
-    required AdminOrgOption? organization,
     required Map<String, bool> permissionOverrides,
     String? displayName,
     String? reason,
   }) async {
     final actor = _session.adminUser;
     if (actor == null) throw StateError('Not signed in as an administrator.');
-    final needsOrg = roleNeedsOrganization(role);
     final existing = candidate.existing;
 
     final error = existing == null
@@ -105,8 +94,6 @@ class AdminAccessController {
             actorUid: actor.uid,
             actorIsSuperAdmin: _actorIsSuperAdmin,
             candidate: candidate,
-            organizationId: organization?.id,
-            roleNeedsOrganization: needsOrg,
           )
         : AdminAccessPolicy.checkChange(
             actorUid: actor.uid,
@@ -115,8 +102,6 @@ class AdminAccessController {
             nextRoleId: role.id,
             nextStatus: existing.status,
             activeSuperAdminCount: await _activeSuperAdminCount(),
-            nextOrganizationId: organization?.id,
-            nextRoleNeedsOrganization: needsOrg,
           );
     if (error != null) throw StateError(error);
 
@@ -126,8 +111,6 @@ class AdminAccessController {
       displayName: displayName ?? candidate.displayName,
       photoUrl: candidate.photoUrl,
       roleId: role.id,
-      // Super Admins and other platform roles are never org-scoped.
-      organization: needsOrg ? organization : null,
       permissionOverrides: permissionOverrides,
       actor: actor,
       isNew: existing == null,
@@ -144,9 +127,6 @@ class AdminAccessController {
   }) async {
     final actor = _session.adminUser;
     if (actor == null) throw StateError('Not signed in as an administrator.');
-    final role = await _ref
-        .read(adminRoleServiceProvider)
-        .fetchById(target.roleId);
     final error = AdminAccessPolicy.checkChange(
       actorUid: actor.uid,
       actorIsSuperAdmin: _actorIsSuperAdmin,
@@ -154,8 +134,6 @@ class AdminAccessController {
       nextRoleId: target.roleId,
       nextStatus: status,
       activeSuperAdminCount: await _activeSuperAdminCount(),
-      nextOrganizationId: target.organizationId,
-      nextRoleNeedsOrganization: roleNeedsOrganization(role),
     );
     if (error != null) throw StateError(error);
     await _repo.setStatus(

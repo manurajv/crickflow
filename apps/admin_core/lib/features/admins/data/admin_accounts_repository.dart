@@ -31,9 +31,6 @@ class AdminAccountsRepository {
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection(AdminCollections.users);
 
-  CollectionReference<Map<String, dynamic>> get _orgs =>
-      _db.collection(AdminCollections.organizations);
-
   CollectionReference<Map<String, dynamic>> get _audit =>
       _db.collection(AdminCollections.adminAuditLogs);
 
@@ -42,26 +39,6 @@ class AdminAccountsRepository {
     final list = snap.docs
         .map((d) => AdminAccount.fromMap(d.id, d.data()))
         .toList(growable: false);
-    return list;
-  }
-
-  Future<List<AdminOrgOption>> listOrganizations({int limit = 500}) async {
-    final snap = await _orgs.limit(limit).get();
-    final list = <AdminOrgOption>[];
-    for (final d in snap.docs) {
-      final data = d.data();
-      final record = (data['recordStatus'] as String?) ?? 'active';
-      if (record == 'soft_deleted' || record == 'deleted') continue;
-      final name = (data['name'] as String?)?.trim();
-      list.add(
-        AdminOrgOption(
-          id: d.id,
-          name: (name == null || name.isEmpty) ? d.id : name,
-          status: data['status'] as String?,
-        ),
-      );
-    }
-    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return list;
   }
 
@@ -137,14 +114,13 @@ class AdminAccountsRepository {
     );
   }
 
-  /// Creates or updates an admin profile with [roleId] and optional org scope.
+  /// Creates or updates a platform admin profile with [roleId].
   Future<void> saveAccess({
     required String uid,
     required String email,
     required String? displayName,
     required String? photoUrl,
     required String roleId,
-    required AdminOrgOption? organization,
     required Map<String, bool> permissionOverrides,
     required AdminUser actor,
     required bool isNew,
@@ -157,8 +133,9 @@ class AdminAccountsRepository {
           ? null
           : displayName!.trim(),
       'roleId': roleId,
-      'organizationId': organization?.id,
-      'organizationName': organization?.name,
+      // Platform staff are never org-scoped; clears legacy org fields.
+      'organizationId': null,
+      'organizationName': null,
       'permissionOverrides': permissionOverrides,
       'claimsVersion': FieldValue.increment(1),
       'updatedAt': now,
@@ -189,11 +166,7 @@ class AdminAccountsRepository {
       targetUid: uid,
       targetEmail: email,
       reason: reason,
-      metadata: {
-        'roleId': roleId,
-        'organizationId': organization?.id ?? '',
-        'overrideCount': permissionOverrides.length,
-      },
+      metadata: {'roleId': roleId, 'overrideCount': permissionOverrides.length},
     );
   }
 

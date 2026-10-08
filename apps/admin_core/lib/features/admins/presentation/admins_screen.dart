@@ -72,8 +72,7 @@ class _AdminsScreenState extends ConsumerState<AdminsScreen> {
           if (q.isEmpty) return true;
           return a.effectiveName.toLowerCase().contains(q) ||
               a.email.toLowerCase().contains(q) ||
-              a.uid.toLowerCase().contains(q) ||
-              (a.organizationName ?? '').toLowerCase().contains(q);
+              a.uid.toLowerCase().contains(q);
         })
         .toList(growable: false);
   }
@@ -117,8 +116,8 @@ class _AdminsScreenState extends ConsumerState<AdminsScreen> {
           CfPageHeader(
             title: 'Admins & Access',
             subtitle:
-                'Grant, change, suspend, or revoke administrator access '
-                'to the Super Admin and Organization Admin panels.',
+                'Grant, change, suspend, or revoke access to this panel '
+                'for CrickFlow platform staff.',
             actions: [
               CfButton(
                 label: 'Refresh',
@@ -200,7 +199,7 @@ class _AdminsScreenState extends ConsumerState<AdminsScreen> {
           constraints: const BoxConstraints(maxWidth: 360),
           child: CfSearchBar(
             controller: _search,
-            hintText: 'Search name, email, UID, organization…',
+            hintText: 'Search name, email, or UID…',
             onChanged: (_) => setState(() {}),
             onClear: () => setState(_search.clear),
           ),
@@ -274,9 +273,9 @@ class _Summary extends StatelessWidget {
         compact: true,
       ),
       CfStatTile(
-        icon: Icons.apartment_outlined,
-        title: 'Org-scoped',
-        value: '${active.where((a) => a.hasOrganization).length}',
+        icon: Icons.support_agent_outlined,
+        title: 'Platform staff',
+        value: '${active.where((a) => !a.isSuperAdmin).length}',
         accentColor: colors.info,
         compact: true,
       ),
@@ -516,12 +515,6 @@ class _AdminRow extends ConsumerWidget {
               : Icons.badge_outlined,
           tone: account.isSuperAdmin ? CfBadgeTone.primary : CfBadgeTone.info,
         ),
-        if (account.hasOrganization)
-          CfStatusBadge(
-            label: account.organizationName ?? account.organizationId!,
-            compact: true,
-            icon: Icons.apartment_outlined,
-          ),
         if (account.permissionOverrides.isNotEmpty)
           CfStatusBadge(
             label: '${account.permissionOverrides.length} override(s)',
@@ -676,9 +669,10 @@ class _HowItWorks extends StatelessWidget {
             'club and series admins are managed inside the CrickFlow mobile '
             'app, not here.\n'
             '• Super Admin: full platform access in this panel.\n'
-            '• Other platform roles (Moderator, Support, Viewer, …) only sign in '
-            'here when their role definition in Security Center grants the '
-            'Super Admin panel; their permissions decide what they see.\n'
+            '• Staff roles (Moderator, Tournament Admin, Support, Viewer) sign '
+            'in here too. Their role permissions (plus any per-person '
+            'overrides) decide which sections they see and what they can '
+            'change; Firestore rules enforce the same permissions.\n'
             '• To add someone, they need a CrickFlow sign-in first (mobile app, '
             'website, or Google / email on the admin login page). Then search '
             'their email here.\n'
