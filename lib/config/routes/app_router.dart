@@ -65,6 +65,7 @@ import '../../data/models/series/series.dart';
 import '../../features/series/presentation/orgs_directory_screen.dart';
 import '../../features/series/presentation/series_add_player_screen.dart';
 import '../../features/series/presentation/series_admins_screen.dart';
+import '../../features/series/presentation/series_announcements_screen.dart';
 import '../../features/series/presentation/series_approvals_screen.dart';
 import '../../features/series/presentation/series_audit_screen.dart';
 import '../../features/series/presentation/series_club_create_screen.dart';
@@ -74,6 +75,7 @@ import '../../features/series/presentation/series_create_screen.dart';
 import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_list_screen.dart';
 import '../../features/series/presentation/series_my_requests_screen.dart';
+import '../../features/series/presentation/series_org_dashboard_screen.dart';
 import '../../features/series/presentation/series_propose_match_screen.dart';
 import '../../features/series/presentation/series_propose_tournament_screen.dart';
 import '../../features/series/presentation/series_rankings_screen.dart';
@@ -651,6 +653,18 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'rankings',
                 builder: (_, state) => SeriesRankingsScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'dashboard',
+                builder: (_, state) => SeriesOrgDashboardScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'announcements',
+                builder: (_, state) => SeriesAnnouncementsScreen(
                   seriesId: state.pathParameters['seriesId']!,
                 ),
               ),

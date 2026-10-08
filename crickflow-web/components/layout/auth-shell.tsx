@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import type { ReactNode } from "react";
 import { siteConfig } from "@/config/site";
 

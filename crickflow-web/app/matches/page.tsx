@@ -8,7 +8,8 @@ import { FilterChip } from "@/components/shared/filter-chip";
 import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
 import { Input } from "@/components/ui/input";
-import { searchHaystack } from "@/lib/utils";import { listMatches, watchLiveMatches } from "@/repositories";
+import { searchHaystack } from "@/lib/utils";
+import { listMatches, watchLiveMatches } from "@/repositories";
 import type { Match } from "@/types/models";
 import type { MatchStatus } from "@/types/enums";
 
@@ -16,20 +17,39 @@ function MatchesList() {
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
   const [matches, setMatches] = useState<Match[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [take, setTake] = useState(40);
 
   useEffect(() => {
     if (status === "live") {
-      return watchLiveMatches(setMatches, take);
+      return watchLiveMatches((data) => {
+        setMatches(data);
+        setError(null);
+      }, take);
     }
+    let cancelled = false;
     const filter =
       status === "upcoming"
         ? (["scheduled", "tossCompleted"] as MatchStatus[])
         : status === "completed"
           ? ("completed" as MatchStatus)
           : undefined;
-    listMatches({ status: filter, take }).then(setMatches).catch(() => setMatches([]));
+    listMatches({ status: filter, take })
+      .then((data) => {
+        if (cancelled) return;
+        setMatches(data);
+        setError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Match list error:", err);
+        setError(err instanceof Error ? err.message : "Failed to load matches");
+        setMatches([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [status, take]);
 
   const visible = useMemo(() => {
@@ -71,9 +91,24 @@ function MatchesList() {
       <Input className="mt-4 max-w-md" placeholder="Search matches" value={query} onChange={(e) => setQuery(e.target.value)} />
       {matches === null ? (
         <LoadingGrid className="mt-8" />
+      ) : error ? (
+        <div className="mt-8">
+          <EmptyState
+            title="Failed to load matches"
+            description={error}
+            action={
+              <button
+                onClick={() => window.location.reload()}
+                className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Retry
+              </button>
+            }
+          />
+        </div>
       ) : visible.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title="No matches found" />
+          <EmptyState title="No matches found" description={query.trim() ? "Try a different search term" : "No matches available yet"} />
         </div>
       ) : (
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -4,6 +4,14 @@
  */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const {
+  OwnerOpError,
+  seriesOwnerUid,
+  lifecycleNextStatus,
+  validateOwnershipTransfer,
+  validateAnnouncement,
+  announcementRecipients,
+} = require('./seriesOwnerOps');
 
 const COLLECTIONS = {
   series: 'series',
@@ -17,6 +25,7 @@ const COLLECTIONS = {
   clubRankings: 'series_club_rankings',
   playerRankings: 'series_player_rankings',
   audit: 'series_audit_logs',
+  announcements: 'announcements', // subcollection of series/{id}
   matches: 'matches',
   tournaments: 'tournaments',
   users: 'users',
@@ -1586,6 +1595,230 @@ exports.suspendSeriesEntity = onCall(async (request) => {
     newState: { status: 'suspended' },
   });
   return { ok: true };
+});
+
+/** Maps pure-helper errors to HttpsError so clients get a readable message. */
+function rethrowOwnerOp(err) {
+  if (err instanceof OwnerOpError) {
+    throw new HttpsError(err.code, err.message);
+  }
+  throw err;
+}
+
+/**
+ * Owner-only: hand the organization to an existing active admin.
+ * The previous owner stays on as an active admin. Audited + new owner notified.
+ */
+exports.transferSeriesOwnership = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const seriesId = String(request.data?.seriesId || '');
+  const targetUserId = String(request.data?.newOwnerUserId || '').trim();
+  if (!seriesId) {
+    throw new HttpsError('invalid-argument', 'seriesId required');
+  }
+  const firestore = db();
+  const series = await getSeriesOrThrow(firestore, seriesId);
+  const targetRef = firestore.collection(COLLECTIONS.admins)
+    .doc(adminDocId(seriesId, targetUserId || '_'));
+  const targetSnap = targetUserId ? await targetRef.get() : null;
+  let target;
+  try {
+    target = validateOwnershipTransfer({
+      series,
+      actorUid: uid,
+      targetUid: targetUserId,
+      targetAdmin: targetSnap?.exists ? targetSnap.data() : null,
+    });
+  } catch (err) {
+    rethrowOwnerOp(err);
+  }
+
+  const ts = nowIso();
+  const previousOwner = seriesOwnerUid(series);
+  const previousOwnerRef = firestore.collection(COLLECTIONS.admins)
+    .doc(adminDocId(seriesId, previousOwner));
+  const previousOwnerSnap = await previousOwnerRef.get();
+  const batch = firestore.batch();
+  batch.update(firestore.collection(COLLECTIONS.series).doc(seriesId), {
+    superAdminUserId: target,
+    ownershipTransferredAt: ts,
+    previousOwnerUserId: previousOwner,
+    updatedAt: ts,
+  });
+  batch.set(targetRef, {
+    role: 'superAdmin',
+    status: 'active',
+    updatedAt: ts,
+  }, { merge: true });
+  batch.set(previousOwnerRef, {
+    seriesId,
+    userId: previousOwner,
+    role: 'seriesAdmin',
+    status: 'active',
+    updatedAt: ts,
+    ...(previousOwnerSnap.exists ? {} : { createdBy: previousOwner, createdAt: ts, permissions: [] }),
+  }, { merge: true });
+  await batch.commit();
+
+  await writeAudit(firestore, {
+    seriesId,
+    actorUserId: uid,
+    actorRole: 'superAdmin',
+    action: 'OWNERSHIP_TRANSFERRED',
+    targetType: 'series',
+    targetId: seriesId,
+    reason: String(request.data?.reason || '').slice(0, 500),
+    previousState: { ownerUserId: previousOwner },
+    newState: { ownerUserId: target },
+  });
+
+  try {
+    await firestore.collection('notifications').doc().set({
+      userId: target,
+      title: 'You are now the owner',
+      body: `You now own ${series.name || 'an organization'} on CrickFlow.`,
+      type: 'series_ownership_transferred',
+      seriesId,
+      addedByUserId: uid,
+      createdAt: ts,
+      read: false,
+    });
+  } catch (err) {
+    console.error('ownership transfer notify failed', err);
+  }
+
+  return { ok: true, ownerUserId: target, previousOwnerUserId: previousOwner };
+});
+
+/**
+ * Owner-only archive / reactivate. Refused while CrickFlow staff have the
+ * organization on platform hold (`platformHold: true`).
+ */
+exports.setSeriesLifecycle = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const seriesId = String(request.data?.seriesId || '');
+  const action = String(request.data?.action || '');
+  const reason = String(request.data?.reason || '').slice(0, 500);
+  if (!seriesId) {
+    throw new HttpsError('invalid-argument', 'seriesId required');
+  }
+  const firestore = db();
+  const series = await requireSuperAdmin(firestore, seriesId, uid);
+  let next;
+  try {
+    next = lifecycleNextStatus(series, action);
+  } catch (err) {
+    rethrowOwnerOp(err);
+  }
+  const ts = nowIso();
+  await firestore.collection(COLLECTIONS.series).doc(seriesId).update({
+    status: next,
+    updatedAt: ts,
+  });
+  await writeAudit(firestore, {
+    seriesId,
+    actorUserId: uid,
+    actorRole: 'superAdmin',
+    action: action === 'archive' ? 'SERIES_ARCHIVED' : 'SERIES_REACTIVATED',
+    targetType: 'series',
+    targetId: seriesId,
+    reason,
+    previousState: { status: series.status || 'draft' },
+    newState: { status: next },
+  });
+  return { ok: true, status: next };
+});
+
+/**
+ * Series admins post an announcement to members. Stored under
+ * series/{id}/announcements and fanned out as in-app notifications
+ * (push via onNotificationCreated).
+ */
+exports.sendSeriesAnnouncement = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const seriesId = String(request.data?.seriesId || '');
+  if (!seriesId) {
+    throw new HttpsError('invalid-argument', 'seriesId required');
+  }
+  let payload;
+  try {
+    payload = validateAnnouncement(request.data || {});
+  } catch (err) {
+    rethrowOwnerOp(err);
+  }
+  const firestore = db();
+  const series = await requireSeriesAdmin(firestore, seriesId, uid);
+  if (series.status !== 'active') {
+    throw new HttpsError('failed-precondition', 'Only active organizations can send announcements');
+  }
+
+  const rows = async (collection) => {
+    const snap = await firestore.collection(collection)
+      .where('seriesId', '==', seriesId)
+      .where('status', '==', 'active')
+      .limit(2500)
+      .get();
+    return snap.docs.map((d) => d.data());
+  };
+  const needAdmins = payload.audience === 'all' || payload.audience === 'admins';
+  const needClubAdmins = payload.audience === 'all' || payload.audience === 'clubAdmins';
+  const needMembers = payload.audience === 'all' || payload.audience === 'members';
+  const recipients = announcementRecipients({
+    audience: payload.audience,
+    ownerUid: seriesOwnerUid(series),
+    seriesAdmins: needAdmins ? await rows(COLLECTIONS.admins) : [],
+    clubAdmins: needClubAdmins ? await rows(COLLECTIONS.clubAdmins) : [],
+    memberships: needMembers ? await rows(COLLECTIONS.memberships) : [],
+    senderUid: uid,
+  });
+
+  const ts = nowIso();
+  const senderSnap = await firestore.collection(COLLECTIONS.users).doc(uid).get();
+  const sender = senderSnap.exists ? senderSnap.data() : {};
+  const announcementRef = firestore.collection(COLLECTIONS.series).doc(seriesId)
+    .collection(COLLECTIONS.announcements).doc();
+  await announcementRef.set({
+    seriesId,
+    title: payload.title,
+    body: payload.body,
+    audience: payload.audience,
+    createdBy: uid,
+    createdByName: String(sender.displayName || sender.name || ''),
+    recipientCount: recipients.length,
+    createdAt: ts,
+  });
+
+  for (let i = 0; i < recipients.length; i += 400) {
+    const batch = firestore.batch();
+    for (const userId of recipients.slice(i, i + 400)) {
+      batch.set(firestore.collection('notifications').doc(), {
+        userId,
+        title: `${series.name || 'Organization'}: ${payload.title}`,
+        body: payload.body.slice(0, 240),
+        type: 'series_announcement',
+        seriesId,
+        requestId: announcementRef.id,
+        addedByUserId: uid,
+        createdAt: ts,
+        read: false,
+      });
+    }
+    await batch.commit();
+  }
+
+  await writeAudit(firestore, {
+    seriesId,
+    actorUserId: uid,
+    actorRole: isSuperAdmin(series, uid) ? 'superAdmin' : 'seriesAdmin',
+    action: 'ANNOUNCEMENT_SENT',
+    targetType: 'announcement',
+    targetId: announcementRef.id,
+    previousState: {},
+    newState: { audience: payload.audience, recipientCount: recipients.length },
+    metadata: { title: payload.title },
+  });
+
+  return { ok: true, announcementId: announcementRef.id, recipientCount: recipients.length };
 });
 
 exports.getSeriesRegistrationIdentity = onCall(async (request) => {

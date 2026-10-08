@@ -33,11 +33,6 @@ jobs:
           dart format --output=none --set-exit-if-changed .
           flutter analyze --fatal-infos
           flutter test
-      - name: admin
-        working-directory: apps/admin
-        run: |
-          flutter pub get
-          flutter analyze --fatal-infos
       - name: superadmin
         working-directory: apps/superadmin
         run: |
@@ -82,12 +77,6 @@ jobs:
           ADMIN_BUILD_NUMBER: ${{ steps.meta.outputs.build_number }}
         run: |
           (cd apps/admin_core && flutter pub get)
-          (cd apps/admin && flutter pub get && flutter build web --release \
-            --dart-define=ADMIN_ENV=staging \
-            --dart-define=ADMIN_VERSION=$ADMIN_VERSION \
-            --dart-define=ADMIN_BUILD_NUMBER=$ADMIN_BUILD_NUMBER \
-            --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
-            --dart-define=ADMIN_GIT_REF=${{ github.ref_name }})
           (cd apps/superadmin && flutter pub get && flutter build web --release \
             --dart-define=ADMIN_ENV=staging \
             --dart-define=ADMIN_VERSION=$ADMIN_VERSION \
@@ -99,7 +88,6 @@ jobs:
         with:
           name: admin-web-${{ steps.meta.outputs.version }}-${{ github.run_number }}
           path: |
-            apps/admin/build/web
             apps/superadmin/build/web
             release-notes-preview.md
           retention-days: 30

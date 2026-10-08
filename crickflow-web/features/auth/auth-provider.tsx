@@ -16,7 +16,6 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase/client";
 import {
   confirmPhoneVerificationCode,
-  normalizePhoneE164,
   sendPhoneVerificationCode,
 } from "@/lib/firebase/phone-auth";
 import { getUserProfile, upsertUserProfile } from "@/repositories";

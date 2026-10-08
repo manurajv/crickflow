@@ -3,7 +3,7 @@
 Independent **consumer web platform** for CrickFlow. Shares the existing Firebase project (`crickflow-b06bc`) with the mobile app. Does **not** modify:
 
 - Flutter mobile app (`lib/`)
-- Admin / Super Admin (`apps/admin`, `apps/superadmin`)
+- Admin / Super Admin (`apps/superadmin`)
 - Root `firebase.json` Hosting (App Links + `/live` scorecard)
 
 Tracking lives here only:

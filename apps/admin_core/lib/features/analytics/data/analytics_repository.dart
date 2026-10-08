@@ -38,21 +38,9 @@ class AnalyticsRepository {
     required AnalyticsFilters filters,
     bool forceRefresh = false,
   }) async {
-    final scoped = appType == AdminAppType.organizationAdmin;
-    final orgId = scoped
-        ? (actor?.organizationId ?? '')
-        : (filters.organizationId?.trim().isNotEmpty == true
-            ? filters.organizationId!.trim()
-            : null);
-
-    if (scoped && (orgId == null || orgId.isEmpty)) {
-      return _emptySnapshot(
-        filters: filters,
-        scoped: true,
-        organizationId: null,
-        note: 'Organization Admin accounts require organizationId.',
-      );
-    }
+    final orgId = filters.organizationId?.trim().isNotEmpty == true
+        ? filters.organizationId!.trim()
+        : null;
 
     final effective = filters.copyWith(
       organizationId: orgId,
@@ -154,9 +142,8 @@ class AnalyticsRepository {
     final reportsDiscover = await _count(
       _db.collection(AdminCollections.opportunityPostReports),
     );
-    // Org admins: report collections may lack organizationId — show 0 when scoped
     // unless we can attribute later via BigQuery.
-    final reportsTotal = scoped ? 0 : reportsCommunity + reportsDiscover;
+    final reportsTotal = reportsCommunity + reportsDiscover;
 
     final usersInRange = _docsInRange(userDocs, 'createdAt', range);
     final usersPrev = _docsInRange(userDocs, 'createdAt', prev);
@@ -265,7 +252,6 @@ class AnalyticsRepository {
         label: 'Reports Received',
         value: reportsTotal,
         previousValue: reportsTotal,
-        subtitle: scoped ? 'Global reports hidden for org scope' : null,
       ),
     ];
 
@@ -283,7 +269,7 @@ class AnalyticsRepository {
           end: DateTime.now(),
         ),
       ).length,
-      reportsReceivedToday: scoped ? 0 : reportsTotal,
+      reportsReceivedToday: reportsTotal,
       updatedAt: DateTime.now(),
     );
 
@@ -312,7 +298,7 @@ class AnalyticsRepository {
     final snapshot = AnalyticsSnapshot(
       filters: effective,
       generatedAt: DateTime.now(),
-      scoped: scoped || orgId != null,
+      scoped: orgId != null,
       organizationId: orgId,
       overviewKpis: overviewKpis,
       realtime: realtime,
@@ -582,11 +568,7 @@ class AnalyticsRepository {
     required AdminUser? actor,
     String? organizationId,
   }) async {
-    final scoped = appType == AdminAppType.organizationAdmin;
-    final orgId = scoped ? actor?.organizationId : organizationId;
-    if (scoped && (orgId == null || orgId.isEmpty)) {
-      return const AnalyticsRealtimeSnapshot();
-    }
+    final orgId = organizationId;
 
     final matchesQ = _scoped(_db.collection(AdminCollections.matches), orgId);
 
@@ -653,39 +635,6 @@ class AnalyticsRepository {
     return k.isEmpty ? '—' : k.first.formattedValue;
   }
 
-  AnalyticsSnapshot _emptySnapshot({
-    required AnalyticsFilters filters,
-    required bool scoped,
-    required String? organizationId,
-    String? note,
-  }) {
-    return AnalyticsSnapshot(
-      filters: filters,
-      generatedAt: DateTime.now(),
-      scoped: scoped,
-      organizationId: organizationId,
-      overviewKpis: const [],
-      realtime: const AnalyticsRealtimeSnapshot(),
-      dauSeries: const [],
-      mauSeries: const [],
-      registrationsSeries: const [],
-      matchesPerDaySeries: const [],
-      streamsPerDaySeries: const [],
-      tournamentGrowthSeries: const [],
-      communityActivitySeries: const [],
-      adPerformanceSeries: const [],
-      userAnalytics: const UserAnalyticsBlock(),
-      matchAnalytics: const MatchAnalyticsBlock(),
-      tournamentAnalytics: const TournamentAnalyticsBlock(),
-      teamAnalytics: const TeamAnalyticsBlock(),
-      playerAnalytics: const PlayerAnalyticsBlock(),
-      streamingAnalytics: const StreamingAnalyticsBlock(),
-      communityAnalytics: const CommunityAnalyticsBlock(),
-      adAnalytics: const AdAnalyticsBlock(),
-      revenueAnalytics: const RevenueAnalyticsBlock(),
-      dataQualityNote: note,
-    );
-  }
 
   String _key(AdminAppType appType, String? orgId, AnalyticsFilters f) {
     final r = f.resolveRange();

@@ -85,3 +85,61 @@ export async function uploadOpportunityImages(userId: string, files: File[]) {
 export async function uploadUserProfilePhoto(userId: string, file: File) {
   return uploadJpeg(userProfileImagePath(userId), file, PROFILE_IMAGE_MAX_BYTES);
 }
+
+export const SERIES_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+export function seriesLogoPath(seriesId: string, userId: string) {
+  return `series/${seriesId}/logo_${userId}.jpg`;
+}
+
+export function seriesCoverPath(seriesId: string, userId: string) {
+  return `series/${seriesId}/cover_${userId}.jpg`;
+}
+
+export function seriesRegistrationImagePath(
+  seriesId: string,
+  userId: string,
+  kind: "photo" | "doc",
+) {
+  const stamp = Date.now();
+  return `series/${seriesId}/${kind}_${userId}_${stamp}.jpg`;
+}
+
+export async function uploadSeriesLogo(seriesId: string, userId: string, file: File) {
+  return uploadJpeg(seriesLogoPath(seriesId, userId), file, SERIES_IMAGE_MAX_BYTES);
+}
+
+export async function uploadSeriesCover(seriesId: string, userId: string, file: File) {
+  return uploadJpeg(seriesCoverPath(seriesId, userId), file, SERIES_IMAGE_MAX_BYTES);
+}
+
+export async function uploadSeriesRegistrationImage(
+  seriesId: string,
+  userId: string,
+  file: File,
+  kind: "photo" | "doc" = "photo",
+) {
+  return uploadJpeg(seriesRegistrationImagePath(seriesId, userId, kind), file, SERIES_IMAGE_MAX_BYTES);
+}
+
+// Team images
+export const TEAM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+export function teamLogoPath(teamId: string, userId: string) {
+  return `teams/${teamId}/logo_${userId}.jpg`;
+}
+
+export async function uploadTeamLogo(teamId: string, userId: string, file: File) {
+  return uploadJpeg(teamLogoPath(teamId, userId), file, TEAM_IMAGE_MAX_BYTES);
+}
+
+// Tournament images
+export const TOURNAMENT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+export function tournamentBannerPath(tournamentId: string, userId: string) {
+  return `tournaments/${tournamentId}/banner_${userId}.jpg`;
+}
+
+export async function uploadTournamentBanner(tournamentId: string, userId: string, file: File) {
+  return uploadJpeg(tournamentBannerPath(tournamentId, userId), file, TOURNAMENT_IMAGE_MAX_BYTES);
+}

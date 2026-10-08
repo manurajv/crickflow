@@ -170,6 +170,15 @@ final seriesAuditLogsProvider =
       return ref.watch(seriesAuditRepositoryProvider).watchAuditLogs(seriesId);
     });
 
+final seriesAnnouncementsProvider =
+    StreamProvider.family<List<SeriesAnnouncementModel>, String>((
+      ref,
+      seriesId,
+    ) {
+      if (seriesId.isEmpty) return Stream.value(const []);
+      return ref.watch(seriesRepositoryProvider).watchAnnouncements(seriesId);
+    });
+
 final _seriesAdminsProvider = seriesAdminsListProvider;
 
 final _clubAdminsProvider =

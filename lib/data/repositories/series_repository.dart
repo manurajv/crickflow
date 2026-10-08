@@ -81,6 +81,24 @@ class SeriesRepository {
         );
   }
 
+  /// Latest member announcements (written by `sendSeriesAnnouncement`).
+  Stream<List<SeriesAnnouncementModel>> watchAnnouncements(
+    String seriesId, {
+    int limit = 50,
+  }) {
+    return _series
+        .doc(seriesId)
+        .collection('announcements')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => SeriesAnnouncementModel.fromMap(doc.id, doc.data()))
+              .toList(),
+        );
+  }
+
   /// Creates a user-owned draft only; super-admin stamping uses [createSeries].
   Future<SeriesModel> createSeriesDraft(SeriesModel series) async {
     final ref = series.id.isEmpty ? _series.doc() : _series.doc(series.id);

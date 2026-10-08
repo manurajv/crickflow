@@ -4,18 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import { EntityCard } from "@/components/shared/cards";
 import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
-import { GetTheApp } from "@/components/shared/get-the-app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { locationLabel } from "@/lib/cricket/format";
 import { searchScore } from "@/lib/utils";
 import { listTeams } from "@/repositories";
+import { CreateTeamForm } from "@/features/teams/create-team-form";
+import { useAuth } from "@/features/auth/auth-provider";
 import type { Team } from "@/types/models";
 
 export default function TeamsPage() {
+  const { user } = useAuth();
   const [teams, setTeams] = useState<Team[] | null>(null);
   const [query, setQuery] = useState("");
   const [take, setTake] = useState(40);
+  const [showCreate, setShowCreate] = useState(false);
   useEffect(() => {
     listTeams(take).then(setTeams).catch(() => setTeams([]));
   }, [take]);
@@ -38,9 +41,17 @@ export default function TeamsPage() {
         eyebrow="Clubs & squads"
         description="Browse cricket teams, follow your favourites, and see their match records."
       />
-      <div className="mt-4">
-        <GetTheApp title="Create a team in the CrickFlow app" />
-      </div>
+      {user && (
+        <div className="mt-4">
+          {showCreate ? (
+            <CreateTeamForm onClose={() => { setShowCreate(false); listTeams(take).then(setTeams).catch(() => setTeams([])); }} />
+          ) : (
+            <Button onClick={() => setShowCreate(true)} className="w-full sm:w-auto">
+              Create a team
+            </Button>
+          )}
+        </div>
+      )}
       <Input className="mt-4 max-w-md" placeholder="Search teams" value={query} onChange={(e) => setQuery(e.target.value)} />
       {teams === null ? (
         <LoadingGrid count={8} className="mt-8 md:grid-cols-2" />

@@ -12,11 +12,12 @@ abstract final class AdminRoutePermissions {
   static const Map<String, AdminPermission?> _map = {
     AdminRoutePaths.dashboard: AdminPermission.canViewDashboard,
     AdminRoutePaths.users: AdminPermission.canManageUsers,
+    AdminRoutePaths.admins: AdminPermission.canManageSecurity,
     AdminRoutePaths.teams: AdminPermission.canManageTeams,
     AdminRoutePaths.players: AdminPermission.canManagePlayers,
     AdminRoutePaths.matches: AdminPermission.canManageMatches,
     AdminRoutePaths.tournaments: AdminPermission.canManageTournaments,
-    AdminRoutePaths.series: AdminPermission.canAccessGlobalData,
+    AdminRoutePaths.orgs: AdminPermission.canManageOrganizations,
     AdminRoutePaths.grounds: AdminPermission.canManageGrounds,
     AdminRoutePaths.community: AdminPermission.canModerateCommunity,
     AdminRoutePaths.discover: AdminPermission.canManageDiscover,
@@ -37,7 +38,6 @@ abstract final class AdminRoutePermissions {
     // Reports uses [anyOf] — kept here only for documentation / tooling.
     AdminRoutePaths.reports: AdminPermission.canViewReports,
     AdminRoutePaths.logs: AdminPermission.canViewLogs,
-    AdminRoutePaths.organizations: AdminPermission.canManageOrganizations,
     AdminRoutePaths.settings: AdminPermission.canManageSettings,
     AdminRoutePaths.profile: AdminPermission.canViewProfile,
     AdminRoutePaths.accountSettings: AdminPermission.canManageAccount,
