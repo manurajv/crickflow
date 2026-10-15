@@ -24,7 +24,7 @@ dependencies:
   google_fonts: ^6.2.1
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.2
-  fl_chart: ^0.70.2
+  fl_chart: ^1.2.0
   flutter_markdown: ^0.7.7+1
 
 dev_dependencies:
