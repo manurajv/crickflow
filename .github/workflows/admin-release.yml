@@ -54,7 +54,7 @@ jobs:
         env:
           TAG: ${{ steps.tag.outputs.tag }}
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: CrickFlow Admin ${{ steps.tag.outputs.tag }}
