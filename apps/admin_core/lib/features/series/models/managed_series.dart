@@ -126,6 +126,7 @@ class SeriesInvestigation {
     required this.clubs,
     required this.approvals,
     required this.auditLogs,
+    this.competitions = const [],
   });
 
   final ManagedSeries series;
@@ -135,6 +136,9 @@ class SeriesInvestigation {
 
   /// Newest first.
   final List<SeriesRow> auditLogs;
+
+  /// Org tournaments and matches (`series_competitions`).
+  final List<SeriesRow> competitions;
 
   int get pendingApprovals =>
       approvals.where((a) => a.str('status') == 'pending').length;

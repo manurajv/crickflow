@@ -53,6 +53,12 @@ class SeriesAdminRepository {
             .where('seriesId', isEqualTo: seriesId)
             .limit(200),
       ),
+      _safe(
+        _db
+            .collection('series_competitions')
+            .where('seriesId', isEqualTo: seriesId)
+            .limit(200),
+      ),
     ]);
     final doc = results[0]! as DocumentSnapshot<Map<String, dynamic>>;
     if (!doc.exists || doc.data() == null) return null;
@@ -69,6 +75,7 @@ class SeriesAdminRepository {
       clubs: rows(2),
       approvals: rows(3),
       auditLogs: audit,
+      competitions: rows(5),
     );
   }
 

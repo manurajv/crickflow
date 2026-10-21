@@ -468,7 +468,7 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
           maxHeight: size.height * 0.88,
         ),
         child: DefaultTabController(
-          length: 5,
+          length: 6,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -552,6 +552,7 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
             const Tab(text: 'Overview'),
             Tab(text: 'Admins (${inv.admins.length})'),
             Tab(text: 'Teams (${inv.clubs.length})'),
+            Tab(text: 'Fixtures (${inv.competitions.length})'),
             Tab(text: 'Approvals (${inv.pendingApprovals} pending)'),
             Tab(text: 'Audit (${inv.auditLogs.length})'),
           ],
@@ -617,6 +618,43 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
                             child: const Text('Restore'),
                           ),
                       ],
+                    ),
+                  );
+                },
+              ),
+              _list(
+                inv.competitions,
+                empty: 'No tournaments or matches in this org yet.',
+                build: (r) {
+                  final isTournament = r.str('type') == 'tournament';
+                  final status = r.str('status', 'pendingApproval');
+                  final ref = isTournament
+                      ? r.str('tournamentId')
+                      : r.str('matchId');
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(
+                      isTournament
+                          ? Icons.emoji_events_outlined
+                          : Icons.sports_cricket_outlined,
+                    ),
+                    title: Text(
+                      r.str('title').isEmpty
+                          ? (isTournament ? 'Tournament' : 'Match')
+                          : r.str('title'),
+                    ),
+                    subtitle: SelectableText(
+                      '${isTournament ? 'Tournament' : 'Match'}'
+                      '${ref.isEmpty ? '' : ' $ref'} · by '
+                      '${r.str('createdBy', '—')}'
+                      '${when(r, 'createdAt').isEmpty ? '' : ' · ${when(r, 'createdAt')}'}',
+                    ),
+                    trailing: CfStatusBadge(
+                      label: status == 'pendingApproval' ? 'pending' : status,
+                      compact: true,
+                      tone: _statusTone(
+                        status == 'pendingApproval' ? 'pending' : status,
+                      ),
                     ),
                   );
                 },
