@@ -174,14 +174,31 @@ function tournamentTeamsPatch(tournament, teamRows) {
  * match directly or through its tournament. Match-doc flags alone are not
  * trusted because scorers can write them.
  */
+function isQuickMatch(match) {
+  return !!match && match.matchMode === 'quick';
+}
+
+/** Orgs only allow normal matches (also inside org tournaments). */
+function assertNotQuick(match) {
+  if (isQuickMatch(match)) {
+    throw new CompetitionOpError(
+      'failed-precondition',
+      'Quick matches are not allowed in orgs. Start a normal match instead.',
+    );
+  }
+}
+
 function competitionCoversMatch(comp, match) {
   if (!comp || !match || comp.status !== 'approved') return false;
+  if (isQuickMatch(match)) return false;
   if (!match.seriesId || comp.seriesId !== match.seriesId) return false;
   if (comp.matchId && comp.matchId === match.id) return true;
   return !!comp.tournamentId && comp.tournamentId === match.tournamentId;
 }
 
 module.exports = {
+  isQuickMatch,
+  assertNotQuick,
   competitionCoversMatch,
   CompetitionOpError,
   DEFAULT_POLICY,

@@ -76,4 +76,10 @@ assert.strictEqual(ops.competitionCoversMatch({ status: 'approved', seriesId: 'x
 assert.strictEqual(ops.competitionCoversMatch({ status: 'approved', seriesId: 's', matchId: 'm2' }, m), false);
 assert.strictEqual(ops.competitionCoversMatch(null, m), false);
 
+// Quick matches never belong to an org.
+throwsCode(() => ops.assertNotQuick({ matchMode: 'quick' }), 'failed-precondition');
+ops.assertNotQuick({ matchMode: 'normal' });
+ops.assertNotQuick({});
+assert.strictEqual(ops.competitionCoversMatch({ status: 'approved', seriesId: 's', matchId: 'm1' }, { ...m, matchMode: 'quick' }), false);
+
 console.log('seriesCompetitionOps tests passed');

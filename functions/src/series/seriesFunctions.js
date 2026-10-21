@@ -645,7 +645,9 @@ exports.reviewSeriesApproval = onCall(async (request) => {
   const seriesId = String(request.data?.seriesId || '');
   const approvalId = String(request.data?.approvalId || '');
   const decision = String(request.data?.decision || '').toLowerCase();
-  const reason = String(request.data?.reason || '');
+  // New clients require a reason in the UI; older builds send none.
+  const reason = String(request.data?.reason || '').trim().slice(0, 500) ||
+    (String(request.data?.decision || '').toLowerCase() === 'rejected' ? 'No reason given' : '');
   if (!seriesId || !approvalId || !['approved', 'rejected'].includes(decision)) {
     throw new HttpsError('invalid-argument', 'Invalid review payload');
   }
@@ -667,9 +669,16 @@ exports.reviewSeriesApproval = onCall(async (request) => {
   if (approval.status !== 'pending') {
     throw new HttpsError('failed-precondition', 'Approval already reviewed');
   }
-  if (decision === 'rejected' && ['match', 'tournament'].includes(approval.targetType) &&
-      !reason.trim()) {
-    throw new HttpsError('invalid-argument', 'Give a reason when rejecting a request');
+  if (decision === 'approved' && approval.targetType === 'match') {
+    const compSnap = await firestore.collection(COLLECTIONS.competitions).doc(approval.targetId).get();
+    const mid = compSnap.data()?.matchId;
+    const mSnap = mid ? await firestore.collection(COLLECTIONS.matches).doc(mid).get() : null;
+    if (mSnap && competitionOps.isQuickMatch(mSnap.data())) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Quick matches are not allowed in orgs. Reject this request instead.',
+      );
+    }
   }
 
   const ts = nowIso();
@@ -1380,6 +1389,12 @@ exports.proposeSeriesMatch = onCall(async (request) => {
   const officialStatus = autoApprove ? 'approved' : 'pendingApproval';
   const compRef = firestore.collection(COLLECTIONS.competitions).doc();
   let matchId = request.data?.matchId || null;
+  if (matchId) {
+    const existing = await firestore.collection(COLLECTIONS.matches).doc(String(matchId)).get();
+    if (competitionOps.isQuickMatch(existing.data())) {
+      throw new HttpsError('failed-precondition', 'Quick matches are not allowed in orgs. Start a normal match instead.');
+    }
+  }
 
   const clubASnap = await firestore.collection(COLLECTIONS.clubs).doc(clubAId).get();
   const clubBSnap = await firestore.collection(COLLECTIONS.clubs).doc(clubBId).get();
@@ -1994,8 +2009,16 @@ exports.startSeriesTournament = onCall(async (request) => {
  */
 exports.startSeriesMatch = onCall(async (request) => {
   const uid = requireAuth(request);
-  const seriesId = String(request.data?.seriesId || '');
-  const matchId = String(request.data?.matchId || '');
+  return registerSeriesMatchCore(uid, request.data || {});
+});
+
+/**
+ * Shared by the startSeriesMatch callable and the onMatchCompleted fallback
+ * (which acts as the match creator, with the same permission checks).
+ */
+async function registerSeriesMatchCore(uid, data) {
+  const seriesId = String(data?.seriesId || '');
+  const matchId = String(data?.matchId || '');
   if (!seriesId || !matchId) {
     throw new HttpsError('invalid-argument', 'seriesId and matchId required');
   }
@@ -2008,6 +2031,11 @@ exports.startSeriesMatch = onCall(async (request) => {
   if (!match) throw new HttpsError('not-found', 'Match not found');
   if (!competitionOps.canRegisterMatch(match, uid)) {
     throw new HttpsError('permission-denied', 'Only the match creator or scorer can add it to an org');
+  }
+  try {
+    competitionOps.assertNotQuick(match);
+  } catch (err) {
+    throw competitionHttpsError(err);
   }
   if (match.seriesId === seriesId && match.seriesOfficialStatus &&
       match.seriesOfficialStatus !== 'rejected') {
@@ -2079,10 +2107,18 @@ exports.startSeriesMatch = onCall(async (request) => {
   }
 
   const status = access.autoApprove ? 'approved' : 'pendingApproval';
-  const compRef = firestore.collection(COLLECTIONS.competitions).doc();
+  const fixedRef = firestore.collection(COLLECTIONS.competitions).doc(`match_${matchId}`);
+  const fixedSnap = await fixedRef.get();
+  if (fixedSnap.exists && fixedSnap.data()?.status !== 'rejected') {
+    const d = fixedSnap.data();
+    return { competitionId: fixedRef.id, status: d.status, autoApproved: d.status === 'approved', already: true };
+  }
+  const compRef = fixedSnap.exists
+    ? firestore.collection(COLLECTIONS.competitions).doc()
+    : fixedRef;
   const title = match.title || `${clubA.name || 'Team A'} vs ${clubB.name || 'Team B'}`;
   const batch = firestore.batch();
-  batch.set(compRef, {
+  batch.create(compRef, {
     seriesId,
     type: 'singleMatch',
     title,
@@ -2111,7 +2147,15 @@ exports.startSeriesMatch = onCall(async (request) => {
       updatedAt: ts,
     });
   }
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (err) {
+    // Client retry and the completion fallback raced: the first one won.
+    if (err && (err.code === 6 || err.code === 'already-exists')) {
+      return { competitionId: compRef.id, status, autoApproved: access.autoApprove, already: true };
+    }
+    throw err;
+  }
 
   let approvalId = null;
   if (access.autoApprove) {
@@ -2165,7 +2209,7 @@ exports.startSeriesMatch = onCall(async (request) => {
     status,
     autoApproved: access.autoApprove,
   };
-});
+}
 
 /** Owner-only: who may request and whether requests need approval. */
 exports.updateSeriesCompetitionPolicy = onCall(async (request) => {
@@ -2218,6 +2262,7 @@ async function applyTournamentDecision(firestore, { seriesId, compId, tournament
   const byTeam = competitionOps.playableTeamsByLinkedId(clubs);
   for (const d of mSnap.docs) {
     const m = { id: d.id, ...d.data() };
+    if (competitionOps.isQuickMatch(m)) continue;
     if (decision !== 'approved') {
       if (m.seriesId === seriesId) {
         await d.ref.set({
@@ -2271,6 +2316,7 @@ async function applyMatchDecision(firestore, { seriesId, matchId, decision, ts }
 }
 
 exports.applyTournamentDecision = applyTournamentDecision;
+exports.registerSeriesMatchCore = registerSeriesMatchCore;
 
 exports.COLLECTIONS = COLLECTIONS;
 exports.clubRankingDocId = clubRankingDocId;

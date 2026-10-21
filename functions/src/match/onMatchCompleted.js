@@ -70,6 +70,7 @@ async function isApprovedOrgMatch(match) {
 
 /** Stamp org fields from the match's org tournament (approved only). */
 async function inheritTournamentSeries(matchId, match) {
+  if (match.matchMode === 'quick') return match;
   const tSnap = await db.collection('tournaments').doc(match.tournamentId).get();
   const t = tSnap.data();
   if (!t || !t.seriesId || t.seriesOfficialStatus !== 'approved') return match;
@@ -164,7 +165,21 @@ exports.onMatchCompleted = onDocumentUpdated(
 
     // Matches of an approved org tournament count for the org too.
     let seriesMatch = matchWithInnings;
-    if (!after.seriesId && after.tournamentId) {
+    // Fallback: started inside an org while offline and never registered.
+    // Runs the same checks as the startSeriesMatch callable, as the creator.
+    if (after.orgRequestSeriesId && !after.seriesId && after.createdBy) {
+      try {
+        const { registerSeriesMatchCore } = require('../series/seriesFunctions');
+        await registerSeriesMatchCore(after.createdBy, {
+          seriesId: after.orgRequestSeriesId,
+          matchId,
+        });
+        const fresh = await db.collection('matches').doc(matchId).get();
+        seriesMatch = { ...matchWithInnings, ...fresh.data(), id: matchId, innings: derivedInnings };
+      } catch (err) {
+        console.warn('org registration fallback refused', matchId, err?.message || err);
+      }
+    } else if (!after.seriesId && after.tournamentId) {
       try {
         seriesMatch = await inheritTournamentSeries(matchId, matchWithInnings);
       } catch (err) {

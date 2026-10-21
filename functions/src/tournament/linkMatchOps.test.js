@@ -32,3 +32,15 @@ throwsCode(
   'permission-denied',
 );
 console.log('linkMatchOps tests passed');
+
+// Org tournaments refuse quick matches; normal org matches of the same org are fine.
+{
+  const orgT = { createdBy: 'u', teamIds: ['a', 'b'], seriesId: 's1', seriesOfficialStatus: 'approved' };
+  let code = null;
+  try {
+    validateLink({ tournamentId: 'T', tournament: orgT, match: { teamAId: 'a', teamBId: 'b', matchMode: 'quick', status: 'completed' }, uid: 'u' });
+  } catch (e) { code = e.code; }
+  if (code !== 'failed-precondition') throw new Error('quick match should be refused for org tournaments, got ' + code);
+  validateLink({ tournamentId: 'T', tournament: orgT, match: { teamAId: 'a', teamBId: 'b', tournamentId: 'T', seriesId: 's1', matchMode: 'normal' }, uid: 'u', registerOnly: true });
+  console.log('linkMatchOps org tests passed');
+}

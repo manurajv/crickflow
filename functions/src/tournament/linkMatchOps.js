@@ -63,7 +63,15 @@ function validateLink({
       'Match already belongs to another tournament',
     );
   }
-  if (match.seriesId) {
+  const orgLinked = !!tournament.seriesId && tournament.seriesOfficialStatus !== 'rejected';
+  if (orgLinked && match.matchMode === 'quick') {
+    throw new LinkMatchError(
+      'failed-precondition',
+      'Quick matches are not allowed in org tournaments. Start a normal match instead.',
+    );
+  }
+  // Org match started inside its own org tournament is fine.
+  if (match.seriesId && match.seriesId !== tournament.seriesId) {
     throw new LinkMatchError(
       'failed-precondition',
       'Series matches cannot be added to a tournament',
