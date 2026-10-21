@@ -1,6 +1,6 @@
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { pickMatchHero } = require('../utils/badges');
+const { pickMatchHero, isEligibleHero } = require('../utils/badges');
 const { evaluateMatchBadges, applyBadgeAwards } = require('../utils/badgeProgression');
 const { updateTournamentStandings } = require('../utils/tournament');
 const { updateSeriesRankings } = require('../series/updateSeriesRankings');
@@ -109,16 +109,19 @@ exports.onMatchCompleted = onDocumentUpdated(
       for (const a of awards) awardedBadgeIds.add(a.badgeId);
     }
 
-    const hero =
-      after.matchHero ||
-      pickMatchHero({ ...after, innings: derivedInnings });
+    // Keep the app-computed hero only when it is a valid Man of the Match
+    // (winning side on decided results); otherwise recompute.
+    const heroMatch = { ...after, innings: derivedInnings };
+    const hero = isEligibleHero(heroMatch, after.matchHero)
+      ? after.matchHero
+      : pickMatchHero(heroMatch);
     const badgeIds = [...awardedBadgeIds];
 
     batch.update(event.data.after.ref, {
       statsProcessed: true,
       badgeIds,
       matchHero: hero,
-      playerOfMatchId: hero?.playerId || after.playerOfMatchId || null,
+      playerOfMatchId: hero?.playerId || null,
       statsSource: useEvents ? 'ball_events' : 'innings_cache',
       updatedAt: new Date().toISOString(),
     });

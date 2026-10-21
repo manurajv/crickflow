@@ -1484,7 +1484,6 @@ class MatchRepository {
     final match = await getMatch(matchId);
     if (match == null) return null;
 
-    final hero = _badgeService.pickMatchHero(match);
     final badgeIds = <String>[];
     for (final inn in match.innings) {
       final badges = _badgeService.evaluateInningsBadges(
@@ -1497,6 +1496,8 @@ class MatchRepository {
 
     final result = MatchCompletionPolicy.compute(match);
     final winnerId = match.winnerTeamId ?? result.winnerTeamId;
+    // Man of the Match comes from the winning side on decided results.
+    final hero = _badgeService.pickMatchHero(match, winnerTeamId: winnerId);
     final storedSummary = match.resultSummary.trim();
     final useStored =
         storedSummary.isNotEmpty &&

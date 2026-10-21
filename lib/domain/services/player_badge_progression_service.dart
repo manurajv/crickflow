@@ -4,6 +4,7 @@ import '../../core/utils/overs_formatter.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/player_model.dart';
+import 'badge_service.dart';
 import 'player_cricket_profile_models.dart';
 
 /// Match + career badge progression — highest eligible only, no cascade unlocks.
@@ -492,7 +493,7 @@ class PlayerBadgeProgressionService {
           snapshot: '$matchWickets wickets',
         );
       }
-      if (match.playerOfMatchId == playerId) {
+      if (BadgeService.isEligibleManOfTheMatch(match, playerId)) {
         _unlockOneTime(
           records: records,
           badgeId: 'first_motm',
@@ -523,7 +524,10 @@ class PlayerBadgeProgressionService {
         }
       }
 
-      if (match.tournamentId != null && match.winnerTeamId != null) {
+      final winnerId = BadgeService.decidedWinnerTeamId(match);
+      final onWinningSide = winnerId != null &&
+          BadgeService.playerTeamIds(match, playerId).contains(winnerId);
+      if (match.tournamentId != null && onWinningSide) {
         _unlockOneTime(
           records: records,
           badgeId: 'tournament_winner',
@@ -533,8 +537,9 @@ class PlayerBadgeProgressionService {
         );
         final setup = match.setup;
         if (setup != null) {
-          final isCap = setup.teamACaptainId == playerId ||
-              setup.teamBCaptainId == playerId;
+          final isCap = winnerId == match.teamAId
+              ? setup.teamACaptainId == playerId
+              : setup.teamBCaptainId == playerId;
           if (isCap) {
             _unlockOneTime(
               records: records,
@@ -810,7 +815,7 @@ class PlayerBadgeProgressionService {
 
     var potmStreak = 0;
     for (final match in matches) {
-      if (match.playerOfMatchId == playerId) {
+      if (BadgeService.isEligibleManOfTheMatch(match, playerId)) {
         potmStreak += 1;
         if (potmStreak >= 2) {
           _addAchievement(
@@ -848,7 +853,7 @@ class PlayerBadgeProgressionService {
 
     for (final match in matches) {
       if (!match.rules.superOverEnabled) continue;
-      if (match.playerOfMatchId != playerId) continue;
+      if (!BadgeService.isEligibleManOfTheMatch(match, playerId)) continue;
       _addAchievement(
         records: records,
         badgeId: 'super_over_hero',
