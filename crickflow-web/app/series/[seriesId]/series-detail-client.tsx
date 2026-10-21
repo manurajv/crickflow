@@ -149,7 +149,7 @@ export function SeriesDetailPage() {
       setJoinNationalIdDoc(null);
       setJoinPassportDoc(null);
     } catch (err) {
-      console.error("Join club failed:", err);
+      console.error("Join team failed:", err);
       window.alert("Could not submit join request. Please try again.");
     } finally {
       setUploadingRegDoc(false);
@@ -183,7 +183,7 @@ export function SeriesDetailPage() {
           </p>
         ) : null}
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <span>{series.clubCount} clubs</span>
+          <span>{series.clubCount} teams</span>
           <span>·</span>
           <span>{series.playerCount} players</span>
           <span>·</span>
@@ -202,7 +202,7 @@ export function SeriesDetailPage() {
         <nav className="flex flex-wrap gap-2 border-b border-border">
           {([
             ["overview", "Overview"],
-            ["clubs", "Clubs"],
+            ["clubs", "Teams"],
             ["players", "Players"],
             ["approvals", "Approvals"],
             ["fixtures", "Fixtures"],
@@ -227,9 +227,9 @@ export function SeriesDetailPage() {
       {activeTab === "clubs" && (
         <>
           <section>
-            <h2 className="mb-3 text-xl font-bold">Clubs</h2>
+            <h2 className="mb-3 text-xl font-bold">Teams</h2>
             {!clubs.length ? (
-              <EmptyState title="No clubs published" />
+              <EmptyState title="No teams published" />
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 {clubs.map((club) => (
@@ -261,11 +261,11 @@ export function SeriesDetailPage() {
           {user ? (
             <section className="grid gap-6 lg:grid-cols-2">
               <Card className="space-y-3 p-4">
-                <h2 className="text-lg font-bold">Create club</h2>
+                <h2 className="text-lg font-bold">Create team</h2>
                 <form className="space-y-3" onSubmit={onCreateClub}>
                   <input
                     className="w-full rounded-md border border-border bg-background px-3 py-2"
-                    placeholder="Club name"
+                    placeholder="Team name"
                     value={clubName}
                     onChange={(e) => setClubName(e.target.value)}
                     required
@@ -282,7 +282,7 @@ export function SeriesDetailPage() {
                 </form>
               </Card>
               <Card className="space-y-3 p-4">
-                <h2 className="text-lg font-bold">Register & join club</h2>
+                <h2 className="text-lg font-bold">Register & join team</h2>
                 <p className="text-sm text-muted-foreground">
                   Fill in the required information. ID numbers and document photos are private to organization admins.
                 </p>
@@ -293,7 +293,7 @@ export function SeriesDetailPage() {
                     onChange={(e) => setJoinClubId(e.target.value)}
                     required
                   >
-                    <option value="">Select approved club</option>
+                    <option value="">Select approved team</option>
                     {approvedClubs.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -469,7 +469,7 @@ export function SeriesDetailPage() {
               onChange={(e) => setClubAId(e.target.value)}
               required
             >
-              <option value="">Club A</option>
+              <option value="">Team A</option>
               {approvedClubs.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -482,7 +482,7 @@ export function SeriesDetailPage() {
               onChange={(e) => setClubBId(e.target.value)}
               required
             >
-              <option value="">Club B</option>
+              <option value="">Team B</option>
               {approvedClubs.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -610,7 +610,7 @@ export function SeriesDetailPage() {
       {activeTab === "overview" && (
         <>
           <section>
-            <h2 className="mb-3 text-xl font-bold">Club rankings</h2>
+            <h2 className="mb-3 text-xl font-bold">Team rankings</h2>
             {!clubRankings.length ? (
               <EmptyState title="Rankings not published" />
             ) : (
@@ -619,7 +619,7 @@ export function SeriesDetailPage() {
                   <thead className="bg-muted/50 text-left">
                     <tr>
                       <th className="p-3">#</th>
-                      <th>Club</th>
+                      <th>Team</th>
                       <th>P</th>
                       <th>W</th>
                       <th>L</th>
@@ -723,8 +723,8 @@ export function SeriesDetailPage() {
                       </p>
                       {clubReview ? (
                         <p className="text-xs text-muted-foreground">
-                          Club review: {clubReview}
-                          {joinBlocked ? " · waiting on Club Admin" : ""}
+                          Team review: {clubReview}
+                          {joinBlocked ? " · waiting on Team Admin" : ""}
                         </p>
                       ) : null}
                     </div>

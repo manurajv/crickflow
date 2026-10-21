@@ -72,7 +72,7 @@ function mapSeries(id: string, data: Data): Series {
 
 function mapClub(id: string, d: Data): SeriesClub {
   return {
-    id, seriesId: text(d, "seriesId"), name: text(d, "name") || "Club",
+    id, seriesId: text(d, "seriesId"), name: text(d, "name") || "Team",
     description: text(d, "description"), logoUrl: text(d, "logoUrl") || undefined,
     status: text(d, "status"), squadCount: number(d, "squadCount"),
   };

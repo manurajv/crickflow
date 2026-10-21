@@ -53,7 +53,7 @@ export default function SeriesPage() {
       return;
     }
     if (maxSquad < 1 || maxSquad > 50) {
-      window.alert("Max players per club must be between 1 and 50.");
+      window.alert("Max players per team must be between 1 and 50.");
       return;
     }
     if (!requireFullName && !requirePlayerId) {
@@ -302,7 +302,7 @@ export default function SeriesPage() {
                 Squad
               </h3>
               <label className="flex items-center gap-3 text-sm">
-                Max players per club
+                Max players per team
                 <input
                   type="number"
                   min={1}
@@ -345,7 +345,7 @@ export default function SeriesPage() {
 
             <section className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
               <h3 className="sm:col-span-2 md:col-span-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Club ranking points
+                Team ranking points
               </h3>
               {[
                 ["Win", winPoints, setWinPoints],
@@ -427,7 +427,7 @@ export default function SeriesPage() {
               title={series.name}
               subtitle={
                 series.description ||
-                `${series.clubCount} clubs · ${series.playerCount} players`
+                `${series.clubCount} teams · ${series.playerCount} players`
               }
               image={series.coverImageUrl || series.logoUrl}
               meta={`${series.kind.charAt(0).toUpperCase()}${series.kind.slice(1)} · ${series.status}`}
