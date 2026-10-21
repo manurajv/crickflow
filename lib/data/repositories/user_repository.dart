@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/constants/app_constants.dart';
@@ -20,6 +22,28 @@ class UserRepository {
 
   DocumentReference<Map<String, dynamic>> get _playerIdCounter =>
       _firestore.collection('app_meta').doc('cf_player_ids');
+
+  /// Launch-time profile read: server/cache read capped at [timeout], then
+  /// the Firestore cache and the local profile cache. Never blocks startup
+  /// for the Firestore server timeout when the network is slow or offline.
+  Future<UserModel?> getUserFast(
+    String id, {
+    Duration timeout = const Duration(milliseconds: 2500),
+  }) async {
+    try {
+      return await getUser(id).timeout(timeout);
+    } on TimeoutException {
+      try {
+        final cached =
+            await _col.doc(id).get(const GetOptions(source: Source.cache));
+        final data = cached.data();
+        if (cached.exists && data != null) {
+          return UserModel.fromMap(cached.id, data);
+        }
+      } catch (_) {}
+      return _profileCache.readCachedProfile(id);
+    }
+  }
 
   Future<UserModel?> getUser(String id) async {
     try {
