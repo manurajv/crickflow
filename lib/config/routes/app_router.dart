@@ -685,7 +685,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'create',
-            builder: (_, __) => const TournamentCreateFlowScreen(),
+            builder: (_, state) => TournamentCreateFlowScreen(
+              seriesId: state.uri.queryParameters['seriesId'],
+            ),
           ),
           GoRoute(
             path: ':id',

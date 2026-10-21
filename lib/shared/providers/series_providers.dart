@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +12,7 @@ import '../../data/repositories/series_ranking_repository.dart';
 import '../../data/repositories/series_registration_repository.dart';
 import '../../data/repositories/series_repository.dart';
 import '../../data/services/series_functions_service.dart';
+import '../../domain/services/series/org_competition_access.dart';
 import '../../domain/services/series/series_permission_service.dart';
 
 final seriesFunctionsServiceProvider = Provider(
@@ -231,3 +233,53 @@ final mySeriesRoleProvider = Provider.family<SeriesRole, String>((
     memberships: memberships,
   );
 });
+
+
+/// Org competition request policy (`series/{id}.competitionPolicy`).
+final orgCompetitionPolicyProvider =
+    StreamProvider.family<OrgCompetitionPolicy, String>((ref, seriesId) {
+      if (seriesId.isEmpty) return Stream.value(const OrgCompetitionPolicy());
+      return FirebaseFirestore.instance
+          .collection('series')
+          .doc(seriesId)
+          .snapshots()
+          .map(
+            (s) => OrgCompetitionPolicy.fromMap(
+              (s.data()?['competitionPolicy'] as Map?)?.cast<String, dynamic>(),
+            ),
+          );
+    });
+
+/// Org teams the signed-in user is an active team admin or player of.
+final myOrgTeamIdsProvider = Provider.family<List<String>, String>((
+  ref,
+  seriesId,
+) {
+  final userId = ref.watch(_seriesAuthProvider).valueOrNull?.uid;
+  if (userId == null) return const [];
+  final admins =
+      ref.watch(_clubAdminsProvider(seriesId)).valueOrNull ?? const [];
+  final memberships = ref
+          .watch(
+            _mySeriesMembershipsProvider((seriesId: seriesId, userId: userId)),
+          )
+          .valueOrNull ??
+      const [];
+  return {
+    ...admins
+        .where((a) => a.userId == userId && a.status == 'active')
+        .map((a) => a.clubId),
+    ...memberships.where((m) => m.isActive).map((m) => m.clubId),
+  }.where((id) => id.isNotEmpty).toList();
+});
+
+/// What the signed-in user may start or request inside an org.
+final orgCompetitionAccessProvider =
+    Provider.family<OrgCompetitionAccess, String>((ref, seriesId) {
+      return OrgCompetitionAccess(
+        role: ref.watch(mySeriesRoleProvider(seriesId)),
+        policy: ref.watch(orgCompetitionPolicyProvider(seriesId)).valueOrNull ??
+            const OrgCompetitionPolicy(),
+        myTeamIds: ref.watch(myOrgTeamIdsProvider(seriesId)),
+      );
+    });

@@ -13,6 +13,7 @@ import '../../domain/scoring/toss_team_policy.dart';
 import '../../domain/services/tournament/tournament_official_assign_service.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/providers/offline_sync_provider.dart';
+import '../../shared/providers/series_providers.dart';
 import '../../shared/providers/start_match_draft_provider.dart';
 import '../../shared/providers/tournament_providers.dart';
 
@@ -252,6 +253,7 @@ Future<void> commitTossToFirestore(WidgetRef ref) async {
   } else {
     await repo.createMatch(matchToSave);
     registerTournamentMatchInBackground(ref, matchToSave);
+    registerSeriesMatchInBackground(ref, updated.seriesId, matchToSave.id);
   }
 }
 
@@ -499,6 +501,27 @@ void registerTournamentMatchInBackground(WidgetRef ref, MatchModel match) {
         .registerTournamentMatch(tournamentId: tid, matchId: match.id)
         .catchError((Object e) {
       debugPrint('registerTournamentMatch failed for ${match.id}: $e');
+    }),
+  );
+}
+
+
+/// Registers a match started from inside an org (best effort, retried by the
+/// callable client). Requester matches land in the org approvals queue.
+void registerSeriesMatchInBackground(
+  WidgetRef ref,
+  String? seriesId,
+  String matchId,
+) {
+  final sid = seriesId?.trim();
+  if (sid == null || sid.isEmpty) return;
+  unawaited(
+    ref
+        .read(seriesFunctionsServiceProvider)
+        .startSeriesMatch(seriesId: sid, matchId: matchId)
+        .then<void>((_) {})
+        .catchError((Object e) {
+      debugPrint('startSeriesMatch failed for $matchId: $e');
     }),
   );
 }

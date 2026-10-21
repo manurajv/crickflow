@@ -8,6 +8,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/series/series.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/player_discovery_repository.dart';
+import '../../../domain/services/series/org_competition_access.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
@@ -305,7 +306,12 @@ class _SeriesClubDetailScreenState
                     '?clubId=${widget.clubId}',
                   ),
                   icon: const Icon(Icons.sports_cricket_outlined),
-                  label: const Text('Propose match'),
+                  label: Text(
+                    OrgCompetitionAccess.actionLabel(
+                      ref.watch(orgCompetitionAccessProvider(widget.seriesId)).match,
+                      tournament: false,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: AppDimens.spaceSm),
                 OutlinedButton.icon(
@@ -314,7 +320,12 @@ class _SeriesClubDetailScreenState
                     '?clubId=${widget.clubId}',
                   ),
                   icon: const Icon(Icons.emoji_events_outlined),
-                  label: const Text('Propose tournament'),
+                  label: Text(
+                    OrgCompetitionAccess.actionLabel(
+                      ref.watch(orgCompetitionAccessProvider(widget.seriesId)).tournament,
+                      tournament: true,
+                    ),
+                  ),
                 ),
                 if (role == SeriesRole.superAdmin ||
                     role == SeriesRole.seriesAdmin) ...[

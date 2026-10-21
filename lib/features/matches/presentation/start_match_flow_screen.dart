@@ -236,6 +236,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
       } else {
         await ref.read(matchRepositoryProvider).createMatch(match);
         registerTournamentMatchInBackground(ref, match);
+        registerSeriesMatchInBackground(ref, draft.seriesId, match.id);
         ref.read(startMatchDraftProvider.notifier).reset();
         if (mounted) context.go('/match/${draft.matchId}');
       }
@@ -475,9 +476,10 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
                 onPressed: draft.hasBothTeams
                     ? () {
                         final teamIds = _tournamentTeamIds(draft);
-                        final teamsError = teamIds == null
-                            ? null
-                            : tournamentTeamsError(draft, teamIds);
+                        final teamsError = (teamIds == null
+                                ? null
+                                : tournamentTeamsError(draft, teamIds)) ??
+                            seriesTeamsError(draft);
                         if (teamsError != null && !draft.isExistingMatch) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(teamsError)),

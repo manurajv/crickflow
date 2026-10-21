@@ -44,6 +44,8 @@ class _QuickMatchFlowScreenState extends ConsumerState<QuickMatchFlowScreen> {
         ref.read(startMatchDraftProvider.notifier).reset(
               mode: MatchMode.quick,
               tournamentId: draft.tournamentId,
+              seriesId: draft.seriesId,
+              seriesTeamIds: draft.seriesTeamIds,
             );
       }
       final fresh = ref.read(startMatchDraftProvider);
@@ -189,6 +191,13 @@ class _QuickMatchFlowScreenState extends ConsumerState<QuickMatchFlowScreen> {
     if (city.isEmpty || ground.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter city and ground')),
+      );
+      return;
+    }
+    final orgError = seriesTeamsError(draft);
+    if (orgError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(orgError)),
       );
       return;
     }

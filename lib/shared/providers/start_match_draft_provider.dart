@@ -48,11 +48,19 @@ class StartMatchDraft {
     this.isExistingMatch = false,
     this.tournamentOfficialsAutoFilled = false,
     this.tournamentId,
+    this.seriesId,
+    this.seriesTeamIds = const [],
   }) : rules = rules ?? MatchRulesModel.standardT20();
 
   final String matchId;
   final MatchMode matchMode;
   final String? tournamentId;
+
+  /// Set when started from inside an org: the match is registered there.
+  final String? seriesId;
+
+  /// CrickFlow team ids of the org's playable teams (for validation).
+  final List<String> seriesTeamIds;
   final TeamModel? teamA;
   final TeamModel? teamB;
   final String teamAName;
@@ -131,6 +139,8 @@ class StartMatchDraft {
           tournamentOfficialsAutoFilled ?? this.tournamentOfficialsAutoFilled,
       tournamentId:
           clearTournamentId ? null : (tournamentId ?? this.tournamentId),
+      seriesId: seriesId,
+      seriesTeamIds: seriesTeamIds,
     );
   }
 }
@@ -147,12 +157,20 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
 
   /// Starts a fresh wizard. Pass [tournamentId] when the match is started
   /// from inside a tournament so it is created as a tournament match.
-  void reset({MatchMode mode = MatchMode.normal, String? tournamentId}) {
+  void reset({
+    MatchMode mode = MatchMode.normal,
+    String? tournamentId,
+    String? seriesId,
+    List<String> seriesTeamIds = const [],
+  }) {
     final tid = tournamentId?.trim();
+    final sid = seriesId?.trim();
     state = StartMatchDraft(
       matchId: const Uuid().v4(),
       matchMode: mode,
       tournamentId: tid == null || tid.isEmpty ? null : tid,
+      seriesId: sid == null || sid.isEmpty ? null : sid,
+      seriesTeamIds: seriesTeamIds,
       rules: MatchRulesModel.standardT20(),
       scheduledAt: DateTime.now(),
     );
@@ -361,6 +379,23 @@ String? tournamentTeamsError(StartMatchDraft draft, List<String> tournamentTeamI
   }
   if (!tournamentTeamIds.contains(a) || !tournamentTeamIds.contains(b)) {
     return 'Both teams must be part of this tournament';
+  }
+  return null;
+}
+
+
+/// Validation for matches started inside an org: both sides must be the org's
+/// teams. Returns an error message, or null when OK / not an org match.
+String? seriesTeamsError(StartMatchDraft draft) {
+  final sid = draft.seriesId;
+  if (sid == null || sid.isEmpty || draft.seriesTeamIds.isEmpty) return null;
+  final a = draft.resolvedTeamAId;
+  final b = draft.resolvedTeamBId;
+  if (a == null || a.isEmpty || b == null || b.isEmpty) {
+    return 'Pick both teams from the org';
+  }
+  if (!draft.seriesTeamIds.contains(a) || !draft.seriesTeamIds.contains(b)) {
+    return 'Both teams must be teams of this org';
   }
   return null;
 }

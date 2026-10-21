@@ -71,6 +71,39 @@ class SeriesFunctionsService {
   ) =>
       _call('submitPlayerRemovalRequest', data);
 
+  /// Link a tournament created in the org wizard (`mode: create`) or an
+  /// existing tournament the caller organizes (`mode: link`, admins only).
+  Future<Map<String, dynamic>> startSeriesTournament({
+    required String seriesId,
+    required String tournamentId,
+    List<String> teamClubIds = const [],
+    String title = '',
+    bool linkExisting = false,
+  }) =>
+      _call('startSeriesTournament', {
+        'seriesId': seriesId,
+        'tournamentId': tournamentId,
+        'teamClubIds': teamClubIds,
+        'title': title,
+        'mode': linkExisting ? 'link' : 'create',
+      });
+
+  /// Register a match started from inside the org.
+  Future<Map<String, dynamic>> startSeriesMatch({
+    required String seriesId,
+    required String matchId,
+  }) =>
+      _call('startSeriesMatch', {'seriesId': seriesId, 'matchId': matchId});
+
+  Future<Map<String, dynamic>> updateSeriesCompetitionPolicy({
+    required String seriesId,
+    required Map<String, dynamic> policy,
+  }) =>
+      _call('updateSeriesCompetitionPolicy', {
+        'seriesId': seriesId,
+        'policy': policy,
+      });
+
   Future<Map<String, dynamic>> proposeSeriesMatch(Map<String, dynamic> data) =>
       _call('proposeSeriesMatch', data);
 
