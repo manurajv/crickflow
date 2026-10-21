@@ -145,10 +145,14 @@ class StartMatchDraftNotifier extends StateNotifier<StartMatchDraft> {
           ),
         );
 
-  void reset({MatchMode mode = MatchMode.normal}) {
+  /// Starts a fresh wizard. Pass [tournamentId] when the match is started
+  /// from inside a tournament so it is created as a tournament match.
+  void reset({MatchMode mode = MatchMode.normal, String? tournamentId}) {
+    final tid = tournamentId?.trim();
     state = StartMatchDraft(
       matchId: const Uuid().v4(),
       matchMode: mode,
+      tournamentId: tid == null || tid.isEmpty ? null : tid,
       rules: MatchRulesModel.standardT20(),
       scheduledAt: DateTime.now(),
     );
@@ -343,3 +347,20 @@ final startMatchDraftProvider =
     StateNotifierProvider<StartMatchDraftNotifier, StartMatchDraft>(
   (ref) => StartMatchDraftNotifier(),
 );
+
+
+/// Validation for matches started inside a tournament: both sides must be
+/// registered tournament teams. Returns an error message, or null when OK.
+String? tournamentTeamsError(StartMatchDraft draft, List<String> tournamentTeamIds) {
+  final tid = draft.tournamentId;
+  if (tid == null || tid.isEmpty) return null;
+  final a = draft.resolvedTeamAId;
+  final b = draft.resolvedTeamBId;
+  if (a == null || a.isEmpty || b == null || b.isEmpty) {
+    return 'Pick both teams from the tournament';
+  }
+  if (!tournamentTeamIds.contains(a) || !tournamentTeamIds.contains(b)) {
+    return 'Both teams must be part of this tournament';
+  }
+  return null;
+}

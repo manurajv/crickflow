@@ -94,6 +94,8 @@ const {
 } = require('./series/seriesFunctions');
 
 exports.onMatchCompleted = onMatchCompleted;
+exports.linkMatchToTournament =
+  require('./tournament/linkMatchToTournament').linkMatchToTournament;
 exports.onMatchLive = onMatchLive;
 exports.onBallEventCreated = onBallEventCreated;
 exports.onMatchRevisionCreated = onMatchRevisionCreated;

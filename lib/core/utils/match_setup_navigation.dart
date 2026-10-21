@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -164,7 +166,10 @@ MatchModel buildMatchAfterToss({
       MatchModel(
         id: draft.matchId,
         title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-        matchType: MatchType.single,
+        matchType: _isTournamentDraft(draft)
+            ? MatchType.tournament
+            : MatchType.single,
+        tournamentId: _isTournamentDraft(draft) ? draft.tournamentId : null,
         matchMode: draft.matchMode,
         teamAId: draft.resolvedTeamAId,
         teamBId: draft.resolvedTeamBId,
@@ -246,6 +251,7 @@ Future<void> commitTossToFirestore(WidgetRef ref) async {
     await repo.updateMatch(matchToSave);
   } else {
     await repo.createMatch(matchToSave);
+    registerTournamentMatchInBackground(ref, matchToSave);
   }
 }
 
@@ -475,4 +481,24 @@ Future<void> confirmExitToTournamentDashboard(
   if (leave == true && context.mounted) {
     context.go('/tournaments/$tid');
   }
+}
+
+
+bool _isTournamentDraft(StartMatchDraft draft) =>
+    draft.tournamentId != null && draft.tournamentId!.trim().isNotEmpty;
+
+/// Adds a match created inside a tournament to the tournament's match list.
+/// Best effort: offline creation still carries `tournamentId`, so fixtures and
+/// standings pick it up; the list registration retries on the next create.
+void registerTournamentMatchInBackground(WidgetRef ref, MatchModel match) {
+  final tid = match.tournamentId?.trim();
+  if (tid == null || tid.isEmpty) return;
+  unawaited(
+    ref
+        .read(tournamentFunctionsServiceProvider)
+        .registerTournamentMatch(tournamentId: tid, matchId: match.id)
+        .catchError((Object e) {
+      debugPrint('registerTournamentMatch failed for ${match.id}: $e');
+    }),
+  );
 }

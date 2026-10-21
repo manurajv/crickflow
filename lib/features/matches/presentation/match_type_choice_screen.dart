@@ -10,15 +10,18 @@ import '../../../shared/widgets/start_match_ui.dart';
 
 /// Choose Normal Match vs Quick Match before entering the create flow.
 class MatchTypeChoiceScreen extends ConsumerWidget {
-  const MatchTypeChoiceScreen({super.key});
+  const MatchTypeChoiceScreen({super.key, this.tournamentId});
+
+  /// Set when started from a tournament; the new match is linked to it.
+  final String? tournamentId;
 
   void _startNormal(BuildContext context, WidgetRef ref) {
-    ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.normal);
+    ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.normal, tournamentId: tournamentId);
     context.push('/match/create');
   }
 
   void _startQuick(BuildContext context, WidgetRef ref) {
-    ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.quick);
+    ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.quick, tournamentId: tournamentId);
     context.push('/match/quick');
   }
 

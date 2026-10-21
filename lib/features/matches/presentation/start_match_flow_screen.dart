@@ -211,7 +211,12 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     final match = MatchModel(
       id: draft.matchId,
       title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-      matchType: MatchType.single,
+      matchType: draft.tournamentId?.isNotEmpty == true
+          ? MatchType.tournament
+          : MatchType.single,
+      tournamentId: draft.tournamentId?.isNotEmpty == true
+          ? draft.tournamentId
+          : null,
       status: MatchStatus.scheduled,
       teamAId: draft.teamA?.id,
       teamBId: draft.teamB?.id,
@@ -230,6 +235,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
         if (mounted) context.pop();
       } else {
         await ref.read(matchRepositoryProvider).createMatch(match);
+        registerTournamentMatchInBackground(ref, match);
         ref.read(startMatchDraftProvider.notifier).reset();
         if (mounted) context.go('/match/${draft.matchId}');
       }
@@ -242,6 +248,13 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// Tournament team ids, or null when not a tournament draft / not loaded.
+  List<String>? _tournamentTeamIds(StartMatchDraft draft) {
+    final tid = draft.tournamentId;
+    if (tid == null || tid.isEmpty) return null;
+    return ref.read(tournamentProvider(tid)).valueOrNull?.teamIds;
   }
 
   Future<void> _goToSquadFlow() async {
@@ -461,6 +474,16 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
             ? FilledButton(
                 onPressed: draft.hasBothTeams
                     ? () {
+                        final teamIds = _tournamentTeamIds(draft);
+                        final teamsError = teamIds == null
+                            ? null
+                            : tournamentTeamsError(draft, teamIds);
+                        if (teamsError != null && !draft.isExistingMatch) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(teamsError)),
+                          );
+                          return;
+                        }
                         _syncOversFromRules(draft.rules);
                         setState(() => _step = 1);
                       }

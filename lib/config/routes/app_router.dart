@@ -334,7 +334,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/match/start',
-        builder: (_, __) => const MatchTypeChoiceScreen(),
+        builder: (_, state) => MatchTypeChoiceScreen(
+          tournamentId: state.uri.queryParameters['tournamentId'],
+        ),
       ),
       GoRoute(
         path: '/match/quick',

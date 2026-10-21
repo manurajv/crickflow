@@ -11,6 +11,7 @@ import '../../../data/models/location_model.dart';
 import '../../../data/models/match_rules_model.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 import 'models/ground_pick_result.dart';
@@ -40,7 +41,10 @@ class _QuickMatchFlowScreenState extends ConsumerState<QuickMatchFlowScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final draft = ref.read(startMatchDraftProvider);
       if (!draft.isQuickMatch) {
-        ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.quick);
+        ref.read(startMatchDraftProvider.notifier).reset(
+              mode: MatchMode.quick,
+              tournamentId: draft.tournamentId,
+            );
       }
       final fresh = ref.read(startMatchDraftProvider);
       if (fresh.teamA == null && fresh.teamAName.isNotEmpty) {
@@ -187,6 +191,25 @@ class _QuickMatchFlowScreenState extends ConsumerState<QuickMatchFlowScreen> {
         const SnackBar(content: Text('Enter city and ground')),
       );
       return;
+    }
+    final tid = draft.tournamentId;
+    if (tid != null && tid.isNotEmpty) {
+      final tournament = await ref
+          .read(tournamentProvider(tid).future)
+          .timeout(const Duration(seconds: 5))
+          .catchError((Object _) => null);
+      // Unknown tournament (offline, no cache): the server validates on sync.
+      final teamsError = tournament == null
+          ? null
+          : tournamentTeamsError(draft, tournament.teamIds);
+      if (teamsError != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(teamsError)),
+          );
+        }
+        return;
+      }
     }
     ref.read(startMatchDraftProvider.notifier)
       ..updateLocation(draft.location.copyWith(city: city))

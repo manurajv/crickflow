@@ -820,6 +820,23 @@ class MatchRepository {
     );
   }
 
+  /// Recent matches where team A is one of [teamIds] (used to find
+  /// matches that can be added to a tournament). Team B is filtered by the
+  /// caller.
+  Future<List<MatchModel>> fetchMatchesForTeams(List<String> teamIds) async {
+    final ids = teamIds.where((id) => id.isNotEmpty).toSet().toList();
+    final out = <MatchModel>[];
+    for (var i = 0; i < ids.length; i += 30) {
+      final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
+      final snap = await _matches
+          .where('teamAId', whereIn: chunk)
+          .limit(100)
+          .get();
+      out.addAll(snap.docs.map((d) => MatchModel.fromMap(d.id, d.data())));
+    }
+    return out;
+  }
+
   /// All recent matches; live matches sorted to the top.
   Stream<List<MatchModel>> watchMatchFeed() {
     final remote = _matches
