@@ -10,6 +10,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/match_rules_model.dart';
 import '../../../data/models/team_model.dart';
+import '../../../domain/services/tournament/tournament_match_link_policy.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
@@ -194,6 +195,14 @@ class _QuickMatchFlowScreenState extends ConsumerState<QuickMatchFlowScreen> {
       );
       return;
     }
+    if ((draft.seriesId ?? '').isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Quick matches are not allowed in orgs. Start a normal match.'),
+        ),
+      );
+      return;
+    }
     final orgError = seriesTeamsError(draft);
     if (orgError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -210,7 +219,9 @@ class _QuickMatchFlowScreenState extends ConsumerState<QuickMatchFlowScreen> {
       // Unknown tournament (offline, no cache): the server validates on sync.
       final teamsError = tournament == null
           ? null
-          : tournamentTeamsError(draft, tournament.teamIds);
+          : isOrgTournament(tournament)
+              ? 'Quick matches are not allowed in org tournaments. Start a normal match.'
+              : tournamentTeamsError(draft, tournament.teamIds);
       if (teamsError != null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

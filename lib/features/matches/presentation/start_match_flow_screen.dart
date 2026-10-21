@@ -217,6 +217,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
       tournamentId: draft.tournamentId?.isNotEmpty == true
           ? draft.tournamentId
           : null,
+      orgRequestSeriesId: draft.seriesId,
       status: MatchStatus.scheduled,
       teamAId: draft.teamA?.id,
       teamBId: draft.teamB?.id,

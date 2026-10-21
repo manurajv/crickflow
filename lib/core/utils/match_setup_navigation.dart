@@ -13,7 +13,6 @@ import '../../domain/scoring/toss_team_policy.dart';
 import '../../domain/services/tournament/tournament_official_assign_service.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/providers/offline_sync_provider.dart';
-import '../../shared/providers/series_providers.dart';
 import '../../shared/providers/start_match_draft_provider.dart';
 import '../../shared/providers/tournament_providers.dart';
 
@@ -171,6 +170,7 @@ MatchModel buildMatchAfterToss({
             ? MatchType.tournament
             : MatchType.single,
         tournamentId: _isTournamentDraft(draft) ? draft.tournamentId : null,
+        orgRequestSeriesId: draft.seriesId,
         matchMode: draft.matchMode,
         teamAId: draft.resolvedTeamAId,
         teamBId: draft.resolvedTeamBId,
@@ -506,8 +506,8 @@ void registerTournamentMatchInBackground(WidgetRef ref, MatchModel match) {
 }
 
 
-/// Registers a match started from inside an org (best effort, retried by the
-/// callable client). Requester matches land in the org approvals queue.
+/// Registers a match started from inside an org through the offline queue
+/// (retried on reconnect; the server also registers it at completion). Requester matches land in the org approvals queue.
 void registerSeriesMatchInBackground(
   WidgetRef ref,
   String? seriesId,
@@ -517,11 +517,10 @@ void registerSeriesMatchInBackground(
   if (sid == null || sid.isEmpty) return;
   unawaited(
     ref
-        .read(seriesFunctionsServiceProvider)
-        .startSeriesMatch(seriesId: sid, matchId: matchId)
-        .then<void>((_) {})
+        .read(offlineSyncServiceProvider)
+        .enqueueSeriesMatchRegistration(seriesId: sid, matchId: matchId)
         .catchError((Object e) {
-      debugPrint('startSeriesMatch failed for $matchId: $e');
+      debugPrint('queue org registration failed for $matchId: $e');
     }),
   );
 }

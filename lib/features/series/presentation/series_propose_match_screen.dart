@@ -14,7 +14,8 @@ import '../../../shared/widgets/start_match_ui.dart';
 import 'widgets/series_ui.dart';
 
 /// Start (admins) or request (team admins / allowed members) a match between
-/// two org teams, then continue into the normal or quick match setup.
+/// two org teams, then continue into the normal match setup (orgs do not
+/// allow quick matches).
 class SeriesProposeMatchScreen extends ConsumerStatefulWidget {
   const SeriesProposeMatchScreen({
     super.key,
@@ -37,7 +38,6 @@ class _SeriesProposeMatchScreenState
   String? _teamAId;
   String? _teamBId;
   String? _tournamentId;
-  MatchMode _mode = MatchMode.normal;
   bool _busy = false;
 
   @override
@@ -71,14 +71,14 @@ class _SeriesProposeMatchScreenState
       }
       ref.read(startMatchDraftProvider.notifier)
         ..reset(
-          mode: _mode,
+          mode: MatchMode.normal,
           tournamentId: _tournamentId,
           seriesId: widget.seriesId,
           seriesTeamIds: teams.map((t) => t.linkedTeamId!).toList(),
         )
         ..setTeamA(teamA)
         ..setTeamB(teamB);
-      context.push(_mode == MatchMode.quick ? '/match/quick' : '/match/create');
+      context.push('/match/create');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -199,22 +199,6 @@ class _SeriesProposeMatchScreenState
                         onChanged: (v) => setState(() => _tournamentId = v),
                       ),
                     ],
-                    const SizedBox(height: AppDimens.spaceLg),
-                    SegmentedButton<MatchMode>(
-                      segments: const [
-                        ButtonSegment(
-                          value: MatchMode.normal,
-                          label: Text('Normal match'),
-                        ),
-                        ButtonSegment(
-                          value: MatchMode.quick,
-                          label: Text('Quick match'),
-                        ),
-                      ],
-                      selected: {_mode},
-                      onSelectionChanged: (s) =>
-                          setState(() => _mode = s.first),
-                    ),
                     if (unlinked.isNotEmpty) ...[
                       const SizedBox(height: AppDimens.spaceMd),
                       Text(

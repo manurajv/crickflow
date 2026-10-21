@@ -1,3 +1,4 @@
+import '../../../../../domain/services/tournament/tournament_match_link_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -103,7 +104,9 @@ class _ScheduleMatchesSheet extends StatelessWidget {
           _OptionTile(
             icon: Icons.sports_cricket_outlined,
             title: 'Start a Match Now',
-            subtitle: 'Normal or quick match, linked to this tournament.',
+            subtitle: isOrgTournament(tournament)
+                ? 'Normal match, linked to this org tournament.'
+                : 'Normal or quick match, linked to this tournament.',
             onTap: canManage
                 ? () {
                     Navigator.pop(context);
@@ -116,7 +119,9 @@ class _ScheduleMatchesSheet extends StatelessWidget {
             icon: Icons.playlist_add_outlined,
             title: 'Add Existing Match',
             subtitle:
-                'Link a normal or quick match between tournament teams.',
+                isOrgTournament(tournament)
+                    ? 'Link a normal match between tournament teams.'
+                    : 'Link a normal or quick match between tournament teams.',
             onTap: canManage
                 ? () {
                     Navigator.pop(context);

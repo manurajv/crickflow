@@ -32,7 +32,11 @@ final _linkCandidatesProvider = FutureProvider.autoDispose
   final matches = await ref
       .read(matchRepositoryProvider)
       .fetchMatchesForTeams(tournament.teamIds);
-  return TournamentMatchLinkPolicy.linkable(matches, tournament.teamIds);
+  return TournamentMatchLinkPolicy.linkable(
+    matches,
+    tournament.teamIds,
+    orgTournament: isOrgTournament(tournament),
+  );
 });
 
 class _LinkExistingMatchSheet extends ConsumerStatefulWidget {
