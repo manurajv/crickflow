@@ -124,3 +124,15 @@ Not done: **series admin role tiers** (e.g. scorer/viewer admins). Every series
 callable and the `canManageSeries()` rule treat any active `series_admins` doc as a full
 admin. Tiers need per-callable checks and rule changes, so they are left for a separate
 change.
+
+## Terminology: org participants are "Teams" (Oct 2026)
+
+The mobile app now calls the participant units inside an org (stored in
+`series_clubs`) **Teams** ("Member teams", "Participating teams", "Team admin",
+"Team registration", "Team ranking points"). This is a label change only:
+collections (`series_clubs`, `series_club_admins`, `series_club_rankings`),
+fields (`clubId`, `clubCount`, `clubName`, `clubAdmins` audience) and the
+`kind: club` org type are unchanged. "Clubs" as an *org kind* (club/company
+orgs) keeps its name. The super admin Orgs & Series screen and the consumer web
+series pages use "team" wording for participants to match; audit log entries
+still store `targetType: 'club'` for continuity with existing records.

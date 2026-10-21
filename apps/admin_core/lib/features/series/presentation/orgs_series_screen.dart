@@ -304,7 +304,7 @@ class _OrgRow extends StatelessWidget {
                       tone: _statusTone(s.status),
                     ),
                     Text(
-                      '${s.clubCount} clubs · ${s.playerCount} players$created',
+                      '${s.clubCount} teams · ${s.playerCount} players$created',
                       style: Theme.of(
                         context,
                       ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
@@ -430,10 +430,10 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
   Future<void> _changeClub(String seriesId, SeriesRow club, String next) async {
     final name = club.str('name', club.id);
     final reason = await _askReason(
-      '${next == 'suspended' ? 'Suspend' : 'Restore'} club $name?',
+      '${next == 'suspended' ? 'Suspend' : 'Restore'} team $name?',
       next == 'suspended'
-          ? 'The club is suspended inside this org.'
-          : 'The club becomes approved again.',
+          ? 'The team is suspended inside this org.'
+          : 'The team becomes approved again.',
       next == 'suspended',
     );
     if (reason == null) return;
@@ -449,7 +449,7 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
             actor: actor,
             reason: reason,
           ),
-      'Club $name: ${next == 'approved' ? 'restored' : next}',
+      'Team $name: ${next == 'approved' ? 'restored' : next}',
     );
   }
 
@@ -551,7 +551,7 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
           tabs: [
             const Tab(text: 'Overview'),
             Tab(text: 'Admins (${inv.admins.length})'),
-            Tab(text: 'Clubs (${inv.clubs.length})'),
+            Tab(text: 'Teams (${inv.clubs.length})'),
             Tab(text: 'Approvals (${inv.pendingApprovals} pending)'),
             Tab(text: 'Audit (${inv.auditLogs.length})'),
           ],
@@ -580,7 +580,7 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
               ),
               _list(
                 inv.clubs,
-                empty: 'No clubs in this org yet.',
+                empty: 'No teams in this org yet.',
                 build: (r) {
                   final status = r.str('status', 'pending');
                   return ListTile(
@@ -729,7 +729,7 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
                 : _dateTimeFmt.format(s.createdAt!.toLocal()),
           ),
         ),
-        row('Members', Text('${s.clubCount} clubs · ${s.playerCount} players')),
+        row('Members', Text('${s.clubCount} teams · ${s.playerCount} players')),
         if (s.description.isNotEmpty) row('Description', Text(s.description)),
         const SizedBox(height: 16),
         if (canModerate)
@@ -761,7 +761,7 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
           ),
         const SizedBox(height: 8),
         Text(
-          'Ownership, admins, clubs and announcements are managed by the org '
+          'Ownership, admins, teams and announcements are managed by the org '
           'owner in the CrickFlow app.',
           style: Theme.of(
             context,

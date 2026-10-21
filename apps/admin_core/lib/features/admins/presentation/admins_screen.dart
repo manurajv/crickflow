@@ -666,7 +666,7 @@ class _HowItWorks extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '• This panel is for CrickFlow platform staff only. Organization, '
-            'club and series admins are managed inside the CrickFlow mobile '
+            'team and series admins are managed inside the CrickFlow mobile '
             'app, not here.\n'
             '• Super Admin: full platform access in this panel.\n'
             '• Staff roles (Moderator, Tournament Admin, Support, Viewer) sign '

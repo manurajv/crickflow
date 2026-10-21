@@ -128,7 +128,7 @@ class SeriesAdminRepository {
     String reason = '',
   }) async {
     if (!OrgModeration.clubStatuses.contains(nextStatus)) {
-      throw ArgumentError('Unsupported club status $nextStatus');
+      throw ArgumentError('Unsupported team status $nextStatus');
     }
     final now = DateTime.now().toUtc().toIso8601String();
     final batch = _db.batch();
