@@ -14,6 +14,7 @@ import {
   useJoinClub,
   useProposeSeriesMatch,
   useProposeSeriesTournament,
+  useMyLinkableTournaments,
   useReviewSeriesApproval,
   useSeriesAdmins,
   useSeriesCompetitions,
@@ -38,6 +39,7 @@ export function SeriesDetailPage() {
   const joinClub = useJoinClub(seriesId);
   const proposeMatch = useProposeSeriesMatch(seriesId);
   const proposeTournament = useProposeSeriesTournament(seriesId);
+  const linkable = useMyLinkableTournaments(data?.canManage ? user?.uid : undefined);
   const addAdmin = useAddSeriesAdmin(seriesId);
   const identity = useSeriesRegistrationIdentity(seriesId);
 
@@ -461,7 +463,10 @@ export function SeriesDetailPage() {
 
       {data.canManage ? (
         <Card className="space-y-3 p-4">
-          <h2 className="text-lg font-bold">Propose Series match</h2>
+          <h2 className="text-lg font-bold">Add org match or tournament</h2>
+          <p className="text-sm text-muted-foreground">
+            Start new matches and tournaments from the CrickFlow app (Org → Fixtures).
+          </p>
           <form className="grid gap-3 md:grid-cols-3" onSubmit={onPropose}>
             <select
               className="rounded-md border border-border bg-background px-3 py-2"
@@ -497,19 +502,26 @@ export function SeriesDetailPage() {
             className="flex flex-wrap gap-3"
             onSubmit={async (e) => {
               e.preventDefault();
-              await proposeTournament.mutateAsync({ tournamentId });
+              const picked = (linkable.data ?? []).find((t) => t.id === tournamentId);
+              await proposeTournament.mutateAsync({ tournamentId, title: picked?.name });
               setTournamentId("");
             }}
           >
-            <input
+            <select
               className="min-w-[220px] flex-1 rounded-md border border-border bg-background px-3 py-2"
-              placeholder="Existing tournament ID"
               value={tournamentId}
               onChange={(e) => setTournamentId(e.target.value)}
               required
-            />
-            <Button type="submit" disabled={proposeTournament.isPending}>
-              Propose tournament
+            >
+              <option value="">Add one of your tournaments</option>
+              {(linkable.data ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" disabled={proposeTournament.isPending || !tournamentId}>
+              Add tournament
             </Button>
           </form>
         </Card>
@@ -526,7 +538,8 @@ export function SeriesDetailPage() {
                 <div>
                   <p className="font-bold">{c.title || c.type}</p>
                   <p className="text-sm text-muted-foreground">
-                    {c.type} · {c.status}
+                    {c.type === "singleMatch" ? "Match" : c.type === "tournament" ? "Tournament" : c.type} ·{" "}
+                    {c.status === "pendingApproval" ? "Pending approval" : c.status === "approved" ? "Official" : c.status}
                   </p>
                 </div>
                 {c.matchId ? (
@@ -762,12 +775,15 @@ export function SeriesDetailPage() {
                         size="sm"
                         variant="outline"
                         disabled={review.isPending}
-                        onClick={() =>
+                        onClick={() => {
+                          const reason = window.prompt("Reason for rejecting (shared with the requester)")?.trim();
+                          if (!reason) return;
                           review.mutate({
                             approvalId: approval.id,
                             decision: "rejected",
-                          })
-                        }
+                            reason,
+                          });
+                        }}
                       >
                         Reject
                       </Button>
