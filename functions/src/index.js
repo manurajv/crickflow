@@ -91,6 +91,9 @@ const {
   transferSeriesOwnership,
   setSeriesLifecycle,
   sendSeriesAnnouncement,
+  startSeriesTournament,
+  startSeriesMatch,
+  updateSeriesCompetitionPolicy,
 } = require('./series/seriesFunctions');
 
 exports.onMatchCompleted = onMatchCompleted;
@@ -146,6 +149,9 @@ exports.suspendSeriesEntity = suspendSeriesEntity;
 exports.transferSeriesOwnership = transferSeriesOwnership;
 exports.setSeriesLifecycle = setSeriesLifecycle;
 exports.sendSeriesAnnouncement = sendSeriesAnnouncement;
+exports.startSeriesTournament = startSeriesTournament;
+exports.startSeriesMatch = startSeriesMatch;
+exports.updateSeriesCompetitionPolicy = updateSeriesCompetitionPolicy;
 exports.getSeriesRegistrationIdentity = getSeriesRegistrationIdentity;
 exports.reviewClubJoinRequest = reviewClubJoinRequest;
 exports.addSeriesClubAdmin = addSeriesClubAdmin;
