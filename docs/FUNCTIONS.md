@@ -141,3 +141,14 @@ Or rules only / batched functions via the main script:
 Global function defaults (`functions/src/index.js`): `256MiB`, `cpu: 0.25` — keeps ~35 Cloud Run services within regional quota. Request a quota increase in [GCP Quotas](https://console.cloud.google.com/iam-admin/quotas?project=crickflow-b06bc) for **Cloud Run CPU** in `us-central1` if needed.
 
 Requires Blaze plan for outbound FCM/network from functions.
+
+## Org tournaments and matches (Oct 2026)
+
+| Callable | Who | What |
+|---|---|---|
+| `startSeriesTournament` | Owner/admins directly; team admins (players if `competitionPolicy.membersCanRequest`) as a request | Links a tournament the caller organizes to the org (`mode: create` after the wizard, `mode: link` = admins adding an existing one), adds chosen org teams, writes a `series_competitions` row, audit + approval + notifications. |
+| `startSeriesMatch` | Match creator/scorer; requester must own one side | Registers a match between two approved org teams. Inside an org tournament it inherits the tournament's status. |
+| `updateSeriesCompetitionPolicy` | Owner | `series.competitionPolicy`: `tournamentRequestsNeedApproval`, `matchRequestsNeedApproval` (default true), `membersCanRequest` (default false). |
+| `proposeSeriesTournament` (legacy) | as `startSeriesTournament` link | Older app builds; now requires the caller to organize the tournament. |
+
+`reviewSeriesApproval` requires a reason when rejecting match/tournament requests; a rejection unlinks the tournament/match from the org. Approval counts already-finished matches. Org rankings only count a match when an approved `series_competitions` row covers it (directly or via its tournament).
