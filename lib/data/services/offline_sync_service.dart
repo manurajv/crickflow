@@ -681,9 +681,20 @@ class OfflineSyncService {
     for (final field in fieldDeletes) {
       updateData[field] = FieldValue.delete();
     }
-    await _matchDoc(matchId).update(updateData);
+    final rawOverlay = action.payload['overlayData'];
+    OverlayStateModel? overlay;
+    if (rawOverlay is Map) {
+      final overlayData = Map<String, dynamic>.from(rawOverlay);
+      final batch = _firestore.batch();
+      batch.update(_matchDoc(matchId), updateData);
+      batch.set(_overlayDoc(matchId), overlayData);
+      await batch.commit();
+      overlay = OverlayStateModel.fromMap(overlayData);
+    } else {
+      await _matchDoc(matchId).update(updateData);
+    }
     final match = MatchModel.fromMap(matchId, rawMatchData);
-    await _syncPublicScorecard(match);
+    await _syncPublicScorecard(match, overlay: overlay);
   }
 
   Future<void> _executeFirestoreBatch(PendingSyncAction action) async {

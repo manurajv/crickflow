@@ -37,6 +37,7 @@ import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import '../local/match_local_store.dart';
 import '../local/pending_sync_action.dart';
 import '../services/offline_sync_service.dart';
+import '../../domain/scoring/innings_transition_overlay.dart';
 import '../services/public_scorecard_sync.dart';
 
 class MatchRepository {
@@ -360,6 +361,9 @@ class MatchRepository {
     final toSave = existing != null
         ? MatchUpdateMerge.merge(existing, match)
         : match;
+    // Innings transitions (end innings, start chase / super over, result)
+    // must refresh the live overlay too, not only ball commits.
+    final overlay = InningsTransitionOverlay.build(_scoringEngine, toSave);
     final sync = _syncService;
     final local = _localStore;
     if (sync == null || local == null) {
@@ -367,11 +371,21 @@ class MatchRepository {
       for (final field in fieldDeletes) {
         data[field] = FieldValue.delete();
       }
-      await _matchDoc(toSave.id).update(data);
-      await _syncPublicScorecard(toSave);
+      if (overlay == null) {
+        await _matchDoc(toSave.id).update(data);
+      } else {
+        final batch = _firestore.batch();
+        batch.update(_matchDoc(toSave.id), data);
+        batch.set(
+          _matchDoc(toSave.id).collection('overlay').doc('current'),
+          overlay.toMap(),
+        );
+        await batch.commit();
+      }
+      await _syncPublicScorecard(toSave, overlay: overlay);
       return;
     }
-    await _persistMatchLocally(toSave);
+    await _persistMatchLocally(toSave, overlay: overlay);
     await sync.enqueue(
       sync.newAction(
         matchId: toSave.id,
@@ -379,6 +393,7 @@ class MatchRepository {
         payload: {
           'matchData': toSave.toMap(),
           if (fieldDeletes.isNotEmpty) 'fieldDeletes': fieldDeletes,
+          if (overlay != null) 'overlayData': overlay.toMap(),
         },
       ),
     );
