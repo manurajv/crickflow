@@ -14,6 +14,7 @@ const {
 } = require('./seriesOwnerOps');
 const competitionOps = require('./seriesCompetitionOps');
 const { updateSeriesRankings } = require('./updateSeriesRankings');
+const orgTeams = require('./orgTeamLink');
 
 const COLLECTIONS = {
   series: 'series',
@@ -525,12 +526,32 @@ exports.createSeriesClub = onCall(async (request) => {
   const asSuper = isSuperAdmin(series, uid);
   const ts = nowIso();
   const ref = firestore.collection(COLLECTIONS.clubs).doc();
+  // Every org team is a real CrickFlow team. The app creates it with the
+  // normal team flow and passes linkedTeamId; web / older apps don't, so the
+  // server creates one owned by the caller.
+  const linkedTeamId = request.data?.linkedTeamId ? String(request.data.linkedTeamId) : null;
+  if (linkedTeamId) {
+    const tSnap = await firestore.collection('teams').doc(linkedTeamId).get();
+    const team = tSnap.exists ? tSnap.data() : null;
+    try {
+      orgTeams.validateLinkTarget({
+        team, uid, lockClub: await orgTeams.readLockClub(firestore, team),
+      });
+    } catch (err) {
+      throw new HttpsError(err.code || 'failed-precondition', err.message);
+    }
+  }
+  const lock = orgTeams.buildLock({ seriesId, clubId: ref.id, seriesName: series.name, ts });
+  const teamId = linkedTeamId || await orgTeams.createTeamForClub(firestore, {
+    name, createdBy: uid, lock, ts,
+  });
+  if (linkedTeamId) await orgTeams.lockTeam(firestore, linkedTeamId, lock);
   const club = {
     seriesId,
     name: name.slice(0, 120),
     description: String(request.data?.description || '').slice(0, 2000),
     logoUrl: request.data?.logoUrl || null,
-    linkedTeamId: request.data?.linkedTeamId || null,
+    linkedTeamId: teamId,
     status: manager ? 'approved' : 'pending',
     createdBy: uid,
     squadCount: 0,
@@ -592,6 +613,16 @@ exports.createSeriesClub = onCall(async (request) => {
   };
 });
 
+/** Best effort: keep the linked CrickFlow team roster in step with the org. */
+async function mirrorRoster(firestore, kind, args) {
+  try {
+    if (kind === 'add') await orgTeams.addMemberToLinkedTeam(firestore, args);
+    else await orgTeams.removeMemberFromLinkedTeam(firestore, args);
+  } catch (err) {
+    console.warn(`org team roster ${kind} failed`, err.message);
+  }
+}
+
 async function activateMembership(firestore, {
   seriesId, clubId, userId, playerDocId, registrationId, displayName,
 }) {
@@ -614,6 +645,9 @@ async function activateMembership(firestore, {
       : nowIso(),
   }, { merge: true });
 
+  await mirrorRoster(firestore, 'add', {
+    clubId, userId, playerDocId: playerDocId || existing.data()?.playerDocId,
+  });
   if (alreadyActive) return mid;
 
   const clubRef = firestore.collection(COLLECTIONS.clubs).doc(clubId);
@@ -708,6 +742,9 @@ exports.reviewSeriesApproval = onCall(async (request) => {
         status: 'rejected',
         updatedAt: ts,
       });
+      // The CrickFlow team stays; it just becomes a normal, editable team again.
+      const linked = (await clubRef.get()).data()?.linkedTeamId;
+      await orgTeams.unlockTeamForClub(firestore, linked, targetId);
     }
     auditAction = decision === 'approved' ? 'CLUB_APPROVED' : 'CLUB_REJECTED';
   }
@@ -764,10 +801,12 @@ exports.reviewSeriesApproval = onCall(async (request) => {
       const userId = approval.metadata?.userId;
       if (clubId && userId) {
         const mid = membershipDocId(seriesId, clubId, userId);
+        const prev = (await firestore.collection(COLLECTIONS.memberships).doc(mid).get()).data() || {};
         await firestore.collection(COLLECTIONS.memberships).doc(mid).update({
           status: 'removed',
           leftAt: ts,
         });
+        await mirrorRoster(firestore, 'remove', { clubId, userId, playerDocId: prev.playerDocId });
         await firestore.collection(COLLECTIONS.clubs).doc(clubId).update({
           squadCount: FieldValue.increment(-1),
           updatedAt: ts,
@@ -1325,9 +1364,13 @@ exports.submitPlayerRemovalRequest = onCall(async (request) => {
   // Super Admin can remove directly.
   if (isSuperAdmin(series, uid) && request.data?.direct === true) {
     const mid = membershipDocId(seriesId, clubId, targetUserId);
+    const prev = (await firestore.collection(COLLECTIONS.memberships).doc(mid).get()).data() || {};
     await firestore.collection(COLLECTIONS.memberships).doc(mid).update({
       status: 'removed',
       leftAt: nowIso(),
+    });
+    await mirrorRoster(firestore, 'remove', {
+      clubId, userId: targetUserId, playerDocId: prev.playerDocId,
     });
     await firestore.collection(COLLECTIONS.clubs).doc(clubId).update({
       squadCount: FieldValue.increment(-1),
@@ -1378,14 +1421,28 @@ exports.proposeSeriesMatch = onCall(async (request) => {
   const firestore = db();
   const series = await getSeriesOrThrow(firestore, seriesId);
   const asAdmin = await isSeriesAdmin(firestore, series, uid);
-  const asClubA = await isClubAdmin(firestore, seriesId, clubAId, uid);
-  const asClubB = await isClubAdmin(firestore, seriesId, clubBId, uid);
-  if (!asAdmin && !asClubA && !asClubB) {
-    throw new HttpsError('permission-denied', 'Club Admin required');
+  // Same rules as startSeriesMatch: players need the org's
+  // "members can request" permission and must be on one of the two teams.
+  const roles = asAdmin
+    ? { adminClubIds: [], memberClubIds: [] }
+    : await callerTeamRoles(firestore, seriesId, uid);
+  const involved = (ids) => ids.includes(clubAId) || ids.includes(clubBId);
+  let access;
+  try {
+    access = competitionOps.decideAccess({
+      kind: 'match',
+      isAdmin: asAdmin,
+      isOwner: isSuperAdmin(series, uid),
+      isTeamAdmin: involved(roles.adminClubIds),
+      isMember: involved(roles.memberClubIds),
+      policy: competitionOps.resolvePolicy(series),
+    });
+  } catch (err) {
+    throw competitionHttpsError(err);
   }
 
   const ts = nowIso();
-  const autoApprove = asAdmin;
+  const autoApprove = access.autoApprove;
   const officialStatus = autoApprove ? 'approved' : 'pendingApproval';
   const compRef = firestore.collection(COLLECTIONS.competitions).doc();
   let matchId = request.data?.matchId || null;
@@ -1465,7 +1522,7 @@ exports.proposeSeriesMatch = onCall(async (request) => {
       seriesId,
       clubId: clubAId,
       actorUserId: uid,
-      actorRole: isSuperAdmin(series, uid) ? 'superAdmin' : 'seriesAdmin',
+      actorRole: access.role,
       action: 'MATCH_APPROVED_DIRECT',
       targetType: 'match',
       targetId: compRef.id,
@@ -2314,6 +2371,31 @@ async function applyMatchDecision(firestore, { seriesId, matchId, decision, ts }
       .catch((e) => console.error('series rankings on approval failed', matchId, e));
   }
 }
+
+/**
+ * Org admins: back every org team with a locked CrickFlow team (safe to re-run).
+ */
+exports.migrateSeriesTeamLinks = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const seriesId = String(request.data?.seriesId || '');
+  if (!seriesId) throw new HttpsError('invalid-argument', 'seriesId required');
+  const firestore = db();
+  const series = await requireSeriesAdmin(firestore, seriesId, uid);
+  const result = await orgTeams.migrateSeriesTeams(firestore, { seriesId, seriesName: series.name });
+  if (result.locked || result.created) {
+    await writeAudit(firestore, {
+      seriesId,
+      actorUserId: uid,
+      actorRole: isSuperAdmin(series, uid) ? 'superAdmin' : 'seriesAdmin',
+      action: 'ORG_TEAMS_LINKED',
+      targetType: 'series',
+      targetId: seriesId,
+      previousState: {},
+      newState: { locked: result.locked, created: result.created },
+    });
+  }
+  return result;
+});
 
 exports.applyTournamentDecision = applyTournamentDecision;
 exports.registerSeriesMatchCore = registerSeriesMatchCore;

@@ -94,6 +94,7 @@ const {
   startSeriesTournament,
   startSeriesMatch,
   updateSeriesCompetitionPolicy,
+  migrateSeriesTeamLinks,
 } = require('./series/seriesFunctions');
 
 exports.onMatchCompleted = onMatchCompleted;
@@ -152,6 +153,7 @@ exports.sendSeriesAnnouncement = sendSeriesAnnouncement;
 exports.startSeriesTournament = startSeriesTournament;
 exports.startSeriesMatch = startSeriesMatch;
 exports.updateSeriesCompetitionPolicy = updateSeriesCompetitionPolicy;
+exports.migrateSeriesTeamLinks = migrateSeriesTeamLinks;
 exports.getSeriesRegistrationIdentity = getSeriesRegistrationIdentity;
 exports.reviewClubJoinRequest = reviewClubJoinRequest;
 exports.addSeriesClubAdmin = addSeriesClubAdmin;

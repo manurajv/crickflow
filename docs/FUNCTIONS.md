@@ -151,4 +151,14 @@ Requires Blaze plan for outbound FCM/network from functions.
 | `updateSeriesCompetitionPolicy` | Owner | `series.competitionPolicy`: `tournamentRequestsNeedApproval`, `matchRequestsNeedApproval` (default true), `membersCanRequest` (default false). |
 | `proposeSeriesTournament` (legacy) | as `startSeriesTournament` link | Older app builds; now requires the caller to organize the tournament. |
 
-`reviewSeriesApproval` requires a reason when rejecting match/tournament requests; a rejection unlinks the tournament/match from the org. Approval counts already-finished matches. Org rankings only count a match when an approved `series_competitions` row covers it (directly or via its tournament).
+`reviewSeriesApproval` stores a rejection reason (older apps that send none get "No reason given"); a rejection unlinks the tournament/match from the org. Approval counts already-finished matches. Org rankings only count a match when an approved `series_competitions` row covers it (directly or via its tournament).
+
+`proposeSeriesMatch` follows the same access rules as `startSeriesMatch`: players can propose only when `membersCanRequest` is on, and only for a match involving their own org team.
+
+## Org teams are CrickFlow teams (Oct 2026)
+
+- Every `series_clubs` row has `linkedTeamId` → a real `teams/{id}`. The app creates the team with the normal create-team flow and passes `linkedTeamId` to `createSeriesClub` (caller must own the team). Web / older apps don't, so `createSeriesClub` creates the team server-side (owner = caller).
+- That team carries `orgLock: { seriesId, clubId, seriesName, lockedAt }`. Firestore rules then refuse client edits to its name, roster and details, deletion, team join requests/invitations, and moving players onto/off it. Stats/badges still update. Platform admins (`canManageTeams`) keep their moderation fields.
+- The roster mirrors approved org membership changes (`activateMembership`, player removals) — done by Cloud Functions only. Match-only guests never touch it.
+- A rejected org team is unlocked and stays a normal team.
+- `migrateSeriesTeamLinks({ seriesId })` (org admins; the app runs it once per session when an admin opens the org) backfills existing org teams without deleting anything: locks a linked team owned by the org team's creator and adds active org members to it, or creates a team for org teams with none. Teams owned by someone else / already locked elsewhere are skipped and reported.

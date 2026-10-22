@@ -350,3 +350,36 @@ test('announcements: signed-in read, callable-only writes', async () => {
   await assertFails(getDocs(collection(anon(), 'series/s1/announcements')));
   await assertFails(setDoc(doc(as('owner'), 'series/s1/announcements/x'), { title: 'x' }));
 });
+
+test('org-locked teams: details/roster only via functions; stats still writable', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'teams/locked1'), {
+      name: 'Lock', createdBy: 'towner', playerIds: ['towner'],
+      orgLock: { seriesId: 's1', clubId: 'c1' },
+    });
+    await setDoc(doc(db, 'teams/free1'), { name: 'Free', createdBy: 'towner', playerIds: ['towner'] });
+    await setDoc(doc(db, 'players/lp1'), {
+      name: 'P', userId: 'lp1', teamIds: ['locked1'], teamId: 'locked1', rosterChangeTeamId: 'locked1',
+    });
+    await setDoc(doc(db, 'players/walk1'), { name: 'W' });
+  });
+  const o = as('towner');
+  const p = as('lp1');
+  await assertFails(updateDoc(doc(o, 'teams/locked1'), { name: 'X' }));
+  await assertFails(updateDoc(doc(o, 'teams/locked1'), { playerIds: ['towner', 'x'] }));
+  await assertFails(updateDoc(doc(o, 'teams/locked1'), { orgLock: null }));
+  await assertSucceeds(updateDoc(doc(o, 'teams/locked1'), { stats: { matchesPlayed: 1 }, updatedAt: NOW }));
+  await assertFails(deleteDoc(doc(o, 'teams/locked1')));
+  await assertSucceeds(updateDoc(doc(o, 'teams/free1'), { name: 'Y' }));
+  await assertFails(updateDoc(doc(o, 'teams/free1'), { orgLock: { clubId: 'z' } }));
+  await assertFails(setDoc(doc(o, 'teams/new1'), { name: 'n', createdBy: 'towner', orgLock: {} }));
+  await assertSucceeds(updateDoc(doc(p, 'players/lp1'), { name: 'P2' }));
+  await assertFails(updateDoc(doc(p, 'players/lp1'), { teamIds: [], rosterChangeTeamId: 'locked1' }));
+  await assertFails(setDoc(doc(o, 'players/walk2'), { name: 'W', teamIds: ['locked1'], teamId: 'locked1' }));
+  await assertSucceeds(setDoc(doc(o, 'players/walk3'), { name: 'W', teamIds: ['free1'], teamId: 'free1' }));
+  await assertFails(updateDoc(doc(o, 'players/walk1'), { teamIds: ['locked1'], teamId: 'locked1', rosterChangeTeamId: 'locked1' }));
+  await assertFails(setDoc(doc(p, 'teams/locked1/join_requests/lp1'), {
+    userId: 'lp1', status: 'pending', playerId: 'lp1', playerName: 'P',
+  }));
+});

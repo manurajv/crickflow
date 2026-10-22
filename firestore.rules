@@ -582,6 +582,60 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/teams/$(teamId)).data;
     }
 
+    /// Org-linked team (series_clubs). Name, roster and details change only
+    /// through the org's request/approval flow (Cloud Functions).
+    function teamDataOrgLocked(data) {
+      return data.get('orgLock', null) != null;
+    }
+
+    function teamIdOrgLocked(teamId) {
+      return teamId is string
+        && teamId.size() > 0
+        && exists(/databases/$(database)/documents/teams/$(teamId))
+        && teamDataOrgLocked(teamDoc(teamId));
+    }
+
+    function lockedTeamFields() {
+      return [
+        'name', 'playerIds', 'memberCount', 'captainId', 'viceCaptainId',
+        'coachName', 'contactNumber', 'location', 'teamProfileImageUrl',
+        'logoUrl', 'teamCoverImageUrl', 'createdBy', 'teamCode', 'orgLock'
+      ];
+    }
+
+    /// Unlocked teams can't gain a lock from a client; locked teams only take
+    /// non-roster, non-detail updates (stats, badges, timestamps, ...).
+    function teamOrgLockAllowsUpdate() {
+      return (!teamDataOrgLocked(resource.data)
+          && request.resource.data.get('orgLock', null) == null)
+        || (teamDataOrgLocked(resource.data)
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(lockedTeamFields()));
+    }
+
+    /// Player docs: no client can move a player onto or off an org-locked team
+    /// (checked on the roster fields a client changes: rosterChangeTeamId, teamId).
+    function playerRosterTargetUnlocked() {
+      let neu = request.resource.data;
+      let old = resource.data;
+      let changeId = neu.get('rosterChangeTeamId', '');
+      let newTeamId = neu.get('teamId', '');
+      let oldTeamId = old.get('teamId', '');
+      return (!teamIdOrgLocked(changeId)
+          || (changeId == old.get('rosterChangeTeamId', '')
+            && neu.get('teamIds', []) == old.get('teamIds', [])))
+        && (newTeamId == null || newTeamId == oldTeamId || !teamIdOrgLocked(newTeamId))
+        && (oldTeamId == null || newTeamId == oldTeamId || !teamIdOrgLocked(oldTeamId));
+    }
+
+    function playerCreateTeamUnlocked() {
+      let d = request.resource.data;
+      let tid = d.get('teamId', '');
+      let tids = d.get('teamIds', []);
+      return (tid == null || !teamIdOrgLocked(tid))
+        && (!(tids is list) || tids.size() == 0 || !teamIdOrgLocked(tids[0]));
+    }
+
     function authOwnsPlayerDoc(playerDocId) {
       return playerDocId == request.auth.uid
         || (
@@ -1109,15 +1163,19 @@ service cloud.firestore {
     match /teams/{teamId} {
       allow read: if true;
       allow create: if isSignedIn()
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isTeamOwnerFullUpdate()
-        || isMemberSelfLeaveTeamUpdate(teamId)
-        || isOwnerLeaveTeamUpdate()
-        || isLeadershipRosterUpdate(teamId)
+        && request.resource.data.createdBy == request.auth.uid
+        && !('orgLock' in request.resource.data);
+      allow update: if (teamOrgLockAllowsUpdate() && (
+          isTeamOwnerFullUpdate()
+          || isMemberSelfLeaveTeamUpdate(teamId)
+          || isOwnerLeaveTeamUpdate()
+          || isLeadershipRosterUpdate(teamId)
+        ))
         || canAdminUpdateTeamDoc();
       allow delete: if isSignedIn()
         && resource.data.createdBy == request.auth.uid
-        && teamPublicCodeImmutable();
+        && teamPublicCodeImmutable()
+        && !teamDataOrgLocked(resource.data);
 
       match /profileViews/{viewerId} {
         allow read: if isSignedIn() && request.auth.uid == viewerId;
@@ -1131,16 +1189,20 @@ service cloud.firestore {
         allow read: if isSignedIn() && (
           canManageTeamRequests(teamId) || requestId == request.auth.uid
         );
-        allow create: if isUserJoinRequestWrite(requestId)
-          || isTeamLeadershipInvitationWrite(teamId, requestId);
-        allow update: if isUserJoinRequestWrite(requestId)
+        // Org-locked teams: members join through the org, not team requests.
+        allow create: if !teamIdOrgLocked(teamId) && (
+          isUserJoinRequestWrite(requestId)
+          || isTeamLeadershipInvitationWrite(teamId, requestId));
+        allow update: if (isUserJoinRequestWrite(requestId) && !teamIdOrgLocked(teamId))
           || (
-            canManageTeamRequests(teamId)
+            !teamIdOrgLocked(teamId)
+            && canManageTeamRequests(teamId)
             && resource.data.status == 'pending'
             && resource.data.get('requestType', 'join_request') == 'join_request'
             && request.resource.data.status in ['accepted', 'rejected']
           )
-          || isInviteeRespondingToInvitation()
+          || (isInviteeRespondingToInvitation()
+            && (request.resource.data.status == 'rejected' || !teamIdOrgLocked(teamId)))
           || (
             requestId == request.auth.uid
             && resource.data.status == 'pending'
@@ -1180,10 +1242,11 @@ service cloud.firestore {
 
     match /players/{playerId} {
       allow read: if true;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && playerCreateTeamUnlocked();
       allow update: if (
         isSignedIn()
         && playerPublicIdImmutable()
+        && playerRosterTargetUnlocked()
         && (
           isMemberSelfLeavePlayerUpdate()
           || ownsPlayerProfile(playerId)
