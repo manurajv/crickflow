@@ -104,6 +104,10 @@ class SeriesFunctionsService {
         'policy': policy,
       });
 
+  /// Org admins: back every org team with a locked CrickFlow team (idempotent).
+  Future<Map<String, dynamic>> migrateSeriesTeamLinks(String seriesId) =>
+      _call('migrateSeriesTeamLinks', {'seriesId': seriesId});
+
   Future<Map<String, dynamic>> proposeSeriesMatch(Map<String, dynamic> data) =>
       _call('proposeSeriesMatch', data);
 

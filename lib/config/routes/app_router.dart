@@ -68,7 +68,6 @@ import '../../features/series/presentation/series_admins_screen.dart';
 import '../../features/series/presentation/series_announcements_screen.dart';
 import '../../features/series/presentation/series_approvals_screen.dart';
 import '../../features/series/presentation/series_audit_screen.dart';
-import '../../features/series/presentation/series_club_create_screen.dart';
 import '../../features/series/presentation/series_club_detail_screen.dart';
 import '../../features/series/presentation/series_competitions_screen.dart';
 import '../../features/series/presentation/series_create_screen.dart';
@@ -93,6 +92,7 @@ import '../../features/teams/presentation/team_detail_screen.dart';
 import '../../features/teams/presentation/team_edit_screen.dart';
 import '../../features/teams/presentation/team_profile/team_profile_screen.dart';
 import '../../features/teams/presentation/create_team_screen.dart';
+import '../../features/teams/presentation/widgets/org_locked_team_notice.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_dashboard_screen.dart';
 import '../../features/tournaments/presentation/tournament_dashboard_sections.dart';
@@ -563,7 +563,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: 'clubs/create',
-                builder: (_, state) => SeriesClubCreateScreen(
+                // Org teams use the normal CrickFlow team flow.
+                builder: (_, state) => CreateTeamScreen(
                   seriesId: state.pathParameters['seriesId']!,
                 ),
               ),
@@ -757,6 +758,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/teams/create',
         builder: (_, state) => CreateTeamScreen(
           tournamentId: state.uri.queryParameters['tournamentId'],
+          seriesId: state.uri.queryParameters['seriesId'],
         ),
       ),
       GoRoute(
@@ -771,30 +773,48 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'edit',
-            builder: (_, state) =>
-                TeamEditScreen(teamId: state.pathParameters['id']!),
+            builder: (_, state) => OrgLockedTeamGate(
+              teamId: state.pathParameters['id']!,
+              title: 'Edit team',
+              child: TeamEditScreen(teamId: state.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: 'add-players',
-            builder: (_, state) =>
-                TeamAddPlayersScreen(teamId: state.pathParameters['id']!),
+            builder: (_, state) => OrgLockedTeamGate(
+              teamId: state.pathParameters['id']!,
+              title: 'Add players',
+              child: TeamAddPlayersScreen(teamId: state.pathParameters['id']!),
+            ),
             routes: [
               GoRoute(
                 path: 'quick',
-                builder: (_, state) => TeamAddPlayerQuickScreen(
+                builder: (_, state) => OrgLockedTeamGate(
                   teamId: state.pathParameters['id']!,
+                  title: 'Add players',
+                  child: TeamAddPlayerQuickScreen(
+                    teamId: state.pathParameters['id']!,
+                  ),
                 ),
               ),
               GoRoute(
                 path: 'directory',
-                builder: (_, state) => TeamAddPlayerDirectoryScreen(
+                builder: (_, state) => OrgLockedTeamGate(
                   teamId: state.pathParameters['id']!,
+                  title: 'Add players',
+                  child: TeamAddPlayerDirectoryScreen(
+                    teamId: state.pathParameters['id']!,
+                  ),
                 ),
               ),
               GoRoute(
                 path: 'walkin',
-                builder: (_, state) => TeamAddWalkInPlayerScreen(
+                builder: (_, state) => OrgLockedTeamGate(
                   teamId: state.pathParameters['id']!,
+                  title: 'Add players',
+                  child: TeamAddWalkInPlayerScreen(
+                    teamId: state.pathParameters['id']!,
+                  ),
                 ),
               ),
             ],

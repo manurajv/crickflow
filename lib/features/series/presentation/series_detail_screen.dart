@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/series/series.dart';
+import '../../../domain/services/series/org_competition_access.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_status_banner.dart';
@@ -68,7 +69,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     final role = ref.watch(mySeriesRoleProvider(seriesId));
     final canAdmin =
         role == SeriesRole.superAdmin || role == SeriesRole.seriesAdmin;
-    final canPropose = canAdmin || role == SeriesRole.clubAdmin;
+    final access = ref.watch(orgCompetitionAccessProvider(seriesId));
+    final canPropose = access.match != OrgStartMode.none;
+    if (canAdmin) ref.watch(orgTeamLinkMigrationProvider(seriesId));
 
     return series.when(
       loading: () =>
@@ -224,7 +227,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 controller: _tabs,
                 children: [
                   _Overview(series: item, canAdmin: canAdmin),
-                  _FixturesTab(seriesId: seriesId),
+                  _FixturesTab(seriesId: seriesId, access: access),
                   _LeaderboardTab(seriesId: seriesId, series: item),
                   _MemberUnits(seriesId: seriesId, series: item),
                   _About(series: item),
@@ -479,8 +482,9 @@ class _Overview extends StatelessWidget {
 }
 
 class _FixturesTab extends StatelessWidget {
-  const _FixturesTab({required this.seriesId});
+  const _FixturesTab({required this.seriesId, required this.access});
   final String seriesId;
+  final OrgCompetitionAccess access;
 
   @override
   Widget build(BuildContext context) {
@@ -499,28 +503,40 @@ class _FixturesTab extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/series/$seriesId/fixtures'),
         ),
-        const SizedBox(height: AppDimens.spaceSm),
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        // Players see these only when the org lets players request.
+        if (access.match != OrgStartMode.none) ...[
+          const SizedBox(height: AppDimens.spaceSm),
+          ListTile(
+            tileColor: cf.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            leading: Icon(Icons.sports_cricket_outlined, color: cf.accent),
+            title: Text(
+              OrgCompetitionAccess.actionLabel(access.match, tournament: false),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/series/$seriesId/propose-match'),
           ),
-          leading: Icon(Icons.sports_cricket_outlined, color: cf.accent),
-          title: const Text('Propose match'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/$seriesId/propose-match'),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        ],
+        if (access.tournament != OrgStartMode.none) ...[
+          const SizedBox(height: AppDimens.spaceSm),
+          ListTile(
+            tileColor: cf.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            leading: Icon(Icons.emoji_events_outlined, color: cf.accent),
+            title: Text(
+              OrgCompetitionAccess.actionLabel(
+                access.tournament,
+                tournament: true,
+              ),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/series/$seriesId/propose-tournament'),
           ),
-          leading: Icon(Icons.emoji_events_outlined, color: cf.accent),
-          title: const Text('Propose tournament'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/$seriesId/propose-tournament'),
-        ),
+        ],
       ],
     );
   }

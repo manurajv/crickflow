@@ -273,6 +273,19 @@ final myOrgTeamIdsProvider = Provider.family<List<String>, String>((
   }.where((id) => id.isNotEmpty).toList();
 });
 
+/// Runs once per org per app session when an org admin opens the org:
+/// links every existing org team to a real, org-locked CrickFlow team.
+/// Non-destructive and idempotent on the server; failures are ignored.
+final orgTeamLinkMigrationProvider =
+    FutureProvider.family<void, String>((ref, seriesId) async {
+      ref.keepAlive();
+      try {
+        await ref
+            .read(seriesFunctionsServiceProvider)
+            .migrateSeriesTeamLinks(seriesId);
+      } catch (_) {}
+    });
+
 /// What the signed-in user may start or request inside an org.
 final orgCompetitionAccessProvider =
     Provider.family<OrgCompetitionAccess, String>((ref, seriesId) {

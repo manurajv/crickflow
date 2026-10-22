@@ -242,8 +242,11 @@ class _PolicySheetState extends ConsumerState<_PolicySheet> {
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Players can request too'),
-              subtitle: const Text('Not just team admins'),
+              title: const Text('Players can propose matches and tournaments'),
+              subtitle: const Text(
+                'Off: only the owner, admins and team admins can. '
+                'Players never see the propose options.',
+              ),
               value: _policy.membersCanRequest,
               onChanged: (v) => setState(
                   () => _policy = _policy.copyWith(membersCanRequest: v)),

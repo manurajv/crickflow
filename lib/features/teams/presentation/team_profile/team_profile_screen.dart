@@ -77,7 +77,7 @@ class _TeamProfileScreenState extends ConsumerState<TeamProfileScreen>
   void _showMoreMenu(BuildContext context) {
     final uid = ref.read(authStateProvider).value?.uid;
     final team = ref.read(teamByIdProvider(widget.teamId)).valueOrNull;
-    final isOwner = team != null && TeamSquadUtils.isTeamOwner(uid, team);
+    final isOwner = team != null && TeamSquadUtils.canEditTeam(uid, team);
 
     showModalBottomSheet<void>(
       context: context,
