@@ -8,8 +8,8 @@
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
-    "test": "node src/utils/badges.test.js && node src/utils/ballEventStats.test.js && node src/series/updateSeriesRankings.test.js && node src/series/seriesOwnerOps.test.js && node src/tournament/linkMatchOps.test.js && node src/series/seriesCompetitionOps.test.js && node src/series/orgTeamLink.test.js",
-    "lint": "node --check src/index.js && node --check src/series/seriesFunctions.js && node --check src/series/seriesOwnerOps.js && node --check src/tournament/linkMatchToTournament.js && node --check src/series/seriesCompetitionOps.js && node --check src/match/onMatchCompleted.js && node --check src/series/orgTeamLink.js"
+    "test": "node src/utils/badges.test.js && node src/utils/ballEventStats.test.js && node src/series/updateSeriesRankings.test.js && node src/series/seriesOwnerOps.test.js && node src/tournament/linkMatchOps.test.js && node src/series/seriesCompetitionOps.test.js && node src/series/orgTeamLink.test.js && node src/notifications/notificationPriority.test.js",
+    "lint": "node --check src/index.js && node --check src/series/seriesFunctions.js && node --check src/series/seriesOwnerOps.js && node --check src/tournament/linkMatchToTournament.js && node --check src/series/seriesCompetitionOps.js && node --check src/match/onMatchCompleted.js && node --check src/series/orgTeamLink.js && node --check src/notifications/onRequestResolved.js && node --check src/notifications/onNotificationCreated.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",

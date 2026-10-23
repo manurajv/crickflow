@@ -15,6 +15,7 @@ const {
 const competitionOps = require('./seriesCompetitionOps');
 const { updateSeriesRankings } = require('./updateSeriesRankings');
 const orgTeams = require('./orgTeamLink');
+const { markDocsRead } = require('../notifications/notificationPriority');
 
 const COLLECTIONS = {
   series: 'series',
@@ -185,6 +186,7 @@ async function createApproval(firestore, data) {
         title: 'Series approval needed',
         body: `${data.targetType || 'Request'} pending in ${series.name || 'Series'}`,
         type: 'series_approval_pending',
+        priority: true,
         seriesId: data.seriesId,
         requestId: ref.id,
         addedByUserId: data.requestedBy || 'system',
@@ -722,6 +724,17 @@ exports.reviewSeriesApproval = onCall(async (request) => {
     reviewedAt: ts,
     reason,
   });
+
+  // Every admin's "approval needed" notification for this request is done.
+  try {
+    const pend = await firestore.collection('notifications')
+      .where('requestId', '==', approvalId)
+      .where('type', '==', 'series_approval_pending')
+      .get();
+    await markDocsRead(firestore, pend.docs);
+  } catch (err) {
+    console.warn('approval notifications read failed', err.message);
+  }
 
   const targetType = approval.targetType;
   const targetId = approval.targetId;
