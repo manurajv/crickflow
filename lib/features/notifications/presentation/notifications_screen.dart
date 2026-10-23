@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +11,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../data/models/notification_model.dart';
+import '../../../domain/notifications/notification_priority.dart';
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
@@ -25,6 +28,92 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final feed = ref.watch(notificationsFeedProvider);
+    final unread = ref.watch(notificationUnreadByTabProvider).valueOrNull ??
+        const {NotificationTab.priority: 0, NotificationTab.general: 0};
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Notifications'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final uid = ref.read(authStateProvider).value?.uid;
+                if (uid != null) {
+                  await ref
+                      .read(notificationRepositoryProvider)
+                      .markAllRead(uid);
+                }
+              },
+              child: const Text('Mark all read'),
+            ),
+          ],
+          bottom: TabBar(
+            tabs: [
+              _TabLabel(
+                key: const Key('notifications_tab_priority'),
+                label: 'Priority',
+                count: unread[NotificationTab.priority] ?? 0,
+              ),
+              _TabLabel(
+                key: const Key('notifications_tab_general'),
+                label: 'General',
+                count: unread[NotificationTab.general] ?? 0,
+              ),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _NotificationsTabList(feed: feed, tab: NotificationTab.priority),
+            _NotificationsTabList(feed: feed, tab: NotificationTab.general),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TabLabel extends StatelessWidget {
+  const _TabLabel({super.key, required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            Badge(label: Text(count > 99 ? '99+' : '$count')),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One tab: the shared paginated feed filtered to [tab].
+class _NotificationsTabList extends ConsumerStatefulWidget {
+  const _NotificationsTabList({required this.feed, required this.tab});
+
+  final NotificationsFeedState feed;
+  final NotificationTab tab;
+
+  @override
+  ConsumerState<_NotificationsTabList> createState() =>
+      _NotificationsTabListState();
+}
+
+class _NotificationsTabListState extends ConsumerState<_NotificationsTabList> {
   final _scrollController = ScrollController();
 
   @override
@@ -40,83 +129,44 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     super.dispose();
   }
 
+  void _loadMore() {
+    final feed = ref.read(notificationsFeedProvider);
+    if (feed.loading || feed.loadingMore || !feed.hasMore) return;
+    ref.read(notificationsFeedProvider.notifier).loadMore();
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     if (pos.pixels < pos.maxScrollExtent - 240) return;
-
-    final feed = ref.read(notificationsFeedProvider);
-    if (feed.loadingMore || !feed.hasMore) return;
-    ref.read(notificationsFeedProvider.notifier).loadMore();
+    _loadMore();
   }
 
   @override
   Widget build(BuildContext context) {
-    final feed = ref.watch(notificationsFeedProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final uid = ref.read(authStateProvider).value?.uid;
-              if (uid != null) {
-                await ref
-                    .read(notificationRepositoryProvider)
-                    .markAllRead(uid);
-              }
-            },
-            child: const Text('Mark all read'),
-          ),
-        ],
-      ),
-      body: _buildBody(context, feed),
-    );
-  }
-
-  Widget _buildBody(BuildContext context, NotificationsFeedState feed) {
+    final feed = widget.feed;
     if (feed.loading && feed.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
     if (feed.error != null && feed.items.isEmpty) {
       return Center(child: Text('${feed.error}'));
     }
-    if (feed.items.isEmpty) {
-      final cf = context.cf;
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppDimens.spaceXl),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.notifications_none_outlined,
-                size: 56,
-                color: cf.textMuted.withValues(alpha: 0.4),
-              ),
-              const SizedBox(height: AppDimens.spaceMd),
-              Text(
-                'All caught up',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: AppDimens.spaceSm),
-              Text(
-                'Match updates, invites, and achievements will appear here.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: cf.textSecondary,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      );
+    final list = NotificationPriority.filter(feed.items, widget.tab);
+
+    // A sparse tab can't scroll, so pull older pages until it fills a bit.
+    if (list.length < 12 && feed.hasMore && !feed.loadingMore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadMore();
+      });
     }
 
-    final list = feed.items;
+    if (list.isEmpty) {
+      if (feed.hasMore || feed.loadingMore) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      return _EmptyTab(tab: widget.tab);
+    }
+
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
@@ -144,18 +194,68 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 }
 
+class _EmptyTab extends StatelessWidget {
+  const _EmptyTab({required this.tab});
+
+  final NotificationTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    final priority = tab == NotificationTab.priority;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.spaceXl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              priority
+                  ? Icons.task_alt_outlined
+                  : Icons.notifications_none_outlined,
+              size: 56,
+              color: cf.textMuted.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: AppDimens.spaceMd),
+            Text(
+              'All caught up',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+            Text(
+              priority
+                  ? 'Requests, invites and approvals that need you will appear here.'
+                  : 'Match updates, results and achievements will appear here.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: cf.textSecondary,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _NotificationCard extends ConsumerWidget {
   const _NotificationCard({super.key, required this.notification});
 
   final NotificationModel notification;
 
   Future<void> _onTap(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(notificationRepositoryProvider);
     if (!notification.read) {
-      await ref.read(notificationRepositoryProvider).markRead(notification.id);
+      await repo.markRead(notification.id);
     }
     if (!context.mounted) return;
 
     if (notification.isActionable) return;
+
+    // Tapping through (e.g. to the match) reads its duplicates too.
+    unawaited(repo.markRelatedRead(NotificationRelation.of(notification)));
 
     final route = NotificationNavigation.routeForNotification(notification);
     if (route != null) {
@@ -193,6 +293,9 @@ class _NotificationCard extends ConsumerWidget {
               notification.id,
               accept ? 'accepted' : 'rejected',
             );
+        await ref
+            .read(notificationRepositoryProvider)
+            .markRelatedRead(NotificationRelation.of(notification));
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -219,6 +322,9 @@ class _NotificationCard extends ConsumerWidget {
             notification.id,
             accept ? 'accepted' : 'rejected',
           );
+      await ref
+          .read(notificationRepositoryProvider)
+          .markRelatedRead(NotificationRelation.of(notification));
       final tournamentId = notification.tournamentId;
       if (tournamentId != null && tournamentId.isNotEmpty) {
         ref.invalidate(tournamentTeamRequestsProvider(tournamentId));
