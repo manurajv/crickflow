@@ -4,18 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import { EntityCard } from "@/components/shared/cards";
 import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/states";
-import { GetTheApp } from "@/components/shared/get-the-app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { locationLabel } from "@/lib/cricket/format";
 import { searchHaystack } from "@/lib/utils";
 import { listTournaments } from "@/repositories";
+import { CreateTournamentForm } from "@/features/tournaments/create-tournament-form";
+import { useAuth } from "@/features/auth/auth-provider";
 import type { Tournament } from "@/types/models";
 
 export default function TournamentsPage() {
+  const { user } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[] | null>(null);
   const [query, setQuery] = useState("");
   const [take, setTake] = useState(40);
+  const [showCreate, setShowCreate] = useState(false);
   useEffect(() => {
     listTournaments(take).then(setTournaments).catch(() => setTournaments([]));
   }, [take]);
@@ -38,9 +41,17 @@ export default function TournamentsPage() {
         eyebrow="Leagues & cups"
         description="Follow tournaments, fixtures, and standings across local and regional cricket."
       />
-      <div className="mt-4">
-        <GetTheApp title="Create a tournament in the CrickFlow app" />
-      </div>
+      {user && (
+        <div className="mt-4">
+          {showCreate ? (
+            <CreateTournamentForm onClose={() => { setShowCreate(false); listTournaments(take).then(setTournaments).catch(() => setTournaments([])); }} />
+          ) : (
+            <Button onClick={() => setShowCreate(true)} className="w-full sm:w-auto">
+              Create a tournament
+            </Button>
+          )}
+        </div>
+      )}
       <Input className="mt-4 max-w-md" placeholder="Search tournaments" value={query} onChange={(e) => setQuery(e.target.value)} />
       {tournaments === null ? (
         <LoadingGrid count={6} className="mt-8 md:grid-cols-2" />

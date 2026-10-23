@@ -72,7 +72,7 @@ function mapSeries(id: string, data: Data): Series {
 
 function mapClub(id: string, d: Data): SeriesClub {
   return {
-    id, seriesId: text(d, "seriesId"), name: text(d, "name") || "Club",
+    id, seriesId: text(d, "seriesId"), name: text(d, "name") || "Team",
     description: text(d, "description"), logoUrl: text(d, "logoUrl") || undefined,
     status: text(d, "status"), squadCount: number(d, "squadCount"),
   };
@@ -186,9 +186,35 @@ export async function reviewSeriesApproval(
   seriesId: string,
   approvalId: string,
   decision: "approved" | "rejected",
+  reason = "",
 ) {
   const callable = httpsCallable(getFirebaseFunctions(), "reviewSeriesApproval");
-  await callable({ seriesId, approvalId, decision });
+  await callable({ seriesId, approvalId, decision, reason });
+}
+
+/** Tournaments the user organizes that are not already in an org. */
+export async function listMyLinkableTournaments(uid: string) {
+  const snap = await getDocs(
+    query(collection(getDb(), collections.tournaments), where("createdBy", "==", uid), limit(50)),
+  );
+  return snap.docs
+    .map((d) => ({ id: d.id, data: d.data() as Record<string, unknown> }))
+    .filter(({ data }) => !data.seriesId || data.seriesOfficialStatus === "rejected")
+    .map(({ id, data }) => ({
+      id,
+      name: typeof data.name === "string" && data.name ? data.name : "Tournament",
+    }));
+}
+
+/** Org admins: add one of their own tournaments to the org. */
+export async function linkSeriesTournament(input: {
+  seriesId: string;
+  tournamentId: string;
+  title?: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "startSeriesTournament");
+  const result = await callable({ ...input, mode: "link", teamClubIds: [] });
+  return result.data as { autoApproved?: boolean; status?: string };
 }
 
 export async function createSeriesClub(input: {

@@ -71,6 +71,43 @@ class SeriesFunctionsService {
   ) =>
       _call('submitPlayerRemovalRequest', data);
 
+  /// Link a tournament created in the org wizard (`mode: create`) or an
+  /// existing tournament the caller organizes (`mode: link`, admins only).
+  Future<Map<String, dynamic>> startSeriesTournament({
+    required String seriesId,
+    required String tournamentId,
+    List<String> teamClubIds = const [],
+    String title = '',
+    bool linkExisting = false,
+  }) =>
+      _call('startSeriesTournament', {
+        'seriesId': seriesId,
+        'tournamentId': tournamentId,
+        'teamClubIds': teamClubIds,
+        'title': title,
+        'mode': linkExisting ? 'link' : 'create',
+      });
+
+  /// Register a match started from inside the org.
+  Future<Map<String, dynamic>> startSeriesMatch({
+    required String seriesId,
+    required String matchId,
+  }) =>
+      _call('startSeriesMatch', {'seriesId': seriesId, 'matchId': matchId});
+
+  Future<Map<String, dynamic>> updateSeriesCompetitionPolicy({
+    required String seriesId,
+    required Map<String, dynamic> policy,
+  }) =>
+      _call('updateSeriesCompetitionPolicy', {
+        'seriesId': seriesId,
+        'policy': policy,
+      });
+
+  /// Org admins: back every org team with a locked CrickFlow team (idempotent).
+  Future<Map<String, dynamic>> migrateSeriesTeamLinks(String seriesId) =>
+      _call('migrateSeriesTeamLinks', {'seriesId': seriesId});
+
   Future<Map<String, dynamic>> proposeSeriesMatch(Map<String, dynamic> data) =>
       _call('proposeSeriesMatch', data);
 
@@ -146,6 +183,52 @@ class SeriesFunctionsService {
         'clubId': clubId,
         'userId': userId,
       });
+
+  /// Owner-only: hand the organization to an existing active admin.
+  Future<Map<String, dynamic>> transferSeriesOwnership({
+    required String seriesId,
+    required String newOwnerUserId,
+    String reason = '',
+  }) =>
+      _call(
+        'transferSeriesOwnership',
+        {
+          'seriesId': seriesId,
+          'newOwnerUserId': newOwnerUserId,
+          'reason': reason,
+        },
+        maxAttempts: 1,
+      );
+
+  /// Owner-only archive / reactivate (`action`: archive | reactivate).
+  Future<Map<String, dynamic>> setSeriesLifecycle({
+    required String seriesId,
+    required String action,
+    String reason = '',
+  }) =>
+      _call(
+        'setSeriesLifecycle',
+        {'seriesId': seriesId, 'action': action, 'reason': reason},
+        maxAttempts: 1,
+      );
+
+  /// Series admins post an announcement (audience: all | admins | clubAdmins | members).
+  Future<Map<String, dynamic>> sendSeriesAnnouncement({
+    required String seriesId,
+    required String title,
+    required String body,
+    String audience = 'all',
+  }) =>
+      _call(
+        'sendSeriesAnnouncement',
+        {
+          'seriesId': seriesId,
+          'title': title,
+          'body': body,
+          'audience': audience,
+        },
+        maxAttempts: 1,
+      );
 
   /// Copies legacy top-level approvals into series/{id}/approvals for list rules.
   Future<Map<String, dynamic>> syncSeriesApprovalMirrors({

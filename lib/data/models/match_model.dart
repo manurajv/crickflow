@@ -233,6 +233,7 @@ class MatchModel extends Equatable {
     this.seriesClubBId,
     this.seriesOfficialStatus,
     this.seriesRankingsProcessed = false,
+    this.orgRequestSeriesId,
   });
 
   final String id;
@@ -289,6 +290,10 @@ class MatchModel extends Equatable {
   final String? seriesClubBId;
   final String? seriesOfficialStatus;
   final bool seriesRankingsProcessed;
+
+  /// Org the match was started in (client intent). The server registers it
+  /// (callable, or at completion as a fallback) with the usual checks.
+  final String? orgRequestSeriesId;
 
   /// Squad, roles, officials, and toss captured at match start.
   final MatchSetupData? setup;
@@ -409,6 +414,7 @@ class MatchModel extends Equatable {
       seriesClubBId: map['seriesClubBId'] as String?,
       seriesOfficialStatus: map['seriesOfficialStatus'] as String?,
       seriesRankingsProcessed: map['seriesRankingsProcessed'] as bool? ?? false,
+      orgRequestSeriesId: map['orgRequestSeriesId'] as String?,
     );
   }
 
@@ -487,6 +493,7 @@ class MatchModel extends Equatable {
     if (seriesOfficialStatus != null)
       'seriesOfficialStatus': seriesOfficialStatus,
     if (seriesRankingsProcessed) 'seriesRankingsProcessed': true,
+    if (orgRequestSeriesId != null) 'orgRequestSeriesId': orgRequestSeriesId,
   };
 
   MatchModel copyWith({
@@ -535,6 +542,7 @@ class MatchModel extends Equatable {
     String? seriesClubBId,
     String? seriesOfficialStatus,
     bool? seriesRankingsProcessed,
+    String? orgRequestSeriesId,
   }) {
     return MatchModel(
       id: id,
@@ -596,6 +604,7 @@ class MatchModel extends Equatable {
       seriesOfficialStatus: seriesOfficialStatus ?? this.seriesOfficialStatus,
       seriesRankingsProcessed:
           seriesRankingsProcessed ?? this.seriesRankingsProcessed,
+      orgRequestSeriesId: orgRequestSeriesId ?? this.orgRequestSeriesId,
     );
   }
 

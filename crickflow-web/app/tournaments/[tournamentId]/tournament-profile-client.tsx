@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { MatchCard } from "@/components/shared/cards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

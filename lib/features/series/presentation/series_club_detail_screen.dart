@@ -8,6 +8,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/series/series.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/player_discovery_repository.dart';
+import '../../../domain/services/series/org_competition_access.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
@@ -226,6 +227,7 @@ class _SeriesClubDetailScreenState
         role == SeriesRole.superAdmin ||
         role == SeriesRole.seriesAdmin ||
         isClubAdminForThis;
+    final access = ref.watch(orgCompetitionAccessProvider(widget.seriesId));
     final canManageAdmins =
         role == SeriesRole.superAdmin ||
         role == SeriesRole.seriesAdmin ||
@@ -275,6 +277,21 @@ class _SeriesClubDetailScreenState
                   ),
                 ],
               ),
+              if ((item.linkedTeamId ?? '').isNotEmpty) ...[
+                const SizedBox(height: AppDimens.spaceSm),
+                ListTile(
+                  key: const Key('org_team_open_crickflow_team'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.groups_outlined, color: cf.accent),
+                  title: const Text('CrickFlow team'),
+                  subtitle: const Text(
+                    'Plays matches anywhere in CrickFlow. Name and squad are '
+                    'managed here in the org.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/teams/${item.linkedTeamId}'),
+                ),
+              ],
               if (item.description.isNotEmpty) ...[
                 const SizedBox(height: AppDimens.spaceMd),
                 Text(item.description),
@@ -298,6 +315,7 @@ class _SeriesClubDetailScreenState
                         : 'Search & request add player',
                   ),
                 ),
+                if (access.match != OrgStartMode.none) ...[
                 const SizedBox(height: AppDimens.spaceSm),
                 OutlinedButton.icon(
                   onPressed: () => context.push(
@@ -305,8 +323,15 @@ class _SeriesClubDetailScreenState
                     '?clubId=${widget.clubId}',
                   ),
                   icon: const Icon(Icons.sports_cricket_outlined),
-                  label: const Text('Propose match'),
+                  label: Text(
+                    OrgCompetitionAccess.actionLabel(
+                      access.match,
+                      tournament: false,
+                    ),
+                  ),
                 ),
+                ],
+                if (access.tournament != OrgStartMode.none) ...[
                 const SizedBox(height: AppDimens.spaceSm),
                 OutlinedButton.icon(
                   onPressed: () => context.push(
@@ -314,8 +339,14 @@ class _SeriesClubDetailScreenState
                     '?clubId=${widget.clubId}',
                   ),
                   icon: const Icon(Icons.emoji_events_outlined),
-                  label: const Text('Propose tournament'),
+                  label: Text(
+                    OrgCompetitionAccess.actionLabel(
+                      access.tournament,
+                      tournament: true,
+                    ),
+                  ),
                 ),
+                ],
                 if (role == SeriesRole.superAdmin ||
                     role == SeriesRole.seriesAdmin) ...[
                   const SizedBox(height: AppDimens.spaceSm),

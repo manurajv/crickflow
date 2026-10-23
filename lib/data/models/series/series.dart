@@ -1,6 +1,7 @@
 /// Barrel export for Series / Competition Organization models.
 library;
 
+export 'series_announcement_model.dart';
 export 'series_approval_model.dart';
 export 'series_audit_log_model.dart';
 export 'series_club_models.dart';

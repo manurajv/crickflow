@@ -7,6 +7,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/series/series.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
+import '../../../domain/services/series/org_competition_access.dart';
 import 'widgets/series_ui.dart';
 
 class SeriesCompetitionsScreen extends ConsumerWidget {
@@ -61,29 +62,47 @@ class SeriesCompetitionsScreen extends ConsumerWidget {
     final comps = ref.watch(seriesCompetitionsProvider(seriesId));
     final clubs = ref.watch(clubsForSeriesProvider(seriesId)).valueOrNull ??
         const <SeriesClubModel>[];
-    final role = ref.watch(mySeriesRoleProvider(seriesId));
-    final canPropose = role == SeriesRole.superAdmin ||
-        role == SeriesRole.seriesAdmin ||
-        role == SeriesRole.clubAdmin;
+    final access = ref.watch(orgCompetitionAccessProvider(seriesId));
+    final canPropose = access.canStartAnything;
 
     return Scaffold(
       appBar: CfChromeAppBar(
         title: const Text('Fixtures'),
         actions: [
-          if (canPropose) ...[
+          if (access.match != OrgStartMode.none)
             IconButton(
-              tooltip: 'Propose match',
+              key: const Key('org_start_match'),
+              tooltip: OrgCompetitionAccess.actionLabel(
+                access.match,
+                tournament: false,
+              ),
               onPressed: () =>
                   context.push('/series/$seriesId/propose-match'),
               icon: const Icon(Icons.sports_cricket_outlined),
             ),
+          if (access.tournament != OrgStartMode.none)
             IconButton(
-              tooltip: 'Propose tournament',
+              key: const Key('org_start_tournament'),
+              tooltip: OrgCompetitionAccess.actionLabel(
+                access.tournament,
+                tournament: true,
+              ),
               onPressed: () =>
                   context.push('/series/$seriesId/propose-tournament'),
               icon: const Icon(Icons.emoji_events_outlined),
             ),
-          ],
+          if (access.isOwner)
+            IconButton(
+              key: const Key('org_request_settings'),
+              tooltip: 'Request settings',
+              onPressed: () => showOrgCompetitionPolicySheet(
+                context,
+                ref,
+                seriesId: seriesId,
+                current: access.policy,
+              ),
+              icon: const Icon(Icons.tune),
+            ),
         ],
       ),
       body: comps.when(
@@ -93,9 +112,11 @@ class SeriesCompetitionsScreen extends ConsumerWidget {
             ? SeriesEmptyState(
                 icon: Icons.event_outlined,
                 title: 'No fixtures yet',
-                message: canPropose
-                    ? 'Propose a match or tournament for approval.'
-                    : 'Approved fixtures will appear here.',
+                message: access.isAdmin
+                    ? 'Start a match or tournament for this org.'
+                    : canPropose
+                        ? 'Request a match or tournament. Admins approve it.'
+                        : 'Approved fixtures will appear here.',
               )
             : ListView.separated(
                 padding: const EdgeInsets.all(AppDimens.spaceMd),
@@ -135,6 +156,108 @@ class SeriesCompetitionsScreen extends ConsumerWidget {
                   );
                 },
               ),
+      ),
+    );
+  }
+}
+
+
+/// Owner-only sheet: who may request and whether requests need approval.
+Future<void> showOrgCompetitionPolicySheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required String seriesId,
+  required OrgCompetitionPolicy current,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => _PolicySheet(seriesId: seriesId, initial: current),
+  );
+}
+
+class _PolicySheet extends ConsumerStatefulWidget {
+  const _PolicySheet({required this.seriesId, required this.initial});
+  final String seriesId;
+  final OrgCompetitionPolicy initial;
+
+  @override
+  ConsumerState<_PolicySheet> createState() => _PolicySheetState();
+}
+
+class _PolicySheetState extends ConsumerState<_PolicySheet> {
+  late OrgCompetitionPolicy _policy = widget.initial;
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(seriesFunctionsServiceProvider).updateSeriesCompetitionPolicy(
+            seriesId: widget.seriesId,
+            policy: _policy.toMap(),
+          );
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not save: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.spaceLg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Match & tournament requests',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppDimens.spaceXs),
+            Text(
+              'Owner and admins always start directly. These settings apply to '
+              'team admins and players.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Tournament requests need approval'),
+              value: _policy.tournamentRequestsNeedApproval,
+              onChanged: (v) => setState(() => _policy =
+                  _policy.copyWith(tournamentRequestsNeedApproval: v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Match requests need approval'),
+              value: _policy.matchRequestsNeedApproval,
+              onChanged: (v) => setState(() =>
+                  _policy = _policy.copyWith(matchRequestsNeedApproval: v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Players can propose matches and tournaments'),
+              subtitle: const Text(
+                'Off: only the owner, admins and team admins can. '
+                'Players never see the propose options.',
+              ),
+              value: _policy.membersCanRequest,
+              onChanged: (v) => setState(
+                  () => _policy = _policy.copyWith(membersCanRequest: v)),
+            ),
+            const SizedBox(height: AppDimens.spaceMd),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? 'Saving…' : 'Save'),
+            ),
+          ],
+        ),
       ),
     );
   }

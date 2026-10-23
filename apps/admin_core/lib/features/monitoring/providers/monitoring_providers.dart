@@ -1,8 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/config/admin_app_type.dart';
-import '../../../models/admin_user.dart';
-import '../../auth/providers/auth_providers.dart';
 import '../data/monitoring_repository.dart';
 import '../models/monitoring_enums.dart';
 import '../models/monitoring_filters.dart';
@@ -59,15 +56,9 @@ class MonitoringHubController extends StateNotifier<MonitoringHubState> {
   bool _bootstrapped = false;
 
   MonitoringRepository get _repo => _ref.read(monitoringRepositoryProvider);
-  AdminAppType get _appType => _ref.read(adminAppTypeProvider);
-  AdminUser? get _actor => _ref.read(adminSessionProvider).adminUser;
 
-  /// Org Admin: forced org scope. Super Admin: platform-wide (no org filter).
-  String? get _organizationScope {
-    if (_appType == AdminAppType.superAdmin) return null;
-    final id = _actor?.organizationId;
-    return (id != null && id.isNotEmpty) ? id : '__missing_org__';
-  }
+  /// Platform-wide (no org filter); the org admin panel was retired.
+  String? get _organizationScope => null;
 
   Future<void> ensureBootstrapped() async {
     if (_bootstrapped) return;

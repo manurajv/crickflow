@@ -241,6 +241,10 @@ class _AddMatchSquadPlayerSheetState
 
   Widget _buildChoose() {
     final cf = context.cf;
+    // Org-linked teams: the roster is managed by the org; guests only here.
+    final orgLocked =
+        ref.watch(teamByIdProvider(widget.teamId)).valueOrNull?.isOrgLocked ??
+            false;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -260,22 +264,27 @@ class _AddMatchSquadPlayerSheetState
           ),
           const SizedBox(height: AppDimens.spaceSm),
           Text(
-            'Add a permanent team member or a match-only guest for this match.',
+            orgLocked
+                ? 'This team’s squad is managed by its org. Add a match-only '
+                    'guest for this match.'
+                : 'Add a permanent team member or a match-only guest for this match.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: cf.textSecondary,
                 ),
           ),
           const SizedBox(height: AppDimens.spaceLg),
-          _OptionCard(
-            icon: Icons.group_add_outlined,
-            iconColor: cf.link,
-            iconBackground: cf.accent.withValues(alpha: 0.2),
-            title: 'Invite to team',
-            subtitle:
-                'Search by name or Player ID and send an invitation to join the roster.',
-            onTap: _openPermanentMode,
-          ),
-          const SizedBox(height: AppDimens.spaceSm),
+          if (!orgLocked) ...[
+            _OptionCard(
+              icon: Icons.group_add_outlined,
+              iconColor: cf.link,
+              iconBackground: cf.accent.withValues(alpha: 0.2),
+              title: 'Invite to team',
+              subtitle:
+                  'Search by name or Player ID and send an invitation to join the roster.',
+              onTap: _openPermanentMode,
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+          ],
           _OptionCard(
             icon: Icons.person_outline,
             iconColor: Colors.orange.shade800,

@@ -110,6 +110,20 @@ String seriesAuditActionLabel(String action) {
       return 'Tournament proposed';
     case 'SERIES_SUSPENDED':
       return 'Organization suspended';
+    case 'OWNERSHIP_TRANSFERRED':
+      return 'Ownership transferred';
+    case 'SERIES_ARCHIVED':
+      return 'Organization archived';
+    case 'SERIES_REACTIVATED':
+      return 'Organization reactivated';
+    case 'ANNOUNCEMENT_SENT':
+      return 'Announcement sent';
+    case 'ENTITY_SUSPENDED':
+      return 'Suspended';
+    case 'ENTITY_ARCHIVED':
+      return 'Archived';
+    case 'ENTITY_RESTORED':
+      return 'Restored';
     default:
       return action
           .replaceAll('_', ' ')

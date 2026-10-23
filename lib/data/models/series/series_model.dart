@@ -147,6 +147,7 @@ class SeriesModel extends Equatable {
     this.kind = SeriesKind.series,
     this.status = SeriesStatus.draft,
     this.superAdminUserId,
+    this.platformHold = false,
     this.coverImageUrl,
     this.logoUrl,
     this.region = '',
@@ -171,6 +172,10 @@ class SeriesModel extends Equatable {
   final SeriesKind kind;
   final SeriesStatus status;
   final String? superAdminUserId;
+
+  /// Set by CrickFlow platform staff when they suspend or archive an org.
+  /// Owners cannot reactivate until staff lift the hold.
+  final bool platformHold;
   final String? coverImageUrl;
   final String? logoUrl;
   /// Zone / region label (e.g. North, West).
@@ -226,6 +231,7 @@ class SeriesModel extends Equatable {
       kind: SeriesKind.parse(map['kind'] as String?),
       status: SeriesStatus.parse(map['status'] as String?),
       superAdminUserId: map['superAdminUserId'] as String?,
+      platformHold: map['platformHold'] == true,
       coverImageUrl: map['coverImageUrl'] as String?,
       logoUrl: map['logoUrl'] as String?,
       region: map['region'] as String? ?? '',
@@ -271,5 +277,6 @@ class SeriesModel extends Equatable {
       };
 
   @override
-  List<Object?> get props => [id, name, status, superAdminUserId, updatedAt];
+  List<Object?> get props =>
+      [id, name, status, superAdminUserId, platformHold, updatedAt];
 }

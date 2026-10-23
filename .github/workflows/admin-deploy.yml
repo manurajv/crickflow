@@ -18,13 +18,11 @@ on:
           - staging
           - production
       targets:
-        description: Hosting targets
+        description: Hosting targets (the Organization Admin panel was retired)
         required: true
         type: choice
-        default: both
+        default: superadmin
         options:
-          - both
-          - admin
           - superadmin
       confirm_production:
         description: Type deploy-production to allow production
@@ -76,27 +74,16 @@ jobs:
           VER=${{ steps.ver.outputs.version }}
           BN=${{ github.run_number }}
           (cd apps/admin_core && flutter pub get)
-          if [ "${{ inputs.targets }}" = "both" ] || [ "${{ inputs.targets }}" = "admin" ]; then
-            (cd apps/admin && flutter pub get && flutter build web --release \
-              --dart-define=ADMIN_ENV=$ADMIN_ENV \
-              --dart-define=ADMIN_VERSION=$VER \
-              --dart-define=ADMIN_BUILD_NUMBER=$BN \
-              --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
-              --dart-define=ADMIN_GIT_REF=${{ github.ref_name }})
-          fi
-          if [ "${{ inputs.targets }}" = "both" ] || [ "${{ inputs.targets }}" = "superadmin" ]; then
-            (cd apps/superadmin && flutter pub get && flutter build web --release \
-              --dart-define=ADMIN_ENV=$ADMIN_ENV \
-              --dart-define=ADMIN_VERSION=$VER \
-              --dart-define=ADMIN_BUILD_NUMBER=$BN \
-              --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
-              --dart-define=ADMIN_GIT_REF=${{ github.ref_name }})
-          fi
+          (cd apps/superadmin && flutter pub get && flutter build web --release \
+            --dart-define=ADMIN_ENV=$ADMIN_ENV \
+            --dart-define=ADMIN_VERSION=$VER \
+            --dart-define=ADMIN_BUILD_NUMBER=$BN \
+            --dart-define=ADMIN_GIT_SHA=${{ github.sha }} \
+            --dart-define=ADMIN_GIT_REF=${{ github.ref_name }})
       - uses: actions/upload-artifact@v4
         with:
           name: admin-deploy-${{ inputs.environment }}-${{ github.run_number }}
           path: |
-            apps/admin/build/web
             apps/superadmin/build/web
           retention-days: 14
 
@@ -133,12 +120,7 @@ jobs:
         run: |
           set -e
           PROJECT_ID="${PROJECT_ID:-crickflow-b06bc}"
-          ONLY=""
-          case "${{ inputs.targets }}" in
-            admin) ONLY="hosting:admin" ;;
-            superadmin) ONLY="hosting:superadmin" ;;
-            both) ONLY="hosting:admin,hosting:superadmin" ;;
-          esac
+          ONLY="hosting:superadmin"
           # Uses firebase.admin.json — does not touch mobile public/ hosting.
           firebase deploy --only "$ONLY" \
             -c firebase.admin.json \

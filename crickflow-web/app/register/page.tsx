@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/shared/states";
 import { LoadingPage } from "@/components/shared/page-shell";

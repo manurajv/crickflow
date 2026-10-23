@@ -113,10 +113,7 @@ class GroundsRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) async {
-    final orgKey = appType == AdminAppType.organizationAdmin
-        ? (actor?.organizationId ?? 'none')
-        : 'global';
-    final cacheKey = 'grounds.catalog.$orgKey';
+    const cacheKey = 'grounds.catalog.global';
     return AdminCache.shared.getOrLoad(cacheKey, () async {
       final fromTournaments = await _aggregateFromTournaments(
         appType: appType,
@@ -279,11 +276,6 @@ class GroundsRepository {
   }) async {
     Query<Map<String, dynamic>> query = _tournaments;
 
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
 
     QuerySnapshot<Map<String, dynamic>> snap;
     try {
@@ -297,11 +289,6 @@ class GroundsRepository {
 
     for (final doc in snap.docs) {
       final map = doc.data();
-      if (appType == AdminAppType.organizationAdmin) {
-        final orgId = actor?.organizationId;
-        final docOrg = map['organizationId'] as String?;
-        if (orgId != null && docOrg != null && docOrg != orgId) continue;
-      }
 
       final soft = map['adminRecordStatus'] as String?;
       if (soft == 'deleted') continue;
@@ -385,11 +372,6 @@ class GroundsRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> query = _grounds;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
 
     try {
       final snap = await query.limit(_registryScanLimit).get();
@@ -499,12 +481,8 @@ class GroundsRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) {
-    if (appType != AdminAppType.organizationAdmin) return true;
-    final orgId = actor?.organizationId;
-    if (orgId == null || orgId.isEmpty) return false;
-    // Tournament-derived rows without org stay visible only to Super Admin.
-    if (g.organizationId == null || g.organizationId!.isEmpty) return false;
-    return g.organizationId == orgId;
+    // Single platform panel: every record is in scope.
+    return true;
   }
 
   Stream<ManagedGround?> watchById(

@@ -39,6 +39,10 @@ const {
 } = require('./admin/scoringAdmin');
 const { onNotificationCreated } = require('./notifications/onNotificationCreated');
 const { onTeamJoinRequestCreated } = require('./notifications/onTeamJoinRequestCreated');
+const {
+  onTeamJoinRequestResolved,
+  onTournamentTeamRequestResolved,
+} = require('./notifications/onRequestResolved');
 const { onTeamRosterReportCreated } = require('./notifications/onTeamRosterReportCreated');
 const {
   onPlayerFollowWritten,
@@ -88,9 +92,18 @@ const {
   addSeriesClubAdmin,
   removeSeriesClubAdmin,
   syncSeriesApprovalMirrors,
+  transferSeriesOwnership,
+  setSeriesLifecycle,
+  sendSeriesAnnouncement,
+  startSeriesTournament,
+  startSeriesMatch,
+  updateSeriesCompetitionPolicy,
+  migrateSeriesTeamLinks,
 } = require('./series/seriesFunctions');
 
 exports.onMatchCompleted = onMatchCompleted;
+exports.linkMatchToTournament =
+  require('./tournament/linkMatchToTournament').linkMatchToTournament;
 exports.onMatchLive = onMatchLive;
 exports.onBallEventCreated = onBallEventCreated;
 exports.onMatchRevisionCreated = onMatchRevisionCreated;
@@ -105,6 +118,8 @@ exports.adminPreviewMatchStatsFromEvents = adminPreviewMatchStatsFromEvents;
 exports.adminReprocessMatchStats = adminReprocessMatchStats;
 exports.onNotificationCreated = onNotificationCreated;
 exports.onTeamJoinRequestCreated = onTeamJoinRequestCreated;
+exports.onTeamJoinRequestResolved = onTeamJoinRequestResolved;
+exports.onTournamentTeamRequestResolved = onTournamentTeamRequestResolved;
 exports.onTeamRosterReportCreated = onTeamRosterReportCreated;
 exports.onPlayerFollowWritten = onPlayerFollowWritten;
 exports.onProfileViewWritten = onProfileViewWritten;
@@ -138,6 +153,13 @@ exports.submitPlayerRemovalRequest = submitPlayerRemovalRequest;
 exports.proposeSeriesMatch = proposeSeriesMatch;
 exports.proposeSeriesTournament = proposeSeriesTournament;
 exports.suspendSeriesEntity = suspendSeriesEntity;
+exports.transferSeriesOwnership = transferSeriesOwnership;
+exports.setSeriesLifecycle = setSeriesLifecycle;
+exports.sendSeriesAnnouncement = sendSeriesAnnouncement;
+exports.startSeriesTournament = startSeriesTournament;
+exports.startSeriesMatch = startSeriesMatch;
+exports.updateSeriesCompetitionPolicy = updateSeriesCompetitionPolicy;
+exports.migrateSeriesTeamLinks = migrateSeriesTeamLinks;
 exports.getSeriesRegistrationIdentity = getSeriesRegistrationIdentity;
 exports.reviewClubJoinRequest = reviewClubJoinRequest;
 exports.addSeriesClubAdmin = addSeriesClubAdmin;

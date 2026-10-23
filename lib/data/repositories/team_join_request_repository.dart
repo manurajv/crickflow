@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/team_notification_types.dart';
 import '../../core/utils/team_leadership_utils.dart';
+import '../../domain/notifications/notification_priority.dart';
 import '../models/player_model.dart';
 import '../models/team_join_request_model.dart';
 import '../models/team_model.dart';
@@ -286,6 +287,12 @@ class TeamJoinRequestRepository {
       type: TeamNotificationTypes.joinAccepted,
       category: 'team',
     );
+    await _notificationRepository.markRelatedRead(
+      NotificationRelation.teamJoinRequest(
+        teamId: team.id,
+        requesterId: request.userId,
+      ),
+    );
   }
 
   Future<void> rejectRequest({
@@ -310,6 +317,12 @@ class TeamJoinRequestRepository {
       teamId: team.id,
       type: TeamNotificationTypes.joinRejected,
       category: 'team',
+    );
+    await _notificationRepository.markRelatedRead(
+      NotificationRelation.teamJoinRequest(
+        teamId: team.id,
+        requesterId: request.userId,
+      ),
     );
   }
 
@@ -358,6 +371,9 @@ class TeamJoinRequestRepository {
       type: TeamNotificationTypes.joinAccepted,
       category: 'team',
     );
+    await _notificationRepository.markRelatedRead(
+      NotificationRelation.teamInvitation(teamId: team.id),
+    );
   }
 
   Future<void> rejectInvitation({
@@ -388,6 +404,9 @@ class TeamJoinRequestRepository {
       playerId: playerUid,
       excludeUserId: playerUid,
       category: 'team',
+    );
+    await _notificationRepository.markRelatedRead(
+      NotificationRelation.teamInvitation(teamId: team.id),
     );
   }
 }

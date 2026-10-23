@@ -11,7 +11,8 @@ import {
   listSeriesCompetitions,
   addSeriesAdmin,
   proposeSeriesMatch,
-  proposeSeriesTournament,
+  linkSeriesTournament,
+  listMyLinkableTournaments,
   reviewClubJoinRequest,
   reviewSeriesApproval,
   submitPlayerJoinRequest,
@@ -43,8 +44,8 @@ export function useCreateSeries() {
 export function useReviewSeriesApproval(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { approvalId: string; decision: "approved" | "rejected" }) =>
-      reviewSeriesApproval(seriesId, input.approvalId, input.decision),
+    mutationFn: (input: { approvalId: string; decision: "approved" | "rejected"; reason?: string }) =>
+      reviewSeriesApproval(seriesId, input.approvalId, input.decision, input.reason ?? ""),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
   });
 }
@@ -94,6 +95,13 @@ export function useJoinClub(seriesId: string) {
       fullName: string;
       crickFlowPlayerId?: string;
       phoneNumber?: string;
+      address?: string;
+      dateOfBirth?: string;
+      nationalId?: string;
+      passportNumber?: string;
+      profilePhotoUrl?: string;
+      nationalIdDocUrl?: string;
+      passportDocUrl?: string;
     }) => {
       const reg = await submitSeriesRegistration({
         seriesId,
@@ -101,6 +109,13 @@ export function useJoinClub(seriesId: string) {
         fullName: input.fullName,
         crickFlowPlayerId: input.crickFlowPlayerId,
         phoneNumber: input.phoneNumber,
+        address: input.address,
+        dateOfBirth: input.dateOfBirth,
+        nationalId: input.nationalId,
+        passportNumber: input.passportNumber,
+        profilePhotoUrl: input.profilePhotoUrl,
+        nationalIdDocUrl: input.nationalIdDocUrl,
+        passportDocUrl: input.passportDocUrl,
       });
       await submitPlayerJoinRequest({
         seriesId,
@@ -126,11 +141,19 @@ export function useProposeSeriesMatch(seriesId: string) {
   });
 }
 
+export function useMyLinkableTournaments(uid?: string) {
+  return useQuery({
+    queryKey: ["series", "linkable-tournaments", uid],
+    queryFn: () => listMyLinkableTournaments(uid as string),
+    enabled: Boolean(uid),
+  });
+}
+
 export function useProposeSeriesTournament(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { tournamentId: string; title?: string; clubId?: string }) =>
-      proposeSeriesTournament({ seriesId, ...input }),
+    mutationFn: (input: { tournamentId: string; title?: string }) =>
+      linkSeriesTournament({ seriesId, ...input }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
   });
 }
