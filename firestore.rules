@@ -2385,6 +2385,20 @@ service cloud.firestore {
             && settings.maxSquadSize <= 50));
     }
 
+    // Org permissions: who may propose a match or tournament. Optional on
+    // older orgs (they fall back to membersCanRequest on the server).
+    function seriesCompetitionPolicyValid(policy) {
+      return policy is map
+        && (!('proposeAccess' in policy)
+          || policy.proposeAccess in ['admins', 'teamAdmins', 'everyone'])
+        && (!('membersCanRequest' in policy)
+          || policy.membersCanRequest is bool)
+        && (!('tournamentRequestsNeedApproval' in policy)
+          || policy.tournamentRequestsNeedApproval is bool)
+        && (!('matchRequestsNeedApproval' in policy)
+          || policy.matchRequestsNeedApproval is bool);
+    }
+
     function seriesCommonFieldsValid(d) {
       return isValidSeriesName(d.name)
         && isValidSeriesKind(d.get('kind', 'series'))
@@ -2397,7 +2411,9 @@ service cloud.firestore {
         && isValidSeriesPlaceField(d.get('country', ''))
         && isOptionalSeriesMediaUrl(d.get('logoUrl', null))
         && isOptionalSeriesMediaUrl(d.get('coverImageUrl', null))
-        && (!('settings' in d) || seriesSettingsValid(d.settings));
+        && (!('settings' in d) || seriesSettingsValid(d.settings))
+        && (!('competitionPolicy' in d)
+          || seriesCompetitionPolicyValid(d.competitionPolicy));
     }
 
     function seriesCreatePayloadValid() {
@@ -2572,13 +2588,19 @@ service cloud.firestore {
       allow update, delete: if false; // review via callable
     }
 
+    // Proposals (match / tournament requests) go through the callables
+    // proposeSeriesMatch / proposeSeriesTournament / startSeriesMatch, which
+    // enforce the org's "who can propose" permission. Direct client creates
+    // are limited to the org owner and admins so team admins and players can
+    // never bypass that permission.
     match /series_competitions/{id} {
       allow read: if true;
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.get('status', 'draft') in
           ['draft', 'pendingApproval']
-        && request.resource.data.seriesId is string;
+        && request.resource.data.seriesId is string
+        && canManageSeries(request.resource.data.seriesId);
       allow update, delete: if false;
     }
 

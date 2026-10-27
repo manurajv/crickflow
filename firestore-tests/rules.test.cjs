@@ -206,6 +206,31 @@ test('owner: cannot lift a platform suspension', async () => {
   await assertSucceeds(updateDoc(doc(db, 'series/s2'), { description: 'still editable', updatedAt: NOW }));
 });
 
+test('org permissions: proposeAccess validated, proposals cannot bypass the callables', async () => {
+  const owner = as('owner');
+  await assertSucceeds(updateDoc(doc(owner, 'series/s1'), {
+    competitionPolicy: { proposeAccess: 'everyone', membersCanRequest: true, matchRequestsNeedApproval: true },
+    updatedAt: NOW,
+  }));
+  await assertSucceeds(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { proposeAccess: 'admins' }, updatedAt: NOW }));
+  await assertSucceeds(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { membersCanRequest: false }, updatedAt: NOW }));
+  await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { proposeAccess: 'nobody' }, updatedAt: NOW }));
+  await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { proposeAccess: true }, updatedAt: NOW }));
+  await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: 'open', updatedAt: NOW }));
+  await assertFails(updateDoc(doc(as('u1'), 'series/s1'), { competitionPolicy: { proposeAccess: 'everyone' }, updatedAt: NOW }));
+  await assertFails(updateDoc(doc(as('sadmin'), 'series/s1'), { competitionPolicy: { proposeAccess: 'everyone' }, updatedAt: NOW }));
+
+  const draft = (uid) => ({ seriesId: 's1', createdBy: uid, status: 'pendingApproval', type: 'singleMatch' });
+  // A team admin / player cannot write a proposal row themselves.
+  await assertFails(setDoc(doc(as('u1'), 'series_competitions/x1'), draft('u1')));
+  await assertFails(setDoc(doc(as('u2'), 'series_competitions/x2'), draft('u2')));
+  // Owner and org admins still can.
+  await assertSucceeds(setDoc(doc(as('owner'), 'series_competitions/x3'), draft('owner')));
+  await assertSucceeds(setDoc(doc(as('sadmin'), 'series_competitions/x4'), draft('sadmin')));
+  // Approved rows can never be written by clients.
+  await assertFails(setDoc(doc(as('owner'), 'series_competitions/x5'), { ...draft('owner'), status: 'approved' }));
+});
+
 test('series admin member: approvals + registrations readable', async () => {
   const db = as('sadmin');
   await assertSucceeds(getDocs(collection(db, 'series/s1/approvals')));

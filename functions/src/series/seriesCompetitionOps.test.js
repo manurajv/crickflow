@@ -19,8 +19,23 @@ assert.deepStrictEqual(ops.resolvePolicy({}), ops.DEFAULT_POLICY);
 assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { matchRequestsNeedApproval: false } }).matchRequestsNeedApproval, false);
 throwsCode(() => ops.sanitizePolicy({ membersCanRequest: 'yes' }), 'invalid-argument');
 assert.deepStrictEqual(ops.sanitizePolicy({ membersCanRequest: true, junk: 1 }), {
-  tournamentRequestsNeedApproval: true, matchRequestsNeedApproval: true, membersCanRequest: true,
+  tournamentRequestsNeedApproval: true, matchRequestsNeedApproval: true,
+  proposeAccess: 'everyone', membersCanRequest: true,
 });
+
+// proposeAccess: who may propose besides owner/admins.
+assert.strictEqual(ops.resolvePolicy({}).proposeAccess, 'teamAdmins');
+assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { membersCanRequest: true } }).proposeAccess, 'everyone', 'legacy orgs keep players allowed');
+assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { membersCanRequest: false } }).proposeAccess, 'teamAdmins');
+assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'admins', membersCanRequest: true } }).proposeAccess, 'admins', 'new field wins');
+assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'junk' } }).proposeAccess, 'teamAdmins');
+assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'everyone' } }).membersCanRequest, true);
+assert.strictEqual(ops.sanitizePolicy({ proposeAccess: 'admins' }).membersCanRequest, false);
+assert.strictEqual(ops.sanitizePolicy({ proposeAccess: 'everyone', membersCanRequest: false }).proposeAccess, 'everyone');
+assert.strictEqual(ops.sanitizePolicy({ membersCanRequest: false }).proposeAccess, 'teamAdmins');
+assert.strictEqual(ops.sanitizePolicy({ matchRequestsNeedApproval: false }).proposeAccess, 'teamAdmins');
+throwsCode(() => ops.sanitizePolicy({ proposeAccess: 'nobody' }), 'invalid-argument');
+throwsCode(() => ops.sanitizePolicy({ proposeAccess: true }), 'invalid-argument');
 
 // Access matrix.
 const pol = ops.resolvePolicy({});
@@ -32,7 +47,21 @@ assert.deepStrictEqual(
   { role: 'clubAdmin', autoApprove: true },
 );
 throwsCode(() => ops.decideAccess({ kind: 'match', isMember: true, policy: pol }), 'permission-denied');
-assert.strictEqual(ops.decideAccess({ kind: 'tournament', isMember: true, policy: { ...pol, membersCanRequest: true } }).autoApprove, false);
+assert.strictEqual(ops.decideAccess({ kind: 'tournament', isMember: true, policy: { ...pol, proposeAccess: 'everyone' } }).autoApprove, false);
+{
+  const mk = (proposeAccess) => ops.resolvePolicy({ competitionPolicy: { proposeAccess } });
+  // Team admins only (default): players denied, team admins allowed.
+  throwsCode(() => ops.decideAccess({ kind: 'match', isMember: true, policy: mk('teamAdmins') }), 'permission-denied');
+  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, policy: mk('teamAdmins') }).role, 'clubAdmin');
+  // Everyone in the team: players allowed for matches and tournaments.
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isMember: true, policy: mk('everyone') }).role, 'seriesPlayer');
+  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isMember: true, policy: mk('everyone') }).role, 'seriesPlayer');
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isTeamAdmin: true, isMember: true, policy: mk('everyone') }).role, 'clubAdmin');
+  // Admins only: team admins and players denied, org admins still direct.
+  throwsCode(() => ops.decideAccess({ kind: 'match', isTeamAdmin: true, policy: mk('admins') }), 'permission-denied');
+  throwsCode(() => ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, isMember: true, policy: mk('admins') }), 'permission-denied');
+  assert.deepStrictEqual(ops.decideAccess({ kind: 'match', isAdmin: true, isOwner: false, policy: mk('admins') }), { role: 'seriesAdmin', autoApprove: true });
+}
 throwsCode(() => ops.decideAccess({ kind: 'tournament', policy: pol }), 'permission-denied');
 
 // Tournament link validation.
@@ -83,3 +112,21 @@ ops.assertNotQuick({});
 assert.strictEqual(ops.competitionCoversMatch({ status: 'approved', seriesId: 's', matchId: 'm1' }, { ...m, matchMode: 'quick' }), false);
 
 console.log('seriesCompetitionOps tests passed');
+
+// Inactive orgs take no new proposals, not even from admins.
+{
+  const assert = require('assert');
+  const ops = require('./seriesCompetitionOps');
+  assert.strictEqual(ops.isOrgOpen({ status: 'active' }), true);
+  assert.strictEqual(ops.isOrgOpen({ status: 'suspended' }), false);
+  assert.strictEqual(ops.isOrgOpen({ status: 'archived' }), false);
+  assert.strictEqual(ops.isOrgOpen({ status: 'active', platformHold: true }), false);
+  assert.throws(
+    () => ops.decideAccess({ kind: 'match', isAdmin: true, isOwner: true, orgOpen: false }),
+    /not active/,
+  );
+  assert.strictEqual(
+    ops.decideAccess({ kind: 'match', isAdmin: true, isOwner: true, orgOpen: true }).autoApprove,
+    true,
+  );
+}

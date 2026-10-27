@@ -9,9 +9,19 @@
  *   match that involves their team. Goes to the approvals queue unless the
  *   org's competitionPolicy says that request type needs no approval.
  * - Active players of an approved org team: same as team admins, only when
- *   competitionPolicy.membersCanRequest is true.
+ *   competitionPolicy.proposeAccess is 'everyone'.
  * - Everyone else: denied.
+ *
+ * competitionPolicy.proposeAccess decides who may propose a match or
+ * tournament besides the owner and org admins:
+ *   'admins'     – nobody else (owner and org admins only)
+ *   'teamAdmins' – admins of an approved org team (default)
+ *   'everyone'   – team admins and active players of an approved org team
+ * Orgs that never set it keep their old behaviour: membersCanRequest === true
+ * means 'everyone', anything else means 'teamAdmins'.
  */
+
+const PROPOSE_ACCESS = Object.freeze(['admins', 'teamAdmins', 'everyone']);
 
 class CompetitionOpError extends Error {
   constructor(code, message) {
@@ -23,24 +33,43 @@ class CompetitionOpError extends Error {
 const DEFAULT_POLICY = Object.freeze({
   tournamentRequestsNeedApproval: true,
   matchRequestsNeedApproval: true,
+  proposeAccess: 'teamAdmins',
+  // Legacy mirror of proposeAccess === 'everyone' (older app builds read it).
   membersCanRequest: false,
 });
 
+const BOOLEAN_POLICY_KEYS = [
+  'tournamentRequestsNeedApproval',
+  'matchRequestsNeedApproval',
+];
+
+function resolveProposeAccess(p) {
+  if (p && PROPOSE_ACCESS.includes(p.proposeAccess)) return p.proposeAccess;
+  return p && p.membersCanRequest === true ? 'everyone' : 'teamAdmins';
+}
+
 function resolvePolicy(series) {
   const p = (series && series.competitionPolicy) || {};
+  const proposeAccess = resolveProposeAccess(p);
   return {
     tournamentRequestsNeedApproval: p.tournamentRequestsNeedApproval !== false,
     matchRequestsNeedApproval: p.matchRequestsNeedApproval !== false,
-    membersCanRequest: p.membersCanRequest === true,
+    proposeAccess,
+    membersCanRequest: proposeAccess === 'everyone',
   };
 }
 
+/**
+ * Validates an owner's policy edit. Accepts the new proposeAccess, or the
+ * legacy membersCanRequest boolean from older app builds (true = everyone,
+ * false = team admins). proposeAccess wins when both are sent.
+ */
 function sanitizePolicy(input) {
   if (!input || typeof input !== 'object') {
     throw new CompetitionOpError('invalid-argument', 'policy required');
   }
   const out = {};
-  for (const key of Object.keys(DEFAULT_POLICY)) {
+  for (const key of BOOLEAN_POLICY_KEYS) {
     if (key in input) {
       if (typeof input[key] !== 'boolean') {
         throw new CompetitionOpError('invalid-argument', `${key} must be true or false`);
@@ -48,14 +77,49 @@ function sanitizePolicy(input) {
       out[key] = input[key];
     }
   }
-  return { ...resolvePolicy({ competitionPolicy: {} }), ...out };
+  let proposeAccess = DEFAULT_POLICY.proposeAccess;
+  if ('proposeAccess' in input) {
+    if (!PROPOSE_ACCESS.includes(input.proposeAccess)) {
+      throw new CompetitionOpError(
+        'invalid-argument',
+        `proposeAccess must be one of ${PROPOSE_ACCESS.join(', ')}`,
+      );
+    }
+    proposeAccess = input.proposeAccess;
+  } else if ('membersCanRequest' in input) {
+    if (typeof input.membersCanRequest !== 'boolean') {
+      throw new CompetitionOpError('invalid-argument', 'membersCanRequest must be true or false');
+    }
+    proposeAccess = input.membersCanRequest ? 'everyone' : 'teamAdmins';
+  }
+  return {
+    ...resolvePolicy({ competitionPolicy: {} }),
+    ...out,
+    proposeAccess,
+    membersCanRequest: proposeAccess === 'everyone',
+  };
 }
 
 /**
  * kind: 'tournament' | 'match'.
  * Returns { role, autoApprove } or throws permission-denied.
  */
-function decideAccess({ kind, isAdmin, isOwner, isTeamAdmin, isMember, policy }) {
+/** Orgs that are archived, suspended or on platform hold take no new matches. */
+function isOrgOpen(series) {
+  if (!series) return true;
+  if (series.platformHold === true) return false;
+  return !['archived', 'suspended'].includes(series.status);
+}
+
+function decideAccess({
+  kind, isAdmin, isOwner, isTeamAdmin, isMember, policy, orgOpen = true,
+}) {
+  if (orgOpen === false) {
+    throw new CompetitionOpError(
+      'failed-precondition',
+      'This org is not active, so new matches and tournaments cannot be added',
+    );
+  }
   if (isAdmin) {
     return { role: isOwner ? 'superAdmin' : 'seriesAdmin', autoApprove: true };
   }
@@ -63,11 +127,16 @@ function decideAccess({ kind, isAdmin, isOwner, isTeamAdmin, isMember, policy })
   const needs = kind === 'tournament'
     ? pol.tournamentRequestsNeedApproval
     : pol.matchRequestsNeedApproval;
-  if (isTeamAdmin) return { role: 'clubAdmin', autoApprove: !needs };
-  if (isMember && pol.membersCanRequest) return { role: 'seriesPlayer', autoApprove: !needs };
+  const access = pol.proposeAccess || resolveProposeAccess(pol);
+  if (isTeamAdmin && access !== 'admins') return { role: 'clubAdmin', autoApprove: !needs };
+  if (isMember && access === 'everyone') return { role: 'seriesPlayer', autoApprove: !needs };
   throw new CompetitionOpError(
     'permission-denied',
-    'Only org admins, team admins of org teams or allowed members can do this',
+    access === 'admins'
+      ? 'Only the org owner and admins can propose here'
+      : access === 'everyone'
+        ? 'Only org admins and members of org teams can do this'
+        : 'Only org admins and team admins of org teams can do this',
   );
 }
 
@@ -204,7 +273,10 @@ module.exports = {
   DEFAULT_POLICY,
   resolvePolicy,
   sanitizePolicy,
+  resolveProposeAccess,
+  PROPOSE_ACCESS,
   decideAccess,
+  isOrgOpen,
   isTournamentOrganizer,
   validateTournamentLink,
   playableTeamsByLinkedId,

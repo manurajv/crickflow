@@ -286,7 +286,7 @@ exports.createSeries = onCall(
     : {};
   const maxSquad = Number(settings.maxSquadSize);
   if (!Number.isFinite(maxSquad) || maxSquad < 1 || maxSquad > 50) {
-    throw new HttpsError('invalid-argument', 'Max players per club must be 1–50');
+    throw new HttpsError('invalid-argument', 'Max players per team must be 1–50');
   }
   const ranking = settings.rankingRules && typeof settings.rankingRules === 'object'
     ? settings.rankingRules
@@ -445,7 +445,7 @@ exports.updateSeriesSettings = onCall(async (request) => {
   }
   const maxSquad = Number(settings.maxSquadSize);
   if (!Number.isFinite(maxSquad) || maxSquad < 1 || maxSquad > 50) {
-    throw new HttpsError('invalid-argument', 'Max players per club must be 1–50');
+    throw new HttpsError('invalid-argument', 'Max players per team must be 1–50');
   }
   const firestore = db();
   const series = await requireSuperAdmin(firestore, seriesId, uid);
@@ -769,7 +769,7 @@ exports.reviewSeriesApproval = onCall(async (request) => {
       if (clubReview !== 'approved' && !isSuperAdmin(series, uid)) {
         throw new HttpsError(
           'failed-precondition',
-          'Club Admin must approve this join before Series approval',
+          'Team admin must approve this join before Series approval',
         );
       }
     }
@@ -1075,10 +1075,10 @@ exports.submitPlayerJoinRequest = onCall(async (request) => {
   await getSeriesOrThrow(firestore, seriesId);
   const clubSnap = await firestore.collection(COLLECTIONS.clubs).doc(clubId).get();
   if (!clubSnap.exists || clubSnap.data().seriesId !== seriesId) {
-    throw new HttpsError('not-found', 'Club not found');
+    throw new HttpsError('not-found', 'Team not found');
   }
   if (clubSnap.data().status !== 'approved') {
-    throw new HttpsError('failed-precondition', 'Club is not approved');
+    throw new HttpsError('failed-precondition', 'Team is not approved');
   }
 
   const approval = await createApproval(firestore, {
@@ -1124,7 +1124,7 @@ exports.reviewClubJoinRequest = onCall(async (request) => {
   }
   const clubId = approval.clubId;
   if (!clubId || !(await isClubAdmin(firestore, seriesId, clubId, uid))) {
-    throw new HttpsError('permission-denied', 'Club Admin required');
+    throw new HttpsError('permission-denied', 'Team admin required');
   }
   const ts = nowIso();
   if (decision === 'rejected') {
@@ -1191,11 +1191,11 @@ exports.addSeriesClubAdmin = onCall(async (request) => {
   const asSeries = await isSeriesAdmin(firestore, series, uid);
   const asClub = await isClubAdmin(firestore, seriesId, clubId, uid);
   if (!asSeries && !asClub) {
-    throw new HttpsError('permission-denied', 'Club or Series Admin required');
+    throw new HttpsError('permission-denied', 'Team admin or org admin required');
   }
   const clubSnap = await firestore.collection(COLLECTIONS.clubs).doc(clubId).get();
   if (!clubSnap.exists || clubSnap.data().seriesId !== seriesId) {
-    throw new HttpsError('not-found', 'Club not found');
+    throw new HttpsError('not-found', 'Team not found');
   }
   const ts = nowIso();
   const status = clubSnap.data().status === 'approved' ? 'active' : 'pending';
@@ -1269,15 +1269,15 @@ exports.submitPlayerAddRequest = onCall(async (request) => {
   const asSeriesAdmin = await isSeriesAdmin(firestore, series, uid);
   const asClubAdmin = await isClubAdmin(firestore, seriesId, clubId, uid);
   if (!asSeriesAdmin && !asClubAdmin) {
-    throw new HttpsError('permission-denied', 'Club Admin required');
+    throw new HttpsError('permission-denied', 'Team admin required');
   }
 
   const clubSnap = await firestore.collection(COLLECTIONS.clubs).doc(clubId).get();
   if (!clubSnap.exists || clubSnap.data().seriesId !== seriesId) {
-    throw new HttpsError('not-found', 'Club not found');
+    throw new HttpsError('not-found', 'Team not found');
   }
   if (clubSnap.data().status !== 'approved') {
-    throw new HttpsError('failed-precondition', 'Club must be approved before adding players');
+    throw new HttpsError('failed-precondition', 'Team must be approved before adding players');
   }
 
   const settings = series.settings || {};
@@ -1449,6 +1449,7 @@ exports.proposeSeriesMatch = onCall(async (request) => {
       isTeamAdmin: involved(roles.adminClubIds),
       isMember: involved(roles.memberClubIds),
       policy: competitionOps.resolvePolicy(series),
+      orgOpen: competitionOps.isOrgOpen(series),
     });
   } catch (err) {
     throw competitionHttpsError(err);
@@ -1951,6 +1952,7 @@ async function startSeriesTournamentCore(uid, data) {
       isTeamAdmin: roles.adminClubIds.length > 0,
       isMember: roles.memberClubIds.length > 0,
       policy: competitionOps.resolvePolicy(series),
+      orgOpen: competitionOps.isOrgOpen(series),
     });
   } catch (err) {
     throw competitionHttpsError(err);
@@ -2146,6 +2148,7 @@ async function registerSeriesMatchCore(uid, data) {
       isTeamAdmin: !isAdmin && asTeamAdmin,
       isMember: !isAdmin && asMember,
       policy: competitionOps.resolvePolicy(series),
+      orgOpen: competitionOps.isOrgOpen(series),
     });
   } catch (err) {
     throw competitionHttpsError(err);
