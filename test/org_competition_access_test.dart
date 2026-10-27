@@ -14,6 +14,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _policy = OrgCompetitionPolicy();
 
+/// Same access for matches and tournaments (what the old single setting did).
+OrgCompetitionPolicy _both(OrgProposeAccess a) => _policy.copyWith(
+      matchProposeAccess: a,
+      tournamentProposeAccess: a,
+    );
+
 OrgCompetitionAccess _access(SeriesRole role,
         {OrgCompetitionPolicy policy = _policy, List<String> mine = const []}) =>
     OrgCompetitionAccess(role: role, policy: policy, myTeamIds: mine);
@@ -52,7 +58,7 @@ void main() {
       expect(_access(SeriesRole.clubAdmin).match, OrgStartMode.request);
       final relaxed = _access(
         SeriesRole.clubAdmin,
-        policy: _policy.copyWith(matchRequestsNeedApproval: false),
+        policy: _policy.copyWith(matchTeamAdminsNeedApproval: false),
       );
       expect(relaxed.match, OrgStartMode.requestAutoApproved);
       expect(relaxed.tournament, OrgStartMode.request);
@@ -62,7 +68,7 @@ void main() {
       expect(_access(SeriesRole.seriesPlayer).canStartAnything, isFalse);
       expect(
         _access(SeriesRole.seriesPlayer,
-                policy: _policy.copyWith(proposeAccess: OrgProposeAccess.everyone))
+                policy: _both(OrgProposeAccess.everyone))
             .tournament,
         OrgStartMode.request,
       );
@@ -71,7 +77,7 @@ void main() {
 
     test('who can propose: admins only / team admins only / everyone', () {
       OrgCompetitionAccess at(SeriesRole r, OrgProposeAccess a) =>
-          _access(r, policy: _policy.copyWith(proposeAccess: a));
+          _access(r, policy: _both(a));
       // Org admins always start directly, whatever the setting.
       for (final a in OrgProposeAccess.values) {
         expect(at(SeriesRole.superAdmin, a).match, OrgStartMode.direct);
@@ -91,6 +97,43 @@ void main() {
       expect(at(SeriesRole.viewer, OrgProposeAccess.everyone).canStartAnything, isFalse);
     });
 
+    test('matches and tournaments have separate access', () {
+      final split = _policy.copyWith(
+        matchProposeAccess: OrgProposeAccess.everyone,
+        tournamentProposeAccess: OrgProposeAccess.admins,
+      );
+      final player = _access(SeriesRole.seriesPlayer, policy: split);
+      expect(player.match, OrgStartMode.request);
+      expect(player.tournament, OrgStartMode.none);
+      final teamAdmin = _access(SeriesRole.clubAdmin, policy: split);
+      expect(teamAdmin.match, OrgStartMode.request);
+      expect(teamAdmin.tournament, OrgStartMode.none);
+      expect(_access(SeriesRole.seriesAdmin, policy: split).tournament,
+          OrgStartMode.direct);
+    });
+
+    test('approval is separate per kind and per role', () {
+      const open = OrgProposeAccess.everyone;
+      final p = _policy.copyWith(
+        matchProposeAccess: open,
+        tournamentProposeAccess: open,
+        matchTeamAdminsNeedApproval: false,
+        matchPlayersNeedApproval: true,
+        tournamentTeamAdminsNeedApproval: true,
+        tournamentPlayersNeedApproval: false,
+      );
+      expect(_access(SeriesRole.clubAdmin, policy: p).match,
+          OrgStartMode.requestAutoApproved);
+      expect(_access(SeriesRole.seriesPlayer, policy: p).match,
+          OrgStartMode.request);
+      expect(_access(SeriesRole.clubAdmin, policy: p).tournament,
+          OrgStartMode.request);
+      expect(_access(SeriesRole.seriesPlayer, policy: p).tournament,
+          OrgStartMode.requestAutoApproved);
+      expect(_access(SeriesRole.seriesAdmin, policy: p).match,
+          OrgStartMode.direct);
+    });
+
     test('requesters must include one of their teams', () {
       final a = _access(SeriesRole.clubAdmin, mine: ['c1']);
       expect(a.matchTeamsError('c2', 'c3'), isNotNull);
@@ -101,43 +144,84 @@ void main() {
 
     test('policy parses missing keys as safe defaults', () {
       expect(OrgCompetitionPolicy.fromMap(null), _policy);
-      expect(_policy.proposeAccess, OrgProposeAccess.teamAdmins);
+      expect(_policy.matchProposeAccess, OrgProposeAccess.teamAdmins);
+      expect(_policy.tournamentProposeAccess, OrgProposeAccess.teamAdmins);
+      expect(_policy.allowWalkIns, isTrue);
+      expect(_policy.matchTeamAdminsNeedApproval, isTrue);
+      expect(_policy.tournamentPlayersNeedApproval, isTrue);
     });
 
-    test('existing orgs keep working: membersCanRequest maps to proposeAccess',
+    test('existing orgs keep working: the single legacy setting seeds both kinds',
         () {
-      final legacyOn = OrgCompetitionPolicy.fromMap({'membersCanRequest': true});
-      expect(legacyOn.proposeAccess, OrgProposeAccess.everyone);
+      final legacyOn = OrgCompetitionPolicy.fromMap({
+        'membersCanRequest': true,
+        'matchRequestsNeedApproval': false,
+      });
+      expect(legacyOn.matchProposeAccess, OrgProposeAccess.everyone);
+      expect(legacyOn.tournamentProposeAccess, OrgProposeAccess.everyone);
       expect(legacyOn.membersCanRequest, isTrue);
+      expect(legacyOn.matchTeamAdminsNeedApproval, isFalse);
+      expect(legacyOn.matchPlayersNeedApproval, isFalse);
+      expect(legacyOn.tournamentTeamAdminsNeedApproval, isTrue);
+      expect(legacyOn.allowWalkIns, isTrue);
       expect(
-        OrgCompetitionPolicy.fromMap({'membersCanRequest': false}).proposeAccess,
+        OrgCompetitionPolicy.fromMap({'membersCanRequest': false}).matchProposeAccess,
         OrgProposeAccess.teamAdmins,
       );
-      expect(OrgCompetitionPolicy.fromMap({}).proposeAccess, OrgProposeAccess.teamAdmins);
-      // New field wins over the legacy one; junk falls back safely.
+      // proposeAccess wins over membersCanRequest; junk falls back safely.
       expect(
         OrgCompetitionPolicy.fromMap(
           {'proposeAccess': 'admins', 'membersCanRequest': true},
-        ).proposeAccess,
+        ).tournamentProposeAccess,
         OrgProposeAccess.admins,
       );
       expect(
-        OrgCompetitionPolicy.fromMap({'proposeAccess': 'nope'}).proposeAccess,
+        OrgCompetitionPolicy.fromMap({'proposeAccess': 'nope'}).matchProposeAccess,
         OrgProposeAccess.teamAdmins,
       );
     });
 
-    test('toMap writes proposeAccess and the legacy flag for older apps', () {
-      final map = _policy
-          .copyWith(proposeAccess: OrgProposeAccess.everyone)
-          .toMap();
+    test('per-kind fields win over the legacy ones', () {
+      final p = OrgCompetitionPolicy.fromMap({
+        'proposeAccess': 'teamAdmins',
+        'matchProposeAccess': 'everyone',
+        'tournamentProposeAccess': 'admins',
+        'matchTeamAdminsNeedApproval': false,
+        'tournamentPlayersNeedApproval': false,
+        'allowWalkIns': false,
+      });
+      expect(p.matchProposeAccess, OrgProposeAccess.everyone);
+      expect(p.tournamentProposeAccess, OrgProposeAccess.admins);
+      expect(p.matchTeamAdminsNeedApproval, isFalse);
+      expect(p.matchPlayersNeedApproval, isTrue);
+      expect(p.tournamentPlayersNeedApproval, isFalse);
+      expect(p.allowWalkIns, isFalse);
+    });
+
+    test('toMap writes the new fields plus legacy mirrors for older apps', () {
+      final p = _policy.copyWith(
+        matchProposeAccess: OrgProposeAccess.everyone,
+        tournamentProposeAccess: OrgProposeAccess.admins,
+        matchPlayersNeedApproval: false,
+        matchTeamAdminsNeedApproval: false,
+        allowWalkIns: false,
+      );
+      final map = p.toMap();
+      expect(map['matchProposeAccess'], 'everyone');
+      expect(map['tournamentProposeAccess'], 'admins');
+      expect(map['allowWalkIns'], false);
+      expect(map['matchPlayersNeedApproval'], false);
+      // Legacy: most permissive access, approval needed if any role needs it.
       expect(map['proposeAccess'], 'everyone');
       expect(map['membersCanRequest'], true);
+      expect(map['matchRequestsNeedApproval'], false);
+      expect(map['tournamentRequestsNeedApproval'], true);
+      // Round trip.
+      expect(OrgCompetitionPolicy.fromMap(map), p);
       expect(
-        _policy.copyWith(proposeAccess: OrgProposeAccess.admins).toMap()['membersCanRequest'],
+        _both(OrgProposeAccess.admins).toMap()['membersCanRequest'],
         false,
       );
-      expect(OrgCompetitionPolicy.fromMap(map), OrgCompetitionPolicy.fromMap(map));
     });
   });
 
@@ -178,7 +262,7 @@ void main() {
 
   testWidgets('proposal buttons follow the org permission', (tester) async {
     OrgCompetitionAccess at(SeriesRole r, OrgProposeAccess a) =>
-        _access(r, policy: _policy.copyWith(proposeAccess: a));
+        _access(r, policy: _both(a));
 
     // Team admin: yes in team-admins mode, no in admins-only mode.
     await tester.pumpWidget(

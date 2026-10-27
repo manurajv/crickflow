@@ -9,6 +9,7 @@ import '../../data/models/tournament_model.dart';
 import '../../domain/services/player_rankings/player_rankings_models.dart';
 import '../../domain/services/series/org_standings.dart';
 import 'player_rankings_provider.dart';
+import 'tournament_providers.dart';
 import '../../data/repositories/series_approval_repository.dart';
 import '../../data/repositories/series_audit_repository.dart';
 import '../../data/repositories/series_club_repository.dart';
@@ -376,3 +377,23 @@ final orgPlayerRankingsProvider = FutureProvider.autoDispose
           .read(playerRankingsRepositoryProvider)
           .rankFromMatches(matches: matches, filter: q.filter);
     });
+
+
+/// Does the org that owns this match (directly, or through its org tournament)
+/// allow walk-in players? True for non-org matches and while loading.
+final walkInsAllowedProvider =
+    Provider.family<bool, ({String? seriesId, String? tournamentId})>(
+        (ref, key) {
+  var sid = key.seriesId?.trim() ?? '';
+  final tid = key.tournamentId?.trim() ?? '';
+  if (sid.isEmpty && tid.isNotEmpty) {
+    final t = ref.watch(tournamentProvider(tid)).valueOrNull;
+    final tSeries = t?.seriesId?.trim() ?? '';
+    if (t != null && tSeries.isNotEmpty && t.seriesOfficialStatus != 'rejected') {
+      sid = tSeries;
+    }
+  }
+  if (sid.isEmpty) return true;
+  return ref.watch(orgCompetitionPolicyProvider(sid)).valueOrNull?.allowWalkIns ??
+      true;
+});

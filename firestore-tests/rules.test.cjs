@@ -120,6 +120,8 @@ before(async () => {
     await w('series_competitions/sc1', { seriesId: 's1', name: 'Comp' });
     await w('series_club_rankings/r1', { seriesId: 's1', clubId: 'c1' });
     await w('series_player_rankings/r1', { seriesId: 's1', playerId: 'pl1' });
+    await w('series_match_digests/m1', { seriesId: 's1', matchId: 'm1', players: {} });
+    await w('matches/m_org', { seriesId: 's1', seriesOfficialStatus: 'approved', status: 'completed' });
     await w('app_meta/config', { minVersion: '1' });
   });
 });
@@ -132,6 +134,14 @@ let modSeq = 0;
 // Fresh values each call so the diff is never empty.
 const modFields = () => ({ adminStatus: 'hidden', adminModerationNote: `n${++modSeq}`, updatedAt: NOW });
 
+test('series_match_digests are server-written only', async () => {
+  for (const db of [anon(), as('u1'), as('owner')]) {
+    await assertFails(setDoc(doc(db, 'series_match_digests/m_new'), { seriesId: 's1', players: {} }));
+    await assertFails(updateDoc(doc(db, 'series_match_digests/m1'), { players: { x: 1 } }));
+    await assertFails(deleteDoc(doc(db, 'series_match_digests/m1')));
+  }
+});
+
 // ---------- Public / crickflow-web reads ----------
 test('public: web reads stay open', async () => {
   const db = anon();
@@ -142,6 +152,9 @@ test('public: web reads stay open', async () => {
   await assertSucceeds(getDocs(query(collection(db, 'series_competitions'), where('seriesId', '==', 's1'))));
   await assertSucceeds(getDocs(query(collection(db, 'series_club_rankings'), where('seriesId', '==', 's1'))));
   await assertSucceeds(getDocs(query(collection(db, 'series_player_rankings'), where('seriesId', '==', 's1'))));
+  // Org leaderboard on web: digests plus the org's matches, no sign-in needed.
+  await assertSucceeds(getDocs(query(collection(db, 'series_match_digests'), where('seriesId', '==', 's1'))));
+  await assertSucceeds(getDocs(query(collection(db, 'matches'), where('seriesId', '==', 's1'))));
   await assertSucceeds(getDoc(doc(db, 'matches/m1')));
   await assertSucceeds(getDoc(doc(db, 'tournaments/tr1')));
   await assertSucceeds(getDoc(doc(db, 'teams/t1')));
@@ -214,6 +227,20 @@ test('org permissions: proposeAccess validated, proposals cannot bypass the call
   }));
   await assertSucceeds(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { proposeAccess: 'admins' }, updatedAt: NOW }));
   await assertSucceeds(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { membersCanRequest: false }, updatedAt: NOW }));
+  await assertSucceeds(updateDoc(doc(owner, 'series/s1'), {
+    competitionPolicy: {
+      matchProposeAccess: 'everyone', tournamentProposeAccess: 'admins',
+      matchTeamAdminsNeedApproval: false, matchPlayersNeedApproval: true,
+      tournamentTeamAdminsNeedApproval: true, tournamentPlayersNeedApproval: true,
+      allowWalkIns: false,
+    },
+    updatedAt: NOW,
+  }));
+  await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { matchProposeAccess: 'nobody' }, updatedAt: NOW }));
+  await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { tournamentProposeAccess: true }, updatedAt: NOW }));
+  await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { allowWalkIns: 'no' }, updatedAt: NOW }));
+  await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { matchPlayersNeedApproval: 1 }, updatedAt: NOW }));
+  await assertFails(updateDoc(doc(as('u1'), 'series/s1'), { competitionPolicy: { allowWalkIns: true }, updatedAt: NOW }));
   await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { proposeAccess: 'nobody' }, updatedAt: NOW }));
   await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: { proposeAccess: true }, updatedAt: NOW }));
   await assertFails(updateDoc(doc(owner, 'series/s1'), { competitionPolicy: 'open', updatedAt: NOW }));

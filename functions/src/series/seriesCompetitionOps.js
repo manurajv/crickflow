@@ -12,16 +12,22 @@
  *   competitionPolicy.proposeAccess is 'everyone'.
  * - Everyone else: denied.
  *
- * competitionPolicy.proposeAccess decides who may propose a match or
- * tournament besides the owner and org admins:
- *   'admins'     – nobody else (owner and org admins only)
- *   'teamAdmins' – admins of an approved org team (default)
- *   'everyone'   – team admins and active players of an approved org team
- * Orgs that never set it keep their old behaviour: membersCanRequest === true
- * means 'everyone', anything else means 'teamAdmins'.
+ * competitionPolicy (all keys optional, see resolvePolicy):
+ *   matchProposeAccess / tournamentProposeAccess decide, independently, who
+ *   may propose that kind besides the owner and org admins:
+ *     'admins'     – nobody else (owner and org admins only)
+ *     'teamAdmins' – admins of an approved org team (default)
+ *     'everyone'   – team admins and active players of an approved org team
+ *   {match,tournament}{TeamAdmins,Players}NeedApproval say whether a request
+ *   from that role waits for an org admin (default true) or starts directly.
+ *   allowWalkIns (default true) lets org matches use walk-in / guest players.
+ * Older orgs only have proposeAccess / membersCanRequest and the two
+ * *RequestsNeedApproval booleans; they seed both kinds and both roles.
+ * membersCanRequest === true means 'everyone', anything else 'teamAdmins'.
  */
 
 const PROPOSE_ACCESS = Object.freeze(['admins', 'teamAdmins', 'everyone']);
+const ACCESS_RANK = Object.freeze({ admins: 0, teamAdmins: 1, everyone: 2 });
 
 class CompetitionOpError extends Error {
   constructor(code, message) {
@@ -30,80 +36,165 @@ class CompetitionOpError extends Error {
   }
 }
 
-const DEFAULT_POLICY = Object.freeze({
-  tournamentRequestsNeedApproval: true,
-  matchRequestsNeedApproval: true,
-  proposeAccess: 'teamAdmins',
-  // Legacy mirror of proposeAccess === 'everyone' (older app builds read it).
-  membersCanRequest: false,
+/** Who-can-propose keys, one per competition kind. */
+const ACCESS_KEYS = Object.freeze({
+  match: 'matchProposeAccess',
+  tournament: 'tournamentProposeAccess',
+});
+
+/**
+ * Approval switches: does a request from this role wait for an org admin?
+ * Role 'teamAdmins' = admins of an org team, 'players' = other team members.
+ */
+const APPROVAL_KEYS = Object.freeze({
+  match: { teamAdmins: 'matchTeamAdminsNeedApproval', players: 'matchPlayersNeedApproval' },
+  tournament: {
+    teamAdmins: 'tournamentTeamAdminsNeedApproval',
+    players: 'tournamentPlayersNeedApproval',
+  },
 });
 
 const BOOLEAN_POLICY_KEYS = [
   'tournamentRequestsNeedApproval',
   'matchRequestsNeedApproval',
+  'matchTeamAdminsNeedApproval',
+  'matchPlayersNeedApproval',
+  'tournamentTeamAdminsNeedApproval',
+  'tournamentPlayersNeedApproval',
+  'allowWalkIns',
 ];
 
+/** Single legacy setting: proposeAccess, else membersCanRequest. */
 function resolveProposeAccess(p) {
   if (p && PROPOSE_ACCESS.includes(p.proposeAccess)) return p.proposeAccess;
   return p && p.membersCanRequest === true ? 'everyone' : 'teamAdmins';
 }
 
-function resolvePolicy(series) {
-  const p = (series && series.competitionPolicy) || {};
-  const proposeAccess = resolveProposeAccess(p);
-  return {
-    tournamentRequestsNeedApproval: p.tournamentRequestsNeedApproval !== false,
-    matchRequestsNeedApproval: p.matchRequestsNeedApproval !== false,
-    proposeAccess,
-    membersCanRequest: proposeAccess === 'everyone',
-  };
+/** Who may propose [kind] ('match' | 'tournament'), with legacy fallback. */
+function resolveKindAccess(p, kind) {
+  const v = p && p[ACCESS_KEYS[kind]];
+  return PROPOSE_ACCESS.includes(v) ? v : resolveProposeAccess(p);
+}
+
+/** Whether a request of [kind] from [role] ('teamAdmins' | 'players') needs approval. */
+function resolveNeedsApproval(p, kind, role) {
+  const v = p && p[APPROVAL_KEYS[kind][role]];
+  if (typeof v === 'boolean') return v;
+  const legacy = p && (kind === 'tournament'
+    ? p.tournamentRequestsNeedApproval
+    : p.matchRequestsNeedApproval);
+  return legacy !== false;
+}
+
+function maxAccess(a, b) {
+  return ACCESS_RANK[a] >= ACCESS_RANK[b] ? a : b;
 }
 
 /**
- * Validates an owner's policy edit. Accepts the new proposeAccess, or the
- * legacy membersCanRequest boolean from older app builds (true = everyone,
- * false = team admins). proposeAccess wins when both are sent.
+ * Full, normalised policy. New orgs store the per-kind fields; older orgs
+ * only have proposeAccess / membersCanRequest and the two approval booleans,
+ * which seed both kinds and both roles. Legacy mirror fields are always
+ * derived so older app builds keep working:
+ *   proposeAccess      – the more permissive of match / tournament
+ *   membersCanRequest  – proposeAccess === 'everyone'
+ *   *RequestsNeedApproval – true when any role needs approval
  */
-function sanitizePolicy(input) {
+function resolvePolicy(series) {
+  const p = (series && series.competitionPolicy) || {};
+  const matchProposeAccess = resolveKindAccess(p, 'match');
+  const tournamentProposeAccess = resolveKindAccess(p, 'tournament');
+  const matchTeamAdminsNeedApproval = resolveNeedsApproval(p, 'match', 'teamAdmins');
+  const matchPlayersNeedApproval = resolveNeedsApproval(p, 'match', 'players');
+  const tournamentTeamAdminsNeedApproval = resolveNeedsApproval(p, 'tournament', 'teamAdmins');
+  const tournamentPlayersNeedApproval = resolveNeedsApproval(p, 'tournament', 'players');
+  const proposeAccess = maxAccess(matchProposeAccess, tournamentProposeAccess);
+  return {
+    matchProposeAccess,
+    tournamentProposeAccess,
+    matchTeamAdminsNeedApproval,
+    matchPlayersNeedApproval,
+    tournamentTeamAdminsNeedApproval,
+    tournamentPlayersNeedApproval,
+    allowWalkIns: p.allowWalkIns !== false,
+    // Legacy mirrors (older app builds read these).
+    proposeAccess,
+    membersCanRequest: proposeAccess === 'everyone',
+    matchRequestsNeedApproval: matchTeamAdminsNeedApproval || matchPlayersNeedApproval,
+    tournamentRequestsNeedApproval:
+      tournamentTeamAdminsNeedApproval || tournamentPlayersNeedApproval,
+  };
+}
+
+const DEFAULT_POLICY = Object.freeze(resolvePolicy({}));
+
+function assertAccessValue(key, value) {
+  if (!PROPOSE_ACCESS.includes(value)) {
+    throw new CompetitionOpError(
+      'invalid-argument',
+      `${key} must be one of ${PROPOSE_ACCESS.join(', ')}`,
+    );
+  }
+}
+
+/**
+ * Validates an owner's policy edit and returns the full policy to store.
+ * Partial edits are merged onto [existing] (the org's current competitionPolicy)
+ * so a client that only sends some fields never resets the others.
+ *
+ * Input precedence: legacy single settings (proposeAccess, membersCanRequest,
+ * *RequestsNeedApproval) are applied first and seed both kinds / both roles;
+ * the per-kind fields then override them. Unknown keys are dropped.
+ */
+function sanitizePolicy(input, existing = null) {
   if (!input || typeof input !== 'object') {
     throw new CompetitionOpError('invalid-argument', 'policy required');
   }
-  const out = {};
   for (const key of BOOLEAN_POLICY_KEYS) {
+    if (key in input && typeof input[key] !== 'boolean') {
+      throw new CompetitionOpError('invalid-argument', `${key} must be true or false`);
+    }
+  }
+  if ('membersCanRequest' in input && typeof input.membersCanRequest !== 'boolean') {
+    throw new CompetitionOpError('invalid-argument', 'membersCanRequest must be true or false');
+  }
+  const out = { ...resolvePolicy({ competitionPolicy: existing || {} }) };
+
+  // 1. Legacy single settings seed both kinds / both roles.
+  if ('proposeAccess' in input) {
+    assertAccessValue('proposeAccess', input.proposeAccess);
+    out.matchProposeAccess = input.proposeAccess;
+    out.tournamentProposeAccess = input.proposeAccess;
+  } else if ('membersCanRequest' in input) {
+    const v = input.membersCanRequest ? 'everyone' : 'teamAdmins';
+    out.matchProposeAccess = v;
+    out.tournamentProposeAccess = v;
+  }
+  if ('matchRequestsNeedApproval' in input) {
+    out.matchTeamAdminsNeedApproval = input.matchRequestsNeedApproval;
+    out.matchPlayersNeedApproval = input.matchRequestsNeedApproval;
+  }
+  if ('tournamentRequestsNeedApproval' in input) {
+    out.tournamentTeamAdminsNeedApproval = input.tournamentRequestsNeedApproval;
+    out.tournamentPlayersNeedApproval = input.tournamentRequestsNeedApproval;
+  }
+
+  // 2. Per-kind fields win over the legacy ones.
+  for (const key of Object.values(ACCESS_KEYS)) {
     if (key in input) {
-      if (typeof input[key] !== 'boolean') {
-        throw new CompetitionOpError('invalid-argument', `${key} must be true or false`);
-      }
+      assertAccessValue(key, input[key]);
       out[key] = input[key];
     }
   }
-  let proposeAccess = DEFAULT_POLICY.proposeAccess;
-  if ('proposeAccess' in input) {
-    if (!PROPOSE_ACCESS.includes(input.proposeAccess)) {
-      throw new CompetitionOpError(
-        'invalid-argument',
-        `proposeAccess must be one of ${PROPOSE_ACCESS.join(', ')}`,
-      );
-    }
-    proposeAccess = input.proposeAccess;
-  } else if ('membersCanRequest' in input) {
-    if (typeof input.membersCanRequest !== 'boolean') {
-      throw new CompetitionOpError('invalid-argument', 'membersCanRequest must be true or false');
-    }
-    proposeAccess = input.membersCanRequest ? 'everyone' : 'teamAdmins';
+  for (const key of [
+    ...Object.values(APPROVAL_KEYS.match),
+    ...Object.values(APPROVAL_KEYS.tournament),
+    'allowWalkIns',
+  ]) {
+    if (key in input) out[key] = input[key];
   }
-  return {
-    ...resolvePolicy({ competitionPolicy: {} }),
-    ...out,
-    proposeAccess,
-    membersCanRequest: proposeAccess === 'everyone',
-  };
+  return resolvePolicy({ competitionPolicy: out });
 }
 
-/**
- * kind: 'tournament' | 'match'.
- * Returns { role, autoApprove } or throws permission-denied.
- */
 /** Orgs that are archived, suspended or on platform hold take no new matches. */
 function isOrgOpen(series) {
   if (!series) return true;
@@ -124,19 +215,27 @@ function decideAccess({
     return { role: isOwner ? 'superAdmin' : 'seriesAdmin', autoApprove: true };
   }
   const pol = policy || resolvePolicy(null);
-  const needs = kind === 'tournament'
-    ? pol.tournamentRequestsNeedApproval
-    : pol.matchRequestsNeedApproval;
-  const access = pol.proposeAccess || resolveProposeAccess(pol);
-  if (isTeamAdmin && access !== 'admins') return { role: 'clubAdmin', autoApprove: !needs };
-  if (isMember && access === 'everyone') return { role: 'seriesPlayer', autoApprove: !needs };
+  const access = resolveKindAccess(pol, kind);
+  const noun = kind === 'tournament' ? 'tournaments' : 'matches';
+  if (isTeamAdmin && access !== 'admins') {
+    return {
+      role: 'clubAdmin',
+      autoApprove: !resolveNeedsApproval(pol, kind, 'teamAdmins'),
+    };
+  }
+  if (isMember && access === 'everyone') {
+    return {
+      role: 'seriesPlayer',
+      autoApprove: !resolveNeedsApproval(pol, kind, 'players'),
+    };
+  }
   throw new CompetitionOpError(
     'permission-denied',
     access === 'admins'
-      ? 'Only the org owner and admins can propose here'
+      ? `Only the org owner and admins can add ${noun} here`
       : access === 'everyone'
-        ? 'Only org admins and members of org teams can do this'
-        : 'Only org admins and team admins of org teams can do this',
+        ? `Only org admins and members of org teams can add ${noun}`
+        : `Only org admins and team admins of org teams can add ${noun}`,
   );
 }
 
@@ -274,7 +373,11 @@ module.exports = {
   resolvePolicy,
   sanitizePolicy,
   resolveProposeAccess,
+  resolveKindAccess,
+  resolveNeedsApproval,
   PROPOSE_ACCESS,
+  ACCESS_KEYS,
+  APPROVAL_KEYS,
   decideAccess,
   isOrgOpen,
   isTournamentOrganizer,

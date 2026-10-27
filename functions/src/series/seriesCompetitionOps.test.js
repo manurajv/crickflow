@@ -14,55 +14,152 @@ function throwsCode(fn, code) {
   assert.fail(`expected ${code}`);
 }
 
-// Policy defaults: approval needed, members cannot request.
+// Policy defaults: approval needed, only team admins, walk-ins allowed.
 assert.deepStrictEqual(ops.resolvePolicy({}), ops.DEFAULT_POLICY);
-assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { matchRequestsNeedApproval: false } }).matchRequestsNeedApproval, false);
+{
+  const d = ops.resolvePolicy({});
+  assert.strictEqual(d.matchProposeAccess, 'teamAdmins');
+  assert.strictEqual(d.tournamentProposeAccess, 'teamAdmins');
+  assert.strictEqual(d.matchTeamAdminsNeedApproval, true);
+  assert.strictEqual(d.tournamentPlayersNeedApproval, true);
+  assert.strictEqual(d.allowWalkIns, true);
+}
 throwsCode(() => ops.sanitizePolicy({ membersCanRequest: 'yes' }), 'invalid-argument');
-assert.deepStrictEqual(ops.sanitizePolicy({ membersCanRequest: true, junk: 1 }), {
-  tournamentRequestsNeedApproval: true, matchRequestsNeedApproval: true,
-  proposeAccess: 'everyone', membersCanRequest: true,
-});
 
-// proposeAccess: who may propose besides owner/admins.
-assert.strictEqual(ops.resolvePolicy({}).proposeAccess, 'teamAdmins');
-assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { membersCanRequest: true } }).proposeAccess, 'everyone', 'legacy orgs keep players allowed');
-assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { membersCanRequest: false } }).proposeAccess, 'teamAdmins');
-assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'admins', membersCanRequest: true } }).proposeAccess, 'admins', 'new field wins');
-assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'junk' } }).proposeAccess, 'teamAdmins');
-assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'everyone' } }).membersCanRequest, true);
-assert.strictEqual(ops.sanitizePolicy({ proposeAccess: 'admins' }).membersCanRequest, false);
-assert.strictEqual(ops.sanitizePolicy({ proposeAccess: 'everyone', membersCanRequest: false }).proposeAccess, 'everyone');
-assert.strictEqual(ops.sanitizePolicy({ membersCanRequest: false }).proposeAccess, 'teamAdmins');
-assert.strictEqual(ops.sanitizePolicy({ matchRequestsNeedApproval: false }).proposeAccess, 'teamAdmins');
+// Legacy single settings seed both kinds and both roles.
+{
+  const legacy = ops.resolvePolicy({ competitionPolicy: { membersCanRequest: true, matchRequestsNeedApproval: false } });
+  assert.strictEqual(legacy.matchProposeAccess, 'everyone', 'legacy orgs keep players allowed');
+  assert.strictEqual(legacy.tournamentProposeAccess, 'everyone');
+  assert.strictEqual(legacy.matchTeamAdminsNeedApproval, false);
+  assert.strictEqual(legacy.matchPlayersNeedApproval, false);
+  assert.strictEqual(legacy.tournamentTeamAdminsNeedApproval, true);
+  assert.strictEqual(legacy.allowWalkIns, true);
+  assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { membersCanRequest: false } }).matchProposeAccess, 'teamAdmins');
+  assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'admins', membersCanRequest: true } }).tournamentProposeAccess, 'admins', 'proposeAccess wins over membersCanRequest');
+  assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'junk' } }).matchProposeAccess, 'teamAdmins');
+}
+
+// Separate settings per kind and per role win over the legacy ones.
+{
+  const p = ops.resolvePolicy({
+    competitionPolicy: {
+      proposeAccess: 'teamAdmins',
+      matchProposeAccess: 'everyone',
+      tournamentProposeAccess: 'admins',
+      matchTeamAdminsNeedApproval: false,
+      matchPlayersNeedApproval: true,
+      tournamentTeamAdminsNeedApproval: true,
+      allowWalkIns: false,
+    },
+  });
+  assert.strictEqual(p.matchProposeAccess, 'everyone');
+  assert.strictEqual(p.tournamentProposeAccess, 'admins');
+  assert.strictEqual(p.matchTeamAdminsNeedApproval, false);
+  assert.strictEqual(p.matchPlayersNeedApproval, true);
+  assert.strictEqual(p.tournamentPlayersNeedApproval, true, 'unset role falls back to legacy default');
+  assert.strictEqual(p.allowWalkIns, false);
+  // Legacy mirrors for older app builds: most permissive access, any approval.
+  assert.strictEqual(p.proposeAccess, 'everyone');
+  assert.strictEqual(p.membersCanRequest, true);
+  assert.strictEqual(p.matchRequestsNeedApproval, true);
+  const q = ops.resolvePolicy({ competitionPolicy: { matchTeamAdminsNeedApproval: false, matchPlayersNeedApproval: false } });
+  assert.strictEqual(q.matchRequestsNeedApproval, false);
+}
+
+// sanitizePolicy: validation, legacy input, merge onto the existing policy.
 throwsCode(() => ops.sanitizePolicy({ proposeAccess: 'nobody' }), 'invalid-argument');
 throwsCode(() => ops.sanitizePolicy({ proposeAccess: true }), 'invalid-argument');
+throwsCode(() => ops.sanitizePolicy({ matchProposeAccess: 'nobody' }), 'invalid-argument');
+throwsCode(() => ops.sanitizePolicy({ tournamentProposeAccess: 1 }), 'invalid-argument');
+throwsCode(() => ops.sanitizePolicy({ allowWalkIns: 'no' }), 'invalid-argument');
+throwsCode(() => ops.sanitizePolicy({ matchPlayersNeedApproval: 'no' }), 'invalid-argument');
+throwsCode(() => ops.sanitizePolicy(null), 'invalid-argument');
+{
+  const legacyOnly = ops.sanitizePolicy({ membersCanRequest: true, junk: 1 });
+  assert.strictEqual(legacyOnly.matchProposeAccess, 'everyone');
+  assert.strictEqual(legacyOnly.tournamentProposeAccess, 'everyone');
+  assert.ok(!('junk' in legacyOnly));
+  assert.strictEqual(ops.sanitizePolicy({ proposeAccess: 'admins' }).membersCanRequest, false);
+  assert.strictEqual(ops.sanitizePolicy({ proposeAccess: 'everyone', membersCanRequest: false }).matchProposeAccess, 'everyone');
+
+  const split = ops.sanitizePolicy({
+    matchProposeAccess: 'everyone',
+    tournamentProposeAccess: 'admins',
+    matchPlayersNeedApproval: false,
+    allowWalkIns: false,
+  });
+  assert.strictEqual(split.matchProposeAccess, 'everyone');
+  assert.strictEqual(split.tournamentProposeAccess, 'admins');
+  assert.strictEqual(split.matchPlayersNeedApproval, false);
+  assert.strictEqual(split.matchTeamAdminsNeedApproval, true);
+  assert.strictEqual(split.allowWalkIns, false);
+  assert.strictEqual(split.proposeAccess, 'everyone');
+
+  // New build sending legacy mirrors + per-kind keys: per-kind wins.
+  const both = ops.sanitizePolicy({ ...split, proposeAccess: 'everyone', membersCanRequest: true, matchRequestsNeedApproval: true });
+  assert.strictEqual(both.tournamentProposeAccess, 'admins');
+  assert.strictEqual(both.matchPlayersNeedApproval, false);
+
+  // Partial / legacy edits merge onto the existing org policy.
+  const next = ops.sanitizePolicy({ matchRequestsNeedApproval: false }, split);
+  assert.strictEqual(next.tournamentProposeAccess, 'admins', 'untouched kind kept');
+  assert.strictEqual(next.allowWalkIns, false, 'walk-in setting kept by an older client');
+  assert.strictEqual(next.matchTeamAdminsNeedApproval, false);
+  assert.strictEqual(next.matchProposeAccess, 'everyone');
+  assert.strictEqual(ops.sanitizePolicy({ allowWalkIns: true }, split).matchProposeAccess, 'everyone');
+}
 
 // Access matrix.
 const pol = ops.resolvePolicy({});
 assert.deepStrictEqual(ops.decideAccess({ kind: 'tournament', isAdmin: true, isOwner: true, policy: pol }), { role: 'superAdmin', autoApprove: true });
 assert.deepStrictEqual(ops.decideAccess({ kind: 'match', isAdmin: true, isOwner: false, policy: pol }), { role: 'seriesAdmin', autoApprove: true });
 assert.deepStrictEqual(ops.decideAccess({ kind: 'match', isTeamAdmin: true, policy: pol }), { role: 'clubAdmin', autoApprove: false });
-assert.deepStrictEqual(
-  ops.decideAccess({ kind: 'match', isTeamAdmin: true, policy: { ...pol, matchRequestsNeedApproval: false } }),
-  { role: 'clubAdmin', autoApprove: true },
-);
 throwsCode(() => ops.decideAccess({ kind: 'match', isMember: true, policy: pol }), 'permission-denied');
-assert.strictEqual(ops.decideAccess({ kind: 'tournament', isMember: true, policy: { ...pol, proposeAccess: 'everyone' } }).autoApprove, false);
-{
-  const mk = (proposeAccess) => ops.resolvePolicy({ competitionPolicy: { proposeAccess } });
-  // Team admins only (default): players denied, team admins allowed.
-  throwsCode(() => ops.decideAccess({ kind: 'match', isMember: true, policy: mk('teamAdmins') }), 'permission-denied');
-  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, policy: mk('teamAdmins') }).role, 'clubAdmin');
-  // Everyone in the team: players allowed for matches and tournaments.
-  assert.strictEqual(ops.decideAccess({ kind: 'match', isMember: true, policy: mk('everyone') }).role, 'seriesPlayer');
-  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isMember: true, policy: mk('everyone') }).role, 'seriesPlayer');
-  assert.strictEqual(ops.decideAccess({ kind: 'match', isTeamAdmin: true, isMember: true, policy: mk('everyone') }).role, 'clubAdmin');
-  // Admins only: team admins and players denied, org admins still direct.
-  throwsCode(() => ops.decideAccess({ kind: 'match', isTeamAdmin: true, policy: mk('admins') }), 'permission-denied');
-  throwsCode(() => ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, isMember: true, policy: mk('admins') }), 'permission-denied');
-  assert.deepStrictEqual(ops.decideAccess({ kind: 'match', isAdmin: true, isOwner: false, policy: mk('admins') }), { role: 'seriesAdmin', autoApprove: true });
-}
 throwsCode(() => ops.decideAccess({ kind: 'tournament', policy: pol }), 'permission-denied');
+{
+  const mk = (competitionPolicy) => ops.resolvePolicy({ competitionPolicy });
+  // Team admins only (default): players denied, team admins allowed.
+  throwsCode(() => ops.decideAccess({ kind: 'match', isMember: true, policy: mk({}) }), 'permission-denied');
+  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, policy: mk({}) }).role, 'clubAdmin');
+  // Everyone in the team.
+  const all = mk({ proposeAccess: 'everyone' });
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isMember: true, policy: all }).role, 'seriesPlayer');
+  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isMember: true, policy: all }).role, 'seriesPlayer');
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isTeamAdmin: true, isMember: true, policy: all }).role, 'clubAdmin');
+  // Admins only.
+  const adminsOnly = mk({ proposeAccess: 'admins' });
+  throwsCode(() => ops.decideAccess({ kind: 'match', isTeamAdmin: true, policy: adminsOnly }), 'permission-denied');
+  throwsCode(() => ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, isMember: true, policy: adminsOnly }), 'permission-denied');
+  assert.deepStrictEqual(ops.decideAccess({ kind: 'match', isAdmin: true, isOwner: false, policy: adminsOnly }), { role: 'seriesAdmin', autoApprove: true });
+
+  // Matches and tournaments are independent.
+  const split = mk({ matchProposeAccess: 'everyone', tournamentProposeAccess: 'admins' });
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isMember: true, policy: split }).role, 'seriesPlayer');
+  throwsCode(() => ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, policy: split }), 'permission-denied');
+  const split2 = mk({ matchProposeAccess: 'admins', tournamentProposeAccess: 'teamAdmins' });
+  throwsCode(() => ops.decideAccess({ kind: 'match', isTeamAdmin: true, policy: split2 }), 'permission-denied');
+  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, policy: split2 }).role, 'clubAdmin');
+
+  // Approval is per kind and per role.
+  const direct = mk({
+    matchProposeAccess: 'everyone',
+    tournamentProposeAccess: 'everyone',
+    matchTeamAdminsNeedApproval: false,
+    matchPlayersNeedApproval: true,
+    tournamentTeamAdminsNeedApproval: true,
+    tournamentPlayersNeedApproval: false,
+  });
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isTeamAdmin: true, policy: direct }).autoApprove, true);
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isMember: true, policy: direct }).autoApprove, false);
+  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, policy: direct }).autoApprove, false);
+  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isMember: true, policy: direct }).autoApprove, true);
+  // A team admin who is also a player uses the team-admin rule.
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isTeamAdmin: true, isMember: true, policy: direct }).autoApprove, true);
+  // Legacy approval flag still drives orgs that never saved the new fields.
+  assert.strictEqual(ops.decideAccess({ kind: 'match', isTeamAdmin: true, policy: mk({ matchRequestsNeedApproval: false }) }).autoApprove, true);
+  assert.strictEqual(ops.decideAccess({ kind: 'tournament', isTeamAdmin: true, policy: mk({ matchRequestsNeedApproval: false }) }).autoApprove, false);
+}
 
 // Tournament link validation.
 throwsCode(() => ops.validateTournamentLink({ tournament: null, seriesId: 's', uid: 'u' }), 'not-found');

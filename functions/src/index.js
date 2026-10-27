@@ -21,6 +21,8 @@ setGlobalOptions({
 
 const { onMatchCompleted } = require('./match/onMatchCompleted');
 const { onMatchLive } = require('./match/onMatchLive');
+const { onOrgMatchSquad } = require('./match/onOrgMatchSquad');
+const { onOrgMatchDigest } = require('./match/onOrgMatchDigest');
 const { onBallEventCreated } = require('./match/onBallEventCreated');
 const { onMatchRevisionCreated } = require('./match/onMatchRevisionCreated');
 const { onMatchBreak } = require('./match/onMatchBreak');
@@ -99,12 +101,16 @@ const {
   startSeriesMatch,
   updateSeriesCompetitionPolicy,
   migrateSeriesTeamLinks,
+  rebuildSeriesStandings,
 } = require('./series/seriesFunctions');
 
 exports.onMatchCompleted = onMatchCompleted;
 exports.linkMatchToTournament =
   require('./tournament/linkMatchToTournament').linkMatchToTournament;
 exports.onMatchLive = onMatchLive;
+exports.onOrgMatchSquad = onOrgMatchSquad;
+exports.onOrgMatchDigest = onOrgMatchDigest;
+exports.rebuildSeriesStandings = rebuildSeriesStandings;
 exports.onBallEventCreated = onBallEventCreated;
 exports.onMatchRevisionCreated = onMatchRevisionCreated;
 exports.onMatchBreak = onMatchBreak;

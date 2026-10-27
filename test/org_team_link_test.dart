@@ -80,7 +80,10 @@ void main() {
         OrgCompetitionAccess(
           role: role,
           policy: OrgCompetitionPolicy(
-            proposeAccess: members
+            matchProposeAccess: members
+                ? OrgProposeAccess.everyone
+                : OrgProposeAccess.teamAdmins,
+            tournamentProposeAccess: members
                 ? OrgProposeAccess.everyone
                 : OrgProposeAccess.teamAdmins,
           ),

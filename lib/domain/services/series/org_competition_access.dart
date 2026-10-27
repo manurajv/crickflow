@@ -22,16 +22,14 @@ enum OrgProposeAccess {
         OrgProposeAccess.everyone => 'Everyone in the team',
       };
 
-  String get description => switch (this) {
+  /// [noun] is "matches" or "tournaments".
+  String describe(String noun) => switch (this) {
         OrgProposeAccess.admins =>
-          'Only the owner and org admins can start or request matches and '
-              'tournaments.',
+          'Only the owner and org admins can start or request $noun.',
         OrgProposeAccess.teamAdmins =>
-          'Admins of an org team can request a match or tournament. '
-              'Players cannot.',
+          'Admins of an org team can request $noun. Players cannot.',
         OrgProposeAccess.everyone =>
-          'Team admins and every player on an org team can request a match '
-              'or tournament.',
+          'Team admins and every player on an org team can request $noun.',
       };
 
   static OrgProposeAccess? fromWire(Object? value) {
@@ -42,64 +40,145 @@ enum OrgProposeAccess {
   }
 }
 
-/// Org setting: who may request tournaments / matches and whether those
-/// requests need approval. Stored on `series/{id}.competitionPolicy`.
+/// Org setting: who may propose matches / tournaments (separately), whether
+/// each role's requests need approval, and whether walk-in players are allowed.
+/// Stored on `series/{id}.competitionPolicy`.
 ///
-/// Older orgs only have `membersCanRequest`; it maps to [OrgProposeAccess]
+/// Older orgs only have one `proposeAccess` / `membersCanRequest` setting and
+/// two `*RequestsNeedApproval` flags; they seed both kinds and both roles
 /// (`true` → everyone, otherwise team admins) until the owner saves the new
-/// permission. [toMap] keeps writing `membersCanRequest` for older app builds.
+/// permissions. [toMap] also writes those legacy fields (the more permissive
+/// access, and "needs approval" when any role needs it) for older app builds.
+/// Mirrors `resolvePolicy` in `functions/src/series/seriesCompetitionOps.js`.
 class OrgCompetitionPolicy extends Equatable {
   const OrgCompetitionPolicy({
-    this.tournamentRequestsNeedApproval = true,
-    this.matchRequestsNeedApproval = true,
-    this.proposeAccess = OrgProposeAccess.teamAdmins,
+    this.matchProposeAccess = OrgProposeAccess.teamAdmins,
+    this.tournamentProposeAccess = OrgProposeAccess.teamAdmins,
+    this.matchTeamAdminsNeedApproval = true,
+    this.matchPlayersNeedApproval = true,
+    this.tournamentTeamAdminsNeedApproval = true,
+    this.tournamentPlayersNeedApproval = true,
+    this.allowWalkIns = true,
   });
 
-  final bool tournamentRequestsNeedApproval;
-  final bool matchRequestsNeedApproval;
-  final OrgProposeAccess proposeAccess;
+  final OrgProposeAccess matchProposeAccess;
+  final OrgProposeAccess tournamentProposeAccess;
+
+  /// Does a request from this role wait for an org admin (true) or start
+  /// directly (false)? Org admins always start directly.
+  final bool matchTeamAdminsNeedApproval;
+  final bool matchPlayersNeedApproval;
+  final bool tournamentTeamAdminsNeedApproval;
+  final bool tournamentPlayersNeedApproval;
+
+  /// Walk-in / guest players may play in org matches and tournaments.
+  final bool allowWalkIns;
+
+  /// Legacy: the more permissive of the two accesses.
+  OrgProposeAccess get proposeAccess =>
+      matchProposeAccess.index >= tournamentProposeAccess.index
+          ? matchProposeAccess
+          : tournamentProposeAccess;
 
   /// Legacy flag: players may propose.
   bool get membersCanRequest => proposeAccess == OrgProposeAccess.everyone;
 
+  bool get matchRequestsNeedApproval =>
+      matchTeamAdminsNeedApproval || matchPlayersNeedApproval;
+
+  bool get tournamentRequestsNeedApproval =>
+      tournamentTeamAdminsNeedApproval || tournamentPlayersNeedApproval;
+
   factory OrgCompetitionPolicy.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const OrgCompetitionPolicy();
+    final legacyAccess = OrgProposeAccess.fromWire(map['proposeAccess']) ??
+        (map['membersCanRequest'] == true
+            ? OrgProposeAccess.everyone
+            : OrgProposeAccess.teamAdmins);
+    final legacyMatchNeeds = map['matchRequestsNeedApproval'] != false;
+    final legacyTournamentNeeds =
+        map['tournamentRequestsNeedApproval'] != false;
+    bool flag(String key, bool fallback) =>
+        map[key] is bool ? map[key] as bool : fallback;
     return OrgCompetitionPolicy(
-      tournamentRequestsNeedApproval:
-          map['tournamentRequestsNeedApproval'] != false,
-      matchRequestsNeedApproval: map['matchRequestsNeedApproval'] != false,
-      proposeAccess: OrgProposeAccess.fromWire(map['proposeAccess']) ??
-          (map['membersCanRequest'] == true
-              ? OrgProposeAccess.everyone
-              : OrgProposeAccess.teamAdmins),
+      matchProposeAccess:
+          OrgProposeAccess.fromWire(map['matchProposeAccess']) ?? legacyAccess,
+      tournamentProposeAccess:
+          OrgProposeAccess.fromWire(map['tournamentProposeAccess']) ??
+              legacyAccess,
+      matchTeamAdminsNeedApproval:
+          flag('matchTeamAdminsNeedApproval', legacyMatchNeeds),
+      matchPlayersNeedApproval:
+          flag('matchPlayersNeedApproval', legacyMatchNeeds),
+      tournamentTeamAdminsNeedApproval:
+          flag('tournamentTeamAdminsNeedApproval', legacyTournamentNeeds),
+      tournamentPlayersNeedApproval:
+          flag('tournamentPlayersNeedApproval', legacyTournamentNeeds),
+      allowWalkIns: map['allowWalkIns'] != false,
     );
   }
 
   Map<String, dynamic> toMap() => {
-        'tournamentRequestsNeedApproval': tournamentRequestsNeedApproval,
-        'matchRequestsNeedApproval': matchRequestsNeedApproval,
+        'matchProposeAccess': matchProposeAccess.wire,
+        'tournamentProposeAccess': tournamentProposeAccess.wire,
+        'matchTeamAdminsNeedApproval': matchTeamAdminsNeedApproval,
+        'matchPlayersNeedApproval': matchPlayersNeedApproval,
+        'tournamentTeamAdminsNeedApproval': tournamentTeamAdminsNeedApproval,
+        'tournamentPlayersNeedApproval': tournamentPlayersNeedApproval,
+        'allowWalkIns': allowWalkIns,
+        // Legacy mirrors for older app builds.
         'proposeAccess': proposeAccess.wire,
         'membersCanRequest': membersCanRequest,
+        'matchRequestsNeedApproval': matchRequestsNeedApproval,
+        'tournamentRequestsNeedApproval': tournamentRequestsNeedApproval,
       };
 
+  OrgProposeAccess accessFor({required bool tournament}) =>
+      tournament ? tournamentProposeAccess : matchProposeAccess;
+
+  /// Does a request of this kind from [role] wait for an org admin?
+  bool needsApprovalFor({required bool tournament, required bool teamAdmin}) {
+    if (tournament) {
+      return teamAdmin
+          ? tournamentTeamAdminsNeedApproval
+          : tournamentPlayersNeedApproval;
+    }
+    return teamAdmin ? matchTeamAdminsNeedApproval : matchPlayersNeedApproval;
+  }
+
   OrgCompetitionPolicy copyWith({
-    bool? tournamentRequestsNeedApproval,
-    bool? matchRequestsNeedApproval,
-    OrgProposeAccess? proposeAccess,
+    OrgProposeAccess? matchProposeAccess,
+    OrgProposeAccess? tournamentProposeAccess,
+    bool? matchTeamAdminsNeedApproval,
+    bool? matchPlayersNeedApproval,
+    bool? tournamentTeamAdminsNeedApproval,
+    bool? tournamentPlayersNeedApproval,
+    bool? allowWalkIns,
   }) =>
       OrgCompetitionPolicy(
-        tournamentRequestsNeedApproval:
-            tournamentRequestsNeedApproval ?? this.tournamentRequestsNeedApproval,
-        matchRequestsNeedApproval:
-            matchRequestsNeedApproval ?? this.matchRequestsNeedApproval,
-        proposeAccess: proposeAccess ?? this.proposeAccess,
+        matchProposeAccess: matchProposeAccess ?? this.matchProposeAccess,
+        tournamentProposeAccess:
+            tournamentProposeAccess ?? this.tournamentProposeAccess,
+        matchTeamAdminsNeedApproval:
+            matchTeamAdminsNeedApproval ?? this.matchTeamAdminsNeedApproval,
+        matchPlayersNeedApproval:
+            matchPlayersNeedApproval ?? this.matchPlayersNeedApproval,
+        tournamentTeamAdminsNeedApproval: tournamentTeamAdminsNeedApproval ??
+            this.tournamentTeamAdminsNeedApproval,
+        tournamentPlayersNeedApproval:
+            tournamentPlayersNeedApproval ?? this.tournamentPlayersNeedApproval,
+        allowWalkIns: allowWalkIns ?? this.allowWalkIns,
       );
 
   @override
   List<Object?> get props => [
-        tournamentRequestsNeedApproval,
-        matchRequestsNeedApproval,
-        proposeAccess,
+        matchProposeAccess,
+        tournamentProposeAccess,
+        matchTeamAdminsNeedApproval,
+        matchPlayersNeedApproval,
+        tournamentTeamAdminsNeedApproval,
+        tournamentPlayersNeedApproval,
+        allowWalkIns,
       ];
 }
 
@@ -138,23 +217,28 @@ class OrgCompetitionAccess {
   bool get isOwner => role == SeriesRole.superAdmin;
 
   /// Mirrors `decideAccess` on the server for non-admins.
-  bool get _canRequest => switch (policy.proposeAccess) {
+  bool _canRequest({required bool tournament}) =>
+      switch (policy.accessFor(tournament: tournament)) {
         OrgProposeAccess.admins => false,
         OrgProposeAccess.teamAdmins => role == SeriesRole.clubAdmin,
         OrgProposeAccess.everyone =>
           role == SeriesRole.clubAdmin || role == SeriesRole.seriesPlayer,
       };
 
-  OrgStartMode _mode(bool needsApproval) {
+  OrgStartMode _mode({required bool tournament}) {
     if (isAdmin) return OrgStartMode.direct;
-    if (!_canRequest) return OrgStartMode.none;
+    if (!_canRequest(tournament: tournament)) return OrgStartMode.none;
+    final needsApproval = policy.needsApprovalFor(
+      tournament: tournament,
+      teamAdmin: role == SeriesRole.clubAdmin,
+    );
     return needsApproval
         ? OrgStartMode.request
         : OrgStartMode.requestAutoApproved;
   }
 
-  OrgStartMode get tournament => _mode(policy.tournamentRequestsNeedApproval);
-  OrgStartMode get match => _mode(policy.matchRequestsNeedApproval);
+  OrgStartMode get tournament => _mode(tournament: true);
+  OrgStartMode get match => _mode(tournament: false);
 
   bool get canStartAnything =>
       tournament != OrgStartMode.none || match != OrgStartMode.none;

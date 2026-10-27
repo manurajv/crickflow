@@ -284,64 +284,108 @@ void main() {
   });
 
   group('Permissions section', () {
-    testWidgets('owner picks who can propose and saves it', (tester) async {
+    Future<_FakeFunctions> pump(WidgetTester tester, Map<String, dynamic> stored) async {
       final fns = _FakeFunctions();
+      tester.view.physicalSize = const Size(900, 3200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(_app(
         const SingleChildScrollView(
           child: OrgPermissionsSection(seriesId: 's1'),
         ),
         overrides: [
           orgCompetitionPolicyProvider('s1').overrideWith(
-            (_) => Stream.value(
-              OrgCompetitionPolicy.fromMap({'membersCanRequest': false}),
-            ),
+            (_) => Stream.value(OrgCompetitionPolicy.fromMap(stored)),
           ),
           seriesFunctionsServiceProvider.overrideWithValue(fns),
         ],
       ));
       await tester.pumpAndSettle();
+      return fns;
+    }
 
-      expect(find.text('Org admins only'), findsOneWidget);
-      expect(find.text('Team admins only'), findsOneWidget);
-      expect(find.text('Everyone in the team'), findsOneWidget);
-      // Existing org: team admins only is selected, nothing to save yet.
+    Future<void> save(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('org_permissions_save')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('matches and tournaments are set separately and saved',
+        (tester) async {
+      final fns = await pump(tester, {'membersCanRequest': false});
+
+      expect(find.text('Matches'), findsOneWidget);
+      expect(find.text('Tournaments'), findsOneWidget);
+      expect(find.text('Org admins only'), findsNWidgets(2));
+      expect(find.text('Team admins only'), findsNWidgets(2));
+      expect(find.text('Everyone in the team'), findsNWidgets(2));
+      // Existing org: team admins only everywhere, nothing to save yet.
       expect(
         tester.widget<FilledButton>(find.byKey(const Key('org_permissions_save')))
             .onPressed,
         isNull,
       );
 
-      await tester.tap(find.byKey(const Key('org_access_everyone')));
+      await tester.tap(find.byKey(const Key('org_match_access_everyone')));
       await tester.pump();
-      await tester.tap(find.byKey(const Key('org_permissions_save')));
-      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('org_tournament_access_admins')));
+      await tester.pump();
+      await save(tester);
 
+      expect(fns.policySent?['matchProposeAccess'], 'everyone');
+      expect(fns.policySent?['tournamentProposeAccess'], 'admins');
+      // Legacy mirrors for older app builds: the more permissive one.
       expect(fns.policySent?['proposeAccess'], 'everyone');
       expect(fns.policySent?['membersCanRequest'], true);
       expect(find.text('Permissions saved'), findsOneWidget);
     });
 
+    testWidgets('approval switches follow who is allowed', (tester) async {
+      final fns = await pump(tester, {});
+      // Team admins only: team-admin switch yes, player switch hidden.
+      expect(find.byKey(const Key('org_match_team_admins_approval')), findsOneWidget);
+      expect(find.byKey(const Key('org_match_players_approval')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('org_match_access_everyone')));
+      await tester.pump();
+      expect(find.byKey(const Key('org_match_players_approval')), findsOneWidget);
+      expect(find.byKey(const Key('org_tournament_players_approval')), findsNothing);
+
+      // Admins only: no approval switches at all for that kind.
+      await tester.tap(find.byKey(const Key('org_tournament_access_admins')));
+      await tester.pump();
+      expect(find.byKey(const Key('org_tournament_team_admins_approval')), findsNothing);
+
+      // Players start matches directly, team admins still need approval.
+      await tester.tap(find.byKey(const Key('org_match_players_approval')));
+      await tester.pump();
+      await save(tester);
+      expect(fns.policySent?['matchPlayersNeedApproval'], false);
+      expect(fns.policySent?['matchTeamAdminsNeedApproval'], true);
+      expect(fns.policySent?['tournamentPlayersNeedApproval'], true);
+    });
+
+    testWidgets('walk-in players can be switched off', (tester) async {
+      final fns = await pump(tester, {});
+      final tile = find.byKey(const Key('org_allow_walk_ins'));
+      expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+      await tester.tap(tile);
+      await tester.pump();
+      expect(find.textContaining('only use players with a CrickFlow account'), findsOneWidget);
+      await save(tester);
+      expect(fns.policySent?['allowWalkIns'], false);
+    });
+
     testWidgets('legacy players-can-propose orgs show Everyone selected',
         (tester) async {
-      await tester.pumpWidget(_app(
-        const SingleChildScrollView(
-          child: OrgPermissionsSection(seriesId: 's1'),
-        ),
-        overrides: [
-          orgCompetitionPolicyProvider('s1').overrideWith(
-            (_) => Stream.value(
-              OrgCompetitionPolicy.fromMap({'membersCanRequest': true}),
-            ),
-          ),
-        ],
-      ));
-      await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
-      final everyone = find.descendant(
-        of: find.byKey(const Key('org_access_everyone')),
-        matching: find.byIcon(Icons.radio_button_checked),
-      );
-      expect(everyone, findsOneWidget);
+      await pump(tester, {'membersCanRequest': true});
+      for (final kind in ['match', 'tournament']) {
+        final everyone = find.descendant(
+          of: find.byKey(Key('org_${kind}_access_everyone')),
+          matching: find.byIcon(Icons.radio_button_checked),
+        );
+        expect(everyone, findsOneWidget, reason: kind);
+      }
+      expect(find.byIcon(Icons.radio_button_checked), findsNWidgets(2));
     });
   });
 }

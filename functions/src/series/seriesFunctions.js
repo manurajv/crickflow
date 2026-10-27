@@ -15,6 +15,7 @@ const {
 const competitionOps = require('./seriesCompetitionOps');
 const { updateSeriesRankings } = require('./updateSeriesRankings');
 const orgTeams = require('./orgTeamLink');
+const orgWalkIns = require('./orgWalkIns');
 const { markDocsRead } = require('../notifications/notificationPriority');
 
 const COLLECTIONS = {
@@ -1465,6 +1466,9 @@ exports.proposeSeriesMatch = onCall(async (request) => {
     if (competitionOps.isQuickMatch(existing.data())) {
       throw new HttpsError('failed-precondition', 'Quick matches are not allowed in orgs. Start a normal match instead.');
     }
+    if (existing.exists) {
+      await assertWalkInsAllowed(firestore, series, existing.data());
+    }
   }
 
   const clubASnap = await firestore.collection(COLLECTIONS.clubs).doc(clubAId).get();
@@ -1884,6 +1888,29 @@ function competitionHttpsError(err) {
   return err;
 }
 
+/** players/{id} -> userId ('' when the profile has no account). Missing docs are omitted. */
+async function loadPlayerUserIds(firestore, ids) {
+  const out = new Map();
+  const refs = ids.map((id) => firestore.collection('players').doc(id));
+  for (let i = 0; i < refs.length; i += 100) {
+    const snaps = await firestore.getAll(...refs.slice(i, i + 100));
+    for (const snap of snaps) {
+      if (snap.exists) out.set(snap.id, String(snap.data()?.userId || ''));
+    }
+  }
+  return out;
+}
+
+/** Org setting allowWalkIns = false: no guest / account-less players in the squads. */
+async function assertWalkInsAllowed(firestore, series, match) {
+  if (competitionOps.resolvePolicy(series).allowWalkIns) return;
+  const userIds = await loadPlayerUserIds(firestore, orgWalkIns.rosterPlayerIdsToCheck(match));
+  const found = orgWalkIns.findWalkIns(match, userIds);
+  if (found.length) {
+    throw new HttpsError('failed-precondition', orgWalkIns.walkInsMessage(found));
+  }
+}
+
 async function listSeriesClubs(firestore, seriesId) {
   const snap = await firestore.collection(COLLECTIONS.clubs)
     .where('seriesId', '==', seriesId)
@@ -2122,6 +2149,7 @@ async function registerSeriesMatchCore(uid, data) {
       match.seriesOfficialStatus !== 'rejected') {
     throw new HttpsError('failed-precondition', 'Match already belongs to another org');
   }
+  await assertWalkInsAllowed(firestore, series, match);
 
   const isAdmin = await isSeriesAdmin(firestore, series, uid);
   const roles = isAdmin
@@ -2293,7 +2321,7 @@ exports.updateSeriesCompetitionPolicy = onCall(async (request) => {
   const series = await requireSuperAdmin(firestore, seriesId, uid);
   let policy;
   try {
-    policy = competitionOps.sanitizePolicy(request.data?.policy);
+    policy = competitionOps.sanitizePolicy(request.data?.policy, series.competitionPolicy);
   } catch (err) {
     throw competitionHttpsError(err);
   }
@@ -2412,6 +2440,24 @@ exports.migrateSeriesTeamLinks = onCall(async (request) => {
   }
   return result;
 });
+
+/**
+ * Org admins: rebuild the per-match digests behind the org leaderboards
+ * (fielding, dot balls, maidens, fastest 50/100). Safe to re-run; used to
+ * backfill matches that finished before digests existed.
+ */
+exports.rebuildSeriesStandings = onCall(
+  { timeoutSeconds: 540, memory: '512MiB' },
+  async (request) => {
+    const uid = requireAuth(request);
+    const seriesId = String(request.data?.seriesId || '');
+    if (!seriesId) throw new HttpsError('invalid-argument', 'seriesId required');
+    const firestore = db();
+    await requireSeriesAdmin(firestore, seriesId, uid);
+    const { rebuildSeriesDigests } = require('../match/onOrgMatchDigest');
+    return rebuildSeriesDigests(firestore, seriesId);
+  },
+);
 
 exports.applyTournamentDecision = applyTournamentDecision;
 exports.registerSeriesMatchCore = registerSeriesMatchCore;

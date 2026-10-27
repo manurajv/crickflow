@@ -2385,18 +2385,35 @@ service cloud.firestore {
             && settings.maxSquadSize <= 50));
     }
 
-    // Org permissions: who may propose a match or tournament. Optional on
-    // older orgs (they fall back to membersCanRequest on the server).
+    // Org permissions (all optional, older orgs fall back on the server):
+    // who may propose a match / tournament (separately), whether each role's
+    // request waits for an org admin, and whether walk-in players are allowed.
+    // Legacy single settings (proposeAccess, membersCanRequest, *RequestsNeedApproval)
+    // stay valid for older app builds.
     function seriesCompetitionPolicyValid(policy) {
       return policy is map
         && (!('proposeAccess' in policy)
           || policy.proposeAccess in ['admins', 'teamAdmins', 'everyone'])
+        && (!('matchProposeAccess' in policy)
+          || policy.matchProposeAccess in ['admins', 'teamAdmins', 'everyone'])
+        && (!('tournamentProposeAccess' in policy)
+          || policy.tournamentProposeAccess in ['admins', 'teamAdmins', 'everyone'])
         && (!('membersCanRequest' in policy)
           || policy.membersCanRequest is bool)
         && (!('tournamentRequestsNeedApproval' in policy)
           || policy.tournamentRequestsNeedApproval is bool)
         && (!('matchRequestsNeedApproval' in policy)
-          || policy.matchRequestsNeedApproval is bool);
+          || policy.matchRequestsNeedApproval is bool)
+        && (!('matchTeamAdminsNeedApproval' in policy)
+          || policy.matchTeamAdminsNeedApproval is bool)
+        && (!('matchPlayersNeedApproval' in policy)
+          || policy.matchPlayersNeedApproval is bool)
+        && (!('tournamentTeamAdminsNeedApproval' in policy)
+          || policy.tournamentTeamAdminsNeedApproval is bool)
+        && (!('tournamentPlayersNeedApproval' in policy)
+          || policy.tournamentPlayersNeedApproval is bool)
+        && (!('allowWalkIns' in policy)
+          || policy.allowWalkIns is bool);
     }
 
     function seriesCommonFieldsValid(d) {
@@ -2610,6 +2627,13 @@ service cloud.firestore {
     }
 
     match /series_player_rankings/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Per-match replay digest (fielding, dot balls, maidens, fastest 50/100)
+    // behind the org leaderboards on web. Written by Cloud Functions only.
+    match /series_match_digests/{id} {
       allow read: if true;
       allow write: if false;
     }
