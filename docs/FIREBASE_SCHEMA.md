@@ -9,7 +9,8 @@ Series is additive and does not replace teams or tournaments.
 - `series_registrations`, `series_memberships` — player registration and official club squads
 - `series_approvals` — reusable pending/approved/rejected workflow
 - `series_competitions` — links Series-approved matches and tournaments
-- `series_club_rankings`, `series_player_rankings` — Series-scoped standings
+- `series_club_rankings`, `series_player_rankings` — Series-scoped standings (legacy, no longer read; org leaderboards are computed from matches)
+- `series_match_digests` — per finished org match replay digest (fielding, dot balls, maidens, fastest 50/100); Cloud Functions write, public read
 - `series_audit_logs` — privileged action history
 
 Sensitive registration identity fields are stored separately under the registration

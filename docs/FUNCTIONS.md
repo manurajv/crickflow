@@ -32,6 +32,8 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 |--------|---------|---------|
 | `onMatchCompleted` | `matches/{id}` updated → `status: completed` | **Stats from `ball_events` replay** (fallback innings cache), badges, hero, `statsSource` |
 | `onMatchLive` | `matches/{id}` updated | Match start, 1st innings complete, 2nd innings start — fan-out + enriched messages |
+| `onOrgMatchSquad` | `matches/{id}` updated | Org setting `allowWalkIns = false`: removes walk-in / guest players added to an unfinished org match (or org tournament match) squad |
+| `onOrgMatchDigest` | `matches/{id}` written | Writes / refreshes / removes `series_match_digests/{id}` for finished org matches |
 | `onMatchBreak` | `matches/{id}` updated | Match break started / resumed — fan-out with current score |
 | `onMatchRevisionCreated` | `matches/{id}/matchRevisions/{id}` created | DLS / target revision notifications |
 | `onBallEventCreated` | `matches/{id}/ball_events/{eventId}` created | Wicket, four, six, milestones — enriched fan-out |
@@ -148,7 +150,8 @@ Requires Blaze plan for outbound FCM/network from functions.
 |---|---|---|
 | `startSeriesTournament` | Owner/admins directly; team admins (players if `competitionPolicy.membersCanRequest`) as a request | Links a tournament the caller organizes to the org (`mode: create` after the wizard, `mode: link` = admins adding an existing one), adds chosen org teams, writes a `series_competitions` row, audit + approval + notifications. |
 | `startSeriesMatch` | Match creator/scorer; requester must own one side | Registers a match between two approved org teams. Inside an org tournament it inherits the tournament's status. |
-| `updateSeriesCompetitionPolicy` | Owner | `series.competitionPolicy`: `tournamentRequestsNeedApproval`, `matchRequestsNeedApproval` (default true), `membersCanRequest` (default false). |
+| `updateSeriesCompetitionPolicy` | Owner | `series.competitionPolicy`: per kind `matchProposeAccess` / `tournamentProposeAccess` (`admins`/`teamAdmins`/`everyone`), per kind and role `{match,tournament}{TeamAdmins,Players}NeedApproval` (default true), `allowWalkIns` (default true) plus legacy mirrors (`proposeAccess`, `membersCanRequest`, `*RequestsNeedApproval`). Merges onto the stored policy. See [ORGS_COMPETITION_RULES.md](ORGS_COMPETITION_RULES.md). |
+| `rebuildSeriesStandings` | Org admins | Rebuilds `series_match_digests` for every finished org match (fielding, dot balls, maidens, fastest 50/100 for the web leaderboard). Safe to re-run. |
 | `proposeSeriesTournament` (legacy) | as `startSeriesTournament` link | Older app builds; now requires the caller to organize the tournament. |
 
 `reviewSeriesApproval` stores a rejection reason (older apps that send none get "No reason given"); a rejection unlinks the tournament/match from the org. Approval counts already-finished matches. Org rankings only count a match when an approved `series_competitions` row covers it (directly or via its tournament).
