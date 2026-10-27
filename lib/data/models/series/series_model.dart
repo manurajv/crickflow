@@ -206,22 +206,18 @@ class SeriesModel extends Equatable {
 
   /// Affiliated [series_clubs] tab — not My cricket Teams.
   String get memberUnitsTabLabel => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squads',
-        OrgFamily.associations => 'Member clubs',
+        OrgFamily.clubs => 'Teams',
+        OrgFamily.associations => 'Member teams',
         OrgFamily.series => 'Teams',
       };
 
   String get memberUnitsStatLabel => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squads',
-        OrgFamily.associations => 'Member clubs',
+        OrgFamily.clubs => 'Teams',
+        OrgFamily.associations => 'Member teams',
         OrgFamily.series => 'Teams',
       };
 
-  String get memberUnitsSingular => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squad',
-        OrgFamily.associations => 'Club',
-        OrgFamily.series => 'Team',
-      };
+  String get memberUnitsSingular => 'Team';
 
   factory SeriesModel.fromMap(String id, Map<String, dynamic> map) {
     return SeriesModel(

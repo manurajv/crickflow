@@ -78,7 +78,8 @@ Rankings screen exactly:
 ## 6. Naming
 
 User-facing labels say **Teams** / **Team admins** for org members.
-Associations still say "Member clubs" and club-family orgs say "Squads".
+All org families use the same wording: tab "Teams" (associations: "Member teams"),
+singular "Team", "Team admins", "Team registration".
 Internal collection / field names (`series_clubs`, `clubAdmin`) are unchanged.
 
 ## 7. Known limitations

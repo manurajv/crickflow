@@ -44,11 +44,7 @@ class _OrgLeaderboardTabState extends ConsumerState<OrgLeaderboardTab> {
   PlayerRankingsCategory _category = PlayerRankingsCategory.mostRuns;
   CricketBallType? _ball;
 
-  String get _tableTitle => switch (OrgFamily.forKind(widget.series.kind)) {
-        OrgFamily.clubs => 'Squad table',
-        OrgFamily.associations => 'Member club table',
-        OrgFamily.series => 'Points table',
-      };
+  String get _tableTitle => 'Points table';
 
   @override
   Widget build(BuildContext context) {
