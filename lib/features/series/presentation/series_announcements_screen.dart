@@ -57,7 +57,7 @@ class SeriesAnnouncementsScreen extends ConsumerWidget {
                         title: 'No announcements yet',
                         message: canPost
                             ? (active
-                                ? 'Share fixtures, deadlines and news with your clubs and players.'
+                                ? 'Share fixtures, deadlines and news with your teams and players.'
                                 : 'Announcements are paused while the organization is not active.')
                             : 'News from the organizers will show up here.',
                       )

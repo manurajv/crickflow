@@ -118,7 +118,7 @@ class SeriesOrgDashboardScreen extends ConsumerWidget {
               _ActionTile(
                 icon: Icons.campaign_outlined,
                 title: 'Announcements',
-                subtitle: 'Post news to clubs and players',
+                subtitle: 'Post news to teams and players',
                 onTap: () => context.push('/series/$seriesId/announcements'),
               ),
               _ActionTile(
@@ -129,8 +129,8 @@ class SeriesOrgDashboardScreen extends ConsumerWidget {
               ),
               _ActionTile(
                 icon: Icons.event_outlined,
-                title: 'Fixtures',
-                onTap: () => context.push('/series/$seriesId/fixtures'),
+                title: 'Matches & tournaments',
+                onTap: () => context.push('/series/$seriesId?tab=matches'),
               ),
               _ActionTile(
                 icon: Icons.leaderboard_outlined,
@@ -141,7 +141,7 @@ class SeriesOrgDashboardScreen extends ConsumerWidget {
                 _ActionTile(
                   icon: Icons.settings_outlined,
                   title: 'Settings & ownership',
-                  subtitle: 'Rules, registration, transfer, archive',
+                  subtitle: 'Permissions, rules, registration, transfer, archive',
                   onTap: () => context.push('/series/$seriesId/settings'),
                 ),
               if (announcements.isNotEmpty) ...[

@@ -156,7 +156,7 @@ class _SeriesClubDetailScreenState
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Club admin added')),
+          const SnackBar(content: Text('Team admin added')),
         );
       }
     } catch (e) {
@@ -180,7 +180,7 @@ class _SeriesClubDetailScreenState
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Club admin removed')),
+          const SnackBar(content: Text('Team admin removed')),
         );
       }
     } catch (e) {
@@ -234,12 +234,12 @@ class _SeriesClubDetailScreenState
         isClubAdminForThis;
     return Scaffold(
       backgroundColor: cf.background,
-      appBar: const CfChromeAppBar(title: Text('Club')),
+      appBar: const CfChromeAppBar(title: Text('Team')),
       body: club.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
         data: (item) {
-          if (item == null) return const Center(child: Text('Club not found'));
+          if (item == null) return const Center(child: Text('Team not found'));
           return ListView(
             padding: const EdgeInsets.all(AppDimens.spaceMd),
             children: [
@@ -436,7 +436,7 @@ class _SeriesClubDetailScreenState
                   children: [
                     Expanded(
                       child: Text(
-                        'Club admins',
+                        'Team admins',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -455,7 +455,7 @@ class _SeriesClubDetailScreenState
                         admins.where((a) => a.status != 'removed').toList();
                     if (active.isEmpty) {
                       return Text(
-                        'No club admins yet.',
+                        'No team admins yet.',
                         style: TextStyle(color: cf.textSecondary),
                       );
                     }

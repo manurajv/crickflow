@@ -34,7 +34,7 @@ class _SeriesOwnerSectionState extends ConsumerState<SeriesOwnerSection> {
       title: action.label,
       message: action == SeriesLifecycleAction.archive
           ? 'Archiving hides the organization from listings and pauses new '
-              'requests. Clubs, players, results and history are kept. You '
+              'requests. Teams, players, results and history are kept. You '
               'can reactivate it later.'
           : 'Reactivating makes the organization visible again and reopens '
               'requests.',

@@ -2,7 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
+import '../../data/models/match_model.dart';
 import '../../data/models/series/series.dart';
+import '../../data/models/tournament_model.dart';
+import '../../domain/services/player_rankings/player_rankings_models.dart';
+import '../../domain/services/series/org_standings.dart';
+import 'player_rankings_provider.dart';
 import '../../data/repositories/series_approval_repository.dart';
 import '../../data/repositories/series_audit_repository.dart';
 import '../../data/repositories/series_club_repository.dart';
@@ -295,4 +301,78 @@ final orgCompetitionAccessProvider =
             const OrgCompetitionPolicy(),
         myTeamIds: ref.watch(myOrgTeamIdsProvider(seriesId)),
       );
+    });
+
+
+/// Every match registered in an org (approved, pending, rejected…).
+/// Includes matches of org tournaments. Filter with `visibleOrgMatches`.
+final seriesMatchesProvider =
+    StreamProvider.family<List<MatchModel>, String>((ref, seriesId) {
+      if (seriesId.isEmpty) return Stream.value(const []);
+      return FirebaseFirestore.instance
+          .collection(AppConstants.matchesCollection)
+          .where('seriesId', isEqualTo: seriesId)
+          .snapshots()
+          .map(
+            (s) => s.docs
+                .map((d) => MatchModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
+    });
+
+/// Every tournament linked to an org. Filter with `visibleOrgTournaments`.
+final seriesTournamentsProvider =
+    StreamProvider.family<List<TournamentModel>, String>((ref, seriesId) {
+      if (seriesId.isEmpty) return Stream.value(const []);
+      return FirebaseFirestore.instance
+          .collection(AppConstants.tournamentsCollection)
+          .where('seriesId', isEqualTo: seriesId)
+          .snapshots()
+          .map(
+            (s) => s.docs
+                .map((d) => TournamentModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
+    });
+
+/// Changes only when the set of finished org matches changes, so live
+/// scoring elsewhere in the org does not recompute the standings.
+final _orgFinishedMatchKeyProvider = Provider.family<String, String>((
+  ref,
+  seriesId,
+) {
+  final matches =
+      ref.watch(seriesMatchesProvider(seriesId)).valueOrNull ?? const [];
+  final ids = orgRankingMatches(matches).map((m) => m.id).toList()..sort();
+  return ids.join(',');
+});
+
+/// Finished org matches that count for the org's tables and rankings.
+final orgFinishedMatchesProvider =
+    Provider.family<List<MatchModel>, String>((ref, seriesId) {
+      ref.watch(_orgFinishedMatchKeyProvider(seriesId));
+      final matches =
+          ref.read(seriesMatchesProvider(seriesId)).valueOrNull ?? const [];
+      return orgRankingMatches(matches);
+    });
+
+typedef OrgRankingsQuery = ({
+  String seriesId,
+  PlayerRankingsFilter filter,
+  String? tournamentFilter,
+});
+
+/// Org player rankings: the app's rankings engine run over the org's official
+/// matches only (same categories, stat definitions and minimums).
+final orgPlayerRankingsProvider = FutureProvider.autoDispose
+    .family<List<PlayerRankingEntry>, OrgRankingsQuery>((ref, q) async {
+      ref.watch(_orgFinishedMatchKeyProvider(q.seriesId));
+      final matches = orgRankingMatches(
+        ref.read(seriesMatchesProvider(q.seriesId)).valueOrNull ?? const [],
+        tournamentFilter: q.tournamentFilter,
+      );
+      if (matches.isEmpty) return const [];
+      return ref
+          .read(playerRankingsRepositoryProvider)
+          .rankFromMatches(matches: matches, filter: q.filter);
     });

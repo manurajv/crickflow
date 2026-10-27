@@ -145,7 +145,7 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_maxSquad < 1 || _maxSquad > 50) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Max players per club must be between 1 and 50')),
+        const SnackBar(content: Text('Max players per team must be between 1 and 50')),
       );
       return;
     }
@@ -484,7 +484,7 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
             _sectionTitle('Squad'),
             Row(
               children: [
-                const Expanded(child: Text('Max players per club')),
+                const Expanded(child: Text('Max players per team')),
                 IconButton(
                   onPressed: _maxSquad > 1
                       ? () => setState(() => _maxSquad--)
@@ -549,7 +549,7 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
               value: _requirePhoto,
               onChanged: (v) => setState(() => _requirePhoto = v),
             ),
-            _sectionTitle('Club ranking points'),
+            _sectionTitle('Team ranking points'),
             _pointsRow('Win', _winPoints, (v) => setState(() => _winPoints = v)),
             _pointsRow(
               'Loss',

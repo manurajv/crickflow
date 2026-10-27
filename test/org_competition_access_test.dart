@@ -2,7 +2,10 @@ import 'package:crickflow/core/theme/app_theme.dart';
 import 'package:crickflow/data/models/series/series.dart';
 import 'package:crickflow/domain/services/series/org_competition_access.dart';
 import 'package:crickflow/features/series/presentation/series_approvals_screen.dart';
-import 'package:crickflow/features/series/presentation/series_competitions_screen.dart';
+import 'package:crickflow/features/series/presentation/tabs/org_matches_tab.dart';
+import 'package:crickflow/features/series/presentation/tabs/org_tournaments_tab.dart';
+import 'package:crickflow/shared/providers/providers.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:crickflow/shared/providers/series_providers.dart';
 import 'package:crickflow/shared/providers/start_match_draft_provider.dart';
 import 'package:flutter/material.dart';
@@ -15,19 +18,26 @@ OrgCompetitionAccess _access(SeriesRole role,
         {OrgCompetitionPolicy policy = _policy, List<String> mine = const []}) =>
     OrgCompetitionAccess(role: role, policy: policy, myTeamIds: mine);
 
-Widget _competitions(OrgCompetitionAccess access) => ProviderScope(
-      overrides: [
-        orgCompetitionAccessProvider('s1').overrideWithValue(access),
-        seriesCompetitionsProvider('s1')
-            .overrideWith((_) => Stream.value(const <SeriesCompetitionModel>[])),
-        clubsForSeriesProvider('s1')
-            .overrideWith((_) => Stream.value(const <SeriesClubModel>[])),
-      ],
+List<Override> _overrides(OrgCompetitionAccess access) => [
+      orgCompetitionAccessProvider('s1').overrideWithValue(access),
+      authStateProvider.overrideWith((_) => Stream<User?>.value(null)),
+      seriesMatchesProvider('s1').overrideWith((_) => Stream.value(const [])),
+      seriesTournamentsProvider('s1')
+          .overrideWith((_) => Stream.value(const [])),
+    ];
+
+Widget _tab(OrgCompetitionAccess access, Widget tab) => ProviderScope(
+      overrides: _overrides(access),
       child: MaterialApp(
         theme: AppTheme.darkTheme,
-        home: const SeriesCompetitionsScreen(seriesId: 's1'),
+        home: Scaffold(body: tab),
       ),
     );
+
+Widget _matches(OrgCompetitionAccess access) =>
+    _tab(access, const OrgMatchesTab(seriesId: 's1'));
+Widget _tournaments(OrgCompetitionAccess access) =>
+    _tab(access, const OrgTournamentsTab(seriesId: 's1'));
 
 void main() {
   group('OrgCompetitionAccess', () {
@@ -52,11 +62,33 @@ void main() {
       expect(_access(SeriesRole.seriesPlayer).canStartAnything, isFalse);
       expect(
         _access(SeriesRole.seriesPlayer,
-                policy: _policy.copyWith(membersCanRequest: true))
+                policy: _policy.copyWith(proposeAccess: OrgProposeAccess.everyone))
             .tournament,
         OrgStartMode.request,
       );
       expect(_access(SeriesRole.viewer).canStartAnything, isFalse);
+    });
+
+    test('who can propose: admins only / team admins only / everyone', () {
+      OrgCompetitionAccess at(SeriesRole r, OrgProposeAccess a) =>
+          _access(r, policy: _policy.copyWith(proposeAccess: a));
+      // Org admins always start directly, whatever the setting.
+      for (final a in OrgProposeAccess.values) {
+        expect(at(SeriesRole.superAdmin, a).match, OrgStartMode.direct);
+        expect(at(SeriesRole.seriesAdmin, a).tournament, OrgStartMode.direct);
+      }
+      // Admins only: nobody else sees anything.
+      expect(at(SeriesRole.clubAdmin, OrgProposeAccess.admins).canStartAnything, isFalse);
+      expect(at(SeriesRole.seriesPlayer, OrgProposeAccess.admins).canStartAnything, isFalse);
+      // Team admins only.
+      expect(at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins).match, OrgStartMode.request);
+      expect(at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins).tournament, OrgStartMode.request);
+      expect(at(SeriesRole.seriesPlayer, OrgProposeAccess.teamAdmins).canStartAnything, isFalse);
+      // Everyone in the team.
+      expect(at(SeriesRole.clubAdmin, OrgProposeAccess.everyone).match, OrgStartMode.request);
+      expect(at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone).match, OrgStartMode.request);
+      expect(at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone).tournament, OrgStartMode.request);
+      expect(at(SeriesRole.viewer, OrgProposeAccess.everyone).canStartAnything, isFalse);
     });
 
     test('requesters must include one of their teams', () {
@@ -69,10 +101,43 @@ void main() {
 
     test('policy parses missing keys as safe defaults', () {
       expect(OrgCompetitionPolicy.fromMap(null), _policy);
+      expect(_policy.proposeAccess, OrgProposeAccess.teamAdmins);
+    });
+
+    test('existing orgs keep working: membersCanRequest maps to proposeAccess',
+        () {
+      final legacyOn = OrgCompetitionPolicy.fromMap({'membersCanRequest': true});
+      expect(legacyOn.proposeAccess, OrgProposeAccess.everyone);
+      expect(legacyOn.membersCanRequest, isTrue);
       expect(
-        OrgCompetitionPolicy.fromMap({'membersCanRequest': true}).membersCanRequest,
-        isTrue,
+        OrgCompetitionPolicy.fromMap({'membersCanRequest': false}).proposeAccess,
+        OrgProposeAccess.teamAdmins,
       );
+      expect(OrgCompetitionPolicy.fromMap({}).proposeAccess, OrgProposeAccess.teamAdmins);
+      // New field wins over the legacy one; junk falls back safely.
+      expect(
+        OrgCompetitionPolicy.fromMap(
+          {'proposeAccess': 'admins', 'membersCanRequest': true},
+        ).proposeAccess,
+        OrgProposeAccess.admins,
+      );
+      expect(
+        OrgCompetitionPolicy.fromMap({'proposeAccess': 'nope'}).proposeAccess,
+        OrgProposeAccess.teamAdmins,
+      );
+    });
+
+    test('toMap writes proposeAccess and the legacy flag for older apps', () {
+      final map = _policy
+          .copyWith(proposeAccess: OrgProposeAccess.everyone)
+          .toMap();
+      expect(map['proposeAccess'], 'everyone');
+      expect(map['membersCanRequest'], true);
+      expect(
+        _policy.copyWith(proposeAccess: OrgProposeAccess.admins).toMap()['membersCanRequest'],
+        false,
+      );
+      expect(OrgCompetitionPolicy.fromMap(map), OrgCompetitionPolicy.fromMap(map));
     });
   });
 
@@ -99,24 +164,51 @@ void main() {
   });
 
   testWidgets('users without access see no start actions', (tester) async {
-    await tester.pumpWidget(_competitions(_access(SeriesRole.viewer)));
+    await tester.pumpWidget(_matches(_access(SeriesRole.viewer)));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('org_start_match')), findsNothing);
+    expect(find.text('No matches yet'), findsOneWidget);
+    expect(find.textContaining('Official org matches will appear'), findsOneWidget);
+
+    await tester.pumpWidget(_tournaments(_access(SeriesRole.viewer)));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('org_start_tournament')), findsNothing);
-    expect(find.byKey(const Key('org_request_settings')), findsNothing);
+    expect(find.text('No tournaments yet'), findsOneWidget);
   });
 
-  testWidgets('team admins see request actions, owners also see settings',
-      (tester) async {
-    await tester.pumpWidget(_competitions(_access(SeriesRole.clubAdmin)));
+  testWidgets('proposal buttons follow the org permission', (tester) async {
+    OrgCompetitionAccess at(SeriesRole r, OrgProposeAccess a) =>
+        _access(r, policy: _policy.copyWith(proposeAccess: a));
+
+    // Team admin: yes in team-admins mode, no in admins-only mode.
+    await tester.pumpWidget(
+        _matches(at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins)));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('org_start_match')), findsOneWidget);
-    expect(find.byKey(const Key('org_request_settings')), findsNothing);
+    expect(find.text('Request a match'), findsOneWidget);
 
-    await tester.pumpWidget(_competitions(_access(SeriesRole.superAdmin)));
+    await tester.pumpWidget(
+        _matches(at(SeriesRole.clubAdmin, OrgProposeAccess.admins)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('org_start_match')), findsNothing);
+
+    // Player: only when everyone in the team may propose.
+    await tester.pumpWidget(
+        _tournaments(at(SeriesRole.seriesPlayer, OrgProposeAccess.teamAdmins)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('org_start_tournament')), findsNothing);
+
+    await tester.pumpWidget(
+        _tournaments(at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone)));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('org_start_tournament')), findsOneWidget);
-    expect(find.byKey(const Key('org_request_settings')), findsOneWidget);
+    expect(find.text('Request a tournament'), findsOneWidget);
+
+    // Owner always starts directly.
+    await tester.pumpWidget(
+        _matches(at(SeriesRole.superAdmin, OrgProposeAccess.admins)));
+    await tester.pumpAndSettle();
+    expect(find.text('Start a match'), findsOneWidget);
   });
 
   testWidgets('rejecting needs a reason', (tester) async {

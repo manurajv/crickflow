@@ -18,6 +18,7 @@ import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/match_card_ui.dart';
 import '../../../../shared/widgets/match_team_avatar.dart';
+import '../../../../shared/widgets/org_badge.dart';
 import '../../../../shared/widgets/player_cluster_text.dart';
 import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../../data/unified_search_service.dart';
@@ -221,6 +222,13 @@ class _MatchCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (match.isOrgMatch) ...[
+            OrgBadge(
+              seriesId: match.seriesId!,
+              pending: !match.isOrgApproved,
+            ),
+            const SizedBox(height: 6),
+          ],
           Row(
             children: [
               Expanded(
@@ -329,6 +337,13 @@ class _TournamentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (tournament.isOrgTournament) ...[
+                  OrgBadge(
+                    seriesId: tournament.seriesId!,
+                    pending: !tournament.isOrgApproved,
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Text(
                   tournament.name,
                   style: Theme.of(context)

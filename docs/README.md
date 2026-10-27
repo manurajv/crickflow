@@ -20,6 +20,7 @@ Start here:
 - **[SCORING_ENGINE_ARCHITECTURE.md](SCORING_ENGINE_ARCHITECTURE.md)** — Event sourcing, reducer, undo, Firebase, production plan
 - [MVP_ROADMAP.md](MVP_ROADMAP.md) · [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md)
 - [FANTASY.md](FANTASY.md) · [WEBRTC.md](WEBRTC.md) · [MULTI_CAMERA.md](MULTI_CAMERA.md)
+- **[ORGS_COMPETITION_RULES.md](ORGS_COMPETITION_RULES.md)** — Orgs: who can propose matches/tournaments, standings, rankings
 - [FIREBASE_SCHEMA.md](FIREBASE_SCHEMA.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [FUNCTIONS.md](FUNCTIONS.md)
 
 ## Release

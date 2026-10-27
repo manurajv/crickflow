@@ -79,7 +79,11 @@ void main() {
     OrgCompetitionAccess access(SeriesRole role, {bool members = false}) =>
         OrgCompetitionAccess(
           role: role,
-          policy: OrgCompetitionPolicy(membersCanRequest: members),
+          policy: OrgCompetitionPolicy(
+            proposeAccess: members
+                ? OrgProposeAccess.everyone
+                : OrgProposeAccess.teamAdmins,
+          ),
         );
 
     test('players see nothing unless the org allows it', () {

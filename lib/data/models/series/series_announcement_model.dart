@@ -10,7 +10,7 @@ enum SeriesAnnouncementAudience {
   String get label => switch (this) {
         SeriesAnnouncementAudience.all => 'Everyone',
         SeriesAnnouncementAudience.admins => 'Admins',
-        SeriesAnnouncementAudience.clubAdmins => 'Club admins',
+        SeriesAnnouncementAudience.clubAdmins => 'Team admins',
         SeriesAnnouncementAudience.members => 'Players',
       };
 

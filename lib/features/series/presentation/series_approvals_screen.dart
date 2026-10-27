@@ -239,7 +239,7 @@ class SeriesApprovalsScreen extends ConsumerWidget {
                                 Padding(
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
-                                    'Waiting for club admin clearance',
+                                    'Waiting for team admin clearance',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: cf.textSecondary,

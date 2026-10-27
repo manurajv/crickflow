@@ -8,6 +8,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/series/series.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
+import 'widgets/org_permissions_section.dart';
 import 'widgets/series_owner_section.dart';
 
 class SeriesSettingsScreen extends ConsumerStatefulWidget {
@@ -141,6 +142,7 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
           body: ListView(
             padding: const EdgeInsets.all(AppDimens.spaceLg),
             children: [
+              OrgPermissionsSection(seriesId: widget.seriesId),
               Text('Rules', style: Theme.of(context).textTheme.titleMedium),
               TextField(
                 controller: _rules,
@@ -216,7 +218,7 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
               ),
               const Divider(),
               Text(
-                'Club ranking points',
+                'Team ranking points',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               _pointsRow('Win', _winPoints, (v) => setState(() => _winPoints = v)),

@@ -12,6 +12,7 @@ import '../../data/models/match_model.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import 'match_team_avatar.dart';
+import 'org_badge.dart';
 import 'venue_location_sheet.dart';
 
 enum MatchCardStyle {
@@ -33,6 +34,7 @@ class MatchCardContent extends StatelessWidget {
     this.roundLabel,
     this.attributionLabel,
     this.showFooterHint = true,
+    this.showOrgBadge = true,
     this.showChaseDetails = true,
     this.showTossLine = false,
     this.teamALogoUrl,
@@ -47,6 +49,10 @@ class MatchCardContent extends StatelessWidget {
   /// Shown at top (e.g. Network: "Alex's match").
   final String? attributionLabel;
   final bool showFooterHint;
+
+  /// Org chip above the card for org matches (turn off where the org is
+  /// already obvious from the screen).
+  final bool showOrgBadge;
   final bool showChaseDetails;
   final bool showTossLine;
   final String? teamALogoUrl;
@@ -116,6 +122,19 @@ class MatchCardContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Org matches carry the org's badge wherever the card appears.
+        if (showOrgBadge && match.isOrgMatch) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OrgBadge(
+              seriesId: match.seriesId!,
+              pending: !match.isOrgApproved,
+              onDark: _isHero,
+              tappable: !_isHero,
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
         if (attributionLabel != null &&
             attributionLabel!.trim().isNotEmpty) ...[
           Text(

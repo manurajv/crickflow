@@ -313,6 +313,14 @@ class MatchModel extends Equatable {
 
   bool get isQuickMatch => matchMode == MatchMode.quick;
 
+  /// Belongs to an org (series) and was not rejected by it. Pending requests
+  /// count too so the org badge can say "Pending".
+  bool get isOrgMatch =>
+      (seriesId ?? '').isNotEmpty && seriesOfficialStatus != 'rejected';
+
+  /// Org match the org approved (counts for the org's tables).
+  bool get isOrgApproved => isOrgMatch && seriesOfficialStatus == 'approved';
+
   /// Quick Match always plays two innings (chase), even if rules say indoor/1.
   int get effectiveMaxInnings {
     final configured = rules.maxInnings;

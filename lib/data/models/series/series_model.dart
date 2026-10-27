@@ -208,18 +208,19 @@ class SeriesModel extends Equatable {
   String get memberUnitsTabLabel => switch (OrgFamily.forKind(kind)) {
         OrgFamily.clubs => 'Squads',
         OrgFamily.associations => 'Member clubs',
-        OrgFamily.series => 'Participating clubs',
+        OrgFamily.series => 'Teams',
       };
 
   String get memberUnitsStatLabel => switch (OrgFamily.forKind(kind)) {
         OrgFamily.clubs => 'Squads',
         OrgFamily.associations => 'Member clubs',
-        OrgFamily.series => 'Clubs',
+        OrgFamily.series => 'Teams',
       };
 
   String get memberUnitsSingular => switch (OrgFamily.forKind(kind)) {
         OrgFamily.clubs => 'Squad',
-        _ => 'Club',
+        OrgFamily.associations => 'Club',
+        OrgFamily.series => 'Team',
       };
 
   factory SeriesModel.fromMap(String id, Map<String, dynamic> map) {

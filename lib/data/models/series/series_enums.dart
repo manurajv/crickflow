@@ -164,7 +164,7 @@ enum SeriesApprovalTargetType {
   other;
 
   String get label => switch (this) {
-        SeriesApprovalTargetType.clubRegistration => 'Club registration',
+        SeriesApprovalTargetType.clubRegistration => 'Team registration',
         SeriesApprovalTargetType.playerRegistration => 'Player registration',
         SeriesApprovalTargetType.playerJoin => 'Join request',
         SeriesApprovalTargetType.playerAdd => 'Add player',
@@ -234,7 +234,7 @@ enum SeriesRole {
   String get label => switch (this) {
         SeriesRole.superAdmin => 'Owner',
         SeriesRole.seriesAdmin => 'Admin',
-        SeriesRole.clubAdmin => 'Club admin',
+        SeriesRole.clubAdmin => 'Team admin',
         SeriesRole.seriesPlayer => 'Player',
         SeriesRole.viewer => 'Viewer',
       };

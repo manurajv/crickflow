@@ -2,18 +2,65 @@ import 'package:equatable/equatable.dart';
 
 import '../../../data/models/series/series.dart';
 
+/// Who may propose a match or tournament in an org besides its owner and
+/// admins (who always start directly).
+enum OrgProposeAccess {
+  /// Nobody else: only the owner and org admins.
+  admins,
+
+  /// Admins of an approved org team (default).
+  teamAdmins,
+
+  /// Team admins and every active player of an approved org team.
+  everyone;
+
+  String get wire => name;
+
+  String get label => switch (this) {
+        OrgProposeAccess.admins => 'Org admins only',
+        OrgProposeAccess.teamAdmins => 'Team admins only',
+        OrgProposeAccess.everyone => 'Everyone in the team',
+      };
+
+  String get description => switch (this) {
+        OrgProposeAccess.admins =>
+          'Only the owner and org admins can start or request matches and '
+              'tournaments.',
+        OrgProposeAccess.teamAdmins =>
+          'Admins of an org team can request a match or tournament. '
+              'Players cannot.',
+        OrgProposeAccess.everyone =>
+          'Team admins and every player on an org team can request a match '
+              'or tournament.',
+      };
+
+  static OrgProposeAccess? fromWire(Object? value) {
+    for (final v in OrgProposeAccess.values) {
+      if (v.name == value) return v;
+    }
+    return null;
+  }
+}
+
 /// Org setting: who may request tournaments / matches and whether those
 /// requests need approval. Stored on `series/{id}.competitionPolicy`.
+///
+/// Older orgs only have `membersCanRequest`; it maps to [OrgProposeAccess]
+/// (`true` → everyone, otherwise team admins) until the owner saves the new
+/// permission. [toMap] keeps writing `membersCanRequest` for older app builds.
 class OrgCompetitionPolicy extends Equatable {
   const OrgCompetitionPolicy({
     this.tournamentRequestsNeedApproval = true,
     this.matchRequestsNeedApproval = true,
-    this.membersCanRequest = false,
+    this.proposeAccess = OrgProposeAccess.teamAdmins,
   });
 
   final bool tournamentRequestsNeedApproval;
   final bool matchRequestsNeedApproval;
-  final bool membersCanRequest;
+  final OrgProposeAccess proposeAccess;
+
+  /// Legacy flag: players may propose.
+  bool get membersCanRequest => proposeAccess == OrgProposeAccess.everyone;
 
   factory OrgCompetitionPolicy.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const OrgCompetitionPolicy();
@@ -21,32 +68,39 @@ class OrgCompetitionPolicy extends Equatable {
       tournamentRequestsNeedApproval:
           map['tournamentRequestsNeedApproval'] != false,
       matchRequestsNeedApproval: map['matchRequestsNeedApproval'] != false,
-      membersCanRequest: map['membersCanRequest'] == true,
+      proposeAccess: OrgProposeAccess.fromWire(map['proposeAccess']) ??
+          (map['membersCanRequest'] == true
+              ? OrgProposeAccess.everyone
+              : OrgProposeAccess.teamAdmins),
     );
   }
 
   Map<String, dynamic> toMap() => {
         'tournamentRequestsNeedApproval': tournamentRequestsNeedApproval,
         'matchRequestsNeedApproval': matchRequestsNeedApproval,
+        'proposeAccess': proposeAccess.wire,
         'membersCanRequest': membersCanRequest,
       };
 
   OrgCompetitionPolicy copyWith({
     bool? tournamentRequestsNeedApproval,
     bool? matchRequestsNeedApproval,
-    bool? membersCanRequest,
+    OrgProposeAccess? proposeAccess,
   }) =>
       OrgCompetitionPolicy(
         tournamentRequestsNeedApproval:
             tournamentRequestsNeedApproval ?? this.tournamentRequestsNeedApproval,
         matchRequestsNeedApproval:
             matchRequestsNeedApproval ?? this.matchRequestsNeedApproval,
-        membersCanRequest: membersCanRequest ?? this.membersCanRequest,
+        proposeAccess: proposeAccess ?? this.proposeAccess,
       );
 
   @override
-  List<Object?> get props =>
-      [tournamentRequestsNeedApproval, matchRequestsNeedApproval, membersCanRequest];
+  List<Object?> get props => [
+        tournamentRequestsNeedApproval,
+        matchRequestsNeedApproval,
+        proposeAccess,
+      ];
 }
 
 enum OrgStartMode {
@@ -83,9 +137,13 @@ class OrgCompetitionAccess {
 
   bool get isOwner => role == SeriesRole.superAdmin;
 
-  bool get _canRequest =>
-      role == SeriesRole.clubAdmin ||
-      (role == SeriesRole.seriesPlayer && policy.membersCanRequest);
+  /// Mirrors `decideAccess` on the server for non-admins.
+  bool get _canRequest => switch (policy.proposeAccess) {
+        OrgProposeAccess.admins => false,
+        OrgProposeAccess.teamAdmins => role == SeriesRole.clubAdmin,
+        OrgProposeAccess.everyone =>
+          role == SeriesRole.clubAdmin || role == SeriesRole.seriesPlayer,
+      };
 
   OrgStartMode _mode(bool needsApproval) {
     if (isAdmin) return OrgStartMode.direct;

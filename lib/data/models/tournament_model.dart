@@ -276,6 +276,13 @@ class TournamentModel extends Equatable {
   final String? seriesCompetitionId;
   final String? seriesOfficialStatus;
 
+  /// Belongs to an org (series) and was not rejected by it.
+  bool get isOrgTournament =>
+      (seriesId ?? '').isNotEmpty && seriesOfficialStatus != 'rejected';
+
+  /// Org tournament the org approved.
+  bool get isOrgApproved => isOrgTournament && seriesOfficialStatus == 'approved';
+
   String get effectiveOrganizerId => organizerId ?? createdBy ?? '';
 
   String get city => location.city;

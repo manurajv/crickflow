@@ -69,7 +69,6 @@ import '../../features/series/presentation/series_announcements_screen.dart';
 import '../../features/series/presentation/series_approvals_screen.dart';
 import '../../features/series/presentation/series_audit_screen.dart';
 import '../../features/series/presentation/series_club_detail_screen.dart';
-import '../../features/series/presentation/series_competitions_screen.dart';
 import '../../features/series/presentation/series_create_screen.dart';
 import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_list_screen.dart';
@@ -558,8 +557,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: ':seriesId',
-            builder: (_, state) =>
-                SeriesDetailScreen(seriesId: state.pathParameters['seriesId']!),
+            builder: (_, state) => SeriesDetailScreen(
+              seriesId: state.pathParameters['seriesId']!,
+              initialTab: state.uri.queryParameters['tab'],
+            ),
             routes: [
               GoRoute(
                 path: 'clubs/create',
@@ -630,10 +631,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
               GoRoute(
+                // The Fixtures screen became the org's Matches / Tournaments
+                // tabs; keep old links working.
                 path: 'fixtures',
-                builder: (_, state) => SeriesCompetitionsScreen(
-                  seriesId: state.pathParameters['seriesId']!,
-                ),
+                redirect: (_, state) =>
+                    '/series/${state.pathParameters['seriesId']}?tab=matches',
               ),
               GoRoute(
                 path: 'admins',
