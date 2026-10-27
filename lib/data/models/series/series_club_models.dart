@@ -83,7 +83,7 @@ class SeriesClubModel extends Equatable {
     return SeriesClubModel(
       id: id,
       seriesId: map['seriesId'] as String? ?? '',
-      name: map['name'] as String? ?? 'Club',
+      name: map['name'] as String? ?? 'Team',
       description: map['description'] as String? ?? '',
       logoUrl: map['logoUrl'] as String?,
       linkedTeamId: map['linkedTeamId'] as String?,

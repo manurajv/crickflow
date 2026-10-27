@@ -19,11 +19,18 @@ class SeriesApprovalsScreen extends ConsumerWidget {
     SeriesApprovalModel approval,
     SeriesApprovalStatus decision,
   ) async {
+    var reason = '';
+    if (decision == SeriesApprovalStatus.rejected) {
+      final r = await askRejectionReason(context);
+      if (r == null) return;
+      reason = r;
+    }
     try {
       await ref.read(seriesApprovalRepositoryProvider).reviewSeriesApproval(
             seriesId: seriesId,
             approvalId: approval.id,
             decision: decision,
+            reason: reason,
           );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -232,7 +239,7 @@ class SeriesApprovalsScreen extends ConsumerWidget {
                                 Padding(
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
-                                    'Waiting for club admin clearance',
+                                    'Waiting for team admin clearance',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: cf.textSecondary,
@@ -320,4 +327,43 @@ class _ApprovalSubjectTitle extends ConsumerWidget {
     }
     return Text(fallbackSubject, style: style);
   }
+}
+
+
+/// Asks for a rejection reason (required). Returns null when cancelled.
+Future<String?> askRejectionReason(BuildContext context) {
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('Reject request'),
+        content: TextField(
+          key: const Key('reject_reason_field'),
+          controller: controller,
+          autofocus: true,
+          maxLength: 300,
+          maxLines: 3,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Reason',
+            hintText: 'Shared with the requester',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('reject_reason_confirm'),
+            onPressed: controller.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

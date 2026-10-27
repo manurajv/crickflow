@@ -51,13 +51,7 @@ class SupportRepository {
   }) async {
     Query<Map<String, dynamic>> query = _tickets;
 
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const SupportPageResult(items: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    } else if (filters.organizationId != null &&
+    if (filters.organizationId != null &&
         filters.organizationId!.isNotEmpty) {
       query = query.where(
         'organizationId',
@@ -137,12 +131,6 @@ class SupportRepository {
   ) {
     Iterable<ManagedSupportTicket> out = items;
 
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId != null) {
-        out = out.where((t) => t.organizationId == orgId);
-      }
-    }
 
     if (filters.statuses.isNotEmpty) {
       out = out.where((t) => filters.statuses.contains(t.status));
@@ -208,11 +196,6 @@ class SupportRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> query = _tickets;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const SupportSummaryStats();
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
 
     QuerySnapshot<Map<String, dynamic>> snap;
     try {

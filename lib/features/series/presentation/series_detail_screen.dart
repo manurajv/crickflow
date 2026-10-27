@@ -8,15 +8,36 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/series/series.dart';
+import '../../../domain/services/series/org_competition_access.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
+import 'tabs/org_leaderboard_tab.dart';
+import 'tabs/org_matches_tab.dart';
+import 'tabs/org_tournaments_tab.dart';
+import 'widgets/series_status_banner.dart';
 import 'widgets/series_ui.dart';
 
 /// Orgs profile hub — Associations / Clubs / Series share this screen.
 /// Tournament-style collapsing cover + logo + pinned tabs.
 class SeriesDetailScreen extends ConsumerStatefulWidget {
-  const SeriesDetailScreen({super.key, required this.seriesId});
+  const SeriesDetailScreen({
+    super.key,
+    required this.seriesId,
+    this.initialTab,
+  });
   final String seriesId;
+
+  /// overview · matches · tournaments · leaderboard · teams · about
+  final String? initialTab;
+
+  static const tabSlugs = [
+    'overview',
+    'matches',
+    'tournaments',
+    'leaderboard',
+    'teams',
+    'about',
+  ];
 
   @override
   ConsumerState<SeriesDetailScreen> createState() => _SeriesDetailScreenState();
@@ -34,7 +55,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 5, vsync: this);
+    final initial = SeriesDetailScreen.tabSlugs.indexOf(widget.initialTab ?? '');
+    _tabs = TabController(
+      length: SeriesDetailScreen.tabSlugs.length,
+      vsync: this,
+      initialIndex: initial < 0 ? 0 : initial,
+    );
     _scrollController = ScrollController()..addListener(_syncTitleVisibility);
   }
 
@@ -67,7 +93,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     final role = ref.watch(mySeriesRoleProvider(seriesId));
     final canAdmin =
         role == SeriesRole.superAdmin || role == SeriesRole.seriesAdmin;
-    final canPropose = canAdmin || role == SeriesRole.clubAdmin;
+    final access = ref.watch(orgCompetitionAccessProvider(seriesId));
+    final canPropose = access.match != OrgStartMode.none;
+    if (canAdmin) ref.watch(orgTeamLinkMigrationProvider(seriesId));
 
     return series.when(
       loading: () =>
@@ -98,7 +126,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           dividerColor: cf.border,
           tabs: [
             const Tab(text: 'Overview'),
-            const Tab(text: 'Fixtures'),
+            const Tab(text: 'Matches'),
+            const Tab(text: 'Tournaments'),
             const Tab(text: 'Leaderboard'),
             Tab(text: membersTab),
             const Tab(text: 'About'),
@@ -223,8 +252,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 controller: _tabs,
                 children: [
                   _Overview(series: item, canAdmin: canAdmin),
-                  _FixturesTab(seriesId: seriesId),
-                  _LeaderboardTab(seriesId: seriesId, series: item),
+                  OrgMatchesTab(seriesId: seriesId),
+                  OrgTournamentsTab(seriesId: seriesId),
+                  OrgLeaderboardTab(seriesId: seriesId, series: item),
                   _MemberUnits(seriesId: seriesId, series: item),
                   _About(series: item),
                 ],
@@ -377,6 +407,24 @@ class _Overview extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppDimens.spaceMd),
       children: [
+        if (series.status != SeriesStatus.active || series.platformHold) ...[
+          SeriesStatusBanner(series: series),
+          const SizedBox(height: AppDimens.spaceMd),
+        ],
+        if (canAdmin) ...[
+          ListTile(
+            tileColor: cf.accent.withValues(alpha: cf.isLight ? 0.08 : 0.14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            leading: Icon(Icons.space_dashboard_outlined, color: cf.accent),
+            title: const Text('Org dashboard'),
+            subtitle: const Text('Approvals, admins, announcements, activity'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/series/${series.id}/dashboard'),
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
+        ],
         Text(
           series.description.isEmpty
               ? 'Official CrickFlow ${series.kind.label.toLowerCase()}'
@@ -408,6 +456,16 @@ class _Overview extends StatelessWidget {
           subtitle: const Text('Track join and registration status'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/series/${series.id}/my-requests'),
+        ),
+        const SizedBox(height: AppDimens.spaceSm),
+        ListTile(
+          tileColor: cf.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          leading: Icon(Icons.campaign_outlined, color: cf.accent),
+          title: const Text('Announcements'),
+          subtitle: const Text('News from the organizers'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/series/${series.id}/announcements'),
         ),
         if (canAdmin) ...[
           const SizedBox(height: AppDimens.spaceSm),
@@ -449,157 +507,6 @@ class _Overview extends StatelessWidget {
   }
 }
 
-class _FixturesTab extends StatelessWidget {
-  const _FixturesTab({required this.seriesId});
-  final String seriesId;
-
-  @override
-  Widget build(BuildContext context) {
-    final cf = context.cf;
-    return ListView(
-      padding: const EdgeInsets.all(AppDimens.spaceMd),
-      children: [
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          leading: Icon(Icons.event_outlined, color: cf.accent),
-          title: const Text('All fixtures'),
-          subtitle: const Text('Matches and tournaments'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/$seriesId/fixtures'),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          leading: Icon(Icons.sports_cricket_outlined, color: cf.accent),
-          title: const Text('Propose match'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/$seriesId/propose-match'),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          leading: Icon(Icons.emoji_events_outlined, color: cf.accent),
-          title: const Text('Propose tournament'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/$seriesId/propose-tournament'),
-        ),
-      ],
-    );
-  }
-}
-
-class _LeaderboardTab extends ConsumerWidget {
-  const _LeaderboardTab({required this.seriesId, required this.series});
-  final String seriesId;
-  final SeriesModel series;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cf = context.cf;
-    final tableLabel = switch (OrgFamily.forKind(series.kind)) {
-      OrgFamily.clubs => 'Squad table',
-      OrgFamily.associations => 'Member club table',
-      OrgFamily.series => 'Club table',
-    };
-    final clubs = ref.watch(seriesClubRankingsProvider(seriesId));
-    final players = ref.watch(seriesPlayerRankingsProvider(seriesId));
-    return ListView(
-      padding: const EdgeInsets.all(AppDimens.spaceMd),
-      children: [
-        Row(
-          children: [
-            Text(tableLabel, style: Theme.of(context).textTheme.titleMedium),
-            const Spacer(),
-            TextButton(
-              onPressed: () => context.push('/series/$seriesId/rankings'),
-              child: const Text('Full rankings'),
-            ),
-          ],
-        ),
-        clubs.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (e, _) => Text('$e'),
-          data: (rows) {
-            if (rows.isEmpty) {
-              return SeriesEmptyState(
-                icon: Icons.leaderboard_outlined,
-                title:
-                    'No ${series.memberUnitsStatLabel.toLowerCase()} rankings yet',
-              );
-            }
-            return Column(
-              children: rows.take(8).toList().asMap().entries.map((e) {
-                final i = e.key;
-                final row = e.value;
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        cf.accent.withValues(alpha: cf.isLight ? 0.1 : 0.15),
-                    child: Text(
-                      '${i + 1}',
-                      style: TextStyle(color: cf.accent),
-                    ),
-                  ),
-                  title: Text(row.clubName),
-                  subtitle:
-                      Text('P ${row.played} · W ${row.won} · L ${row.lost}'),
-                  trailing: Text(
-                    '${row.points} pts',
-                    style: TextStyle(
-                      color: cf.accent,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        ),
-        const SizedBox(height: AppDimens.spaceLg),
-        Text('Player leaders', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppDimens.spaceSm),
-        players.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (e, _) => Text('$e'),
-          data: (rows) {
-            if (rows.isEmpty) {
-              return Text(
-                'Player rankings appear after official matches complete.',
-                style: TextStyle(color: cf.textSecondary),
-              );
-            }
-            return Column(
-              children: rows.take(8).map((row) {
-                return ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.person_outline),
-                  ),
-                  title: Text(
-                    row.displayName.isEmpty ? 'Player' : row.displayName,
-                  ),
-                  trailing: Text(
-                    '${row.runs} runs · ${row.wickets} wkts',
-                    style: TextStyle(color: cf.textSecondary),
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
 class _About extends StatelessWidget {
   const _About({required this.series});
   final SeriesModel series;
@@ -636,7 +543,7 @@ class _About extends StatelessWidget {
         ],
         const SizedBox(height: AppDimens.spaceLg),
         Text(
-          'Max club squad: ${series.settings.maxSquadSize}',
+          'Max team squad: ${series.settings.maxSquadSize}',
           style: TextStyle(color: cf.textSecondary),
         ),
       ],

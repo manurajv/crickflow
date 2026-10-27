@@ -11,7 +11,7 @@ This document is the source of truth for web admin UI. Mobile [`DESIGN_SYSTEM.md
 1. **One product** — every module shares tokens, chrome, and `Cf*` widgets.
 2. **Polish, don’t redesign** — improve consistency without changing features or business logic.
 3. **Token-first** — prefer `AdminColors` / `AdminDimens` / `AdminTypography` / `AdminMotion` over hardcoded values.
-4. **Desktop-first** — tablet / laptop / desktop / ultra-wide; no mobile layout required.
+4. **Mobile-first responsive** — usable on phone, tablet, laptop, desktop, ultra-wide; AdminShell adapts (drawer on mobile, persistent sidebar on desktop).
 5. **Accessible** — focus rings, semantics, tooltips, contrast-aware status colors.
 
 ---

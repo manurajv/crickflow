@@ -37,6 +37,7 @@ import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import '../local/match_local_store.dart';
 import '../local/pending_sync_action.dart';
 import '../services/offline_sync_service.dart';
+import '../../domain/scoring/innings_transition_overlay.dart';
 import '../services/public_scorecard_sync.dart';
 
 class MatchRepository {
@@ -360,6 +361,9 @@ class MatchRepository {
     final toSave = existing != null
         ? MatchUpdateMerge.merge(existing, match)
         : match;
+    // Innings transitions (end innings, start chase / super over, result)
+    // must refresh the live overlay too, not only ball commits.
+    final overlay = InningsTransitionOverlay.build(_scoringEngine, toSave);
     final sync = _syncService;
     final local = _localStore;
     if (sync == null || local == null) {
@@ -367,11 +371,21 @@ class MatchRepository {
       for (final field in fieldDeletes) {
         data[field] = FieldValue.delete();
       }
-      await _matchDoc(toSave.id).update(data);
-      await _syncPublicScorecard(toSave);
+      if (overlay == null) {
+        await _matchDoc(toSave.id).update(data);
+      } else {
+        final batch = _firestore.batch();
+        batch.update(_matchDoc(toSave.id), data);
+        batch.set(
+          _matchDoc(toSave.id).collection('overlay').doc('current'),
+          overlay.toMap(),
+        );
+        await batch.commit();
+      }
+      await _syncPublicScorecard(toSave, overlay: overlay);
       return;
     }
-    await _persistMatchLocally(toSave);
+    await _persistMatchLocally(toSave, overlay: overlay);
     await sync.enqueue(
       sync.newAction(
         matchId: toSave.id,
@@ -379,6 +393,7 @@ class MatchRepository {
         payload: {
           'matchData': toSave.toMap(),
           if (fieldDeletes.isNotEmpty) 'fieldDeletes': fieldDeletes,
+          if (overlay != null) 'overlayData': overlay.toMap(),
         },
       ),
     );
@@ -803,6 +818,23 @@ class MatchRepository {
       remote,
       includeLocalSnapshot: (m) => m.tournamentId == tournamentId,
     );
+  }
+
+  /// Recent matches where team A is one of [teamIds] (used to find
+  /// matches that can be added to a tournament). Team B is filtered by the
+  /// caller.
+  Future<List<MatchModel>> fetchMatchesForTeams(List<String> teamIds) async {
+    final ids = teamIds.where((id) => id.isNotEmpty).toSet().toList();
+    final out = <MatchModel>[];
+    for (var i = 0; i < ids.length; i += 30) {
+      final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
+      final snap = await _matches
+          .where('teamAId', whereIn: chunk)
+          .limit(100)
+          .get();
+      out.addAll(snap.docs.map((d) => MatchModel.fromMap(d.id, d.data())));
+    }
+    return out;
   }
 
   /// All recent matches; live matches sorted to the top.
@@ -1484,7 +1516,6 @@ class MatchRepository {
     final match = await getMatch(matchId);
     if (match == null) return null;
 
-    final hero = _badgeService.pickMatchHero(match);
     final badgeIds = <String>[];
     for (final inn in match.innings) {
       final badges = _badgeService.evaluateInningsBadges(
@@ -1497,6 +1528,8 @@ class MatchRepository {
 
     final result = MatchCompletionPolicy.compute(match);
     final winnerId = match.winnerTeamId ?? result.winnerTeamId;
+    // Man of the Match comes from the winning side on decided results.
+    final hero = _badgeService.pickMatchHero(match, winnerTeamId: winnerId);
     final storedSummary = match.resultSummary.trim();
     final useStored =
         storedSummary.isNotEmpty &&

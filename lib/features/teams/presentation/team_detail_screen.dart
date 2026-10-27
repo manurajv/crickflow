@@ -14,6 +14,7 @@ import 'widgets/team_detail_banner.dart';
 import 'widgets/team_detail_bottom_bar.dart';
 import 'widgets/team_join_action_button.dart';
 import 'widgets/team_join_requests_panel.dart';
+import 'widgets/org_locked_team_notice.dart';
 import 'widgets/team_notification_pref_tile.dart';
 import 'widgets/team_squad_empty_state.dart';
 import 'widgets/team_squad_player_card.dart';
@@ -61,7 +62,7 @@ class TeamDetailScreen extends ConsumerWidget {
                       onPressed: () =>
                           context.push('/teams/$teamId/add-players'),
                     ),
-                  if (TeamSquadUtils.isTeamOwner(uid, team))
+                  if (TeamSquadUtils.canEditTeam(uid, team))
                     IconButton(
                       tooltip: 'Edit team',
                       icon: const Icon(Icons.edit_outlined),
@@ -96,6 +97,8 @@ class TeamDetailScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TeamDetailBanner(team: team, squadCount: players.length),
+                  if (team.orgLock != null)
+                    OrgLockedTeamNotice(lock: team.orgLock!),
                   if (canManageRequests && uid != null)
                     TeamJoinRequestsPanel(team: team, resolverUid: uid),
                   if (isMember) TeamNotificationPrefTile(teamId: team.id),
@@ -411,7 +414,9 @@ class _TeamDetailBottomBar extends ConsumerWidget {
     var secondaryIsPrimary = false;
     var secondaryIsDestructive = false;
 
-    if (onSquad) {
+    if (team.isOrgLocked) {
+      // Leaving / joining goes through the org's requests.
+    } else if (onSquad) {
       secondaryLabel = 'Leave team';
       secondaryIsDestructive = true;
       onSecondary = () async {

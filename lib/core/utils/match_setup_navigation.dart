@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -164,7 +166,11 @@ MatchModel buildMatchAfterToss({
       MatchModel(
         id: draft.matchId,
         title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-        matchType: MatchType.single,
+        matchType: _isTournamentDraft(draft)
+            ? MatchType.tournament
+            : MatchType.single,
+        tournamentId: _isTournamentDraft(draft) ? draft.tournamentId : null,
+        orgRequestSeriesId: draft.seriesId,
         matchMode: draft.matchMode,
         teamAId: draft.resolvedTeamAId,
         teamBId: draft.resolvedTeamBId,
@@ -246,6 +252,8 @@ Future<void> commitTossToFirestore(WidgetRef ref) async {
     await repo.updateMatch(matchToSave);
   } else {
     await repo.createMatch(matchToSave);
+    registerTournamentMatchInBackground(ref, matchToSave);
+    registerSeriesMatchInBackground(ref, updated.seriesId, matchToSave.id);
   }
 }
 
@@ -475,4 +483,44 @@ Future<void> confirmExitToTournamentDashboard(
   if (leave == true && context.mounted) {
     context.go('/tournaments/$tid');
   }
+}
+
+
+bool _isTournamentDraft(StartMatchDraft draft) =>
+    draft.tournamentId != null && draft.tournamentId!.trim().isNotEmpty;
+
+/// Adds a match created inside a tournament to the tournament's match list.
+/// Best effort: offline creation still carries `tournamentId`, so fixtures and
+/// standings pick it up; the list registration retries on the next create.
+void registerTournamentMatchInBackground(WidgetRef ref, MatchModel match) {
+  final tid = match.tournamentId?.trim();
+  if (tid == null || tid.isEmpty) return;
+  unawaited(
+    ref
+        .read(tournamentFunctionsServiceProvider)
+        .registerTournamentMatch(tournamentId: tid, matchId: match.id)
+        .catchError((Object e) {
+      debugPrint('registerTournamentMatch failed for ${match.id}: $e');
+    }),
+  );
+}
+
+
+/// Registers a match started from inside an org through the offline queue
+/// (retried on reconnect; the server also registers it at completion). Requester matches land in the org approvals queue.
+void registerSeriesMatchInBackground(
+  WidgetRef ref,
+  String? seriesId,
+  String matchId,
+) {
+  final sid = seriesId?.trim();
+  if (sid == null || sid.isEmpty) return;
+  unawaited(
+    ref
+        .read(offlineSyncServiceProvider)
+        .enqueueSeriesMatchRegistration(seriesId: sid, matchId: matchId)
+        .catchError((Object e) {
+      debugPrint('queue org registration failed for $matchId: $e');
+    }),
+  );
 }

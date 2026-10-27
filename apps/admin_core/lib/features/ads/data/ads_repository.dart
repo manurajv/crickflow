@@ -43,13 +43,6 @@ class AdsRepository {
     bool pendingOnly = false,
   }) async {
     Query<Map<String, dynamic>> query = _campaigns;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const AdsPageResult(items: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     query = query.orderBy('createdAt', descending: sort.descending);
     if (startAfter != null) query = query.startAfterDocument(startAfter);
 
@@ -176,11 +169,6 @@ class AdsRepository {
   }) async {
     try {
       Query<Map<String, dynamic>> query = _campaigns;
-      if (appType == AdminAppType.organizationAdmin) {
-        final orgId = actor?.organizationId;
-        if (orgId == null || orgId.isEmpty) return const AdsSummaryStats();
-        query = query.where('organizationId', isEqualTo: orgId);
-      }
       final snap = await query.limit(AdminQueryLimits.summaryScanMax).get();
       final items = snap.docs
           .map((d) => ManagedAdCampaign.fromFirestore(id: d.id, map: d.data()))
@@ -414,11 +402,6 @@ class AdsRepository {
     int limit = 80,
   }) async {
     Query<Map<String, dynamic>> query = _advertisers;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap = await query.limit(limit).get();
       return snap.docs

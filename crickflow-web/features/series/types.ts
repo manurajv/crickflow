@@ -44,28 +44,8 @@ export interface SeriesClub {
   logoUrl?: string;
   status: string;
   squadCount: number;
-}
-
-export interface SeriesClubRanking {
-  id: string;
-  seriesId: string;
-  clubId: string;
-  clubName: string;
-  played: number;
-  won: number;
-  lost: number;
-  points: number;
-  netRunRate: number;
-}
-
-export interface SeriesPlayerRanking {
-  id: string;
-  seriesId: string;
-  userId: string;
-  displayName: string;
-  matches: number;
-  runs: number;
-  wickets: number;
+  /** The CrickFlow team that plays for this org team (org matches use its id). */
+  linkedTeamId?: string;
 }
 
 export interface SeriesApproval {
@@ -79,8 +59,6 @@ export interface SeriesApproval {
 export interface SeriesDetailData {
   series: Series;
   clubs: SeriesClub[];
-  clubRankings: SeriesClubRanking[];
-  playerRankings: SeriesPlayerRanking[];
   competitions: Array<{
     id: string;
     title: string;

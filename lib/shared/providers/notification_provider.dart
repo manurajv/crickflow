@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/notification_model.dart';
+import '../../domain/notifications/notification_priority.dart';
 import '../../data/repositories/match_follower_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import 'providers.dart';
@@ -166,6 +167,21 @@ final unreadNotificationCountProvider = StreamProvider<int>((ref) {
   final uid = ref.watch(authStateProvider).value?.uid;
   if (uid == null) return Stream.value(0);
   return ref.watch(notificationRepositoryProvider).watchUnreadCount(uid);
+});
+
+/// Unread badge per notifications tab (Priority / General).
+final notificationUnreadByTabProvider =
+    StreamProvider.autoDispose<Map<NotificationTab, int>>((ref) {
+  final uid = ref.watch(authStateProvider).value?.uid;
+  if (uid == null) {
+    return Stream.value(
+      const {NotificationTab.priority: 0, NotificationTab.general: 0},
+    );
+  }
+  return ref
+      .watch(notificationRepositoryProvider)
+      .watchUnread(uid)
+      .map(NotificationPriority.unreadCounts);
 });
 
 final notificationPreferencesProvider =

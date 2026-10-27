@@ -163,6 +163,8 @@ bool canRequestJoinTeam({
   required List<PlayerModel> squad,
 }) {
   if (uid == null || uid.isEmpty) return false;
+  // Org teams take members through the org's registration flow.
+  if (team.isOrgLocked) return false;
   if (TeamSquadUtils.isTeamOwner(uid, team)) return false;
   if (TeamSquadUtils.isTeamCaptain(uid, team)) return false;
   if (TeamSquadUtils.isTeamViceCaptain(uid, team)) return false;

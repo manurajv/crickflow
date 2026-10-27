@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/constants/prefs_keys.dart';
 import '../../../core/routing/deep_link_handler.dart';
+import '../../../core/startup/startup_trace.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/match_permissions.dart';
 import '../../../data/models/user_model.dart';
@@ -25,18 +28,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _fade;
   late Future<String?> _launchRouteFuture;
+  late Future<UserModel?> _profileFuture;
+
+  /// Shortest time the splash stays up. Launch work (deep link, profile)
+  /// runs in parallel instead of after a fixed delay.
+  static const _minSplash = Duration(milliseconds: 600);
 
   @override
   void initState() {
     super.initState();
+    StartupTrace.mark('splash');
     _launchRouteFuture = _resolveLaunchRoute();
+    _profileFuture = _loadProfile();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 450),
     );
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
-    Future.delayed(const Duration(milliseconds: 1800), _bootstrap);
+    Future.delayed(_minSplash, _bootstrap);
+  }
+
+  Future<UserModel?> _loadProfile() {
+    if (FirebaseAuth.instance.currentUser == null) return Future.value(null);
+    return StartupTrace.capped<UserModel?>(
+      ref.read(authRepositoryProvider).getCurrentUserProfileForLaunch(),
+      timeout: const Duration(seconds: 4),
+      fallback: null,
+      label: 'launch profile',
+    );
   }
 
   Future<String?> _resolveLaunchRoute() async {
@@ -52,15 +72,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final onboardingDone = prefs.getBool(PrefsKeys.onboardingComplete) ?? false;
 
     if (!onboardingDone) {
+      if (!mounted) return;
       context.go('/onboarding');
       return;
     }
 
-    // Re-read in case the uriLinkStream delivered the link after our first poll.
+    // uriLinkStream links land in pendingPath; the initial-link poll was
+    // started in initState (no second full poll on the critical path).
     final launchRoute =
         DeepLinkHandler.takePendingPath() ??
-        await _launchRouteFuture ??
-        await DeepLinkHandler.resolveInitialLocation(retry: true);
+        await StartupTrace.capped<String?>(
+          _launchRouteFuture,
+          timeout: const Duration(seconds: 2),
+          fallback: null,
+          label: 'initial link',
+        ) ??
+        DeepLinkHandler.takePendingPath();
+    StartupTrace.mark('launch route');
 
     if (!mounted) return;
 
@@ -82,19 +110,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     // Never hijack normal app launch with the stream studio. Users can resume
     // from My Cricket > Matches > Streaming; this only removes stale sessions.
+    // Housekeeping only — never on the critical path.
     if (launchRoute == null) {
-      await ActiveStreamSession.validate(ref.read(matchRepositoryProvider));
+      unawaited(
+        ActiveStreamSession.validate(ref.read(matchRepositoryProvider))
+            .catchError((Object _) => null),
+      );
     }
 
-    UserModel? profile;
-    try {
-      profile = await ref
-          .read(authRepositoryProvider)
-          .getCurrentUserProfile()
-          .timeout(const Duration(seconds: 8));
-    } catch (_) {
-      profile = null;
-    }
+    final profile = await _profileFuture;
+    StartupTrace.mark('launch profile');
     if (!mounted) return;
     if (profile != null && profile.needsPlayerOnboarding) {
       context.go('/player-onboarding');

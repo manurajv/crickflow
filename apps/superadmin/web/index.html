@@ -31,8 +31,47 @@
 
   <title>CrickFlow Super Admin</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body { margin: 0; height: 100%; background: #f4f6fa; }
+    #cf-boot { position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: #4b5563; text-align: center; padding: 24px; }
+    #cf-boot .cf-spin { width: 36px; height: 36px; border-radius: 50%;
+      border: 3px solid #d6e4ff; border-top-color: #1e88e5;
+      animation: cf-spin 0.9s linear infinite; }
+    #cf-boot.cf-boot-error .cf-spin { display: none; }
+    #cf-boot.cf-boot-error #cf-boot-msg { color: #b71c1c; max-width: 520px; }
+    @keyframes cf-spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
+  <div id="cf-boot" aria-live="polite">
+    <div class="cf-spin"></div>
+    <div id="cf-boot-msg">Loading CrickFlow Super Admin…</div>
+  </div>
+  <script>
+    // A script that fails to load (e.g. main.dart.js) never starts Flutter.
+    window.addEventListener('error', function (e) {
+      var t = e && e.target;
+      if (t && t.tagName === 'SCRIPT' && window.cfShowBootError) {
+        window.cfShowBootError(new Error('Could not load ' + (t.src || 'a script')));
+      }
+    }, true);
+    // Remove the loader once Flutter paints; explain if it takes too long.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('cf-boot');
+      if (el) el.remove();
+    });
+    setTimeout(function () {
+      var el = document.getElementById('cf-boot');
+      var msg = document.getElementById('cf-boot-msg');
+      if (el && msg && !el.classList.contains('cf-boot-error')) {
+        msg.textContent = 'Still loading… If this page stays blank, reload with ' +
+          'Ctrl+Shift+R (Cmd+Shift+R on Mac).';
+      }
+    }, 20000);
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

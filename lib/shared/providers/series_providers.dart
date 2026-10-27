@@ -1,7 +1,15 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
+import '../../data/models/match_model.dart';
 import '../../data/models/series/series.dart';
+import '../../data/models/tournament_model.dart';
+import '../../domain/services/player_rankings/player_rankings_models.dart';
+import '../../domain/services/series/org_standings.dart';
+import 'player_rankings_provider.dart';
+import 'tournament_providers.dart';
 import '../../data/repositories/series_approval_repository.dart';
 import '../../data/repositories/series_audit_repository.dart';
 import '../../data/repositories/series_club_repository.dart';
@@ -11,6 +19,7 @@ import '../../data/repositories/series_ranking_repository.dart';
 import '../../data/repositories/series_registration_repository.dart';
 import '../../data/repositories/series_repository.dart';
 import '../../data/services/series_functions_service.dart';
+import '../../domain/services/series/org_competition_access.dart';
 import '../../domain/services/series/series_permission_service.dart';
 
 final seriesFunctionsServiceProvider = Provider(
@@ -170,6 +179,15 @@ final seriesAuditLogsProvider =
       return ref.watch(seriesAuditRepositoryProvider).watchAuditLogs(seriesId);
     });
 
+final seriesAnnouncementsProvider =
+    StreamProvider.family<List<SeriesAnnouncementModel>, String>((
+      ref,
+      seriesId,
+    ) {
+      if (seriesId.isEmpty) return Stream.value(const []);
+      return ref.watch(seriesRepositoryProvider).watchAnnouncements(seriesId);
+    });
+
 final _seriesAdminsProvider = seriesAdminsListProvider;
 
 final _clubAdminsProvider =
@@ -221,4 +239,161 @@ final mySeriesRoleProvider = Provider.family<SeriesRole, String>((
     clubAdmins: clubAdmins,
     memberships: memberships,
   );
+});
+
+
+/// Org competition request policy (`series/{id}.competitionPolicy`).
+final orgCompetitionPolicyProvider =
+    StreamProvider.family<OrgCompetitionPolicy, String>((ref, seriesId) {
+      if (seriesId.isEmpty) return Stream.value(const OrgCompetitionPolicy());
+      return FirebaseFirestore.instance
+          .collection('series')
+          .doc(seriesId)
+          .snapshots()
+          .map(
+            (s) => OrgCompetitionPolicy.fromMap(
+              (s.data()?['competitionPolicy'] as Map?)?.cast<String, dynamic>(),
+            ),
+          );
+    });
+
+/// Org teams the signed-in user is an active team admin or player of.
+final myOrgTeamIdsProvider = Provider.family<List<String>, String>((
+  ref,
+  seriesId,
+) {
+  final userId = ref.watch(_seriesAuthProvider).valueOrNull?.uid;
+  if (userId == null) return const [];
+  final admins =
+      ref.watch(_clubAdminsProvider(seriesId)).valueOrNull ?? const [];
+  final memberships = ref
+          .watch(
+            _mySeriesMembershipsProvider((seriesId: seriesId, userId: userId)),
+          )
+          .valueOrNull ??
+      const [];
+  return {
+    ...admins
+        .where((a) => a.userId == userId && a.status == 'active')
+        .map((a) => a.clubId),
+    ...memberships.where((m) => m.isActive).map((m) => m.clubId),
+  }.where((id) => id.isNotEmpty).toList();
+});
+
+/// Runs once per org per app session when an org admin opens the org:
+/// links every existing org team to a real, org-locked CrickFlow team.
+/// Non-destructive and idempotent on the server; failures are ignored.
+final orgTeamLinkMigrationProvider =
+    FutureProvider.family<void, String>((ref, seriesId) async {
+      ref.keepAlive();
+      try {
+        await ref
+            .read(seriesFunctionsServiceProvider)
+            .migrateSeriesTeamLinks(seriesId);
+      } catch (_) {}
+    });
+
+/// What the signed-in user may start or request inside an org.
+final orgCompetitionAccessProvider =
+    Provider.family<OrgCompetitionAccess, String>((ref, seriesId) {
+      return OrgCompetitionAccess(
+        role: ref.watch(mySeriesRoleProvider(seriesId)),
+        policy: ref.watch(orgCompetitionPolicyProvider(seriesId)).valueOrNull ??
+            const OrgCompetitionPolicy(),
+        myTeamIds: ref.watch(myOrgTeamIdsProvider(seriesId)),
+      );
+    });
+
+
+/// Every match registered in an org (approved, pending, rejected…).
+/// Includes matches of org tournaments. Filter with `visibleOrgMatches`.
+final seriesMatchesProvider =
+    StreamProvider.family<List<MatchModel>, String>((ref, seriesId) {
+      if (seriesId.isEmpty) return Stream.value(const []);
+      return FirebaseFirestore.instance
+          .collection(AppConstants.matchesCollection)
+          .where('seriesId', isEqualTo: seriesId)
+          .snapshots()
+          .map(
+            (s) => s.docs
+                .map((d) => MatchModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
+    });
+
+/// Every tournament linked to an org. Filter with `visibleOrgTournaments`.
+final seriesTournamentsProvider =
+    StreamProvider.family<List<TournamentModel>, String>((ref, seriesId) {
+      if (seriesId.isEmpty) return Stream.value(const []);
+      return FirebaseFirestore.instance
+          .collection(AppConstants.tournamentsCollection)
+          .where('seriesId', isEqualTo: seriesId)
+          .snapshots()
+          .map(
+            (s) => s.docs
+                .map((d) => TournamentModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
+    });
+
+/// Changes only when the set of finished org matches changes, so live
+/// scoring elsewhere in the org does not recompute the standings.
+final _orgFinishedMatchKeyProvider = Provider.family<String, String>((
+  ref,
+  seriesId,
+) {
+  final matches =
+      ref.watch(seriesMatchesProvider(seriesId)).valueOrNull ?? const [];
+  final ids = orgRankingMatches(matches).map((m) => m.id).toList()..sort();
+  return ids.join(',');
+});
+
+/// Finished org matches that count for the org's tables and rankings.
+final orgFinishedMatchesProvider =
+    Provider.family<List<MatchModel>, String>((ref, seriesId) {
+      ref.watch(_orgFinishedMatchKeyProvider(seriesId));
+      final matches =
+          ref.read(seriesMatchesProvider(seriesId)).valueOrNull ?? const [];
+      return orgRankingMatches(matches);
+    });
+
+typedef OrgRankingsQuery = ({
+  String seriesId,
+  PlayerRankingsFilter filter,
+  String? tournamentFilter,
+});
+
+/// Org player rankings: the app's rankings engine run over the org's official
+/// matches only (same categories, stat definitions and minimums).
+final orgPlayerRankingsProvider = FutureProvider.autoDispose
+    .family<List<PlayerRankingEntry>, OrgRankingsQuery>((ref, q) async {
+      ref.watch(_orgFinishedMatchKeyProvider(q.seriesId));
+      final matches = orgRankingMatches(
+        ref.read(seriesMatchesProvider(q.seriesId)).valueOrNull ?? const [],
+        tournamentFilter: q.tournamentFilter,
+      );
+      if (matches.isEmpty) return const [];
+      return ref
+          .read(playerRankingsRepositoryProvider)
+          .rankFromMatches(matches: matches, filter: q.filter);
+    });
+
+
+/// Does the org that owns this match (directly, or through its org tournament)
+/// allow walk-in players? True for non-org matches and while loading.
+final walkInsAllowedProvider =
+    Provider.family<bool, ({String? seriesId, String? tournamentId})>(
+        (ref, key) {
+  var sid = key.seriesId?.trim() ?? '';
+  final tid = key.tournamentId?.trim() ?? '';
+  if (sid.isEmpty && tid.isNotEmpty) {
+    final t = ref.watch(tournamentProvider(tid)).valueOrNull;
+    final tSeries = t?.seriesId?.trim() ?? '';
+    if (t != null && tSeries.isNotEmpty && t.seriesOfficialStatus != 'rejected') {
+      sid = tSeries;
+    }
+  }
+  if (sid.isEmpty) return true;
+  return ref.watch(orgCompetitionPolicyProvider(sid)).valueOrNull?.allowWalkIns ??
+      true;
 });

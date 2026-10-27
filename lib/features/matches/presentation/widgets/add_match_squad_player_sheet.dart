@@ -20,6 +20,9 @@ import '../../../../core/theme/cf_colors.dart';
 Future<MatchPlayerSnapshot?> showAddMatchSquadPlayerSheet(
   BuildContext context, {
   required String teamId,
+
+  /// False in orgs that do not allow walk-in players: no match-only guests.
+  bool allowGuests = true,
 }) {
   return showModalBottomSheet<MatchPlayerSnapshot>(
     context: context,
@@ -29,14 +32,21 @@ Future<MatchPlayerSnapshot?> showAddMatchSquadPlayerSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (ctx) => _AddMatchSquadPlayerSheet(teamId: teamId),
+    builder: (ctx) => _AddMatchSquadPlayerSheet(
+      teamId: teamId,
+      allowGuests: allowGuests,
+    ),
   );
 }
 
 class _AddMatchSquadPlayerSheet extends ConsumerStatefulWidget {
-  const _AddMatchSquadPlayerSheet({required this.teamId});
+  const _AddMatchSquadPlayerSheet({
+    required this.teamId,
+    this.allowGuests = true,
+  });
 
   final String teamId;
+  final bool allowGuests;
 
   @override
   ConsumerState<_AddMatchSquadPlayerSheet> createState() =>
@@ -241,6 +251,10 @@ class _AddMatchSquadPlayerSheetState
 
   Widget _buildChoose() {
     final cf = context.cf;
+    // Org-linked teams: the roster is managed by the org; guests only here.
+    final orgLocked =
+        ref.watch(teamByIdProvider(widget.teamId)).valueOrNull?.isOrgLocked ??
+            false;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimens.spaceMd,
@@ -260,31 +274,42 @@ class _AddMatchSquadPlayerSheetState
           ),
           const SizedBox(height: AppDimens.spaceSm),
           Text(
-            'Add a permanent team member or a match-only guest for this match.',
+            !widget.allowGuests
+                ? 'This org only allows players with a CrickFlow account. '
+                    'Walk-in guests are not allowed.'
+                : orgLocked
+                    ? 'This team’s squad is managed by its org. Add a '
+                        'match-only guest for this match.'
+                    : 'Add a permanent team member or a match-only guest for this match.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: cf.textSecondary,
                 ),
           ),
           const SizedBox(height: AppDimens.spaceLg),
-          _OptionCard(
-            icon: Icons.group_add_outlined,
-            iconColor: cf.link,
-            iconBackground: cf.accent.withValues(alpha: 0.2),
-            title: 'Invite to team',
-            subtitle:
-                'Search by name or Player ID and send an invitation to join the roster.',
-            onTap: _openPermanentMode,
-          ),
-          const SizedBox(height: AppDimens.spaceSm),
-          _OptionCard(
-            icon: Icons.person_outline,
-            iconColor: Colors.orange.shade800,
-            iconBackground: Colors.orange.withValues(alpha: 0.15),
-            title: 'Add match-only guest',
-            subtitle: 'Guest players exist only for this match — not saved to the team.',
-            onTap: () => setState(() => _mode = _AddMode.guest),
-          ),
-          const SizedBox(height: AppDimens.spaceSm),
+          if (!orgLocked) ...[
+            _OptionCard(
+              icon: Icons.group_add_outlined,
+              iconColor: cf.link,
+              iconBackground: cf.accent.withValues(alpha: 0.2),
+              title: 'Invite to team',
+              subtitle:
+                  'Search by name or Player ID and send an invitation to join the roster.',
+              onTap: _openPermanentMode,
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+          ],
+          if (widget.allowGuests) ...[
+            _OptionCard(
+              icon: Icons.person_outline,
+              iconColor: Colors.orange.shade800,
+              iconBackground: Colors.orange.withValues(alpha: 0.15),
+              title: 'Add match-only guest',
+              subtitle:
+                  'Guest players exist only for this match — not saved to the team.',
+              onTap: () => setState(() => _mode = _AddMode.guest),
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+          ],
           _OptionCard(
             icon: Icons.person_add_alt_outlined,
             iconColor: cf.link,

@@ -37,6 +37,21 @@ class AuthRepository {
     }
   }
 
+  /// Profile for the splash/launch route: fast cached read; creates the
+  /// profile only when the server confirms it is missing.
+  Future<UserModel?> getCurrentUserProfileForLaunch() async {
+    final user = currentUser;
+    if (user == null) return null;
+    try {
+      final profile = await _userRepository.getUserFast(user.uid);
+      if (profile != null) return profile;
+      return await ensureProfileForAuthUser(user)
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Creates the Firestore user doc when missing (e.g. fresh Firebase reset).
   Future<UserModel> ensureProfileForAuthUser(User user) async {
     return _ensureProfile(user);

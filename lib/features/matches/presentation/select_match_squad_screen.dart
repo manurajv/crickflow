@@ -7,7 +7,9 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/match_player_snapshot.dart';
 import '../../../data/models/player_model.dart';
 import '../../../data/models/team_model.dart';
+import '../../../domain/services/series/org_walk_ins.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/providers/series_providers.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
 import '../../../core/utils/match_setup_navigation.dart';
 import 'widgets/add_match_squad_player_sheet.dart';
@@ -108,7 +110,24 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
     return result ?? false;
   }
 
+  bool get _walkInsAllowed {
+    final draft = ref.read(startMatchDraftProvider);
+    return ref.read(walkInsAllowedProvider(
+      (seriesId: draft.seriesId, tournamentId: draft.tournamentId),
+    ));
+  }
+
+  /// Orgs can switch walk-ins off; the server enforces it too.
+  bool _blockedWalkIn(MatchPlayerSnapshot snapshot) {
+    if (_walkInsAllowed || !isWalkInSnapshot(snapshot)) return false;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(kOrgNoWalkInsMessage)),
+    );
+    return true;
+  }
+
   Future<void> _tryAddPlaying(MatchPlayerSnapshot snapshot) async {
+    if (_blockedWalkIn(snapshot)) return;
     final limit = ref.read(startMatchDraftProvider).rules.playersPerTeam;
     if (_playing.length >= limit) {
       final addSub = await _confirmAddAsSubstitute();
@@ -123,6 +142,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
   }
 
   void _addSubstitute(MatchPlayerSnapshot snapshot) {
+    if (_blockedWalkIn(snapshot)) return;
     setState(() {
       _removeFromSquads(snapshot.id);
       _substitutes.add(snapshot);
@@ -134,7 +154,11 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
   }
 
   Future<void> _openAddPlayer(String teamId) async {
-    final guest = await showAddMatchSquadPlayerSheet(context, teamId: teamId);
+    final guest = await showAddMatchSquadPlayerSheet(
+      context,
+      teamId: teamId,
+      allowGuests: _walkInsAllowed,
+    );
     if (guest == null || !mounted) return;
     setState(() {
       if (!_localGuests.any((g) => g.id == guest.id)) {
@@ -145,6 +169,13 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
   }
 
   Future<void> _saveAndNext() async {
+    if (!_walkInsAllowed &&
+        walkInsIn([..._playing, ..._substitutes]).isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(kOrgNoWalkInsMessage)),
+      );
+      return;
+    }
     final limit = ref.read(startMatchDraftProvider).rules.playersPerTeam;
     if (_playing.length != limit) {
       final need = limit - _playing.length;

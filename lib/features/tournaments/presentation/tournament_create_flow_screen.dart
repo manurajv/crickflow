@@ -7,7 +7,11 @@ import '../../../data/models/tournament/tournament_create_draft.dart';
 import '../../../data/models/user_model.dart';
 import '../../../domain/services/tournament_create_service.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../domain/services/series/org_competition_access.dart';
+import '../../../shared/providers/series_providers.dart';
 import '../../../shared/providers/tournament_create_draft_provider.dart';
+import '../../series/presentation/series_propose_tournament_screen.dart'
+    show orgTournamentTeamsProvider;
 import '../../../shared/widgets/start_match_ui.dart';
 import 'widgets/tournament_create/tournament_create_basic_step.dart';
 import 'widgets/tournament_create/tournament_create_officials_step.dart';
@@ -16,7 +20,10 @@ import 'widgets/tournament_create/tournament_create_ui.dart';
 
 /// Multi-step tournament creation wizard (CricHeroes-inspired, CrickFlow themed).
 class TournamentCreateFlowScreen extends ConsumerStatefulWidget {
-  const TournamentCreateFlowScreen({super.key});
+  const TournamentCreateFlowScreen({super.key, this.seriesId});
+
+  /// Set when started from inside an org: the new tournament is linked there.
+  final String? seriesId;
 
   @override
   ConsumerState<TournamentCreateFlowScreen> createState() =>
@@ -139,6 +146,10 @@ class _TournamentCreateFlowScreenState
             authorVerified: profile?.badgeIds.isNotEmpty == true,
           );
       ref.read(tournamentCreateDraftProvider.notifier).reset();
+      final seriesId = widget.seriesId;
+      if (seriesId != null && seriesId.isNotEmpty) {
+        await _linkToOrg(seriesId, id, draft.name.trim());
+      }
       if (mounted) context.go('/tournaments/$id');
     } catch (e) {
       if (mounted) {
@@ -148,6 +159,61 @@ class _TournamentCreateFlowScreenState
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Links the new tournament to the org (adds the picked org teams). On
+  /// failure the scorer can retry; the tournament itself is already saved.
+  Future<void> _linkToOrg(String seriesId, String tournamentId, String name) async {
+    final picked = ref.read(orgTournamentTeamsProvider);
+    final teamIds =
+        picked != null && picked.seriesId == seriesId ? picked.teamIds : const <String>[];
+    while (mounted) {
+      try {
+        final res = await ref.read(seriesFunctionsServiceProvider).startSeriesTournament(
+              seriesId: seriesId,
+              tournamentId: tournamentId,
+              teamClubIds: teamIds,
+              title: name,
+            );
+        ref.read(orgTournamentTeamsProvider.notifier).state = null;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                OrgCompetitionAccess.outcomeMessage(
+                  autoApproved: res['autoApproved'] == true,
+                  tournament: true,
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      } catch (e) {
+        if (!mounted) return;
+        final retry = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Not added to the org yet'),
+            content: Text(
+              'The tournament was created, but linking it to the org failed: $e',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Skip'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+        if (retry != true) return;
+      }
     }
   }
 
@@ -182,7 +248,11 @@ class _TournamentCreateFlowScreenState
     return Scaffold(
       backgroundColor: context.cf.background,
       appBar: AppBar(
-        title: const Text('Add a tournament / series'),
+        title: Text(
+          (widget.seriesId ?? '').isNotEmpty
+              ? 'Org tournament'
+              : 'Add a tournament / series',
+        ),
       ),
       body: Column(
         children: [
@@ -221,7 +291,9 @@ class _TournamentCreateFlowScreenState
                     requireAuthVoid(
                       context: context,
                       ref: ref,
-                      returnPath: '/tournaments/create',
+                      returnPath: (widget.seriesId ?? '').isNotEmpty
+                          ? '/tournaments/create?seriesId=${widget.seriesId}'
+                          : '/tournaments/create',
                       action: () async => _next(draft),
                     );
                   },

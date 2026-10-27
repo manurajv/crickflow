@@ -7,10 +7,9 @@ import 'config/nav_config.dart';
 import 'config/router.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await bootstrapFirebase(DefaultFirebaseOptions.currentPlatform);
-  runApp(
-    ProviderScope(
+  await runAdminPanel(
+    options: DefaultFirebaseOptions.currentPlatform,
+    buildApp: () => ProviderScope(
       overrides: [
         adminAppTypeProvider.overrideWithValue(AdminAppType.superAdmin),
         navSectionsProvider.overrideWithValue(buildSuperAdminNav()),
