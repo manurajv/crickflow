@@ -13,12 +13,14 @@ import {
   proposeSeriesMatch,
   linkSeriesTournament,
   listMyLinkableTournaments,
+  rebuildSeriesStandings,
   reviewClubJoinRequest,
   reviewSeriesApproval,
   submitPlayerJoinRequest,
   submitSeriesRegistration,
   updateSeriesSettings,
 } from "./repository";
+import { getOrgLeaderboardData } from "./leaderboard-repository";
 
 export function useActiveSeries() {
   return useQuery({ queryKey: ["series", "active"], queryFn: () => listActiveSeries() });
@@ -180,6 +182,22 @@ export function useAddSeriesAdmin(seriesId: string) {
     mutationFn: (input: { userId: string; displayName?: string }) =>
       addSeriesAdmin({ seriesId, ...input }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
+export function useOrgLeaderboard(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "leaderboard"],
+    queryFn: () => getOrgLeaderboardData(seriesId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+export function useRebuildSeriesStandings(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => rebuildSeriesStandings(seriesId),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId, "leaderboard"] }),
   });
 }
 

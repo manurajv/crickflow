@@ -123,6 +123,7 @@ export interface Innings {
   batsmen: BatsmanInnings[];
   bowlers: BowlerInnings[];
   fielders: InningsFielder[];
+  isSuperOver?: boolean;
   partnershipRuns: number;
   partnershipBalls: number;
   isFreeHitActive: boolean;
@@ -149,6 +150,8 @@ export interface MatchRules {
   totalOvers: number;
   ballsPerOver: number;
   freeHitEnabled: boolean;
+  /** Wickets that end an innings (app default 10). */
+  maxWickets?: number;
 }
 
 export interface Match {
@@ -162,6 +165,12 @@ export interface Match {
   teamBName: string;
   tournamentId?: string;
   roundName?: string;
+  /** Org (series) fields — present on matches played inside an org. */
+  seriesId?: string;
+  seriesOfficialStatus?: string;
+  seriesClubAId?: string;
+  seriesClubBId?: string;
+  matchMode?: string;
   rules: MatchRules;
   innings: Innings[];
   currentInningsIndex: number;

@@ -21,6 +21,7 @@ export const collections = {
   seriesCompetitions: "series_competitions",
   seriesClubRankings: "series_club_rankings",
   seriesPlayerRankings: "series_player_rankings",
+  seriesMatchDigests: "series_match_digests",
   seriesAuditLogs: "series_audit_logs",
   seriesMemberships: "series_memberships",
   seriesRegistrations: "series_registrations",

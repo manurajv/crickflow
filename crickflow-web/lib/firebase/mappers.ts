@@ -194,6 +194,7 @@ function mapInnings(raw: unknown): Innings {
     partnershipRuns: asNumber(map.partnershipRuns),
     partnershipBalls: asNumber(map.partnershipBalls),
     isFreeHitActive: asBoolean(map.isFreeHitActive),
+    isSuperOver: asBoolean(map.isSuperOver),
     targetRuns: typeof map.targetRuns === "number" ? map.targetRuns : undefined,
     partnerships: Array.isArray(map.partnerships)
       ? map.partnerships.map((item) => {
@@ -246,7 +247,13 @@ export function mapMatch(id: string, data: Record<string, unknown>): Match {
       totalOvers: asNumber(rules.totalOvers, 20),
       ballsPerOver: asNumber(rules.ballsPerOver, 6),
       freeHitEnabled: asBoolean(rules.freeHitEnabled, true),
+      maxWickets: asNumber(rules.maxWickets, 10),
     },
+    seriesId: asString(data.seriesId) || undefined,
+    seriesOfficialStatus: asString(data.seriesOfficialStatus) || undefined,
+    seriesClubAId: asString(data.seriesClubAId) || undefined,
+    seriesClubBId: asString(data.seriesClubBId) || undefined,
+    matchMode: asString(data.matchMode) || undefined,
     innings: Array.isArray(data.innings) ? data.innings.map(mapInnings) : [],
     currentInningsIndex: asNumber(data.currentInningsIndex),
     location: mapLocation(data.location),

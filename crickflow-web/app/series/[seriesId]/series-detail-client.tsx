@@ -24,6 +24,7 @@ import {
 } from "@/features/series/hooks";
 import { usePathParam } from "@/lib/use-path-param";
 import { uploadSeriesRegistrationImage } from "@/lib/media-upload";
+import { OrgLeaderboard } from "@/features/series/org-leaderboard";
 
 type Tab = "overview" | "players" | "approvals" | "clubs" | "fixtures" | "admins";
 
@@ -67,7 +68,7 @@ export function SeriesDetailPage() {
 
   if (!seriesId || isLoading) return <p>Loading…</p>;
   if (!data) return <EmptyState title="Series not found" />;
-  const { series, clubs, clubRankings, playerRankings } = data;
+  const { series, clubs } = data;
   const approvedClubs = clubs.filter((c) => c.status === "approved");
 
   async function onCreateClub(e: FormEvent) {
@@ -622,79 +623,12 @@ export function SeriesDetailPage() {
 
       {activeTab === "overview" && (
         <>
-          <section>
-            <h2 className="mb-3 text-xl font-bold">Team rankings</h2>
-            {!clubRankings.length ? (
-              <EmptyState title="Rankings not published" />
-            ) : (
-              <Card className="overflow-x-auto p-0">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left">
-                    <tr>
-                      <th className="p-3">#</th>
-                      <th>Team</th>
-                      <th>P</th>
-                      <th>W</th>
-                      <th>L</th>
-                      <th>Pts</th>
-                      <th>NRR</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clubRankings.map((row, index) => (
-                      <tr key={row.id} className="border-t border-border">
-                        <td className="p-3">{index + 1}</td>
-                        <td>{row.clubName}</td>
-                        <td>{row.played}</td>
-                        <td>{row.won}</td>
-                        <td>{row.lost}</td>
-                        <td className="font-bold">{row.points}</td>
-                        <td>{row.netRunRate.toFixed(3)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Card>
-            )}
-          </section>
-
-          <section>
-            <h2 className="mb-3 text-xl font-bold">Top player leaders</h2>
-            {!playerRankings.length ? (
-              <EmptyState title="Player rankings not published" />
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {playerRankings.slice(0, 6).map((row, index) => (
-                  <Card key={row.id} className="flex items-center justify-between p-4">
-                    <div>
-                      <span className="mr-3 text-gold">#{index + 1}</span>
-                      {row.userId ? (
-                        <Link href={`/players/${row.userId}`} className="font-bold text-primary">
-                          {row.displayName}
-                        </Link>
-                      ) : (
-                        row.displayName
-                      )}
-                    </div>
-                    <span className="text-sm">
-                      {row.runs} runs · {row.wickets} wkts
-                    </span>
-                  </Card>
-                ))}
-              </div>
-            )}
-            {playerRankings.length > 6 && (
-              <p className="mt-3 text-center text-sm text-muted-foreground">
-                <button
-                  type="button"
-                  className="text-primary underline"
-                  onClick={() => setActiveTab("players")}
-                >
-                  View all {playerRankings.length} players
-                </button>
-              </p>
-            )}
-          </section>
+          <OrgLeaderboard
+            seriesId={seriesId}
+            clubs={clubs}
+            rules={series.settings.rankingRules}
+            canManage={data.canManage}
+          />
         </>
       )}
 

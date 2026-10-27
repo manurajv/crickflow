@@ -15,9 +15,7 @@ import { httpsCallable } from "firebase/functions";
 import type {
   Series,
   SeriesClub,
-  SeriesClubRanking,
   SeriesDetailData,
-  SeriesPlayerRanking,
 } from "./types";
 
 type Data = Record<string, unknown>;
@@ -42,10 +40,11 @@ function mapSettings(data: Data): Series["settings"] {
     requireAddress: Boolean(raw.requireAddress),
     requireProfilePhoto: Boolean(raw.requireProfilePhoto),
     rankingRules: {
-      winPoints: number(rankingRaw, "winPoints") || 2,
+      // 0 is a valid value (e.g. no-result worth nothing); only absent means default.
+      winPoints: typeof rankingRaw.winPoints === "number" ? rankingRaw.winPoints : 2,
       lossPoints: number(rankingRaw, "lossPoints"),
-      tiePoints: number(rankingRaw, "tiePoints") || 1,
-      noResultPoints: number(rankingRaw, "noResultPoints") || 1,
+      tiePoints: typeof rankingRaw.tiePoints === "number" ? rankingRaw.tiePoints : 1,
+      noResultPoints: typeof rankingRaw.noResultPoints === "number" ? rankingRaw.noResultPoints : 1,
       useNetRunRate: rankingRaw.useNetRunRate !== false,
     },
   };
@@ -75,7 +74,14 @@ function mapClub(id: string, d: Data): SeriesClub {
     id, seriesId: text(d, "seriesId"), name: text(d, "name") || "Team",
     description: text(d, "description"), logoUrl: text(d, "logoUrl") || undefined,
     status: text(d, "status"), squadCount: number(d, "squadCount"),
+    linkedTeamId: text(d, "linkedTeamId") || undefined,
   };
+}
+
+export async function rebuildSeriesStandings(seriesId: string) {
+  const callable = httpsCallable(getFirebaseFunctions(), "rebuildSeriesStandings");
+  const result = await callable({ seriesId });
+  return (result.data ?? {}) as { written?: number; removed?: number; skipped?: number };
 }
 
 export async function listActiveSeries(take = 40): Promise<Series[]> {
@@ -96,10 +102,8 @@ export async function listActiveSeries(take = 40): Promise<Series[]> {
 export async function getSeriesDetail(seriesId: string, userId?: string): Promise<SeriesDetailData | null> {
   const seriesSnap = await getDoc(doc(getDb(), collections.series, seriesId));
   if (!seriesSnap.exists()) return null;
-  const [clubs, clubRanks, playerRanks, admins, approvalsNested, approvalsLegacy, competitions, allAdmins] = await Promise.all([
+  const [clubs, admins, approvalsNested, approvalsLegacy, competitions, allAdmins] = await Promise.all([
     getDocs(query(collection(getDb(), collections.seriesClubs), where("seriesId", "==", seriesId))),
-    getDocs(query(collection(getDb(), collections.seriesClubRankings), where("seriesId", "==", seriesId))),
-    getDocs(query(collection(getDb(), collections.seriesPlayerRankings), where("seriesId", "==", seriesId), limit(100))),
     userId ? getDocs(query(collection(getDb(), collections.seriesAdmins), where("seriesId", "==", seriesId), where("userId", "==", userId), limit(1))) : null,
     userId
       ? getDocs(
@@ -126,21 +130,9 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
   const approvals =
     approvalsNested && approvalsNested.size > 0 ? approvalsNested : approvalsLegacy;
   const series = mapSeries(seriesSnap.id, seriesSnap.data());
-  const clubRankings: SeriesClubRanking[] = clubRanks.docs.map((d) => {
-    const x = d.data(); return { id: d.id, seriesId: text(x, "seriesId"), clubId: text(x, "clubId"),
-      clubName: text(x, "clubName"), played: number(x, "played"), won: number(x, "won"),
-      lost: number(x, "lost"), points: number(x, "points"), netRunRate: number(x, "netRunRate") };
-  }).sort((a, b) => b.points - a.points || b.netRunRate - a.netRunRate);
-  const playerRankings: SeriesPlayerRanking[] = playerRanks.docs.map((d) => {
-    const x = d.data(); return { id: d.id, seriesId: text(x, "seriesId"), userId: text(x, "userId"),
-      displayName: text(x, "displayName"), matches: number(x, "matches"),
-      runs: number(x, "runs"), wickets: number(x, "wickets") };
-  }).sort((a, b) => b.runs - a.runs);
   return {
     series,
     clubs: clubs.docs.map((d) => mapClub(d.id, d.data())),
-    clubRankings,
-    playerRankings,
     competitions: competitions.docs.map((d) => {
       const x = d.data();
       return {
