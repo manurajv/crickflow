@@ -2,7 +2,7 @@
   "name": "crickflow-functions",
   "description": "CrickFlow Cloud Functions",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "src/index.js",
   "scripts": {
