@@ -11,7 +11,7 @@ import '../../../../data/models/community_post_model.dart';
 import '../../../../data/models/team_model.dart';
 import '../../../../data/models/tournament_model.dart';
 import '../../../../data/models/user_model.dart';
-import '../../../../domain/scoring/match_lifecycle.dart';
+import '../../../../domain/scoring/match_staleness.dart';
 import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../features/community/community_post_ui.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
@@ -208,7 +208,7 @@ class _MatchCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final match = hit.match!;
     final cf = context.cf;
-    final isLive = MatchLifecycle.isEffectivelyLive(match);
+    final isLive = isListedLive(match);
     final status = matchStatusUi(match, cf);
     final uid = ref.watch(authStateProvider).value?.uid;
 

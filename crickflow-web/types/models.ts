@@ -179,6 +179,7 @@ export interface Match {
   scheduledAt?: Date | null;
   startedAt?: Date | null;
   completedAt?: Date | null;
+  createdAt?: Date | null;
   createdBy?: string;
   winnerTeamId?: string;
   resultSummary: string;

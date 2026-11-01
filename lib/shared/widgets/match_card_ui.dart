@@ -10,6 +10,7 @@ import '../../domain/scoring/innings_overs_display.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../../data/models/match_model.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
+import '../../domain/scoring/match_staleness.dart';
 import '../../features/scoring/presentation/utils/scoring_display_utils.dart';
 import 'match_team_avatar.dart';
 import 'org_badge.dart';
@@ -598,6 +599,9 @@ class MatchStatusChip extends StatelessWidget {
   if (status == MatchStatus.abandoned) {
     return (label: 'Abandoned', color: cf.textMuted);
   }
+  if (isStaleUnfinishedMatch(match)) {
+    return (label: 'Expired', color: cf.textMuted);
+  }
 
   if (match.isMatchBreakActive) {
     final breakType = match.activeMatchBreak!.breakType.toLowerCase();
@@ -781,7 +785,7 @@ String matchCardFooterHint(MatchModel match) {
 
 BoxDecoration matchListCardDecoration(MatchModel match, BuildContext context) {
   final cf = context.cf;
-  final isLive = MatchLifecycle.isEffectivelyLive(match);
+  final isLive = isListedLive(match);
 
   return BoxDecoration(
     color: cf.card,
@@ -803,7 +807,7 @@ BoxDecoration matchListCardDecoration(MatchModel match, BuildContext context) {
 
 BoxDecoration matchHeroCardDecoration(MatchModel match, BuildContext context) {
   final cf = context.cf;
-  final isLive = MatchLifecycle.isEffectivelyLive(match);
+  final isLive = isListedLive(match);
 
   if (isLive) {
     return BoxDecoration(

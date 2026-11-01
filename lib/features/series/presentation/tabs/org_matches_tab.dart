@@ -50,7 +50,10 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
         final scoped = visible
             .where((m) => matchPassesTournamentFilter(m, _tournament))
             .toList();
-        final counts = orgBucketCounts<MatchModel>(scoped, orgMatchBucket);
+        final counts = orgBucketCounts<MatchModel>(
+          listedOrgMatches(scoped),
+          orgMatchBucket,
+        );
         final sections = groupOrgMatches(
           visible,
           status: _status,

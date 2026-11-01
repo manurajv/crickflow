@@ -25,6 +25,7 @@ import '../../domain/services/badge_service.dart';
 import '../../domain/services/commentary_service.dart';
 import '../../domain/services/scoring_engine.dart';
 import '../../domain/scoring/match_lifecycle.dart';
+import '../../domain/scoring/match_staleness.dart';
 import '../../domain/scoring/match_completion_policy.dart';
 import '../../domain/scoring/local_match_overlay.dart';
 import '../../domain/scoring/innings_completion_policy.dart';
@@ -851,8 +852,8 @@ class MatchRepository {
     return _overlayLocalOnListStream(remote).map((list) {
       final sorted = List<MatchModel>.from(list);
       sorted.sort((a, b) {
-        final aLive = MatchLifecycle.isEffectivelyLive(a) ? 0 : 1;
-        final bLive = MatchLifecycle.isEffectivelyLive(b) ? 0 : 1;
+        final aLive = isListedLive(a) ? 0 : 1;
+        final bLive = isListedLive(b) ? 0 : 1;
         if (aLive != bLive) return aLive.compareTo(bLive);
         return 0;
       });
@@ -921,11 +922,12 @@ class MatchRepository {
       (m) =>
           m.status == MatchStatus.completed ||
           m.status == MatchStatus.abandoned ||
-          MatchLifecycle.isCompleted(m),
+          MatchLifecycle.isCompleted(m) ||
+          isStaleUnfinishedMatch(m),
     );
     overlaid.sort((a, b) {
-      final aLive = MatchLifecycle.isEffectivelyLive(a) ? 0 : 1;
-      final bLive = MatchLifecycle.isEffectivelyLive(b) ? 0 : 1;
+      final aLive = isListedLive(a) ? 0 : 1;
+      final bLive = isListedLive(b) ? 0 : 1;
       if (aLive != bLive) return aLive.compareTo(bLive);
       final aAt = a.scheduledAt ?? a.createdAt;
       final bAt = b.scheduledAt ?? b.createdAt;

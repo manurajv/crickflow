@@ -5,6 +5,7 @@ import '../../data/models/match_model.dart';
 import '../../domain/scoring/match_lifecycle.dart';
 import '../../data/models/tournament/tournament_group_model.dart';
 import '../../data/models/tournament/tournament_round_model.dart';
+import '../../domain/scoring/match_staleness.dart';
 import '../../domain/services/auto_fixture_generator_service.dart';
 import 'tournament_providers.dart';
 
@@ -20,9 +21,9 @@ final tournamentMatchesFilteredProvider = Provider.family<
       ref.watch(tournamentMatchesProvider(params.tournamentId)).valueOrNull ??
           [];
 
-  bool isLive(MatchModel m) => MatchLifecycle.isEffectivelyLive(m);
+  bool isLive(MatchModel m) => isListedLive(m);
 
-  bool isUpcoming(MatchModel m) => MatchLifecycle.isUpcoming(m);
+  bool isUpcoming(MatchModel m) => isListedUpcoming(m);
 
   bool isCompleted(MatchModel m) =>
       MatchLifecycle.effectiveStatus(m) == MatchStatus.completed;

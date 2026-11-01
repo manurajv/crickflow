@@ -107,8 +107,8 @@ void main() {
 
   group('matches grouping', () {
     final live = _m('live', status: MatchStatus.live);
-    final soon = _m('soon', scheduledAt: DateTime(2026, 5, 1));
-    final later = _m('later', scheduledAt: DateTime(2026, 6, 1));
+    final soon = _m('soon', scheduledAt: DateTime.now().add(const Duration(days: 5)));
+    final later = _m('later', scheduledAt: DateTime.now().add(const Duration(days: 20)));
     final old = _m('old', status: MatchStatus.completed, completedAt: DateTime(2026, 1, 1));
     final recent = _m('recent', status: MatchStatus.completed, completedAt: DateTime(2026, 3, 1));
     final all = [old, later, live, recent, soon];
@@ -133,7 +133,7 @@ void main() {
     });
 
     test('tournament filter: standalone, one tournament, search', () {
-      final inCup = _m('cup', tournamentId: 't1', scheduledAt: DateTime(2026, 5, 2));
+      final inCup = _m('cup', tournamentId: 't1', scheduledAt: DateTime.now().add(const Duration(days: 6)));
       final list = [soon, inCup];
       expect(
         groupOrgMatches(list, tournamentFilter: 't1').single.items.single.id,

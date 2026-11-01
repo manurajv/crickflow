@@ -46,7 +46,7 @@ MatchModel _match(
       seriesId: seriesId,
       seriesOfficialStatus: official,
       createdBy: createdBy,
-      scheduledAt: DateTime(2026, 12, 1, 10),
+      scheduledAt: DateTime.now().add(const Duration(days: 10)),
     );
 
 class _FakeFunctions implements SeriesFunctionsService {

@@ -2,6 +2,7 @@ import '../../../core/constants/enums.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/tournament_model.dart';
 import '../../scoring/match_lifecycle.dart';
+import '../../scoring/match_staleness.dart';
 
 /// Status chips on the org Matches / Tournaments tabs.
 enum OrgStatusFilter {
@@ -24,6 +25,12 @@ enum OrgBucket { live, upcoming, completed }
 /// Matches filtered by tournament: every match, only standalone matches, or the
 /// matches of one org tournament (its id).
 const String kOrgStandaloneFilter = '__standalone__';
+
+/// Org matches minus unfinished ones older than 30 days (see
+/// [isStaleUnfinishedMatch]); they leave the Live / Upcoming lists.
+List<MatchModel> listedOrgMatches(Iterable<MatchModel> matches,
+        {DateTime? now}) =>
+    matches.where((m) => !isStaleUnfinishedMatch(m, now: now)).toList();
 
 OrgBucket orgMatchBucket(MatchModel match) {
   final status = MatchLifecycle.effectiveStatus(match);
@@ -137,6 +144,7 @@ List<OrgSection<MatchModel>> groupOrgMatches(
   final done = <MatchModel>[];
   for (final m in matches) {
     if (!matchPassesTournamentFilter(m, tournamentFilter)) continue;
+    if (isStaleUnfinishedMatch(m)) continue;
     if (q.isNotEmpty &&
         !('${m.teamAName} ${m.teamBName} ${m.title}'.toLowerCase().contains(q))) {
       continue;

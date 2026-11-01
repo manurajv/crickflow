@@ -214,3 +214,7 @@ Internal collection / field names (`series_clubs`, `clubAdmin`) are unchanged.
   permissions apply, but the page does not yet hide buttons per kind.
 - Digests only exist for matches finished after deploy until an org admin taps
   **Refresh stats** (section 5.1).
+
+## Stale unfinished matches
+
+Org matches (standalone and tournament) that were scheduled or started but not finished leave the Live / Upcoming lists 30 days after their scheduled/start time. Display only; standings and the leaderboard are unchanged. See [STALE_MATCHES.md](STALE_MATCHES.md).

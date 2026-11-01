@@ -261,6 +261,7 @@ export function mapMatch(id: string, data: Record<string, unknown>): Match {
     scheduledAt: parseDate(data.scheduledAt),
     startedAt: parseDate(data.startedAt),
     completedAt: parseDate(data.completedAt),
+    createdAt: parseDate(data.createdAt),
     createdBy: asString(data.createdBy) || undefined,
     winnerTeamId: asString(data.winnerTeamId) || undefined,
     resultSummary: asString(data.resultSummary),

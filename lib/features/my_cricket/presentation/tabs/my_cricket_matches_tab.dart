@@ -9,6 +9,7 @@ import '../../../../core/utils/match_permissions.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../domain/scoring/match_lifecycle.dart';
+import '../../../../domain/scoring/match_staleness.dart';
 import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../domain/services/profile_match_filter_service.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
@@ -127,6 +128,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                     followedPlayers: followedPlayers,
                   ),
                   MyCricketMatchView.scoring => matches.where((match) {
+                    if (isStaleUnfinishedMatch(match)) return false;
                     final access =
                         scoringAccessById[match.id] ??
                         TournamentMatchScoringAccess.none;

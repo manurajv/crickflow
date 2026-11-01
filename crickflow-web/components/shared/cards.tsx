@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { currentScore, formatMatchWhen, formatOvers, locationLabel, matchStatusLabel } from "@/lib/cricket/format";
 import { cn, firstGrapheme } from "@/lib/utils";
+import { isStaleUnfinishedMatch } from "@/lib/cricket/match-staleness";
 import type { Match } from "@/types/models";
 
 function statusVariant(status: string) {
@@ -13,7 +14,8 @@ function statusVariant(status: string) {
 
 export function MatchCard({ match }: { match: Match }) {
   const score = currentScore(match);
-  const live = match.status === "live" || match.status === "inningsBreak";
+  const stale = isStaleUnfinishedMatch(match);
+  const live = !stale && (match.status === "live" || match.status === "inningsBreak");
   return (
     <AppLink href={`/matches/${match.id}/`} className="block">
       <Card className={cn("p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md", live && "ring-2 ring-live/30")}>
@@ -26,8 +28,8 @@ export function MatchCard({ match }: { match: Match }) {
               {match.teamAName || "Team A"} vs {match.teamBName || "Team B"}
             </h3>
           </div>
-          <Badge variant={statusVariant(String(match.status))}>
-            {matchStatusLabel(String(match.status))}
+          <Badge variant={stale ? "completed" : statusVariant(String(match.status))}>
+            {stale ? "Expired" : matchStatusLabel(String(match.status))}
           </Badge>
         </div>
         {score ? (

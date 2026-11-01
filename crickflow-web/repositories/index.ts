@@ -57,6 +57,7 @@ import { chatIdFor, chatBlockId } from "@/lib/chat";
 import { followCollection, followDocId, followPayload, type FollowKind } from "@/lib/follow";
 import type { MatchStatus } from "@/types/enums";
 import { LIVE_STATUSES } from "@/types/enums";
+import { withoutStaleMatches } from "@/lib/cricket/match-staleness";
 import type {
   AppNotification,
   BallEvent,
@@ -127,7 +128,9 @@ export async function listMatches(options?: {
   constraints.push(orderBy("createdAt", "desc"), limit(take));
   try {
     const snap = await getDocsTimed(query(collection(getDb(), collections.matches), ...constraints));
-    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+    const list = snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+    // Live / Upcoming lists drop unfinished matches older than 30 days.
+    return options?.status ? withoutStaleMatches(list) : list;
   } catch (error) {
     if (!isIndexError(error)) return [];
     const snap = await getDocsOrEmpty(query(collection(getDb(), collections.matches), limit(take)));
@@ -156,7 +159,7 @@ export function watchLiveMatches(
       limit(take),
     ),
     (snap) => {
-      onData(snap.docs.map((d) => mapMatch(d.id, dataOf(d))));
+      onData(withoutStaleMatches(snap.docs.map((d) => mapMatch(d.id, dataOf(d)))));
     },
     () => onData([]),
   );
