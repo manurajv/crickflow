@@ -12,8 +12,8 @@
     "lint": "node --check src/index.js && node --check src/series/seriesFunctions.js && node --check src/series/seriesOwnerOps.js && node --check src/tournament/linkMatchToTournament.js && node --check src/series/seriesCompetitionOps.js && node --check src/match/onMatchCompleted.js && node --check src/series/orgTeamLink.js && node --check src/series/orgWalkIns.js && node --check src/match/onOrgMatchSquad.js && node --check src/series/orgMatchDigest.js && node --check src/match/onOrgMatchDigest.js && node --check src/notifications/onRequestResolved.js && node --check src/notifications/onNotificationCreated.js"
   },
   "dependencies": {
-    "firebase-admin": "^13.0.2",
-    "firebase-functions": "^6.3.2",
-    "googleapis": "^144.0.0"
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0",
+    "googleapis": "^189.0.0"
   }
 }
