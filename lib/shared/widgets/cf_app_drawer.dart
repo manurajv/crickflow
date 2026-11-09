@@ -43,8 +43,11 @@ class CfAppDrawer extends ConsumerWidget {
               onOpenProfile: () => _goShell(context, '/profile'),
               onSignIn: () {
                 Navigator.pop(context);
-                openLoginForGuest(context: context,
-      prompt: SignInPrompt.general, returnPath: '/home');
+                openLoginForGuest(
+                  context: context,
+                  prompt: SignInPrompt.general,
+                  returnPath: '/home',
+                );
               },
             ),
             Expanded(
@@ -143,8 +146,9 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Associations',
                     onTap: () {
                       Navigator.pop(context);
-                      // go() leaves the shell cleanly; push can confuse redirects.
-                      context.go('/associations');
+                      // push keeps a stack entry so AppBar back works; guest
+                      // redirect uses uri.path so this no longer misclassifies.
+                      context.push('/associations');
                     },
                   ),
                   _DrawerTile(
@@ -152,8 +156,9 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Clubs',
                     onTap: () {
                       Navigator.pop(context);
-                      // go() leaves the shell cleanly; push can confuse redirects.
-                      context.go('/clubs');
+                      // push keeps a stack entry so AppBar back works; guest
+                      // redirect uses uri.path so this no longer misclassifies.
+                      context.push('/clubs');
                     },
                   ),
                   _DrawerTile(
@@ -161,8 +166,9 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Series',
                     onTap: () {
                       Navigator.pop(context);
-                      // go() leaves the shell cleanly; push can confuse redirects.
-                      context.go('/series');
+                      // push keeps a stack entry so AppBar back works; guest
+                      // redirect uses uri.path so this no longer misclassifies.
+                      context.push('/series');
                     },
                   ),
                   const _DrawerSectionHeader('Explore'),
@@ -248,8 +254,8 @@ class CfAppDrawer extends ConsumerWidget {
                   Text(
                     '${AppConstants.appName} v${AppConstants.appVersion}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: context.cf.textMuted,
-                        ),
+                      color: context.cf.textMuted,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppDimens.spaceXs),
@@ -259,8 +265,8 @@ class CfAppDrawer extends ConsumerWidget {
                       Text(
                         'Powered by ',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: context.cf.textMuted,
-                            ),
+                          color: context.cf.textMuted,
+                        ),
                       ),
                       InkWell(
                         onTap: () async {
@@ -278,12 +284,12 @@ class CfAppDrawer extends ConsumerWidget {
                         },
                         child: Text(
                           'Mavixas',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: context.cf.link,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: context.cf.link,
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: context.cf.link,
+                                decoration: TextDecoration.underline,
+                                decorationColor: context.cf.link,
+                              ),
                         ),
                       ),
                     ],
@@ -331,10 +337,10 @@ class _DrawerSectionHeader extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: cf.textMuted,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.1,
-            ),
+          color: cf.textMuted,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+        ),
       ),
     );
   }
@@ -383,18 +389,18 @@ class _DrawerHeader extends StatelessWidget {
                     children: [
                       Text(
                         'Guest',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: cf.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: cf.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Sign in to sync your cricket',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: cf.textSecondary,
-                            ),
+                          color: cf.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -452,9 +458,7 @@ class _DrawerHeader extends StatelessWidget {
                       children: [
                         Text(
                           name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: cf.textPrimary,
                                 fontWeight: FontWeight.w700,
@@ -466,11 +470,11 @@ class _DrawerHeader extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             CfPlayerIdFormat.displayLabel(playerId),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: cf.textSecondary,
-                                      letterSpacing: 0.3,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: cf.textSecondary,
+                                  letterSpacing: 0.3,
+                                ),
                           ),
                         ],
                         const SizedBox(height: 6),
@@ -488,11 +492,11 @@ class _DrawerHeader extends StatelessWidget {
                           ),
                           child: Text(
                             isViewer ? 'Viewer' : 'Member',
-                            style:
-                                Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: cf.accent,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: cf.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                         ),
                       ],
@@ -560,9 +564,9 @@ class _HeaderAction extends StatelessWidget {
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: cf.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: cf.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -600,16 +604,16 @@ class _DrawerTile extends StatelessWidget {
       title: Text(
         label,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: cf.textPrimary,
-              fontWeight: FontWeight.w500,
-            ),
+          color: cf.textPrimary,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       subtitle: subtitle != null
           ? Text(
               subtitle!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cf.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: cf.textSecondary),
             )
           : null,
       onTap: onTap,
