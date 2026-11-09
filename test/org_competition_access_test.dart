@@ -260,39 +260,69 @@ void main() {
     expect(find.text('No tournaments yet'), findsOneWidget);
   });
 
-  testWidgets('proposal buttons follow the org permission', (tester) async {
+  test('proposal FAB labels follow the org permission', () {
     OrgCompetitionAccess at(SeriesRole r, OrgProposeAccess a) =>
         _access(r, policy: _both(a));
 
-    // Team admin: yes in team-admins mode, no in admins-only mode.
-    await tester.pumpWidget(
-        _matches(at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins)));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('org_start_match')), findsOneWidget);
-    expect(find.text('Request a match'), findsOneWidget);
+    expect(
+      at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins).match,
+      OrgStartMode.request,
+    );
+    expect(
+      OrgCompetitionAccess.actionLabel(
+        at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins).match,
+        tournament: false,
+      ),
+      'Request a match',
+    );
+    expect(
+      at(SeriesRole.clubAdmin, OrgProposeAccess.admins).match,
+      OrgStartMode.none,
+    );
 
+    expect(
+      at(SeriesRole.seriesPlayer, OrgProposeAccess.teamAdmins).tournament,
+      OrgStartMode.none,
+    );
+    expect(
+      at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone).tournament,
+      OrgStartMode.request,
+    );
+    expect(
+      OrgCompetitionAccess.actionLabel(
+        at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone).tournament,
+        tournament: true,
+      ),
+      'Request a tournament',
+    );
+
+    expect(
+      at(SeriesRole.superAdmin, OrgProposeAccess.admins).match,
+      OrgStartMode.direct,
+    );
+    expect(
+      OrgCompetitionAccess.actionLabel(
+        at(SeriesRole.superAdmin, OrgProposeAccess.admins).match,
+        tournament: false,
+      ),
+      'Start a match',
+    );
+  });
+
+  testWidgets('tabs no longer embed start buttons (FAB owns them)', (tester) async {
     await tester.pumpWidget(
-        _matches(at(SeriesRole.clubAdmin, OrgProposeAccess.admins)));
+      _matches(_access(SeriesRole.superAdmin, policy: _both(OrgProposeAccess.admins))),
+    );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('org_start_match')), findsNothing);
 
-    // Player: only when everyone in the team may propose.
     await tester.pumpWidget(
-        _tournaments(at(SeriesRole.seriesPlayer, OrgProposeAccess.teamAdmins)));
+      _tournaments(
+        _access(SeriesRole.superAdmin, policy: _both(OrgProposeAccess.admins)),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('org_start_tournament')), findsNothing);
-
-    await tester.pumpWidget(
-        _tournaments(at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone)));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('org_start_tournament')), findsOneWidget);
-    expect(find.text('Request a tournament'), findsOneWidget);
-
-    // Owner always starts directly.
-    await tester.pumpWidget(
-        _matches(at(SeriesRole.superAdmin, OrgProposeAccess.admins)));
-    await tester.pumpAndSettle();
-    expect(find.text('Start a match'), findsOneWidget);
   });
 
   testWidgets('rejecting needs a reason', (tester) async {

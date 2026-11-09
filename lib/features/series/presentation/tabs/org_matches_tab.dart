@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../../core/auth/auth_gate.dart';
-
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../domain/services/series/org_competition_access.dart';
@@ -65,26 +62,6 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
           key: const Key('org_matches_list'),
           padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
           children: [
-            if (access.match != OrgStartMode.none)
-              OrgStartButton(
-                buttonKey: const Key('org_start_match'),
-                label: OrgCompetitionAccess.actionLabel(
-                  access.match,
-                  tournament: false,
-                ),
-                icon: Icons.sports_cricket_outlined,
-                onPressed: () => requireLogin(
-                  context: context,
-                  ref: ref,
-                  prompt: SignInPrompt.proposeMatch,
-                  returnPath: '/series/$seriesId/propose-match',
-                  action: () async {
-                    if (context.mounted) {
-                      context.push('/series/$seriesId/propose-match');
-                    }
-                  },
-                ),
-              ),
             OrgStatusChips(
               selected: _status,
               counts: counts,
@@ -107,10 +84,7 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
                   count: section.items.length,
                 ),
                 for (final m in section.items)
-                  MatchListCard(
-                    key: ValueKey('org_match_${m.id}'),
-                    match: m,
-                  ),
+                  MatchListCard(key: ValueKey('org_match_${m.id}'), match: m),
               ],
           ],
         );
@@ -136,8 +110,8 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
       message: access.match == OrgStartMode.none
           ? 'Official org matches will appear here.'
           : access.isAdmin
-              ? 'Start a match between two org teams.'
-              : 'Request a match for your team. Org admins approve it.',
+          ? 'Start a match between two org teams.'
+          : 'Request a match for your team. Org admins approve it.',
     );
   }
 }

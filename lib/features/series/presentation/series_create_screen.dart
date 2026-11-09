@@ -242,7 +242,7 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
           ),
         ),
       );
-      context.go('/series/$id');
+      context.go('/series/$id?welcome=1');
     } on FirebaseFunctionsException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

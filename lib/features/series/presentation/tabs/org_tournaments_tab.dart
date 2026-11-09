@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/auth/auth_gate.dart';
-
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/tournament_model.dart';
 import '../../../../domain/services/series/org_competition_access.dart';
@@ -52,26 +50,6 @@ class _OrgTournamentsTabState extends ConsumerState<OrgTournamentsTab> {
           key: const Key('org_tournaments_list'),
           padding: const EdgeInsets.only(bottom: AppDimens.spaceXl),
           children: [
-            if (access.tournament != OrgStartMode.none)
-              OrgStartButton(
-                buttonKey: const Key('org_start_tournament'),
-                label: OrgCompetitionAccess.actionLabel(
-                  access.tournament,
-                  tournament: true,
-                ),
-                icon: Icons.emoji_events_outlined,
-                onPressed: () => requireLogin(
-                  context: context,
-                  ref: ref,
-                  prompt: SignInPrompt.proposeTournament,
-                  returnPath: '/series/$seriesId/propose-tournament',
-                  action: () async {
-                    if (context.mounted) {
-                      context.push('/series/$seriesId/propose-tournament');
-                    }
-                  },
-                ),
-              ),
             OrgStatusChips(
               selected: _status,
               counts: counts,
@@ -99,10 +77,7 @@ class _OrgTournamentsTabState extends ConsumerState<OrgTournamentsTab> {
     );
   }
 
-  Widget _empty({
-    required bool hasAny,
-    required OrgCompetitionAccess access,
-  }) {
+  Widget _empty({required bool hasAny, required OrgCompetitionAccess access}) {
     if (hasAny) {
       return const SeriesEmptyState(
         icon: Icons.filter_alt_off_outlined,
@@ -116,8 +91,8 @@ class _OrgTournamentsTabState extends ConsumerState<OrgTournamentsTab> {
       message: access.tournament == OrgStartMode.none
           ? 'Official org tournaments will appear here.'
           : access.isAdmin
-              ? 'Start a tournament for this org.'
-              : 'Request a tournament for your team. Org admins approve it.',
+          ? 'Start a tournament for this org.'
+          : 'Request a tournament for your team. Org admins approve it.',
     );
   }
 }

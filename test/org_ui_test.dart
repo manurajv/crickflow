@@ -211,7 +211,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Secret'), findsOneWidget);
       expect(find.text('Pending'), findsOneWidget);
-      expect(find.byKey(const Key('org_start_match')), findsOneWidget);
+      // Start match lives on the org detail FAB (Matches tab), not in-list.
+      expect(find.byKey(const Key('org_start_match')), findsNothing);
     });
   });
 
