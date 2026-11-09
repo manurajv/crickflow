@@ -21,9 +21,15 @@ abstract final class AdminL10nConfig {
     Locale? locale,
     Iterable<Locale> supported,
   ) {
-    if (locale == null) return const Locale('en');
-    for (final s in supported) {
-      if (s.languageCode == locale.languageCode) return s;
+    try {
+      if (locale == null) return const Locale('en');
+      final code = locale.languageCode;
+      if (code.isEmpty || code == 'und') return const Locale('en');
+      for (final s in supported) {
+        if (s.languageCode == code) return s;
+      }
+    } catch (_) {
+      return const Locale('en');
     }
     return const Locale('en');
   }

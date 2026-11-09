@@ -34,7 +34,8 @@ class SuperAdminApp extends ConsumerWidget {
       theme: AdminTheme.light(),
       darkTheme: AdminTheme.dark(),
       themeMode: themeMode,
-      locale: locale,
+      // Null used to mean "system", but empty browser locales crash Flutter web.
+      locale: locale ?? AdminLocaleCatalog.safeDeviceLocale(),
       supportedLocales: AdminL10nConfig.supportedLocales,
       localizationsDelegates: AdminL10nConfig.localizationsDelegates,
       localeResolutionCallback: AdminL10nConfig.resolutionCallback,

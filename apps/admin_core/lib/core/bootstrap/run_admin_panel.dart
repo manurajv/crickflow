@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../config/firebase_bootstrap.dart';
 
@@ -17,6 +18,11 @@ Future<void> runAdminPanel({
   required Widget Function() buildApp,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Expose form fields to the accessibility / DOM tree so browser automation
+  // and assistive tech can fill email/password on Flutter web.
+  if (kIsWeb) {
+    SemanticsBinding.instance.ensureSemantics();
+  }
   _installErrorHandlers();
   await _start(options, buildApp);
 }

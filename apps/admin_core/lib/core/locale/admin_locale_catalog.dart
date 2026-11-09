@@ -51,11 +51,30 @@ abstract final class AdminLocaleCatalog {
 
   static Locale? tryParse(String? code) {
     if (code == null || code.trim().isEmpty || code == 'system') return null;
-    final c = code.trim().toLowerCase();
+    final c = code.trim().toLowerCase().split(RegExp(r'[_-]')).first;
+    if (c.isEmpty || c == 'und') return null;
     for (final loc in materialSupported) {
       if (loc.languageCode == c) return loc;
     }
-    return Locale(c);
+    // Planned / unknown codes must not construct Locale(c) — empty or exotic
+    // codes crash Flutter web (`Incorrect locale information provided`).
+    return null;
+  }
+
+  /// Device/browser locale that is always safe for MaterialApp / intl.
+  static Locale safeDeviceLocale() {
+    try {
+      final locales = WidgetsBinding.instance.platformDispatcher.locales;
+      for (final loc in locales) {
+        final code = loc.languageCode;
+        if (code.isNotEmpty && code != 'und') {
+          return Locale(code);
+        }
+      }
+    } catch (_) {
+      // Headless browsers / odd environments can throw on Locale construction.
+    }
+    return english;
   }
 }
 
