@@ -6,7 +6,7 @@ import '../../shared/providers/providers.dart';
 
 /// Shown on the login screen and the login-required dialog when a guest
 /// tries an account-only action. Keep this exact string — product copy.
-const String kLoginToUseThisMessage = 'Login to use this';
+const String kSignInToUseThisMessage = 'Sign in to use this';
 
 /// Runs after successful login when the user tapped a gated action.
 typedef PendingAuthCallback = Future<void> Function();
@@ -26,14 +26,14 @@ class PendingAuthAction {
   }) {
     _callback = callback;
     returnPath = path;
-    message = prompt ?? kLoginToUseThisMessage;
+    message = prompt ?? kSignInToUseThisMessage;
   }
 
   /// True when the user was sent to login from a gated action.
   static bool get hasPending =>
       _callback != null || (returnPath != null && returnPath!.isNotEmpty);
 
-  static String get promptMessage => message ?? kLoginToUseThisMessage;
+  static String get promptMessage => message ?? kSignInToUseThisMessage;
 
   static Future<void> runIfAny(WidgetRef ref, BuildContext context) async {
     final callback = _callback;
@@ -81,7 +81,7 @@ Future<bool> _ensureOnboardingComplete(
 
 Future<bool> showLoginRequiredDialog(
   BuildContext context, {
-  String message = kLoginToUseThisMessage,
+  String message = kSignInToUseThisMessage,
 }) async {
   final result = await showDialog<bool>(
     context: context,
@@ -95,7 +95,7 @@ Future<bool> showLoginRequiredDialog(
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Login'),
+          child: const Text('Sign in'),
         ),
       ],
     ),
@@ -106,7 +106,7 @@ Future<bool> showLoginRequiredDialog(
 /// Prompts login when needed; runs [action] when authenticated and onboarded.
 ///
 /// Prefer this (or [requireLogin] / [requireAuthVoid]) over a bare
-/// `context.push('/login')` so guests always see [kLoginToUseThisMessage]
+/// `context.push('/login')` so guests always see [kSignInToUseThisMessage]
 /// and can return to where they were.
 Future<T?> requireAuth<T>({
   required BuildContext context,
@@ -114,7 +114,7 @@ Future<T?> requireAuth<T>({
   required Future<T?> Function() action,
   String? returnPath,
   PendingAuthCallback? onAuthenticated,
-  String message = kLoginToUseThisMessage,
+  String message = kSignInToUseThisMessage,
   bool showDialog = true,
 }) async {
   final uid = ref.read(authStateProvider).value?.uid;
@@ -160,7 +160,7 @@ Future<void> requireAuthVoid({
   required WidgetRef ref,
   required Future<void> Function() action,
   String? returnPath,
-  String message = kLoginToUseThisMessage,
+  String message = kSignInToUseThisMessage,
   bool showDialog = true,
 }) async {
   await requireAuth<void>(
@@ -175,8 +175,8 @@ Future<void> requireAuthVoid({
   );
 }
 
-/// Alias used at call sites: gate an action behind login with the standard
-/// "Login to use this" message.
+/// Alias used at call sites: gate an action behind sign-in with the standard
+/// "Sign in to use this" message.
 Future<void> requireLogin({
   required BuildContext context,
   required WidgetRef ref,
@@ -193,12 +193,12 @@ Future<void> requireLogin({
     );
 
 /// Opens the login screen for a guest without a dialog (e.g. a Sign-in button
-/// that already conveys intent). Still shows [kLoginToUseThisMessage] on the
+/// that already conveys intent). Still shows [kSignInToUseThisMessage] on the
 /// login screen and restores [returnPath] after success.
 Future<void> openLoginForGuest({
   required BuildContext context,
   String? returnPath,
-  String message = kLoginToUseThisMessage,
+  String message = kSignInToUseThisMessage,
 }) async {
   PendingAuthAction.register(path: returnPath, prompt: message);
   if (context.mounted) context.push('/login');

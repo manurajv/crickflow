@@ -186,11 +186,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         // Score, stream, create match, org writes, and other account actions.
         if (GuestRoutes.isProtectedRoute(path)) {
           // Remember where they were going so login can resume + show the
-          // standard "Login to use this" banner.
+          // standard "Sign in to use this" banner.
           final full = state.uri.toString();
           PendingAuthAction.register(
             path: full.startsWith('/') ? full : path,
-            prompt: kLoginToUseThisMessage,
+            prompt: kSignInToUseThisMessage,
           );
           return '/login';
         }

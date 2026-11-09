@@ -57,11 +57,11 @@ void main() {
   group('PendingAuthAction', () {
     tearDown(PendingAuthAction.clear);
 
-    test('login copy is exactly Login to use this', () {
-      expect(kLoginToUseThisMessage, 'Login to use this');
+    test('login copy is exactly Sign in to use this', () {
+      expect(kSignInToUseThisMessage, 'Sign in to use this');
       PendingAuthAction.register(path: '/series/s1/propose-match');
       expect(PendingAuthAction.hasPending, isTrue);
-      expect(PendingAuthAction.promptMessage, 'Login to use this');
+      expect(PendingAuthAction.promptMessage, 'Sign in to use this');
       expect(PendingAuthAction.returnPath, '/series/s1/propose-match');
     });
   });

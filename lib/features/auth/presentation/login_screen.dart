@@ -295,7 +295,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             if (PendingAuthAction.hasPending) ...[
                               const SizedBox(height: AppDimens.spaceSm),
                               Container(
-                                key: const Key('login_to_use_this_banner'),
+                                key: const Key('sign_in_to_use_this_banner'),
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,

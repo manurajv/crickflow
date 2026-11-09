@@ -327,7 +327,7 @@ class _SignInPrompt extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: AppDimens.spaceMd),
-            const Text(kLoginToUseThisMessage),
+            const Text(kSignInToUseThisMessage),
             const SizedBox(height: AppDimens.spaceLg),
             CfButton(
               label: 'Sign in',

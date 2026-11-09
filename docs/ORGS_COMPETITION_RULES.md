@@ -221,4 +221,4 @@ Org matches (standalone and tournament) that were scheduled or started but not f
 
 ## Guest browse
 
-Signed-out users can open an org to watch matches, browse teams and see the leaderboard. Account actions (join, propose, settings, …) open login with **Login to use this**. See [GUEST_ACCESS.md](GUEST_ACCESS.md).
+Signed-out users can open an org to watch matches, browse teams and see the leaderboard. Account actions (join, propose, settings, …) open login with **Sign in to use this**. See [GUEST_ACCESS.md](GUEST_ACCESS.md).

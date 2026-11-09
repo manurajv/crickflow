@@ -1,7 +1,7 @@
 /// Routes guests (signed-out users) may open for browse-only access.
 ///
 /// Write / account actions stay in [isProtectedRoute] and send the user to
-/// login with "Login to use this". See docs/GUEST_ACCESS.md.
+/// login with "Sign in to use this". See docs/GUEST_ACCESS.md.
 class GuestRoutes {
   GuestRoutes._();
 

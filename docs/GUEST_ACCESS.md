@@ -1,7 +1,7 @@
 # Guest access (signed-out browse)
 
 Signed-out users can **browse** CrickFlow and watch matches. Any action that
-needs an account opens the login screen with the message **Login to use this**.
+needs an account opens the login screen with the message **Sign in to use this**.
 
 ## What guests can see
 
@@ -38,12 +38,12 @@ Examples — all use the shared gate (`requireLogin` / `requireAuth` /
 2. **Router redirect** — a guest hitting a protected path is sent to `/login`
    after `PendingAuthAction.register` so the banner and return path work.
 3. **`requireLogin` / `requireAuth`** (`lib/core/auth/auth_gate.dart`) — for
-   in-screen buttons. Dialog + login screen show **Login to use this**. After
+   in-screen buttons. Dialog + login screen show **Sign in to use this**. After
    a successful login, the pending action / return path runs.
-4. **Login screen** — banner with key `login_to_use_this_banner` when a gated
+4. **Login screen** — banner with key `sign_in_to_use_this_banner` when a gated
    action is pending.
 
-Web: `crickflow-web/lib/auth/guest-access.ts` (`LOGIN_TO_USE_THIS`, `loginUrl`).
+Web: `crickflow-web/lib/auth/guest-access.ts` (`SIGN_IN_TO_USE_THIS`, `loginUrl`).
 Org list/detail are viewable while signed out; create/join CTAs send guests to
 `/login?next=…&msg=Login%20to%20use%20this`.
 
