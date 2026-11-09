@@ -66,10 +66,17 @@ abstract final class AdminLocaleCatalog {
     try {
       final locales = WidgetsBinding.instance.platformDispatcher.locales;
       for (final loc in locales) {
-        final code = loc.languageCode;
-        if (code.isNotEmpty && code != 'und') {
-          return Locale(code);
+        final code = loc.languageCode.trim().toLowerCase();
+        // Reject empty, und, and anything that is not a plain ISO 639 code
+        // (headless Chromium can surface variants that already crashed Locale).
+        if (code.isEmpty || code == 'und') continue;
+        if (!RegExp(r'^[a-z]{2,3}$').hasMatch(code)) continue;
+        for (final supported in materialSupported) {
+          if (supported.languageCode == code) return supported;
         }
+        // Unknown but well-formed → English (MaterialApp has ARBs only for
+        // [materialSupported]).
+        return english;
       }
     } catch (_) {
       // Headless browsers / odd environments can throw on Locale construction.

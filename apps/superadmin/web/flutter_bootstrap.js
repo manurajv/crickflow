@@ -5,6 +5,26 @@
 // builds), CanvasKit served from this site, and a visible error instead of a
 // white page if the engine or app fails to start.
 (function () {
+  // Headless Chromium / some Linux boxes report locales like "en-US@posix"
+  // which Flutter's Locale parser rejects ("Incorrect locale information").
+  // Normalize before the engine reads navigator.language(s).
+  try {
+    var bad = function (v) {
+      return !v || /[@;]|posix/i.test(String(v));
+    };
+    var langs = navigator.languages ? Array.prototype.slice.call(navigator.languages) : [];
+    if (bad(navigator.language) || langs.some(bad)) {
+      Object.defineProperty(Navigator.prototype, 'language', {
+        configurable: true,
+        get: function () { return 'en-US'; },
+      });
+      Object.defineProperty(Navigator.prototype, 'languages', {
+        configurable: true,
+        get: function () { return ['en-US']; },
+      });
+    }
+  } catch (_) { /* best-effort */ }
+
   function showBootError(err) {
     var box = document.getElementById('cf-boot');
     if (!box) return;
