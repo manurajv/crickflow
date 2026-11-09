@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/features/auth/auth-provider";
 import { normalizePathname, pathStartsWith, pathsEqual } from "@/lib/routing/paths";
+import { profileNeedsPlayerOnboarding } from "@/lib/auth/platform-admin";
 
 function isOnboardingExempt(pathname: string) {
   const path = normalizePathname(pathname);
@@ -13,24 +14,15 @@ function isOnboardingExempt(pathname: string) {
   return false;
 }
 
-function needsOnboarding(
-  profile: { onboardingCompleted?: boolean } | null,
-): boolean {
-  // Signed-in with no profile yet still must finish setup (create may have failed).
-  if (!profile) return true;
-  return !profile.onboardingCompleted;
-}
-
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, isPlatformAdmin, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const blocked =
-    !loading && Boolean(user) && needsOnboarding(profile) && !isOnboardingExempt(pathname);
+  const needs = profileNeedsPlayerOnboarding(profile, isPlatformAdmin);
+  const blocked = !loading && Boolean(user) && needs && !isOnboardingExempt(pathname);
 
   useEffect(() => {
     if (!blocked) return;
-    // Prefer trailing slash for static export hosting.
     router.replace("/register/");
   }, [blocked, router]);
 
