@@ -577,6 +577,7 @@ export function mapNotification(id: string, data: Record<string, unknown>): AppN
     tab: asString(data.tab) || undefined,
     type: asString(data.type) || undefined,
     category: asString(data.category) || asString(data.type) || undefined,
+    priority: typeof data.priority === "boolean" ? data.priority : null,
     read: asBoolean(data.read),
     createdAt: parseDate(data.createdAt),
   };

@@ -432,6 +432,8 @@ export interface AppNotification {
   tab?: string;
   type?: string;
   category?: string;
+  /** Server-stamped; older docs fall back to type mapping. */
+  priority?: boolean | null;
   read: boolean;
   createdAt?: Date | null;
 }
