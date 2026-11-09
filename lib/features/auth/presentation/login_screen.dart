@@ -64,10 +64,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) context.go('/player-onboarding');
       return;
     }
+    // Resume the gated action / return path first so it is not overwritten
+    // by the default home redirect below.
+    final hadPending = PendingAuthAction.hasPending;
     if (mounted) {
       await PendingAuthAction.runIfAny(ref, context);
     }
     if (!mounted) return;
+    if (hadPending) return;
     final pending = DeepLinkHandler.takePendingPath();
     final route = pending ?? homeRouteForRole(profile.role);
     context.go(route);
@@ -288,9 +292,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
+                            if (PendingAuthAction.hasPending) ...[
+                              const SizedBox(height: AppDimens.spaceSm),
+                              Container(
+                                key: const Key('login_to_use_this_banner'),
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: accentBlue.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: accentBlue.withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Text(
+                                  PendingAuthAction.promptMessage,
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: accentBlue,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 4),
                             Text(
-                              'Use Google or your mobile number to continue.',
+                              PendingAuthAction.hasPending
+                                  ? 'Use Google or your mobile number to continue.'
+                                  : 'Use Google or your mobile number to continue.',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: subtitleColor,
                               ),

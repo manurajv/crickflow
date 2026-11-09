@@ -105,6 +105,7 @@ import '../../core/routing/deep_link_handler.dart';
 import '../../core/utils/deep_link_utils.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/match_permissions.dart';
+import '../../core/auth/auth_gate.dart';
 import '../../core/auth/guest_routes.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/providers/tournament_providers.dart';
@@ -182,8 +183,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!isLoggedIn) {
         if (path == '/login') return null;
         if (GuestRoutes.isPublicRoute(path)) return null;
-        // Score, stream, create match, and other write actions need an account.
-        if (GuestRoutes.isProtectedRoute(path)) return '/login';
+        // Score, stream, create match, org writes, and other account actions.
+        if (GuestRoutes.isProtectedRoute(path)) {
+          // Remember where they were going so login can resume + show the
+          // standard "Login to use this" banner.
+          final full = state.uri.toString();
+          PendingAuthAction.register(
+            path: full.startsWith('/') ? full : path,
+            prompt: kLoginToUseThisMessage,
+          );
+          return '/login';
+        }
         return '/home';
       }
 

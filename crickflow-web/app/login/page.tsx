@@ -9,6 +9,7 @@ import { LoadingPage } from "@/components/shared/page-shell";
 import { useAuth } from "@/features/auth/auth-provider";
 import { PhoneRecaptchaHost } from "@/components/auth/phone-recaptcha-host";
 import { authErrorMessage } from "@/lib/auth-errors";
+import { LOGIN_TO_USE_THIS } from "@/lib/auth/guest-access";
 
 function readInvitePhone() {
   if (typeof window === "undefined") return "";
@@ -34,6 +35,9 @@ function LoginForm() {
   const next = searchParams.get("next");
   const nextPath = next?.startsWith("/") ? next : "/";
   const inviteLogin = nextPath.startsWith("/invite/");
+  const gateMessage =
+    searchParams.get("msg")?.trim() ||
+    (next ? LOGIN_TO_USE_THIS : "");
 
   useEffect(() => {
     if (loading || !user || !profile) return;
@@ -52,9 +56,19 @@ function LoginForm() {
       subtitle={
         inviteLogin
           ? "Accept with Google or the invited mobile number — both work."
-          : "Same Firebase account as the mobile app — Google, phone, or email."
+          : gateMessage
+            ? gateMessage
+            : "Same Firebase account as the mobile app — Google, phone, or email."
       }
     >
+      {gateMessage ? (
+        <p
+          data-testid="login_to_use_this_banner"
+          className="mb-4 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-center text-sm font-semibold text-primary"
+        >
+          {gateMessage}
+        </p>
+      ) : null}
       <Button
         className="w-full"
         size="lg"

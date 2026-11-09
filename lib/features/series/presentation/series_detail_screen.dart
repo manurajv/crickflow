@@ -1,9 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -145,11 +145,16 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               backgroundColor: cf.fabBackground,
               foregroundColor: cf.fabForeground,
               onPressed: () {
-                if (FirebaseAuth.instance.currentUser == null) {
-                  context.push('/login');
-                  return;
-                }
-                context.push('/series/$seriesId/clubs/create');
+                requireLogin(
+                  context: context,
+                  ref: ref,
+                  returnPath: '/series/$seriesId/clubs/create',
+                  action: () async {
+                    if (context.mounted) {
+                      context.push('/series/$seriesId/clubs/create');
+                    }
+                  },
+                );
               },
               icon: const Icon(Icons.add),
               label: Text(item.memberUnitsSingular),

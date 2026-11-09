@@ -218,3 +218,7 @@ Internal collection / field names (`series_clubs`, `clubAdmin`) are unchanged.
 ## Stale unfinished matches
 
 Org matches (standalone and tournament) that were scheduled or started but not finished leave the Live / Upcoming lists 30 days after their scheduled/start time. Display only; standings and the leaderboard are unchanged. See [STALE_MATCHES.md](STALE_MATCHES.md).
+
+## Guest browse
+
+Signed-out users can open an org to watch matches, browse teams and see the leaderboard. Account actions (join, propose, settings, …) open login with **Login to use this**. See [GUEST_ACCESS.md](GUEST_ACCESS.md).

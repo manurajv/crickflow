@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/constants/enums.dart';
 import '../../../core/navigation/tournament_join_navigation.dart';
@@ -326,12 +327,15 @@ class _SignInPrompt extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: AppDimens.spaceMd),
-            const Text('Sign in to request joining this tournament.'),
+            const Text(kLoginToUseThisMessage),
             const SizedBox(height: AppDimens.spaceLg),
             CfButton(
               label: 'Sign in',
               isGold: true,
-              onPressed: () => context.push('/login'),
+              onPressed: () => openLoginForGuest(
+                context: context,
+                returnPath: GoRouterState.of(context).uri.toString(),
+              ),
             ),
           ],
         ),

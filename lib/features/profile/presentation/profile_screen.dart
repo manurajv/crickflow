@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -47,7 +47,7 @@ class ProfileScreen extends ConsumerWidget {
                 CfButton(
                   label: 'Login',
                   isGold: true,
-                  onPressed: () => context.push('/login'),
+                  onPressed: () => openLoginForGuest(context: context, returnPath: '/profile'),
                 ),
               ],
             ),

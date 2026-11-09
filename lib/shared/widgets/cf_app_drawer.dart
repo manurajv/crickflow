@@ -43,7 +43,7 @@ class CfAppDrawer extends ConsumerWidget {
               onOpenProfile: () => _goShell(context, '/profile'),
               onSignIn: () {
                 Navigator.pop(context);
-                context.push('/login');
+                openLoginForGuest(context: context, returnPath: '/home');
               },
             ),
             Expanded(

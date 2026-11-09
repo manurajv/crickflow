@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/auth/auth_gate.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
@@ -72,8 +73,16 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
                   tournament: false,
                 ),
                 icon: Icons.sports_cricket_outlined,
-                onPressed: () =>
-                    context.push('/series/$seriesId/propose-match'),
+                onPressed: () => requireLogin(
+                  context: context,
+                  ref: ref,
+                  returnPath: '/series/$seriesId/propose-match',
+                  action: () async {
+                    if (context.mounted) {
+                      context.push('/series/$seriesId/propose-match');
+                    }
+                  },
+                ),
               ),
             OrgStatusChips(
               selected: _status,

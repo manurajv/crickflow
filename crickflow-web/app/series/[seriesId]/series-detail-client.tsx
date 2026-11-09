@@ -25,6 +25,7 @@ import {
 import { usePathParam } from "@/lib/use-path-param";
 import { uploadSeriesRegistrationImage } from "@/lib/media-upload";
 import { OrgLeaderboard } from "@/features/series/org-leaderboard";
+import { LOGIN_TO_USE_THIS, loginUrl } from "@/lib/auth/guest-access";
 
 type Tab = "overview" | "players" | "approvals" | "clubs" | "fixtures" | "admins";
 
@@ -458,7 +459,17 @@ export function SeriesDetailPage() {
                 </form>
               </Card>
             </section>
-          ) : null}
+          ) : (
+            <Card className="space-y-3 p-4">
+              <h2 className="text-lg font-bold">{LOGIN_TO_USE_THIS}</h2>
+              <p className="text-sm text-muted-foreground">
+                Browse matches, teams and the leaderboard without an account. Sign in to create a team, join, or manage this org.
+              </p>
+              <Link href={loginUrl(`/series/${seriesId}`)} className="text-primary underline">
+                Sign in
+              </Link>
+            </Card>
+          )}
         </>
       )}
 

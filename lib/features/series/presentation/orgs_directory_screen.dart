@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -48,8 +49,15 @@ class _OrgsDirectoryScreenState extends ConsumerState<OrgsDirectoryScreen> {
         actions: [
           IconButton(
             tooltip: 'Create ${family.singular}',
-            onPressed: () => context.push(
-              '/series/create?family=${family.name}',
+            onPressed: () => requireLogin(
+              context: context,
+              ref: ref,
+              returnPath: '/series/create?family=${family.name}',
+              action: () async {
+                if (context.mounted) {
+                  context.push('/series/create?family=${family.name}');
+                }
+              },
             ),
             icon: Icon(Icons.add_circle_outline, color: cf.accent),
           ),
@@ -140,8 +148,18 @@ class _OrgsDirectoryScreenState extends ConsumerState<OrgsDirectoryScreen> {
                               message:
                                   'Create a ${family.singular.toLowerCase()} to get started.',
                               action: FilledButton.icon(
-                                onPressed: () => context.push(
-                                  '/series/create?family=${family.name}',
+                                onPressed: () => requireLogin(
+                                  context: context,
+                                  ref: ref,
+                                  returnPath:
+                                      '/series/create?family=${family.name}',
+                                  action: () async {
+                                    if (context.mounted) {
+                                      context.push(
+                                        '/series/create?family=${family.name}',
+                                      );
+                                    }
+                                  },
                                 ),
                                 icon: const Icon(Icons.add),
                                 label: Text('Create ${family.singular}'),
@@ -164,7 +182,16 @@ class _OrgsDirectoryScreenState extends ConsumerState<OrgsDirectoryScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () =>
-            context.push('/series/create?family=${family.name}'),
+            requireLogin(
+              context: context,
+              ref: ref,
+              returnPath: '/series/create?family=${family.name}',
+              action: () async {
+                if (context.mounted) {
+                  context.push('/series/create?family=${family.name}');
+                }
+              },
+            ),
         icon: const Icon(Icons.add),
         label: Text('Create ${family.singular}'),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/auth/auth_gate.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/tournament_model.dart';
@@ -59,8 +60,16 @@ class _OrgTournamentsTabState extends ConsumerState<OrgTournamentsTab> {
                   tournament: true,
                 ),
                 icon: Icons.emoji_events_outlined,
-                onPressed: () =>
-                    context.push('/series/$seriesId/propose-tournament'),
+                onPressed: () => requireLogin(
+                  context: context,
+                  ref: ref,
+                  returnPath: '/series/$seriesId/propose-tournament',
+                  action: () async {
+                    if (context.mounted) {
+                      context.push('/series/$seriesId/propose-tournament');
+                    }
+                  },
+                ),
               ),
             OrgStatusChips(
               selected: _status,

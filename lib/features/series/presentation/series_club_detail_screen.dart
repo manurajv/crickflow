@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -33,13 +34,15 @@ class _SeriesClubDetailScreenState
   bool _busy = false;
 
   Future<void> _requestJoin() async {
-    if (FirebaseAuth.instance.currentUser == null) {
-      context.push('/login');
-      return;
-    }
-    context.push(
-      '/series/${widget.seriesId}/register'
-      '?clubId=${widget.clubId}&join=1',
+    final path =
+        '/series/${widget.seriesId}/register?clubId=${widget.clubId}&join=1';
+    await requireLogin(
+      context: context,
+      ref: ref,
+      returnPath: path,
+      action: () async {
+        if (context.mounted) context.push(path);
+      },
     );
   }
 
