@@ -63,6 +63,7 @@ class _OrgTournamentsTabState extends ConsumerState<OrgTournamentsTab> {
                 onPressed: () => requireLogin(
                   context: context,
                   ref: ref,
+                  prompt: SignInPrompt.proposeTournament,
                   returnPath: '/series/$seriesId/propose-tournament',
                   action: () async {
                     if (context.mounted) {

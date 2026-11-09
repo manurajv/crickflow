@@ -213,6 +213,7 @@ class CommunityPostCard extends ConsumerWidget {
             onLike: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.likeComment,
               action: () async {
                 final id = ref.read(authStateProvider).valueOrNull?.uid;
                 final me = ref.read(currentUserProfileProvider).valueOrNull;
@@ -232,6 +233,7 @@ class CommunityPostCard extends ConsumerWidget {
             onSave: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.savePost,
               action: () async {
                 final id = ref.read(authStateProvider).valueOrNull?.uid;
                 if (id == null) return;
@@ -595,6 +597,7 @@ class _CompactFollow extends ConsumerWidget {
       onPressed: () => requireAuthVoid(
         context: context,
         ref: ref,
+        prompt: SignInPrompt.follow,
         action: () async {
           final me = ref.read(currentUserProfileProvider).valueOrNull;
           await ref.read(playerFollowRepositoryProvider).followPlayer(

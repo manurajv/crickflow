@@ -132,6 +132,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.notifications,
               returnPath: '/notifications',
               action: () async {
                 if (context.mounted) context.push('/notifications');
@@ -145,6 +146,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.notificationSettings,
               returnPath: '/settings/notifications',
               action: () async {
                 if (context.mounted) {

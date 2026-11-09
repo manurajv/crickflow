@@ -141,6 +141,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
     await requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.createTeam,
       action: () async {
         final cf = context.cf;
         final picker = ImagePicker();
@@ -184,6 +185,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
     await requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.createTeam,
       returnPath: '/teams',
       action: () async => _submitTeam(),
     );

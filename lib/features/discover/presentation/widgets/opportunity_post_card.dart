@@ -678,6 +678,7 @@ class _Footer extends ConsumerWidget {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.chat,
       action: () async {
         final me = ref.read(currentUserProfileProvider).valueOrNull;
         if (me == null) {
@@ -901,12 +902,14 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () => showEditOpportunityFlow(context, post),
         );
       case 'pin':
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () => repo.setPinned(
             postId: post.id,
             pinned: !post.isPinned,
@@ -916,6 +919,7 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () => repo.setFeatured(
             postId: post.id,
             featured: !post.isFeatured,
@@ -931,6 +935,7 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () async {
             await repo.softRemovePost(post.id);
             if (context.mounted) {
@@ -950,6 +955,7 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.blockUser,
           action: () async {
             final uid = ref.read(authStateProvider).valueOrNull?.uid;
             if (uid == null) return;
@@ -975,6 +981,7 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () async {
             await repo.deletePost(post.id);
             if (context.mounted) {
@@ -1017,6 +1024,7 @@ class _OverflowMenu extends ConsumerWidget {
     await requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.report,
       action: () async {
         final uid = ref.read(authStateProvider).valueOrNull?.uid;
         if (uid == null) return;

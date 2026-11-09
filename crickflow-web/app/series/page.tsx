@@ -14,7 +14,7 @@ import { useActiveSeries, useCreateSeries } from "@/features/series/hooks";
 import { uploadSeriesCover, uploadSeriesLogo } from "@/lib/media-upload";
 import { getDb } from "@/lib/firebase/client";
 import { collections } from "@/config/site";
-import { SIGN_IN_TO_USE_THIS, loginUrl } from "@/lib/auth/guest-access";
+import { SIGN_IN_PROMPTS, loginUrl } from "@/lib/auth/guest-access";
 
 export default function SeriesPage() {
   const { data, isLoading, error } = useActiveSeries();
@@ -412,10 +412,9 @@ export default function SeriesPage() {
             </p>
           ) : (
             <p className="mt-3 text-center text-sm text-muted-foreground">
-              <Link href={loginUrl("/series")} className="text-primary underline">
-                {SIGN_IN_TO_USE_THIS}
-              </Link>{" "}
-              — then you can create a Series.
+              <Link href={loginUrl("/series", "create_org")} className="text-primary underline">
+                {SIGN_IN_PROMPTS.create_org}
+              </Link>
             </p>
           )}
         </div>

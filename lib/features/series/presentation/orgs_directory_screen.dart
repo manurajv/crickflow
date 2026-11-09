@@ -52,6 +52,7 @@ class _OrgsDirectoryScreenState extends ConsumerState<OrgsDirectoryScreen> {
             onPressed: () => requireLogin(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.createOrg,
               returnPath: '/series/create?family=${family.name}',
               action: () async {
                 if (context.mounted) {
@@ -151,6 +152,7 @@ class _OrgsDirectoryScreenState extends ConsumerState<OrgsDirectoryScreen> {
                                 onPressed: () => requireLogin(
                                   context: context,
                                   ref: ref,
+                                  prompt: SignInPrompt.createOrg,
                                   returnPath:
                                       '/series/create?family=${family.name}',
                                   action: () async {
@@ -185,6 +187,7 @@ class _OrgsDirectoryScreenState extends ConsumerState<OrgsDirectoryScreen> {
             requireLogin(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.createOrg,
               returnPath: '/series/create?family=${family.name}',
               action: () async {
                 if (context.mounted) {

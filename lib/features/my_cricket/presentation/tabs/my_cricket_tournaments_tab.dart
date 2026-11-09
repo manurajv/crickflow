@@ -50,6 +50,7 @@ class _MyCricketTournamentsTabState
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.createTournament,
       returnPath: '/matches',
       action: () => context.push('/tournaments/create'),
     );

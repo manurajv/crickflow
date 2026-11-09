@@ -291,6 +291,7 @@ class _TournamentCreateFlowScreenState
                     requireAuthVoid(
                       context: context,
                       ref: ref,
+                      prompt: SignInPrompt.createTournament,
                       returnPath: (widget.seriesId ?? '').isNotEmpty
                           ? '/tournaments/create?seriesId=${widget.seriesId}'
                           : '/tournaments/create',

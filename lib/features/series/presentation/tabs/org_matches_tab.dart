@@ -76,6 +76,7 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
                 onPressed: () => requireLogin(
                   context: context,
                   ref: ref,
+                  prompt: SignInPrompt.proposeMatch,
                   returnPath: '/series/$seriesId/propose-match',
                   action: () async {
                     if (context.mounted) {

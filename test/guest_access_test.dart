@@ -1,5 +1,6 @@
 import 'package:crickflow/core/auth/auth_gate.dart';
 import 'package:crickflow/core/auth/guest_routes.dart';
+import 'package:crickflow/core/auth/sign_in_prompts.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -54,7 +55,6 @@ void main() {
     });
   });
 
-
   group('GuestRoutes.normalize', () {
     test('strips query, fragment, trailing slash', () {
       expect(GuestRoutes.normalize('/associations/'), '/associations');
@@ -63,20 +63,94 @@ void main() {
     });
   });
 
-  group('Sign-in copy', () {
-    test('shared constants use Sign in wording', () {
-      expect(kSignInToUseThisMessage, 'Sign in to use this');
-      expect(kPleaseSignInToContinue, 'Please sign in to continue');
+  group('SignInPrompt', () {
+    test('default message is professional fallback', () {
+      expect(
+        SignInPrompt.general.message,
+        'Sign in to your CrickFlow account to continue.',
+      );
+      expect(kDefaultSignInMessage, SignInPrompt.general.message);
+      expect(SignInPrompt.general.message.contains('log in'), isFalse);
+      expect(SignInPrompt.general.message.contains('Login'), isFalse);
+    });
+
+    test('catalog has no Login / log in wording', () {
+      for (final entry in SignInPrompt.byKey.entries) {
+        expect(entry.value.message.toLowerCase().contains('log in'), isFalse,
+            reason: entry.key);
+        expect(entry.value.message.contains('Login'), isFalse, reason: entry.key);
+        expect(entry.value.message.startsWith('Sign in'), isTrue,
+            reason: entry.key);
+      }
+    });
+
+    test('fromKey whitelist falls back to general', () {
+      expect(SignInPrompt.fromKey('create_post'), SignInPrompt.createPost);
+      expect(SignInPrompt.fromKey('nope'), SignInPrompt.general);
+      expect(SignInPrompt.fromKey(null), SignInPrompt.general);
+    });
+
+    test('forPath maps protected routes', () {
+      expect(SignInPrompt.forPath('/notifications'), SignInPrompt.notifications);
+      expect(SignInPrompt.forPath('/match/start'), SignInPrompt.startMatch);
+      expect(SignInPrompt.forPath('/match/m1/score'), SignInPrompt.scoreMatch);
+      expect(
+        SignInPrompt.forPath('/series/s1/propose-match'),
+        SignInPrompt.proposeMatch,
+      );
+      expect(
+        SignInPrompt.forPath('/series/create?family=clubs'),
+        SignInPrompt.createOrg,
+      );
+      expect(SignInPrompt.forPath('/series/s1/register'), SignInPrompt.joinOrg);
+    });
+
+    test('contextual examples match product copy', () {
+      expect(
+        SignInPrompt.createPost.message,
+        'Sign in to create a post and join the conversation.',
+      );
+      expect(
+        SignInPrompt.startMatch.message,
+        'Sign in to start a match and keep score.',
+      );
+      expect(SignInPrompt.createTeam.message, 'Sign in to create a team.');
+      expect(
+        SignInPrompt.proposeMatch.message,
+        'Sign in to propose a match in this organization.',
+      );
+      expect(
+        SignInPrompt.likeComment.message,
+        'Sign in to like and comment on posts.',
+      );
+      expect(
+        SignInPrompt.notifications.message,
+        'Sign in to view your notifications.',
+      );
+      expect(
+        SignInPrompt.manageProfile.message,
+        'Sign in to manage your profile.',
+      );
+      expect(
+        SignInPrompt.joinOrg.message,
+        'Sign in to join this organization.',
+      );
     });
   });
+
   group('PendingAuthAction', () {
     tearDown(PendingAuthAction.clear);
 
-    test('login copy is exactly Sign in to use this', () {
-      expect(kSignInToUseThisMessage, 'Sign in to use this');
-      PendingAuthAction.register(path: '/series/s1/propose-match');
+    test('stores contextual prompt for login banner', () {
+      PendingAuthAction.register(
+        path: '/series/s1/propose-match',
+        prompt: SignInPrompt.proposeMatch,
+      );
       expect(PendingAuthAction.hasPending, isTrue);
-      expect(PendingAuthAction.promptMessage, 'Sign in to use this');
+      expect(
+        PendingAuthAction.promptMessage,
+        SignInPrompt.proposeMatch.message,
+      );
       expect(PendingAuthAction.returnPath, '/series/s1/propose-match');
     });
   });

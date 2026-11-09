@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_dimens.dart';
 import '../theme/cf_colors.dart';
-import 'auth_gate.dart';
+import 'sign_in_prompts.dart';
 
 /// Single shared guest gate UI — use via [showSignInRequiredSheet] / [requireAuth].
 Future<bool> showSignInRequiredSheet(
   BuildContext context, {
-  String message = kSignInToUseThisMessage,
-  String title = 'Sign in required',
+  SignInPrompt prompt = SignInPrompt.general,
+  @Deprecated('Use prompt:') String? message,
+  String? title,
 }) async {
+  final effective = message != null ? SignInPrompt.custom(message) : prompt;
   final result = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -19,16 +21,16 @@ Future<bool> showSignInRequiredSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (ctx) => _SignInRequiredSheet(title: title, message: message),
+    builder: (ctx) => _SignInRequiredSheet(
+      title: title ?? effective.title,
+      message: effective.message,
+    ),
   );
   return result == true;
 }
 
 class _SignInRequiredSheet extends StatelessWidget {
-  const _SignInRequiredSheet({
-    required this.title,
-    required this.message,
-  });
+  const _SignInRequiredSheet({required this.title, required this.message});
 
   final String title;
   final String message;

@@ -39,6 +39,7 @@ class _SeriesClubDetailScreenState
     await requireLogin(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.joinOrg,
       returnPath: path,
       action: () async {
         if (context.mounted) context.push(path);

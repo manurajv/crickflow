@@ -52,7 +52,8 @@ class MyCricketGuestSignInPrompt extends StatelessWidget {
           child: CfButton(
             label: 'Sign in',
             isGold: true,
-            onPressed: () => openLoginForGuest(context: context, returnPath: '/matches'),
+            onPressed: () => openLoginForGuest(context: context,
+      prompt: SignInPrompt.myCricket, returnPath: '/matches'),
           ),
         ),
       ],
@@ -99,7 +100,8 @@ class _CompactGuestSignInBanner extends StatelessWidget {
               ),
         ),
         trailing: TextButton(
-          onPressed: () => openLoginForGuest(context: context, returnPath: '/matches'),
+          onPressed: () => openLoginForGuest(context: context,
+      prompt: SignInPrompt.myCricket, returnPath: '/matches'),
           child: const Text('Sign in'),
         ),
       ),

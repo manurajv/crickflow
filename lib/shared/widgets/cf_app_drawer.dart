@@ -43,7 +43,8 @@ class CfAppDrawer extends ConsumerWidget {
               onOpenProfile: () => _goShell(context, '/profile'),
               onSignIn: () {
                 Navigator.pop(context);
-                openLoginForGuest(context: context, returnPath: '/home');
+                openLoginForGuest(context: context,
+      prompt: SignInPrompt.general, returnPath: '/home');
               },
             ),
             Expanded(
@@ -61,6 +62,7 @@ class CfAppDrawer extends ConsumerWidget {
                         requireAuthVoid(
                           context: context,
                           ref: ref,
+                          prompt: SignInPrompt.startMatch,
                           returnPath: '/match/start',
                           action: () async {
                             if (context.mounted) {
@@ -79,6 +81,7 @@ class CfAppDrawer extends ConsumerWidget {
                         requireAuthVoid(
                           context: context,
                           ref: ref,
+                          prompt: SignInPrompt.createTournament,
                           returnPath: '/tournaments/create',
                           action: () async {
                             if (context.mounted) {
@@ -97,6 +100,7 @@ class CfAppDrawer extends ConsumerWidget {
                         requireAuthVoid(
                           context: context,
                           ref: ref,
+                          prompt: SignInPrompt.invitePlayer,
                           returnPath: '/register-player',
                           action: () async {
                             if (context.mounted) {
@@ -197,6 +201,7 @@ class CfAppDrawer extends ConsumerWidget {
                       requireAuthVoid(
                         context: context,
                         ref: ref,
+                        prompt: SignInPrompt.notifications,
                         returnPath: '/notifications',
                         action: () async {
                           if (context.mounted) {

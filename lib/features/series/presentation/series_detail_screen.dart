@@ -148,6 +148,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 requireLogin(
                   context: context,
                   ref: ref,
+                  prompt: SignInPrompt.createOrgTeam,
                   returnPath: '/series/$seriesId/clubs/create',
                   action: () async {
                     if (context.mounted) {

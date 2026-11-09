@@ -253,6 +253,7 @@ class CommunityTournamentCard extends ConsumerWidget {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.chat,
       action: () async {
         final me = ref.read(currentUserProfileProvider).valueOrNull;
         if (me == null) {

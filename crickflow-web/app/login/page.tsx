@@ -9,7 +9,7 @@ import { LoadingPage } from "@/components/shared/page-shell";
 import { useAuth } from "@/features/auth/auth-provider";
 import { PhoneRecaptchaHost } from "@/components/auth/phone-recaptcha-host";
 import { authErrorMessage } from "@/lib/auth-errors";
-import { SIGN_IN_TO_USE_THIS } from "@/lib/auth/guest-access";
+import { resolveSignInMessage } from "@/lib/auth/guest-access";
 
 function readInvitePhone() {
   if (typeof window === "undefined") return "";
@@ -35,9 +35,12 @@ function LoginForm() {
   const next = searchParams.get("next");
   const nextPath = next?.startsWith("/") ? next : "/";
   const inviteLogin = nextPath.startsWith("/invite/");
-  const gateMessage =
-    searchParams.get("msg")?.trim() ||
-    (next ? SIGN_IN_TO_USE_THIS : "");
+  const msgParam = searchParams.get("msg");
+  const gateMessage = msgParam
+    ? resolveSignInMessage(msgParam)
+    : next
+      ? resolveSignInMessage("general")
+      : "";
 
   useEffect(() => {
     if (loading || !user || !profile) return;

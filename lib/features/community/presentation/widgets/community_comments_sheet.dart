@@ -55,6 +55,7 @@ class _CommunityCommentsSheetState
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.likeComment,
       action: () async {
         final user = ref.read(authStateProvider).valueOrNull;
         final profile = ref.read(currentUserProfileProvider).valueOrNull;
@@ -218,6 +219,7 @@ class _CommunityCommentsSheetState
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.report,
       action: () async {
         final uid = ref.read(authStateProvider).valueOrNull?.uid;
         if (uid == null) return;
@@ -576,6 +578,7 @@ class _CommentTile extends ConsumerWidget {
                       onTap: () => requireAuthVoid(
                         context: context,
                         ref: ref,
+                        prompt: SignInPrompt.likeComment,
                         action: () async {
                           final id =
                               ref.read(authStateProvider).valueOrNull?.uid;

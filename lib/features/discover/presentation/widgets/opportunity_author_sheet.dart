@@ -180,6 +180,7 @@ class OpportunityAuthorSheet extends ConsumerWidget {
                           onPressed: () => requireAuthVoid(
                             context: context,
                             ref: ref,
+                            prompt: SignInPrompt.follow,
                             action: () async {
                               final profile = me ??
                                   await ref.read(
@@ -286,6 +287,7 @@ class OpportunityAuthorSheet extends ConsumerWidget {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.chat,
       action: () async {
         final me = ref.read(currentUserProfileProvider).valueOrNull;
         if (me == null) return;

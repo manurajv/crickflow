@@ -3,13 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/models/user_model.dart';
 import '../../shared/providers/providers.dart';
+import 'sign_in_prompts.dart';
 import 'sign_in_required_sheet.dart';
 
-/// Shown on the login screen banner and the shared sign-in sheet body.
-const String kSignInToUseThisMessage = 'Sign in to use this';
-
-/// Friendly sheet/dialog body when a slightly longer line fits better.
-const String kPleaseSignInToContinue = 'Please sign in to continue';
+export 'sign_in_prompts.dart';
 
 /// Runs after successful login when the user tapped a gated action.
 typedef PendingAuthCallback = Future<void> Function();
@@ -20,29 +17,38 @@ class PendingAuthAction {
 
   static PendingAuthCallback? _callback;
   static String? returnPath;
-  static String? message;
+  static SignInPrompt? _prompt;
 
   static void register({
     PendingAuthCallback? callback,
     String? path,
-    String? prompt,
+    SignInPrompt? prompt,
+    @Deprecated('Use prompt:') String? message,
   }) {
     _callback = callback;
     returnPath = path;
-    message = prompt ?? kSignInToUseThisMessage;
+    if (prompt != null) {
+      _prompt = prompt;
+    } else if (message != null && message.isNotEmpty) {
+      _prompt = SignInPrompt.custom(message);
+    } else {
+      _prompt = SignInPrompt.general;
+    }
   }
 
   static bool get hasPending =>
       _callback != null || (returnPath != null && returnPath!.isNotEmpty);
 
-  static String get promptMessage => message ?? kSignInToUseThisMessage;
+  static SignInPrompt get prompt => _prompt ?? SignInPrompt.general;
+
+  static String get promptMessage => prompt.message;
 
   static Future<void> runIfAny(WidgetRef ref, BuildContext context) async {
     final callback = _callback;
     _callback = null;
     final path = returnPath;
     returnPath = null;
-    message = null;
+    _prompt = null;
 
     if (!await _ensureOnboardingComplete(ref, context)) return;
 
@@ -58,7 +64,7 @@ class PendingAuthAction {
   static void clear() {
     _callback = null;
     returnPath = null;
-    message = null;
+    _prompt = null;
   }
 }
 
@@ -84,9 +90,12 @@ Future<bool> _ensureOnboardingComplete(
 /// chose Sign in.
 Future<bool> showLoginRequiredDialog(
   BuildContext context, {
-  String message = kSignInToUseThisMessage,
-}) =>
-    showSignInRequiredSheet(context, message: message);
+  SignInPrompt prompt = SignInPrompt.general,
+  @Deprecated('Use prompt:') String? message,
+}) => showSignInRequiredSheet(
+  context,
+  prompt: message != null ? SignInPrompt.custom(message) : prompt,
+);
 
 Future<T?> requireAuth<T>({
   required BuildContext context,
@@ -94,12 +103,15 @@ Future<T?> requireAuth<T>({
   required Future<T?> Function() action,
   String? returnPath,
   PendingAuthCallback? onAuthenticated,
-  String message = kSignInToUseThisMessage,
+  SignInPrompt prompt = SignInPrompt.general,
+  @Deprecated('Use prompt:') String? message,
   bool showDialog = true,
 }) async {
+  final effective = message != null ? SignInPrompt.custom(message) : prompt;
   final uid = ref.read(authStateProvider).value?.uid;
   if (uid != null) {
-    final profile = ref.read(currentUserProfileProvider).valueOrNull ??
+    final profile =
+        ref.read(currentUserProfileProvider).valueOrNull ??
         await ref.read(currentUserProfileProvider.future);
     if (profile != null && profile.needsPlayerOnboarding) {
       PendingAuthAction.register(
@@ -107,7 +119,7 @@ Future<T?> requireAuth<T>({
           await action();
         },
         path: returnPath,
-        prompt: message,
+        prompt: effective,
       );
       if (context.mounted) context.go('/player-onboarding');
       return null;
@@ -116,19 +128,20 @@ Future<T?> requireAuth<T>({
   }
 
   if (showDialog) {
-    final login = await showSignInRequiredSheet(context, message: message);
+    final login = await showSignInRequiredSheet(context, prompt: effective);
     if (!login || !context.mounted) return null;
   } else if (!context.mounted) {
     return null;
   }
 
   PendingAuthAction.register(
-    callback: onAuthenticated ??
+    callback:
+        onAuthenticated ??
         () async {
           await action();
         },
     path: returnPath,
-    prompt: message,
+    prompt: effective,
   );
   context.push('/login');
   return null;
@@ -139,14 +152,15 @@ Future<void> requireAuthVoid({
   required WidgetRef ref,
   required Future<void> Function() action,
   String? returnPath,
-  String message = kSignInToUseThisMessage,
+  SignInPrompt prompt = SignInPrompt.general,
+  @Deprecated('Use prompt:') String? message,
   bool showDialog = true,
 }) async {
   await requireAuth<void>(
     context: context,
     ref: ref,
     returnPath: returnPath,
-    message: message,
+    prompt: message != null ? SignInPrompt.custom(message) : prompt,
     showDialog: showDialog,
     action: () async {
       await action();
@@ -160,22 +174,26 @@ Future<void> requireLogin({
   required Future<void> Function() action,
   String? returnPath,
   bool showDialog = true,
-  String message = kSignInToUseThisMessage,
-}) =>
-    requireAuthVoid(
-      context: context,
-      ref: ref,
-      action: action,
-      returnPath: returnPath,
-      showDialog: showDialog,
-      message: message,
-    );
+  SignInPrompt prompt = SignInPrompt.general,
+  @Deprecated('Use prompt:') String? message,
+}) => requireAuthVoid(
+  context: context,
+  ref: ref,
+  action: action,
+  returnPath: returnPath,
+  showDialog: showDialog,
+  prompt: message != null ? SignInPrompt.custom(message) : prompt,
+);
 
 Future<void> openLoginForGuest({
   required BuildContext context,
   String? returnPath,
-  String message = kSignInToUseThisMessage,
+  SignInPrompt prompt = SignInPrompt.general,
+  @Deprecated('Use prompt:') String? message,
 }) async {
-  PendingAuthAction.register(path: returnPath, prompt: message);
+  PendingAuthAction.register(
+    path: returnPath,
+    prompt: message != null ? SignInPrompt.custom(message) : prompt,
+  );
   if (context.mounted) context.push('/login');
 }

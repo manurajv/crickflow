@@ -350,6 +350,7 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
                     requireLogin(
                       context: context,
                       ref: ref,
+                      prompt: SignInPrompt.streamMatch,
                       returnPath: '/match/${widget.matchId}/stream',
                       action: () async {
                         if (context.mounted) {

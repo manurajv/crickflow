@@ -194,7 +194,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               : path;
           PendingAuthAction.register(
             path: fullPath.startsWith('/') ? fullPath : path,
-            prompt: kSignInToUseThisMessage,
+            prompt: SignInPrompt.forPath(path),
           );
           return '/login';
         }

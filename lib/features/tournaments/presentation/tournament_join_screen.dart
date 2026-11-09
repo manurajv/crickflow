@@ -327,13 +327,14 @@ class _SignInPrompt extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: AppDimens.spaceMd),
-            const Text(kSignInToUseThisMessage),
+            Text(SignInPrompt.joinTournament.message),
             const SizedBox(height: AppDimens.spaceLg),
             CfButton(
               label: 'Sign in',
               isGold: true,
               onPressed: () => openLoginForGuest(
                 context: context,
+                prompt: SignInPrompt.joinTournament,
                 returnPath: GoRouterState.of(context).uri.toString(),
               ),
             ),

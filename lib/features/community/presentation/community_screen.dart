@@ -155,6 +155,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.blockUser,
       action: () async {
         final uid = ref.read(authStateProvider).valueOrNull?.uid;
         if (uid == null) return;
@@ -310,6 +311,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.report,
       action: () async {
         final uid = ref.read(authStateProvider).valueOrNull?.uid;
         if (uid == null) return;
@@ -412,6 +414,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           requireAuthVoid(
             context: context,
             ref: ref,
+            prompt: SignInPrompt.chat,
             action: () async {
               if (context.mounted) context.push('/community/chats');
             },
@@ -448,6 +451,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.createPost,
               action: () async {
                 if (context.mounted) {
                   await showCreateCommunityPostSheet(context, ref: ref,
@@ -572,6 +576,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                       requireAuthVoid(
                         context: context,
                         ref: ref,
+                        prompt: SignInPrompt.general,
                         action: () async {
                           ref
                               .read(communityFeedFilterProvider.notifier)
@@ -610,6 +615,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                     onPost: () => requireAuthVoid(
                       context: context,
                       ref: ref,
+                      prompt: SignInPrompt.createPost,
                       action: () async {
                         if (context.mounted) {
                           await showCreateCommunityPostSheet(context, ref: ref);

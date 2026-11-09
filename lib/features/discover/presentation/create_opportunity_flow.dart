@@ -217,6 +217,7 @@ class _CreateOpportunityFlowState extends ConsumerState<CreateOpportunityFlow> {
     await requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.createOpportunity,
       action: () async {
         final profile = ref.read(currentUserProfileProvider).valueOrNull ??
             await ref.read(currentUserProfileProvider.future);

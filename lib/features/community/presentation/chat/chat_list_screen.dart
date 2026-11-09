@@ -59,6 +59,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.chat,
       action: () async {
         final me = ref.read(currentUserProfileProvider).valueOrNull;
         if (me == null) return;

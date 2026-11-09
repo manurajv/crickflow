@@ -29,6 +29,7 @@ Future<void> showCreateCommunityPostSheet(
     await requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.createPost,
       action: () async {
         if (!context.mounted) return;
         await _openCreateCommunityPostSheet(
@@ -146,7 +147,7 @@ class _CreateCommunityPostSheetState
     final profile = ref.read(currentUserProfileProvider).valueOrNull;
     if (user == null || profile == null) {
       if (mounted) {
-        await showSignInRequiredSheet(context);
+        await showSignInRequiredSheet(context, prompt: SignInPrompt.createPost);
         if (mounted) Navigator.pop(context);
       }
       return;
