@@ -11,6 +11,7 @@ import '../../../core/navigation/tournament_join_navigation.dart';
 import '../../../data/models/tournament_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
+import '../../../shared/widgets/removed_content_view.dart';
 import '../../../shared/providers/tournament_lifecycle_provider.dart';
 import 'tournament_teams_screen.dart';
 import 'tournament_matches_screen.dart';
@@ -200,7 +201,7 @@ class _TournamentDashboardScreenState
         if (tournament == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Tournament')),
-            body: const Center(child: Text('Tournament not found')),
+            body: const RemovedContentView(kind: 'tournament'),
           );
         }
 

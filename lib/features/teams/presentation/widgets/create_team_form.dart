@@ -11,8 +11,10 @@ import '../../../../core/auth/auth_gate.dart';
 import '../../../../core/constants/player_profile_constants.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/atomic_create.dart';
 import '../../../../core/utils/cf_team_id_format.dart';
 import '../../../../data/models/location_model.dart';
+import '../../../../data/models/owner_player_seed.dart';
 import '../../../../data/models/team_model.dart';
 import '../../../../shared/providers/my_player_provider.dart';
 import '../../../../shared/providers/providers.dart';
@@ -224,47 +226,39 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
         ).merge(),
         createdBy: uid,
       );
-      var saved = await ref.read(teamRepositoryProvider).createTeam(draft);
-
-      var logoUrl = _logoUrl;
-      if (_logoFile != null) {
-        logoUrl = await ref
-            .read(storageServiceProvider)
-            .uploadTeamLogo(_teamId, _logoFile!);
-        saved = saved.copyWith(teamProfileImageUrl: logoUrl, logoUrl: logoUrl);
-        await ref.read(teamRepositoryProvider).updateTeam(saved);
+      if (uid == null) {
+        throw AtomicCreateException('Please sign in again. Nothing was saved.');
       }
-
-      if (_addSelf && uid != null) {
+      // Nothing is written until everything is ready; the team, its logo and
+      // your place on the squad are saved together or not at all.
+      OwnerPlayerSeed? ownerSeed;
+      if (_addSelf) {
         final profile = ref.read(currentUserProfileProvider).valueOrNull;
-        final player = await ref
+        ownerSeed = await ref
             .read(playerRepositoryProvider)
-            .ensurePlayerProfileForUser(
+            .ownerPlayerSeedForUser(
               userId: uid,
               displayName: profile?.displayName ?? name,
               fullName: profile?.name,
               photoUrl: profile?.photoUrl,
               email: profile?.email,
             );
-        await ref.read(playerRepositoryProvider).assignPlayerToTeam(
-              playerId: player.id,
-              teamId: _teamId,
-              addedByUserId: uid,
-            );
-        await ref
-            .read(teamRepositoryProvider)
-            .updateTeam(
-              saved.copyWith(
-                name: name,
-                teamProfileImageUrl: logoUrl,
-                logoUrl: logoUrl,
-                captainId: player.id,
-                contactNumber: contactNumber,
-                playerIds: [player.id],
-                createdBy: uid,
-              ),
-            );
       }
+      final storage = ref.read(storageServiceProvider);
+      final logoFile = _logoFile;
+      final saved = await ref.read(teamRepositoryProvider).createTeamAtomic(
+            team: _logoUrl == null
+                ? draft
+                : draft.copyWith(
+                    teamProfileImageUrl: _logoUrl,
+                    logoUrl: _logoUrl,
+                  ),
+            ownerUid: uid,
+            ownerPlayer: ownerSeed,
+            uploadLogo: logoFile == null
+                ? null
+                : (teamId) => storage.uploadTeamLogoAsset(teamId, logoFile),
+          );
 
       if (!mounted) return;
       widget.onCreated?.call(_teamId);
@@ -277,7 +271,7 @@ class _CreateTeamFormState extends ConsumerState<CreateTeamForm> {
       );
     } catch (e) {
       if (mounted) {
-        _showValidationError('Could not create team: $e');
+        _showValidationError('Could not create team. ${friendlyCreateError(e)}');
       }
     } finally {
       if (mounted) setState(() => _saving = false);

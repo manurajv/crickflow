@@ -12,6 +12,7 @@ import '../../../domain/services/series/org_competition_access.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
+import '../../../shared/widgets/removed_content_view.dart';
 import 'tabs/org_leaderboard_tab.dart';
 import 'tabs/org_matches_tab.dart';
 import 'tabs/org_tournaments_tab.dart';
@@ -116,8 +117,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       ),
       data: (item) {
         if (item == null) {
-          return const Scaffold(
-            body: Center(child: Text('Organization not found')),
+          return Scaffold(
+            appBar: const CfChromeAppBar(title: Text('Organization')),
+            body: const RemovedContentView(kind: 'organization'),
           );
         }
 

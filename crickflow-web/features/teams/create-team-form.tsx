@@ -2,13 +2,14 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, runTransaction, serverTimestamp, writeBatch, arrayUnion } from "firebase/firestore";
+import { deleteObject, ref as storageRef } from "firebase/storage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/auth-provider";
-import { getDb } from "@/lib/firebase/client";
+import { getDb, getFirebaseStorage } from "@/lib/firebase/client";
 import { uploadTeamLogo, storageUploadHint } from "@/lib/media-upload";
 import { collections } from "@/config/site";
 import { PhotoPicker } from "@/components/shared/media";
@@ -51,7 +52,8 @@ export function CreateTeamForm({ onClose }: { onClose?: () => void }) {
         const last = (snap.data()?.lastNumber as number) ?? 0;
         const next = last + 1;
         tx.set(counterRef, { lastNumber: next, updatedAt: new Date().toISOString() }, { merge: true });
-        return `TM${String(next).padStart(6, "0")}`;
+        // Same format as the app (CfTeamIdFormat): TM + 5 digits.
+        return `TM${String(next).padStart(5, "0")}`;
       });
 
       const location: LocationData = {
@@ -62,15 +64,21 @@ export function CreateTeamForm({ onClose }: { onClose?: () => void }) {
         placeName: "",
       };
 
-      // Upload logo if provided
+      // All-or-nothing (same as the app): upload the logo first, then write
+      // the team and the creator's squad membership in ONE batch. If anything
+      // fails nothing is kept: no team doc, no roster change, no image.
       let logoUrl: string | undefined;
       if (logoFile) {
         try {
           logoUrl = await uploadTeamLogo(teamId, user.uid, logoFile);
         } catch (error) {
-          toast.warning(storageUploadHint(error));
+          throw new Error(`${storageUploadHint(error)} Nothing was saved.`);
         }
       }
+      // The creator's own player profile (doc id = uid), when they have one.
+      const ownPlayerRef = doc(db, collections.players, user.uid);
+      const ownPlayer = await getDoc(ownPlayerRef);
+      const ownPlayerId = ownPlayer.exists() ? user.uid : null;
 
       // Create team
       const teamData = {
@@ -79,12 +87,12 @@ export function CreateTeamForm({ onClose }: { onClose?: () => void }) {
         teamCode,
         logoUrl: logoUrl || null,
         teamProfileImageUrl: logoUrl || null,
-        captainId: profile.playerId || null,
+        captainId: ownPlayerId,
         viceCaptainId: null,
         coachName: null,
         contactNumber: null,
-        playerIds: profile.playerId ? [profile.playerId] : [],
-        memberCount: profile.playerId ? 1 : 0,
+        playerIds: ownPlayerId ? [ownPlayerId] : [],
+        memberCount: ownPlayerId ? 1 : 0,
         location,
         stats: {
           matchesPlayed: 0,
@@ -102,7 +110,29 @@ export function CreateTeamForm({ onClose }: { onClose?: () => void }) {
         createdAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, collections.teams, teamId), teamData);
+      try {
+        const batch = writeBatch(db);
+        batch.set(doc(db, collections.teams, teamId), teamData);
+        if (ownPlayerId) {
+          const now = new Date().toISOString();
+          batch.set(
+            ownPlayerRef,
+            { teamIds: arrayUnion(teamId), teamId, rosterChangeTeamId: teamId, teamJoinedAt: now, updatedAt: now },
+            { merge: true },
+          );
+        }
+        await batch.commit();
+      } catch (error) {
+        if (logoUrl) {
+          await deleteObject(storageRef(getFirebaseStorage(), logoUrl)).catch(() => undefined);
+        }
+        const msg = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          /permission/i.test(msg)
+            ? "You don't have permission to do this. Nothing was saved."
+            : `${msg} Nothing was saved.`,
+        );
+      }
 
       toast.success(`${name} created · Team ID ${teamCode}`);
       onClose?.();

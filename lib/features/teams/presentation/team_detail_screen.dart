@@ -9,6 +9,7 @@ import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
 import '../../../shared/providers/team_join_request_provider.dart';
+import '../../../shared/widgets/removed_content_view.dart';
 import 'utils/team_squad_utils.dart';
 import 'widgets/team_detail_banner.dart';
 import 'widgets/team_detail_bottom_bar.dart';
@@ -78,7 +79,7 @@ class TeamDetailScreen extends ConsumerWidget {
       body: teamAsync.when(
         data: (team) {
           if (team == null) {
-            return const Center(child: Text('Team not found'));
+            return const RemovedContentView(kind: 'team');
           }
 
           return playersAsync.when(

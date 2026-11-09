@@ -83,7 +83,7 @@ export function SeriesDetailPage() {
   }, [data]);
 
   if (!seriesId || isLoading) return <p>Loading…</p>;
-  if (!data || !access) return <EmptyState title="Organization not found" />;
+  if (!data || !access) return <EmptyState title="Organization not available" description="It may have been removed." />;
 
   const { series, clubs } = data;
   const playable = playableOrgTeams(clubs.filter((c) => c.status === "approved"));

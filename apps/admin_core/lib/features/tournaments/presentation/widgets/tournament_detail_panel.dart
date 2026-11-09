@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/extensions/context_extensions.dart';
 import '../../../../models/admin_permission.dart';
 import '../../../../models/admin_role.dart';
+import '../../../../services/admin_delete_service.dart';
+import '../../../../shared/widgets/permanent_delete_dialog.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/cf_loading_state.dart';
 import '../../../auth/providers/auth_providers.dart';
@@ -442,19 +444,23 @@ class _Actions extends ConsumerWidget {
                 ),
                 child: const Text('Cancel'),
               ),
-            if (!tournament.isSoftDeleted) ...[
-              OutlinedButton(
-                onPressed: () => confirmAction(
-                  title: 'Soft-delete tournament',
-                  message:
-                      'Soft-delete ${tournament.name}?\n\n'
-                      'History, teams, matches, and scorecards stay in Firestore '
-                      'and can be restored. No documents are permanently removed.',
-                  danger: true,
-                  run: (r) => controller.softDelete(tournament, reason: r),
+            OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
                 ),
-                child: const Text('Delete'),
+                onPressed: () async {
+                  final deleted = await showPermanentDeleteDialog(
+                    context: context,
+                    ref: ref,
+                    target: AdminDeleteTarget.tournament,
+                    id: tournament.id,
+                    name: tournament.name,
+                  );
+                  if (deleted) await controller.refresh();
+                },
+                child: const Text('Delete permanently'),
               ),
+            if (!tournament.isSoftDeleted) ...[
               OutlinedButton(
                 onPressed: () => confirmAction(
                   title: 'Archive tournament',

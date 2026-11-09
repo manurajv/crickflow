@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/utils/atomic_create.dart';
 import '../../core/utils/match_media_naming.dart';
 
 class StorageService {
@@ -33,6 +34,31 @@ class StorageService {
     final ref = _storage.ref().child('teams/$teamId/profile_$uid.jpg');
     await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
     return ref.getDownloadURL();
+  }
+
+  /// Team logo upload that can be undone when the create fails.
+  Future<UploadedAsset> uploadTeamLogoAsset(String teamId, File file) async {
+    final url = await uploadTeamProfileImage(teamId, file);
+    return UploadedAsset(url: url, delete: () => deleteByUrl(url));
+  }
+
+  /// Deletes an uploaded file by its download URL (create-failure cleanup).
+  Future<void> deleteByUrl(String url) async {
+    if (url.isEmpty) return;
+    await _storage.refFromURL(url).delete();
+  }
+
+  Future<UploadedAsset> uploadTournamentImageAsset(
+    String tournamentId,
+    File file, {
+    required String kind,
+  }) async {
+    final url = switch (kind) {
+      'banner' => await uploadTournamentBanner(tournamentId, file),
+      'logo' => await uploadTournamentLogo(tournamentId, file),
+      _ => await uploadTournamentThumbnail(tournamentId, file),
+    };
+    return UploadedAsset(url: url, delete: () => deleteByUrl(url));
   }
 
   Future<String> uploadTeamCoverImage(String teamId, File file) async {

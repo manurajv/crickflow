@@ -613,19 +613,38 @@ service cloud.firestore {
             .hasAny(lockedTeamFields()));
     }
 
-    /// Player docs: no client can move a player onto or off an org-locked team
-    /// (checked on the roster fields a client changes: rosterChangeTeamId, teamId).
+    /// Player docs: no client can move a player onto or off an org-locked team.
+    /// Membership is `teamIds`; `teamId` is only the legacy "primary team"
+    /// pointer. A player who is already on an org team can still create, join
+    /// or leave normal teams like any other user (the pointer may move as long
+    /// as the org team stays in `teamIds`). Org / staff roles only ADD powers.
+    function lockedTeamIdChange(changed) {
+      return changed.size() == 0
+        || (changed.size() == 1 && !teamIdOrgLocked(changed[0]))
+        || (changed.size() == 2
+          && !teamIdOrgLocked(changed[0])
+          && !teamIdOrgLocked(changed[1]));
+    }
+
     function playerRosterTargetUnlocked() {
       let neu = request.resource.data;
       let old = resource.data;
       let changeId = neu.get('rosterChangeTeamId', '');
       let newTeamId = neu.get('teamId', '');
       let oldTeamId = old.get('teamId', '');
+      let rawNewIds = neu.get('teamIds', []);
+      let rawOldIds = old.get('teamIds', []);
+      let newIds = rawNewIds is list ? rawNewIds : [];
+      let oldIds = rawOldIds is list ? rawOldIds : [];
       return (!teamIdOrgLocked(changeId)
           || (changeId == old.get('rosterChangeTeamId', '')
-            && neu.get('teamIds', []) == old.get('teamIds', [])))
-        && (newTeamId == null || newTeamId == oldTeamId || !teamIdOrgLocked(newTeamId))
-        && (oldTeamId == null || newTeamId == oldTeamId || !teamIdOrgLocked(oldTeamId));
+            && newIds == oldIds))
+        && lockedTeamIdChange(newIds.removeAll(oldIds))
+        && lockedTeamIdChange(oldIds.removeAll(newIds))
+        && (newTeamId == null || newTeamId == oldTeamId
+          || newTeamId in oldIds || !teamIdOrgLocked(newTeamId))
+        && (oldTeamId == null || newTeamId == oldTeamId
+          || oldTeamId in newIds || !teamIdOrgLocked(oldTeamId));
     }
 
     function playerCreateTeamUnlocked() {
@@ -633,7 +652,7 @@ service cloud.firestore {
       let tid = d.get('teamId', '');
       let tids = d.get('teamIds', []);
       return (tid == null || !teamIdOrgLocked(tid))
-        && (!(tids is list) || tids.size() == 0 || !teamIdOrgLocked(tids[0]));
+        && (!(tids is list) || lockedTeamIdChange(tids));
     }
 
     function authOwnsPlayerDoc(playerDocId) {

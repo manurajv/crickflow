@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/widgets/permission_gate.dart';
 import '../../../models/admin_permission.dart';
+import '../../../services/admin_delete_service.dart';
+import '../../../shared/widgets/permanent_delete_dialog.dart';
 import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/cf_card.dart';
 import '../../../shared/widgets/cf_dialog.dart';
@@ -491,6 +493,30 @@ class _OrgDetailDialogState extends ConsumerState<_OrgDetailDialog> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
+                      ),
+                    if (canModerate)
+                      IconButton(
+                        key: const Key('org_delete_permanently'),
+                        tooltip: 'Delete organization permanently',
+                        icon: Icon(
+                          Icons.delete_forever_outlined,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        onPressed: _busy
+                            ? null
+                            : () async {
+                                final navigator = Navigator.of(context);
+                                final deleted = await showPermanentDeleteDialog(
+                                  context: context,
+                                  ref: ref,
+                                  target: AdminDeleteTarget.organization,
+                                  id: widget.seriesId,
+                                  name: widget.title,
+                                );
+                                if (!deleted) return;
+                                ref.invalidate(managedSeriesListProvider);
+                                if (mounted) navigator.pop();
+                              },
                       ),
                     IconButton(
                       tooltip: 'Close',

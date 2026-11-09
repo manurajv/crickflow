@@ -171,3 +171,5 @@ exports.reviewClubJoinRequest = reviewClubJoinRequest;
 exports.addSeriesClubAdmin = addSeriesClubAdmin;
 exports.removeSeriesClubAdmin = removeSeriesClubAdmin;
 exports.syncSeriesApprovalMirrors = syncSeriesApprovalMirrors;
+// Admin panel: permanent cascading delete (team / tournament / org / match).
+exports.adminDeleteEntity = require('./admin/adminDeleteEntity').adminDeleteEntity;

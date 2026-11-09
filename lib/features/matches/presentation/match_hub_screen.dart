@@ -19,6 +19,7 @@ import '../../../shared/providers/match_live_provider.dart';
 import '../../../shared/providers/match_summary_provider.dart';
 import '../../../shared/providers/match_upcoming_provider.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/removed_content_view.dart';
 import '../../../shared/widgets/ads/cf_sticky_banner_ad.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../../shared/widgets/cf_marquee_text.dart';
@@ -59,7 +60,7 @@ class MatchHubScreen extends ConsumerWidget {
         if (match == null) {
           return Scaffold(
             appBar: const CfChromeAppBar(title: Text('Match')),
-            body: const Center(child: Text('Match not found')),
+            body: const RemovedContentView(kind: 'match'),
           );
         }
 

@@ -125,6 +125,10 @@ service firebase.storage {
           && under512Kb()
         )
       );
+      // Undo an upload when the team create fails (no orphan images).
+      allow delete: if isSignedIn()
+        && isOwnTeamImageFile(fileName)
+        && canWriteTeamImages(teamId);
     }
 
     match /players/{playerId}/{fileName} {
@@ -142,6 +146,9 @@ service firebase.storage {
         && fileName.matches('(banner|logo|thumbnail)_.*\\.jpg')
         && isImageJpeg()
         && under5Mb();
+      // Undo your own upload when the tournament create fails.
+      allow delete: if isSignedIn()
+        && fileName.matches('(banner|logo|thumbnail)_' + request.auth.uid + '\\.jpg');
     }
 
     match /community/{userId}/{fileName} {
@@ -189,6 +196,9 @@ service firebase.storage {
           (fileName.matches('(cover|doc)_.*') && under5Mb())
           || under2Mb()
         );
+      // Undo your own logo/cover upload when attaching it to the org fails.
+      allow delete: if isSignedIn()
+        && fileName.matches('(logo|cover)_' + request.auth.uid + '\\.jpg');
     }
   }
 }

@@ -11,7 +11,7 @@ const {
 } = require('@firebase/rules-unit-testing');
 const {
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where,
-  getDocs, writeBatch, addDoc,
+  getDocs, writeBatch, addDoc, arrayUnion, arrayRemove,
 } = require('firebase/firestore');
 
 let env;
@@ -434,4 +434,71 @@ test('org-locked teams: details/roster only via functions; stats still writable'
   await assertFails(setDoc(doc(p, 'teams/locked1/join_requests/lp1'), {
     userId: 'lp1', status: 'pending', playerId: 'lp1', playerName: 'P',
   }));
+});
+
+// t43: a user whose player is already on an org-locked team (org admin, super
+// admin, anyone) creates a NORMAL team exactly like a normal user.
+test('normal team create: org members / org admins / super admins are normal users outside the org', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'teams/orgT'), {
+      name: 'Org team', createdBy: 'orgadm', playerIds: ['orgadm'], captainId: 'orgadm',
+      orgLock: { seriesId: 's1', clubId: 'c1' },
+    });
+    for (const uid of ['orgadm', 'sa', 'u1']) {
+      await setDoc(doc(db, `players/${uid}`), uid === 'u1'
+        ? { name: uid, userId: uid }
+        : { name: uid, userId: uid, teamIds: ['orgT'], teamId: 'orgT', rosterChangeTeamId: 'orgT' });
+    }
+    await setDoc(doc(db, 'series_admins/s1_orgadm'), { seriesId: 's1', userId: 'orgadm', status: 'active' });
+  });
+  for (const uid of ['orgadm', 'sa', 'u1']) {
+    const db = as(uid);
+    const teamId = `normal_${uid}`;
+    // One atomic batch: team doc + owner on roster + player membership.
+    const b = writeBatch(db);
+    b.set(doc(db, `teams/${teamId}`), {
+      name: `Team ${uid}`, createdBy: uid, playerIds: [uid], memberCount: 1, captainId: uid,
+      teamCode: `TM9${uid.length}`, createdAt: NOW, updatedAt: NOW,
+    });
+    const isNew = uid === 'u1';
+    b.set(doc(db, `players/${uid}`), {
+      teamIds: arrayUnion(teamId), teamId, rosterChangeTeamId: teamId, updatedAt: NOW,
+    }, { merge: true });
+    await assertSucceeds(b.commit());
+    // Later owner edits (logo, QR, captain) still work.
+    await assertSucceeds(updateDoc(doc(db, `teams/${teamId}`), { qrUrl: 'q', logoUrl: 'l', teamProfileImageUrl: 'l', updatedAt: NOW }));
+    // The org team membership is untouched and still can't be dropped by the client.
+    if (!isNew) {
+      const snap = await getDoc(doc(db, `players/${uid}`));
+      if (!snap.data().teamIds.includes('orgT')) throw new Error('org team membership lost');
+      await assertFails(updateDoc(doc(db, `players/${uid}`), {
+        teamIds: [teamId], teamId, rosterChangeTeamId: teamId, updatedAt: NOW,
+      }));
+      // Only platform staff (special permission) may touch org team details.
+      if (uid === 'orgadm') await assertFails(updateDoc(doc(db, 'teams/orgT'), { name: 'renamed' }));
+    }
+    // Leaving the normal team again is fine.
+    await assertSucceeds(updateDoc(doc(db, `players/${uid}`), {
+      teamIds: arrayRemove(teamId), rosterChangeTeamId: teamId, updatedAt: NOW,
+    }));
+  }
+  // A normal team owner can add a player who also plays for an org team.
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'teams/normal_u1'), { name: 'U1 team', createdBy: 'u1', playerIds: ['u1'] });
+  });
+  {
+    const db = as('u1');
+    const b = writeBatch(db);
+    b.update(doc(db, 'players/orgadm'), {
+      teamIds: arrayUnion('normal_u1'), teamId: 'normal_u1', rosterChangeTeamId: 'normal_u1', updatedAt: NOW,
+    });
+    b.update(doc(db, 'teams/normal_u1'), { playerIds: ['u1', 'orgadm'], memberCount: 2, updatedAt: NOW });
+    await assertSucceeds(b.commit());
+  }
+  // Still blocked: joining an org team from the client, even with a normal team as cover.
+  await assertFails(updateDoc(doc(as('u1'), 'players/u1'), {
+    teamIds: arrayUnion('orgT', 'normal_u1'), rosterChangeTeamId: 'normal_u1', updatedAt: NOW,
+  }));
+  await assertFails(setDoc(doc(as('u1'), 'players/walkX'), { name: 'W', teamIds: ['free1', 'orgT'] }));
 });

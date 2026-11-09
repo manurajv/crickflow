@@ -73,7 +73,7 @@ export function MatchCentreLoader({
       />
     );
   }
-  if (missing) return <EmptyState title="Match not found" description="This match does not exist or has been removed" />;
+  if (missing) return <EmptyState title="This match was removed" description="It was deleted or does not exist." />;
   if (!match) return <p>Loading match…</p>;
   return (
     <MatchCentre

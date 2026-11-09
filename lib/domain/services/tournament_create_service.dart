@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
+import '../../core/utils/atomic_create.dart';
 import '../../data/models/community_post_model.dart';
 import '../../data/models/tournament/tournament_create_draft.dart';
 import '../../data/models/tournament/tournament_setup_meta.dart';
@@ -32,41 +34,46 @@ class TournamentCreateService {
     bool postOfficialsRequest = true,
     bool postTeamsRequest = true,
   }) async {
-    var bannerUrl = draft.bannerUrl;
-    var logoUrl = draft.logoUrl;
-    var thumbnailUrl = draft.thumbnailUrl;
-
-    if (draft.bannerLocalFile != null) {
-      bannerUrl = await _storage.uploadTournamentBanner(
-        draft.tournamentId,
-        draft.bannerLocalFile!,
-      );
-    }
-    if (draft.logoLocalFile != null) {
-      logoUrl = await _storage.uploadTournamentLogo(
-        draft.tournamentId,
-        draft.logoLocalFile!,
-      );
-    }
-    if (draft.thumbnailLocalFile != null) {
-      thumbnailUrl = await _storage.uploadTournamentThumbnail(
-        draft.tournamentId,
-        draft.thumbnailLocalFile!,
-      );
-    }
-    thumbnailUrl ??= bannerUrl;
-
-    final tournament = draft.toTournamentModel(
-      uid: uid,
-      bannerUrl: bannerUrl,
-      logoUrl: logoUrl,
-      thumbnailUrl: thumbnailUrl,
-      thumbnailAspect: draft.thumbnailAspect,
-    );
-
-    final id = await _tournaments.createTournament(
-      tournament: tournament,
-      ownerDisplayName: ownerDisplayName,
+    String? thumbnailUrl;
+    // All-or-nothing: images are uploaded first, then the tournament doc is
+    // written once. If that write fails the uploads are deleted again.
+    final id = await runAtomicCreate<String>(
+      uploads: {
+        if (draft.bannerLocalFile != null)
+          'banner': () => _storage.uploadTournamentImageAsset(
+                draft.tournamentId,
+                draft.bannerLocalFile!,
+                kind: 'banner',
+              ),
+        if (draft.logoLocalFile != null)
+          'logo': () => _storage.uploadTournamentImageAsset(
+                draft.tournamentId,
+                draft.logoLocalFile!,
+                kind: 'logo',
+              ),
+        if (draft.thumbnailLocalFile != null)
+          'thumbnail': () => _storage.uploadTournamentImageAsset(
+                draft.tournamentId,
+                draft.thumbnailLocalFile!,
+                kind: 'thumbnail',
+              ),
+      },
+      commit: (urls) {
+        final bannerUrl = urls['banner'] ?? draft.bannerUrl;
+        final logoUrl = urls['logo'] ?? draft.logoUrl;
+        thumbnailUrl = urls['thumbnail'] ?? draft.thumbnailUrl ?? bannerUrl;
+        final tournament = draft.toTournamentModel(
+          uid: uid,
+          bannerUrl: bannerUrl,
+          logoUrl: logoUrl,
+          thumbnailUrl: thumbnailUrl,
+          thumbnailAspect: draft.thumbnailAspect,
+        );
+        return _tournaments.createTournament(
+          tournament: tournament,
+          ownerDisplayName: ownerDisplayName,
+        );
+      },
     );
 
     final meta = draft.mergedSetup();
@@ -80,8 +87,10 @@ class TournamentCreateService {
       organizerUserId: uid,
     );
 
+    // Optional follow-up posts: the tournament is already complete, so a
+    // failed post must not report the whole create as failed.
     if (postOfficialsRequest && draft.needOfficials) {
-      await _community.createPost(
+      await _optionalPost(() => _community.createPost(
         authorId: uid,
         authorName: ownerDisplayName,
         authorRole: 'organizer',
@@ -95,11 +104,11 @@ class TournamentCreateService {
         location: location,
         tournamentId: id,
         tournamentSnapshot: snapshot,
-      );
+      ));
     }
 
     if (postTeamsRequest && draft.needMoreTeams) {
-      await _community.createPost(
+      await _optionalPost(() => _community.createPost(
         authorId: uid,
         authorName: ownerDisplayName,
         authorRole: 'organizer',
@@ -113,10 +122,18 @@ class TournamentCreateService {
         location: location,
         tournamentId: id,
         tournamentSnapshot: snapshot,
-      );
+      ));
     }
 
     return id;
+  }
+
+  Future<void> _optionalPost(Future<Object?> Function() post) async {
+    try {
+      await post();
+    } catch (e) {
+      debugPrint('tournament community post skipped: $e');
+    }
   }
 
   CommunityTournamentSnapshot _buildSnapshot({

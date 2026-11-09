@@ -207,15 +207,18 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
       }
 
       var mediaWarning = false;
+      final storage = ref.read(storageServiceProvider);
+      final uploaded = <String>[];
       try {
         String? logoUrl;
         String? coverUrl;
-        final storage = ref.read(storageServiceProvider);
         if (_logoFile != null) {
           logoUrl = await storage.uploadSeriesLogo(id, _logoFile!);
+          uploaded.add(logoUrl);
         }
         if (_coverFile != null) {
           coverUrl = await storage.uploadSeriesCover(id, _coverFile!);
+          uploaded.add(coverUrl);
         }
         if (logoUrl != null || coverUrl != null) {
           await FirebaseFirestore.instance
@@ -228,7 +231,14 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
               });
         }
       } catch (_) {
-        // Org already exists — don't fail create because branding upload failed.
+        // The org itself was created atomically by the server; only branding
+        // failed. Remove any image that never got attached so nothing is left
+        // half-saved, and tell the admin to add it from settings.
+        for (final url in uploaded) {
+          try {
+            await storage.deleteByUrl(url);
+          } catch (_) {}
+        }
         mediaWarning = true;
       }
 
