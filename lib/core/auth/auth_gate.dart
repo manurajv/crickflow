@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/models/user_model.dart';
 import '../../shared/providers/providers.dart';
+import 'sign_in_required_sheet.dart';
 
-/// Shown on the login screen and the login-required dialog when a guest
-/// tries an account-only action. Keep this exact string — product copy.
+/// Shown on the login screen banner and the shared sign-in sheet body.
 const String kSignInToUseThisMessage = 'Sign in to use this';
+
+/// Friendly sheet/dialog body when a slightly longer line fits better.
+const String kPleaseSignInToContinue = 'Please sign in to continue';
 
 /// Runs after successful login when the user tapped a gated action.
 typedef PendingAuthCallback = Future<void> Function();
@@ -29,7 +32,6 @@ class PendingAuthAction {
     message = prompt ?? kSignInToUseThisMessage;
   }
 
-  /// True when the user was sent to login from a gated action.
   static bool get hasPending =>
       _callback != null || (returnPath != null && returnPath!.isNotEmpty);
 
@@ -60,7 +62,6 @@ class PendingAuthAction {
   }
 }
 
-/// Whether the signed-in user may create or modify cricket data.
 bool canPerformWriteActions(UserModel? profile) {
   if (profile == null) return false;
   return !profile.needsPlayerOnboarding;
@@ -79,35 +80,14 @@ Future<bool> _ensureOnboardingComplete(
   return false;
 }
 
+/// Opens the shared professional sign-in sheet. Returns true if the user
+/// chose Sign in.
 Future<bool> showLoginRequiredDialog(
   BuildContext context, {
   String message = kSignInToUseThisMessage,
-}) async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Sign in required'),
-      content: Text(message),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Sign in'),
-        ),
-      ],
-    ),
-  );
-  return result == true;
-}
+}) =>
+    showSignInRequiredSheet(context, message: message);
 
-/// Prompts login when needed; runs [action] when authenticated and onboarded.
-///
-/// Prefer this (or [requireLogin] / [requireAuthVoid]) over a bare
-/// `context.push('/login')` so guests always see [kSignInToUseThisMessage]
-/// and can return to where they were.
 Future<T?> requireAuth<T>({
   required BuildContext context,
   required WidgetRef ref,
@@ -136,7 +116,7 @@ Future<T?> requireAuth<T>({
   }
 
   if (showDialog) {
-    final login = await showLoginRequiredDialog(context, message: message);
+    final login = await showSignInRequiredSheet(context, message: message);
     if (!login || !context.mounted) return null;
   } else if (!context.mounted) {
     return null;
@@ -154,7 +134,6 @@ Future<T?> requireAuth<T>({
   return null;
 }
 
-/// Same as [requireAuth] but for void actions (navigation, dialogs).
 Future<void> requireAuthVoid({
   required BuildContext context,
   required WidgetRef ref,
@@ -175,14 +154,13 @@ Future<void> requireAuthVoid({
   );
 }
 
-/// Alias used at call sites: gate an action behind sign-in with the standard
-/// "Sign in to use this" message.
 Future<void> requireLogin({
   required BuildContext context,
   required WidgetRef ref,
   required Future<void> Function() action,
   String? returnPath,
   bool showDialog = true,
+  String message = kSignInToUseThisMessage,
 }) =>
     requireAuthVoid(
       context: context,
@@ -190,11 +168,9 @@ Future<void> requireLogin({
       action: action,
       returnPath: returnPath,
       showDialog: showDialog,
+      message: message,
     );
 
-/// Opens the login screen for a guest without a dialog (e.g. a Sign-in button
-/// that already conveys intent). Still shows [kSignInToUseThisMessage] on the
-/// login screen and restores [returnPath] after success.
 Future<void> openLoginForGuest({
   required BuildContext context,
   String? returnPath,

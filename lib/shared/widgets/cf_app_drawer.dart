@@ -139,7 +139,8 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Associations',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/associations');
+                      // go() leaves the shell cleanly; push can confuse redirects.
+                      context.go('/associations');
                     },
                   ),
                   _DrawerTile(
@@ -147,7 +148,8 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Clubs',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/clubs');
+                      // go() leaves the shell cleanly; push can confuse redirects.
+                      context.go('/clubs');
                     },
                   ),
                   _DrawerTile(
@@ -155,7 +157,8 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Series',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/series');
+                      // go() leaves the shell cleanly; push can confuse redirects.
+                      context.go('/series');
                     },
                   ),
                   const _DrawerSectionHeader('Explore'),
@@ -182,16 +185,7 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Find cricketers',
                     onTap: () {
                       Navigator.pop(context);
-                      requireAuthVoid(
-                        context: context,
-                        ref: ref,
-                        returnPath: '/find-cricketers',
-                        action: () async {
-                          if (context.mounted) {
-                            context.push('/find-cricketers');
-                          }
-                        },
-                      );
+                      context.push('/find-cricketers');
                     },
                   ),
                   const _DrawerSectionHeader('Account'),

@@ -29,7 +29,22 @@ class GuestRoutes {
     '/clubs',
   };
 
-  static bool isPublicRoute(String path) {
+  /// Strip query/fragment and trailing slash (except `/`).
+  static String normalize(String path) {
+    var p = path.trim();
+    final q = p.indexOf('?');
+    if (q >= 0) p = p.substring(0, q);
+    final h = p.indexOf('#');
+    if (h >= 0) p = p.substring(0, h);
+    if (p.length > 1 && p.endsWith('/')) {
+      p = p.substring(0, p.length - 1);
+    }
+    if (!p.startsWith('/')) p = '/$p';
+    return p;
+  }
+
+  static bool isPublicRoute(String rawPath) {
+    final path = normalize(rawPath);
     if (path == '/login' || path == '/splash' || path == '/onboarding') {
       return true;
     }
@@ -51,21 +66,13 @@ class GuestRoutes {
     return false;
   }
 
-  /// Org browse: list, detail, clubs, rankings. Write routes are protected.
+  /// Org browse: list, detail, and any non-protected /series/:id child.
+  /// Write routes are already excluded by [isProtectedRoute] earlier.
   static bool _isPublicSeriesPath(String path) {
-    if (path == '/series' ||
-        path == '/associations' ||
-        path == '/clubs') {
+    if (path == '/series' || path == '/associations' || path == '/clubs') {
       return true;
     }
-    // /series/:id and read-only children (not create / settings / propose…)
-    final seriesDetail = RegExp(r'^/series/[^/]+$');
-    if (seriesDetail.hasMatch(path)) return true;
-    final clubDetail = RegExp(r'^/series/[^/]+/clubs/[^/]+$');
-    if (clubDetail.hasMatch(path)) return true;
-    if (RegExp(r'^/series/[^/]+/rankings/?$').hasMatch(path)) return true;
-    if (RegExp(r'^/series/[^/]+/fixtures/?$').hasMatch(path)) return true;
-    return false;
+    return RegExp(r'^/series/[^/]+(?:/.*)?$').hasMatch(path);
   }
 
   static bool _isTournamentDashboardPath(String path) {
@@ -78,7 +85,8 @@ class GuestRoutes {
     return RegExp(r'^/tournaments/[^/]+/join').hasMatch(path);
   }
 
-  static bool isProtectedRoute(String path) {
+  static bool isProtectedRoute(String rawPath) {
+    final path = normalize(rawPath);
     if (path == '/match/create' ||
         path.startsWith('/match/create/') ||
         path == '/match/start' ||
@@ -101,7 +109,6 @@ class GuestRoutes {
     return _isProtectedMatchPath(path);
   }
 
-  /// Org write / account actions — guests see the login screen.
   static bool _isProtectedSeriesPath(String path) {
     if (path == '/series/create' || path.startsWith('/series/create')) {
       return true;

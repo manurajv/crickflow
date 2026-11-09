@@ -38,14 +38,15 @@ Examples — all use the shared gate (`requireLogin` / `requireAuth` /
 2. **Router redirect** — a guest hitting a protected path is sent to `/login`
    after `PendingAuthAction.register` so the banner and return path work.
 3. **`requireLogin` / `requireAuth`** (`lib/core/auth/auth_gate.dart`) — for
-   in-screen buttons. Dialog + login screen show **Sign in to use this**. After
-   a successful login, the pending action / return path runs.
+   in-screen buttons. Shows the shared **Sign in required** bottom sheet
+   (`showSignInRequiredSheet`) with body **Sign in to use this**, then the
+   login screen. After a successful login, the pending action / return path runs.
 4. **Login screen** — banner with key `sign_in_to_use_this_banner` when a gated
    action is pending.
 
 Web: `crickflow-web/lib/auth/guest-access.ts` (`SIGN_IN_TO_USE_THIS`, `loginUrl`).
 Org list/detail are viewable while signed out; create/join CTAs send guests to
-`/login?next=…&msg=Login%20to%20use%20this`.
+`/login?next=…&msg=Sign%20in%20to%20use%20this`.
 
 ## Tests
 

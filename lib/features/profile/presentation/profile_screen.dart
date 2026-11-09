@@ -30,7 +30,7 @@ class ProfileScreen extends ConsumerWidget {
                 Icon(Icons.person_outline, size: 64, color: cf.textMuted),
                 const SizedBox(height: AppDimens.spaceMd),
                 Text(
-                  'Sign in to manage your profile',
+                  'Sign in to use this',
                   style: Theme.of(context).textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -45,7 +45,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppDimens.spaceXl),
                 CfButton(
-                  label: 'Login',
+                  label: 'Sign in',
                   isGold: true,
                   onPressed: () => openLoginForGuest(context: context, returnPath: '/profile'),
                 ),

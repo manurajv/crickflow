@@ -264,7 +264,12 @@ class CommunityPostCard extends ConsumerWidget {
             ? '${post.title}\n$url'
             : '${post.body}\n$url');
     await Share.share(text.trim());
-    await ref.read(communityRepositoryProvider).incrementShareCount(post.id);
+    // Count is a write — skip quietly for guests (OS share still works).
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null) return;
+    try {
+      await ref.read(communityRepositoryProvider).incrementShareCount(post.id);
+    } catch (_) {}
   }
 }
 

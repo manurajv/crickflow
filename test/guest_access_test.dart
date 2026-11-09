@@ -54,6 +54,21 @@ void main() {
     });
   });
 
+
+  group('GuestRoutes.normalize', () {
+    test('strips query, fragment, trailing slash', () {
+      expect(GuestRoutes.normalize('/associations/'), '/associations');
+      expect(GuestRoutes.normalize('/series/s1?tab=matches'), '/series/s1');
+      expect(GuestRoutes.normalize('/clubs#x'), '/clubs');
+    });
+  });
+
+  group('Sign-in copy', () {
+    test('shared constants use Sign in wording', () {
+      expect(kSignInToUseThisMessage, 'Sign in to use this');
+      expect(kPleaseSignInToContinue, 'Please sign in to continue');
+    });
+  });
   group('PendingAuthAction', () {
     tearDown(PendingAuthAction.clear);
 

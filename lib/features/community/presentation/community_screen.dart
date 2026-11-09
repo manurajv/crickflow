@@ -450,8 +450,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               ref: ref,
               action: () async {
                 if (context.mounted) {
-                  await showCreateCommunityPostSheet(
-                    context,
+                  await showCreateCommunityPostSheet(context, ref: ref,
                     initialCategory: filter.category,
                   );
                 }
@@ -608,7 +607,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 }
                 if (feed.items.isEmpty && _focusPost == null) {
                   return _EmptyFeed(
-                    onPost: () => showCreateCommunityPostSheet(context),
+                    onPost: () => requireAuthVoid(
+                      context: context,
+                      ref: ref,
+                      action: () async {
+                        if (context.mounted) {
+                          await showCreateCommunityPostSheet(context, ref: ref);
+                        }
+                      },
+                    ),
                     filtered: !filter.isDefault,
                     savedOnly: filter.savedOnly,
                   );
@@ -655,8 +662,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         onReport: () =>
                             _reportPost(post.id, post.authorId),
                         onEdit: userId == post.authorId
-                            ? () => showCreateCommunityPostSheet(
-                                  context,
+                            ? () => showCreateCommunityPostSheet(context, ref: ref,
                                   existingPost: post,
                                 )
                             : null,

@@ -173,7 +173,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       final isLoggedIn = authState.valueOrNull != null;
-      final path = state.matchedLocation;
+      // Prefer uri.path — matchedLocation can lag or omit top-level pushes
+      // like /associations when leaving the shell.
+      final path = GuestRoutes.normalize(
+        state.uri.path.isNotEmpty ? state.uri.path : state.matchedLocation,
+      );
       final isAuthRoute = path == '/login';
       final isSplash = path == '/splash';
       final isOnboarding = path == '/onboarding';
@@ -185,14 +189,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (GuestRoutes.isPublicRoute(path)) return null;
         // Score, stream, create match, org writes, and other account actions.
         if (GuestRoutes.isProtectedRoute(path)) {
-          // Remember where they were going so login can resume + show the
-          // standard "Sign in to use this" banner.
-          final full = state.uri.toString();
+          final fullPath = state.uri.path.isNotEmpty
+              ? '${state.uri.path}${state.uri.hasQuery ? '?${state.uri.query}' : ''}'
+              : path;
           PendingAuthAction.register(
-            path: full.startsWith('/') ? full : path,
+            path: fullPath.startsWith('/') ? fullPath : path,
             prompt: kSignInToUseThisMessage,
           );
           return '/login';
+        }
+        // Unknown non-public path — send guests home (not login). Org URLs
+        // that somehow fail classification still must not hit an auth wall.
+        if (path == '/associations' ||
+            path == '/clubs' ||
+            path == '/series' ||
+            path.startsWith('/series/')) {
+          return null;
         }
         return '/home';
       }
