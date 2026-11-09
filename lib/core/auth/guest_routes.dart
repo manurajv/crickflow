@@ -122,7 +122,6 @@ class GuestRoutes {
       '/admins',
       '/audit',
       '/approvals',
-      '/dashboard',
       '/announcements',
       '/clubs/create',
     ];

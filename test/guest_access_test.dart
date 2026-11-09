@@ -14,6 +14,7 @@ void main() {
         '/series/s1/clubs/c1',
         '/series/s1/rankings',
         '/series/s1/fixtures',
+        '/series/s1/dashboard',
       ]) {
         expect(GuestRoutes.isPublicRoute(path), isTrue, reason: path);
         expect(GuestRoutes.isProtectedRoute(path), isFalse, reason: path);
@@ -32,7 +33,6 @@ void main() {
         '/series/s1/admins',
         '/series/s1/audit',
         '/series/s1/approvals',
-        '/series/s1/dashboard',
         '/series/s1/announcements',
         '/series/s1/clubs/create',
         '/series/s1/clubs/c1/add-player',
@@ -76,11 +76,21 @@ void main() {
 
     test('catalog has no Login / log in wording', () {
       for (final entry in SignInPrompt.byKey.entries) {
-        expect(entry.value.message.toLowerCase().contains('log in'), isFalse,
-            reason: entry.key);
-        expect(entry.value.message.contains('Login'), isFalse, reason: entry.key);
-        expect(entry.value.message.startsWith('Sign in'), isTrue,
-            reason: entry.key);
+        expect(
+          entry.value.message.toLowerCase().contains('log in'),
+          isFalse,
+          reason: entry.key,
+        );
+        expect(
+          entry.value.message.contains('Login'),
+          isFalse,
+          reason: entry.key,
+        );
+        expect(
+          entry.value.message.startsWith('Sign in'),
+          isTrue,
+          reason: entry.key,
+        );
       }
     });
 
@@ -91,7 +101,10 @@ void main() {
     });
 
     test('forPath maps protected routes', () {
-      expect(SignInPrompt.forPath('/notifications'), SignInPrompt.notifications);
+      expect(
+        SignInPrompt.forPath('/notifications'),
+        SignInPrompt.notifications,
+      );
       expect(SignInPrompt.forPath('/match/start'), SignInPrompt.startMatch);
       expect(SignInPrompt.forPath('/match/m1/score'), SignInPrompt.scoreMatch);
       expect(

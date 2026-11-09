@@ -194,11 +194,31 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
                   ? items
                   : items.where((i) => i.targetType == _filter).toList();
 
-              if (items.isEmpty) {
-                return const SeriesEmptyState(
-                  icon: Icons.task_alt,
-                  title: 'All caught up',
-                  message: 'There are no pending approvals.',
+              Future<void> refresh() async {
+                ref.invalidate(pendingSeriesApprovalsProvider(seriesId));
+                await ref.read(pendingSeriesApprovalsProvider(seriesId).future);
+              }
+
+              Widget emptyBody({
+                required IconData icon,
+                required String title,
+                required String message,
+              }) {
+                return RefreshIndicator(
+                  onRefresh: refresh,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: SeriesEmptyState(
+                          icon: icon,
+                          title: title,
+                          message: message,
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               }
 
@@ -237,39 +257,49 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
                       ),
                     ),
                   Expanded(
-                    child: filtered.isEmpty
-                        ? const SeriesEmptyState(
+                    child: items.isEmpty
+                        ? emptyBody(
+                            icon: Icons.task_alt,
+                            title: 'All caught up',
+                            message: 'There are no pending approvals.',
+                          )
+                        : filtered.isEmpty
+                        ? emptyBody(
                             icon: Icons.filter_alt_off_outlined,
                             title: 'No requests in this filter',
                             message: 'Try another type.',
                           )
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(
-                              AppDimens.spaceMd,
-                              AppDimens.spaceSm,
-                              AppDimens.spaceMd,
-                              AppDimens.spaceXl,
+                        : RefreshIndicator(
+                            onRefresh: refresh,
+                            child: ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(
+                                AppDimens.spaceMd,
+                                AppDimens.spaceSm,
+                                AppDimens.spaceMd,
+                                AppDimens.spaceXl,
+                              ),
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: AppDimens.spaceSm),
+                              itemBuilder: (_, i) {
+                                final item = filtered[i];
+                                return _ApprovalCard(
+                                  item: item,
+                                  role: role,
+                                  busy: _busyIds.contains(item.id),
+                                  onApprove: () => _review(
+                                    item,
+                                    SeriesApprovalStatus.approved,
+                                  ),
+                                  onReject: () => _review(
+                                    item,
+                                    SeriesApprovalStatus.rejected,
+                                  ),
+                                  onViewDetails: () => _viewIdentity(item),
+                                );
+                              },
                             ),
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: AppDimens.spaceSm),
-                            itemBuilder: (_, i) {
-                              final item = filtered[i];
-                              return _ApprovalCard(
-                                item: item,
-                                role: role,
-                                busy: _busyIds.contains(item.id),
-                                onApprove: () => _review(
-                                  item,
-                                  SeriesApprovalStatus.approved,
-                                ),
-                                onReject: () => _review(
-                                  item,
-                                  SeriesApprovalStatus.rejected,
-                                ),
-                                onViewDetails: () => _viewIdentity(item),
-                              );
-                            },
                           ),
                   ),
                 ],

@@ -15,7 +15,9 @@ import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'tabs/org_leaderboard_tab.dart';
 import 'tabs/org_matches_tab.dart';
 import 'tabs/org_tournaments_tab.dart';
+import 'series_announcements_screen.dart';
 import 'widgets/series_status_banner.dart';
+import 'widgets/series_user_name.dart';
 import 'widgets/org_welcome_sheet.dart';
 import 'widgets/series_ui.dart';
 
@@ -264,7 +266,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     _welcomeChecked = true;
     final uid = ref.read(authStateProvider).valueOrNull?.uid ?? '';
     if (uid.isEmpty) return;
-    final force = GoRouterState.of(context).uri.queryParameters['welcome'] == '1';
+    final force =
+        GoRouterState.of(context).uri.queryParameters['welcome'] == '1';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       maybeShowOrgWelcome(
@@ -503,14 +506,26 @@ class _OrgHeaderBanner extends StatelessWidget {
   }
 }
 
-class _Overview extends StatelessWidget {
+class _Overview extends ConsumerWidget {
   const _Overview({required this.series, required this.canAdmin});
   final SeriesModel series;
   final bool canAdmin;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
+    final pending = canAdmin
+        ? (ref.watch(pendingSeriesApprovalsProvider(series.id)).valueOrNull ??
+              const <SeriesApprovalModel>[])
+        : const <SeriesApprovalModel>[];
+    final announcements =
+        ref.watch(seriesAnnouncementsProvider(series.id)).valueOrNull ??
+        const <SeriesAnnouncementModel>[];
+    final audit = canAdmin
+        ? (ref.watch(seriesAuditLogsProvider(series.id)).valueOrNull ??
+              const <SeriesAuditLogModel>[])
+        : const <SeriesAuditLogModel>[];
+
     return ListView(
       padding: const EdgeInsets.all(AppDimens.spaceMd),
       children: [
@@ -524,11 +539,26 @@ class _Overview extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            leading: Icon(Icons.space_dashboard_outlined, color: cf.accent),
-            title: const Text('Org dashboard'),
-            subtitle: const Text('Approvals, admins, announcements, activity'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/series/${series.id}/dashboard'),
+            leading: Icon(Icons.fact_check_outlined, color: cf.accent),
+            title: const Text('Pending approvals'),
+            subtitle: Text(
+              pending.isEmpty
+                  ? 'All caught up'
+                  : '${pending.length} waiting for review',
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (pending.isNotEmpty)
+                  Badge(
+                    label: Text('${pending.length}'),
+                    backgroundColor: cf.accent,
+                    textColor: cf.onAccent,
+                  ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            onTap: () => context.push('/series/${series.id}/approvals'),
           ),
           const SizedBox(height: AppDimens.spaceMd),
         ],
@@ -555,6 +585,36 @@ class _Overview extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppDimens.spaceLg),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Latest announcements',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            TextButton(
+              onPressed: () =>
+                  context.push('/series/${series.id}/announcements'),
+              child: const Text('See all'),
+            ),
+          ],
+        ),
+        if (announcements.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+            child: Text(
+              'No announcements yet',
+              style: TextStyle(color: cf.textSecondary),
+            ),
+          )
+        else ...[
+          for (final a in announcements.take(2)) ...[
+            SeriesAnnouncementCard(announcement: a),
+            const SizedBox(height: AppDimens.spaceSm),
+          ],
+          const SizedBox(height: AppDimens.spaceSm),
+        ],
         ListTile(
           tileColor: cf.surface,
           shape: RoundedRectangleBorder(
@@ -566,30 +626,7 @@ class _Overview extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/series/${series.id}/my-requests'),
         ),
-        const SizedBox(height: AppDimens.spaceSm),
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          leading: Icon(Icons.campaign_outlined, color: cf.accent),
-          title: const Text('Announcements'),
-          subtitle: const Text('News from the organizers'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/${series.id}/announcements'),
-        ),
         if (canAdmin) ...[
-          const SizedBox(height: AppDimens.spaceSm),
-          ListTile(
-            tileColor: cf.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            leading: Icon(Icons.fact_check_outlined, color: cf.accent),
-            title: const Text('Pending approvals'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/series/${series.id}/approvals'),
-          ),
           const SizedBox(height: AppDimens.spaceSm),
           ListTile(
             tileColor: cf.surface,
@@ -604,17 +641,46 @@ class _Overview extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/series/${series.id}/admins'),
           ),
-          const SizedBox(height: AppDimens.spaceSm),
-          ListTile(
-            tileColor: cf.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            leading: Icon(Icons.history, color: cf.accent),
-            title: const Text('Audit log'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/series/${series.id}/audit'),
+          const SizedBox(height: AppDimens.spaceMd),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Recent activity',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/series/${series.id}/audit'),
+                child: const Text('See all'),
+              ),
+            ],
           ),
+          if (audit.isEmpty)
+            Text('No activity yet', style: TextStyle(color: cf.textSecondary))
+          else
+            for (final log in audit.take(5))
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.receipt_long_outlined, color: cf.accent),
+                title: Text(seriesAuditActionLabel(log.action)),
+                subtitle: Row(
+                  children: [
+                    Flexible(
+                      child: SeriesUserName(
+                        log.actorUserId,
+                        fallback: 'Someone',
+                        style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      ' · ${seriesShortDate(log.timestamp)}',
+                      style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
         ],
       ],
     );

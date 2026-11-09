@@ -20,14 +20,19 @@ class SeriesEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.all(AppDimens.spaceXl),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 52, color: cf.accent),
           const SizedBox(height: AppDimens.spaceMd),
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           if (message != null) ...[
             const SizedBox(height: AppDimens.spaceSm),
             Text(
@@ -42,6 +47,22 @@ class SeriesEmptyState extends StatelessWidget {
           ],
         ],
       ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bounded =
+            constraints.hasBoundedHeight &&
+            constraints.maxHeight.isFinite &&
+            constraints.maxHeight > 0;
+        if (!bounded) {
+          return Center(child: content);
+        }
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: Center(child: content),
+        );
+      },
     );
   }
 }
@@ -62,7 +83,13 @@ class SeriesStat extends StatelessWidget {
           border: Border.all(color: cf.border),
           borderRadius: BorderRadius.circular(12),
           boxShadow: cf.isLight
-              ? [BoxShadow(color: cf.cardShadow, blurRadius: 8, offset: const Offset(0, 2))]
+              ? [
+                  BoxShadow(
+                    color: cf.cardShadow,
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
               : null,
         ),
         child: Column(
@@ -83,7 +110,10 @@ class SeriesStat extends StatelessWidget {
 }
 
 /// Shared search field styling for Orgs screens.
-InputDecoration orgSearchDecoration(BuildContext context, {String hint = 'Quick search'}) {
+InputDecoration orgSearchDecoration(
+  BuildContext context, {
+  String hint = 'Quick search',
+}) {
   final cf = context.cf;
   return InputDecoration(
     hintText: hint,

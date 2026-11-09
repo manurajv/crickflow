@@ -263,7 +263,6 @@ class SignInPrompt {
         path.endsWith('/admins') ||
         path.endsWith('/audit') ||
         path.endsWith('/approvals') ||
-        path.endsWith('/dashboard') ||
         path.endsWith('/announcements')) {
       return orgManage;
     }

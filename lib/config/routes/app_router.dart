@@ -73,7 +73,6 @@ import '../../features/series/presentation/series_create_screen.dart';
 import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_list_screen.dart';
 import '../../features/series/presentation/series_my_requests_screen.dart';
-import '../../features/series/presentation/series_org_dashboard_screen.dart';
 import '../../features/series/presentation/series_propose_match_screen.dart';
 import '../../features/series/presentation/series_propose_tournament_screen.dart';
 import '../../features/series/presentation/series_rankings_screen.dart';
@@ -684,10 +683,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
               GoRoute(
+                // Former admin-only dashboard; content lives on Overview.
                 path: 'dashboard',
-                builder: (_, state) => SeriesOrgDashboardScreen(
-                  seriesId: state.pathParameters['seriesId']!,
-                ),
+                redirect: (_, state) =>
+                    '/series/${state.pathParameters['seriesId']}?tab=overview',
               ),
               GoRoute(
                 path: 'announcements',
