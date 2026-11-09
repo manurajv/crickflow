@@ -1,754 +1,134 @@
 "use client";
 
 import { AppLink as Link } from "@/components/shared/app-link";
-import Image from "next/image";
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { FormEvent, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/states";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
-  useAddSeriesAdmin,
   useCreateSeriesClub,
   useJoinClub,
   useProposeSeriesMatch,
   useProposeSeriesTournament,
   useMyLinkableTournaments,
-  useReviewSeriesApproval,
-  useSeriesAdmins,
+  useSeriesAnnouncements,
+  useSeriesAuditLogs,
   useSeriesCompetitions,
   useSeriesDetail,
-  useSeriesRegistrationIdentity,
-  useUpdateSeriesSettings,
-  useUpdateSeriesCompetitionPolicy,
 } from "@/features/series/hooks";
+import { seriesAuditActionLabel } from "@/features/series/repository";
 import { usePathParam } from "@/lib/use-path-param";
-import { uploadSeriesRegistrationImage } from "@/lib/media-upload";
 import { OrgLeaderboard } from "@/features/series/org-leaderboard";
 import { SIGN_IN_PROMPTS, loginUrl } from "@/lib/auth/guest-access";
 import {
-  canStartAnything,
   matchTeamsError,
   orgActionLabel,
   orgCompetitionPolicyFromMap,
-  orgCompetitionPolicyToMap,
-  proposeAccessLabel,
   orgStartMode,
   playableOrgTeams,
 } from "@/lib/cricket/org-competition-access";
-
-type Tab = "overview" | "players" | "approvals" | "clubs" | "fixtures" | "admins";
+import {
+  OrgDetailHeader,
+  OrgDetailTabs,
+  parseOrgTab,
+  type OrgTabSlug,
+} from "@/features/series/components/org-detail-shell";
+import { shouldShowOrgWelcome, markOrgWelcomeSeen } from "@/features/series/org-welcome";
 
 export function SeriesDetailPage() {
   const seriesId = usePathParam("seriesId", 1);
   const router = useRouter();
+  const search = useSearchParams();
   const { user } = useAuth();
   const { data, isLoading } = useSeriesDetail(seriesId, user?.uid);
   const competitions = useSeriesCompetitions(seriesId);
-  const admins = useSeriesAdmins(seriesId);
-  const review = useReviewSeriesApproval(seriesId);
+  const announcements = useSeriesAnnouncements(seriesId);
+  const audit = useSeriesAuditLogs(seriesId, Boolean(data?.canManage));
   const createClub = useCreateSeriesClub(seriesId);
-  const updateSettings = useUpdateSeriesSettings(seriesId);
-  const updatePolicy = useUpdateSeriesCompetitionPolicy(seriesId);
   const joinClub = useJoinClub(seriesId);
   const proposeMatch = useProposeSeriesMatch(seriesId);
   const proposeTournament = useProposeSeriesTournament(seriesId);
   const linkable = useMyLinkableTournaments(user?.uid);
-  const addAdmin = useAddSeriesAdmin(seriesId);
-  const identity = useSeriesRegistrationIdentity(seriesId);
 
-  const [clubName, setClubName] = useState("");
-  const [clubDesc, setClubDesc] = useState("");
-  const [joinClubId, setJoinClubId] = useState("");
-  const [joinName, setJoinName] = useState("");
-  const [joinPlayerId, setJoinPlayerId] = useState("");
-  const [joinPhone, setJoinPhone] = useState("");
-  const [joinAddress, setJoinAddress] = useState("");
-  const [joinNationalId, setJoinNationalId] = useState("");
-  const [joinPassport, setJoinPassport] = useState("");
-  const [joinDob, setJoinDob] = useState("");
-  const [joinProfilePhoto, setJoinProfilePhoto] = useState<File | null>(null);
-  const [joinNationalIdDoc, setJoinNationalIdDoc] = useState<File | null>(null);
-  const [joinPassportDoc, setJoinPassportDoc] = useState<File | null>(null);
-  const [uploadingRegDoc, setUploadingRegDoc] = useState(false);
   const [clubAId, setClubAId] = useState("");
   const [clubBId, setClubBId] = useState("");
   const [tournamentId, setTournamentId] = useState("");
-  const [adminUserId, setAdminUserId] = useState("");
-  const [maxSquad, setMaxSquad] = useState(20);
-  const [draftPolicy, setDraftPolicy] = useState<ReturnType<typeof orgCompetitionPolicyFromMap> | null>(null);
-  const [identityText, setIdentityText] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [clubName, setClubName] = useState("");
+  const [joinClubId, setJoinClubId] = useState("");
+  const [joinName, setJoinName] = useState("");
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
+
+  const activeTab: OrgTabSlug = parseOrgTab(search.get("tab"));
+
+  const uid = user?.uid;
+  const canManage = Boolean(data?.canManage);
+  const welcomeFlag = search.get("welcome") === "1";
+  const welcomeOpen =
+    !welcomeDismissed &&
+    canManage &&
+    Boolean(uid && seriesId) &&
+    shouldShowOrgWelcome(uid || "", seriesId || "", welcomeFlag);
+
+  const access = useMemo(() => {
+    if (!data) return null;
+    const policy = orgCompetitionPolicyFromMap(data.series.competitionPolicy);
+    return {
+      role: data.myRole,
+      policy,
+      myTeamIds: data.myTeamIds,
+    };
+  }, [data]);
 
   if (!seriesId || isLoading) return <p>Loading…</p>;
-  if (!data) return <EmptyState title="Series not found" />;
+  if (!data || !access) return <EmptyState title="Organization not found" />;
+
   const { series, clubs } = data;
-  const approvedClubs = clubs.filter((c) => c.status === "approved");
-  const policy = orgCompetitionPolicyFromMap(series.competitionPolicy);
-  const policyForm = draftPolicy ?? policy;
-  const accessInput = {
-    role: data.myRole,
-    policy,
-    myTeamIds: data.myTeamIds,
-  };
-  const matchMode = orgStartMode(accessInput, false);
-  const tournamentMode = orgStartMode(accessInput, true);
-  const playableClubs = playableOrgTeams(approvedClubs);
-  const showMatchAction = matchMode !== "none";
-  const showTournamentAction = tournamentMode !== "none";
+  const playable = playableOrgTeams(clubs.filter((c) => c.status === "approved"));
+  const matchMode = orgStartMode(access, false);
+  const tournamentMode = orgStartMode(access, true);
+  const showMatchFab = matchMode !== "none" && activeTab === "matches";
+  const showTournamentFab = tournamentMode !== "none" && activeTab === "tournaments";
+  const showTeamFab = activeTab === "teams";
 
+  const matchComps = (competitions.data ?? []).filter(
+    (c) => c.type === "singleMatch" || c.type === "match",
+  );
+  const tournamentComps = (competitions.data ?? []).filter(
+    (c) => c.type === "tournament",
+  );
 
-  async function onCreateClub(e: FormEvent) {
-    e.preventDefault();
-    await createClub.mutateAsync({ name: clubName, description: clubDesc });
-    setClubName("");
-    setClubDesc("");
-  }
-
-  async function onJoin(e: FormEvent) {
-    e.preventDefault();
-    if (!joinClubId || !joinName.trim()) return;
-
-    const s = series.settings;
-
-    if (s.requireDateOfBirth && !joinDob) {
-      window.alert("Date of birth is required");
-      return;
+  async function dismissWelcome(goSettings: boolean) {
+    if (user?.uid && seriesId) {
+      markOrgWelcomeSeen(user.uid, seriesId, dontShowAgain);
     }
-    if (s.requireProfilePhoto && !joinProfilePhoto) {
-      window.alert("Profile photo is required");
-      return;
+    setWelcomeDismissed(true);
+    if (goSettings) router.push(`/series/${seriesId}/settings`);
+    else if (search.get("welcome") === "1") {
+      router.replace(`/series/${seriesId}?tab=overview`);
     }
-
-    try {
-      let profilePhotoUrl: string | undefined;
-      let nationalIdDocUrl: string | undefined;
-      let passportDocUrl: string | undefined;
-
-      if (joinProfilePhoto || joinNationalIdDoc || joinPassportDoc) {
-        setUploadingRegDoc(true);
-        if (joinProfilePhoto && user?.uid) {
-          profilePhotoUrl = await uploadSeriesRegistrationImage(
-            seriesId,
-            user.uid,
-            joinProfilePhoto,
-            "photo"
-          );
-        }
-        if (joinNationalIdDoc && user?.uid) {
-          nationalIdDocUrl = await uploadSeriesRegistrationImage(
-            seriesId,
-            user.uid,
-            joinNationalIdDoc,
-            "doc"
-          );
-        }
-        if (joinPassportDoc && user?.uid) {
-          passportDocUrl = await uploadSeriesRegistrationImage(
-            seriesId,
-            user.uid,
-            joinPassportDoc,
-            "doc"
-          );
-        }
-        setUploadingRegDoc(false);
-      }
-
-      await joinClub.mutateAsync({
-        clubId: joinClubId,
-        fullName: joinName.trim(),
-        crickFlowPlayerId: joinPlayerId.trim() || user?.uid,
-        phoneNumber: joinPhone.trim(),
-        address: joinAddress.trim(),
-        dateOfBirth: joinDob || undefined,
-        nationalId: joinNationalId.trim() || undefined,
-        passportNumber: joinPassport.trim() || undefined,
-        profilePhotoUrl,
-        nationalIdDocUrl,
-        passportDocUrl,
-      });
-
-      setJoinName("");
-      setJoinPlayerId("");
-      setJoinPhone("");
-      setJoinAddress("");
-      setJoinNationalId("");
-      setJoinPassport("");
-      setJoinDob("");
-      setJoinProfilePhoto(null);
-      setJoinNationalIdDoc(null);
-      setJoinPassportDoc(null);
-    } catch (err) {
-      console.error("Join team failed:", err);
-      window.alert("Could not submit join request. Please try again.");
-    } finally {
-      setUploadingRegDoc(false);
-    }
-  }
-
-  async function onPropose(e: FormEvent) {
-    e.preventDefault();
-    await proposeMatch.mutateAsync({ clubAId, clubBId });
-  }
-
-  async function onSaveSettings(e: FormEvent) {
-    e.preventDefault();
-    await updateSettings.mutateAsync({
-      ...series.settings,
-      maxSquadSize: maxSquad,
-    });
   }
 
   return (
-    <div className="space-y-8">
-      <header className="rounded-3xl bg-scoreboard p-8 text-white">
-        <Badge>{series.status}</Badge>
-        <h1 className="mt-3 text-4xl font-black">{series.name}</h1>
-        <p className="mt-2 max-w-3xl text-white/75">
-          {series.description || "Official CrickFlow series"}
-        </p>
-        {series.rulesText ? (
-          <p className="mt-3 max-w-3xl whitespace-pre-wrap text-sm text-white/70">
-            {series.rulesText}
-          </p>
-        ) : null}
-        <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <span>{series.clubCount} teams</span>
-          <span>·</span>
-          <span>{series.playerCount} players</span>
-          <span>·</span>
-          <span>{series.matchCount} matches</span>
-          <span>·</span>
-          <span>Max squad {series.settings.maxSquadSize}</span>
-        </div>
-        {data.canManage ? (
-          <p className="mt-4 text-sm font-semibold text-gold">
-            Admin workspace · {data.pendingApprovalCount} pending approvals
-          </p>
-        ) : null}
-      </header>
+    <div className="relative space-y-6 pb-24">
+      <OrgDetailHeader
+        series={series}
+        canManage={data.canManage}
+        pendingApprovalCount={data.pendingApprovalCount}
+      />
+      <OrgDetailTabs seriesId={seriesId} active={activeTab} />
 
-      {data.canManage ? (
-        <nav className="flex flex-wrap gap-2 border-b border-border">
-          {([
-            ["overview", "Overview"],
-            ["clubs", "Teams"],
-            ["players", "Players"],
-            ["approvals", "Approvals"],
-            ["fixtures", "Fixtures"],
-            ["admins", "Admins"],
-          ] as const).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setActiveTab(key)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === key
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
-      ) : null}
-
-      {activeTab === "clubs" && (
-        <>
-          <section>
-            <h2 className="mb-3 text-xl font-bold">Teams</h2>
-            {!clubs.length ? (
-              <EmptyState title="No teams published" />
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {clubs.map((club) => (
-                  <Card key={club.id} className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="font-bold">{club.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {club.squadCount} players · {club.status}
-                        </p>
-                      </div>
-                      {club.logoUrl ? (
-                        <Image
-                          unoptimized
-                          src={club.logoUrl}
-                          alt=""
-                          width={48}
-                          height={48}
-                          className="h-12 w-12 rounded-full object-cover"
-                        />
-                      ) : null}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {user ? (
-            <section className="grid gap-6 lg:grid-cols-2">
-              <Card className="space-y-3 p-4">
-                <h2 className="text-lg font-bold">Create team</h2>
-                <form className="space-y-3" onSubmit={onCreateClub}>
-                  <input
-                    className="w-full rounded-md border border-border bg-background px-3 py-2"
-                    placeholder="Team name"
-                    value={clubName}
-                    onChange={(e) => setClubName(e.target.value)}
-                    required
-                  />
-                  <textarea
-                    className="w-full rounded-md border border-border bg-background px-3 py-2"
-                    placeholder="Description"
-                    value={clubDesc}
-                    onChange={(e) => setClubDesc(e.target.value)}
-                  />
-                  <Button type="submit" disabled={createClub.isPending}>
-                    {createClub.isPending ? "Submitting…" : "Submit for approval"}
-                  </Button>
-                </form>
-              </Card>
-              <Card className="space-y-3 p-4">
-                <h2 className="text-lg font-bold">Register & join team</h2>
-                <p className="text-sm text-muted-foreground">
-                  Fill in the required information. ID numbers and document photos are private to organization admins.
-                </p>
-                <form className="space-y-3" onSubmit={onJoin}>
-                  <select
-                    className="w-full rounded-md border border-border bg-background px-3 py-2"
-                    value={joinClubId}
-                    onChange={(e) => setJoinClubId(e.target.value)}
-                    required
-                  >
-                    <option value="">Select approved team</option>
-                    {approvedClubs.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  {series.settings.requireFullName && (
-                    <input
-                      className="w-full rounded-md border border-border bg-background px-3 py-2"
-                      placeholder="Full name *"
-                      value={joinName}
-                      onChange={(e) => setJoinName(e.target.value)}
-                      required
-                    />
-                  )}
-
-                  {series.settings.requireCrickFlowPlayerId && (
-                    <input
-                      className="w-full rounded-md border border-border bg-background px-3 py-2"
-                      placeholder="CrickFlow Player ID *"
-                      value={joinPlayerId}
-                      onChange={(e) => setJoinPlayerId(e.target.value)}
-                      required={series.settings.requireCrickFlowPlayerId}
-                    />
-                  )}
-
-                  {series.settings.requirePhoneNumber && (
-                    <input
-                      type="tel"
-                      className="w-full rounded-md border border-border bg-background px-3 py-2"
-                      placeholder="Phone number *"
-                      value={joinPhone}
-                      onChange={(e) => setJoinPhone(e.target.value)}
-                      required
-                    />
-                  )}
-
-                  {series.settings.requireDateOfBirth && (
-                    <input
-                      type="date"
-                      className="w-full rounded-md border border-border bg-background px-3 py-2"
-                      placeholder="Date of birth *"
-                      value={joinDob}
-                      onChange={(e) => setJoinDob(e.target.value)}
-                      required
-                    />
-                  )}
-
-                  {series.settings.requireAddress && (
-                    <textarea
-                      className="w-full rounded-md border border-border bg-background px-3 py-2"
-                      placeholder="Address *"
-                      value={joinAddress}
-                      onChange={(e) => setJoinAddress(e.target.value)}
-                      required
-                      rows={2}
-                    />
-                  )}
-
-                  {series.settings.requireNationalId && (
-                    <>
-                      <input
-                        className="w-full rounded-md border border-border bg-background px-3 py-2"
-                        placeholder="National ID / ID number *"
-                        value={joinNationalId}
-                        onChange={(e) => setJoinNationalId(e.target.value)}
-                        required
-                      />
-                      <div>
-                        <label className="block text-sm font-medium mb-1">National ID Document Photo</label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="block w-full text-sm text-muted-foreground
-                            file:mr-4 file:py-2 file:px-4 file:rounded-md
-                            file:border-0 file:text-sm file:font-semibold
-                            file:bg-primary file:text-primary-foreground
-                            hover:file:bg-primary/90 file:cursor-pointer"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) setJoinNationalIdDoc(file);
-                          }}
-                        />
-                        {joinNationalIdDoc && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Selected: {joinNationalIdDoc.name}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
-
-                  {series.settings.requirePassport && (
-                    <>
-                      <input
-                        className="w-full rounded-md border border-border bg-background px-3 py-2"
-                        placeholder="Passport number *"
-                        value={joinPassport}
-                        onChange={(e) => setJoinPassport(e.target.value)}
-                        required
-                      />
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Passport Document Photo</label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="block w-full text-sm text-muted-foreground
-                            file:mr-4 file:py-2 file:px-4 file:rounded-md
-                            file:border-0 file:text-sm file:font-semibold
-                            file:bg-primary file:text-primary-foreground
-                            hover:file:bg-primary/90 file:cursor-pointer"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) setJoinPassportDoc(file);
-                          }}
-                        />
-                        {joinPassportDoc && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Selected: {joinPassportDoc.name}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
-
-                  {series.settings.requireProfilePhoto && (
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Profile Photo *</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="block w-full text-sm text-muted-foreground
-                          file:mr-4 file:py-2 file:px-4 file:rounded-md
-                          file:border-0 file:text-sm file:font-semibold
-                          file:bg-primary file:text-primary-foreground
-                          hover:file:bg-primary/90 file:cursor-pointer"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) setJoinProfilePhoto(file);
-                        }}
-                        required
-                      />
-                      {joinProfilePhoto && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Selected: {joinProfilePhoto.name}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <Button type="submit" disabled={joinClub.isPending || uploadingRegDoc}>
-                    {uploadingRegDoc
-                      ? "Uploading documents…"
-                      : joinClub.isPending
-                        ? "Submitting…"
-                        : "Submit join request"}
-                  </Button>
-                </form>
-              </Card>
-            </section>
-          ) : (
-            <Card className="space-y-3 p-4">
-              <h2 className="text-lg font-bold">Sign in required</h2>
-              <p className="text-sm text-muted-foreground">
-                {SIGN_IN_PROMPTS.join_org} Browse matches, teams and the leaderboard without an account.
-              </p>
-              <Link href={loginUrl(`/series/${seriesId}`, "join_org")} className="text-primary underline">
-                Sign in
-              </Link>
+      {activeTab === "overview" ? (
+        <div className="space-y-5">
+          {(series.status !== "active" || false) && (
+            <Card className="border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+              Status: {series.status}
             </Card>
           )}
-        </>
-      )}
-
-      {canStartAnything(accessInput) ? (
-        <Card className="space-y-3 p-4">
-          <h2 className="text-lg font-bold">Matches &amp; tournaments</h2>
-          <p className="text-sm text-muted-foreground">
-            Same rules as the CrickFlow app. Server callables enforce permissions.
-            {!policy.allowWalkIns ? " Walk-in players are disabled for this org." : null}
-          </p>
-          {showMatchAction ? (
-            <form
-              className="grid gap-3 md:grid-cols-3"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!user) {
-                  router.push(loginUrl(`/series/${seriesId}`, "propose_match"));
-                  return;
-                }
-                const err = matchTeamsError(accessInput, clubAId, clubBId);
-                if (err) {
-                  window.alert(err);
-                  return;
-                }
-                await onPropose(e);
-              }}
-            >
-              <select
-                className="rounded-md border border-border bg-background px-3 py-2"
-                value={clubAId}
-                onChange={(e) => setClubAId(e.target.value)}
-                required
-              >
-                <option value="">Team A</option>
-                {playableClubs.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="rounded-md border border-border bg-background px-3 py-2"
-                value={clubBId}
-                onChange={(e) => setClubBId(e.target.value)}
-                required
-              >
-                <option value="">Team B</option>
-                {playableClubs.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <Button type="submit" disabled={proposeMatch.isPending}>
-                {proposeMatch.isPending
-                  ? "Submitting…"
-                  : orgActionLabel(matchMode, false)}
-              </Button>
-            </form>
-          ) : null}
-          {showTournamentAction ? (
-            <form
-              className="flex flex-wrap gap-3"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!user) {
-                  router.push(loginUrl(`/series/${seriesId}`, "propose_tournament"));
-                  return;
-                }
-                const picked = (linkable.data ?? []).find((t) => t.id === tournamentId);
-                await proposeTournament.mutateAsync({ tournamentId, title: picked?.name });
-                setTournamentId("");
-              }}
-            >
-              <select
-                className="min-w-[220px] flex-1 rounded-md border border-border bg-background px-3 py-2"
-                value={tournamentId}
-                onChange={(e) => setTournamentId(e.target.value)}
-                required
-              >
-                <option value="">Add one of your tournaments</option>
-                {(linkable.data ?? []).map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <Button type="submit" disabled={proposeTournament.isPending || !tournamentId}>
-                {proposeTournament.isPending
-                  ? "Submitting…"
-                  : orgActionLabel(tournamentMode, true)}
-              </Button>
-            </form>
-          ) : null}
-        </Card>
-      ) : null}
-
-      <section>
-        <h2 className="mb-3 text-xl font-bold">Fixtures</h2>
-        {!competitions.data?.length ? (
-          <EmptyState title="No Series fixtures yet" />
-        ) : (
-          <div className="space-y-2">
-            {competitions.data.map((c) => (
-              <Card key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
-                <div>
-                  <p className="font-bold">{c.title || c.type}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {c.type === "singleMatch" ? "Match" : c.type === "tournament" ? "Tournament" : c.type} ·{" "}
-                    {c.status === "pendingApproval" ? "Pending approval" : c.status === "approved" ? "Official" : c.status}
-                  </p>
-                </div>
-                {c.matchId ? (
-                  <Link href={`/matches/${c.matchId}`} className="text-sm text-primary">
-                    Open match
-                  </Link>
-                ) : null}
-                {c.tournamentId ? (
-                  <Link href={`/tournaments/${c.tournamentId}`} className="text-sm text-primary">
-                    Open tournament
-                  </Link>
-                ) : null}
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {data.canManage ? (
-        <section>
-          <h2 className="mb-3 text-xl font-bold">Series Admins</h2>
-          <div className="mb-3 space-y-2">
-            {(admins.data ?? [])
-              .filter((a) => a.status === "active")
-              .map((a) => (
-                <Card key={a.id} className="p-3 text-sm">
-                  {a.displayName || a.userId} · {a.role || "seriesAdmin"}
-                </Card>
-              ))}
-          </div>
-          {data.isSuperAdmin ? (
-            <form
-              className="flex flex-wrap gap-3"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await addAdmin.mutateAsync({ userId: adminUserId });
-                setAdminUserId("");
-              }}
-            >
-              <input
-                className="min-w-[220px] flex-1 rounded-md border border-border bg-background px-3 py-2"
-                placeholder="User ID to grant Series Admin"
-                value={adminUserId}
-                onChange={(e) => setAdminUserId(e.target.value)}
-                required
-              />
-              <Button type="submit" disabled={addAdmin.isPending}>
-                Add admin
-              </Button>
-            </form>
-          ) : null}
-        </section>
-      ) : null}
-
-      {data.isSuperAdmin ? (
-        <Card className="space-y-4 p-4">
-          <h2 className="text-lg font-bold">Settings</h2>
-          <form className="flex flex-wrap items-end gap-3" onSubmit={onSaveSettings}>
-            <label className="text-sm">
-              Max squad size
-              <input
-                type="number"
-                min={1}
-                className="mt-1 block w-28 rounded-md border border-border bg-background px-3 py-2"
-                value={maxSquad}
-                onChange={(e) => setMaxSquad(Number(e.target.value) || 20)}
-              />
-            </label>
-            <Button type="submit" disabled={updateSettings.isPending}>
-              Save
-            </Button>
-          </form>
-          <div className="space-y-3 border-t border-border pt-4">
-            <h3 className="font-semibold">Permissions (matches &amp; tournaments)</h3>
-            <p className="text-sm text-muted-foreground">
-              Same competitionPolicy as the app. Changes call updateSeriesCompetitionPolicy.
-            </p>
-            {(
-              [
-                ["matchProposeAccess", "Who can request matches"],
-                ["tournamentProposeAccess", "Who can request tournaments"],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="block text-sm">
-                {label}
-                <select
-                  className="mt-1 block w-full max-w-md rounded-md border border-border bg-background px-3 py-2"
-                  value={policyForm[key]}
-                  onChange={(e) =>
-                    setDraftPolicy({
-                      ...policyForm,
-                      [key]: e.target.value as typeof policyForm.matchProposeAccess,
-                    })
-                  }
-                >
-                  {(["admins", "teamAdmins", "everyone"] as const).map((v) => (
-                    <option key={v} value={v}>
-                      {proposeAccessLabel(v)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
-            {(
-              [
-                ["matchTeamAdminsNeedApproval", "Match requests from team admins need approval"],
-                ["matchPlayersNeedApproval", "Match requests from players need approval"],
-                ["tournamentTeamAdminsNeedApproval", "Tournament requests from team admins need approval"],
-                ["tournamentPlayersNeedApproval", "Tournament requests from players need approval"],
-                ["allowWalkIns", "Allow walk-in players"],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(policyForm[key])}
-                  onChange={(e) =>
-                    setDraftPolicy({ ...policyForm, [key]: e.target.checked })
-                  }
-                />
-                {label}
-              </label>
-            ))}
-            <Button
-              type="button"
-              disabled={updatePolicy.isPending || draftPolicy == null}
-              onClick={async () => {
-                await updatePolicy.mutateAsync(orgCompetitionPolicyToMap(policyForm));
-                setDraftPolicy(null);
-              }}
-            >
-              {updatePolicy.isPending ? "Saving…" : "Save permissions"}
-            </Button>
-          </div>
-        </Card>
-      ) : null}
-
-      {activeTab === "overview" && (
-        <>
           {data.canManage ? (
-            <Card className="flex flex-wrap items-center justify-between gap-3 border-[color:var(--accent)]/30 bg-[color:var(--accent-soft)] p-4">
+            <Card className="flex flex-wrap items-center justify-between gap-3 bg-[color:var(--accent-soft)] p-4">
               <div>
                 <p className="font-bold">Pending approvals</p>
                 <p className="text-sm text-muted-foreground">
@@ -757,127 +137,397 @@ export function SeriesDetailPage() {
                     : `${data.pendingApprovalCount} waiting for review`}
                 </p>
               </div>
-              <Button variant="outline" onClick={() => setActiveTab("approvals")}>
-                Review
+              <Button asChild variant="outline">
+                <Link href={`/series/${seriesId}/approvals`}>Review</Link>
               </Button>
             </Card>
           ) : null}
-          <OrgLeaderboard
-            seriesId={seriesId}
-            clubs={clubs}
-            rules={series.settings.rankingRules}
-            canManage={data.canManage}
-          />
-        </>
-      )}
-
-      {data.canManage ? (
-        <section>
-          <h2 className="mb-3 text-xl font-bold">Pending approvals</h2>
-          {!data.approvals.length ? (
-            <EmptyState title="No pending approvals" />
-          ) : (
-            <div className="space-y-3">
-              {data.approvals.map((approval) => {
-                const clubReview =
-                  typeof approval.metadata.clubReviewStatus === "string"
-                    ? approval.metadata.clubReviewStatus
-                    : null;
-                const registrationId =
-                  typeof approval.metadata.registrationId === "string"
-                    ? approval.metadata.registrationId
-                    : approval.targetType === "playerRegistration"
-                      ? approval.targetId
-                      : null;
-                const joinBlocked =
-                  approval.targetType === "playerJoin" &&
-                  clubReview !== "approved" &&
-                  !data.isSuperAdmin;
-                return (
-                  <Card
-                    key={approval.id}
-                    className="flex flex-wrap items-center justify-between gap-3 p-4"
-                  >
-                    <div>
-                      <p className="font-bold">{approval.targetType}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {String(
-                          approval.metadata.displayName ||
-                            approval.metadata.name ||
-                            approval.targetId,
-                        )}
-                      </p>
-                      {clubReview ? (
-                        <p className="text-xs text-muted-foreground">
-                          Team review: {clubReview}
-                          {joinBlocked ? " · waiting on Team Admin" : ""}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {registrationId ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={identity.isPending}
-                          onClick={async () => {
-                            const result = await identity.mutateAsync(registrationId);
-                            setIdentityText(
-                              result.identity
-                                ? JSON.stringify(result.identity, null, 2)
-                                : "No private identity on file.",
-                            );
-                          }}
-                        >
-                          View identity
-                        </Button>
-                      ) : null}
-                      <Button
-                        size="sm"
-                        disabled={review.isPending || joinBlocked}
-                        onClick={() =>
-                          review.mutate({
-                            approvalId: approval.id,
-                            decision: "approved",
-                          })
-                        }
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={review.isPending}
-                        onClick={() => {
-                          const reason = window.prompt("Reason for rejecting (shared with the requester)")?.trim();
-                          if (!reason) return;
-                          review.mutate({
-                            approvalId: approval.id,
-                            decision: "rejected",
-                            reason,
-                          });
-                        }}
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  </Card>
-                );
-              })}
+          <p className="text-base text-foreground">
+            {series.description || `Official CrickFlow ${series.kind}`}
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              [series.clubCount, "Teams"],
+              [series.playerCount, "Players"],
+              [series.matchCount, "Matches"],
+              [series.tournamentCount, "Tournaments"],
+            ].map(([n, label]) => (
+              <Card key={String(label)} className="p-4 text-center">
+                <p className="text-2xl font-black">{n as number}</p>
+                <p className="text-xs text-muted-foreground">{label as string}</p>
+              </Card>
+            ))}
+          </div>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Latest announcements</h2>
+              <Link
+                href={`/series/${seriesId}/announcements`}
+                className="text-sm text-primary"
+              >
+                See all
+              </Link>
             </div>
-          )}
-          {identityText ? (
-            <Card className="mt-4 space-y-2 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-bold">Registration identity</h3>
-                <Button size="sm" variant="outline" onClick={() => setIdentityText(null)}>
-                  Close
-                </Button>
+            {!announcements.data?.length ? (
+              <p className="text-sm text-muted-foreground">No announcements yet</p>
+            ) : (
+              <div className="space-y-2">
+                {announcements.data.slice(0, 2).map((a) => (
+                  <Card key={a.id} className="space-y-1 p-4">
+                    <p className="font-semibold">{a.title}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-3">{a.body}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {a.createdByName || "Organizer"}
+                      {a.createdAt ? ` · ${new Date(a.createdAt).toLocaleDateString()}` : ""}
+                    </p>
+                  </Card>
+                ))}
               </div>
-              <pre className="overflow-x-auto whitespace-pre-wrap text-xs">{identityText}</pre>
+            )}
+          </div>
+          <Card className="p-0">
+            <Link
+              href={`/series/${seriesId}/my-requests`}
+              className="flex items-center justify-between p-4 hover:bg-muted/50"
+            >
+              <div>
+                <p className="font-semibold">My requests</p>
+                <p className="text-sm text-muted-foreground">
+                  Track join and registration status
+                </p>
+              </div>
+              <span aria-hidden>›</span>
+            </Link>
+          </Card>
+          {data.canManage ? (
+            <>
+              <Card className="p-0">
+                <Link
+                  href={`/series/${seriesId}/admins`}
+                  className="flex items-center justify-between p-4 hover:bg-muted/50"
+                >
+                  <p className="font-semibold">Admins</p>
+                  <span aria-hidden>›</span>
+                </Link>
+              </Card>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="text-lg font-bold">Recent activity</h2>
+                  <Link href={`/series/${seriesId}/admins`} className="text-sm text-primary">
+                    See all
+                  </Link>
+                </div>
+                {!audit.data?.length ? (
+                  <p className="text-sm text-muted-foreground">No activity yet</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {audit.data.slice(0, 5).map((log) => (
+                      <li key={log.id} className="text-sm">
+                        <span className="font-medium">
+                          {seriesAuditActionLabel(log.action)}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {log.timestamp
+                            ? ` · ${new Date(log.timestamp).toLocaleString()}`
+                            : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <Button asChild variant="outline">
+                <Link href={`/series/${seriesId}/settings`}>Settings & permissions</Link>
+              </Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      {activeTab === "matches" ? (
+        <div className="space-y-4">
+          {!matchComps.length ? (
+            <EmptyState title="No matches yet" />
+          ) : (
+            matchComps.map((c) => (
+              <Card key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
+                <div>
+                  <p className="font-bold">{c.title || "Match"}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {c.status === "pendingApproval" ? "Pending approval" : c.status}
+                  </p>
+                </div>
+                {c.matchId ? (
+                  <Link href={`/matches/${c.matchId}`} className="text-sm text-primary">
+                    Open
+                  </Link>
+                ) : null}
+              </Card>
+            ))
+          )}
+          {showMatchFab ? (
+            <Card className="space-y-3 p-4">
+              <h3 className="font-semibold">{orgActionLabel(matchMode, false)}</h3>
+              <form
+                className="grid gap-3 md:grid-cols-3"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!user) {
+                    router.push(loginUrl(`/series/${seriesId}?tab=matches`, "propose_match"));
+                    return;
+                  }
+                  const err = matchTeamsError(access, clubAId, clubBId);
+                  if (err) {
+                    window.alert(err);
+                    return;
+                  }
+                  await proposeMatch.mutateAsync({ clubAId, clubBId });
+                  setClubAId("");
+                  setClubBId("");
+                }}
+              >
+                <select
+                  className="rounded-md border border-border bg-background px-3 py-2"
+                  value={clubAId}
+                  onChange={(e) => setClubAId(e.target.value)}
+                  required
+                >
+                  <option value="">Team A</option>
+                  {playable.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-md border border-border bg-background px-3 py-2"
+                  value={clubBId}
+                  onChange={(e) => setClubBId(e.target.value)}
+                  required
+                >
+                  <option value="">Team B</option>
+                  {playable.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" disabled={proposeMatch.isPending}>
+                  {proposeMatch.isPending ? "…" : orgActionLabel(matchMode, false)}
+                </Button>
+              </form>
             </Card>
           ) : null}
-        </section>
+        </div>
+      ) : null}
+
+      {activeTab === "tournaments" ? (
+        <div className="space-y-4">
+          {!tournamentComps.length ? (
+            <EmptyState title="No tournaments yet" />
+          ) : (
+            tournamentComps.map((c) => (
+              <Card key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
+                <div>
+                  <p className="font-bold">{c.title || "Tournament"}</p>
+                  <p className="text-sm text-muted-foreground">{c.status}</p>
+                </div>
+                {c.tournamentId ? (
+                  <Link href={`/tournaments/${c.tournamentId}`} className="text-sm text-primary">
+                    Open
+                  </Link>
+                ) : null}
+              </Card>
+            ))
+          )}
+          {showTournamentFab ? (
+            <Card className="space-y-3 p-4">
+              <h3 className="font-semibold">{orgActionLabel(tournamentMode, true)}</h3>
+              <form
+                className="flex flex-wrap gap-3"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!user) {
+                    router.push(
+                      loginUrl(`/series/${seriesId}?tab=tournaments`, "propose_tournament"),
+                    );
+                    return;
+                  }
+                  const picked = (linkable.data ?? []).find((t) => t.id === tournamentId);
+                  await proposeTournament.mutateAsync({
+                    tournamentId,
+                    title: picked?.name,
+                  });
+                  setTournamentId("");
+                }}
+              >
+                <select
+                  className="min-w-[220px] flex-1 rounded-md border border-border bg-background px-3 py-2"
+                  value={tournamentId}
+                  onChange={(e) => setTournamentId(e.target.value)}
+                  required
+                >
+                  <option value="">Add one of your tournaments</option>
+                  {(linkable.data ?? []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" disabled={proposeTournament.isPending || !tournamentId}>
+                  {proposeTournament.isPending
+                    ? "…"
+                    : orgActionLabel(tournamentMode, true)}
+                </Button>
+              </form>
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
+
+      {activeTab === "teams" ? (
+        <div className="space-y-4">
+          {!clubs.length ? (
+            <EmptyState title="No teams yet" />
+          ) : (
+            clubs.map((c) => (
+              <Card key={c.id} className="p-4">
+                <p className="font-bold">{c.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {c.status} · {c.squadCount} players
+                </p>
+              </Card>
+            ))
+          )}
+          {showTeamFab ? (
+            <Card className="space-y-3 p-4">
+              {!user ? (
+                <>
+                  <p className="text-sm text-muted-foreground">{SIGN_IN_PROMPTS.create_org_team}</p>
+                  <Button asChild>
+                    <Link href={loginUrl(`/series/${seriesId}?tab=teams`, "create_org_team")}>
+                      Sign in
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <form
+                  className="flex flex-wrap gap-2"
+                  onSubmit={async (e: FormEvent) => {
+                    e.preventDefault();
+                    await createClub.mutateAsync({ name: clubName });
+                    setClubName("");
+                  }}
+                >
+                  <input
+                    className="min-w-[200px] flex-1 rounded-md border border-border bg-background px-3 py-2"
+                    placeholder="New team name"
+                    value={clubName}
+                    onChange={(e) => setClubName(e.target.value)}
+                    required
+                  />
+                  <Button type="submit" disabled={createClub.isPending}>
+                    {createClub.isPending ? "…" : "+ Team"}
+                  </Button>
+                </form>
+              )}
+              {user ? (
+                <form
+                  className="flex flex-wrap gap-2 border-t border-border pt-3"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!joinClubId || !joinName.trim()) return;
+                    await joinClub.mutateAsync({
+                      clubId: joinClubId,
+                      fullName: joinName.trim(),
+                      crickFlowPlayerId: user.uid,
+                    });
+                    setJoinName("");
+                  }}
+                >
+                  <select
+                    className="rounded-md border border-border bg-background px-3 py-2"
+                    value={joinClubId}
+                    onChange={(e) => setJoinClubId(e.target.value)}
+                    required
+                  >
+                    <option value="">Join a team</option>
+                    {clubs
+                      .filter((c) => c.status === "approved")
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </select>
+                  <input
+                    className="rounded-md border border-border bg-background px-3 py-2"
+                    placeholder="Your name"
+                    value={joinName}
+                    onChange={(e) => setJoinName(e.target.value)}
+                    required
+                  />
+                  <Button type="submit" variant="outline" disabled={joinClub.isPending}>
+                    Request to join
+                  </Button>
+                </form>
+              ) : null}
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
+
+      {activeTab === "leaderboard" ? (
+        <OrgLeaderboard
+          seriesId={seriesId}
+          clubs={clubs}
+          rules={series.settings.rankingRules}
+          canManage={data.canManage}
+        />
+      ) : null}
+
+      {activeTab === "about" ? (
+        <div className="space-y-4">
+          <Card className="space-y-2 p-4">
+            <h2 className="font-bold">About</h2>
+            <p>{series.description || "No description yet."}</p>
+          </Card>
+          {series.rulesText ? (
+            <Card className="space-y-2 p-4">
+              <h2 className="font-bold">Rules / playing conditions</h2>
+              <p className="whitespace-pre-wrap text-sm">{series.rulesText}</p>
+            </Card>
+          ) : null}
+          <p className="text-sm text-muted-foreground">
+            Max team squad: {series.settings.maxSquadSize}
+          </p>
+        </div>
+      ) : null}
+
+      {welcomeOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
+          <Card className="w-full max-w-md space-y-4 p-6">
+            <h2 className="text-xl font-bold">Welcome to your organization</h2>
+            <p className="text-sm text-muted-foreground">
+              Go to Settings to set who can propose matches and tournaments, whether
+              requests need approval, and walk-in players — the same controls as the app.
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.target.checked)}
+              />
+              Don&apos;t show this again
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => dismissWelcome(true)}>Go to settings</Button>
+              <Button variant="outline" onClick={() => dismissWelcome(false)}>
+                Later
+              </Button>
+            </div>
+          </Card>
+        </div>
       ) : null}
     </div>
   );

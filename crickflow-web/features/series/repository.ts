@@ -16,6 +16,8 @@ import type {
   Series,
   SeriesClub,
   SeriesDetailData,
+  SeriesAnnouncement,
+  SeriesAuditLog,
 } from "./types";
 
 type Data = Record<string, unknown>;
@@ -426,4 +428,124 @@ export async function listSeriesAdmins(seriesId: string) {
       role: text(x, "role"),
     };
   });
+}
+
+
+export async function listSeriesAnnouncements(
+  seriesId: string,
+  take = 20,
+): Promise<SeriesAnnouncement[]> {
+  try {
+    const snap = await getDocs(
+      query(
+        collection(getDb(), collections.series, seriesId, "announcements"),
+        orderBy("createdAt", "desc"),
+        limit(take),
+      ),
+    );
+    return snap.docs.map((d) => {
+      const x = d.data();
+      const createdAt = x.createdAt;
+      let createdAtStr: string | null = null;
+      if (createdAt && typeof createdAt.toDate === "function") {
+        createdAtStr = createdAt.toDate().toISOString();
+      } else if (typeof createdAt === "string") {
+        createdAtStr = createdAt;
+      }
+      return {
+        id: d.id,
+        title: text(x, "title"),
+        body: text(x, "body"),
+        createdBy: text(x, "createdBy"),
+        createdByName: text(x, "createdByName"),
+        createdAt: createdAtStr,
+        audience: text(x, "audience") || undefined,
+        recipientCount: number(x, "recipientCount") || undefined,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function listSeriesAuditLogs(
+  seriesId: string,
+  take = 20,
+): Promise<SeriesAuditLog[]> {
+  try {
+    const snap = await getDocs(
+      query(
+        collection(getDb(), collections.seriesAuditLogs),
+        where("seriesId", "==", seriesId),
+        orderBy("timestamp", "desc"),
+        limit(take),
+      ),
+    );
+    return snap.docs.map((d) => {
+      const x = d.data();
+      const ts = x.timestamp;
+      let timestamp: string | null = null;
+      if (ts && typeof ts.toDate === "function") {
+        timestamp = ts.toDate().toISOString();
+      } else if (typeof ts === "string") {
+        timestamp = ts;
+      }
+      return {
+        id: d.id,
+        action: text(x, "action"),
+        actorUserId: text(x, "actorUserId"),
+        timestamp,
+      };
+    });
+  } catch {
+    // Fallback without orderBy if index missing
+    try {
+      const snap = await getDocs(
+        query(
+          collection(getDb(), collections.seriesAuditLogs),
+          where("seriesId", "==", seriesId),
+          limit(take),
+        ),
+      );
+      return snap.docs.map((d) => {
+        const x = d.data();
+        return {
+          id: d.id,
+          action: text(x, "action"),
+          actorUserId: text(x, "actorUserId"),
+          timestamp: typeof x.timestamp === "string" ? x.timestamp : null,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+}
+
+export async function listActiveSeriesByKind(
+  kind?: string,
+  take = 40,
+): Promise<Series[]> {
+  const all = await listActiveSeries(Math.max(take, 80));
+  if (!kind || kind === "all") return all.slice(0, take);
+  return all.filter((s) => s.kind === kind).slice(0, take);
+}
+
+export function seriesAuditActionLabel(action: string): string {
+  const map: Record<string, string> = {
+    APPROVAL_APPROVED: "Approved a request",
+    APPROVAL_REJECTED: "Rejected a request",
+    CLUB_APPROVED: "Approved a team",
+    CLUB_REJECTED: "Rejected a team",
+    PLAYER_APPROVED: "Approved a player",
+    PLAYER_REJECTED: "Rejected a player",
+    MATCH_APPROVED: "Approved a match",
+    MATCH_REJECTED: "Rejected a match",
+    TOURNAMENT_APPROVED: "Approved a tournament",
+    TOURNAMENT_REJECTED: "Rejected a tournament",
+    SETTINGS_UPDATED: "Updated settings",
+    POLICY_UPDATED: "Updated permissions",
+    ANNOUNCEMENT_SENT: "Posted an announcement",
+  };
+  return map[action] || action.replace(/_/g, " ").toLowerCase();
 }

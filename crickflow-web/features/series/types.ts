@@ -84,3 +84,22 @@ export interface SeriesDetailData {
   pendingApprovalCount: number;
   approvals: SeriesApproval[];
 }
+
+
+export interface SeriesAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt?: string | null;
+  audience?: string;
+  recipientCount?: number;
+}
+
+export interface SeriesAuditLog {
+  id: string;
+  action: string;
+  actorUserId: string;
+  timestamp?: string | null;
+}

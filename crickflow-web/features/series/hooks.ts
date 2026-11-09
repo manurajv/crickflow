@@ -20,6 +20,9 @@ import {
   submitSeriesRegistration,
   updateSeriesSettings,
   updateSeriesCompetitionPolicy,
+  listSeriesAnnouncements,
+  listSeriesAuditLogs,
+  listActiveSeriesByKind,
 } from "./repository";
 import { getOrgLeaderboardData } from "./leaderboard-repository";
 
@@ -216,5 +219,29 @@ export function useSeriesDetail(seriesId: string, userId?: string) {
     queryKey: ["series", seriesId, userId ?? "public"],
     queryFn: () => getSeriesDetail(seriesId, userId),
     enabled: Boolean(seriesId),
+  });
+}
+
+
+export function useSeriesAnnouncements(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "announcements"],
+    queryFn: () => listSeriesAnnouncements(seriesId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+export function useSeriesAuditLogs(seriesId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["series", seriesId, "audit"],
+    queryFn: () => listSeriesAuditLogs(seriesId),
+    enabled: Boolean(seriesId) && enabled,
+  });
+}
+
+export function useActiveSeriesByKind(kind?: string) {
+  return useQuery({
+    queryKey: ["series", "active", kind || "all"],
+    queryFn: () => listActiveSeriesByKind(kind),
   });
 }
