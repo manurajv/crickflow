@@ -3,6 +3,8 @@ abstract final class AdminRoutePaths {
   static const login = '/login';
   static const accessDenied = '/access-denied';
   static const dashboard = '/';
+  /// Alias that redirects to [dashboard].
+  static const dashboardAlias = '/dashboard';
 
   static const users = '/users';
 

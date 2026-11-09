@@ -29,6 +29,11 @@ GoRouter createSuperAdminRouter(Ref ref) {
         path: AdminRoutePaths.forbidden,
         builder: (context, state) => const ForbiddenScreen(),
       ),
+      // Common bookmark / deep link; dashboard lives at `/`.
+      GoRoute(
+        path: AdminRoutePaths.dashboardAlias,
+        redirect: (context, state) => AdminRoutePaths.dashboard,
+      ),
       ShellRoute(
         builder: (context, state, child) => AdminShell(child: child),
         routes: [
