@@ -24,6 +24,7 @@ export const collections = {
   seriesMatchDigests: "series_match_digests",
   seriesAuditLogs: "series_audit_logs",
   seriesMemberships: "series_memberships",
+  seriesClubAdmins: "series_club_admins",
   seriesRegistrations: "series_registrations",
   ballEvents: "ball_events",
   overlay: "overlay",

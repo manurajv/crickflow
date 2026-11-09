@@ -66,6 +66,10 @@ function mapSeries(id: string, data: Data): Series {
     matchCount: number(data, "matchCount"),
     tournamentCount: number(data, "tournamentCount"),
     settings: mapSettings(data),
+    competitionPolicy:
+      data.competitionPolicy && typeof data.competitionPolicy === "object"
+        ? (data.competitionPolicy as Record<string, unknown>)
+        : undefined,
   };
 }
 
@@ -102,7 +106,7 @@ export async function listActiveSeries(take = 40): Promise<Series[]> {
 export async function getSeriesDetail(seriesId: string, userId?: string): Promise<SeriesDetailData | null> {
   const seriesSnap = await getDoc(doc(getDb(), collections.series, seriesId));
   if (!seriesSnap.exists()) return null;
-  const [clubs, admins, approvalsNested, approvalsLegacy, competitions, allAdmins] = await Promise.all([
+  const [clubs, admins, approvalsNested, approvalsLegacy, competitions, allAdmins, clubAdmins, memberships] = await Promise.all([
     getDocs(query(collection(getDb(), collections.seriesClubs), where("seriesId", "==", seriesId))),
     userId ? getDocs(query(collection(getDb(), collections.seriesAdmins), where("seriesId", "==", seriesId), where("userId", "==", userId), limit(1))) : null,
     userId
@@ -126,6 +130,26 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
       : null,
     getDocs(query(collection(getDb(), collections.seriesCompetitions), where("seriesId", "==", seriesId), limit(100))),
     getDocs(query(collection(getDb(), collections.seriesAdmins), where("seriesId", "==", seriesId), limit(50))),
+    userId
+      ? getDocs(
+          query(
+            collection(getDb(), collections.seriesClubAdmins),
+            where("seriesId", "==", seriesId),
+            where("userId", "==", userId),
+            limit(50),
+          ),
+        ).catch(() => null)
+      : null,
+    userId
+      ? getDocs(
+          query(
+            collection(getDb(), collections.seriesMemberships),
+            where("seriesId", "==", seriesId),
+            where("userId", "==", userId),
+            limit(50),
+          ),
+        ).catch(() => null)
+      : null,
   ]);
   const approvals =
     approvalsNested && approvalsNested.size > 0 ? approvalsNested : approvalsLegacy;
@@ -158,6 +182,44 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
       .filter((a) => a.status === "active"),
     canManage: Boolean(userId && (series.superAdminUserId === userId || admins?.size)),
     isSuperAdmin: Boolean(userId && series.superAdminUserId === userId),
+    myRole: ((): SeriesDetailData["myRole"] => {
+      if (!userId) return "viewer";
+      if (series.superAdminUserId === userId) return "superAdmin";
+      const seriesAdminActive = Boolean(
+        admins?.docs.some((d) => (d.data().status as string | undefined) !== "removed" && (d.data().status as string | undefined) !== "inactive"),
+      );
+      if (seriesAdminActive || (admins && admins.size > 0)) return "seriesAdmin";
+      const clubAdminActive = Boolean(
+        clubAdmins?.docs.some((d) => {
+          const st = d.data().status;
+          return st === "active" || st == null;
+        }),
+      );
+      if (clubAdminActive) return "clubAdmin";
+      const memberActive = Boolean(
+        memberships?.docs.some((d) => d.data().status === "active"),
+      );
+      if (memberActive) return "seriesPlayer";
+      return "viewer";
+    })(),
+    myTeamIds: (() => {
+      if (!userId) return [] as string[];
+      const ids = new Set<string>();
+      for (const d of clubAdmins?.docs ?? []) {
+        const st = d.data().status;
+        if (st === "active" || st == null) {
+          const clubId = typeof d.data().clubId === "string" ? d.data().clubId : "";
+          if (clubId) ids.add(clubId);
+        }
+      }
+      for (const d of memberships?.docs ?? []) {
+        if (d.data().status === "active") {
+          const clubId = typeof d.data().clubId === "string" ? d.data().clubId : "";
+          if (clubId) ids.add(clubId);
+        }
+      }
+      return [...ids];
+    })(),
     pendingApprovalCount: approvals?.size ?? 0,
     approvals: approvals?.docs.map((d) => {
       const x = d.data();
@@ -225,6 +287,17 @@ export async function updateSeriesSettings(
 ) {
   const callable = httpsCallable(getFirebaseFunctions(), "updateSeriesSettings");
   await callable({ seriesId, settings });
+}
+
+export async function updateSeriesCompetitionPolicy(
+  seriesId: string,
+  policy: Record<string, unknown>,
+) {
+  const callable = httpsCallable(
+    getFirebaseFunctions(),
+    "updateSeriesCompetitionPolicy",
+  );
+  await callable({ seriesId, policy });
 }
 
 export async function submitSeriesRegistration(input: Record<string, unknown>) {

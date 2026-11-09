@@ -3,6 +3,7 @@
 import { AppLink as Link } from "@/components/shared/app-link";
 import Image from "next/image";
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,16 +22,28 @@ import {
   useSeriesDetail,
   useSeriesRegistrationIdentity,
   useUpdateSeriesSettings,
+  useUpdateSeriesCompetitionPolicy,
 } from "@/features/series/hooks";
 import { usePathParam } from "@/lib/use-path-param";
 import { uploadSeriesRegistrationImage } from "@/lib/media-upload";
 import { OrgLeaderboard } from "@/features/series/org-leaderboard";
 import { SIGN_IN_PROMPTS, loginUrl } from "@/lib/auth/guest-access";
+import {
+  canStartAnything,
+  matchTeamsError,
+  orgActionLabel,
+  orgCompetitionPolicyFromMap,
+  orgCompetitionPolicyToMap,
+  proposeAccessLabel,
+  orgStartMode,
+  playableOrgTeams,
+} from "@/lib/cricket/org-competition-access";
 
 type Tab = "overview" | "players" | "approvals" | "clubs" | "fixtures" | "admins";
 
 export function SeriesDetailPage() {
   const seriesId = usePathParam("seriesId", 1);
+  const router = useRouter();
   const { user } = useAuth();
   const { data, isLoading } = useSeriesDetail(seriesId, user?.uid);
   const competitions = useSeriesCompetitions(seriesId);
@@ -38,10 +51,11 @@ export function SeriesDetailPage() {
   const review = useReviewSeriesApproval(seriesId);
   const createClub = useCreateSeriesClub(seriesId);
   const updateSettings = useUpdateSeriesSettings(seriesId);
+  const updatePolicy = useUpdateSeriesCompetitionPolicy(seriesId);
   const joinClub = useJoinClub(seriesId);
   const proposeMatch = useProposeSeriesMatch(seriesId);
   const proposeTournament = useProposeSeriesTournament(seriesId);
-  const linkable = useMyLinkableTournaments(data?.canManage ? user?.uid : undefined);
+  const linkable = useMyLinkableTournaments(user?.uid);
   const addAdmin = useAddSeriesAdmin(seriesId);
   const identity = useSeriesRegistrationIdentity(seriesId);
 
@@ -64,6 +78,7 @@ export function SeriesDetailPage() {
   const [tournamentId, setTournamentId] = useState("");
   const [adminUserId, setAdminUserId] = useState("");
   const [maxSquad, setMaxSquad] = useState(20);
+  const [draftPolicy, setDraftPolicy] = useState<ReturnType<typeof orgCompetitionPolicyFromMap> | null>(null);
   const [identityText, setIdentityText] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
@@ -71,6 +86,19 @@ export function SeriesDetailPage() {
   if (!data) return <EmptyState title="Series not found" />;
   const { series, clubs } = data;
   const approvedClubs = clubs.filter((c) => c.status === "approved");
+  const policy = orgCompetitionPolicyFromMap(series.competitionPolicy);
+  const policyForm = draftPolicy ?? policy;
+  const accessInput = {
+    role: data.myRole,
+    policy,
+    myTeamIds: data.myTeamIds,
+  };
+  const matchMode = orgStartMode(accessInput, false);
+  const tournamentMode = orgStartMode(accessInput, true);
+  const playableClubs = playableOrgTeams(approvedClubs);
+  const showMatchAction = matchMode !== "none";
+  const showTournamentAction = tournamentMode !== "none";
+
 
   async function onCreateClub(e: FormEvent) {
     e.preventDefault();
@@ -473,69 +501,97 @@ export function SeriesDetailPage() {
         </>
       )}
 
-      {data.canManage ? (
+      {canStartAnything(accessInput) ? (
         <Card className="space-y-3 p-4">
-          <h2 className="text-lg font-bold">Add org match or tournament</h2>
+          <h2 className="text-lg font-bold">Matches &amp; tournaments</h2>
           <p className="text-sm text-muted-foreground">
-            Start new matches and tournaments from the CrickFlow app (Org → Fixtures).
+            Same rules as the CrickFlow app. Server callables enforce permissions.
+            {!policy.allowWalkIns ? " Walk-in players are disabled for this org." : null}
           </p>
-          <form className="grid gap-3 md:grid-cols-3" onSubmit={onPropose}>
-            <select
-              className="rounded-md border border-border bg-background px-3 py-2"
-              value={clubAId}
-              onChange={(e) => setClubAId(e.target.value)}
-              required
+          {showMatchAction ? (
+            <form
+              className="grid gap-3 md:grid-cols-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!user) {
+                  router.push(loginUrl(`/series/${seriesId}`, "propose_match"));
+                  return;
+                }
+                const err = matchTeamsError(accessInput, clubAId, clubBId);
+                if (err) {
+                  window.alert(err);
+                  return;
+                }
+                await onPropose(e);
+              }}
             >
-              <option value="">Team A</option>
-              {approvedClubs.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="rounded-md border border-border bg-background px-3 py-2"
-              value={clubBId}
-              onChange={(e) => setClubBId(e.target.value)}
-              required
+              <select
+                className="rounded-md border border-border bg-background px-3 py-2"
+                value={clubAId}
+                onChange={(e) => setClubAId(e.target.value)}
+                required
+              >
+                <option value="">Team A</option>
+                {playableClubs.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="rounded-md border border-border bg-background px-3 py-2"
+                value={clubBId}
+                onChange={(e) => setClubBId(e.target.value)}
+                required
+              >
+                <option value="">Team B</option>
+                {playableClubs.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <Button type="submit" disabled={proposeMatch.isPending}>
+                {proposeMatch.isPending
+                  ? "Submitting…"
+                  : orgActionLabel(matchMode, false)}
+              </Button>
+            </form>
+          ) : null}
+          {showTournamentAction ? (
+            <form
+              className="flex flex-wrap gap-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!user) {
+                  router.push(loginUrl(`/series/${seriesId}`, "propose_tournament"));
+                  return;
+                }
+                const picked = (linkable.data ?? []).find((t) => t.id === tournamentId);
+                await proposeTournament.mutateAsync({ tournamentId, title: picked?.name });
+                setTournamentId("");
+              }}
             >
-              <option value="">Team B</option>
-              {approvedClubs.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <Button type="submit" disabled={proposeMatch.isPending}>
-              {proposeMatch.isPending ? "Submitting…" : "Propose"}
-            </Button>
-          </form>
-          <form
-            className="flex flex-wrap gap-3"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const picked = (linkable.data ?? []).find((t) => t.id === tournamentId);
-              await proposeTournament.mutateAsync({ tournamentId, title: picked?.name });
-              setTournamentId("");
-            }}
-          >
-            <select
-              className="min-w-[220px] flex-1 rounded-md border border-border bg-background px-3 py-2"
-              value={tournamentId}
-              onChange={(e) => setTournamentId(e.target.value)}
-              required
-            >
-              <option value="">Add one of your tournaments</option>
-              {(linkable.data ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <Button type="submit" disabled={proposeTournament.isPending || !tournamentId}>
-              Add tournament
-            </Button>
-          </form>
+              <select
+                className="min-w-[220px] flex-1 rounded-md border border-border bg-background px-3 py-2"
+                value={tournamentId}
+                onChange={(e) => setTournamentId(e.target.value)}
+                required
+              >
+                <option value="">Add one of your tournaments</option>
+                {(linkable.data ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <Button type="submit" disabled={proposeTournament.isPending || !tournamentId}>
+                {proposeTournament.isPending
+                  ? "Submitting…"
+                  : orgActionLabel(tournamentMode, true)}
+              </Button>
+            </form>
+          ) : null}
         </Card>
       ) : null}
 
@@ -607,7 +663,7 @@ export function SeriesDetailPage() {
       ) : null}
 
       {data.isSuperAdmin ? (
-        <Card className="space-y-3 p-4">
+        <Card className="space-y-4 p-4">
           <h2 className="text-lg font-bold">Settings</h2>
           <form className="flex flex-wrap items-end gap-3" onSubmit={onSaveSettings}>
             <label className="text-sm">
@@ -624,16 +680,88 @@ export function SeriesDetailPage() {
               Save
             </Button>
           </form>
-          <p className="text-sm text-muted-foreground">
-            Registration flags: name={String(series.settings.requireFullName)}, playerId=
-            {String(series.settings.requireCrickFlowPlayerId)}, nationalId=
-            {String(series.settings.requireNationalId)}
-          </p>
+          <div className="space-y-3 border-t border-border pt-4">
+            <h3 className="font-semibold">Permissions (matches &amp; tournaments)</h3>
+            <p className="text-sm text-muted-foreground">
+              Same competitionPolicy as the app. Changes call updateSeriesCompetitionPolicy.
+            </p>
+            {(
+              [
+                ["matchProposeAccess", "Who can request matches"],
+                ["tournamentProposeAccess", "Who can request tournaments"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="block text-sm">
+                {label}
+                <select
+                  className="mt-1 block w-full max-w-md rounded-md border border-border bg-background px-3 py-2"
+                  value={policyForm[key]}
+                  onChange={(e) =>
+                    setDraftPolicy({
+                      ...policyForm,
+                      [key]: e.target.value as typeof policyForm.matchProposeAccess,
+                    })
+                  }
+                >
+                  {(["admins", "teamAdmins", "everyone"] as const).map((v) => (
+                    <option key={v} value={v}>
+                      {proposeAccessLabel(v)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            {(
+              [
+                ["matchTeamAdminsNeedApproval", "Match requests from team admins need approval"],
+                ["matchPlayersNeedApproval", "Match requests from players need approval"],
+                ["tournamentTeamAdminsNeedApproval", "Tournament requests from team admins need approval"],
+                ["tournamentPlayersNeedApproval", "Tournament requests from players need approval"],
+                ["allowWalkIns", "Allow walk-in players"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(policyForm[key])}
+                  onChange={(e) =>
+                    setDraftPolicy({ ...policyForm, [key]: e.target.checked })
+                  }
+                />
+                {label}
+              </label>
+            ))}
+            <Button
+              type="button"
+              disabled={updatePolicy.isPending || draftPolicy == null}
+              onClick={async () => {
+                await updatePolicy.mutateAsync(orgCompetitionPolicyToMap(policyForm));
+                setDraftPolicy(null);
+              }}
+            >
+              {updatePolicy.isPending ? "Saving…" : "Save permissions"}
+            </Button>
+          </div>
         </Card>
       ) : null}
 
       {activeTab === "overview" && (
         <>
+          {data.canManage ? (
+            <Card className="flex flex-wrap items-center justify-between gap-3 border-[color:var(--accent)]/30 bg-[color:var(--accent-soft)] p-4">
+              <div>
+                <p className="font-bold">Pending approvals</p>
+                <p className="text-sm text-muted-foreground">
+                  {data.pendingApprovalCount === 0
+                    ? "All caught up"
+                    : `${data.pendingApprovalCount} waiting for review`}
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => setActiveTab("approvals")}>
+                Review
+              </Button>
+            </Card>
+          ) : null}
           <OrgLeaderboard
             seriesId={seriesId}
             clubs={clubs}

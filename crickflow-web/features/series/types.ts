@@ -34,6 +34,8 @@ export interface Series {
   matchCount: number;
   tournamentCount: number;
   settings: SeriesSettings;
+  /** Raw competitionPolicy map from Firestore (parsed via orgCompetitionPolicyFromMap). */
+  competitionPolicy?: Record<string, unknown>;
 }
 
 export interface SeriesClub {
@@ -76,6 +78,9 @@ export interface SeriesDetailData {
   }>;
   canManage: boolean;
   isSuperAdmin: boolean;
+  /** Highest org role for the signed-in user (viewer when signed out). */
+  myRole: "superAdmin" | "seriesAdmin" | "clubAdmin" | "seriesPlayer" | "viewer";
+  myTeamIds: string[];
   pendingApprovalCount: number;
   approvals: SeriesApproval[];
 }

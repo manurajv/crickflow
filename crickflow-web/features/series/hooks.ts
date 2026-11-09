@@ -19,6 +19,7 @@ import {
   submitPlayerJoinRequest,
   submitSeriesRegistration,
   updateSeriesSettings,
+  updateSeriesCompetitionPolicy,
 } from "./repository";
 import { getOrgLeaderboardData } from "./leaderboard-repository";
 
@@ -85,6 +86,15 @@ export function useUpdateSeriesSettings(seriesId: string) {
   return useMutation({
     mutationFn: (settings: Record<string, unknown>) =>
       updateSeriesSettings(seriesId, settings),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
+export function useUpdateSeriesCompetitionPolicy(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (policy: Record<string, unknown>) =>
+      updateSeriesCompetitionPolicy(seriesId, policy),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
   });
 }

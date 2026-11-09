@@ -16,13 +16,19 @@ import { SearchDialog } from "@/features/search/search-dialog";
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/matches", label: "Matches" },
+  { href: "/series", label: "Orgs" },
   { href: "/tournaments", label: "Tournaments" },
-  { href: "/series", label: "Series" },
   { href: "/teams", label: "Teams" },
-  { href: "/players", label: "Players" },
   { href: "/community", label: "Community" },
   { href: "/discover", label: "Discover" },
+  { href: "/my-cricket", label: "My Cricket" },
+];
+
+const SECONDARY_NAV = [
+  { href: "/players", label: "Players" },
   { href: "/rankings", label: "Rankings" },
+  { href: "/grounds", label: "Grounds" },
+  { href: "/statistics", label: "Statistics" },
 ];
 
 function pathMatches(pathname: string, href: string) {
@@ -74,14 +80,33 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground",
-                  active && "bg-accent text-primary font-semibold",
+                  "rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground xl:px-3",
+                  active && "bg-accent-soft text-[color:var(--nav-selected)] font-semibold dark:bg-accent-soft dark:text-[color:var(--nav-selected)]",
                 )}
               >
                 {item.label}
               </Link>
             );
           })}
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground xl:px-3">
+              More
+            </summary>
+            <div className="absolute left-0 top-full z-50 mt-1 min-w-[10rem] rounded-xl border border-border bg-card p-1 shadow-lg">
+              {SECONDARY_NAV.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "block rounded-lg px-3 py-2 text-sm hover:bg-muted",
+                    pathMatches(pathname, item.href) && "font-semibold text-[color:var(--nav-selected)]",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </details>
         </nav>
         <div className="ml-auto flex items-center gap-1.5">
           <Button
@@ -129,14 +154,14 @@ export function SiteHeader() {
       </div>
       {open ? (
         <nav className="grid gap-1 border-t border-border px-4 py-3 lg:hidden">
-          {NAV.map((item) => (
+          {[...NAV, ...SECONDARY_NAV].map((item) => (
             <Link
               key={item.href}
               href={item.href}
               onClick={() => setMenuForPath(null)}
               className={cn(
                 "rounded-lg px-3 py-2 text-sm hover:bg-muted",
-                pathMatches(pathname, item.href) && "bg-accent font-semibold text-primary",
+                pathMatches(pathname, item.href) && "bg-accent-soft font-semibold text-[color:var(--nav-selected)]",
               )}
             >
               {item.label}
@@ -175,7 +200,7 @@ const FOOTER_LINKS = {
     { href: "/rankings", label: "Rankings" },
   ],
   Explore: [
-    { href: "/series", label: "Series" },
+    { href: "/series", label: "Orgs" },
     { href: "/tournaments", label: "Tournaments" },
     { href: "/teams", label: "Teams" },
     { href: "/players", label: "Players" },
