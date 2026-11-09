@@ -10,6 +10,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { PhoneRecaptchaHost } from "@/components/auth/phone-recaptcha-host";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { resolveSignInMessage } from "@/lib/auth/guest-access";
+import { stashPendingNext } from "@/lib/cricket/onboarding-options";
 
 function readInvitePhone() {
   if (typeof window === "undefined") return "";
@@ -21,7 +22,7 @@ function readInvitePhone() {
 }
 
 function LoginForm() {
-  const { user, profile, loading, signInGoogle, signInEmail, registerEmail, sendPhoneCode, confirmPhoneCode } = useAuth();
+  const { user, profile, loading, signInGoogle, signInEmail, registerEmail, resetPassword, sendPhoneCode, confirmPhoneCode } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [phone, setPhone] = useState(readInvitePhone);
@@ -45,10 +46,19 @@ function LoginForm() {
   useEffect(() => {
     if (loading || !user || !profile) return;
     if (nextPath.startsWith("/invite/")) {
-      router.replace(nextPath);
+      router.replace(nextPath.endsWith("/") ? nextPath : `${nextPath}/`);
       return;
     }
-    router.replace(profile.onboardingCompleted ? nextPath : "/register");
+    if (!profile.onboardingCompleted) {
+      // Preserve intended destination after onboarding (not /register itself).
+      if (nextPath !== "/" && !nextPath.startsWith("/register")) {
+        stashPendingNext(nextPath);
+      }
+      router.replace("/register/");
+      return;
+    }
+    const dest = nextPath === "/" ? "/" : nextPath.endsWith("/") ? nextPath : `${nextPath}/`;
+    router.replace(dest);
   }, [loading, user, profile, router, nextPath]);
 
   if (loading) return <LoadingPage title="Loading sign in" />;
@@ -61,7 +71,7 @@ function LoginForm() {
           ? "Accept with Google or the invited mobile number — both work."
           : gateMessage
             ? gateMessage
-            : "Same Firebase account as the mobile app — Google, phone, or email."
+            : "Same Firebase account as the mobile app — Google or phone (email/password also available on web)."
       }
     >
       {gateMessage ? (
@@ -147,6 +157,27 @@ function LoginForm() {
             Create account
           </Button>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full text-sm"
+          disabled={busy || !email.trim()}
+          onClick={async () => {
+            setBusy(true);
+            setError("");
+            try {
+              await resetPassword(email);
+              setError("");
+              window.alert("Password reset email sent. Check your inbox.");
+            } catch (err) {
+              setError(authErrorMessage(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Forgot password?
+        </Button>
       </div>
 
       <div className="relative my-6 text-center text-xs uppercase tracking-wider text-muted-foreground">

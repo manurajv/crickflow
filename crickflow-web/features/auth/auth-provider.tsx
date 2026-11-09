@@ -6,6 +6,7 @@ import {
   getRedirectResult,
   initializeRecaptchaConfig,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -30,6 +31,7 @@ interface AuthContextValue {
   signInGoogle: () => Promise<void>;
   signInEmail: (email: string, password: string) => Promise<void>;
   registerEmail: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   sendPhoneCode: (phone: string, recaptchaId: string) => Promise<string>;
   confirmPhoneCode: (verificationId: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         let existing = await getUserProfile(next.uid);
         if (!existing) {
-          await upsertUserProfile({
+          const stub = {
             id: next.uid,
             email: next.email ?? "",
             name: next.displayName ?? "",
@@ -75,8 +77,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               placeName: "",
             },
             onboardingCompleted: false,
-          });
-          existing = await getUserProfile(next.uid);
+          };
+          try {
+            await upsertUserProfile(stub);
+            existing = (await getUserProfile(next.uid)) ?? {
+              ...stub,
+              onboardingCompleted: false,
+            };
+          } catch {
+            // Rules/network may fail the first write — still force onboarding UI.
+            existing = { ...stub, onboardingCompleted: false };
+          }
         }
         setProfile(existing);
       } finally {
@@ -110,6 +121,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       registerEmail: async (email, password) => {
         await createUserWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
+      },
+      resetPassword: async (email) => {
+        await sendPasswordResetEmail(getFirebaseAuth(), email.trim());
       },
       sendPhoneCode: async (phone, recaptchaId) => {
         return sendPhoneVerificationCode(getFirebaseAuth(), phone, recaptchaId);

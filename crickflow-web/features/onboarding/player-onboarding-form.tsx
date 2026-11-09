@@ -27,14 +27,34 @@ import {
   type BowlingStyle,
   type PlayingRole,
 } from "@/lib/cricket/player-profile";
+import {
+  COMMON_COUNTRIES,
+  PLAYER_GENDERS,
+  PLAYER_GENDER_LABELS,
+  PHONE_DIAL_CODES,
+  dialCodeForCountry,
+  phoneNumberHint,
+  takePendingNext,
+  type PlayerGender,
+} from "@/lib/cricket/onboarding-options";
 import { storageUploadHint, uploadUserProfilePhoto } from "@/lib/media-upload";
 import { completePlayerOnboarding } from "@/repositories";
 import type { UserProfile } from "@/types/models";
 
-const STEP_COUNT = 5;
+/** Same 6 steps as Flutter `PlayerOnboardingScreen`. */
+const STEP_COUNT = 6;
 
 const selectClass =
   "h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+function splitPhone(e164?: string): { dial: string; national: string } {
+  if (!e164) return { dial: "+94", national: "" };
+  const match = PHONE_DIAL_CODES.slice()
+    .sort((a, b) => b.length - a.length)
+    .find((d) => e164.startsWith(d));
+  if (match) return { dial: match, national: e164.slice(match.length) };
+  return { dial: "+94", national: e164.replace(/^\+\d+\s*/, "") };
+}
 
 export function PlayerOnboardingForm({
   user,
@@ -43,7 +63,7 @@ export function PlayerOnboardingForm({
   user: User;
   profile: UserProfile | null;
 }) {
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, logout } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -51,6 +71,18 @@ export function PlayerOnboardingForm({
   const [photos, setPhotos] = useState<File[]>([]);
   const [name, setName] = useState(profile?.name || user.displayName || "");
   const [displayName, setDisplayName] = useState(profile?.displayName || user.displayName || "");
+  const initialPhone = splitPhone(profile?.phoneNumber || user.phoneNumber || undefined);
+  const [dialCode, setDialCode] = useState(initialPhone.dial);
+  const [mobileNational, setMobileNational] = useState(initialPhone.national);
+  const [country, setCountry] = useState(profile?.location?.country || "Sri Lanka");
+  const [stateProvince, setStateProvince] = useState(profile?.location?.stateProvince || "");
+  const [city, setCity] = useState(profile?.location?.city || "");
+  const [dob, setDob] = useState(
+    profile?.dateOfBirth ? profile.dateOfBirth.slice(0, 10) : "",
+  );
+  const [gender, setGender] = useState<PlayerGender | "">(
+    (profile?.gender as PlayerGender | undefined) ?? "",
+  );
   const [playingRole, setPlayingRole] = useState<PlayingRole | "">(
     (profile?.playingRole as PlayingRole | undefined) ?? "",
   );
@@ -61,6 +93,9 @@ export function PlayerOnboardingForm({
   const [bowlingArm, setBowlingArm] = useState<BowlingArm | "">("");
   const [bowlingStyle, setBowlingStyle] = useState<BowlingStyle | "">(
     (profile?.bowlingStyle as BowlingStyle | undefined) ?? "",
+  );
+  const [jersey, setJersey] = useState(
+    profile?.jerseyNumber != null ? String(profile.jerseyNumber) : "",
   );
 
   const photoPreview = useMemo(() => {
@@ -84,6 +119,10 @@ export function PlayerOnboardingForm({
         if (trimmed.length < 2 || trimmed.length > 50) {
           return "Full name must be 2–50 characters";
         }
+        const mobile = mobileNational.trim();
+        if (mobile && !/^[0-9]{6,14}$/.test(mobile)) {
+          return "Enter a valid mobile number (digits only)";
+        }
         return null;
       }
       case 2:
@@ -97,6 +136,13 @@ export function PlayerOnboardingForm({
           return bowlingStyle ? null : "Select your spin bowling style";
         }
         return bowlingArm ? null : "Select bowling arm";
+      case 5: {
+        const j = jersey.trim();
+        if (!j) return null;
+        const n = Number(j);
+        if (!Number.isInteger(n) || n < 0 || n > 999) return "Jersey number must be 0–999";
+        return null;
+      }
       default:
         return null;
     }
@@ -129,29 +175,36 @@ export function PlayerOnboardingForm({
         photoUrl = await uploadUserProfilePhoto(user.uid, photos[0]);
       }
 
+      const mobile = mobileNational.trim();
+      const phoneNumber = mobile ? `${dialCode}${mobile}` : profile?.phoneNumber || user.phoneNumber || undefined;
+      const jerseyNumber = jersey.trim() ? Number(jersey.trim()) : undefined;
+
       await completePlayerOnboarding({
         id: user.uid,
         email: profile?.email ?? user.email ?? "",
-        phoneNumber: profile?.phoneNumber ?? user.phoneNumber ?? undefined,
+        phoneNumber,
         name: name.trim(),
         displayName: displayName.trim() || name.trim(),
         photoUrl,
         role: profile?.role ?? "organizer",
-        location: profile?.location ?? {
-          country: "",
-          stateProvince: "",
-          district: "",
-          city: "",
-          placeName: "",
+        location: {
+          country: country.trim(),
+          stateProvince: stateProvince.trim(),
+          district: profile?.location?.district ?? "",
+          city: city.trim(),
+          placeName: profile?.location?.placeName ?? "",
         },
         bio: profile?.bio ?? "",
         playingRole,
         battingStyle,
         bowlingStyle: resolvedBowling,
+        jerseyNumber,
+        dateOfBirth: dob || undefined,
+        gender: gender || undefined,
         playerId: profile?.playerId,
       });
       await refreshProfile();
-      router.replace("/");
+      router.replace(takePendingNext("/"));
     } catch (err) {
       toast.error(storageUploadHint(err));
     } finally {
@@ -179,13 +232,28 @@ export function PlayerOnboardingForm({
 
   return (
     <Card className="mx-auto max-w-lg space-y-6 p-6 sm:p-8">
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Step {step + 1} of {STEP_COUNT}
-        </p>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Step {step + 1} of {STEP_COUNT}
+          </p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+          </div>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="shrink-0 text-muted-foreground"
+          disabled={busy}
+          onClick={async () => {
+            await logout();
+            router.replace("/login/");
+          }}
+        >
+          Sign out
+        </Button>
       </div>
 
       {step === 0 ? (
@@ -207,18 +275,61 @@ export function PlayerOnboardingForm({
       {step === 1 ? (
         <section className="space-y-4">
           <h1 className="text-2xl font-bold">Basic details</h1>
-          <p className="text-sm text-muted-foreground">Tell us about yourself.</p>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Full name *"
-            required
-          />
+          <p className="text-sm text-muted-foreground">Tell us about yourself. Fields marked * are required.</p>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name *" required />
           <Input
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Display name (optional)"
           />
+          <select
+            className={selectClass}
+            value={country}
+            onChange={(e) => {
+              const c = e.target.value;
+              setCountry(c);
+              setDialCode(dialCodeForCountry(c));
+            }}
+          >
+            {COMMON_COUNTRIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Input
+              value={stateProvince}
+              onChange={(e) => setStateProvince(e.target.value)}
+              placeholder="State / Province"
+            />
+            <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" />
+          </div>
+          <div className="flex gap-2">
+            <select className={`${selectClass} w-28 shrink-0`} value={dialCode} onChange={(e) => setDialCode(e.target.value)}>
+              {PHONE_DIAL_CODES.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+            <Input
+              value={mobileNational}
+              onChange={(e) => setMobileNational(e.target.value.replace(/\D/g, ""))}
+              placeholder={phoneNumberHint(dialCode)}
+              inputMode="numeric"
+              className="flex-1"
+            />
+          </div>
+          <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
+          <select className={selectClass} value={gender} onChange={(e) => setGender(e.target.value as PlayerGender | "")}>
+            <option value="">Gender (optional)</option>
+            {PLAYER_GENDERS.map((g) => (
+              <option key={g} value={g}>
+                {PLAYER_GENDER_LABELS[g]}
+              </option>
+            ))}
+          </select>
         </section>
       ) : null}
 
@@ -335,6 +446,19 @@ export function PlayerOnboardingForm({
         </section>
       ) : null}
 
+      {step === 5 ? (
+        <section className="space-y-4">
+          <h1 className="text-2xl font-bold">Jersey number</h1>
+          <p className="text-sm text-muted-foreground">Optional — 0–999.</p>
+          <Input
+            value={jersey}
+            onChange={(e) => setJersey(e.target.value.replace(/\D/g, "").slice(0, 3))}
+            placeholder="e.g. 7"
+            inputMode="numeric"
+          />
+        </section>
+      ) : null}
+
       <div className="flex gap-2">
         {step > 0 ? (
           <Button type="button" variant="outline" onClick={back} disabled={busy}>
@@ -342,7 +466,7 @@ export function PlayerOnboardingForm({
           </Button>
         ) : null}
         <Button type="button" className="flex-1" onClick={next} disabled={busy}>
-          {busy ? "Saving…" : step === STEP_COUNT - 1 ? "Finish" : step === 0 ? "Skip photo" : "Continue"}
+          {busy ? "Saving…" : step === STEP_COUNT - 1 ? "Finish" : step === 0 ? "Skip photo" : "Save & Continue"}
         </Button>
       </div>
     </Card>

@@ -23,14 +23,18 @@ export default function RegisterPage() {
     return (
       <EmptyState
         title="Create your CrickFlow profile"
-        description="Sign in with Google or phone first — same account as the mobile app."
+        description="Sign in first — Google, email, or phone — same account as the mobile app. New accounts complete onboarding next."
         action={
-          <Link href="/login?next=/register" className="text-primary">
+          <Link href="/login/?next=/register/" className="text-primary">
             Sign in
           </Link>
         }
       />
     );
+  }
+
+  if (profile?.onboardingCompleted) {
+    return <LoadingPage title="Opening CrickFlow" />;
   }
 
   return <PlayerOnboardingForm user={user} profile={profile} />;

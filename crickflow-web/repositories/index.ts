@@ -434,6 +434,11 @@ export async function upsertUserProfile(profile: Partial<UserProfile> & { id: st
   if (profile.battingStyle !== undefined) payload.battingStyle = profile.battingStyle || null;
   if (profile.bowlingStyle !== undefined) payload.bowlingStyle = profile.bowlingStyle || null;
   if (profile.jerseyNumber !== undefined) payload.jerseyNumber = profile.jerseyNumber ?? null;
+  if (profile.dateOfBirth !== undefined) {
+    payload.dob = profile.dateOfBirth || null;
+    payload.dateOfBirth = profile.dateOfBirth || null;
+  }
+  if (profile.gender !== undefined) payload.gender = profile.gender || null;
   if (profile.onboardingCompleted !== undefined) payload.onboardingCompleted = profile.onboardingCompleted;
   await setDoc(doc(getDb(), collections.users, profile.id), payload, { merge: true });
 }

@@ -286,6 +286,9 @@ export interface UserProfile {
   battingStyle?: string;
   bowlingStyle?: string;
   jerseyNumber?: number;
+  /** ISO date string (YYYY-MM-DD or full ISO), mirrors app `dob`. */
+  dateOfBirth?: string;
+  gender?: "male" | "female" | "other" | string;
   onboardingCompleted: boolean;
 }
 

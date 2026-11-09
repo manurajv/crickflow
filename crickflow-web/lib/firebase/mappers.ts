@@ -398,6 +398,12 @@ export function mapPlayer(id: string, data: Record<string, unknown>): Player {
   };
 }
 
+function inferOnboardingCompleted(data: Record<string, unknown>): boolean {
+  if (typeof data.onboardingCompleted === "boolean") return data.onboardingCompleted;
+  const playerId = asString(data.playerId) || asString(data.cfPlayerId);
+  return Boolean(playerId);
+}
+
 export function mapUser(id: string, data: Record<string, unknown>): UserProfile {
   const jerseyRaw = data.jerseyNumber;
   return {
@@ -416,7 +422,9 @@ export function mapUser(id: string, data: Record<string, unknown>): UserProfile 
     battingStyle: asString(data.battingStyle) || undefined,
     bowlingStyle: asString(data.bowlingStyle) || undefined,
     jerseyNumber: typeof jerseyRaw === "number" ? jerseyRaw : undefined,
-    onboardingCompleted: asBoolean(data.onboardingCompleted),
+    dateOfBirth: asString(data.dob) || asString(data.dateOfBirth) || undefined,
+    gender: asString(data.gender) || undefined,
+    onboardingCompleted: inferOnboardingCompleted(data),
   };
 }
 
