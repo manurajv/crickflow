@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 import '../config/firebase_bootstrap.dart';
 
@@ -21,6 +22,9 @@ Future<void> runAdminPanel({
   // Expose form fields to the accessibility / DOM tree so browser automation
   // and assistive tech can fill email/password on Flutter web.
   if (kIsWeb) {
+    // Path URLs (/users, /ads) instead of hash (/#/users) so Hosting rewrites
+    // and bookmarks land on the right GoRouter location.
+    usePathUrlStrategy();
     SemanticsBinding.instance.ensureSemantics();
   }
   _installErrorHandlers();
