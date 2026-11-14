@@ -39,7 +39,7 @@ class _SeriesClubDetailScreenState
     await requireLogin(
       context: context,
       ref: ref,
-      prompt: SignInPrompt.joinOrg,
+      prompt: SignInPrompt.joinOrgTeam,
       returnPath: path,
       action: () async {
         if (context.mounted) context.push(path);
@@ -108,16 +108,108 @@ class _SeriesClubDetailScreenState
     );
   }
 
+  Future<void> _viewJoinIdentity(SeriesApprovalModel approval) async {
+    final registrationId = approval.metadata['registrationId']?.toString();
+    if (registrationId == null || registrationId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No registration linked to this request')),
+      );
+      return;
+    }
+    try {
+      final result = await ref
+          .read(seriesFunctionsServiceProvider)
+          .getSeriesRegistrationIdentity(
+            seriesId: widget.seriesId,
+            registrationId: registrationId,
+          );
+      if (!mounted) return;
+      final identity = result['identity'];
+      final pub = result['public'];
+      final map = <String, dynamic>{
+        if (pub is Map) ...Map<String, dynamic>.from(pub),
+        if (identity is Map) ...Map<String, dynamic>.from(identity),
+      };
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Registration details'),
+          content: map.isEmpty
+              ? const Text('No private details on file.')
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final e in map.entries)
+                        if ((e.value?.toString().trim() ?? '').isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              '${seriesIdentityFieldLabel(e.key)}: ${e.value}',
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load registration details')),
+        );
+      }
+    }
+  }
+
   Future<void> _clubReviewJoin(
     SeriesApprovalModel approval,
     String decision,
   ) async {
+    var reason = '';
+    if (decision == 'rejected') {
+      final controller = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Reject registration'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'Reason (required)',
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim().isNotEmpty),
+              child: const Text('Reject'),
+            ),
+          ],
+        ),
+      );
+      reason = controller.text.trim();
+      controller.dispose();
+      if (ok != true || reason.isEmpty) return;
+    }
     setState(() => _busy = true);
     try {
       await ref.read(seriesFunctionsServiceProvider).reviewClubJoinRequest(
         seriesId: widget.seriesId,
         approvalId: approval.id,
         decision: decision,
+        reason: reason,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -403,6 +495,13 @@ class _SeriesClubDetailScreenState
                                   trailing: Wrap(
                                     spacing: 4,
                                     children: [
+                                      IconButton(
+                                        tooltip: 'View documents',
+                                        onPressed: _busy
+                                            ? null
+                                            : () => _viewJoinIdentity(a),
+                                        icon: const Icon(Icons.badge_outlined),
+                                      ),
                                       IconButton(
                                         tooltip: 'Decline',
                                         onPressed: _busy

@@ -42,7 +42,7 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
       data: (all) {
         final visible = visibleOrgMatches(
           all,
-          isAdmin: access.isAdmin,
+          isAdmin: access.canViewStaffTools,
           uid: uid,
         );
         final scoped = visible
@@ -109,7 +109,7 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
       title: 'No matches yet',
       message: access.match == OrgStartMode.none
           ? 'Official org matches will appear here.'
-          : access.isAdmin
+          : access.isCompetitionOfficial
           ? 'Start a match between two org teams.'
           : 'Request a match for your team. Org admins approve it.',
     );

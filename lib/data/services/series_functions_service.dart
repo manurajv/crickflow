@@ -21,12 +21,25 @@ class SeriesFunctionsService {
     required String userId,
     String displayName = '',
     List<String> permissions = const [],
+    String role = 'admin',
   }) =>
       _call('addSeriesAdmin', {
         'seriesId': seriesId,
         'userId': userId,
         'displayName': displayName,
         'permissions': permissions,
+        'role': role,
+      });
+
+  Future<Map<String, dynamic>> updateSeriesAdminRole({
+    required String seriesId,
+    required String userId,
+    required String role,
+  }) =>
+      _call('updateSeriesAdminRole', {
+        'seriesId': seriesId,
+        'userId': userId,
+        'role': role,
       });
 
   Future<Map<String, dynamic>> removeSeriesAdmin({

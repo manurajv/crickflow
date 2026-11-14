@@ -11,6 +11,11 @@ import {
 import { collections } from "@/config/site";
 import { getDb } from "@/lib/firebase/client";
 import { getFirebaseFunctions } from "@/lib/firebase/client";
+import {
+  canScoreSeriesTier,
+  isFullSeriesAdminTier,
+  parseSeriesAdminTier,
+} from "@/lib/cricket/series-admin-tier";
 import { httpsCallable } from "firebase/functions";
 import type {
   Series,
@@ -38,9 +43,14 @@ function mapSettings(data: Data): Series["settings"] {
     requireDateOfBirth: Boolean(raw.requireDateOfBirth),
     requireNationalId: Boolean(raw.requireNationalId),
     requirePassport: Boolean(raw.requirePassport),
+    requireNationalIdDocument: Boolean(raw.requireNationalIdDocument),
+    requirePassportDocument: Boolean(raw.requirePassportDocument),
     requirePhoneNumber: Boolean(raw.requirePhoneNumber),
     requireAddress: Boolean(raw.requireAddress),
     requireProfilePhoto: Boolean(raw.requireProfilePhoto),
+    customRequiredFields: Array.isArray(raw.customRequiredFields)
+      ? raw.customRequiredFields.filter((v): v is string => typeof v === "string" && v.trim().length >= 2)
+      : [],
     rankingRules: {
       // 0 is a valid value (e.g. no-result worth nothing); only absent means default.
       winPoints: typeof rankingRaw.winPoints === "number" ? rankingRaw.winPoints : 2,
@@ -182,15 +192,32 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
         };
       })
       .filter((a) => a.status === "active"),
-    canManage: Boolean(userId && (series.superAdminUserId === userId || admins?.size)),
+    canManage: Boolean(userId && (series.superAdminUserId === userId || (
+      admins?.docs.some((d) => {
+        const x = d.data();
+        return x.status === "active" && isFullSeriesAdminTier(text(x, "role"));
+      })
+    ))),
+    canScore: Boolean(userId && (series.superAdminUserId === userId || (
+      admins?.docs.some((d) => {
+        const x = d.data();
+        return x.status === "active" && canScoreSeriesTier(text(x, "role"));
+      })
+    ))),
+    canViewStaff: Boolean(userId && (series.superAdminUserId === userId || (
+      admins?.docs.some((d) => (d.data().status as string | undefined) === "active")
+    ))),
     isSuperAdmin: Boolean(userId && series.superAdminUserId === userId),
     myRole: ((): SeriesDetailData["myRole"] => {
       if (!userId) return "viewer";
       if (series.superAdminUserId === userId) return "superAdmin";
-      const seriesAdminActive = Boolean(
-        admins?.docs.some((d) => (d.data().status as string | undefined) !== "removed" && (d.data().status as string | undefined) !== "inactive"),
-      );
-      if (seriesAdminActive || (admins && admins.size > 0)) return "seriesAdmin";
+      const myAdmin = admins?.docs.find((d) => (d.data().status as string | undefined) === "active");
+      if (myAdmin) {
+        const tier = parseSeriesAdminTier(text(myAdmin.data(), "role"));
+        if (tier === "scorer") return "scorer";
+        if (tier === "viewer") return "staffViewer";
+        return "seriesAdmin";
+      }
       const clubAdminActive = Boolean(
         clubAdmins?.docs.some((d) => {
           const st = d.data().status;
@@ -203,6 +230,18 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
       );
       if (memberActive) return "seriesPlayer";
       return "viewer";
+    })(),
+    myAdminClubIds: (() => {
+      if (!userId) return [] as string[];
+      const ids = new Set<string>();
+      for (const d of clubAdmins?.docs ?? []) {
+        const st = d.data().status;
+        if (st === "active" || st == null) {
+          const clubId = typeof d.data().clubId === "string" ? d.data().clubId : "";
+          if (clubId) ids.add(clubId);
+        }
+      }
+      return [...ids];
     })(),
     myTeamIds: (() => {
       if (!userId) return [] as string[];
@@ -230,6 +269,7 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
         targetType: text(x, "targetType"),
         targetId: text(x, "targetId"),
         requestedBy: text(x, "requestedBy"),
+        clubId: text(x, "clubId") || undefined,
         metadata: (x.metadata && typeof x.metadata === "object"
           ? x.metadata
           : {}) as Record<string, unknown>,
@@ -344,6 +384,7 @@ export async function getSeriesRegistrationIdentity(
   const result = await callable({ seriesId, registrationId });
   return (result.data ?? {}) as {
     registrationId?: string;
+    public?: Record<string, unknown> | null;
     identity?: Record<string, unknown> | null;
   };
 }
@@ -384,8 +425,18 @@ export async function addSeriesAdmin(input: {
   seriesId: string;
   userId: string;
   displayName?: string;
+  role?: "admin" | "scorer" | "viewer";
 }) {
   const callable = httpsCallable(getFirebaseFunctions(), "addSeriesAdmin");
+  await callable(input);
+}
+
+export async function updateSeriesAdminRole(input: {
+  seriesId: string;
+  userId: string;
+  role: "admin" | "scorer" | "viewer";
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "updateSeriesAdminRole");
   await callable(input);
 }
 

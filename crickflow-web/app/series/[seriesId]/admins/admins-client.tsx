@@ -11,7 +11,9 @@ import {
   useSeriesAdmins,
   useSeriesAuditLogs,
   useSeriesDetail,
+  useUpdateSeriesAdminRole,
 } from "@/features/series/hooks";
+import { seriesAdminTierLabel, type SeriesAdminTier } from "@/lib/cricket/series-admin-tier";
 import { seriesAuditActionLabel } from "@/features/series/repository";
 import { usePathParam } from "@/lib/use-path-param";
 import { loginUrl } from "@/lib/auth/guest-access";
@@ -21,9 +23,11 @@ export function SeriesAdminsPage() {
   const { user } = useAuth();
   const { data, isLoading } = useSeriesDetail(seriesId, user?.uid);
   const admins = useSeriesAdmins(seriesId || "");
-  const audit = useSeriesAuditLogs(seriesId || "", Boolean(data?.canManage));
+  const audit = useSeriesAuditLogs(seriesId || "", Boolean(data?.canViewStaff));
   const addAdmin = useAddSeriesAdmin(seriesId || "");
   const [adminUserId, setAdminUserId] = useState("");
+  const [adminRole, setAdminRole] = useState<SeriesAdminTier>("admin");
+  const updateRole = useUpdateSeriesAdminRole(seriesId || "");
 
   if (!seriesId || isLoading) return <p>Loading…</p>;
   if (!user) {
@@ -34,7 +38,7 @@ export function SeriesAdminsPage() {
       />
     );
   }
-  if (!data?.canManage) return <EmptyState title="Admin access required" />;
+  if (!data?.canViewStaff) return <EmptyState title="Admin access required" />;
 
   return (
     <div className="space-y-6">
@@ -48,7 +52,20 @@ export function SeriesAdminsPage() {
         {(admins.data ?? data.admins).map((a) => (
           <Card key={a.id} className="p-4 text-sm">
             <p className="font-semibold">{a.displayName || a.userId}</p>
-            <p className="text-muted-foreground">{a.role || "seriesAdmin"}</p>
+            <p className="text-muted-foreground">{seriesAdminTierLabel(a.role)}</p>
+            {data.isSuperAdmin && a.userId !== data.series.superAdminUserId ? (
+              <select
+                className="mt-2 rounded-md border border-border bg-background px-2 py-1 text-sm"
+                value={a.role === "scorer" || a.role === "viewer" ? a.role : "admin"}
+                onChange={(e) =>
+                  updateRole.mutate({ userId: a.userId, role: e.target.value as SeriesAdminTier })
+                }
+              >
+                <option value="admin">Admin</option>
+                <option value="scorer">Scorer</option>
+                <option value="viewer">Viewer</option>
+              </select>
+            ) : null}
           </Card>
         ))}
       </div>
@@ -57,7 +74,7 @@ export function SeriesAdminsPage() {
           className="flex flex-wrap gap-2"
           onSubmit={async (e: FormEvent) => {
             e.preventDefault();
-            await addAdmin.mutateAsync({ userId: adminUserId.trim() });
+            await addAdmin.mutateAsync({ userId: adminUserId.trim(), role: adminRole });
             setAdminUserId("");
           }}
         >
@@ -68,6 +85,15 @@ export function SeriesAdminsPage() {
             onChange={(e) => setAdminUserId(e.target.value)}
             required
           />
+          <select
+            className="rounded-md border border-border bg-background px-3 py-2"
+            value={adminRole}
+            onChange={(e) => setAdminRole(e.target.value as SeriesAdminTier)}
+          >
+            <option value="admin">Admin</option>
+            <option value="scorer">Scorer</option>
+            <option value="viewer">Viewer</option>
+          </select>
           <Button type="submit" disabled={addAdmin.isPending}>
             Add admin
           </Button>

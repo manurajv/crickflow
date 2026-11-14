@@ -58,6 +58,8 @@ export function SeriesDirectoryClient() {
   const [requirePhone, setRequirePhone] = useState(false);
   const [requireAddress, setRequireAddress] = useState(false);
   const [requirePhoto, setRequirePhoto] = useState(false);
+  const [requireNationalIdDoc, setRequireNationalIdDoc] = useState(false);
+  const [requirePassportDoc, setRequirePassportDoc] = useState(false);
   const [winPoints, setWinPoints] = useState(2);
   const [lossPoints, setLossPoints] = useState(0);
   const [tiePoints, setTiePoints] = useState(1);
@@ -116,6 +118,8 @@ export function SeriesDirectoryClient() {
           requirePhoneNumber: requirePhone,
           requireAddress,
           requireProfilePhoto: requirePhoto,
+          requireNationalIdDocument: requireNationalIdDoc,
+          requirePassportDocument: requirePassportDoc,
           rankingRules: {
             winPoints,
             lossPoints,
@@ -374,6 +378,8 @@ export function SeriesDirectoryClient() {
                   ["Phone number", requirePhone, setRequirePhone],
                   ["Address", requireAddress, setRequireAddress],
                   ["Profile photo", requirePhoto, setRequirePhoto],
+                  ["National ID document upload (private)", requireNationalIdDoc, setRequireNationalIdDoc],
+                  ["Passport document upload (private)", requirePassportDoc, setRequirePassportDoc],
                 ].map(([label, value, setter]) => (
                   <label key={String(label)} className="flex items-center gap-2 text-sm">
                     <input

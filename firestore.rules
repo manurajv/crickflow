@@ -2488,8 +2488,62 @@ service cloud.firestore {
           .data.get('status', '') == 'active';
     }
 
+    // Full org admin: owner, or active staff with admin / legacy seriesAdmin / missing role.
+    function isFullSeriesAdmin(seriesId) {
+      let adminId = seriesId + '_' + request.auth.uid;
+      return isSeriesSuperAdmin(seriesId) || (
+        isSeriesAdminMember(seriesId)
+        && get(/databases/$(database)/documents/series_admins/$(adminId))
+          .data.get('role', 'admin') in ['admin', 'seriesAdmin', '']
+      );
+    }
+
     function canManageSeries(seriesId) {
+      return isFullSeriesAdmin(seriesId);
+    }
+
+    // Owner or any active staff (admin, scorer, viewer) — read-only staff tools.
+    function canViewSeriesStaff(seriesId) {
       return isSeriesSuperAdmin(seriesId) || isSeriesAdminMember(seriesId);
+    }
+
+    function isSeriesClubAdmin(seriesId, clubId) {
+      let adminId = seriesId + '_' + clubId + '_' + request.auth.uid;
+      return isSignedIn()
+        && clubId is string
+        && clubId.size() > 0
+        && exists(/databases/$(database)/documents/series_club_admins/$(adminId))
+        && get(/databases/$(database)/documents/series_club_admins/$(adminId))
+          .data.get('status', '') == 'active';
+    }
+
+    function canReadSeriesRegistration(reg) {
+      return isSignedIn()
+        && (
+          reg.userId == request.auth.uid
+          || reg.createdBy == request.auth.uid
+          || canViewSeriesStaff(reg.seriesId)
+          || (
+            reg.clubId is string
+            && isSeriesClubAdmin(reg.seriesId, reg.clubId)
+          )
+          || hasAdminPermission('canManageOrganizations')
+        );
+    }
+
+    // ID documents / PII: player, submitting team admin, full org admins only.
+    function canReadSeriesRegistrationIdentity(reg) {
+      return isSignedIn()
+        && (
+          reg.userId == request.auth.uid
+          || reg.createdBy == request.auth.uid
+          || canManageSeries(reg.seriesId)
+          || (
+            reg.clubId is string
+            && isSeriesClubAdmin(reg.seriesId, reg.clubId)
+          )
+          || hasAdminPermission('canManageOrganizations')
+        );
     }
 
     match /series/{seriesId} {
@@ -2537,7 +2591,7 @@ service cloud.firestore {
       match /approvals/{approvalId} {
         allow read: if isSignedIn() && (
           resource.data.requestedBy == request.auth.uid
-          || canManageSeries(seriesId)
+          || canViewSeriesStaff(seriesId)
           || hasAdminPermission('canManageOrganizations')
         );
         allow create, update, delete: if false; // CF Admin SDK only
@@ -2586,20 +2640,14 @@ service cloud.firestore {
     }
 
     match /series_registrations/{regId} {
-      allow read: if isSignedIn()
-        && (
-          resource.data.userId == request.auth.uid
-          || canManageSeries(resource.data.seriesId)
-          || hasAdminPermission('canManageOrganizations')
-        );
+      allow read: if canReadSeriesRegistration(resource.data);
       allow create: if false; // callable writes public + private identity
       allow update, delete: if false;
 
       match /private/{docId} {
-        allow read: if isSignedIn()
-          && canManageSeries(
-            get(/databases/$(database)/documents/series_registrations/$(regId)).data.seriesId
-          );
+        allow read: if canReadSeriesRegistrationIdentity(
+          get(/databases/$(database)/documents/series_registrations/$(regId)).data
+        );
         allow write: if false;
       }
     }
@@ -2613,7 +2661,7 @@ service cloud.firestore {
     // series/{seriesId}/approvals for manager list queries.
     match /series_approvals/{id} {
       allow read: if isSignedIn() && resource.data.requestedBy == request.auth.uid;
-      allow read: if isSignedIn() && canManageSeries(resource.data.seriesId);
+      allow read: if isSignedIn() && canViewSeriesStaff(resource.data.seriesId);
       allow read: if hasAdminPermission('canManageOrganizations');
       allow create: if isSignedIn()
         && request.resource.data.requestedBy == request.auth.uid
@@ -2660,7 +2708,7 @@ service cloud.firestore {
     match /series_audit_logs/{id} {
       allow read: if isSignedIn()
         && (
-          canManageSeries(resource.data.seriesId)
+          canViewSeriesStaff(resource.data.seriesId)
           || hasAdminPermission('canManageOrganizations')
         );
       // Append-only: Series CF uses Admin SDK; platform staff log moderation.

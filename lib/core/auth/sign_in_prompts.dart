@@ -156,6 +156,21 @@ class SignInPrompt {
     title: 'Sign in to continue',
   );
 
+  static const joinOrgTeam = SignInPrompt._(
+    'join_org_team',
+    'Sign in to request to join this team and submit your registration documents.',
+  );
+
+  static const registerOrgPlayer = SignInPrompt._(
+    'register_org_player',
+    'Sign in to submit player registration documents for this organization.',
+  );
+
+  static const addOrgPlayer = SignInPrompt._(
+    'add_org_player',
+    'Sign in to add a player and submit their registration documents.',
+  );
+
   static const proposeMatch = SignInPrompt._(
     'propose_match',
     'Sign in to propose a match in this organization.',
@@ -203,6 +218,9 @@ class SignInPrompt {
     'create_org': createOrg,
     'create_org_team': createOrgTeam,
     'join_org': joinOrg,
+    'join_org_team': joinOrgTeam,
+    'register_org_player': registerOrgPlayer,
+    'add_org_player': addOrgPlayer,
     'propose_match': proposeMatch,
     'propose_tournament': proposeTournament,
     'org_manage': orgManage,
@@ -245,6 +263,9 @@ class SignInPrompt {
     if (path == '/teams/create' || path.contains('/add-players')) {
       return createTeam;
     }
+    if (path.contains('/series/') && path.contains('/add-player')) {
+      return addOrgPlayer;
+    }
     if (path.contains('/add-player')) return manageTeam;
     if (path == '/tournaments/create') return createTournament;
     if (path.contains('/tournaments/') && path.contains('/join')) {
@@ -256,9 +277,8 @@ class SignInPrompt {
     if (path.endsWith('/clubs/create')) return createOrgTeam;
     if (path.endsWith('/propose-match')) return proposeMatch;
     if (path.endsWith('/propose-tournament')) return proposeTournament;
-    if (path.endsWith('/register') || path.endsWith('/my-requests')) {
-      return joinOrg;
-    }
+    if (path.endsWith('/register')) return registerOrgPlayer;
+    if (path.endsWith('/my-requests')) return joinOrg;
     if (path.endsWith('/settings') ||
         path.endsWith('/admins') ||
         path.endsWith('/audit') ||

@@ -37,7 +37,7 @@ class _OrgTournamentsTabState extends ConsumerState<OrgTournamentsTab> {
       data: (all) {
         final visible = visibleOrgTournaments(
           all,
-          isAdmin: access.isAdmin,
+          isAdmin: access.canViewStaffTools,
           uid: uid,
         );
         final counts = orgBucketCounts<TournamentModel>(
@@ -90,7 +90,7 @@ class _OrgTournamentsTabState extends ConsumerState<OrgTournamentsTab> {
       title: 'No tournaments yet',
       message: access.tournament == OrgStartMode.none
           ? 'Official org tournaments will appear here.'
-          : access.isAdmin
+          : access.isCompetitionOfficial
           ? 'Start a tournament for this org.'
           : 'Request a tournament for your team. Org admins approve it.',
     );

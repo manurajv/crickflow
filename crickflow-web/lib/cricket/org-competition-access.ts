@@ -6,6 +6,8 @@
 export type SeriesRole =
   | "superAdmin"
   | "seriesAdmin"
+  | "scorer"
+  | "staffViewer"
   | "clubAdmin"
   | "seriesPlayer"
   | "viewer";
@@ -152,6 +154,14 @@ export function isOrgAdmin(role: SeriesRole): boolean {
   return role === "superAdmin" || role === "seriesAdmin";
 }
 
+export function isCompetitionOfficial(role: SeriesRole): boolean {
+  return isOrgAdmin(role) || role === "scorer";
+}
+
+export function isOrgStaff(role: SeriesRole): boolean {
+  return isOrgAdmin(role) || role === "scorer" || role === "staffViewer";
+}
+
 export function isOrgOwner(role: SeriesRole): boolean {
   return role === "superAdmin";
 }
@@ -176,7 +186,7 @@ export function orgStartMode(
   tournament: boolean,
 ): OrgStartMode {
   const { role, policy } = input;
-  if (isOrgAdmin(role)) return "direct";
+  if (isCompetitionOfficial(role)) return "direct";
   if (!canRequest(role, policy, tournament)) return "none";
   const needs = policyNeedsApprovalFor(policy, {
     tournament,
@@ -198,7 +208,7 @@ export function matchTeamsError(
 ): string | null {
   if (!teamAId || !teamBId) return "Pick both teams";
   if (teamAId === teamBId) return "Pick two different teams";
-  if (isOrgAdmin(input.role)) return null;
+  if (isCompetitionOfficial(input.role)) return null;
   const mine = input.myTeamIds ?? [];
   if (!mine.includes(teamAId) && !mine.includes(teamBId)) {
     return "One of the teams must be your team";

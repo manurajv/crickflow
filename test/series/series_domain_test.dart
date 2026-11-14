@@ -24,8 +24,24 @@ void main() {
       expect(mapped.name, 'T20 Softball Sri Lanka');
       expect(mapped.settings.maxSquadSize, 18);
       expect(mapped.settings.requireNationalId, isTrue);
+      expect(mapped.settings.requireNationalIdDocument, isFalse);
       expect(mapped.settings.rankingRules.winPoints, 3);
       expect(mapped.superAdminUserId, 'u1');
+    });
+
+    test('parses required document flags and custom fields', () {
+      final mapped = SeriesSettingsModel.fromMap({
+        'requireNationalIdDocument': true,
+        'requirePassportDocument': true,
+        'customRequiredFields': ['Guardian name', 'School'],
+      });
+      expect(mapped.requireNationalIdDocument, isTrue);
+      expect(mapped.requirePassportDocument, isTrue);
+      expect(mapped.customRequiredFields, ['Guardian name', 'School']);
+      expect(
+        mapped.toMap()['requireNationalIdDocument'],
+        isTrue,
+      );
     });
   });
 
@@ -239,6 +255,121 @@ void main() {
       final mapped = SeriesAuditLogModel.fromMap('l1', log.toMap());
       expect(mapped.action, 'CLUB_APPROVED');
       expect(mapped.targetId, 'c1');
+    });
+  });
+
+  group('Series admin role tiers', () {
+    const service = SeriesPermissionService();
+    final series = SeriesModel(
+      id: 's1',
+      name: 'Test',
+      superAdminUserId: 'owner',
+      createdBy: 'owner',
+      status: SeriesStatus.active,
+    );
+
+    List<SeriesAdminModel> staff(String userId, String role) => [
+          SeriesAdminModel(
+            id: 'a_$userId',
+            seriesId: 's1',
+            userId: userId,
+            status: 'active',
+            role: role,
+          ),
+        ];
+
+    test('legacy seriesAdmin role is a full admin', () {
+      final admins = staff('legacy', 'seriesAdmin');
+      expect(
+        service.isSeriesAdmin(series: series, userId: 'legacy', admins: admins),
+        isTrue,
+      );
+      expect(
+        service.highestRole(
+          series: series,
+          userId: 'legacy',
+          admins: admins,
+          clubAdmins: const [],
+          memberships: const [],
+        ),
+        SeriesRole.seriesAdmin,
+      );
+    });
+
+    test('scorer can start competitions but cannot manage settings', () {
+      final admins = staff('scorer1', 'scorer');
+      expect(
+        service.isSeriesAdmin(series: series, userId: 'scorer1', admins: admins),
+        isFalse,
+      );
+      expect(
+        service.isSeriesScorer(series: series, userId: 'scorer1', admins: admins),
+        isTrue,
+      );
+      expect(
+        service.canManageSeriesSettings(
+          series: series,
+          userId: 'scorer1',
+          admins: admins,
+        ),
+        isFalse,
+      );
+      expect(
+        service.highestRole(
+          series: series,
+          userId: 'scorer1',
+          admins: admins,
+          clubAdmins: const [],
+          memberships: const [],
+        ),
+        SeriesRole.scorer,
+      );
+    });
+
+    test('staff viewer is staff but cannot score or manage', () {
+      final admins = staff('view1', 'viewer');
+      expect(
+        service.isSeriesStaff(series: series, userId: 'view1', admins: admins),
+        isTrue,
+      );
+      expect(
+        service.isSeriesScorer(series: series, userId: 'view1', admins: admins),
+        isFalse,
+      );
+      expect(
+        service.isSeriesAdmin(series: series, userId: 'view1', admins: admins),
+        isFalse,
+      );
+      expect(
+        service.highestRole(
+          series: series,
+          userId: 'view1',
+          admins: admins,
+          clubAdmins: const [],
+          memberships: const [],
+        ),
+        SeriesRole.staffViewer,
+      );
+    });
+
+    test('full admins can edit settings; owner still recognized', () {
+      final admins = staff('admin1', 'admin');
+      expect(
+        service.canManageSeriesSettings(
+          series: series,
+          userId: 'admin1',
+          admins: admins,
+        ),
+        isTrue,
+      );
+      expect(
+        service.canManageSeriesSettings(
+          series: series,
+          userId: 'owner',
+          admins: admins,
+        ),
+        isTrue,
+      );
     });
   });
 }

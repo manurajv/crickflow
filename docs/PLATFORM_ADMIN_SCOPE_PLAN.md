@@ -120,10 +120,11 @@ a permission. Today only super admins can really use the panel.
    docs were updated, the legacy `admin` record was revoked, and the `crickflow-admin`
    hosting site was disabled and deleted.
 
-Not done: **series admin role tiers** (e.g. scorer/viewer admins). Every series
-callable and the `canManageSeries()` rule treat any active `series_admins` doc as a full
-admin. Tiers need per-callable checks and rule changes, so they are left for a separate
-change.
+Done (follow-up): **series admin role tiers**. `series_admins.role` is `admin`,
+`scorer`, or `viewer` (legacy `seriesAdmin` / missing role still counts as full
+admin). Full admins manage settings, approvals and teams; scorers can start and
+score official matches/tournaments; viewers get read-only staff tools. Rules
+(`canManageSeries` vs `canViewSeriesStaff`) and callables enforce the same split.
 
 ## Terminology: org participants are "Teams" (Oct 2026)
 

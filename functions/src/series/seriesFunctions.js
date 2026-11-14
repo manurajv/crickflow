@@ -17,6 +17,17 @@ const { updateSeriesRankings } = require('./updateSeriesRankings');
 const orgTeams = require('./orgTeamLink');
 const orgWalkIns = require('./orgWalkIns');
 const { markDocsRead } = require('../notifications/notificationPriority');
+const {
+  parseSeriesAdminTier,
+  isFullAdminTier,
+  canScoreTier,
+  isActiveAdminDoc,
+} = require('./seriesAdminAccess');
+const {
+  normalizeSeriesSettings,
+  missingRegistrationFields,
+  invalidRegistrationMediaUrls,
+} = require('./seriesRegistration');
 
 const COLLECTIONS = {
   series: 'series',
@@ -84,13 +95,35 @@ function isSuperAdmin(series, uid) {
     (!series.superAdminUserId && series.createdBy === uid);
 }
 
-async function isSeriesAdmin(firestore, series, uid) {
-  if (isSuperAdmin(series, uid)) return true;
+async function seriesAdminDoc(firestore, seriesId, uid) {
   const snap = await firestore
     .collection(COLLECTIONS.admins)
-    .doc(adminDocId(series.id, uid))
+    .doc(adminDocId(seriesId, uid))
     .get();
-  return snap.exists && snap.data()?.status === 'active';
+  if (!snap.exists) return null;
+  const data = snap.data() || {};
+  if (!isActiveAdminDoc(data)) return null;
+  return data;
+}
+
+/** Owner or full admin tier (legacy `seriesAdmin` / missing role included). */
+async function isSeriesAdmin(firestore, series, uid) {
+  if (isSuperAdmin(series, uid)) return true;
+  const data = await seriesAdminDoc(firestore, series.id, uid);
+  return Boolean(data) && isFullAdminTier(data.role);
+}
+
+/** Owner, full admin, or scorer — may start official matches / tournaments. */
+async function isSeriesScorer(firestore, series, uid) {
+  if (isSuperAdmin(series, uid)) return true;
+  const data = await seriesAdminDoc(firestore, series.id, uid);
+  return Boolean(data) && canScoreTier(data.role);
+}
+
+/** Any active series_admins doc, including scorer and viewer staff. */
+async function isSeriesStaff(firestore, series, uid) {
+  if (isSuperAdmin(series, uid)) return true;
+  return Boolean(await seriesAdminDoc(firestore, series.id, uid));
 }
 
 async function isClubAdmin(firestore, seriesId, clubId, uid) {
@@ -177,29 +210,61 @@ async function createApproval(firestore, data) {
   };
   await writeApprovalDocs(firestore, data.seriesId, ref.id, payload);
 
-  // Notify Series Super Admin of pending work (best-effort).
+  // Notify the right reviewers (best-effort). Player joins go to team
+  // admins first; everything else goes to org admins.
   try {
     const series = await getSeriesOrThrow(firestore, data.seriesId);
-    const superUid = series.superAdminUserId || series.createdBy;
-    if (superUid && superUid !== data.requestedBy) {
-      await firestore.collection('notifications').doc().set({
-        userId: superUid,
-        title: 'Series approval needed',
-        body: `${data.targetType || 'Request'} pending in ${series.name || 'Series'}`,
-        type: 'series_approval_pending',
-        priority: true,
-        seriesId: data.seriesId,
-        requestId: ref.id,
-        addedByUserId: data.requestedBy || 'system',
-        createdAt: nowIso(),
-        read: false,
-      });
-    }
+    const audience = data.notifyAudience || (
+      data.targetType === 'playerJoin' ? 'clubAdmins' : 'orgAdmins'
+    );
+    const title = audience === 'clubAdmins'
+      ? 'Team approval needed'
+      : 'Series approval needed';
+    const body = `${data.targetType || 'Request'} pending in ${series.name || 'Series'}`;
+    const recipients = audience === 'clubAdmins'
+      ? await listActiveClubAdminUids(firestore, data.seriesId, data.clubId)
+      : await listFullSeriesAdminUids(firestore, series, data.seriesId);
+    await notifyMany(firestore, recipients, {
+      title,
+      body,
+      type: 'series_approval_pending',
+      seriesId: data.seriesId,
+      extra: { priority: true, requestId: ref.id },
+      from: data.requestedBy || 'system',
+    });
   } catch (err) {
     console.error('series pending notify failed', err);
   }
 
   return { id: ref.id, ...payload };
+}
+
+async function listActiveClubAdminUids(firestore, seriesId, clubId) {
+  if (!seriesId || !clubId) return [];
+  const snap = await firestore.collection(COLLECTIONS.clubAdmins)
+    .where('seriesId', '==', seriesId)
+    .where('clubId', '==', clubId)
+    .get();
+  return snap.docs
+    .map((d) => d.data())
+    .filter((d) => d.status === 'active' && d.userId)
+    .map((d) => d.userId);
+}
+
+async function listFullSeriesAdminUids(firestore, series, seriesId) {
+  const ids = new Set();
+  const owner = series?.superAdminUserId || series?.createdBy;
+  if (owner) ids.add(owner);
+  const snap = await firestore.collection(COLLECTIONS.admins)
+    .where('seriesId', '==', seriesId)
+    .get();
+  for (const d of snap.docs) {
+    const data = d.data() || {};
+    if (isActiveAdminDoc(data) && isFullAdminTier(parseSeriesAdminTier(data.role))) {
+      if (data.userId) ids.add(data.userId);
+    }
+  }
+  return [...ids];
 }
 
 /**
@@ -309,29 +374,11 @@ exports.createSeries = onCall(
     region: String(request.data?.region || '').trim().slice(0, 80),
     location: String(request.data?.location || '').trim().slice(0, 80),
     country: String(request.data?.country || '').trim().slice(0, 80),
-    settings: {
+    settings: normalizeSeriesSettings({
+      ...settings,
       maxSquadSize: Math.floor(maxSquad),
-      requireFullName: settings.requireFullName !== false,
-      requireCrickFlowPlayerId: settings.requireCrickFlowPlayerId !== false,
-      requireDateOfBirth: !!settings.requireDateOfBirth,
-      requireNationalId: !!settings.requireNationalId,
-      requirePassport: !!settings.requirePassport,
-      requirePhoneNumber: !!settings.requirePhoneNumber,
-      requireAddress: !!settings.requireAddress,
-      requireProfilePhoto: !!settings.requireProfilePhoto,
-      customRequiredFields: Array.isArray(settings.customRequiredFields)
-        ? settings.customRequiredFields
-        : [],
-      rankingRules: {
-        winPoints: clampPoints(ranking.winPoints, 2),
-        lossPoints: clampPoints(ranking.lossPoints, 0),
-        tiePoints: clampPoints(ranking.tiePoints, 1),
-        noResultPoints: clampPoints(ranking.noResultPoints, 1),
-        bonusPointsEnabled: !!ranking.bonusPointsEnabled,
-        useNetRunRate: ranking.useNetRunRate !== false,
-        useRunDifference: !!ranking.useRunDifference,
-      },
-    },
+      rankingRules: ranking,
+    }),
     clubCount: 0,
     playerCount: 0,
     matchCount: 0,
@@ -388,7 +435,7 @@ exports.addSeriesAdmin = onCall(async (request) => {
     displayName: String(request.data?.displayName || ''),
     permissions: Array.isArray(request.data?.permissions) ? request.data.permissions : [],
     status: 'active',
-    role: 'seriesAdmin',
+    role: parseSeriesAdminTier(request.data?.role),
     createdBy: uid,
     createdAt: ts,
   }, { merge: true });
@@ -437,6 +484,40 @@ exports.removeSeriesAdmin = onCall(async (request) => {
   return { ok: true };
 });
 
+exports.updateSeriesAdminRole = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const seriesId = String(request.data?.seriesId || '');
+  const targetUserId = String(request.data?.userId || '');
+  const role = parseSeriesAdminTier(request.data?.role);
+  if (!seriesId || !targetUserId) {
+    throw new HttpsError('invalid-argument', 'seriesId and userId required');
+  }
+  const firestore = db();
+  const series = await requireSuperAdmin(firestore, seriesId, uid);
+  if (series.superAdminUserId === targetUserId ||
+      (!series.superAdminUserId && series.createdBy === targetUserId)) {
+    throw new HttpsError('failed-precondition', 'Cannot change the owner\'s role');
+  }
+  const ref = firestore.collection(COLLECTIONS.admins).doc(adminDocId(seriesId, targetUserId));
+  const snap = await ref.get();
+  if (!snap.exists || snap.data()?.status !== 'active') {
+    throw new HttpsError('failed-precondition', 'Active admin not found');
+  }
+  const previous = snap.data()?.role || 'admin';
+  await ref.set({ role, updatedAt: nowIso() }, { merge: true });
+  await writeAudit(firestore, {
+    seriesId,
+    actorUserId: uid,
+    actorRole: 'superAdmin',
+    action: 'SERIES_ADMIN_ROLE_CHANGED',
+    targetType: 'series_admin',
+    targetId: targetUserId,
+    previousState: { role: previous },
+    newState: { role },
+  });
+  return { ok: true, role };
+});
+
 exports.updateSeriesSettings = onCall(async (request) => {
   const uid = requireAuth(request);
   const seriesId = String(request.data?.seriesId || '');
@@ -449,11 +530,11 @@ exports.updateSeriesSettings = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Max players per team must be 1–50');
   }
   const firestore = db();
-  const series = await requireSuperAdmin(firestore, seriesId, uid);
-  const sanitized = {
+  const series = await requireSeriesAdmin(firestore, seriesId, uid);
+  const sanitized = normalizeSeriesSettings({
     ...settings,
     maxSquadSize: Math.floor(maxSquad),
-  };
+  });
   await firestore.collection(COLLECTIONS.series).doc(seriesId).update({
     settings: sanitized,
     updatedAt: nowIso(),
@@ -903,24 +984,27 @@ exports.reviewSeriesApproval = onCall(async (request) => {
     reason,
   });
 
-  // Notify requester of decision (in-app + FCM via onNotificationCreated).
+  // Notify requester and (for player flows) the player of the decision.
   try {
-    if (approval.requestedBy && approval.requestedBy !== uid) {
-      const notifRef = firestore.collection('notifications').doc();
-      await notifRef.set({
-        userId: approval.requestedBy,
-        title: decision === 'approved' ? 'Series request approved' : 'Series request rejected',
-        body: `${({ match: 'Match request', tournament: 'Tournament request' })[targetType] || targetType} ${decision}${reason ? `: ${reason}` : ''}`,
-        type: decision === 'approved'
-          ? 'series_approval_approved'
-          : 'series_approval_rejected',
-        seriesId,
-        requestId: approvalId,
-        addedByUserId: uid,
-        createdAt: ts,
-        read: false,
-      });
-    }
+    const typeLabel = ({
+      match: 'Match request',
+      tournament: 'Tournament request',
+      playerJoin: 'Player registration',
+      playerAdd: 'Player registration',
+      playerRegistration: 'Player registration',
+    })[targetType] || targetType;
+    const recipients = [approval.requestedBy, approval.metadata?.userId]
+      .filter(Boolean);
+    await notifyMany(firestore, recipients, {
+      title: decision === 'approved' ? 'Series request approved' : 'Series request rejected',
+      body: `${typeLabel} ${decision}${reason ? `: ${reason}` : ''}`,
+      type: decision === 'approved'
+        ? 'series_approval_approved'
+        : 'series_approval_rejected',
+      seriesId,
+      extra: { requestId: approvalId },
+      from: uid,
+    });
   } catch (err) {
     console.error('series approval notify failed', err);
   }
@@ -928,35 +1012,22 @@ exports.reviewSeriesApproval = onCall(async (request) => {
   return { ok: true, status: decision };
 });
 
-function validateRegistrationFields(settings, data) {
-  const missing = [];
-  if (settings.requireFullName !== false && !String(data.fullName || '').trim()) {
-    missing.push('fullName');
-  }
-  if (settings.requireCrickFlowPlayerId && !String(data.crickFlowPlayerId || '').trim()) {
-    missing.push('crickFlowPlayerId');
-  }
-  if (settings.requireDateOfBirth && !data.dateOfBirth) missing.push('dateOfBirth');
-  if (settings.requirePhoneNumber && !String(data.phoneNumber || '').trim()) {
-    missing.push('phoneNumber');
-  }
-  if (settings.requireAddress && !String(data.address || '').trim()) {
-    missing.push('address');
-  }
-  if (settings.requireProfilePhoto && !data.profilePhotoUrl) {
-    missing.push('profilePhotoUrl');
-  }
-  if (settings.requireNationalId && !String(data.nationalId || '').trim()) {
-    missing.push('nationalId');
-  }
-  if (settings.requirePassport && !String(data.passportNumber || '').trim()) {
-    missing.push('passportNumber');
-  }
+function validateRegistrationFields(settings, data, mediaCtx) {
+  const missing = missingRegistrationFields(settings, data);
   if (missing.length) {
     throw new HttpsError(
       'invalid-argument',
       `Missing required registration fields: ${missing.join(', ')}`,
     );
+  }
+  if (mediaCtx) {
+    const bad = invalidRegistrationMediaUrls(data, mediaCtx);
+    if (bad.length) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Registration documents must be uploaded for this player in this organization: ${bad.join(', ')}`,
+      );
+    }
   }
 }
 
@@ -1024,10 +1095,12 @@ async function writeRegistration(firestore, {
     ts,
     status,
   });
-  await ref.set(publicDoc);
+  const batch = firestore.batch();
+  batch.set(ref, publicDoc);
   if (privateDoc) {
-    await ref.collection('private').doc('identity').set(privateDoc);
+    batch.set(ref.collection('private').doc('identity'), privateDoc);
   }
+  await batch.commit();
   return { id: ref.id, ...publicDoc };
 }
 
@@ -1038,13 +1111,18 @@ exports.submitSeriesRegistration = onCall(async (request) => {
   const firestore = db();
   const series = await getSeriesOrThrow(firestore, seriesId);
   const settings = series.settings || {};
-  validateRegistrationFields(settings, request.data || {});
+  const clubId = request.data?.clubId || null;
+  validateRegistrationFields(settings, request.data || {}, {
+    seriesId,
+    subjectUserId: uid,
+    clubId,
+  });
 
   const registration = await writeRegistration(firestore, {
     seriesId,
     userId: uid,
     createdBy: uid,
-    data: { ...request.data, clubId: request.data?.clubId || null },
+    data: { ...request.data, clubId },
     status: 'pending',
   });
 
@@ -1073,13 +1151,50 @@ exports.submitPlayerJoinRequest = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'seriesId and clubId required');
   }
   const firestore = db();
-  await getSeriesOrThrow(firestore, seriesId);
+  const series = await getSeriesOrThrow(firestore, seriesId);
   const clubSnap = await firestore.collection(COLLECTIONS.clubs).doc(clubId).get();
   if (!clubSnap.exists || clubSnap.data().seriesId !== seriesId) {
     throw new HttpsError('not-found', 'Team not found');
   }
   if (clubSnap.data().status !== 'approved') {
     throw new HttpsError('failed-precondition', 'Team is not approved');
+  }
+
+  const settings = series.settings || {};
+  const mediaCtx = { seriesId, subjectUserId: uid, clubId };
+  let registrationId = String(request.data?.registrationId || '').trim() || null;
+  let displayName = String(request.data?.displayName || request.data?.fullName || '').trim();
+
+  const existingPending = await findPendingPlayerRequest(
+    firestore, seriesId, uid, clubId, 'playerJoin',
+  );
+  if (existingPending) {
+    throw new HttpsError(
+      'already-exists',
+      'A join request is already pending for this team',
+    );
+  }
+
+  if (registrationId && !requestHasRegistrationFields(request.data)) {
+    const combined = await loadRegistrationFields(firestore, seriesId, registrationId, uid);
+    validateRegistrationFields(settings, combined, mediaCtx);
+    displayName = displayName || String(combined.fullName || '').trim();
+  } else {
+    const regInput = {
+      ...request.data,
+      clubId,
+      fullName: displayName || String(request.data?.fullName || ''),
+    };
+    validateRegistrationFields(settings, regInput, mediaCtx);
+    const registration = await writeRegistration(firestore, {
+      seriesId,
+      userId: uid,
+      createdBy: uid,
+      data: regInput,
+      status: 'pending',
+    });
+    registrationId = registration.id;
+    displayName = displayName || registration.fullName;
   }
 
   const approval = await createApproval(firestore, {
@@ -1090,14 +1205,61 @@ exports.submitPlayerJoinRequest = onCall(async (request) => {
     requestedBy: uid,
     metadata: {
       userId: uid,
-      displayName: String(request.data?.displayName || ''),
-      registrationId: request.data?.registrationId || null,
-      playerDocId: request.data?.playerDocId || null,
+      displayName,
+      registrationId,
+      playerDocId: request.data?.playerDocId || uid,
       clubReviewStatus: 'pending',
+      resubmitted: request.data?.resubmitted === true,
     },
   });
-  return { approvalId: approval.id, status: 'pending', clubReviewStatus: 'pending' };
+  return {
+    approvalId: approval.id,
+    registrationId,
+    status: 'pending',
+    clubReviewStatus: 'pending',
+  };
 });
+
+function requestHasRegistrationFields(data) {
+  if (!data || typeof data !== 'object') return false;
+  return [
+    'fullName', 'crickFlowPlayerId', 'phoneNumber', 'address', 'dateOfBirth',
+    'nationalId', 'passportNumber', 'profilePhotoUrl', 'nationalIdDocUrl',
+    'passportDocUrl', 'customFields',
+  ].some((k) => {
+    const v = data[k];
+    if (v == null) return false;
+    if (typeof v === 'object') return Object.keys(v).length > 0;
+    return String(v).trim().length > 0;
+  });
+}
+
+async function loadRegistrationFields(firestore, seriesId, registrationId, expectedUserId) {
+  const snap = await firestore.collection(COLLECTIONS.registrations).doc(registrationId).get();
+  if (!snap.exists || snap.data().seriesId !== seriesId) {
+    throw new HttpsError('not-found', 'Registration not found');
+  }
+  const pub = snap.data();
+  if (expectedUserId && pub.userId !== expectedUserId && pub.createdBy !== expectedUserId) {
+    throw new HttpsError('permission-denied', 'Registration does not belong to this player');
+  }
+  const idSnap = await snap.ref.collection('private').doc('identity').get();
+  const priv = idSnap.exists ? idSnap.data() : {};
+  return { ...priv, ...pub };
+}
+
+async function findPendingPlayerRequest(firestore, seriesId, requestedBy, clubId, targetType) {
+  const snap = await firestore.collection(COLLECTIONS.approvals)
+    .where('seriesId', '==', seriesId)
+    .where('requestedBy', '==', requestedBy)
+    .get();
+  return snap.docs.find((d) => {
+    const a = d.data();
+    return a.status === 'pending'
+      && a.targetType === targetType
+      && (!clubId || a.clubId === clubId);
+  }) || null;
+}
 
 /**
  * Club Admin first-pass review for player join requests.
@@ -1153,6 +1315,17 @@ exports.reviewClubJoinRequest = onCall(async (request) => {
       previousState: { clubReviewStatus: 'pending' },
       newState: { clubReviewStatus: 'rejected', status: 'rejected' },
     });
+    const playerId = approval.metadata?.userId || approval.requestedBy;
+    await notifyMany(firestore, [playerId], {
+      title: 'Join request rejected by the team',
+      body: reason
+        ? `The team declined your registration: ${reason}`
+        : 'The team declined your registration. You can update your documents and resubmit.',
+      type: 'series_approval_rejected',
+      seriesId,
+      extra: { requestId: approvalId, clubId, reason },
+      from: uid,
+    });
     return { ok: true, status: 'rejected' };
   }
 
@@ -1176,6 +1349,28 @@ exports.reviewClubJoinRequest = onCall(async (request) => {
     previousState: { clubReviewStatus: 'pending' },
     newState: { clubReviewStatus: 'approved' },
   });
+  const series = await getSeriesOrThrow(firestore, seriesId);
+  const playerId = approval.metadata?.userId || approval.requestedBy;
+  await notifyMany(firestore, [playerId], {
+    title: 'Team approved your registration',
+    body: 'The team approved your documents. Organization admins will make the final decision.',
+    type: 'series_approval_pending',
+    seriesId,
+    extra: { requestId: approvalId, clubId, clubReviewStatus: 'approved' },
+    from: uid,
+  });
+  await notifyMany(
+    firestore,
+    await listFullSeriesAdminUids(firestore, series, seriesId),
+    {
+      title: 'Player registration ready for final approval',
+      body: `${approval.metadata?.displayName || 'A player'} was approved by the team and needs organization approval.`,
+      type: 'series_approval_pending',
+      seriesId,
+      extra: { priority: true, requestId: approvalId, clubId },
+      from: uid,
+    },
+  );
   return { ok: true, clubReviewStatus: 'approved' };
 });
 
@@ -1292,7 +1487,20 @@ exports.submitPlayerAddRequest = onCall(async (request) => {
     displayName,
     playerDocId: request.data?.playerDocId || targetUserId,
   };
-  validateRegistrationFields(settings, regInput);
+  validateRegistrationFields(settings, regInput, {
+    seriesId,
+    subjectUserId: targetUserId,
+    clubId,
+  });
+  const existingPendingAdd = await findPendingPlayerRequest(
+    firestore, seriesId, uid, clubId, 'playerAdd',
+  );
+  if (existingPendingAdd && existingPendingAdd.data().metadata?.userId === targetUserId) {
+    throw new HttpsError(
+      'already-exists',
+      'An add-player request is already pending for this player',
+    );
+  }
 
   let registrationId = String(request.data?.registrationId || '').trim() || null;
   if (!registrationId) {
@@ -1434,7 +1642,7 @@ exports.proposeSeriesMatch = onCall(async (request) => {
   }
   const firestore = db();
   const series = await getSeriesOrThrow(firestore, seriesId);
-  const asAdmin = await isSeriesAdmin(firestore, series, uid);
+  const asAdmin = await isSeriesScorer(firestore, series, uid);
   // Same rules as startSeriesMatch: players need the org's
   // "members can request" permission and must be on one of the two teams.
   const roles = asAdmin
@@ -1861,14 +2069,35 @@ exports.getSeriesRegistrationIdentity = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'seriesId and registrationId required');
   }
   const firestore = db();
-  await requireSeriesAdmin(firestore, seriesId, uid);
+  const series = await getSeriesOrThrow(firestore, seriesId);
   const regSnap = await firestore.collection(COLLECTIONS.registrations).doc(registrationId).get();
   if (!regSnap.exists || regSnap.data().seriesId !== seriesId) {
     throw new HttpsError('not-found', 'Registration not found');
   }
+  const reg = regSnap.data();
+  const clubId = reg.clubId || '';
+  const isSubject = uid === reg.userId || uid === reg.createdBy;
+  const asOrgAdmin = await isSeriesAdmin(firestore, series, uid);
+  const asClubAdmin = clubId
+    ? await isClubAdmin(firestore, seriesId, clubId, uid)
+    : false;
+  if (!isSubject && !asOrgAdmin && !asClubAdmin) {
+    throw new HttpsError('permission-denied', 'Not allowed to view this registration');
+  }
   const idSnap = await regSnap.ref.collection('private').doc('identity').get();
   return {
     registrationId,
+    public: {
+      fullName: reg.fullName || '',
+      crickFlowPlayerId: reg.crickFlowPlayerId || null,
+      phoneNumber: reg.phoneNumber || null,
+      address: reg.address || null,
+      dateOfBirth: reg.dateOfBirth || null,
+      profilePhotoUrl: reg.profilePhotoUrl || null,
+      customFields: reg.customFields || {},
+      status: reg.status || 'pending',
+      clubId: clubId || null,
+    },
     identity: idSnap.exists ? idSnap.data() : null,
   };
 });
@@ -1953,6 +2182,15 @@ async function notifyUser(firestore, userId, { title, body, type, seriesId, extr
     });
   } catch (err) {
     console.error('series competition notify failed', err);
+  }
+}
+
+async function notifyMany(firestore, userIds, payload) {
+  const seen = new Set();
+  for (const id of userIds || []) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    await notifyUser(firestore, id, payload);
   }
 }
 
@@ -2094,7 +2332,7 @@ exports.startSeriesTournament = onCall(async (request) => {
   if (mode === 'link') {
     const firestore = db();
     const series = await getSeriesOrThrow(firestore, String(request.data?.seriesId || ''));
-    if (!(await isSeriesAdmin(firestore, series, uid))) {
+    if (!(await isSeriesScorer(firestore, series, uid))) {
       throw new HttpsError('permission-denied', 'Only org admins can add an existing tournament');
     }
   }
@@ -2151,7 +2389,7 @@ async function registerSeriesMatchCore(uid, data) {
   }
   await assertWalkInsAllowed(firestore, series, match);
 
-  const isAdmin = await isSeriesAdmin(firestore, series, uid);
+  const isAdmin = await isSeriesScorer(firestore, series, uid);
   const roles = isAdmin
     ? { adminClubIds: [], memberClubIds: [] }
     : await callerTeamRoles(firestore, seriesId, uid);
@@ -2318,7 +2556,7 @@ exports.updateSeriesCompetitionPolicy = onCall(async (request) => {
   const seriesId = String(request.data?.seriesId || '');
   if (!seriesId) throw new HttpsError('invalid-argument', 'seriesId required');
   const firestore = db();
-  const series = await requireSuperAdmin(firestore, seriesId, uid);
+  const series = await requireSeriesAdmin(firestore, seriesId, uid);
   let policy;
   try {
     policy = competitionOps.sanitizePolicy(request.data?.policy, series.competitionPolicy);

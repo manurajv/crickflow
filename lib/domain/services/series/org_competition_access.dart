@@ -211,8 +211,11 @@ class OrgCompetitionAccess {
   /// Org teams (series_clubs ids) the user is a team admin or player of.
   final List<String> myTeamIds;
 
-  bool get isAdmin =>
-      role == SeriesRole.superAdmin || role == SeriesRole.seriesAdmin;
+  bool get isAdmin => role.isFullOrgAdmin;
+
+  bool get isCompetitionOfficial => role.canStartOfficialCompetitions;
+
+  bool get canViewStaffTools => role.isOrgStaff;
 
   bool get isOwner => role == SeriesRole.superAdmin;
 
@@ -226,7 +229,7 @@ class OrgCompetitionAccess {
       };
 
   OrgStartMode _mode({required bool tournament}) {
-    if (isAdmin) return OrgStartMode.direct;
+    if (isCompetitionOfficial) return OrgStartMode.direct;
     if (!_canRequest(tournament: tournament)) return OrgStartMode.none;
     final needsApproval = policy.needsApprovalFor(
       tournament: tournament,
@@ -247,7 +250,7 @@ class OrgCompetitionAccess {
   String? matchTeamsError(String? teamAId, String? teamBId) {
     if (teamAId == null || teamBId == null) return 'Pick both teams';
     if (teamAId == teamBId) return 'Pick two different teams';
-    if (isAdmin) return null;
+    if (isCompetitionOfficial) return null;
     if (!myTeamIds.contains(teamAId) && !myTeamIds.contains(teamBId)) {
       return 'One of the teams must be your team';
     }

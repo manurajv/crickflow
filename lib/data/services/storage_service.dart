@@ -131,20 +131,44 @@ class StorageService {
     return ref.getDownloadURL();
   }
 
-  /// Profile / ID document photo for Series registration (private metadata may reference URL).
+  /// Profile / ID document photo for Series registration (private path).
   Future<String> uploadSeriesRegistrationImage(
     String seriesId,
     File file, {
     String kind = 'photo',
+    String? clubId,
+    String? subjectUserId,
+  }) async {
+    final asset = await uploadSeriesRegistrationImageAsset(
+      seriesId,
+      file,
+      kind: kind,
+      clubId: clubId,
+      subjectUserId: subjectUserId,
+    );
+    return asset.url;
+  }
+
+  /// Upload that can be deleted if the registration submit fails.
+  Future<UploadedAsset> uploadSeriesRegistrationImageAsset(
+    String seriesId,
+    File file, {
+    String kind = 'photo',
+    String? clubId,
+    String? subjectUserId,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    final subject =
+        (subjectUserId != null && subjectUserId.isNotEmpty) ? subjectUserId : uid;
     final safeKind = kind == 'doc' ? 'doc' : 'photo';
     final stamp = DateTime.now().millisecondsSinceEpoch;
-    final ref = _storage
-        .ref()
-        .child('series/$seriesId/${safeKind}_${uid}_$stamp.jpg');
+    final path = (clubId != null && clubId.isNotEmpty)
+        ? 'series/$seriesId/clubs/$clubId/registrations/$subject/${safeKind}_${uid}_$stamp.jpg'
+        : 'series/$seriesId/registrations/$subject/${safeKind}_${uid}_$stamp.jpg';
+    final ref = _storage.ref().child(path);
     await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
-    return ref.getDownloadURL();
+    final url = await ref.getDownloadURL();
+    return UploadedAsset(url: url, delete: () => deleteByUrl(url));
   }
 
   Future<String> uploadTournamentThumbnail(String tournamentId, File file) async {

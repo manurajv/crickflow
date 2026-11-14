@@ -115,7 +115,14 @@ void main() {
         SignInPrompt.forPath('/series/create?family=clubs'),
         SignInPrompt.createOrg,
       );
-      expect(SignInPrompt.forPath('/series/s1/register'), SignInPrompt.joinOrg);
+      expect(
+        SignInPrompt.forPath('/series/s1/register'),
+        SignInPrompt.registerOrgPlayer,
+      );
+      expect(
+        SignInPrompt.forPath('/series/s1/clubs/c1/add-player'),
+        SignInPrompt.addOrgPlayer,
+      );
     });
 
     test('contextual examples match product copy', () {

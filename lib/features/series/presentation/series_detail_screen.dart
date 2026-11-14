@@ -103,8 +103,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     final seriesId = widget.seriesId;
     final series = ref.watch(seriesByIdProvider(seriesId));
     final role = ref.watch(mySeriesRoleProvider(seriesId));
-    final canAdmin =
-        role == SeriesRole.superAdmin || role == SeriesRole.seriesAdmin;
+    final canAdmin = role.isFullOrgAdmin;
+    final canStaff = role.isOrgStaff;
     final access = ref.watch(orgCompetitionAccessProvider(seriesId));
     if (canAdmin) ref.watch(orgTeamLinkMigrationProvider(seriesId));
 
@@ -216,7 +216,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           )
                         : null,
                     actions: [
-                      if (canAdmin)
+                      if (canStaff)
                         IconButton(
                           tooltip: 'Approvals',
                           onPressed: () =>
@@ -226,7 +226,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             color: overlayFg,
                           ),
                         ),
-                      if (role == SeriesRole.superAdmin)
+                      if (canAdmin)
                         IconButton(
                           tooltip: 'Settings',
                           onPressed: () =>

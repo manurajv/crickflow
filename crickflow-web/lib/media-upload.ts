@@ -1,4 +1,4 @@
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { getFirebaseStorage } from "@/lib/firebase/client";
 
 export const COMMUNITY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -100,9 +100,21 @@ export function seriesRegistrationImagePath(
   seriesId: string,
   userId: string,
   kind: "photo" | "doc",
+  clubId?: string,
+  subjectUserId?: string,
 ) {
   const stamp = Date.now();
-  return `series/${seriesId}/${kind}_${userId}_${stamp}.jpg`;
+  const subject = subjectUserId || userId;
+  if (clubId) {
+    return `series/${seriesId}/clubs/${clubId}/registrations/${subject}/${kind}_${userId}_${stamp}.jpg`;
+  }
+  return `series/${seriesId}/registrations/${subject}/${kind}_${userId}_${stamp}.jpg`;
+}
+
+export async function deleteStorageUrl(url: string) {
+  if (!url) return;
+  const storageRef = ref(getFirebaseStorage(), url);
+  await deleteObject(storageRef);
 }
 
 export async function uploadSeriesLogo(seriesId: string, userId: string, file: File) {
@@ -118,8 +130,19 @@ export async function uploadSeriesRegistrationImage(
   userId: string,
   file: File,
   kind: "photo" | "doc" = "photo",
+  options?: { clubId?: string; subjectUserId?: string },
 ) {
-  return uploadJpeg(seriesRegistrationImagePath(seriesId, userId, kind), file, SERIES_IMAGE_MAX_BYTES);
+  return uploadJpeg(
+    seriesRegistrationImagePath(
+      seriesId,
+      userId,
+      kind,
+      options?.clubId,
+      options?.subjectUserId,
+    ),
+    file,
+    SERIES_IMAGE_MAX_BYTES,
+  );
 }
 
 // Team images

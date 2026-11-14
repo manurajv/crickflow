@@ -11,7 +11,6 @@ export 'domain/streaming_enums.dart';
 export 'domain/streaming_mode.dart';
 export 'facebook/facebook_destination_provider.dart';
 export 'obs/obs_encoder_utils.dart';
-export 'obs/presentation/obs_setup_section.dart';
 export 'presentation/streaming_dashboard_screen.dart';
 export 'rtmp/custom_rtmp_destination_provider.dart';
 export 'settings/presentation/stream_mode_selector.dart';

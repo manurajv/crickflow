@@ -172,4 +172,10 @@ describe("OrgCompetitionAccess (parity with Flutter)", () => {
     expect(map.proposeAccess).toBe("everyone");
     expect(map.membersCanRequest).toBe(true);
   });
+
+  it("scorer starts official competitions; staff viewer cannot", () => {
+    expect(orgStartMode(access("scorer"), false)).toBe("direct");
+    expect(orgStartMode(access("staffViewer"), false)).toBe("none");
+    expect(matchTeamsError(access("scorer"), "c2", "c3")).toBeNull();
+  });
 });

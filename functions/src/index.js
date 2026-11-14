@@ -79,6 +79,7 @@ const {
   createSeries,
   addSeriesAdmin,
   removeSeriesAdmin,
+  updateSeriesAdminRole,
   updateSeriesSettings,
   createSeriesClub,
   reviewSeriesApproval,
@@ -149,6 +150,7 @@ exports.acceptPlayerInvite = acceptPlayerInvite;
 exports.createSeries = createSeries;
 exports.addSeriesAdmin = addSeriesAdmin;
 exports.removeSeriesAdmin = removeSeriesAdmin;
+exports.updateSeriesAdminRole = updateSeriesAdminRole;
 exports.updateSeriesSettings = updateSeriesSettings;
 exports.createSeriesClub = createSeriesClub;
 exports.reviewSeriesApproval = reviewSeriesApproval;

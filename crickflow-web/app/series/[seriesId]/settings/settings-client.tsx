@@ -46,7 +46,7 @@ export function SeriesSettingsPage() {
 
   return (
     <SettingsForm
-      key={`${seriesId}-${initialMax}-${JSON.stringify(initialPolicy)}`}
+      key={`${seriesId}-${initialMax}-${JSON.stringify(initialPolicy)}-${JSON.stringify(data.series.settings)}`}
       seriesId={seriesId}
       data={data}
       initialMax={initialMax}
@@ -68,14 +68,18 @@ function SettingsForm({
 }) {
   const updateSettings = useUpdateSeriesSettings(seriesId);
   const updatePolicy = useUpdateSeriesCompetitionPolicy(seriesId);
+  const initialReg = data.series.settings;
   const [maxSquad, setMaxSquad] = useState(initialMax);
   const [policy, setPolicy] = useState(initialPolicy);
-  const [baseline, setBaseline] = useState({ maxSquad: initialMax, policy: initialPolicy });
+  const [reg, setReg] = useState(initialReg);
+  const [customDraft, setCustomDraft] = useState("");
+  const [baseline, setBaseline] = useState({ maxSquad: initialMax, policy: initialPolicy, reg: initialReg });
   const [saving, setSaving] = useState(false);
 
   const dirty =
     maxSquad !== baseline.maxSquad ||
-    JSON.stringify(policy) !== JSON.stringify(baseline.policy);
+    JSON.stringify(policy) !== JSON.stringify(baseline.policy) ||
+    JSON.stringify(reg) !== JSON.stringify(baseline.reg);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -92,16 +96,16 @@ function SettingsForm({
     if (!dirty) return;
     setSaving(true);
     try {
-      if (maxSquad !== baseline.maxSquad) {
+      if (maxSquad !== baseline.maxSquad || JSON.stringify(reg) !== JSON.stringify(baseline.reg)) {
         await updateSettings.mutateAsync({
-          ...data.series.settings,
+          ...reg,
           maxSquadSize: maxSquad,
         });
       }
       if (JSON.stringify(policy) !== JSON.stringify(baseline.policy)) {
         await updatePolicy.mutateAsync(orgCompetitionPolicyToMap(policy));
       }
-      setBaseline({ maxSquad, policy });
+      setBaseline({ maxSquad, policy, reg });
     } finally {
       setSaving(false);
     }
@@ -141,6 +145,80 @@ function SettingsForm({
             onChange={(e) => setMaxSquad(Number(e.target.value) || 20)}
           />
         </label>
+      </Card>
+
+      <Card className="space-y-3 p-4">
+        <h2 className="font-semibold">Player registration documents</h2>
+        <p className="text-sm text-muted-foreground">
+          Team admins and players must submit required details when adding or joining a team.
+          Documents stay private to the player, team admins, and organization admins.
+        </p>
+        {([
+          ["requireFullName", "Full name"],
+          ["requireCrickFlowPlayerId", "CrickFlow Player ID"],
+          ["requireDateOfBirth", "Date of birth"],
+          ["requireNationalId", "National ID number (private)"],
+          ["requireNationalIdDocument", "National ID document upload (private)"],
+          ["requirePassport", "Passport number (private)"],
+          ["requirePassportDocument", "Passport document upload (private)"],
+          ["requirePhoneNumber", "Phone number"],
+          ["requireAddress", "Address"],
+          ["requireProfilePhoto", "Profile photo"],
+        ] as const).map(([key, label]) => (
+          <label key={key} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(reg[key])}
+              onChange={(e) => setReg((r) => ({ ...r, [key]: e.target.checked }))}
+            />
+            {label}
+          </label>
+        ))}
+        <div>
+          <p className="text-sm font-medium">Other required fields</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(reg.customRequiredFields || []).map((field) => (
+              <button
+                key={field}
+                type="button"
+                className="rounded-full border border-border px-2 py-0.5 text-xs"
+                onClick={() => setReg((r) => ({
+                  ...r,
+                  customRequiredFields: (r.customRequiredFields || []).filter((f) => f !== field),
+                }))}
+              >
+                {field} ×
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+              placeholder="e.g. School or Guardian name"
+              value={customDraft}
+              onChange={(e) => setCustomDraft(e.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const label = customDraft.trim();
+                if (label.length < 2) return;
+                if ((reg.customRequiredFields || []).some((f) => f.toLowerCase() === label.toLowerCase())) {
+                  setCustomDraft("");
+                  return;
+                }
+                setReg((r) => ({
+                  ...r,
+                  customRequiredFields: [...(r.customRequiredFields || []), label],
+                }));
+                setCustomDraft("");
+              }}
+            >
+              Add
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Card className="space-y-3 p-4">

@@ -36,6 +36,7 @@ import {
   type OrgTabSlug,
 } from "@/features/series/components/org-detail-shell";
 import { shouldShowOrgWelcome, markOrgWelcomeSeen } from "@/features/series/org-welcome";
+import { PlayerRegistrationForm } from "@/features/series/components/player-registration-form";
 
 export function SeriesDetailPage() {
   const seriesId = usePathParam("seriesId", 1);
@@ -45,7 +46,7 @@ export function SeriesDetailPage() {
   const { data, isLoading } = useSeriesDetail(seriesId, user?.uid);
   const competitions = useSeriesCompetitions(seriesId);
   const announcements = useSeriesAnnouncements(seriesId);
-  const audit = useSeriesAuditLogs(seriesId, Boolean(data?.canManage));
+  const audit = useSeriesAuditLogs(seriesId, Boolean(data?.canViewStaff));
   const createClub = useCreateSeriesClub(seriesId);
   const joinClub = useJoinClub(seriesId);
   const proposeMatch = useProposeSeriesMatch(seriesId);
@@ -56,8 +57,6 @@ export function SeriesDetailPage() {
   const [clubBId, setClubBId] = useState("");
   const [tournamentId, setTournamentId] = useState("");
   const [clubName, setClubName] = useState("");
-  const [joinClubId, setJoinClubId] = useState("");
-  const [joinName, setJoinName] = useState("");
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
@@ -115,7 +114,7 @@ export function SeriesDetailPage() {
     <div className="relative space-y-6 pb-24">
       <OrgDetailHeader
         series={series}
-        canManage={data.canManage}
+        canManage={data.canViewStaff}
         pendingApprovalCount={data.pendingApprovalCount}
       />
       <OrgDetailTabs seriesId={seriesId} active={activeTab} />
@@ -127,7 +126,7 @@ export function SeriesDetailPage() {
               Status: {series.status}
             </Card>
           )}
-          {data.canManage ? (
+          {data.canViewStaff ? (
             <Card className="flex flex-wrap items-center justify-between gap-3 bg-[color:var(--accent-soft)] p-4">
               <div>
                 <p className="font-bold">Pending approvals</p>
@@ -199,7 +198,7 @@ export function SeriesDetailPage() {
               <span aria-hidden>›</span>
             </Link>
           </Card>
-          {data.canManage ? (
+          {data.canViewStaff ? (
             <>
               <Card className="p-0">
                 <Link
@@ -236,9 +235,11 @@ export function SeriesDetailPage() {
                   </ul>
                 )}
               </div>
-              <Button asChild variant="outline">
-                <Link href={`/series/${seriesId}/settings`}>Settings & permissions</Link>
-              </Button>
+              {data.canManage ? (
+                <Button asChild variant="outline">
+                  <Link href={`/series/${seriesId}/settings`}>Settings & permissions</Link>
+                </Button>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -432,46 +433,28 @@ export function SeriesDetailPage() {
                 </form>
               )}
               {user ? (
-                <form
-                  className="flex flex-wrap gap-2 border-t border-border pt-3"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!joinClubId || !joinName.trim()) return;
-                    await joinClub.mutateAsync({
-                      clubId: joinClubId,
-                      fullName: joinName.trim(),
-                      crickFlowPlayerId: user.uid,
-                    });
-                    setJoinName("");
-                  }}
-                >
-                  <select
-                    className="rounded-md border border-border bg-background px-3 py-2"
-                    value={joinClubId}
-                    onChange={(e) => setJoinClubId(e.target.value)}
-                    required
-                  >
-                    <option value="">Join a team</option>
-                    {clubs
-                      .filter((c) => c.status === "approved")
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                  </select>
-                  <input
-                    className="rounded-md border border-border bg-background px-3 py-2"
-                    placeholder="Your name"
-                    value={joinName}
-                    onChange={(e) => setJoinName(e.target.value)}
-                    required
+                <div className="border-t border-border pt-3">
+                  <p className="mb-2 text-sm font-medium">Request to join a team</p>
+                  <PlayerRegistrationForm
+                    seriesId={seriesId}
+                    settings={series.settings}
+                    clubs={clubs}
+                    pending={joinClub.isPending}
+                    onSubmit={async (values) => {
+                      await joinClub.mutateAsync(values);
+                    }}
                   />
-                  <Button type="submit" variant="outline" disabled={joinClub.isPending}>
-                    Request to join
+                </div>
+              ) : (
+                <div className="space-y-2 border-t border-border pt-3">
+                  <p className="text-sm text-muted-foreground">{SIGN_IN_PROMPTS.join_org_team}</p>
+                  <Button asChild>
+                    <Link href={loginUrl(`/series/${seriesId}?tab=teams`, "join_org_team")}>
+                      Sign in
+                    </Link>
                   </Button>
-                </form>
-              ) : null}
+                </div>
+              )}
             </Card>
           ) : null}
         </div>

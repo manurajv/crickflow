@@ -10,6 +10,7 @@ import {
   listSeriesAdmins,
   listSeriesCompetitions,
   addSeriesAdmin,
+  updateSeriesAdminRole,
   proposeSeriesMatch,
   linkSeriesTournament,
   listMyLinkableTournaments,
@@ -117,6 +118,7 @@ export function useJoinClub(seriesId: string) {
       profilePhotoUrl?: string;
       nationalIdDocUrl?: string;
       passportDocUrl?: string;
+      customFields?: Record<string, string>;
     }) => {
       const reg = await submitSeriesRegistration({
         seriesId,
@@ -131,6 +133,7 @@ export function useJoinClub(seriesId: string) {
         profilePhotoUrl: input.profilePhotoUrl,
         nationalIdDocUrl: input.nationalIdDocUrl,
         passportDocUrl: input.passportDocUrl,
+        customFields: input.customFields,
       });
       await submitPlayerJoinRequest({
         seriesId,
@@ -192,8 +195,17 @@ export function useSeriesAdmins(seriesId: string) {
 export function useAddSeriesAdmin(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { userId: string; displayName?: string }) =>
+    mutationFn: (input: { userId: string; displayName?: string; role?: "admin" | "scorer" | "viewer" }) =>
       addSeriesAdmin({ seriesId, ...input }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
+export function useUpdateSeriesAdminRole(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; role: "admin" | "scorer" | "viewer" }) =>
+      updateSeriesAdminRole({ seriesId, ...input }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
   });
 }

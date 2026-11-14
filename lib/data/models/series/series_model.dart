@@ -11,6 +11,8 @@ class SeriesSettingsModel extends Equatable {
     this.requireDateOfBirth = false,
     this.requireNationalId = false,
     this.requirePassport = false,
+    this.requireNationalIdDocument = false,
+    this.requirePassportDocument = false,
     this.requirePhoneNumber = false,
     this.requireAddress = false,
     this.requireProfilePhoto = false,
@@ -24,6 +26,8 @@ class SeriesSettingsModel extends Equatable {
   final bool requireDateOfBirth;
   final bool requireNationalId;
   final bool requirePassport;
+  final bool requireNationalIdDocument;
+  final bool requirePassportDocument;
   final bool requirePhoneNumber;
   final bool requireAddress;
   final bool requireProfilePhoto;
@@ -39,6 +43,8 @@ class SeriesSettingsModel extends Equatable {
       requireDateOfBirth: map['requireDateOfBirth'] as bool? ?? false,
       requireNationalId: map['requireNationalId'] as bool? ?? false,
       requirePassport: map['requirePassport'] as bool? ?? false,
+      requireNationalIdDocument: map['requireNationalIdDocument'] as bool? ?? false,
+      requirePassportDocument: map['requirePassportDocument'] as bool? ?? false,
       requirePhoneNumber: map['requirePhoneNumber'] as bool? ?? false,
       requireAddress: map['requireAddress'] as bool? ?? false,
       requireProfilePhoto: map['requireProfilePhoto'] as bool? ?? false,
@@ -60,6 +66,8 @@ class SeriesSettingsModel extends Equatable {
         'requireDateOfBirth': requireDateOfBirth,
         'requireNationalId': requireNationalId,
         'requirePassport': requirePassport,
+        'requireNationalIdDocument': requireNationalIdDocument,
+        'requirePassportDocument': requirePassportDocument,
         'requirePhoneNumber': requirePhoneNumber,
         'requireAddress': requireAddress,
         'requireProfilePhoto': requireProfilePhoto,
@@ -75,6 +83,8 @@ class SeriesSettingsModel extends Equatable {
         requireDateOfBirth,
         requireNationalId,
         requirePassport,
+        requireNationalIdDocument,
+        requirePassportDocument,
         requirePhoneNumber,
         requireAddress,
         requireProfilePhoto,

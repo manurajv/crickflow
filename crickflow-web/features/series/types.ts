@@ -7,9 +7,12 @@ export interface SeriesSettings {
   requireDateOfBirth: boolean;
   requireNationalId: boolean;
   requirePassport: boolean;
+  requireNationalIdDocument: boolean;
+  requirePassportDocument: boolean;
   requirePhoneNumber: boolean;
   requireAddress: boolean;
   requireProfilePhoto: boolean;
+  customRequiredFields: string[];
   rankingRules?: {
     winPoints: number;
     lossPoints: number;
@@ -55,6 +58,7 @@ export interface SeriesApproval {
   targetType: string;
   targetId: string;
   requestedBy: string;
+  clubId?: string;
   metadata: Record<string, unknown>;
 }
 
@@ -77,10 +81,13 @@ export interface SeriesDetailData {
     role: string;
   }>;
   canManage: boolean;
+  canScore: boolean;
+  canViewStaff: boolean;
   isSuperAdmin: boolean;
   /** Highest org role for the signed-in user (viewer when signed out). */
-  myRole: "superAdmin" | "seriesAdmin" | "clubAdmin" | "seriesPlayer" | "viewer";
+  myRole: "superAdmin" | "seriesAdmin" | "scorer" | "staffViewer" | "clubAdmin" | "seriesPlayer" | "viewer";
   myTeamIds: string[];
+  myAdminClubIds: string[];
   pendingApprovalCount: number;
   approvals: SeriesApproval[];
 }

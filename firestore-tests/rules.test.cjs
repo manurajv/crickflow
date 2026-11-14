@@ -502,3 +502,81 @@ test('normal team create: org members / org admins / super admins are normal use
   }));
   await assertFails(setDoc(doc(as('u1'), 'players/walkX'), { name: 'W', teamIds: ['free1', 'orgT'] }));
 });
+
+// Series staff role tiers: scorer/viewer can read staff tools, only full admins write competitions.
+test('series admin role tiers: scorer and viewer reads vs full-admin writes', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'series_admins/s1_scorer1'), {
+      seriesId: 's1', userId: 'scorer1', status: 'active', role: 'scorer',
+    });
+    await setDoc(doc(db, 'series_admins/s1_viewer1'), {
+      seriesId: 's1', userId: 'viewer1', status: 'active', role: 'viewer',
+    });
+    await setDoc(doc(db, 'series_admins/s1_fulladm'), {
+      seriesId: 's1', userId: 'fulladm', status: 'active', role: 'admin',
+    });
+    await setDoc(doc(db, 'series_registrations/reg1/private/identity'), {
+      nationalId: 'secret',
+    });
+  });
+  const scorer = as('scorer1');
+  const viewer = as('viewer1');
+  const full = as('fulladm');
+  const outsider = as('u2');
+
+  await assertSucceeds(getDoc(doc(scorer, 'series/s1/approvals/a1')));
+  await assertSucceeds(getDoc(doc(viewer, 'series/s1/approvals/a1')));
+  await assertSucceeds(getDoc(doc(scorer, 'series_audit_logs/l1')));
+  await assertSucceeds(getDoc(doc(viewer, 'series_registrations/reg1')));
+  await assertFails(getDoc(doc(outsider, 'series/s1/approvals/a1')));
+
+  // PII stays full-admin / owner only.
+  await assertFails(getDoc(doc(scorer, 'series_registrations/reg1/private/identity')));
+  await assertSucceeds(getDoc(doc(full, 'series_registrations/reg1/private/identity')));
+
+  const draft = {
+    seriesId: 's1', createdBy: 'scorer1', status: 'draft', type: 'match',
+  };
+  await assertFails(setDoc(doc(scorer, 'series_competitions/scorerDraft'), { ...draft, createdBy: 'scorer1' }));
+  await assertFails(setDoc(doc(viewer, 'series_competitions/viewerDraft'), { ...draft, createdBy: 'viewer1' }));
+  await assertSucceeds(setDoc(doc(full, 'series_competitions/fullDraft'), {
+    seriesId: 's1', createdBy: 'fulladm', status: 'draft', type: 'match',
+  }));
+  // Legacy series_admins doc without role remains a full admin.
+  await assertSucceeds(setDoc(doc(as('sadmin'), 'series_competitions/legacyDraft'), {
+    seriesId: 's1', createdBy: 'sadmin', status: 'draft', type: 'match',
+  }));
+});
+
+
+// Player registration documents: identity readable by the player, submitting
+// team admin, and full org admins — not staff viewers or outsiders.
+test('series registration identity is limited to player, team admins, and org admins', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'series_club_admins/s1_c1_cadm'), {
+      seriesId: 's1', clubId: 'c1', userId: 'cadm', status: 'active',
+    });
+    await setDoc(doc(db, 'series_club_admins/s1_otherClub_othercadm'), {
+      seriesId: 's1', clubId: 'otherClub', userId: 'othercadm', status: 'active',
+    });
+    await setDoc(doc(db, 'series_registrations/regDocs'), {
+      seriesId: 's1', clubId: 'c1', userId: 'player1', createdBy: 'cadm', status: 'pending',
+    });
+    await setDoc(doc(db, 'series_registrations/regDocs/private/identity'), {
+      nationalId: 'NIC-99', nationalIdDocUrl: 'https://example/doc.jpg',
+    });
+  });
+
+  await assertSucceeds(getDoc(doc(as('player1'), 'series_registrations/regDocs/private/identity')));
+  await assertSucceeds(getDoc(doc(as('cadm'), 'series_registrations/regDocs/private/identity')));
+  await assertSucceeds(getDoc(doc(as('owner'), 'series_registrations/regDocs/private/identity')));
+  await assertSucceeds(getDoc(doc(as('fulladm'), 'series_registrations/regDocs/private/identity')));
+  await assertFails(getDoc(doc(as('othercadm'), 'series_registrations/regDocs/private/identity')));
+  await assertFails(getDoc(doc(as('scorer1'), 'series_registrations/regDocs/private/identity')));
+  await assertFails(getDoc(doc(as('viewer1'), 'series_registrations/regDocs/private/identity')));
+  await assertFails(getDoc(doc(as('u2'), 'series_registrations/regDocs/private/identity')));
+  await assertSucceeds(getDoc(doc(as('cadm'), 'series_registrations/regDocs')));
+  await assertSucceeds(getDoc(doc(as('player1'), 'series_registrations/regDocs')));
+});

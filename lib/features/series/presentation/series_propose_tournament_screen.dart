@@ -172,7 +172,7 @@ class _SeriesProposeTournamentScreenState
                       icon: const Icon(Icons.arrow_forward),
                       label: const Text('Continue to tournament setup'),
                     ),
-                    if (access.isAdmin) ...[
+                    if (access.isCompetitionOfficial) ...[
                       const SizedBox(height: AppDimens.spaceLg),
                       _ExistingTournaments(
                         seriesId: widget.seriesId,

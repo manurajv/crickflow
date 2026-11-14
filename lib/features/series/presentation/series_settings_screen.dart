@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,6 +36,10 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
   late bool _requirePhone;
   late bool _requireAddress;
   late bool _requirePhoto;
+  late bool _requireNationalIdDoc;
+  late bool _requirePassportDoc;
+  late List<String> _customFields;
+  final _customFieldInput = TextEditingController();
   late int _winPoints;
   late int _lossPoints;
   late int _tiePoints;
@@ -52,6 +57,9 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
   bool _requirePhoneSaved = false;
   bool _requireAddressSaved = false;
   bool _requirePhotoSaved = false;
+  bool _requireNationalIdDocSaved = false;
+  bool _requirePassportDocSaved = false;
+  List<String> _customFieldsSaved = const [];
   int _winPointsSaved = 0;
   int _lossPointsSaved = 0;
   int _tiePointsSaved = 0;
@@ -61,6 +69,7 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
   @override
   void dispose() {
     _rules.dispose();
+    _customFieldInput.dispose();
     super.dispose();
   }
 
@@ -75,6 +84,9 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
       _requirePhone != _requirePhoneSaved ||
       _requireAddress != _requireAddressSaved ||
       _requirePhoto != _requirePhotoSaved ||
+      _requireNationalIdDoc != _requireNationalIdDocSaved ||
+      _requirePassportDoc != _requirePassportDocSaved ||
+      !listEquals(_customFields, _customFieldsSaved) ||
       _winPoints != _winPointsSaved ||
       _lossPoints != _lossPointsSaved ||
       _tiePoints != _tiePointsSaved ||
@@ -93,6 +105,9 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
     _requirePhone = s.requirePhoneNumber;
     _requireAddress = s.requireAddress;
     _requirePhoto = s.requireProfilePhoto;
+    _requireNationalIdDoc = s.requireNationalIdDocument;
+    _requirePassportDoc = s.requirePassportDocument;
+    _customFields = List<String>.from(s.customRequiredFields);
     _winPoints = s.rankingRules.winPoints;
     _lossPoints = s.rankingRules.lossPoints;
     _tiePoints = s.rankingRules.tiePoints;
@@ -115,11 +130,28 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
     _requirePhoneSaved = _requirePhone;
     _requireAddressSaved = _requireAddress;
     _requirePhotoSaved = _requirePhoto;
+    _requireNationalIdDocSaved = _requireNationalIdDoc;
+    _requirePassportDocSaved = _requirePassportDoc;
+    _customFieldsSaved = List<String>.from(_customFields);
     _winPointsSaved = _winPoints;
     _lossPointsSaved = _lossPoints;
     _tiePointsSaved = _tiePoints;
     _nrPointsSaved = _nrPoints;
     _useNrrSaved = _useNrr;
+  }
+
+  void _addCustomField() {
+    final label = _customFieldInput.text.trim();
+    if (label.length < 2) return;
+    if (_customFields.any((f) => f.toLowerCase() == label.toLowerCase())) {
+      _customFieldInput.clear();
+      return;
+    }
+    if (_customFields.length >= 20) return;
+    setState(() {
+      _customFields = [..._customFields, label];
+      _customFieldInput.clear();
+    });
   }
 
   Future<void> _save() async {
@@ -140,7 +172,9 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
               'requirePhoneNumber': _requirePhone,
               'requireAddress': _requireAddress,
               'requireProfilePhoto': _requirePhoto,
-              'customRequiredFields': <String>[],
+              'requireNationalIdDocument': _requireNationalIdDoc,
+              'requirePassportDocument': _requirePassportDoc,
+              'customRequiredFields': _customFields,
               'rankingRules': {
                 'winPoints': _winPoints,
                 'lossPoints': _lossPoints,
@@ -210,11 +244,11 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
         if (series == null) {
           return const Scaffold(body: Center(child: Text('Series not found')));
         }
-        if (role != SeriesRole.superAdmin) {
+        if (!role.isFullOrgAdmin) {
           return Scaffold(
             appBar: const CfChromeAppBar(title: Text('Settings')),
             body: const Center(
-              child: Text('Only the Series Super Admin can edit settings'),
+              child: Text('Only organization admins can edit settings'),
             ),
           );
         }
@@ -333,6 +367,64 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
                   value: _requirePhoto,
                   onChanged: (v) => setState(() => _requirePhoto = v),
                 ),
+                SwitchListTile(
+                  title: const Text('National ID document upload (private)'),
+                  subtitle: const Text('Required photo of the ID document'),
+                  value: _requireNationalIdDoc,
+                  onChanged: (v) => setState(() => _requireNationalIdDoc = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Passport document upload (private)'),
+                  subtitle: const Text('Required photo of the passport page'),
+                  value: _requirePassportDoc,
+                  onChanged: (v) => setState(() => _requirePassportDoc = v),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Other required fields',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const Text(
+                  'Add any extra details players must provide (optional until you add one).',
+                  style: TextStyle(fontSize: 13),
+                ),
+                if (_customFields.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final field in _customFields)
+                          InputChip(
+                            label: Text(field),
+                            onDeleted: () => setState(
+                              () => _customFields = [
+                                for (final f in _customFields)
+                                  if (f != field) f,
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _customFieldInput,
+                        decoration: const InputDecoration(
+                          hintText: 'e.g. School or Guardian name',
+                        ),
+                        onSubmitted: (_) => _addCustomField(),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _addCustomField,
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
                 const Divider(),
                 Text(
                   'Team ranking points',
@@ -366,7 +458,7 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
                 const SizedBox(height: AppDimens.spaceLg),
                 const Divider(),
                 const SizedBox(height: AppDimens.spaceSm),
-                SeriesOwnerSection(series: series),
+                if (role == SeriesRole.superAdmin) SeriesOwnerSection(series: series),
                 const SizedBox(height: AppDimens.spaceLg),
               ],
             ),

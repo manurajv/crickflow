@@ -1,9 +1,9 @@
 {
   "name": "crickflow-firestore-rules-tests",
   "private": true,
-  "description": "Emulator tests for firestore.rules (platform staff, series owners, public web reads).",
+  "description": "Emulator tests for firestore.rules and storage.rules (platform staff, series owners, registration documents).",
   "scripts": {
-    "test": "firebase emulators:exec --only firestore --project demo-crickflow-rules \"node --test rules.test.cjs\""
+    "test": "firebase emulators:exec --only firestore,storage --project demo-crickflow-rules --config ../firebase.json \"node --test rules.test.cjs storage.test.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
