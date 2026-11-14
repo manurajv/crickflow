@@ -82,9 +82,31 @@ function validateOwnershipTransfer({ series, actorUid, targetUid, targetAdmin })
   return target;
 }
 
+
+function sanitizeAnnouncementText(input, maxLength) {
+  let text = String(input || '')
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\s*\/p\s*>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\u0000/g, '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/javascript\s*:/gi, '')
+    .replace(/vbscript\s*:/gi, '')
+    .replace(/data\s*:/gi, '');
+  text = text.trim();
+  if (text.length > maxLength) text = text.slice(0, maxLength);
+  return text;
+}
+
 function validateAnnouncement({ title, body, audience }) {
-  const t = String(title || '').trim();
-  const b = String(body || '').trim();
+  const t = sanitizeAnnouncementText(title, MAX_ANNOUNCEMENT_TITLE);
+  const b = sanitizeAnnouncementText(body, MAX_ANNOUNCEMENT_BODY);
   const a = String(audience || 'all');
   if (t.length < 3 || t.length > MAX_ANNOUNCEMENT_TITLE) {
     throw new OwnerOpError('invalid-argument', `Title must be 3–${MAX_ANNOUNCEMENT_TITLE} characters`);
@@ -131,6 +153,7 @@ module.exports = {
   lifecycleNextStatus,
   validateOwnershipTransfer,
   validateAnnouncement,
+  sanitizeAnnouncementText,
   announcementRecipients,
   MAX_ANNOUNCEMENT_RECIPIENTS,
 };

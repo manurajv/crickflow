@@ -50,6 +50,17 @@ describe("mapMatch", () => {
     expect(match.stream.status).toBe("live");
   });
 
+  it("maps scorer ids used by My Cricket ownership filters", () => {
+    const match = mapMatch("m3", {
+      createdBy: "u1",
+      scorerIds: ["u1", "u2"],
+      scorer1UserId: "u1",
+      currentScorerId: "u2",
+    });
+    expect(match.scorerIds).toEqual(["u1", "u2"]);
+    expect(match.currentScorerId).toBe("u2");
+  });
+
   it("applies batting rule defaults", () => {
     const match = mapMatch("m2", {});
     expect(match.rules.totalOvers).toBe(20);

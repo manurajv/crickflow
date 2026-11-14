@@ -10,6 +10,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { PhoneRecaptchaHost } from "@/components/auth/phone-recaptcha-host";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { resolveSignInMessage } from "@/lib/auth/guest-access";
+import { safeNextPath } from "@/lib/auth/safe-next-path";
 import { stashPendingNext } from "@/lib/cricket/onboarding-options";
 
 function readInvitePhone() {
@@ -34,7 +35,7 @@ function LoginForm() {
   const [busy, setBusy] = useState(false);
 
   const next = searchParams.get("next");
-  const nextPath = next?.startsWith("/") ? next : "/";
+  const nextPath = safeNextPath(next);
   const inviteLogin = nextPath.startsWith("/invite/");
   const msgParam = searchParams.get("msg");
   const gateMessage = msgParam

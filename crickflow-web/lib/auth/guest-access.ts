@@ -1,3 +1,5 @@
+import { isSafeNextPath, safeNextPath } from "@/lib/auth/safe-next-path";
+
 /** Whitelisted sign-in gate messages (keys only in URLs — never raw free text). */
 export const SIGN_IN_PROMPTS = {
   general: "Sign in to your CrickFlow account to continue.",
@@ -60,8 +62,9 @@ export function loginUrl(
   nextPath?: string,
   promptKey: SignInPromptKey = "general",
 ): string {
-  if (!nextPath || !nextPath.startsWith("/")) {
+  const safe = isSafeNextPath(nextPath) ? safeNextPath(nextPath) : "";
+  if (!safe || safe === "/") {
     return `/login?msg=${encodeURIComponent(promptKey)}`;
   }
-  return `/login?next=${encodeURIComponent(nextPath)}&msg=${encodeURIComponent(promptKey)}`;
+  return `/login?next=${encodeURIComponent(safe)}&msg=${encodeURIComponent(promptKey)}`;
 }

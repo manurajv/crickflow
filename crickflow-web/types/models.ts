@@ -181,6 +181,10 @@ export interface Match {
   completedAt?: Date | null;
   createdAt?: Date | null;
   createdBy?: string;
+  scorerIds?: string[];
+  scorer1UserId?: string;
+  scorer2UserId?: string;
+  currentScorerId?: string;
   winnerTeamId?: string;
   resultSummary: string;
   matchHero?: { playerId?: string; playerName: string; reason: string };
@@ -259,6 +263,7 @@ export interface Player {
   id: string;
   name: string;
   teamId?: string;
+  teamIds?: string[];
   jerseyNumber?: number;
   battingStyle?: string;
   bowlingStyle?: string;
@@ -329,9 +334,12 @@ export interface Tournament {
   thumbnailUrl?: string;
   grounds: string[];
   organizerName?: string;
+  organizerId?: string;
   createdBy?: string;
   startDate?: Date | null;
   endDate?: Date | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
 }
 
 export interface MatchHighlight {

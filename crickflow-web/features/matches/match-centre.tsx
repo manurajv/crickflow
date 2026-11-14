@@ -100,6 +100,12 @@ export function MatchCentre({
 
   return (
     <div className="space-y-6">
+      {live || String(match.status) === "upcoming" || String(match.status) === "draft" ? (
+        <GetTheApp
+          title="Live scoring stays on the mobile app"
+          description="Watch the scoreboard, commentary, and stream here. Starting a match, scoring balls, changing scorers, and RTMP/broadcast ingest are only available in the CrickFlow Android app."
+        />
+      ) : null}
       <header className="rounded-2xl border border-border bg-scoreboard p-6 text-white">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

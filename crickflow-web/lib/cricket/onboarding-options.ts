@@ -1,3 +1,5 @@
+import { isSafeNextPath, safeNextPath } from "@/lib/auth/safe-next-path";
+
 /** Dial codes mirrored from Flutter `CricketCountry.phoneDialCodes`. */
 export const PHONE_DIAL_CODES = [
   "+94",
@@ -84,8 +86,8 @@ const PENDING_NEXT_KEY = "cf_pending_next";
 export function stashPendingNext(next: string | null | undefined) {
   if (typeof window === "undefined") return;
   try {
-    if (next && next.startsWith("/") && !next.startsWith("//")) {
-      sessionStorage.setItem(PENDING_NEXT_KEY, next);
+    if (next && isSafeNextPath(next) && !safeNextPath(next).startsWith("/register")) {
+      sessionStorage.setItem(PENDING_NEXT_KEY, safeNextPath(next));
     }
   } catch {
     /* ignore */
@@ -97,8 +99,9 @@ export function takePendingNext(fallback = "/"): string {
   try {
     const v = sessionStorage.getItem(PENDING_NEXT_KEY);
     sessionStorage.removeItem(PENDING_NEXT_KEY);
-    if (v && v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/register")) {
-      return v.endsWith("/") || v.includes("?") || v.includes("#") ? v : `${v}/`;
+    if (v && isSafeNextPath(v) && !safeNextPath(v).startsWith("/register")) {
+      const path = safeNextPath(v);
+      return path.endsWith("/") || path.includes("?") || path.includes("#") ? path : `${path}/`;
     }
   } catch {
     /* ignore */

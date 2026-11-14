@@ -48,6 +48,8 @@ assert.strictEqual(
 
 // Announcement validation
 assert.deepStrictEqual(validateAnnouncement({ title: ' Fixtures ', body: ' Out now ', audience: 'all' }), { title: 'Fixtures', body: 'Out now', audience: 'all' });
+assert.equal(validateAnnouncement({ title: 'Hello there', body: '<script>x</script>Welcome', audience: 'all' }).body, 'xWelcome');
+assert.equal(validateAnnouncement({ title: 'Hello there', body: 'See [x](javascript:alert(1))', audience: 'all' }).body.includes('javascript'), false);
 throwsCode(() => validateAnnouncement({ title: 'Hi', body: 'x' }), 'invalid-argument');
 throwsCode(() => validateAnnouncement({ title: 'Hello', body: '' }), 'invalid-argument');
 throwsCode(() => validateAnnouncement({ title: 'Hello', body: 'x', audience: 'public' }), 'invalid-argument');

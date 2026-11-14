@@ -22,6 +22,7 @@ import {
   updateSeriesSettings,
   updateSeriesCompetitionPolicy,
   listSeriesAnnouncements,
+  sendSeriesAnnouncement,
   listSeriesAuditLogs,
   listActiveSeriesByKind,
 } from "./repository";
@@ -234,6 +235,15 @@ export function useSeriesDetail(seriesId: string, userId?: string) {
   });
 }
 
+
+export function useSendSeriesAnnouncement(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { title: string; body: string; audience: string }) =>
+      sendSeriesAnnouncement({ seriesId, ...input }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId, "announcements"] }),
+  });
+}
 
 export function useSeriesAnnouncements(seriesId: string) {
   return useQuery({

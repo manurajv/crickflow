@@ -38,6 +38,12 @@ describe("onboarding pending next", () => {
     expect(takePendingNext("/")).toBe("/");
   });
 
+  it("rejects protocol-relative pending next", () => {
+    stashPendingNext("//evil.com");
+    stashPendingNext("https://evil.com");
+    expect(takePendingNext("/")).toBe("/");
+  });
+
   it("maps country dial codes like the app", () => {
     expect(dialCodeForCountry("Sri Lanka")).toBe("+94");
     expect(dialCodeForCountry("India")).toBe("+91");

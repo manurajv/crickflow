@@ -138,6 +138,27 @@ export async function listMatches(options?: {
   }
 }
 
+export async function listMatchesCreatedBy(uid: string, take = 40): Promise<Match[]> {
+  if (!uid) return [];
+  try {
+    const snap = await getDocsTimed(
+      query(
+        collection(getDb(), collections.matches),
+        where("createdBy", "==", uid),
+        orderBy("createdAt", "desc"),
+        limit(take),
+      ),
+    );
+    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+  } catch (error) {
+    if (!isIndexError(error)) return [];
+    const snap = await getDocsOrEmpty(
+      query(collection(getDb(), collections.matches), where("createdBy", "==", uid), limit(take)),
+    );
+    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+  }
+}
+
 export function watchMatch(
   id: string,
   onData: (match: Match | null) => void,

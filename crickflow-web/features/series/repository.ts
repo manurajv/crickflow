@@ -482,6 +482,17 @@ export async function listSeriesAdmins(seriesId: string) {
 }
 
 
+export async function sendSeriesAnnouncement(input: {
+  seriesId: string;
+  title: string;
+  body: string;
+  audience: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "sendSeriesAnnouncement");
+  const result = await callable(input);
+  return (result.data ?? {}) as { ok?: boolean; announcementId?: string; recipientCount?: number };
+}
+
 export async function listSeriesAnnouncements(
   seriesId: string,
   take = 20,

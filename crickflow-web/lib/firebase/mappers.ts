@@ -263,6 +263,10 @@ export function mapMatch(id: string, data: Record<string, unknown>): Match {
     completedAt: parseDate(data.completedAt),
     createdAt: parseDate(data.createdAt),
     createdBy: asString(data.createdBy) || undefined,
+    scorerIds: asStringArray(data.scorerIds),
+    scorer1UserId: asString(data.scorer1UserId) || undefined,
+    scorer2UserId: asString(data.scorer2UserId) || undefined,
+    currentScorerId: asString(data.currentScorerId) || undefined,
     winnerTeamId: asString(data.winnerTeamId) || undefined,
     resultSummary: asString(data.resultSummary),
     matchHero: hero
@@ -385,6 +389,7 @@ export function mapPlayer(id: string, data: Record<string, unknown>): Player {
     id,
     name: asString(data.name, "Player"),
     teamId: asString(data.teamId) || undefined,
+    teamIds: asStringArray(data.teamIds),
     jerseyNumber: typeof data.jerseyNumber === "number" ? data.jerseyNumber : undefined,
     battingStyle: asString(data.battingStyle) || undefined,
     bowlingStyle: asString(data.bowlingStyle) || undefined,
@@ -460,9 +465,12 @@ export function mapTournament(id: string, data: Record<string, unknown>): Tourna
     grounds: asStringArray(data.grounds),
     bracketRounds: mapBracketRounds(data.bracketRounds),
     organizerName: asString(data.organizerName) || asString(data.organizer) || undefined,
+    organizerId: asString(data.organizerId) || asString(data.organizerUserId) || asString(data.createdBy) || undefined,
     createdBy: asString(data.createdBy) || undefined,
     startDate: parseDate(data.startDate),
     endDate: parseDate(data.endDate),
+    createdAt: parseDate(data.createdAt),
+    updatedAt: parseDate(data.updatedAt),
   };
 }
 
