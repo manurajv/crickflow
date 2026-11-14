@@ -706,7 +706,7 @@ service cloud.firestore {
         && old.get('createdBy', '') == neu.get('createdBy', '');
     }
 
-    function isLeadershipRemovingPlayer() {
+    function isLeadershipRemovingPlayer(playerId) {
       let old = resource.data;
       let neu = request.resource.data;
       let changeId = rosterChangeTeamId();
@@ -1023,7 +1023,7 @@ service cloud.firestore {
     }
 
     /// Player removes themselves from one team roster.
-    function isMemberSelfLeavePlayerUpdate() {
+    function isMemberSelfLeavePlayerUpdate(playerId) {
       let old = resource.data;
       let neu = request.resource.data;
       let teamId = rosterChangeTeamId();
@@ -1066,7 +1066,7 @@ service cloud.firestore {
         && request.resource.data.playerName is string;
     }
 
-    function isInviteeRespondingToInvitation() {
+    function isInviteeRespondingToInvitation(requestId) {
       return isSignedIn()
         && requestId == request.auth.uid
         && resource.data.get('requestType', '') == 'invitation'
@@ -1074,6 +1074,29 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && request.resource.data.status in ['accepted', 'rejected']
         && request.resource.data.resolvedBy == request.auth.uid;
+    }
+
+    /// Invitee accepting a pending team invitation adds only their own player
+    /// to the roster (the invitation doc is marked accepted right after).
+    function hasPendingTeamInvitation(teamId) {
+      let path = /databases/$(database)/documents/teams/$(teamId)/join_requests/$(request.auth.uid);
+      return exists(path)
+        && get(path).data.get('requestType', '') == 'invitation'
+        && get(path).data.get('status', '') == 'pending'
+        && get(path).data.get('userId', '') == request.auth.uid;
+    }
+
+    function isInviteeJoinTeamUpdate(teamId) {
+      let old = resource.data;
+      let neu = request.resource.data;
+      return isSignedIn()
+        && hasPendingTeamInvitation(teamId)
+        && old.get('createdBy', '') == neu.get('createdBy', '')
+        && teamPublicCodeImmutable()
+        && neu.diff(old).affectedKeys().hasOnly(['playerIds', 'memberCount', 'updatedAt'])
+        && neu.get('playerIds', []).toSet().difference(old.get('playerIds', []).toSet())
+          .hasOnly([get(/databases/$(database)/documents/teams/$(teamId)/join_requests/$(request.auth.uid)).data.get('playerId', request.auth.uid)])
+        && old.get('playerIds', []).toSet().difference(neu.get('playerIds', []).toSet()).size() == 0;
     }
 
     function isTeamOwnerFullUpdate() {
@@ -1189,11 +1212,13 @@ service cloud.firestore {
           || isMemberSelfLeaveTeamUpdate(teamId)
           || isOwnerLeaveTeamUpdate()
           || isLeadershipRosterUpdate(teamId)
+          || isInviteeJoinTeamUpdate(teamId)
         ))
         || canAdminUpdateTeamDoc();
+      // No teamPublicCodeImmutable() here: on delete request.resource is null,
+      // so that check errored and blocked every team with a team code.
       allow delete: if isSignedIn()
         && resource.data.createdBy == request.auth.uid
-        && teamPublicCodeImmutable()
         && !teamDataOrgLocked(resource.data);
 
       match /profileViews/{viewerId} {
@@ -1220,7 +1245,7 @@ service cloud.firestore {
             && resource.data.get('requestType', 'join_request') == 'join_request'
             && request.resource.data.status in ['accepted', 'rejected']
           )
-          || (isInviteeRespondingToInvitation()
+          || (isInviteeRespondingToInvitation(requestId)
             && (request.resource.data.status == 'rejected' || !teamIdOrgLocked(teamId)))
           || (
             requestId == request.auth.uid
@@ -1267,13 +1292,13 @@ service cloud.firestore {
         && playerPublicIdImmutable()
         && playerRosterTargetUnlocked()
         && (
-          isMemberSelfLeavePlayerUpdate()
+          isMemberSelfLeavePlayerUpdate(playerId)
           || ownsPlayerProfile(playerId)
           || isWalkInPlayer()
           || isTeamOwnerRemovingPlayer()
           || isTeamOwnerAssigningPlayer()
           || isTeamLeadershipAssigningPlayer()
-          || isLeadershipRemovingPlayer()
+          || isLeadershipRemovingPlayer(playerId)
         )
       ) || canAdminUpdatePlayerDoc();
       allow delete: if isSignedIn() && (
@@ -1843,6 +1868,15 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    /// Post author or community moderator removing engagement while deleting a post.
+    function canCleanUpCommunityPost(postId) {
+      let path = /databases/$(database)/documents/community_posts/$(postId);
+      return isSignedIn()
+        && exists(path)
+        && (get(path).data.get('authorId', '') == request.auth.uid
+          || hasAdminPermission('canModerateCommunity'));
+    }
+
     match /community_posts/{postId} {
       allow read: if true;
       allow create: if isSignedIn()
@@ -1860,7 +1894,9 @@ service cloud.firestore {
 
       match /likes/{userId} {
         allow read: if true;
-        allow create, delete: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId;
+        allow delete: if isSignedIn()
+          && (request.auth.uid == userId || canCleanUpCommunityPost(postId));
         allow update: if false;
       }
 
@@ -1882,11 +1918,14 @@ service cloud.firestore {
               .hasOnly(['likeCount'])
         );
         allow delete: if isSignedIn()
-          && resource.data.authorId == request.auth.uid;
+          && (resource.data.authorId == request.auth.uid
+            || canCleanUpCommunityPost(postId));
 
         match /likes/{userId} {
           allow read: if true;
-          allow create, delete: if isSignedIn() && request.auth.uid == userId;
+          allow create: if isSignedIn() && request.auth.uid == userId;
+          allow delete: if isSignedIn()
+            && (request.auth.uid == userId || canCleanUpCommunityPost(postId));
           allow update: if false;
         }
       }
@@ -2060,11 +2099,24 @@ service cloud.firestore {
         allow read: if true;
         allow create: if isSignedIn()
           && request.resource.data.userId == request.auth.uid;
-        allow update: if isSignedIn()
-          && resource.data.userId == request.auth.uid;
+        allow update: if isSignedIn() && (
+          resource.data.userId == request.auth.uid
+          || (
+            get(/databases/$(database)/documents/fantasy_leagues/$(leagueId)).data.get('createdBy', '') == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPoints', 'updatedAt'])
+          )
+        );
         allow delete: if isSignedIn()
           && resource.data.userId == request.auth.uid;
       }
+    }
+
+    // Collection-group reads used by the app (same access as the nested rules).
+    match /{path=**}/entries/{entryId} {
+      allow read: if true;
+    }
+    match /{path=**}/replayMarkers/{markerId} {
+      allow read: if isSignedIn();
     }
 
     /// Admin ground registry (additive). Not used by mobile create flows.
@@ -2590,9 +2642,10 @@ service cloud.firestore {
       // without depending on resource.data (top-level OR+get list queries fail).
       match /approvals/{approvalId} {
         allow read: if isSignedIn() && (
-          resource.data.requestedBy == request.auth.uid
+          resource.data.get('requestedBy', '') == request.auth.uid
           || canViewSeriesStaff(seriesId)
           || hasAdminPermission('canManageOrganizations')
+          || isSeriesClubAdmin(seriesId, resource.data.get('clubId', ''))
         );
         allow create, update, delete: if false; // CF Admin SDK only
       }
