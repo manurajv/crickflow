@@ -176,6 +176,8 @@ class MatchRulesModel extends Equatable {
           totalOvers: 6,
           oversPerBowler: calculateOversPerBowler(6),
           maxInnings: 1,
+          // Indoor games don't use free hits by default; users can re-enable.
+          freeHitEnabled: false,
           wagonWheelEnabled: false,
           wagonWheelDots: false,
           wagonWheelRuns123: false,
@@ -223,6 +225,7 @@ class MatchRulesModel extends Equatable {
         noBallRuns: 1,
         maxInnings: 1,
         maxWickets: 10,
+        freeHitEnabled: false,
       );
 
   factory MatchRulesModel.standardT20() => MatchRulesModel(

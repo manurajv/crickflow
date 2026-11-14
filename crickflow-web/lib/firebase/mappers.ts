@@ -194,6 +194,7 @@ function mapInnings(raw: unknown): Innings {
     partnershipRuns: asNumber(map.partnershipRuns),
     partnershipBalls: asNumber(map.partnershipBalls),
     isFreeHitActive: asBoolean(map.isFreeHitActive),
+    isSuperOver: asBoolean(map.isSuperOver),
     targetRuns: typeof map.targetRuns === "number" ? map.targetRuns : undefined,
     partnerships: Array.isArray(map.partnerships)
       ? map.partnerships.map((item) => {
@@ -246,7 +247,13 @@ export function mapMatch(id: string, data: Record<string, unknown>): Match {
       totalOvers: asNumber(rules.totalOvers, 20),
       ballsPerOver: asNumber(rules.ballsPerOver, 6),
       freeHitEnabled: asBoolean(rules.freeHitEnabled, true),
+      maxWickets: asNumber(rules.maxWickets, 10),
     },
+    seriesId: asString(data.seriesId) || undefined,
+    seriesOfficialStatus: asString(data.seriesOfficialStatus) || undefined,
+    seriesClubAId: asString(data.seriesClubAId) || undefined,
+    seriesClubBId: asString(data.seriesClubBId) || undefined,
+    matchMode: asString(data.matchMode) || undefined,
     innings: Array.isArray(data.innings) ? data.innings.map(mapInnings) : [],
     currentInningsIndex: asNumber(data.currentInningsIndex),
     location: mapLocation(data.location),
@@ -254,7 +261,12 @@ export function mapMatch(id: string, data: Record<string, unknown>): Match {
     scheduledAt: parseDate(data.scheduledAt),
     startedAt: parseDate(data.startedAt),
     completedAt: parseDate(data.completedAt),
+    createdAt: parseDate(data.createdAt),
     createdBy: asString(data.createdBy) || undefined,
+    scorerIds: asStringArray(data.scorerIds),
+    scorer1UserId: asString(data.scorer1UserId) || undefined,
+    scorer2UserId: asString(data.scorer2UserId) || undefined,
+    currentScorerId: asString(data.currentScorerId) || undefined,
     winnerTeamId: asString(data.winnerTeamId) || undefined,
     resultSummary: asString(data.resultSummary),
     matchHero: hero
@@ -377,6 +389,7 @@ export function mapPlayer(id: string, data: Record<string, unknown>): Player {
     id,
     name: asString(data.name, "Player"),
     teamId: asString(data.teamId) || undefined,
+    teamIds: asStringArray(data.teamIds),
     jerseyNumber: typeof data.jerseyNumber === "number" ? data.jerseyNumber : undefined,
     battingStyle: asString(data.battingStyle) || undefined,
     bowlingStyle: asString(data.bowlingStyle) || undefined,
@@ -388,6 +401,12 @@ export function mapPlayer(id: string, data: Record<string, unknown>): Player {
     playerId: asString(data.playerId) || asString(data.cfPlayerId) || undefined,
     country: asString(data.country) || undefined,
   };
+}
+
+function inferOnboardingCompleted(data: Record<string, unknown>): boolean {
+  if (typeof data.onboardingCompleted === "boolean") return data.onboardingCompleted;
+  const playerId = asString(data.playerId) || asString(data.cfPlayerId);
+  return Boolean(playerId);
 }
 
 export function mapUser(id: string, data: Record<string, unknown>): UserProfile {
@@ -408,7 +427,9 @@ export function mapUser(id: string, data: Record<string, unknown>): UserProfile 
     battingStyle: asString(data.battingStyle) || undefined,
     bowlingStyle: asString(data.bowlingStyle) || undefined,
     jerseyNumber: typeof jerseyRaw === "number" ? jerseyRaw : undefined,
-    onboardingCompleted: asBoolean(data.onboardingCompleted),
+    dateOfBirth: asString(data.dob) || asString(data.dateOfBirth) || undefined,
+    gender: asString(data.gender) || undefined,
+    onboardingCompleted: inferOnboardingCompleted(data),
   };
 }
 
@@ -444,9 +465,12 @@ export function mapTournament(id: string, data: Record<string, unknown>): Tourna
     grounds: asStringArray(data.grounds),
     bracketRounds: mapBracketRounds(data.bracketRounds),
     organizerName: asString(data.organizerName) || asString(data.organizer) || undefined,
+    organizerId: asString(data.organizerId) || asString(data.organizerUserId) || asString(data.createdBy) || undefined,
     createdBy: asString(data.createdBy) || undefined,
     startDate: parseDate(data.startDate),
     endDate: parseDate(data.endDate),
+    createdAt: parseDate(data.createdAt),
+    updatedAt: parseDate(data.updatedAt),
   };
 }
 
@@ -569,6 +593,7 @@ export function mapNotification(id: string, data: Record<string, unknown>): AppN
     tab: asString(data.tab) || undefined,
     type: asString(data.type) || undefined,
     category: asString(data.category) || asString(data.type) || undefined,
+    priority: typeof data.priority === "boolean" ? data.priority : null,
     read: asBoolean(data.read),
     createdAt: parseDate(data.createdAt),
   };

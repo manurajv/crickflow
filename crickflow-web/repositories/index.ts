@@ -57,6 +57,7 @@ import { chatIdFor, chatBlockId } from "@/lib/chat";
 import { followCollection, followDocId, followPayload, type FollowKind } from "@/lib/follow";
 import type { MatchStatus } from "@/types/enums";
 import { LIVE_STATUSES } from "@/types/enums";
+import { withoutStaleMatches } from "@/lib/cricket/match-staleness";
 import type {
   AppNotification,
   BallEvent,
@@ -127,10 +128,33 @@ export async function listMatches(options?: {
   constraints.push(orderBy("createdAt", "desc"), limit(take));
   try {
     const snap = await getDocsTimed(query(collection(getDb(), collections.matches), ...constraints));
-    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+    const list = snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+    // Live / Upcoming lists drop unfinished matches older than 30 days.
+    return options?.status ? withoutStaleMatches(list) : list;
   } catch (error) {
     if (!isIndexError(error)) return [];
     const snap = await getDocsOrEmpty(query(collection(getDb(), collections.matches), limit(take)));
+    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+  }
+}
+
+export async function listMatchesCreatedBy(uid: string, take = 40): Promise<Match[]> {
+  if (!uid) return [];
+  try {
+    const snap = await getDocsTimed(
+      query(
+        collection(getDb(), collections.matches),
+        where("createdBy", "==", uid),
+        orderBy("createdAt", "desc"),
+        limit(take),
+      ),
+    );
+    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+  } catch (error) {
+    if (!isIndexError(error)) return [];
+    const snap = await getDocsOrEmpty(
+      query(collection(getDb(), collections.matches), where("createdBy", "==", uid), limit(take)),
+    );
     return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
   }
 }
@@ -156,7 +180,7 @@ export function watchLiveMatches(
       limit(take),
     ),
     (snap) => {
-      onData(snap.docs.map((d) => mapMatch(d.id, dataOf(d))));
+      onData(withoutStaleMatches(snap.docs.map((d) => mapMatch(d.id, dataOf(d)))));
     },
     () => onData([]),
   );
@@ -431,6 +455,11 @@ export async function upsertUserProfile(profile: Partial<UserProfile> & { id: st
   if (profile.battingStyle !== undefined) payload.battingStyle = profile.battingStyle || null;
   if (profile.bowlingStyle !== undefined) payload.bowlingStyle = profile.bowlingStyle || null;
   if (profile.jerseyNumber !== undefined) payload.jerseyNumber = profile.jerseyNumber ?? null;
+  if (profile.dateOfBirth !== undefined) {
+    payload.dob = profile.dateOfBirth || null;
+    payload.dateOfBirth = profile.dateOfBirth || null;
+  }
+  if (profile.gender !== undefined) payload.gender = profile.gender || null;
   if (profile.onboardingCompleted !== undefined) payload.onboardingCompleted = profile.onboardingCompleted;
   await setDoc(doc(getDb(), collections.users, profile.id), payload, { merge: true });
 }
@@ -975,8 +1004,33 @@ export async function reportPost(
   });
 }
 
+/** Author/moderator delete. Likes, comments and comment likes are removed
+ * best-effort first (same as the app). Saves are private and stay hidden. */
 export async function deleteCommunityPost(postId: string) {
-  await deleteDoc(doc(getDb(), collections.communityPosts, postId));
+  const db = getDb();
+  const deleteAll = async (path: string[]) => {
+    try {
+      const snap = await getDocs(query(collection(db, collections.communityPosts, postId, ...path), limit(200)));
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref).catch(() => undefined)));
+      return snap.docs.map((d) => d.id);
+    } catch {
+      return [] as string[];
+    }
+  };
+  await deleteAll(["likes"]);
+  const commentIds = await (async () => {
+    try {
+      const snap = await getDocs(query(collection(db, collections.communityPosts, postId, "comments"), limit(200)));
+      return snap.docs.map((d) => d.id);
+    } catch {
+      return [] as string[];
+    }
+  })();
+  for (const id of commentIds) {
+    await deleteAll(["comments", id, "likes"]);
+    await deleteDoc(doc(db, collections.communityPosts, postId, "comments", id)).catch(() => undefined);
+  }
+  await deleteDoc(doc(db, collections.communityPosts, postId));
 }
 
 export async function deleteOpportunityPost(postId: string) {

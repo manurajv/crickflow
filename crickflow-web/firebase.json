@@ -4,41 +4,77 @@
     "public": "out",
     "cleanUrls": true,
     "trailingSlash": true,
-    "ignore": ["firebase.json", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/node_modules/**"
+    ],
     "headers": [
       {
         "source": "/.well-known/apple-app-site-association",
         "headers": [
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ]
       },
       {
         "source": "/.well-known/assetlinks.json",
         "headers": [
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ]
       },
       {
         "source": "/_next/static/**",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
         ]
       },
       {
         "source": "**/*.@(html|json)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
         ]
       },
       {
         "source": "**",
         "headers": [
-          { "key": "X-Content-Type-Options", "value": "nosniff" },
-          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-          { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          },
           {
             "key": "Strict-Transport-Security",
             "value": "max-age=63072000; includeSubDomains; preload"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()"
+          },
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
+          },
+          {
+            "key": "X-Permitted-Cross-Domain-Policies",
+            "value": "none"
           },
           {
             "key": "Content-Security-Policy",
@@ -48,23 +84,186 @@
       }
     ],
     "rewrites": [
-      { "source": "/api/health", "destination": "/health.json" },
-      { "source": "/api/health/", "destination": "/health.json" },
-      { "source": "/matches/*/live/", "destination": "/matches/_/live/index.html" },
-      { "source": "/matches/*/scorecard/", "destination": "/matches/_/scorecard/index.html" },
-      { "source": "/matches/*/commentary/", "destination": "/matches/_/commentary/index.html" },
-      { "source": "/matches/*/stats/", "destination": "/matches/_/stats/index.html" },
-      { "source": "/matches/*/watch/", "destination": "/matches/_/watch/index.html" },
-      { "source": "/matches/*/", "destination": "/matches/_/index.html" },
-      { "source": "/players/*/", "destination": "/players/_/index.html" },
-      { "source": "/teams/*/", "destination": "/teams/_/index.html" },
-      { "source": "/tournaments/*/", "destination": "/tournaments/_/index.html" },
-      { "source": "/community/*/", "destination": "/community/_/index.html" },
-      { "source": "/discover/*/", "destination": "/discover/_/index.html" },
-      { "source": "/grounds/*/", "destination": "/grounds/_/index.html" },
-      { "source": "/chat/*/", "destination": "/chat/_/index.html" },
-      { "source": "/invite/*/", "destination": "/invite/_/index.html" },
-      { "source": "**", "destination": "/404.html" }
+      {
+        "source": "/api/health",
+        "destination": "/health.json"
+      },
+      {
+        "source": "/api/health/",
+        "destination": "/health.json"
+      },
+      {
+        "source": "/matches/*/live",
+        "destination": "/matches/_/live/index.html"
+      },
+      {
+        "source": "/matches/*/live/",
+        "destination": "/matches/_/live/index.html"
+      },
+      {
+        "source": "/matches/*/scorecard",
+        "destination": "/matches/_/scorecard/index.html"
+      },
+      {
+        "source": "/matches/*/scorecard/",
+        "destination": "/matches/_/scorecard/index.html"
+      },
+      {
+        "source": "/matches/*/commentary",
+        "destination": "/matches/_/commentary/index.html"
+      },
+      {
+        "source": "/matches/*/commentary/",
+        "destination": "/matches/_/commentary/index.html"
+      },
+      {
+        "source": "/matches/*/stats",
+        "destination": "/matches/_/stats/index.html"
+      },
+      {
+        "source": "/matches/*/stats/",
+        "destination": "/matches/_/stats/index.html"
+      },
+      {
+        "source": "/matches/*/highlights",
+        "destination": "/matches/_/highlights/index.html"
+      },
+      {
+        "source": "/matches/*/highlights/",
+        "destination": "/matches/_/highlights/index.html"
+      },
+      {
+        "source": "/matches/*/watch",
+        "destination": "/matches/_/watch/index.html"
+      },
+      {
+        "source": "/matches/*/watch/",
+        "destination": "/matches/_/watch/index.html"
+      },
+      {
+        "source": "/matches/*",
+        "destination": "/matches/_/index.html"
+      },
+      {
+        "source": "/matches/*/",
+        "destination": "/matches/_/index.html"
+      },
+      {
+        "source": "/players/*",
+        "destination": "/players/_/index.html"
+      },
+      {
+        "source": "/players/*/",
+        "destination": "/players/_/index.html"
+      },
+      {
+        "source": "/teams/*",
+        "destination": "/teams/_/index.html"
+      },
+      {
+        "source": "/teams/*/",
+        "destination": "/teams/_/index.html"
+      },
+      {
+        "source": "/tournaments/*",
+        "destination": "/tournaments/_/index.html"
+      },
+      {
+        "source": "/tournaments/*/",
+        "destination": "/tournaments/_/index.html"
+      },
+      {
+        "source": "/series/*/approvals",
+        "destination": "/series/_/approvals/index.html"
+      },
+      {
+        "source": "/series/*/approvals/",
+        "destination": "/series/_/approvals/index.html"
+      },
+      {
+        "source": "/series/*/settings",
+        "destination": "/series/_/settings/index.html"
+      },
+      {
+        "source": "/series/*/settings/",
+        "destination": "/series/_/settings/index.html"
+      },
+      {
+        "source": "/series/*/admins",
+        "destination": "/series/_/admins/index.html"
+      },
+      {
+        "source": "/series/*/admins/",
+        "destination": "/series/_/admins/index.html"
+      },
+      {
+        "source": "/series/*/announcements",
+        "destination": "/series/_/announcements/index.html"
+      },
+      {
+        "source": "/series/*/announcements/",
+        "destination": "/series/_/announcements/index.html"
+      },
+      {
+        "source": "/series/*/my-requests",
+        "destination": "/series/_/my-requests/index.html"
+      },
+      {
+        "source": "/series/*/my-requests/",
+        "destination": "/series/_/my-requests/index.html"
+      },
+      {
+        "source": "/series/*",
+        "destination": "/series/_/index.html"
+      },
+      {
+        "source": "/series/*/",
+        "destination": "/series/_/index.html"
+      },
+      {
+        "source": "/community/*",
+        "destination": "/community/_/index.html"
+      },
+      {
+        "source": "/community/*/",
+        "destination": "/community/_/index.html"
+      },
+      {
+        "source": "/discover/*",
+        "destination": "/discover/_/index.html"
+      },
+      {
+        "source": "/discover/*/",
+        "destination": "/discover/_/index.html"
+      },
+      {
+        "source": "/grounds/*",
+        "destination": "/grounds/_/index.html"
+      },
+      {
+        "source": "/grounds/*/",
+        "destination": "/grounds/_/index.html"
+      },
+      {
+        "source": "/chat/*",
+        "destination": "/chat/_/index.html"
+      },
+      {
+        "source": "/chat/*/",
+        "destination": "/chat/_/index.html"
+      },
+      {
+        "source": "/invite/*",
+        "destination": "/invite/_/index.html"
+      },
+      {
+        "source": "/invite/*/",
+        "destination": "/invite/_/index.html"
+      },
+      {
+        "source": "**",
+        "destination": "/404.html"
+      }
     ]
   }
 }

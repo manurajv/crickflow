@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -8,6 +8,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
 import 'widgets/player_profile_body.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -30,7 +31,7 @@ class ProfileScreen extends ConsumerWidget {
                 Icon(Icons.person_outline, size: 64, color: cf.textMuted),
                 const SizedBox(height: AppDimens.spaceMd),
                 Text(
-                  'Sign in to manage your profile',
+                  SignInPrompt.manageProfile.message,
                   style: Theme.of(context).textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -45,9 +46,10 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppDimens.spaceXl),
                 CfButton(
-                  label: 'Login',
+                  label: 'Sign in',
                   isGold: true,
-                  onPressed: () => context.push('/login'),
+                  onPressed: () => openLoginForGuest(context: context,
+      prompt: SignInPrompt.manageProfile, returnPath: '/profile'),
                 ),
               ],
             ),
@@ -70,7 +72,7 @@ class ProfileScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

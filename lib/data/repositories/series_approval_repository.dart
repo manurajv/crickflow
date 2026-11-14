@@ -46,6 +46,28 @@ class SeriesApprovalRepository {
     });
   }
 
+  /// Pending approvals for one org team. Org staff and that team's admins can
+  /// list these (team admins can't list the whole org's queue).
+  Stream<List<SeriesApprovalModel>> watchPendingClubApprovals({
+    required String seriesId,
+    required String clubId,
+  }) {
+    return _seriesApprovals(seriesId)
+        .where('clubId', isEqualTo: clubId)
+        .where('status', isEqualTo: SeriesApprovalStatus.pending.name)
+        .snapshots()
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => SeriesApprovalModel.fromMap(doc.id, doc.data()))
+              .toList()
+            ..sort(
+              (a, b) => (b.requestedAt ?? DateTime(0))
+                  .compareTo(a.requestedAt ?? DateTime(0)),
+            );
+          return items;
+        });
+  }
+
   /// Own requests — top-level query with requestedBy is rules-safe (no manager get()).
   Stream<List<SeriesApprovalModel>> watchMyApprovals({
     required String seriesId,

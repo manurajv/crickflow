@@ -196,3 +196,7 @@ Deep link: `crickflow://tournaments/{id}` · Join by code sheet on discovery.
 - [ ] Manual fixture editor
 - [ ] Cloud Function per-group standings
 - [ ] Tournament notifications
+
+## Stale unfinished fixtures
+
+Tournament matches that were never finished drop out of the tournament Live / Upcoming filters 30 days after their scheduled/start time. Fixtures, brackets, standings and completion checks are not changed. See [STALE_MATCHES.md](STALE_MATCHES.md).

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show Color;
 
@@ -10,6 +11,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/constants/tournament_notification_types.dart';
 import '../../core/constants/team_notification_types.dart';
 import '../../core/navigation/notification_navigation.dart';
+import '../../domain/notifications/notification_priority.dart';
+import '../repositories/notification_repository.dart';
 
 /// Displays FCM pushes in the tray and routes taps to the correct screen.
 class PushNotificationHandler {
@@ -104,6 +107,15 @@ class PushNotificationHandler {
 
   void navigateFromData(Map<String, String> data) {
     final type = data['type'] ?? '';
+    // Opening a match from a push counts as reading its notifications.
+    final matchId = data['matchId'] ?? '';
+    if (matchId.isNotEmpty && !NotificationPriority.isPriorityType(type)) {
+      unawaited(
+        NotificationRepository().markRelatedRead(
+          NotificationRelation.match(matchId: matchId),
+        ),
+      );
+    }
     if (type == TournamentNotificationTypes.invitation ||
         type == TeamNotificationTypes.invitation ||
         type == TournamentNotificationTypes.officialInvitation) {

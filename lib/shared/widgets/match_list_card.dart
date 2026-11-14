@@ -28,6 +28,7 @@ class MatchListCard extends ConsumerWidget {
     this.showQuickLinks = true,
     this.showTournamentHeader = true,
     this.showRoundBadge = true,
+    this.showOrgBadge = true,
     this.primaryActionLabel,
     this.onPrimaryAction,
     this.margin = const EdgeInsets.symmetric(
@@ -45,6 +46,9 @@ class MatchListCard extends ConsumerWidget {
   final bool showQuickLinks;
   final bool showTournamentHeader;
   final bool showRoundBadge;
+
+  /// Org chip for org matches (default on everywhere).
+  final bool showOrgBadge;
   final String? primaryActionLabel;
   final VoidCallback? onPrimaryAction;
   final EdgeInsetsGeometry margin;
@@ -139,6 +143,7 @@ class MatchListCard extends ConsumerWidget {
                   matchTypeLabel: contentTypeLabel,
                   roundLabel: roundLabel,
                   attributionLabel: attributionLabel,
+                  showOrgBadge: showOrgBadge,
                   teamALogoUrl: teamA?.profileImageUrl,
                   teamBLogoUrl: teamB?.profileImageUrl,
                 ),

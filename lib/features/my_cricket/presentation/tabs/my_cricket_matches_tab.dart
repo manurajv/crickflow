@@ -9,6 +9,7 @@ import '../../../../core/utils/match_permissions.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../domain/scoring/match_lifecycle.dart';
+import '../../../../domain/scoring/match_staleness.dart';
 import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../domain/services/profile_match_filter_service.dart';
 import '../../../../shared/providers/my_cricket_ui_provider.dart';
@@ -23,6 +24,7 @@ import '../../my_cricket_filters.dart';
 import '../widgets/my_cricket_action_banner.dart';
 import '../widgets/my_cricket_guest_sign_in_prompt.dart';
 import '../widgets/my_cricket_sort_button.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class MyCricketMatchesTab extends ConsumerStatefulWidget {
   const MyCricketMatchesTab({super.key});
@@ -127,6 +129,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                     followedPlayers: followedPlayers,
                   ),
                   MyCricketMatchView.scoring => matches.where((match) {
+                    if (isStaleUnfinishedMatch(match)) return false;
                     final access =
                         scoringAccessById[match.id] ??
                         TournamentMatchScoringAccess.none;
@@ -247,7 +250,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
             ),
           ),
         ),
@@ -468,7 +471,7 @@ class _GuestMatchesBody extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
             ),
           ),
         ),

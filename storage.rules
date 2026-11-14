@@ -39,23 +39,29 @@ service firebase.storage {
     }
 
     // Single Firestore read per evaluation (deduped by path).
+    // firestore.get() on a missing doc is an error in Storage rules (there is
+    // no `.exists` on the result), so always check firestore.exists() first.
     function teamSnapshot(teamId) {
       return firestore.get(/databases/(default)/documents/teams/$(teamId));
     }
 
-    function isTeamCreator(teamId) {
-      let team = teamSnapshot(teamId);
-      return isSignedIn()
-        && team.exists
-        && team.data.createdBy == request.auth.uid;
+    function teamDocExists(teamId) {
+      return firestore.exists(/databases/(default)/documents/teams/$(teamId));
     }
 
-    // Profile/cover/logo upload during create (before doc) or by creator after.
+    function isTeamCreator(teamId) {
+      return isSignedIn()
+        && teamDocExists(teamId)
+        && teamSnapshot(teamId).data.get('createdBy', '') == request.auth.uid;
+    }
+
+    // Profile/cover/logo upload during create (before the team doc exists,
+    // atomic create) or by the creator afterwards. Same for every signed-in
+    // user; org membership or staff roles don't matter here.
     function canWriteTeamImages(teamId) {
-      let team = teamSnapshot(teamId);
       return isSignedIn() && (
-        !team.exists
-        || team.data.createdBy == request.auth.uid
+        !teamDocExists(teamId)
+        || teamSnapshot(teamId).data.get('createdBy', '') == request.auth.uid
       );
     }
 
@@ -125,6 +131,10 @@ service firebase.storage {
           && under512Kb()
         )
       );
+      // Undo an upload when the team create fails (no orphan images).
+      allow delete: if isSignedIn()
+        && isOwnTeamImageFile(fileName)
+        && canWriteTeamImages(teamId);
     }
 
     match /players/{playerId}/{fileName} {
@@ -142,6 +152,9 @@ service firebase.storage {
         && fileName.matches('(banner|logo|thumbnail)_.*\\.jpg')
         && isImageJpeg()
         && under5Mb();
+      // Undo your own upload when the tournament create fails.
+      allow delete: if isSignedIn()
+        && fileName.matches('(banner|logo|thumbnail)_' + request.auth.uid + '\\.jpg');
     }
 
     match /community/{userId}/{fileName} {
@@ -178,17 +191,113 @@ service firebase.storage {
         );
     }
 
+
+    function seriesExists(seriesId) {
+      return firestore.exists(/databases/(default)/documents/series/$(seriesId));
+    }
+
+    function isSeriesOwner(seriesId) {
+      return isSignedIn()
+        && seriesExists(seriesId)
+        && firestore.get(/databases/(default)/documents/series/$(seriesId))
+          .data.superAdminUserId == request.auth.uid;
+    }
+
+    function seriesAdminSnap(seriesId) {
+      return firestore.get(/databases/(default)/documents/series_admins/$(seriesId + '_' + request.auth.uid));
+    }
+
+    function isFullSeriesAdmin(seriesId) {
+      let adminId = seriesId + '_' + request.auth.uid;
+      return isSeriesOwner(seriesId) || (
+        isSignedIn()
+        && firestore.exists(/databases/(default)/documents/series_admins/$(adminId))
+        && seriesAdminSnap(seriesId).data.get('status', '') == 'active'
+        && seriesAdminSnap(seriesId).data.get('role', 'admin') in ['admin', 'seriesAdmin', '']
+      );
+    }
+
+    function isSeriesClubAdmin(seriesId, clubId) {
+      let adminId = seriesId + '_' + clubId + '_' + request.auth.uid;
+      return isSignedIn()
+        && clubId is string
+        && clubId.size() > 0
+        && firestore.exists(/databases/(default)/documents/series_club_admins/$(adminId))
+        && firestore.get(/databases/(default)/documents/series_club_admins/$(adminId))
+          .data.get('status', '') == 'active';
+    }
+
+    function isRegistrationImageName(fileName) {
+      return fileName.matches('(photo|doc)_.*\\.(jpg|jpeg|png|webp)');
+    }
+
+    function canViewSeriesRegistrationDoc(seriesId, subjectUserId, clubId) {
+      return isSignedIn() && (
+        request.auth.uid == subjectUserId
+        || isFullSeriesAdmin(seriesId)
+        || (clubId is string && isSeriesClubAdmin(seriesId, clubId))
+      );
+    }
+
+    function canWriteSeriesRegistrationDoc(seriesId, subjectUserId, clubId) {
+      return canViewSeriesRegistrationDoc(seriesId, subjectUserId, clubId);
+    }
+
     // Series / Orgs logos, covers, registration photos, ID document images.
     // Path prefix is `series/{id}` regardless of organization `kind`.
     match /series/{seriesId}/{fileName} {
-      allow read: if true;
+      // Logos and covers stay public. Legacy registration photos/docs are
+      // visible only to the subject player and full org admins (no club in path).
+      allow read: if fileName.matches('(logo|cover)_.*')
+        || (
+          fileName.matches('(photo|doc)_.*')
+          && isSignedIn()
+          && (
+            fileName.matches('(photo|doc)_' + request.auth.uid + '_.*')
+            || isFullSeriesAdmin(seriesId)
+          )
+        );
       allow write: if isSignedIn()
         && fileName.matches('(logo|cover|photo|doc)_.*\\.(jpg|jpeg|png|webp)')
         && isProfileImage()
         && (
           (fileName.matches('(cover|doc)_.*') && under5Mb())
           || under2Mb()
+        )
+        && (
+          fileName.matches('(logo|cover)_.*')
+          || fileName.matches('(photo|doc)_' + request.auth.uid + '_.*')
+          || isFullSeriesAdmin(seriesId)
         );
+      // Undo your own logo/cover or registration upload when submit fails.
+      allow delete: if isSignedIn()
+        && (
+          fileName.matches('(logo|cover)_' + request.auth.uid + '\\.jpg')
+          || fileName.matches('(photo|doc)_' + request.auth.uid + '_.*')
+          || (
+            fileName.matches('(photo|doc)_.*')
+            && isFullSeriesAdmin(seriesId)
+          )
+        );
+    }
+
+    // Private registration documents (ID photos, passport, profile).
+    match /series/{seriesId}/registrations/{subjectUserId}/{fileName} {
+      allow read: if canViewSeriesRegistrationDoc(seriesId, subjectUserId, '');
+      allow write: if canWriteSeriesRegistrationDoc(seriesId, subjectUserId, '')
+        && isRegistrationImageName(fileName)
+        && isProfileImage()
+        && (fileName.matches('doc_.*') ? under5Mb() : under2Mb());
+      allow delete: if canWriteSeriesRegistrationDoc(seriesId, subjectUserId, '');
+    }
+
+    match /series/{seriesId}/clubs/{clubId}/registrations/{subjectUserId}/{fileName} {
+      allow read: if canViewSeriesRegistrationDoc(seriesId, subjectUserId, clubId);
+      allow write: if canWriteSeriesRegistrationDoc(seriesId, subjectUserId, clubId)
+        && isRegistrationImageName(fileName)
+        && isProfileImage()
+        && (fileName.matches('doc_.*') ? under5Mb() : under2Mb());
+      allow delete: if canWriteSeriesRegistrationDoc(seriesId, subjectUserId, clubId);
     }
   }
 }

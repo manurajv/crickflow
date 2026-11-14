@@ -1,9 +1,10 @@
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { pickMatchHero } = require('../utils/badges');
+const { pickMatchHero, isEligibleHero } = require('../utils/badges');
 const { evaluateMatchBadges, applyBadgeAwards } = require('../utils/badgeProgression');
 const { updateTournamentStandings } = require('../utils/tournament');
 const { updateSeriesRankings } = require('../series/updateSeriesRankings');
+const { playableTeamsByLinkedId, competitionCoversMatch } = require('../series/seriesCompetitionOps');
 const { fanOutMatchNotification, notifySingleUser } = require('../utils/fanOut');
 const {
   buildMatchResultNotification,
@@ -61,6 +62,35 @@ async function fetchBallEvents(matchId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+async function isApprovedOrgMatch(match) {
+  if (!match.seriesCompetitionId) return false;
+  const snap = await db.collection('series_competitions').doc(match.seriesCompetitionId).get();
+  return competitionCoversMatch(snap.data(), match);
+}
+
+/** Stamp org fields from the match's org tournament (approved only). */
+async function inheritTournamentSeries(matchId, match) {
+  if (match.matchMode === 'quick') return match;
+  const tSnap = await db.collection('tournaments').doc(match.tournamentId).get();
+  const t = tSnap.data();
+  if (!t || !t.seriesId || t.seriesOfficialStatus !== 'approved') return match;
+  const clubsSnap = await db.collection('series_clubs')
+    .where('seriesId', '==', t.seriesId)
+    .get();
+  const byTeam = playableTeamsByLinkedId(clubsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  const a = byTeam.get(match.teamAId || '');
+  const b = byTeam.get(match.teamBId || '');
+  const patch = {
+    seriesId: t.seriesId,
+    seriesCompetitionId: t.seriesCompetitionId || null,
+    seriesOfficialStatus: 'approved',
+    ...(a ? { seriesClubAId: a.id } : {}),
+    ...(b ? { seriesClubBId: b.id } : {}),
+  };
+  await db.collection('matches').doc(matchId).set(patch, { merge: true });
+  return { ...match, ...patch };
+}
+
 exports.onMatchCompleted = onDocumentUpdated(
   'matches/{matchId}',
   async (event) => {
@@ -109,16 +139,19 @@ exports.onMatchCompleted = onDocumentUpdated(
       for (const a of awards) awardedBadgeIds.add(a.badgeId);
     }
 
-    const hero =
-      after.matchHero ||
-      pickMatchHero({ ...after, innings: derivedInnings });
+    // Keep the app-computed hero only when it is a valid Man of the Match
+    // (winning side on decided results); otherwise recompute.
+    const heroMatch = { ...after, innings: derivedInnings };
+    const hero = isEligibleHero(heroMatch, after.matchHero)
+      ? after.matchHero
+      : pickMatchHero(heroMatch);
     const badgeIds = [...awardedBadgeIds];
 
     batch.update(event.data.after.ref, {
       statsProcessed: true,
       badgeIds,
       matchHero: hero,
-      playerOfMatchId: hero?.playerId || after.playerOfMatchId || null,
+      playerOfMatchId: hero?.playerId || null,
       statsSource: useEvents ? 'ball_events' : 'innings_cache',
       updatedAt: new Date().toISOString(),
     });
@@ -130,10 +163,35 @@ exports.onMatchCompleted = onDocumentUpdated(
       await updateTournamentStandings(db, after.tournamentId, matchWithInnings);
     }
 
-    // Parallel Series rankings (isolated from global / tournament tables).
-    if (after.seriesId && after.seriesOfficialStatus === 'approved') {
+    // Matches of an approved org tournament count for the org too.
+    let seriesMatch = matchWithInnings;
+    // Fallback: started inside an org while offline and never registered.
+    // Runs the same checks as the startSeriesMatch callable, as the creator.
+    if (after.orgRequestSeriesId && !after.seriesId && after.createdBy) {
       try {
-        await updateSeriesRankings(db, matchWithInnings);
+        const { registerSeriesMatchCore } = require('../series/seriesFunctions');
+        await registerSeriesMatchCore(after.createdBy, {
+          seriesId: after.orgRequestSeriesId,
+          matchId,
+        });
+        const fresh = await db.collection('matches').doc(matchId).get();
+        seriesMatch = { ...matchWithInnings, ...fresh.data(), id: matchId, innings: derivedInnings };
+      } catch (err) {
+        console.warn('org registration fallback refused', matchId, err?.message || err);
+      }
+    } else if (!after.seriesId && after.tournamentId) {
+      try {
+        seriesMatch = await inheritTournamentSeries(matchId, matchWithInnings);
+      } catch (err) {
+        console.error('inheritTournamentSeries failed', matchId, err);
+      }
+    }
+
+    // Parallel Series rankings (isolated from global / tournament tables).
+    if (seriesMatch.seriesId && seriesMatch.seriesOfficialStatus === 'approved' &&
+        await isApprovedOrgMatch(seriesMatch)) {
+      try {
+        await updateSeriesRankings(db, seriesMatch);
       } catch (err) {
         console.error('updateSeriesRankings failed', matchId, err);
       }

@@ -49,13 +49,6 @@ class NotificationsRepository {
     bool scheduledOnly = false,
   }) async {
     Query<Map<String, dynamic>> query = _campaigns;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const NotificationPageResult(items: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
 
     query = query.orderBy('createdAt', descending: sort.descending);
     if (startAfter != null) query = query.startAfterDocument(startAfter);
@@ -207,13 +200,6 @@ class NotificationsRepository {
   }) async {
     try {
       Query<Map<String, dynamic>> query = _campaigns;
-      if (appType == AdminAppType.organizationAdmin) {
-        final orgId = actor?.organizationId;
-        if (orgId == null || orgId.isEmpty) {
-          return const NotificationSummaryStats();
-        }
-        query = query.where('organizationId', isEqualTo: orgId);
-      }
       final snap = await query.limit(AdminQueryLimits.summaryScanMax).get();
       final items = snap.docs
           .map(
@@ -588,11 +574,6 @@ class NotificationsRepository {
     int limit = 80,
   }) async {
     Query<Map<String, dynamic>> query = _templates;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap = await query.limit(limit).get();
       return snap.docs
@@ -663,11 +644,6 @@ class NotificationsRepository {
     int limit = 80,
   }) async {
     Query<Map<String, dynamic>> query = _segments;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap = await query.limit(limit).get();
       return snap.docs

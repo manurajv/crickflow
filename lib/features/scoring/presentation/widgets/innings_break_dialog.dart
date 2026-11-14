@@ -18,6 +18,7 @@ class InningsBreakDialog extends StatelessWidget {
     required this.onUndo,
     required this.onConfirm,
     this.confirmLabel,
+    this.onCancel,
   });
 
   final MatchModel match;
@@ -27,7 +28,14 @@ class InningsBreakDialog extends StatelessWidget {
   final Future<void> Function() onConfirm;
   final String? confirmLabel;
 
-  static Future<void> show(
+  /// When set, a Cancel button is shown and back / tap-outside / swipe-down
+  /// dismiss the sheet without changing match state.
+  final VoidCallback? onCancel;
+
+  static const cancelKey = Key('innings_break_cancel');
+
+  /// Returns true when the sheet closed without confirming (cancelled).
+  static Future<bool> show(
     BuildContext context, {
     required MatchModel match,
     required InningsModel innings,
@@ -35,12 +43,13 @@ class InningsBreakDialog extends StatelessWidget {
     required VoidCallback onUndo,
     required Future<void> Function() onConfirm,
     String? confirmLabel,
-  }) {
-    return ScoringUiKit.showSheet<void>(
+    bool cancellable = true,
+  }) async {
+    final result = await ScoringUiKit.showSheet<bool>(
       context,
       isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
+      isDismissible: cancellable,
+      enableDrag: cancellable,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.paddingOf(ctx).bottom,
@@ -52,9 +61,12 @@ class InningsBreakDialog extends StatelessWidget {
           onUndo: onUndo,
           onConfirm: onConfirm,
           confirmLabel: confirmLabel,
+          onCancel: cancellable ? () => Navigator.of(ctx).pop(true) : null,
         ),
       ),
     );
+    // null = dismissed by back / tap outside / swipe; true = Cancel button.
+    return cancellable && result != false;
   }
 
   @override
@@ -82,7 +94,7 @@ class InningsBreakDialog extends StatelessWidget {
                 : 'Slide to complete match');
 
     return PopScope(
-      canPop: false,
+      canPop: onCancel != null,
       child: Material(
         color: cf.card,
         child: Padding(
@@ -159,6 +171,15 @@ class InningsBreakDialog extends StatelessWidget {
               label: slideLabel,
               onConfirmed: onConfirm,
             ),
+            if (onCancel != null) ...[
+              const SizedBox(height: AppDimens.spaceSm),
+              TextButton.icon(
+                key: cancelKey,
+                onPressed: onCancel,
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('Cancel'),
+              ),
+            ],
             ],
           ),
         ),

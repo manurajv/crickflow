@@ -7,9 +7,12 @@ export interface SeriesSettings {
   requireDateOfBirth: boolean;
   requireNationalId: boolean;
   requirePassport: boolean;
+  requireNationalIdDocument: boolean;
+  requirePassportDocument: boolean;
   requirePhoneNumber: boolean;
   requireAddress: boolean;
   requireProfilePhoto: boolean;
+  customRequiredFields: string[];
   rankingRules?: {
     winPoints: number;
     lossPoints: number;
@@ -34,6 +37,8 @@ export interface Series {
   matchCount: number;
   tournamentCount: number;
   settings: SeriesSettings;
+  /** Raw competitionPolicy map from Firestore (parsed via orgCompetitionPolicyFromMap). */
+  competitionPolicy?: Record<string, unknown>;
 }
 
 export interface SeriesClub {
@@ -44,28 +49,8 @@ export interface SeriesClub {
   logoUrl?: string;
   status: string;
   squadCount: number;
-}
-
-export interface SeriesClubRanking {
-  id: string;
-  seriesId: string;
-  clubId: string;
-  clubName: string;
-  played: number;
-  won: number;
-  lost: number;
-  points: number;
-  netRunRate: number;
-}
-
-export interface SeriesPlayerRanking {
-  id: string;
-  seriesId: string;
-  userId: string;
-  displayName: string;
-  matches: number;
-  runs: number;
-  wickets: number;
+  /** The CrickFlow team that plays for this org team (org matches use its id). */
+  linkedTeamId?: string;
 }
 
 export interface SeriesApproval {
@@ -73,14 +58,13 @@ export interface SeriesApproval {
   targetType: string;
   targetId: string;
   requestedBy: string;
+  clubId?: string;
   metadata: Record<string, unknown>;
 }
 
 export interface SeriesDetailData {
   series: Series;
   clubs: SeriesClub[];
-  clubRankings: SeriesClubRanking[];
-  playerRankings: SeriesPlayerRanking[];
   competitions: Array<{
     id: string;
     title: string;
@@ -97,7 +81,32 @@ export interface SeriesDetailData {
     role: string;
   }>;
   canManage: boolean;
+  canScore: boolean;
+  canViewStaff: boolean;
   isSuperAdmin: boolean;
+  /** Highest org role for the signed-in user (viewer when signed out). */
+  myRole: "superAdmin" | "seriesAdmin" | "scorer" | "staffViewer" | "clubAdmin" | "seriesPlayer" | "viewer";
+  myTeamIds: string[];
+  myAdminClubIds: string[];
   pendingApprovalCount: number;
   approvals: SeriesApproval[];
+}
+
+
+export interface SeriesAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt?: string | null;
+  audience?: string;
+  recipientCount?: number;
+}
+
+export interface SeriesAuditLog {
+  id: string;
+  action: string;
+  actorUserId: string;
+  timestamp?: string | null;
 }

@@ -13,6 +13,7 @@ import '../../../../../shared/providers/providers.dart';
 import '../../../../../shared/providers/tournament_providers.dart';
 import '../../../../../shared/widgets/cf_button.dart';
 import '../../utils/tournament_display_utils.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 Future<void> showAddTournamentOfficialSheet({
   required BuildContext context,
@@ -151,7 +152,7 @@ class _AddTournamentOfficialSheetState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     } finally {
       if (mounted) setState(() => _saving = false);

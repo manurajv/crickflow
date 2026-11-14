@@ -5,20 +5,25 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../domain/services/tournament/tournament_match_link_policy.dart';
 import '../../../shared/providers/start_match_draft_provider.dart';
+import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 
 /// Choose Normal Match vs Quick Match before entering the create flow.
 class MatchTypeChoiceScreen extends ConsumerWidget {
-  const MatchTypeChoiceScreen({super.key});
+  const MatchTypeChoiceScreen({super.key, this.tournamentId});
+
+  /// Set when started from a tournament; the new match is linked to it.
+  final String? tournamentId;
 
   void _startNormal(BuildContext context, WidgetRef ref) {
-    ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.normal);
+    ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.normal, tournamentId: tournamentId);
     context.push('/match/create');
   }
 
   void _startQuick(BuildContext context, WidgetRef ref) {
-    ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.quick);
+    ref.read(startMatchDraftProvider.notifier).reset(mode: MatchMode.quick, tournamentId: tournamentId);
     context.push('/match/quick');
   }
 
@@ -26,6 +31,12 @@ class MatchTypeChoiceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
     final theme = Theme.of(context);
+    final tid = tournamentId;
+    final tournament = tid == null || tid.isEmpty
+        ? null
+        : ref.watch(tournamentProvider(tid)).valueOrNull;
+    // Orgs only allow normal matches, including inside org tournaments.
+    final allowQuick = !isOrgTournament(tournament);
 
     return Scaffold(
       backgroundColor: cf.background,
@@ -34,7 +45,9 @@ class MatchTypeChoiceScreen extends ConsumerWidget {
         padding: AppDimens.listPadding,
         children: [
           StartMatchInfoBanner(
-            message: 'Choose how you want to start. Normal Match keeps the full setup.',
+            message: allowQuick
+                ? 'Choose how you want to start. Normal Match keeps the full setup.'
+                : 'This is an org tournament. Org matches are normal matches only.',
           ),
           const SizedBox(height: AppDimens.spaceLg),
           Text(
@@ -51,13 +64,16 @@ class MatchTypeChoiceScreen extends ConsumerWidget {
             subtitle: 'Set up teams, Playing XI and match details',
             onTap: () => _startNormal(context, ref),
           ),
+          if (allowQuick) ...[
           const SizedBox(height: AppDimens.spaceMd),
           _ModeCard(
+            key: const Key('start_quick_match'),
             icon: Icons.bolt_outlined,
             title: 'Quick Match',
             subtitle: 'Start scoring faster without selecting a Playing XI',
             onTap: () => _startQuick(context, ref),
           ),
+          ],
         ],
       ),
     );
@@ -66,6 +82,7 @@ class MatchTypeChoiceScreen extends ConsumerWidget {
 
 class _ModeCard extends StatelessWidget {
   const _ModeCard({
+    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,

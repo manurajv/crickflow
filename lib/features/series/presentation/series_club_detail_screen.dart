@@ -2,16 +2,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/series/series.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/player_discovery_repository.dart';
+import '../../../domain/services/series/org_competition_access.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SeriesClubDetailScreen extends ConsumerStatefulWidget {
   const SeriesClubDetailScreen({
@@ -32,13 +35,16 @@ class _SeriesClubDetailScreenState
   bool _busy = false;
 
   Future<void> _requestJoin() async {
-    if (FirebaseAuth.instance.currentUser == null) {
-      context.push('/login');
-      return;
-    }
-    context.push(
-      '/series/${widget.seriesId}/register'
-      '?clubId=${widget.clubId}&join=1',
+    final path =
+        '/series/${widget.seriesId}/register?clubId=${widget.clubId}&join=1';
+    await requireLogin(
+      context: context,
+      ref: ref,
+      prompt: SignInPrompt.joinOrgTeam,
+      returnPath: path,
+      action: () async {
+        if (context.mounted) context.push(path);
+      },
     );
   }
 
@@ -82,7 +88,7 @@ class _SeriesClubDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not submit: ${friendlyError(e)}')));
       }
     } finally {
       reasonController.dispose();
@@ -103,16 +109,108 @@ class _SeriesClubDetailScreenState
     );
   }
 
+  Future<void> _viewJoinIdentity(SeriesApprovalModel approval) async {
+    final registrationId = approval.metadata['registrationId']?.toString();
+    if (registrationId == null || registrationId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No registration linked to this request')),
+      );
+      return;
+    }
+    try {
+      final result = await ref
+          .read(seriesFunctionsServiceProvider)
+          .getSeriesRegistrationIdentity(
+            seriesId: widget.seriesId,
+            registrationId: registrationId,
+          );
+      if (!mounted) return;
+      final identity = result['identity'];
+      final pub = result['public'];
+      final map = <String, dynamic>{
+        if (pub is Map) ...Map<String, dynamic>.from(pub),
+        if (identity is Map) ...Map<String, dynamic>.from(identity),
+      };
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Registration details'),
+          content: map.isEmpty
+              ? const Text('No private details on file.')
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final e in map.entries)
+                        if ((e.value?.toString().trim() ?? '').isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              '${seriesIdentityFieldLabel(e.key)}: ${e.value}',
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load registration details')),
+        );
+      }
+    }
+  }
+
   Future<void> _clubReviewJoin(
     SeriesApprovalModel approval,
     String decision,
   ) async {
+    var reason = '';
+    if (decision == 'rejected') {
+      final controller = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Reject registration'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'Reason (required)',
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim().isNotEmpty),
+              child: const Text('Reject'),
+            ),
+          ],
+        ),
+      );
+      reason = controller.text.trim();
+      controller.dispose();
+      if (ok != true || reason.isEmpty) return;
+    }
     setState(() => _busy = true);
     try {
       await ref.read(seriesFunctionsServiceProvider).reviewClubJoinRequest(
         seriesId: widget.seriesId,
         approvalId: approval.id,
         decision: decision,
+        reason: reason,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -129,7 +227,7 @@ class _SeriesClubDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Review failed: $e')));
+        ).showSnackBar(SnackBar(content: Text('Review failed: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -155,14 +253,14 @@ class _SeriesClubDetailScreenState
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Club admin added')),
+          const SnackBar(content: Text('Team admin added')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not add admin: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not add admin: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -179,14 +277,14 @@ class _SeriesClubDetailScreenState
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Club admin removed')),
+          const SnackBar(content: Text('Team admin removed')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not remove: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not remove: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -210,12 +308,6 @@ class _SeriesClubDetailScreenState
         clubId: widget.clubId,
       )),
     );
-    final joinPending = ref.watch(
-      pendingClubJoinApprovalsProvider((
-        seriesId: widget.seriesId,
-        clubId: widget.clubId,
-      )),
-    );
     final uid = FirebaseAuth.instance.currentUser?.uid;
     final isClubAdminForThis = clubAdminsAsync.maybeWhen(
       data: (admins) =>
@@ -226,18 +318,28 @@ class _SeriesClubDetailScreenState
         role == SeriesRole.superAdmin ||
         role == SeriesRole.seriesAdmin ||
         isClubAdminForThis;
+    // Only org staff and this team's admins may read its join queue.
+    final joinPending = canManage
+        ? ref.watch(
+            pendingClubJoinApprovalsProvider((
+              seriesId: widget.seriesId,
+              clubId: widget.clubId,
+            )),
+          )
+        : const AsyncValue<List<SeriesApprovalModel>>.data([]);
+    final access = ref.watch(orgCompetitionAccessProvider(widget.seriesId));
     final canManageAdmins =
         role == SeriesRole.superAdmin ||
         role == SeriesRole.seriesAdmin ||
         isClubAdminForThis;
     return Scaffold(
       backgroundColor: cf.background,
-      appBar: const CfChromeAppBar(title: Text('Club')),
+      appBar: const CfChromeAppBar(title: Text('Team')),
       body: club.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (item) {
-          if (item == null) return const Center(child: Text('Club not found'));
+          if (item == null) return const Center(child: Text('Team not found'));
           return ListView(
             padding: const EdgeInsets.all(AppDimens.spaceMd),
             children: [
@@ -275,6 +377,21 @@ class _SeriesClubDetailScreenState
                   ),
                 ],
               ),
+              if ((item.linkedTeamId ?? '').isNotEmpty) ...[
+                const SizedBox(height: AppDimens.spaceSm),
+                ListTile(
+                  key: const Key('org_team_open_crickflow_team'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.groups_outlined, color: cf.accent),
+                  title: const Text('CrickFlow team'),
+                  subtitle: const Text(
+                    'Plays matches anywhere in CrickFlow. Name and squad are '
+                    'managed here in the org.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/teams/${item.linkedTeamId}'),
+                ),
+              ],
               if (item.description.isNotEmpty) ...[
                 const SizedBox(height: AppDimens.spaceMd),
                 Text(item.description),
@@ -298,6 +415,7 @@ class _SeriesClubDetailScreenState
                         : 'Search & request add player',
                   ),
                 ),
+                if (access.match != OrgStartMode.none) ...[
                 const SizedBox(height: AppDimens.spaceSm),
                 OutlinedButton.icon(
                   onPressed: () => context.push(
@@ -305,8 +423,15 @@ class _SeriesClubDetailScreenState
                     '?clubId=${widget.clubId}',
                   ),
                   icon: const Icon(Icons.sports_cricket_outlined),
-                  label: const Text('Propose match'),
+                  label: Text(
+                    OrgCompetitionAccess.actionLabel(
+                      access.match,
+                      tournament: false,
+                    ),
+                  ),
                 ),
+                ],
+                if (access.tournament != OrgStartMode.none) ...[
                 const SizedBox(height: AppDimens.spaceSm),
                 OutlinedButton.icon(
                   onPressed: () => context.push(
@@ -314,8 +439,14 @@ class _SeriesClubDetailScreenState
                     '?clubId=${widget.clubId}',
                   ),
                   icon: const Icon(Icons.emoji_events_outlined),
-                  label: const Text('Propose tournament'),
+                  label: Text(
+                    OrgCompetitionAccess.actionLabel(
+                      access.tournament,
+                      tournament: true,
+                    ),
+                  ),
                 ),
+                ],
                 if (role == SeriesRole.superAdmin ||
                     role == SeriesRole.seriesAdmin) ...[
                   const SizedBox(height: AppDimens.spaceSm),
@@ -336,7 +467,7 @@ class _SeriesClubDetailScreenState
                 const SizedBox(height: AppDimens.spaceSm),
                 joinPending.when(
                   loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
+                  error: (e, _) => Text(friendlyError(e)),
                   data: (items) {
                     if (items.isEmpty) {
                       return Text(
@@ -368,6 +499,13 @@ class _SeriesClubDetailScreenState
                                   trailing: Wrap(
                                     spacing: 4,
                                     children: [
+                                      IconButton(
+                                        tooltip: 'View documents',
+                                        onPressed: _busy
+                                            ? null
+                                            : () => _viewJoinIdentity(a),
+                                        icon: const Icon(Icons.badge_outlined),
+                                      ),
                                       IconButton(
                                         tooltip: 'Decline',
                                         onPressed: _busy
@@ -405,7 +543,7 @@ class _SeriesClubDetailScreenState
                   children: [
                     Expanded(
                       child: Text(
-                        'Club admins',
+                        'Team admins',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -418,13 +556,13 @@ class _SeriesClubDetailScreenState
                 ),
                 clubAdminsAsync.when(
                   loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
+                  error: (e, _) => Text(friendlyError(e)),
                   data: (admins) {
                     final active =
                         admins.where((a) => a.status != 'removed').toList();
                     if (active.isEmpty) {
                       return Text(
-                        'No club admins yet.',
+                        'No team admins yet.',
                         style: TextStyle(color: cf.textSecondary),
                       );
                     }
@@ -478,7 +616,7 @@ class _SeriesClubDetailScreenState
               const SizedBox(height: AppDimens.spaceSm),
               squad.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Text('$e'),
+                error: (e, _) => Text(friendlyError(e)),
                 data: (members) {
                   final active = members.where((m) => m.isActive).toList();
                   return active.isEmpty

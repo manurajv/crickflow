@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { MatchCard } from "@/components/shared/cards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,11 @@ export function TournamentProfileClient() {
   }, [tournamentId]);
   if (!tournamentId) return <p>Loading…</p>;
   return (
-    <ClientEntity<{ tournament: Tournament; matches: Match[] }> load={load}>
+    <ClientEntity<{ tournament: Tournament; matches: Match[] }>
+      load={load}
+      missingTitle="This tournament was removed"
+      missingDescription="It was deleted and is no longer available."
+    >
       {({ tournament, matches }) => <TournamentView tournament={tournament} matches={matches} />}
     </ClientEntity>
   );

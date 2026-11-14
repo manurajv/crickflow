@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../config/admob_config.dart';
 import '../../../core/utils/match_share_utils.dart';
@@ -18,6 +19,7 @@ import '../../../shared/providers/match_live_provider.dart';
 import '../../../shared/providers/match_summary_provider.dart';
 import '../../../shared/providers/match_upcoming_provider.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../shared/widgets/removed_content_view.dart';
 import '../../../shared/widgets/ads/cf_sticky_banner_ad.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../../shared/widgets/cf_marquee_text.dart';
@@ -34,6 +36,7 @@ import 'tabs/match_mvp_tab.dart';
 import 'tabs/match_scorecard_tab.dart';
 import 'tabs/match_squads_tab.dart';
 import 'tabs/match_summary_tab.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Multi-tab match experience — Live tab while in progress, Summary after completion.
 class MatchHubScreen extends ConsumerWidget {
@@ -58,7 +61,7 @@ class MatchHubScreen extends ConsumerWidget {
         if (match == null) {
           return Scaffold(
             appBar: const CfChromeAppBar(title: Text('Match')),
-            body: const Center(child: Text('Match not found')),
+            body: const RemovedContentView(kind: 'match'),
           );
         }
 
@@ -79,7 +82,7 @@ class MatchHubScreen extends ConsumerWidget {
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
     );
   }
 }
@@ -346,12 +349,17 @@ class _MatchHubBodyState extends ConsumerState<_MatchHubBody>
                 onPressed: () {
                   final uid = ref.read(authStateProvider).value?.uid;
                   if (uid == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sign in to go live'),
-                      ),
+                    requireLogin(
+                      context: context,
+                      ref: ref,
+                      prompt: SignInPrompt.streamMatch,
+                      returnPath: '/match/${widget.matchId}/stream',
+                      action: () async {
+                        if (context.mounted) {
+                          context.push('/match/${widget.matchId}/stream');
+                        }
+                      },
                     );
-                    context.push('/login');
                     return;
                   }
                   context.push('/match/${widget.matchId}/stream');

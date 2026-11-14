@@ -8,6 +8,7 @@ import '../../../data/models/match_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../../shared/widgets/location_filter_bar.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
@@ -84,7 +85,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               );
             },
             loading: () => const CircularProgressIndicator(),
-            error: (e, _) => Text('$e'),
+            error: (e, _) => Text(friendlyError(e)),
           ),
           const SizedBox(height: AppDimens.spaceSm),
           teamsAsync.when(

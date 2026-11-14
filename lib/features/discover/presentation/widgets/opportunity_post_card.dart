@@ -20,6 +20,7 @@ import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../../domain/opportunity_category.dart';
 import '../create_opportunity_flow.dart';
 import 'opportunity_author_sheet.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Compact marketplace card for an opportunity listing.
 class OpportunityPostCard extends ConsumerWidget {
@@ -678,6 +679,7 @@ class _Footer extends ConsumerWidget {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.chat,
       action: () async {
         final me = ref.read(currentUserProfileProvider).valueOrNull;
         if (me == null) {
@@ -723,7 +725,7 @@ class _Footer extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$e')),
+              SnackBar(content: Text(friendlyError(e))),
             );
           }
         }
@@ -901,12 +903,14 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () => showEditOpportunityFlow(context, post),
         );
       case 'pin':
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () => repo.setPinned(
             postId: post.id,
             pinned: !post.isPinned,
@@ -916,6 +920,7 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () => repo.setFeatured(
             postId: post.id,
             featured: !post.isFeatured,
@@ -931,6 +936,7 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () async {
             await repo.softRemovePost(post.id);
             if (context.mounted) {
@@ -950,6 +956,7 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.blockUser,
           action: () async {
             final uid = ref.read(authStateProvider).valueOrNull?.uid;
             if (uid == null) return;
@@ -975,6 +982,7 @@ class _OverflowMenu extends ConsumerWidget {
         await requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.managePost,
           action: () async {
             await repo.deletePost(post.id);
             if (context.mounted) {
@@ -1017,6 +1025,7 @@ class _OverflowMenu extends ConsumerWidget {
     await requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.report,
       action: () async {
         final uid = ref.read(authStateProvider).valueOrNull?.uid;
         if (uid == null) return;
@@ -1036,7 +1045,7 @@ class _OverflowMenu extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not report: $e')),
+              SnackBar(content: Text('Could not report: ${friendlyError(e)}')),
             );
           }
         }

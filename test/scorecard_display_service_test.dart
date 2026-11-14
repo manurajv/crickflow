@@ -3,6 +3,7 @@ import 'package:crickflow/data/models/ball_event_model.dart';
 import 'package:crickflow/data/models/dismissal_fielder.dart';
 import 'package:crickflow/data/models/innings_model.dart';
 import 'package:crickflow/data/models/match_model.dart';
+import 'package:crickflow/data/models/match_player_snapshot.dart';
 import 'package:crickflow/data/models/match_setup_draft_models.dart';
 import 'package:crickflow/domain/services/dismissal_formatter.dart';
 import 'package:crickflow/domain/services/scorecard_display_service.dart';
@@ -257,8 +258,11 @@ void main() {
         teamAId: 'a',
         teamBId: 'b',
         setup: const MatchSetupData(
-          teamASquadIds: ['p1', 'p2', 'p3'],
-          teamASquadNames: {'p1': 'Alpha', 'p2': 'Beta', 'p3': 'Gamma'},
+          teamAPlayingPlayers: [
+            MatchPlayerSnapshot(id: 'p1', name: 'Alpha'),
+            MatchPlayerSnapshot(id: 'p2', name: 'Beta'),
+            MatchPlayerSnapshot(id: 'p3', name: 'Gamma'),
+          ],
         ),
         innings: [
           InningsModel(
@@ -289,7 +293,11 @@ void main() {
         teamAId: 'a',
         teamBId: 'b',
         setup: const MatchSetupData(
-          teamASquadIds: ['p1', 'p2', 'p3'],
+          teamAPlayingPlayers: [
+            MatchPlayerSnapshot(id: 'p1', name: 'Alpha'),
+            MatchPlayerSnapshot(id: 'p2', name: 'Beta'),
+            MatchPlayerSnapshot(id: 'p3', name: 'Gamma'),
+          ],
         ),
         innings: [
           InningsModel(

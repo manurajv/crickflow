@@ -4,6 +4,7 @@ import '../../data/local/match_local_store.dart';
 import '../../data/local/pending_sync_action.dart';
 import '../../data/services/connectivity_service.dart';
 import '../../data/services/offline_sync_service.dart';
+import 'series_providers.dart';
 
 final matchLocalStoreProvider = Provider<MatchLocalStore>((ref) {
   return MatchLocalStore();
@@ -19,6 +20,9 @@ final offlineSyncServiceProvider = Provider<OfflineSyncService>((ref) {
   final service = OfflineSyncService(
     localStore: ref.watch(matchLocalStoreProvider),
     connectivity: ref.watch(connectivityServiceProvider),
+    seriesMatchRegistrar: (seriesId, matchId) => ref
+        .read(seriesFunctionsServiceProvider)
+        .startSeriesMatch(seriesId: seriesId, matchId: matchId),
   );
   ref.onDispose(service.dispose);
   return service;

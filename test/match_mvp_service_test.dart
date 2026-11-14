@@ -78,7 +78,7 @@ void main() {
       expect(board.fighterOfTheMatch?.rank, 3);
     });
 
-    test('No Fighter when MVP winner is from losing team', () {
+    test('POTM comes from the winning team; losing top MVP is Fighter', () {
       final board = MatchMvpService.applyAwards(
         players: [
           player(id: 'b1', teamId: 'b', total: 6.2, rank: 1),
@@ -86,6 +86,23 @@ void main() {
         ],
         losingTeamId: 'b',
         winnerTeamId: 'a',
+        teamAId: 'a',
+        teamBId: 'b',
+        format: format,
+      );
+
+      expect(board.playerOfTheMatch?.playerId, 'a1');
+      expect(board.fighterOfTheMatch?.playerId, 'b1');
+    });
+
+    test('Tie / no result: POTM is the top MVP from either team', () {
+      final board = MatchMvpService.applyAwards(
+        players: [
+          player(id: 'b1', teamId: 'b', total: 6.2, rank: 1),
+          player(id: 'a1', teamId: 'a', total: 5.6, rank: 2),
+        ],
+        losingTeamId: null,
+        winnerTeamId: null,
         teamAId: 'a',
         teamBId: 'b',
         format: format,

@@ -21,7 +21,7 @@ class AnalyticsFilters {
   final String? country;
   final String? stateProvince;
   final String? city;
-  /// Super Admin may filter to one org; Org Admin is always forced to their org.
+  /// Optional organization filter (legacy `organizationId` stamps).
   final String? organizationId;
   final String? tournamentId;
   final String? matchType;

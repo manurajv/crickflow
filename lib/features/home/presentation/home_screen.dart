@@ -64,6 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.notifications,
               returnPath: '/notifications',
               action: () async {
                 if (context.mounted) context.push('/notifications');

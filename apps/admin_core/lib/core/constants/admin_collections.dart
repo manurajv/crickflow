@@ -2,7 +2,7 @@
 ///
 /// These do **not** replace or alter mobile collections (`users`, `matches`, …).
 abstract final class AdminCollections {
-  /// Platform / org admin accounts keyed by Firebase Auth uid.
+  /// Platform admin / staff accounts keyed by Firebase Auth uid.
   static const adminUsers = 'admin_users';
 
   /// Role definitions with permission maps. Change once → all assignees update.

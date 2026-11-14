@@ -1,5 +1,13 @@
 # Deployment Guide
 
+> **Update (2026-10-08): the Organization Admin panel (`apps/admin`, hosting site
+> `crickflow-admin`) was retired.** `apps/superadmin` is the only web admin panel
+> and is for CrickFlow platform staff (super admins, moderators, tournament admins,
+> support, viewers); each role sees only what its permissions allow, and
+> `firestore.rules` enforces the same permissions. Organization, club and series
+> administration lives in the mobile app (`lib/features/series`). References to
+> the Org Admin panel below are historical. See `docs/PLATFORM_ADMIN_SCOPE_PLAN.md`.
+
 ## Purpose
 
 Ship Admin web apps safely through development → production.
@@ -30,7 +38,7 @@ Configure targets in `firebase.json` (sites for superadmin/admin). Deploy exampl
 ```powershell
 # Adjust to your scripts / targets
 firebase deploy --only hosting:superadmin --project crickflow-b06bc
-firebase deploy --only hosting:admin --project crickflow-b06bc
+firebase deploy --only hosting:superadmin --project crickflow-b06bc
 ```
 
 Windows helper may exist under `scripts/` — prefer scripted deploys for consistency.

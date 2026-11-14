@@ -9,14 +9,17 @@ import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
 import '../../../shared/providers/team_join_request_provider.dart';
+import '../../../shared/widgets/removed_content_view.dart';
 import 'utils/team_squad_utils.dart';
 import 'widgets/team_detail_banner.dart';
 import 'widgets/team_detail_bottom_bar.dart';
 import 'widgets/team_join_action_button.dart';
 import 'widgets/team_join_requests_panel.dart';
+import 'widgets/org_locked_team_notice.dart';
 import 'widgets/team_notification_pref_tile.dart';
 import 'widgets/team_squad_empty_state.dart';
 import 'widgets/team_squad_player_card.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TeamDetailScreen extends ConsumerWidget {
   const TeamDetailScreen({super.key, required this.teamId});
@@ -61,7 +64,7 @@ class TeamDetailScreen extends ConsumerWidget {
                       onPressed: () =>
                           context.push('/teams/$teamId/add-players'),
                     ),
-                  if (TeamSquadUtils.isTeamOwner(uid, team))
+                  if (TeamSquadUtils.canEditTeam(uid, team))
                     IconButton(
                       tooltip: 'Edit team',
                       icon: const Icon(Icons.edit_outlined),
@@ -77,7 +80,7 @@ class TeamDetailScreen extends ConsumerWidget {
       body: teamAsync.when(
         data: (team) {
           if (team == null) {
-            return const Center(child: Text('Team not found'));
+            return const RemovedContentView(kind: 'team');
           }
 
           return playersAsync.when(
@@ -96,6 +99,8 @@ class TeamDetailScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TeamDetailBanner(team: team, squadCount: players.length),
+                  if (team.orgLock != null)
+                    OrgLockedTeamNotice(lock: team.orgLock!),
                   if (canManageRequests && uid != null)
                     TeamJoinRequestsPanel(team: team, resolverUid: uid),
                   if (isMember) TeamNotificationPrefTile(teamId: team.id),
@@ -180,11 +185,11 @@ class TeamDetailScreen extends ConsumerWidget {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
+            error: (e, _) => Center(child: Text(friendlyError(e))),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
       bottomNavigationBar: teamAsync.maybeWhen(
         data: (team) {
@@ -411,7 +416,9 @@ class _TeamDetailBottomBar extends ConsumerWidget {
     var secondaryIsPrimary = false;
     var secondaryIsDestructive = false;
 
-    if (onSquad) {
+    if (team.isOrgLocked) {
+      // Leaving / joining goes through the org's requests.
+    } else if (onSquad) {
       secondaryLabel = 'Leave team';
       secondaryIsDestructive = true;
       onSecondary = () async {

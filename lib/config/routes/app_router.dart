@@ -65,11 +65,10 @@ import '../../data/models/series/series.dart';
 import '../../features/series/presentation/orgs_directory_screen.dart';
 import '../../features/series/presentation/series_add_player_screen.dart';
 import '../../features/series/presentation/series_admins_screen.dart';
+import '../../features/series/presentation/series_announcements_screen.dart';
 import '../../features/series/presentation/series_approvals_screen.dart';
 import '../../features/series/presentation/series_audit_screen.dart';
-import '../../features/series/presentation/series_club_create_screen.dart';
 import '../../features/series/presentation/series_club_detail_screen.dart';
-import '../../features/series/presentation/series_competitions_screen.dart';
 import '../../features/series/presentation/series_create_screen.dart';
 import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_list_screen.dart';
@@ -91,6 +90,7 @@ import '../../features/teams/presentation/team_detail_screen.dart';
 import '../../features/teams/presentation/team_edit_screen.dart';
 import '../../features/teams/presentation/team_profile/team_profile_screen.dart';
 import '../../features/teams/presentation/create_team_screen.dart';
+import '../../features/teams/presentation/widgets/org_locked_team_notice.dart';
 import '../../features/teams/presentation/team_screen.dart';
 import '../../features/tournaments/presentation/tournament_dashboard_screen.dart';
 import '../../features/tournaments/presentation/tournament_dashboard_sections.dart';
@@ -104,6 +104,7 @@ import '../../core/routing/deep_link_handler.dart';
 import '../../core/utils/deep_link_utils.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/match_permissions.dart';
+import '../../core/auth/auth_gate.dart';
 import '../../core/auth/guest_routes.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/providers/tournament_providers.dart';
@@ -171,7 +172,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       final isLoggedIn = authState.valueOrNull != null;
-      final path = state.matchedLocation;
+      // Prefer uri.path — matchedLocation can lag or omit top-level pushes
+      // like /associations when leaving the shell.
+      final path = GuestRoutes.normalize(
+        state.uri.path.isNotEmpty ? state.uri.path : state.matchedLocation,
+      );
       final isAuthRoute = path == '/login';
       final isSplash = path == '/splash';
       final isOnboarding = path == '/onboarding';
@@ -181,8 +186,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!isLoggedIn) {
         if (path == '/login') return null;
         if (GuestRoutes.isPublicRoute(path)) return null;
-        // Score, stream, create match, and other write actions need an account.
-        if (GuestRoutes.isProtectedRoute(path)) return '/login';
+        // Score, stream, create match, org writes, and other account actions.
+        if (GuestRoutes.isProtectedRoute(path)) {
+          final fullPath = state.uri.path.isNotEmpty
+              ? '${state.uri.path}${state.uri.hasQuery ? '?${state.uri.query}' : ''}'
+              : path;
+          PendingAuthAction.register(
+            path: fullPath.startsWith('/') ? fullPath : path,
+            prompt: SignInPrompt.forPath(path),
+          );
+          return '/login';
+        }
+        // Unknown non-public path — send guests home (not login). Org URLs
+        // that somehow fail classification still must not hit an auth wall.
+        if (path == '/associations' ||
+            path == '/clubs' ||
+            path == '/series' ||
+            path.startsWith('/series/')) {
+          return null;
+        }
         return '/home';
       }
 
@@ -332,7 +354,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/match/start',
-        builder: (_, __) => const MatchTypeChoiceScreen(),
+        builder: (_, state) => MatchTypeChoiceScreen(
+          tournamentId: state.uri.queryParameters['tournamentId'],
+        ),
       ),
       GoRoute(
         path: '/match/quick',
@@ -554,12 +578,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: ':seriesId',
-            builder: (_, state) =>
-                SeriesDetailScreen(seriesId: state.pathParameters['seriesId']!),
+            builder: (_, state) => SeriesDetailScreen(
+              seriesId: state.pathParameters['seriesId']!,
+              initialTab: state.uri.queryParameters['tab'],
+            ),
             routes: [
               GoRoute(
                 path: 'clubs/create',
-                builder: (_, state) => SeriesClubCreateScreen(
+                // Org teams use the normal CrickFlow team flow.
+                builder: (_, state) => CreateTeamScreen(
                   seriesId: state.pathParameters['seriesId']!,
                 ),
               ),
@@ -625,10 +652,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
               GoRoute(
+                // The Fixtures screen became the org's Matches / Tournaments
+                // tabs; keep old links working.
                 path: 'fixtures',
-                builder: (_, state) => SeriesCompetitionsScreen(
-                  seriesId: state.pathParameters['seriesId']!,
-                ),
+                redirect: (_, state) =>
+                    '/series/${state.pathParameters['seriesId']}?tab=matches',
               ),
               GoRoute(
                 path: 'admins',
@@ -654,6 +682,18 @@ final routerProvider = Provider<GoRouter>((ref) {
                   seriesId: state.pathParameters['seriesId']!,
                 ),
               ),
+              GoRoute(
+                // Former admin-only dashboard; content lives on Overview.
+                path: 'dashboard',
+                redirect: (_, state) =>
+                    '/series/${state.pathParameters['seriesId']}?tab=overview',
+              ),
+              GoRoute(
+                path: 'announcements',
+                builder: (_, state) => SeriesAnnouncementsScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
             ],
           ),
         ],
@@ -669,7 +709,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'create',
-            builder: (_, __) => const TournamentCreateFlowScreen(),
+            builder: (_, state) => TournamentCreateFlowScreen(
+              seriesId: state.uri.queryParameters['seriesId'],
+            ),
           ),
           GoRoute(
             path: ':id',
@@ -739,6 +781,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/teams/create',
         builder: (_, state) => CreateTeamScreen(
           tournamentId: state.uri.queryParameters['tournamentId'],
+          seriesId: state.uri.queryParameters['seriesId'],
         ),
       ),
       GoRoute(
@@ -753,30 +796,48 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'edit',
-            builder: (_, state) =>
-                TeamEditScreen(teamId: state.pathParameters['id']!),
+            builder: (_, state) => OrgLockedTeamGate(
+              teamId: state.pathParameters['id']!,
+              title: 'Edit team',
+              child: TeamEditScreen(teamId: state.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: 'add-players',
-            builder: (_, state) =>
-                TeamAddPlayersScreen(teamId: state.pathParameters['id']!),
+            builder: (_, state) => OrgLockedTeamGate(
+              teamId: state.pathParameters['id']!,
+              title: 'Add players',
+              child: TeamAddPlayersScreen(teamId: state.pathParameters['id']!),
+            ),
             routes: [
               GoRoute(
                 path: 'quick',
-                builder: (_, state) => TeamAddPlayerQuickScreen(
+                builder: (_, state) => OrgLockedTeamGate(
                   teamId: state.pathParameters['id']!,
+                  title: 'Add players',
+                  child: TeamAddPlayerQuickScreen(
+                    teamId: state.pathParameters['id']!,
+                  ),
                 ),
               ),
               GoRoute(
                 path: 'directory',
-                builder: (_, state) => TeamAddPlayerDirectoryScreen(
+                builder: (_, state) => OrgLockedTeamGate(
                   teamId: state.pathParameters['id']!,
+                  title: 'Add players',
+                  child: TeamAddPlayerDirectoryScreen(
+                    teamId: state.pathParameters['id']!,
+                  ),
                 ),
               ),
               GoRoute(
                 path: 'walkin',
-                builder: (_, state) => TeamAddWalkInPlayerScreen(
+                builder: (_, state) => OrgLockedTeamGate(
                   teamId: state.pathParameters['id']!,
+                  title: 'Add players',
+                  child: TeamAddWalkInPlayerScreen(
+                    teamId: state.pathParameters['id']!,
+                  ),
                 ),
               ),
             ],

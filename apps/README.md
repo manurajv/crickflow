@@ -2,8 +2,7 @@
 
 | Folder | App | Host |
 |--------|-----|------|
-| `superadmin/` | Platform Super Admin | superadmin.crickflow.app |
-| `admin/` | Organization Admin | admin.crickflow.app |
+| `superadmin/` | Platform admin panel (super admins + staff roles) | crickflow-superadmin.web.app |
 | `admin_core/` | Shared foundation package | — |
 
 See [docs/WEB_ADMIN_ARCHITECTURE.md](../docs/WEB_ADMIN_ARCHITECTURE.md).

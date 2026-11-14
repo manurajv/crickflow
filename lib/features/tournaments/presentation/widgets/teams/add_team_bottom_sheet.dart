@@ -21,6 +21,7 @@ import '../../../../../shared/widgets/match_list_card.dart';
 import '../../../../teams/presentation/widgets/team_list_tile.dart';
 import '../tournament_qr_view.dart';
 import 'tournament_team_confirm_sheet.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 Future<void> showAddTeamToTournamentSheet({
   required BuildContext context,
@@ -142,7 +143,7 @@ Future<void> addExistingTeamToTournament({
     if (!rootContext.mounted) return;
     ScaffoldMessenger.of(rootContext).showSnackBar(
       SnackBar(
-        content: Text('Could not add team: $e'),
+        content: Text('Could not add team: ${friendlyError(e)}'),
         backgroundColor: Theme.of(rootContext).colorScheme.error,
       ),
     );

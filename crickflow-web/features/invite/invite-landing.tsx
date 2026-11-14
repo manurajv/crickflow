@@ -2,7 +2,7 @@
 
 import { httpsCallable } from "firebase/functions";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { useRouter } from "next/navigation";
 import { GetTheApp } from "@/components/shared/get-the-app";
 import { Button } from "@/components/ui/button";

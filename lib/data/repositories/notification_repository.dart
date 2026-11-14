@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../domain/notifications/notification_priority.dart';
 import '../models/notification_model.dart';
 import '../models/team_model.dart';
 import '../models/tournament/tournament_member_model.dart';
@@ -65,6 +67,49 @@ class NotificationRepository {
         .limit(100)
         .snapshots()
         .map((snap) => snap.docs.length);
+  }
+
+  /// Unread notifications (newest 200) — used for per-tab unread badges.
+  Stream<List<NotificationModel>> watchUnread(String userId) {
+    return _col
+        .where('userId', isEqualTo: userId)
+        .where('read', isEqualTo: false)
+        .limit(200)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => NotificationModel.fromMap(d.id, d.data()))
+            .toList());
+  }
+
+  /// Marks every unread notification of the signed-in user (or [userId])
+  /// about the same request / match as read. Best effort: never throws.
+  Future<int> markRelatedRead(
+    NotificationRelation? relation, {
+    String? userId,
+  }) async {
+    if (relation == null) return 0;
+    final uid = userId ?? _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) return 0;
+    try {
+      final snap = await _col
+          .where('userId', isEqualTo: uid)
+          .where('read', isEqualTo: false)
+          .limit(200)
+          .get();
+      final hits = snap.docs
+          .where((d) =>
+              relation.matches(NotificationModel.fromMap(d.id, d.data())))
+          .toList();
+      if (hits.isEmpty) return 0;
+      final batch = _firestore.batch();
+      for (final d in hits) {
+        batch.update(d.reference, {'read': true, 'isRead': true});
+      }
+      await batch.commit();
+      return hits.length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Future<void> markRead(String notificationId) async {
@@ -287,16 +332,31 @@ class NotificationRepository {
     }
   }
 
+  /// Removes the signed-in user's own notifications about [teamId]
+  /// (inbox rows and ones they sent). Other users' inboxes are private, so
+  /// they are not touched. Best-effort: never throws.
   Future<void> deleteNotificationsForTeam(String teamId) async {
-    while (true) {
-      final snap =
-          await _col.where('teamId', isEqualTo: teamId).limit(100).get();
-      if (snap.docs.isEmpty) break;
-      final batch = _firestore.batch();
-      for (final doc in snap.docs) {
-        batch.delete(doc.reference);
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || teamId.isEmpty) return;
+    for (final field in const ['userId', 'addedByUserId']) {
+      try {
+        for (var page = 0; page < 20; page++) {
+          final snap = await _col
+              .where('teamId', isEqualTo: teamId)
+              .where(field, isEqualTo: uid)
+              .limit(100)
+              .get();
+          if (snap.docs.isEmpty) break;
+          final batch = _firestore.batch();
+          for (final doc in snap.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
+          if (snap.docs.length < 100) break;
+        }
+      } catch (e) {
+        debugPrint('deleteNotificationsForTeam($field) skipped: $e');
       }
-      await batch.commit();
     }
   }
 

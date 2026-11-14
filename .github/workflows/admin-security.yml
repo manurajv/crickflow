@@ -40,11 +40,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Reject committed private keys
+        # This workflow file is excluded because it contains the search pattern itself.
         run: |
           set -euo pipefail
           if git grep -I -n --fixed-strings "BEGIN PRIVATE KEY" -- \
             'apps' 'config' '.github/workflows' 'scripts/ci' \
-            ':!**/*.md' ':!**/cicd.md'; then
+            ':!**/*.md' ':!**/cicd.md' \
+            ':!.github/workflows/admin-security.yml'; then
             echo "::error::Private key material found in tree"
             exit 1
           fi

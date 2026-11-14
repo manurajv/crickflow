@@ -8,6 +8,7 @@ import '../../../shared/providers/start_match_draft_provider.dart';
 import '../../../core/utils/match_setup_navigation.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 enum _RoleTab { captain, wicketKeeper }
 
@@ -74,7 +75,7 @@ class _MatchTeamRolesScreenState extends ConsumerState<MatchTeamRolesScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save roles: $e')),
+          SnackBar(content: Text('Could not save roles: ${friendlyError(e)}')),
         );
       }
       return;

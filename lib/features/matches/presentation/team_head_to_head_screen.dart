@@ -6,6 +6,7 @@ import '../../../../core/theme/cf_colors.dart';
 import '../../../../shared/providers/match_upcoming_provider.dart';
 import '../../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/insights/insights_team_comparison_section.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Detailed historical comparison between the two teams.
 class TeamHeadToHeadScreen extends ConsumerWidget {
@@ -96,7 +97,7 @@ class TeamHeadToHeadScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

@@ -192,6 +192,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         onPressed: () => requireAuthVoid(
           context: context,
           ref: ref,
+          prompt: SignInPrompt.createOpportunity,
           action: () => showCreateOpportunityFlow(context),
         ),
         icon: const Icon(Icons.add),
@@ -353,6 +354,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   onCreate: () => requireAuthVoid(
                     context: context,
                     ref: ref,
+                    prompt: SignInPrompt.createOpportunity,
                     action: () => showCreateOpportunityFlow(
                       context,
                       initialCategory: filter.category,

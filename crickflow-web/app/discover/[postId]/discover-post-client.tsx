@@ -25,6 +25,7 @@ import {
 } from "@/repositories";
 import { OPPORTUNITY_LABELS } from "@/types/enums";
 import type { OpportunityPost } from "@/types/models";
+import { friendlyError } from "@/lib/friendly-error";
 
 export function DiscoverPostClient() {
   const postId = usePathParam("postId", 1);
@@ -88,7 +89,7 @@ function DiscoverPostView({ post }: { post: OpportunityPost }) {
             try {
               await toggleOpportunitySave(post.id, user.uid, !saved);
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Could not save listing");
+              toast.error(friendlyError(error, "Could not save listing"));
             }
           }}
         >
@@ -117,7 +118,7 @@ function DiscoverPostView({ post }: { post: OpportunityPost }) {
                 toast.success("Listing closed");
                 router.push("/discover");
               } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not close listing");
+                toast.error(friendlyError(error, "Could not close listing"));
               }
             }}
           >
@@ -132,7 +133,7 @@ function DiscoverPostView({ post }: { post: OpportunityPost }) {
                 toast.success("Listing deleted");
                 router.push("/discover");
               } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not delete");
+                toast.error(friendlyError(error, "Could not delete"));
               }
             }}
           >

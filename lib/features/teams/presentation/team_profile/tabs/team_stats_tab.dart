@@ -8,6 +8,7 @@ import '../../../../../shared/providers/team_players_provider.dart';
 import '../../../../../shared/providers/team_profile_provider.dart';
 import '../../../../../shared/widgets/stat_grid.dart';
 import '../widgets/team_profile_empty_state.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 class TeamStatsTab extends ConsumerWidget {
   const TeamStatsTab({super.key, required this.teamId});
@@ -23,7 +24,7 @@ class TeamStatsTab extends ConsumerWidget {
       error: (e, _) => TeamProfileEmptyState(
         icon: Icons.error_outline,
         title: 'Unable to load stats',
-        subtitle: '$e',
+        subtitle: friendlyError(e),
       ),
       data: (stats) {
         return RefreshIndicator(

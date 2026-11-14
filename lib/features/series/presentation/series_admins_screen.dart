@@ -11,6 +11,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SeriesAdminsScreen extends ConsumerStatefulWidget {
   const SeriesAdminsScreen({super.key, required this.seriesId});
@@ -30,6 +31,11 @@ class _SeriesAdminsScreenState extends ConsumerState<SeriesAdminsScreen> {
       builder: (ctx) => const _AdminSearchSheet(),
     );
     if (selected == null) return;
+    final tier = await showModalBottomSheet<SeriesAdminTier>(
+      context: context,
+      builder: (ctx) => const _AdminTierPicker(),
+    );
+    if (tier == null || !mounted) return;
     setState(() => _busy = true);
     try {
       final name = selected.displayName.trim().isNotEmpty
@@ -40,10 +46,11 @@ class _SeriesAdminsScreenState extends ConsumerState<SeriesAdminsScreen> {
             userId: selected.id,
             displayName: name,
             permissions: const [],
+            role: tier.name,
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$name added as admin')),
+          SnackBar(content: Text('$name added as ${tier.label}')),
         );
       }
     } catch (_) {
@@ -103,6 +110,35 @@ class _SeriesAdminsScreenState extends ConsumerState<SeriesAdminsScreen> {
     }
   }
 
+  Future<void> _changeRole(SeriesAdminModel admin) async {
+    final tier = await showModalBottomSheet<SeriesAdminTier>(
+      context: context,
+      builder: (ctx) => _AdminTierPicker(selected: admin.tier),
+    );
+    if (tier == null || !mounted || tier == admin.tier) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(seriesFunctionsServiceProvider).updateSeriesAdminRole(
+            seriesId: widget.seriesId,
+            userId: admin.userId,
+            role: tier.name,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Role updated to ${tier.label}')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update role')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
@@ -124,12 +160,12 @@ class _SeriesAdminsScreenState extends ConsumerState<SeriesAdminsScreen> {
             ),
         ],
       ),
-      body: !isSuper && role != SeriesRole.seriesAdmin
+      body: !role.isOrgStaff
           ? const Center(child: Text('Admin access required'))
           : admins.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
               data: (items) {
                 final active =
                     items.where((a) => a.status == 'active').toList();
@@ -166,14 +202,26 @@ class _SeriesAdminsScreenState extends ConsumerState<SeriesAdminsScreen> {
                           ? SeriesUserName(a.userId)
                           : Text(title),
                       subtitle: Text(
-                        isOwner ? 'Owner' : 'Admin',
+                        isOwner ? 'Owner' : a.tier.label,
                       ),
                       trailing: isSuper && !isOwner
-                          ? IconButton(
-                              tooltip: 'Remove',
-                              onPressed:
-                                  _busy ? null : () => _removeAdmin(a),
-                              icon: const Icon(Icons.remove_circle_outline),
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: 'Change role',
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _changeRole(a),
+                                  icon: const Icon(Icons.swap_horiz),
+                                ),
+                                IconButton(
+                                  tooltip: 'Remove',
+                                  onPressed:
+                                      _busy ? null : () => _removeAdmin(a),
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                ),
+                              ],
                             )
                           : null,
                     );
@@ -290,6 +338,49 @@ class _AdminSearchSheetState extends State<_AdminSearchSheet> {
                       },
                     ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminTierPicker extends StatelessWidget {
+  const _AdminTierPicker({this.selected});
+  final SeriesAdminTier? selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppDimens.spaceSm),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppDimens.spaceMd),
+              child: Text(
+                'Choose a role',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            for (final tier in SeriesAdminTier.values)
+              ListTile(
+                leading: Icon(
+                  switch (tier) {
+                    SeriesAdminTier.admin => Icons.admin_panel_settings_outlined,
+                    SeriesAdminTier.scorer => Icons.scoreboard_outlined,
+                    SeriesAdminTier.viewer => Icons.visibility_outlined,
+                  },
+                  color: cf.accent,
+                ),
+                title: Text(tier.label),
+                subtitle: Text(tier.description),
+                selected: selected == tier,
+                onTap: () => Navigator.pop(context, tier),
+              ),
           ],
         ),
       ),

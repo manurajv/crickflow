@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_gate.dart';
+import '../../../core/auth/sign_in_required_sheet.dart';
+
 import '../../../core/constants/enums.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
@@ -13,8 +16,40 @@ import '../../../shared/providers/providers.dart';
 import '../../player_onboarding/presentation/widgets/onboarding_location_section.dart';
 import '../community_post_ui.dart';
 import 'utils/community_image_crop.dart';
+import '../../../core/utils/friendly_error.dart';
 
 Future<void> showCreateCommunityPostSheet(
+  BuildContext context, {
+  WidgetRef? ref,
+  CommunityPostCategory? initialCategory,
+  CommunityPostModel? existingPost,
+}) async {
+  // Always gate here so every entry point (FAB, empty state, edit) shows the
+  // shared sign-in sheet for guests.
+  if (ref != null) {
+    await requireAuthVoid(
+      context: context,
+      ref: ref,
+      prompt: SignInPrompt.createPost,
+      action: () async {
+        if (!context.mounted) return;
+        await _openCreateCommunityPostSheet(
+          context,
+          initialCategory: initialCategory,
+          existingPost: existingPost,
+        );
+      },
+    );
+    return;
+  }
+  await _openCreateCommunityPostSheet(
+    context,
+    initialCategory: initialCategory,
+    existingPost: existingPost,
+  );
+}
+
+Future<void> _openCreateCommunityPostSheet(
   BuildContext context, {
   CommunityPostCategory? initialCategory,
   CommunityPostModel? existingPost,
@@ -113,9 +148,8 @@ class _CreateCommunityPostSheetState
     final profile = ref.read(currentUserProfileProvider).valueOrNull;
     if (user == null || profile == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign in to post')),
-        );
+        await showSignInRequiredSheet(context, prompt: SignInPrompt.createPost);
+        if (mounted) Navigator.pop(context);
       }
       return;
     }
@@ -166,7 +200,7 @@ class _CreateCommunityPostSheetState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isEditing ? 'Could not update: $e' : 'Could not post: $e',
+              _isEditing ? 'Could not update: ${friendlyError(e)}' : 'Could not post: ${friendlyError(e)}',
             ),
           ),
         );

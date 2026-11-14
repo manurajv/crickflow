@@ -11,6 +11,7 @@ import '../../../shared/providers/player_social_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../domain/nearby_tournament_item.dart';
 import 'nearby_anchor_location_provider.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Home nearby tournaments — region text filter (country + state/province).
 final nearbyTournamentsProvider =
@@ -31,7 +32,7 @@ final nearbyTournamentsProvider =
   } catch (e) {
     return NearbyTournamentsState(
       status: NearbyTournamentsStatus.error,
-      message: 'Could not load tournaments: $e',
+      message: 'Could not load tournaments: ${friendlyError(e)}',
     );
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapFantasyLeague, mapHighlight, mapLocation, mapMatch } from "@/lib/firebase/mappers";
+import { mapFantasyLeague, mapHighlight, mapLocation, mapMatch, mapUser } from "@/lib/firebase/mappers";
 
 describe("mapLocation", () => {
   it("accepts venue aliases and lat/lng", () => {
@@ -50,10 +50,35 @@ describe("mapMatch", () => {
     expect(match.stream.status).toBe("live");
   });
 
+  it("maps scorer ids used by My Cricket ownership filters", () => {
+    const match = mapMatch("m3", {
+      createdBy: "u1",
+      scorerIds: ["u1", "u2"],
+      scorer1UserId: "u1",
+      currentScorerId: "u2",
+    });
+    expect(match.scorerIds).toEqual(["u1", "u2"]);
+    expect(match.currentScorerId).toBe("u2");
+  });
+
   it("applies batting rule defaults", () => {
     const match = mapMatch("m2", {});
     expect(match.rules.totalOvers).toBe(20);
     expect(match.rules.ballsPerOver).toBe(6);
     expect(match.rules.freeHitEnabled).toBe(true);
+  });
+});
+
+
+describe("mapUser onboardingCompleted inference", () => {
+  it("uses explicit boolean", () => {
+    expect(mapUser("u1", { onboardingCompleted: false }).onboardingCompleted).toBe(false);
+    expect(mapUser("u1", { onboardingCompleted: true }).onboardingCompleted).toBe(true);
+  });
+  it("infers true from playerId when flag missing (app parity)", () => {
+    expect(mapUser("u1", { playerId: "CF000001" }).onboardingCompleted).toBe(true);
+  });
+  it("is false when no flag and no playerId", () => {
+    expect(mapUser("u1", {}).onboardingCompleted).toBe(false);
   });
 });

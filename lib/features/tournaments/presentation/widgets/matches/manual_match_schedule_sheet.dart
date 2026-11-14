@@ -16,6 +16,7 @@ import '../../../../../shared/widgets/cf_underlined_field.dart';
 import '../../../../../shared/widgets/match_scoring_rules_form.dart';
 import '../../utils/tournament_display_utils.dart';
 import '../tournament_create/tournament_create_ui.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 Future<void> showManualMatchScheduleSheet({
   required BuildContext context,
@@ -437,7 +438,7 @@ class _ManualMatchScheduleSheetState
                       } catch (e) {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$e')),
+                          SnackBar(content: Text(friendlyError(e))),
                         );
                       } finally {
                         if (mounted) setState(() => _busy = false);

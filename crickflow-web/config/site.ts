@@ -21,8 +21,10 @@ export const collections = {
   seriesCompetitions: "series_competitions",
   seriesClubRankings: "series_club_rankings",
   seriesPlayerRankings: "series_player_rankings",
+  seriesMatchDigests: "series_match_digests",
   seriesAuditLogs: "series_audit_logs",
   seriesMemberships: "series_memberships",
+  seriesClubAdmins: "series_club_admins",
   seriesRegistrations: "series_registrations",
   ballEvents: "ball_events",
   overlay: "overlay",
@@ -42,6 +44,7 @@ export const collections = {
   matchFollowers: "matchFollowers",
   fantasyLeagues: "fantasy_leagues",
   playerInvites: "player_invites",
+  adminUsers: "admin_users",
 } as const;
 
 export const queryLimits: {

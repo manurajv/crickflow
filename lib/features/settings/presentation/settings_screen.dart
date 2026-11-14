@@ -10,6 +10,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../shared/providers/offline_sync_provider.dart';
 import '../../../shared/providers/providers.dart';
 import 'widgets/appearance_theme_section.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -104,7 +105,7 @@ class SettingsScreen extends ConsumerWidget {
       if (!context.mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete account: $e')),
+        SnackBar(content: Text('Could not delete account: ${friendlyError(e)}')),
       );
     }
   }
@@ -132,6 +133,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.notifications,
               returnPath: '/notifications',
               action: () async {
                 if (context.mounted) context.push('/notifications');
@@ -145,6 +147,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.notificationSettings,
               returnPath: '/settings/notifications',
               action: () async {
                 if (context.mounted) {

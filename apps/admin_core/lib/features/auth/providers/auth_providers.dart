@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,14 +19,17 @@ final adminAppTypeProvider = Provider<AdminAppType>((ref) {
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-final sessionPreferencesProvider =
-    Provider<SessionPreferences>((ref) => SessionPreferences());
+final sessionPreferencesProvider = Provider<SessionPreferences>(
+  (ref) => SessionPreferences(),
+);
 
-final adminUserServiceProvider =
-    Provider<AdminUserService>((ref) => AdminUserService());
+final adminUserServiceProvider = Provider<AdminUserService>(
+  (ref) => AdminUserService(),
+);
 
-final adminRoleServiceProvider =
-    Provider<AdminRoleService>((ref) => AdminRoleService());
+final adminRoleServiceProvider = Provider<AdminRoleService>(
+  (ref) => AdminRoleService(),
+);
 
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authServiceProvider).authStateChanges();
@@ -73,6 +78,9 @@ enum AdminSessionStatus {
   inactive,
   unauthorizedRole,
   wrongPanel,
+
+  /// The admin profile or role could not be read (network, rules, …).
+  profileLoadFailed,
   authorized,
 }
 
@@ -84,6 +92,7 @@ class AdminSession {
     this.role,
     this.permissions = const {},
     this.customClaims = const {},
+    this.error,
   });
 
   final AdminSessionStatus status;
@@ -92,6 +101,9 @@ class AdminSession {
   final RoleDefinition? role;
   final Set<AdminPermission> permissions;
   final Map<String, dynamic> customClaims;
+
+  /// Set when [status] is [AdminSessionStatus.profileLoadFailed].
+  final Object? error;
 
   bool get isAuthorized => status == AdminSessionStatus.authorized;
 
@@ -121,9 +133,14 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
   final adminPending =
       adminAsync.isLoading || (!adminAsync.hasValue && !adminAsync.hasError);
   if (adminPending) {
+    return AdminSession(status: AdminSessionStatus.loading, firebaseUser: user);
+  }
+
+  if (adminAsync.hasError) {
     return AdminSession(
-      status: AdminSessionStatus.loading,
+      status: AdminSessionStatus.profileLoadFailed,
       firebaseUser: user,
+      error: adminAsync.error,
     );
   }
 
@@ -153,7 +170,8 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
     );
   }
 
-  final role = roleAsync.asData?.value ??
+  final role =
+      roleAsync.asData?.value ??
       (AdminRole.tryParse(admin.roleId) != null
           ? RoleDefinition.fallback(AdminRole.tryParse(admin.roleId)!)
           : null);
@@ -174,17 +192,6 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
       adminUser: admin,
       role: role,
       permissions: admin.resolvePermissions(role),
-    );
-  }
-
-  // Org admins must be scoped to an organization.
-  if (appType == AdminAppType.organizationAdmin &&
-      (admin.organizationId == null || admin.organizationId!.isEmpty)) {
-    return AdminSession(
-      status: AdminSessionStatus.noAdminProfile,
-      firebaseUser: user,
-      adminUser: admin,
-      role: role,
     );
   }
 
@@ -213,9 +220,7 @@ class PermissionChecker {
 
   bool can(AdminPermission permission) => session.hasPermission(permission);
 
-  bool canAny(Iterable<AdminPermission> permissions) =>
-      permissions.any(can);
+  bool canAny(Iterable<AdminPermission> permissions) => permissions.any(can);
 
-  bool canAll(Iterable<AdminPermission> permissions) =>
-      permissions.every(can);
+  bool canAll(Iterable<AdminPermission> permissions) => permissions.every(can);
 }

@@ -54,6 +54,7 @@ class TeamListTile extends ConsumerWidget {
         : 0;
     final showJoin =
         listScope == TeamListScope.all &&
+        !team.isOrgLocked &&
         uid != null &&
         !team.playerIds.contains(uid) &&
         team.createdBy != uid &&

@@ -64,13 +64,13 @@ String seriesAdminStatusLabel(String? status) {
 String seriesClubReviewLabel(String? status) {
   switch ((status ?? '').toLowerCase()) {
     case 'approved':
-      return 'Cleared by club admin';
+      return 'Cleared by team admin';
     case 'rejected':
-      return 'Declined by club admin';
+      return 'Declined by team admin';
     case 'pending':
-      return 'Waiting for club admin';
+      return 'Waiting for team admin';
     default:
-      return 'Waiting for club admin';
+      return 'Waiting for team admin';
   }
 }
 
@@ -85,15 +85,15 @@ String seriesAuditActionLabel(String action) {
     case 'SERIES_SETTINGS_UPDATED':
       return 'Settings updated';
     case 'SERIES_CLUB_CREATED':
-      return 'Club submitted';
+      return 'Team submitted';
     case 'SERIES_CLUB_APPROVED':
-      return 'Club approved';
+      return 'Team approved';
     case 'SERIES_CLUB_REJECTED':
-      return 'Club rejected';
+      return 'Team rejected';
     case 'SERIES_CLUB_ADMIN_ADDED':
-      return 'Club admin added';
+      return 'Team admin added';
     case 'SERIES_CLUB_ADMIN_REMOVED':
-      return 'Club admin removed';
+      return 'Team admin removed';
     case 'SERIES_APPROVAL_APPROVED':
       return 'Request approved';
     case 'SERIES_APPROVAL_REJECTED':
@@ -103,13 +103,27 @@ String seriesAuditActionLabel(String action) {
     case 'SERIES_PLAYER_JOIN_REQUESTED':
       return 'Join requested';
     case 'SERIES_CLUB_JOIN_CLEARED':
-      return 'Join cleared by club';
+      return 'Join cleared by team';
     case 'SERIES_MATCH_PROPOSED':
       return 'Match proposed';
     case 'SERIES_TOURNAMENT_PROPOSED':
       return 'Tournament proposed';
     case 'SERIES_SUSPENDED':
       return 'Organization suspended';
+    case 'OWNERSHIP_TRANSFERRED':
+      return 'Ownership transferred';
+    case 'SERIES_ARCHIVED':
+      return 'Organization archived';
+    case 'SERIES_REACTIVATED':
+      return 'Organization reactivated';
+    case 'ANNOUNCEMENT_SENT':
+      return 'Announcement sent';
+    case 'ENTITY_SUSPENDED':
+      return 'Suspended';
+    case 'ENTITY_ARCHIVED':
+      return 'Archived';
+    case 'ENTITY_RESTORED':
+      return 'Restored';
     default:
       return action
           .replaceAll('_', ' ')

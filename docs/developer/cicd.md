@@ -1,8 +1,16 @@
 # CI/CD & Environment Management
 
+> **Update (2026-10-08): the Organization Admin panel (`apps/admin`, hosting site
+> `crickflow-admin`) was retired.** `apps/superadmin` is the only web admin panel
+> and is for CrickFlow platform staff (super admins, moderators, tournament admins,
+> support, viewers); each role sees only what its permissions allow, and
+> `firestore.rules` enforces the same permissions. Organization, club and series
+> administration lives in the mobile app (`lib/features/series`). References to
+> the Org Admin panel below are historical. See `docs/PLATFORM_ADMIN_SCOPE_PLAN.md`.
+
 ## Purpose
 
-Enterprise delivery architecture for CrickFlow **Admin** (`apps/admin`, `apps/superadmin`, `apps/admin_core`).
+Enterprise delivery architecture for CrickFlow **Admin** (`apps/superadmin`, `apps/admin_core`).
 
 **Non-negotiables**
 
@@ -88,12 +96,12 @@ Separate config: [`firebase.admin.json`](../../firebase.admin.json)
 
 Does **not** alter root [`firebase.json`](../../firebase.json) (mobile scorecard Hosting).
 
-1. Create Hosting sites in Firebase Console (e.g. `crickflow-admin`, `crickflow-superadmin`).
+1. Create Hosting sites in Firebase Console (`crickflow-superadmin`).
 2. Apply targets (see [`firebase.admin.rc.example`](../../firebase.admin.rc.example)).
 3. Deploy manually:
 
 ```bash
-firebase deploy --only hosting:admin,hosting:superadmin \
+firebase deploy --only hosting:superadmin \
   -c firebase.admin.json \
   --project crickflow-b06bc
 ```
@@ -109,7 +117,7 @@ firebase hosting:channel:deploy pr-123 -c firebase.admin.json --only admin
 ## Semantic versioning
 
 - Canonical version file: [`apps/VERSION`](../../apps/VERSION) (`MAJOR.MINOR.PATCH`)
-- Keep `apps/admin/pubspec.yaml` and `apps/superadmin/pubspec.yaml` in sync when cutting releases
+- Keep `apps/superadmin/pubspec.yaml` in sync when cutting releases
 - CI build number = `github.run_number` → `version+build`
 - Release workflow tags `vX.Y.Z` and generates notes
 

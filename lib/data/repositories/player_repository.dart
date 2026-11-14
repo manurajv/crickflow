@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/cf_player_id_format.dart';
 import '../../core/utils/team_leadership_utils.dart';
+import '../models/owner_player_seed.dart';
 import '../models/player_model.dart';
 import '../models/team_model.dart';
 import 'notification_repository.dart';
@@ -414,6 +415,32 @@ class PlayerRepository {
     if (snap.docs.isEmpty) return null;
     final doc = snap.docs.first;
     return PlayerModel.fromMap(doc.id, doc.data());
+  }
+
+  /// Describes the creator's player profile for an atomic team create
+  /// (no writes here; [TeamRepository.createTeamAtomic] writes it in its batch).
+  Future<OwnerPlayerSeed> ownerPlayerSeedForUser({
+    required String userId,
+    required String displayName,
+    String? fullName,
+    String? photoUrl,
+    String? email,
+  }) async {
+    final existing = await _col.doc(userId).get();
+    if (existing.exists) {
+      return OwnerPlayerSeed.existing(playerId: userId, fullName: fullName);
+    }
+    final player = PlayerModel(
+      id: userId,
+      name: displayName.isNotEmpty ? displayName : 'Player',
+      fullName: fullName ?? '',
+      userId: userId,
+      photoUrl: photoUrl,
+      createdBy: userId,
+    );
+    final data = player.toMap();
+    if (email != null) data['email'] = email;
+    return OwnerPlayerSeed.create(playerId: userId, newPlayerData: data);
   }
 
   /// Links auth user to a player doc (used when role is `player`). Doc id = [userId].

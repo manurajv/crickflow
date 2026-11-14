@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
+import '../../data/services/tournament_functions_service.dart';
 import '../../data/models/match_model.dart';
 import '../../data/models/tournament/tournament_activity_model.dart';
 import '../../data/models/tournament/tournament_group_model.dart';
@@ -278,3 +279,7 @@ extension _MemberFirstOrNull<E> on Iterable<E> {
     return it.current;
   }
 }
+
+/// Cloud Functions gateway for tournament match linking.
+final tournamentFunctionsServiceProvider =
+    Provider((ref) => TournamentFunctionsService());

@@ -164,7 +164,7 @@ enum SeriesApprovalTargetType {
   other;
 
   String get label => switch (this) {
-        SeriesApprovalTargetType.clubRegistration => 'Club registration',
+        SeriesApprovalTargetType.clubRegistration => 'Team registration',
         SeriesApprovalTargetType.playerRegistration => 'Player registration',
         SeriesApprovalTargetType.playerJoin => 'Join request',
         SeriesApprovalTargetType.playerAdd => 'Add player',
@@ -224,9 +224,39 @@ enum SeriesMembershipStatus {
   }
 }
 
+/// Tier stored on `series_admins.role`. Legacy `seriesAdmin` / missing = admin.
+enum SeriesAdminTier {
+  admin,
+  scorer,
+  viewer;
+
+  String get label => switch (this) {
+        SeriesAdminTier.admin => 'Admin',
+        SeriesAdminTier.scorer => 'Scorer',
+        SeriesAdminTier.viewer => 'Viewer',
+      };
+
+  String get description => switch (this) {
+        SeriesAdminTier.admin =>
+          'Manage settings, approvals, teams, and announcements',
+        SeriesAdminTier.scorer =>
+          'Start and score official matches and tournaments',
+        SeriesAdminTier.viewer => 'View staff tools without making changes',
+      };
+
+  static SeriesAdminTier parse(String? raw) {
+    final c = (raw ?? '').trim();
+    if (c == 'scorer') return SeriesAdminTier.scorer;
+    if (c == 'viewer') return SeriesAdminTier.viewer;
+    return SeriesAdminTier.admin;
+  }
+}
+
 enum SeriesRole {
   superAdmin,
   seriesAdmin,
+  scorer,
+  staffViewer,
   clubAdmin,
   seriesPlayer,
   viewer;
@@ -234,10 +264,23 @@ enum SeriesRole {
   String get label => switch (this) {
         SeriesRole.superAdmin => 'Owner',
         SeriesRole.seriesAdmin => 'Admin',
-        SeriesRole.clubAdmin => 'Club admin',
+        SeriesRole.scorer => 'Scorer',
+        SeriesRole.staffViewer => 'Viewer (staff)',
+        SeriesRole.clubAdmin => 'Team admin',
         SeriesRole.seriesPlayer => 'Player',
         SeriesRole.viewer => 'Viewer',
       };
+
+  bool get isFullOrgAdmin =>
+      this == SeriesRole.superAdmin || this == SeriesRole.seriesAdmin;
+
+  bool get isOrgStaff =>
+      isFullOrgAdmin ||
+      this == SeriesRole.scorer ||
+      this == SeriesRole.staffViewer;
+
+  bool get canStartOfficialCompetitions =>
+      isFullOrgAdmin || this == SeriesRole.scorer;
 
   static SeriesRole parse(String? raw) {
     if (raw == null || raw.isEmpty) return SeriesRole.viewer;

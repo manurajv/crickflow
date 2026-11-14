@@ -20,6 +20,7 @@ import 'create_community_post_sheet.dart';
 import 'widgets/community_feed_skeleton.dart';
 import 'widgets/community_location_filter_sheet.dart';
 import 'widgets/community_post_card.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Social cricket community feed — extends the existing `community_posts` model.
 class CommunityScreen extends ConsumerStatefulWidget {
@@ -155,6 +156,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.blockUser,
       action: () async {
         final uid = ref.read(authStateProvider).valueOrNull?.uid;
         if (uid == null) return;
@@ -177,7 +179,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not block: $e')),
+              SnackBar(content: Text('Could not block: ${friendlyError(e)}')),
             );
           }
         }
@@ -244,7 +246,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not delete: $e')),
+          SnackBar(content: Text('Could not delete: ${friendlyError(e)}')),
         );
       }
     }
@@ -287,7 +289,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not hide: $e')),
+          SnackBar(content: Text('Could not hide: ${friendlyError(e)}')),
         );
       }
     }
@@ -310,6 +312,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.report,
       action: () async {
         final uid = ref.read(authStateProvider).valueOrNull?.uid;
         if (uid == null) return;
@@ -336,7 +339,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not report: $e')),
+              SnackBar(content: Text('Could not report: ${friendlyError(e)}')),
             );
           }
         }
@@ -412,6 +415,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           requireAuthVoid(
             context: context,
             ref: ref,
+            prompt: SignInPrompt.chat,
             action: () async {
               if (context.mounted) context.push('/community/chats');
             },
@@ -448,10 +452,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.createPost,
               action: () async {
                 if (context.mounted) {
-                  await showCreateCommunityPostSheet(
-                    context,
+                  await showCreateCommunityPostSheet(context, ref: ref,
                     initialCategory: filter.category,
                   );
                 }
@@ -573,6 +577,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                       requireAuthVoid(
                         context: context,
                         ref: ref,
+                        prompt: SignInPrompt.general,
                         action: () async {
                           ref
                               .read(communityFeedFilterProvider.notifier)
@@ -608,7 +613,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 }
                 if (feed.items.isEmpty && _focusPost == null) {
                   return _EmptyFeed(
-                    onPost: () => showCreateCommunityPostSheet(context),
+                    onPost: () => requireAuthVoid(
+                      context: context,
+                      ref: ref,
+                      prompt: SignInPrompt.createPost,
+                      action: () async {
+                        if (context.mounted) {
+                          await showCreateCommunityPostSheet(context, ref: ref);
+                        }
+                      },
+                    ),
                     filtered: !filter.isDefault,
                     savedOnly: filter.savedOnly,
                   );
@@ -655,8 +669,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         onReport: () =>
                             _reportPost(post.id, post.authorId),
                         onEdit: userId == post.authorId
-                            ? () => showCreateCommunityPostSheet(
-                                  context,
+                            ? () => showCreateCommunityPostSheet(context, ref: ref,
                                   existingPost: post,
                                 )
                             : null,

@@ -10,7 +10,7 @@ import '../providers/settings_providers.dart';
 import 'widgets/settings_chrome.dart';
 import 'widgets/settings_section_body.dart';
 
-/// Platform Settings hub — Super Admin writes; Org Admin read-only.
+/// Platform Settings hub — Super Admin writes; other staff read-only.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({
     super.key,

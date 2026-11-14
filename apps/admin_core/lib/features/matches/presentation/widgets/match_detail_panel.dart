@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/extensions/context_extensions.dart';
 import '../../../../models/admin_permission.dart';
 import '../../../../models/admin_role.dart';
+import '../../../../services/admin_delete_service.dart';
+import '../../../../shared/widgets/permanent_delete_dialog.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/cf_loading_state.dart';
 import '../../../auth/providers/auth_providers.dart';
@@ -540,18 +542,23 @@ class _Actions extends ConsumerWidget {
                 ),
                 child: Text(match.adminFeatured ? 'Unfeature' : 'Feature'),
               ),
-              if (!match.isSoftDeleted)
-                OutlinedButton(
-                  onPressed: () => confirmAction(
-                    title: 'Soft-delete Match',
-                    message:
-                        'Soft-delete this match? History and score data stay intact.',
-                    danger: true,
-                    run: (r) => controller.softDelete(match, reason: r),
-                  ),
-                  child: const Text('Delete'),
-                )
-              else
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: () async {
+                  final deleted = await showPermanentDeleteDialog(
+                    context: context,
+                    ref: ref,
+                    target: AdminDeleteTarget.match,
+                    id: match.id,
+                    name: match.title,
+                  );
+                  if (deleted) await controller.refresh();
+                },
+                child: const Text('Delete permanently'),
+              ),
+              if (match.isSoftDeleted)
                 OutlinedButton(
                   onPressed: () => confirmAction(
                     title: 'Restore Match',

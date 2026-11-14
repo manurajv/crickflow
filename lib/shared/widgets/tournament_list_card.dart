@@ -6,6 +6,7 @@ import '../../core/theme/app_dimens.dart';
 import '../../core/utils/country_flag_utils.dart';
 import '../../core/utils/date_utils.dart';
 import '../../data/models/tournament_model.dart';
+import 'org_badge.dart';
 import 'venue_location_sheet.dart';
 
 class TournamentListCard extends StatelessWidget {
@@ -52,6 +53,21 @@ class TournamentListCard extends StatelessWidget {
                   attributionLabel: attributionLabel,
                   height: compact ? 88 : 120,
                 ),
+                // Org tournaments carry the org's badge on the banner.
+                if (tournament.isOrgTournament)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    right: 130,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: OrgBadge(
+                        seriesId: tournament.seriesId!,
+                        pending: !tournament.isOrgApproved,
+                        onDark: true,
+                      ),
+                    ),
+                  ),
                 Positioned(
                   top: 8,
                   right: 8,
@@ -203,7 +219,7 @@ class _Banner extends StatelessWidget {
           if (attribution != null && attribution.isNotEmpty)
             Positioned(
               left: 12,
-              top: 10,
+              top: tournament.isOrgTournament ? 36 : 10,
               right: 100,
               child: Text(
                 attribution,

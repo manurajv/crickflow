@@ -26,7 +26,11 @@ export function TeamProfileClient() {
   }, [teamId]);
   if (!teamId) return <p>Loading…</p>;
   return (
-    <ClientEntity<{ team: Team; matches: Match[]; members: Player[] }> load={load}>
+    <ClientEntity<{ team: Team; matches: Match[]; members: Player[] }>
+      load={load}
+      missingTitle="This team was removed"
+      missingDescription="It was deleted and is no longer available."
+    >
       {({ team, matches, members }) => (
         <div className="space-y-8">
           <JsonLd

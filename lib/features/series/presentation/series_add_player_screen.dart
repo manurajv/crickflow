@@ -9,6 +9,7 @@ import '../../../data/models/user_model.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_registration_fields.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Search result → fill org-required details / docs → add to club squad.
 class SeriesAddPlayerScreen extends ConsumerStatefulWidget {
@@ -40,6 +41,8 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
   String? _profilePhotoUrl;
   String? _nationalIdDocUrl;
   String? _passportDocUrl;
+  Map<String, String> _customFields = {};
+  final _uploads = SeriesRegistrationUploadSession();
   bool _saving = false;
 
   @override
@@ -61,6 +64,9 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
 
   @override
   void dispose() {
+    if (!_uploads.committed) {
+      _uploads.rollback();
+    }
     _fullName.dispose();
     _playerId.dispose();
     _phone.dispose();
@@ -86,6 +92,20 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
       );
       return;
     }
+    if (s.requireNationalIdDocument &&
+        (_nationalIdDocUrl == null || _nationalIdDocUrl!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('National ID document photo is required')),
+      );
+      return;
+    }
+    if (s.requirePassportDocument &&
+        (_passportDocUrl == null || _passportDocUrl!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passport document photo is required')),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       final result =
@@ -107,7 +127,9 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
         if (_profilePhotoUrl != null) 'profilePhotoUrl': _profilePhotoUrl,
         if (_nationalIdDocUrl != null) 'nationalIdDocUrl': _nationalIdDocUrl,
         if (_passportDocUrl != null) 'passportDocUrl': _passportDocUrl,
+        if (_customFields.isNotEmpty) 'customFields': _customFields,
       });
+      _uploads.markCommitted();
       if (!mounted) return;
       final auto = result['autoApproved'] == true;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -121,9 +143,10 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
       );
       context.pop(true);
     } catch (e) {
+      await _uploads.rollback();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add player: $e')),
+          SnackBar(content: Text('Could not add player: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -147,7 +170,7 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: const CfChromeAppBar(title: Text('Add player')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
       data: (series) {
         if (series == null) {
@@ -189,13 +212,16 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
                 const SizedBox(height: AppDimens.spaceMd),
                 Text(
                   'Complete the details required by ${series.name}. '
-                  'ID numbers and document photos are visible only to organization admins.',
+                  'ID numbers and document photos are visible only to the player, team admins, and organization admins.',
                   style: TextStyle(color: cf.textSecondary),
                 ),
                 const SizedBox(height: AppDimens.spaceLg),
                 SeriesRegistrationFields(
                   settings: series.settings,
                   seriesId: widget.seriesId,
+                  clubId: widget.clubId,
+                  subjectUserId: widget.player.id,
+                  uploadSession: _uploads,
                   fullName: _fullName,
                   playerId: _playerId,
                   phone: _phone,
@@ -212,6 +238,8 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
                   onNationalIdDocUrl: (u) =>
                       setState(() => _nationalIdDocUrl = u),
                   onPassportDocUrl: (u) => setState(() => _passportDocUrl = u),
+                  customFieldValues: _customFields,
+                  onCustomFieldsChanged: (m) => _customFields = m,
                   showOptionalEmptyFields: true,
                 ),
                 const SizedBox(height: AppDimens.spaceLg),

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { EmptyState } from "@/components/shared/states";
 
 export default function UnauthorizedPage() {

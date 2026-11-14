@@ -12,6 +12,7 @@ import '../../../data/models/player_model.dart';
 import '../../../data/models/register_player_models.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Search the player directory by name or Player ID.
 class TeamAddPlayerDirectoryScreen extends ConsumerStatefulWidget {
@@ -100,7 +101,7 @@ class _TeamAddPlayerDirectoryScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add player: $e')),
+          SnackBar(content: Text('Could not add player: ${friendlyError(e)}')),
         );
       }
     } finally {

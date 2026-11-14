@@ -7,10 +7,9 @@ import 'config/nav_config.dart';
 import 'config/router.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await bootstrapFirebase(DefaultFirebaseOptions.currentPlatform);
-  runApp(
-    ProviderScope(
+  await runAdminPanel(
+    options: DefaultFirebaseOptions.currentPlatform,
+    buildApp: () => ProviderScope(
       overrides: [
         adminAppTypeProvider.overrideWithValue(AdminAppType.superAdmin),
         navSectionsProvider.overrideWithValue(buildSuperAdminNav()),
@@ -35,7 +34,8 @@ class SuperAdminApp extends ConsumerWidget {
       theme: AdminTheme.light(),
       darkTheme: AdminTheme.dark(),
       themeMode: themeMode,
-      locale: locale,
+      // Null used to mean "system", but empty browser locales crash Flutter web.
+      locale: locale ?? AdminLocaleCatalog.safeDeviceLocale(),
       supportedLocales: AdminL10nConfig.supportedLocales,
       localizationsDelegates: AdminL10nConfig.localizationsDelegates,
       localeResolutionCallback: AdminL10nConfig.resolutionCallback,

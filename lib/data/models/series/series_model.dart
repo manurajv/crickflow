@@ -11,6 +11,8 @@ class SeriesSettingsModel extends Equatable {
     this.requireDateOfBirth = false,
     this.requireNationalId = false,
     this.requirePassport = false,
+    this.requireNationalIdDocument = false,
+    this.requirePassportDocument = false,
     this.requirePhoneNumber = false,
     this.requireAddress = false,
     this.requireProfilePhoto = false,
@@ -24,6 +26,8 @@ class SeriesSettingsModel extends Equatable {
   final bool requireDateOfBirth;
   final bool requireNationalId;
   final bool requirePassport;
+  final bool requireNationalIdDocument;
+  final bool requirePassportDocument;
   final bool requirePhoneNumber;
   final bool requireAddress;
   final bool requireProfilePhoto;
@@ -39,6 +43,8 @@ class SeriesSettingsModel extends Equatable {
       requireDateOfBirth: map['requireDateOfBirth'] as bool? ?? false,
       requireNationalId: map['requireNationalId'] as bool? ?? false,
       requirePassport: map['requirePassport'] as bool? ?? false,
+      requireNationalIdDocument: map['requireNationalIdDocument'] as bool? ?? false,
+      requirePassportDocument: map['requirePassportDocument'] as bool? ?? false,
       requirePhoneNumber: map['requirePhoneNumber'] as bool? ?? false,
       requireAddress: map['requireAddress'] as bool? ?? false,
       requireProfilePhoto: map['requireProfilePhoto'] as bool? ?? false,
@@ -60,6 +66,8 @@ class SeriesSettingsModel extends Equatable {
         'requireDateOfBirth': requireDateOfBirth,
         'requireNationalId': requireNationalId,
         'requirePassport': requirePassport,
+        'requireNationalIdDocument': requireNationalIdDocument,
+        'requirePassportDocument': requirePassportDocument,
         'requirePhoneNumber': requirePhoneNumber,
         'requireAddress': requireAddress,
         'requireProfilePhoto': requireProfilePhoto,
@@ -75,6 +83,8 @@ class SeriesSettingsModel extends Equatable {
         requireDateOfBirth,
         requireNationalId,
         requirePassport,
+        requireNationalIdDocument,
+        requirePassportDocument,
         requirePhoneNumber,
         requireAddress,
         requireProfilePhoto,
@@ -147,6 +157,7 @@ class SeriesModel extends Equatable {
     this.kind = SeriesKind.series,
     this.status = SeriesStatus.draft,
     this.superAdminUserId,
+    this.platformHold = false,
     this.coverImageUrl,
     this.logoUrl,
     this.region = '',
@@ -171,6 +182,10 @@ class SeriesModel extends Equatable {
   final SeriesKind kind;
   final SeriesStatus status;
   final String? superAdminUserId;
+
+  /// Set by CrickFlow platform staff when they suspend or archive an org.
+  /// Owners cannot reactivate until staff lift the hold.
+  final bool platformHold;
   final String? coverImageUrl;
   final String? logoUrl;
   /// Zone / region label (e.g. North, West).
@@ -201,21 +216,18 @@ class SeriesModel extends Equatable {
 
   /// Affiliated [series_clubs] tab — not My cricket Teams.
   String get memberUnitsTabLabel => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squads',
-        OrgFamily.associations => 'Member clubs',
-        OrgFamily.series => 'Participating clubs',
+        OrgFamily.clubs => 'Teams',
+        OrgFamily.associations => 'Member teams',
+        OrgFamily.series => 'Teams',
       };
 
   String get memberUnitsStatLabel => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squads',
-        OrgFamily.associations => 'Member clubs',
-        OrgFamily.series => 'Clubs',
+        OrgFamily.clubs => 'Teams',
+        OrgFamily.associations => 'Member teams',
+        OrgFamily.series => 'Teams',
       };
 
-  String get memberUnitsSingular => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squad',
-        _ => 'Club',
-      };
+  String get memberUnitsSingular => 'Team';
 
   factory SeriesModel.fromMap(String id, Map<String, dynamic> map) {
     return SeriesModel(
@@ -226,6 +238,7 @@ class SeriesModel extends Equatable {
       kind: SeriesKind.parse(map['kind'] as String?),
       status: SeriesStatus.parse(map['status'] as String?),
       superAdminUserId: map['superAdminUserId'] as String?,
+      platformHold: map['platformHold'] == true,
       coverImageUrl: map['coverImageUrl'] as String?,
       logoUrl: map['logoUrl'] as String?,
       region: map['region'] as String? ?? '',
@@ -271,5 +284,6 @@ class SeriesModel extends Equatable {
       };
 
   @override
-  List<Object?> get props => [id, name, status, superAdminUserId, updatedAt];
+  List<Object?> get props =>
+      [id, name, status, superAdminUserId, platformHold, updatedAt];
 }

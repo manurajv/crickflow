@@ -9,6 +9,7 @@ import '../../../shared/widgets/ads/cf_sticky_banner_ad.dart';
 import '../domain/search_models.dart';
 import '../providers/search_providers.dart';
 import 'widgets/search_result_cards.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SearchResultsScreen extends ConsumerStatefulWidget {
   const SearchResultsScreen({super.key});
@@ -121,7 +122,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
           Expanded(
             child: resultsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Search failed: $e')),
+              error: (e, _) => Center(child: Text('Search failed: ${friendlyError(e)}')),
               data: (result) {
                 if (query.debounced.isEmpty) {
                   return Center(

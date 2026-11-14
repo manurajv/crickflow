@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/team_notification_types.dart';
+import '../../core/utils/firestore_retry.dart';
 import '../../core/utils/team_leadership_utils.dart';
+import '../../domain/notifications/notification_priority.dart';
 import '../models/player_model.dart';
 import '../models/team_join_request_model.dart';
 import '../models/team_model.dart';
@@ -32,10 +34,12 @@ class TeamJoinRequestRepository {
       _teams.doc(teamId).collection(AppConstants.teamJoinRequestsSubcollection);
 
   Stream<TeamJoinRequestModel?> watchRequest(String teamId, String userId) {
-    return _requests(teamId).doc(userId).snapshots().map((doc) {
-      if (!doc.exists) return null;
-      return TeamJoinRequestModel.fromMap(doc.id, teamId, doc.data()!);
-    });
+    return retryOnPermissionDenied(
+      () => _requests(teamId).doc(userId).snapshots().map((doc) {
+        if (!doc.exists) return null;
+        return TeamJoinRequestModel.fromMap(doc.id, teamId, doc.data()!);
+      }),
+    );
   }
 
   Future<TeamJoinRequestModel?> getRequest(String teamId, String userId) async {
@@ -44,17 +48,24 @@ class TeamJoinRequestRepository {
     return TeamJoinRequestModel.fromMap(doc.id, teamId, doc.data()!);
   }
 
+  /// Pending join requests for team leadership. Retries briefly on
+  /// permission-denied: a team created moments ago may not be committed on
+  /// the server yet when its first listener starts.
   Stream<List<TeamJoinRequestModel>> watchPendingForTeam(String teamId) {
-    return _requests(teamId)
-        .where('status', isEqualTo: TeamJoinRequestStatus.pending.name)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((d) => TeamJoinRequestModel.fromMap(d.id, teamId, d.data()))
-              .where((r) => r.requestType == TeamJoinRequestType.joinRequest)
-              .toList(),
-        );
+    return retryOnPermissionDenied(
+      () => _requests(teamId)
+          .where('status', isEqualTo: TeamJoinRequestStatus.pending.name)
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map(
+            (snap) => snap.docs
+                .map(
+                  (d) => TeamJoinRequestModel.fromMap(d.id, teamId, d.data()),
+                )
+                .where((r) => r.requestType == TeamJoinRequestType.joinRequest)
+                .toList(),
+          ),
+    );
   }
 
   Future<Set<String>> getPendingInvitationPlayerIds(String teamId) async {
@@ -286,6 +297,12 @@ class TeamJoinRequestRepository {
       type: TeamNotificationTypes.joinAccepted,
       category: 'team',
     );
+    await _notificationRepository.markRelatedRead(
+      NotificationRelation.teamJoinRequest(
+        teamId: team.id,
+        requesterId: request.userId,
+      ),
+    );
   }
 
   Future<void> rejectRequest({
@@ -310,6 +327,12 @@ class TeamJoinRequestRepository {
       teamId: team.id,
       type: TeamNotificationTypes.joinRejected,
       category: 'team',
+    );
+    await _notificationRepository.markRelatedRead(
+      NotificationRelation.teamJoinRequest(
+        teamId: team.id,
+        requesterId: request.userId,
+      ),
     );
   }
 
@@ -358,6 +381,9 @@ class TeamJoinRequestRepository {
       type: TeamNotificationTypes.joinAccepted,
       category: 'team',
     );
+    await _notificationRepository.markRelatedRead(
+      NotificationRelation.teamInvitation(teamId: team.id),
+    );
   }
 
   Future<void> rejectInvitation({
@@ -388,6 +414,9 @@ class TeamJoinRequestRepository {
       playerId: playerUid,
       excludeUserId: playerUid,
       category: 'team',
+    );
+    await _notificationRepository.markRelatedRead(
+      NotificationRelation.teamInvitation(teamId: team.id),
     );
   }
 }

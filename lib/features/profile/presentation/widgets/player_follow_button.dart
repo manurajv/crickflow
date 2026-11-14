@@ -6,6 +6,7 @@ import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class PlayerFollowButton extends ConsumerWidget {
   const PlayerFollowButton({
@@ -74,7 +75,7 @@ class PlayerFollowButton extends ConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not update follow: $e')),
+            SnackBar(content: Text('Could not update follow: ${friendlyError(e)}')),
           );
         }
       }

@@ -1,8 +1,9 @@
-import Link from "next/link";
+﻿import { AppLink } from "@/components/shared/app-link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { currentScore, formatMatchWhen, formatOvers, locationLabel, matchStatusLabel } from "@/lib/cricket/format";
 import { cn, firstGrapheme } from "@/lib/utils";
+import { isStaleUnfinishedMatch } from "@/lib/cricket/match-staleness";
 import type { Match } from "@/types/models";
 
 function statusVariant(status: string) {
@@ -13,9 +14,10 @@ function statusVariant(status: string) {
 
 export function MatchCard({ match }: { match: Match }) {
   const score = currentScore(match);
-  const live = match.status === "live" || match.status === "inningsBreak";
+  const stale = isStaleUnfinishedMatch(match);
+  const live = !stale && (match.status === "live" || match.status === "inningsBreak");
   return (
-    <Link href={`/matches/${match.id}`} className="block">
+    <AppLink href={`/matches/${match.id}/`} className="block">
       <Card className={cn("p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md", live && "ring-2 ring-live/30")}>
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -26,8 +28,8 @@ export function MatchCard({ match }: { match: Match }) {
               {match.teamAName || "Team A"} vs {match.teamBName || "Team B"}
             </h3>
           </div>
-          <Badge variant={statusVariant(String(match.status))}>
-            {matchStatusLabel(String(match.status))}
+          <Badge variant={stale ? "completed" : statusVariant(String(match.status))}>
+            {stale ? "Expired" : matchStatusLabel(String(match.status))}
           </Badge>
         </div>
         {score ? (
@@ -51,7 +53,7 @@ export function MatchCard({ match }: { match: Match }) {
           </Badge>
         ) : null}
       </Card>
-    </Link>
+    </AppLink>
   );
 }
 
@@ -69,7 +71,7 @@ export function EntityCard({
   meta?: string;
 }) {
   return (
-    <Link href={href} className="block">
+    <AppLink href={href} className="block">
       <Card className="flex items-center gap-4 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
         <div
           className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-lg font-bold"
@@ -88,8 +90,9 @@ export function EntityCard({
           {meta ? <p className="text-xs text-muted-foreground">{meta}</p> : null}
         </div>
       </Card>
-    </Link>
+    </AppLink>
   );
 }
 
 export { formatOvers };
+

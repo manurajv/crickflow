@@ -18,6 +18,7 @@ import '../../../shared/widgets/cf_button.dart';
 import 'widgets/teams/add_team_bottom_sheet.dart';
 import 'widgets/teams/tournament_team_card.dart';
 import 'widgets/teams/tournament_team_confirm_sheet.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TournamentTeamsScreen extends ConsumerWidget {
   const TournamentTeamsScreen({
@@ -43,7 +44,7 @@ class TournamentTeamsScreen extends ConsumerWidget {
 
     return requestsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
       data: (requests) {
         final allTeams = teamsAsync.valueOrNull ?? [];
         final teamById = {for (final t in allTeams) t.id: t};
@@ -351,7 +352,7 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 
@@ -388,7 +389,7 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 
@@ -407,7 +408,7 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
           );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 
@@ -426,7 +427,7 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
           );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 
@@ -463,7 +464,7 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 
@@ -482,7 +483,7 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
           );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 
@@ -505,7 +506,7 @@ class _TournamentTeamRequestRow extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 }

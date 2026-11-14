@@ -11,13 +11,14 @@ import '../../../../data/models/community_post_model.dart';
 import '../../../../data/models/team_model.dart';
 import '../../../../data/models/tournament_model.dart';
 import '../../../../data/models/user_model.dart';
-import '../../../../domain/scoring/match_lifecycle.dart';
+import '../../../../domain/scoring/match_staleness.dart';
 import '../../../../domain/services/player_cricket_profile_models.dart';
 import '../../../../features/community/community_post_ui.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/match_card_ui.dart';
 import '../../../../shared/widgets/match_team_avatar.dart';
+import '../../../../shared/widgets/org_badge.dart';
 import '../../../../shared/widgets/player_cluster_text.dart';
 import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../../data/unified_search_service.dart';
@@ -207,7 +208,7 @@ class _MatchCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final match = hit.match!;
     final cf = context.cf;
-    final isLive = MatchLifecycle.isEffectivelyLive(match);
+    final isLive = isListedLive(match);
     final status = matchStatusUi(match, cf);
     final uid = ref.watch(authStateProvider).value?.uid;
 
@@ -221,6 +222,13 @@ class _MatchCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (match.isOrgMatch) ...[
+            OrgBadge(
+              seriesId: match.seriesId!,
+              pending: !match.isOrgApproved,
+            ),
+            const SizedBox(height: 6),
+          ],
           Row(
             children: [
               Expanded(
@@ -329,6 +337,13 @@ class _TournamentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (tournament.isOrgTournament) ...[
+                  OrgBadge(
+                    seriesId: tournament.seriesId!,
+                    pending: !tournament.isOrgApproved,
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Text(
                   tournament.name,
                   style: Theme.of(context)

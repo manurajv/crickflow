@@ -6,6 +6,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Match break type picker (grid) from quick shortcuts.
 class MatchBreaksSheet extends ConsumerStatefulWidget {
@@ -103,7 +104,7 @@ class _MatchBreaksSheetState extends ConsumerState<MatchBreaksSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not start break: $e')),
+          SnackBar(content: Text('Could not start break: ${friendlyError(e)}')),
         );
       }
     } finally {

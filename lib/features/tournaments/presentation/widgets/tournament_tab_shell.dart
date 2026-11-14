@@ -6,6 +6,7 @@ import '../../../../core/theme/cf_colors.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/match_list_card.dart';
 import '../../../../shared/widgets/start_match_ui.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Shared scaffold for tournament dashboard tabs that are not yet implemented.
 class TournamentTabShell extends ConsumerWidget {
@@ -42,7 +43,7 @@ class TournamentTabShell extends ConsumerWidget {
         child: Padding(
           padding: AppDimens.screenPadding,
           child: Text(
-            '$error',
+            friendlyError(error),
             textAlign: TextAlign.center,
             style: TextStyle(color: cf.error),
           ),

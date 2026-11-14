@@ -22,6 +22,7 @@ import '../../community_post_ui.dart';
 import 'community_comments_sheet.dart';
 import 'community_media_viewer.dart';
 import 'community_tournament_card.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class CommunityPostCard extends ConsumerWidget {
   const CommunityPostCard({
@@ -213,6 +214,7 @@ class CommunityPostCard extends ConsumerWidget {
             onLike: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.likeComment,
               action: () async {
                 final id = ref.read(authStateProvider).valueOrNull?.uid;
                 final me = ref.read(currentUserProfileProvider).valueOrNull;
@@ -232,6 +234,7 @@ class CommunityPostCard extends ConsumerWidget {
             onSave: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.savePost,
               action: () async {
                 final id = ref.read(authStateProvider).valueOrNull?.uid;
                 if (id == null) return;
@@ -243,7 +246,7 @@ class CommunityPostCard extends ConsumerWidget {
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Could not save: $e')),
+                      SnackBar(content: Text('Could not save: ${friendlyError(e)}')),
                     );
                   }
                 }
@@ -264,7 +267,12 @@ class CommunityPostCard extends ConsumerWidget {
             ? '${post.title}\n$url'
             : '${post.body}\n$url');
     await Share.share(text.trim());
-    await ref.read(communityRepositoryProvider).incrementShareCount(post.id);
+    // Count is a write — skip quietly for guests (OS share still works).
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null) return;
+    try {
+      await ref.read(communityRepositoryProvider).incrementShareCount(post.id);
+    } catch (_) {}
   }
 }
 
@@ -590,6 +598,7 @@ class _CompactFollow extends ConsumerWidget {
       onPressed: () => requireAuthVoid(
         context: context,
         ref: ref,
+        prompt: SignInPrompt.follow,
         action: () async {
           final me = ref.read(currentUserProfileProvider).valueOrNull;
           await ref.read(playerFollowRepositoryProvider).followPlayer(

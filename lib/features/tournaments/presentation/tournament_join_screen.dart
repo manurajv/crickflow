@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/constants/enums.dart';
 import '../../../core/navigation/tournament_join_navigation.dart';
@@ -18,6 +19,7 @@ import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../teams/presentation/widgets/team_list_tile.dart';
 import 'utils/tournament_join_utils.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TournamentJoinScreen extends ConsumerStatefulWidget {
   const TournamentJoinScreen({
@@ -75,7 +77,7 @@ class _TournamentJoinScreenState extends ConsumerState<TournamentJoinScreen> {
         ),
         body: tournamentAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => Center(child: Text(friendlyError(e))),
           data: (tournament) {
             if (tournament == null) {
               return const Center(child: Text('Tournament not found'));
@@ -101,7 +103,7 @@ class _TournamentJoinScreenState extends ConsumerState<TournamentJoinScreen> {
 
             return teamsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
               data: (allTeams) {
                 final player = playerAsync.valueOrNull;
                 final leadershipTeams = TeamLeadershipUtils.leadershipTeams(
@@ -266,7 +268,7 @@ class _TournamentJoinScreenState extends ConsumerState<TournamentJoinScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -326,12 +328,16 @@ class _SignInPrompt extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: AppDimens.spaceMd),
-            const Text('Sign in to request joining this tournament.'),
+            Text(SignInPrompt.joinTournament.message),
             const SizedBox(height: AppDimens.spaceLg),
             CfButton(
               label: 'Sign in',
               isGold: true,
-              onPressed: () => context.push('/login'),
+              onPressed: () => openLoginForGuest(
+                context: context,
+                prompt: SignInPrompt.joinTournament,
+                returnPath: GoRouterState.of(context).uri.toString(),
+              ),
             ),
           ],
         ),

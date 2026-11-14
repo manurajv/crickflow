@@ -19,6 +19,7 @@ class NotificationModel extends Equatable {
     this.tournamentId,
     this.requestId,
     this.read = false,
+    this.priority,
     this.createdAt,
   });
 
@@ -42,6 +43,10 @@ class NotificationModel extends Equatable {
   final String? tournamentId;
   final String? requestId;
   final bool read;
+
+  /// Server-stamped tab flag (`priority`); null on older docs, where the
+  /// type mapping in NotificationPriority decides.
+  final bool? priority;
   final DateTime? createdAt;
 
   bool get isRead => read;
@@ -90,6 +95,7 @@ class NotificationModel extends Equatable {
       tournamentId: map['tournamentId'] as String?,
       requestId: map['requestId'] as String?,
       read: map['read'] as bool? ?? map['isRead'] as bool? ?? false,
+      priority: map['priority'] as bool?,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
     );
   }

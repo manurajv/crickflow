@@ -213,7 +213,17 @@ class MatchMvpService {
       );
     }
 
-    final potm = players.first;
+    // Player of the Match comes from the winning side on decided results;
+    // the losing side's best can still be Fighter of the Match.
+    final decided = winnerTeamId != null &&
+        winnerTeamId.isNotEmpty &&
+        (winnerTeamId == teamAId || winnerTeamId == teamBId);
+    final potm = decided
+        ? players.firstWhere(
+            (p) => p.teamId == winnerTeamId,
+            orElse: () => players.first,
+          )
+        : players.first;
     var result = players
         .map(
           (p) => p.copyWith(

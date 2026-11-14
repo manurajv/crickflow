@@ -10,14 +10,23 @@ import {
   listSeriesAdmins,
   listSeriesCompetitions,
   addSeriesAdmin,
+  updateSeriesAdminRole,
   proposeSeriesMatch,
-  proposeSeriesTournament,
+  linkSeriesTournament,
+  listMyLinkableTournaments,
+  rebuildSeriesStandings,
   reviewClubJoinRequest,
   reviewSeriesApproval,
   submitPlayerJoinRequest,
   submitSeriesRegistration,
   updateSeriesSettings,
+  updateSeriesCompetitionPolicy,
+  listSeriesAnnouncements,
+  sendSeriesAnnouncement,
+  listSeriesAuditLogs,
+  listActiveSeriesByKind,
 } from "./repository";
+import { getOrgLeaderboardData } from "./leaderboard-repository";
 
 export function useActiveSeries() {
   return useQuery({ queryKey: ["series", "active"], queryFn: () => listActiveSeries() });
@@ -43,8 +52,8 @@ export function useCreateSeries() {
 export function useReviewSeriesApproval(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { approvalId: string; decision: "approved" | "rejected" }) =>
-      reviewSeriesApproval(seriesId, input.approvalId, input.decision),
+    mutationFn: (input: { approvalId: string; decision: "approved" | "rejected"; reason?: string }) =>
+      reviewSeriesApproval(seriesId, input.approvalId, input.decision, input.reason ?? ""),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
   });
 }
@@ -86,6 +95,15 @@ export function useUpdateSeriesSettings(seriesId: string) {
   });
 }
 
+export function useUpdateSeriesCompetitionPolicy(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (policy: Record<string, unknown>) =>
+      updateSeriesCompetitionPolicy(seriesId, policy),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
 export function useJoinClub(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -94,6 +112,14 @@ export function useJoinClub(seriesId: string) {
       fullName: string;
       crickFlowPlayerId?: string;
       phoneNumber?: string;
+      address?: string;
+      dateOfBirth?: string;
+      nationalId?: string;
+      passportNumber?: string;
+      profilePhotoUrl?: string;
+      nationalIdDocUrl?: string;
+      passportDocUrl?: string;
+      customFields?: Record<string, string>;
     }) => {
       const reg = await submitSeriesRegistration({
         seriesId,
@@ -101,6 +127,14 @@ export function useJoinClub(seriesId: string) {
         fullName: input.fullName,
         crickFlowPlayerId: input.crickFlowPlayerId,
         phoneNumber: input.phoneNumber,
+        address: input.address,
+        dateOfBirth: input.dateOfBirth,
+        nationalId: input.nationalId,
+        passportNumber: input.passportNumber,
+        profilePhotoUrl: input.profilePhotoUrl,
+        nationalIdDocUrl: input.nationalIdDocUrl,
+        passportDocUrl: input.passportDocUrl,
+        customFields: input.customFields,
       });
       await submitPlayerJoinRequest({
         seriesId,
@@ -126,11 +160,19 @@ export function useProposeSeriesMatch(seriesId: string) {
   });
 }
 
+export function useMyLinkableTournaments(uid?: string) {
+  return useQuery({
+    queryKey: ["series", "linkable-tournaments", uid],
+    queryFn: () => listMyLinkableTournaments(uid as string),
+    enabled: Boolean(uid),
+  });
+}
+
 export function useProposeSeriesTournament(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { tournamentId: string; title?: string; clubId?: string }) =>
-      proposeSeriesTournament({ seriesId, ...input }),
+    mutationFn: (input: { tournamentId: string; title?: string }) =>
+      linkSeriesTournament({ seriesId, ...input }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
   });
 }
@@ -154,9 +196,34 @@ export function useSeriesAdmins(seriesId: string) {
 export function useAddSeriesAdmin(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { userId: string; displayName?: string }) =>
+    mutationFn: (input: { userId: string; displayName?: string; role?: "admin" | "scorer" | "viewer" }) =>
       addSeriesAdmin({ seriesId, ...input }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
+export function useUpdateSeriesAdminRole(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; role: "admin" | "scorer" | "viewer" }) =>
+      updateSeriesAdminRole({ seriesId, ...input }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
+export function useOrgLeaderboard(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "leaderboard"],
+    queryFn: () => getOrgLeaderboardData(seriesId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+export function useRebuildSeriesStandings(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => rebuildSeriesStandings(seriesId),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId, "leaderboard"] }),
   });
 }
 
@@ -165,5 +232,38 @@ export function useSeriesDetail(seriesId: string, userId?: string) {
     queryKey: ["series", seriesId, userId ?? "public"],
     queryFn: () => getSeriesDetail(seriesId, userId),
     enabled: Boolean(seriesId),
+  });
+}
+
+
+export function useSendSeriesAnnouncement(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { title: string; body: string; audience: string }) =>
+      sendSeriesAnnouncement({ seriesId, ...input }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId, "announcements"] }),
+  });
+}
+
+export function useSeriesAnnouncements(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "announcements"],
+    queryFn: () => listSeriesAnnouncements(seriesId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+export function useSeriesAuditLogs(seriesId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["series", seriesId, "audit"],
+    queryFn: () => listSeriesAuditLogs(seriesId),
+    enabled: Boolean(seriesId) && enabled,
+  });
+}
+
+export function useActiveSeriesByKind(kind?: string) {
+  return useQuery({
+    queryKey: ["series", "active", kind || "all"],
+    queryFn: () => listActiveSeriesByKind(kind),
   });
 }

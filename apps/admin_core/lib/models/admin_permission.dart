@@ -56,7 +56,7 @@ enum AdminPermission {
         AdminPermission.canViewReports => 'View reports',
         AdminPermission.canManageSettings => 'Manage settings',
         AdminPermission.canViewLogs => 'View logs',
-        AdminPermission.canManageOrganizations => 'Manage organizations',
+        AdminPermission.canManageOrganizations => 'Moderate orgs & series',
         AdminPermission.canAccessGlobalData => 'Access global data',
         AdminPermission.canManageDiscover => 'Manage discover',
         AdminPermission.canViewDashboard => 'View dashboard',

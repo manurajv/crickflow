@@ -6,6 +6,7 @@ import '../../../../core/auth/auth_gate.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Opens (or creates) a 1:1 chat with [other] and navigates to the conversation.
 Future<void> openChatWithUser({
@@ -16,6 +17,7 @@ Future<void> openChatWithUser({
   requireAuthVoid(
     context: context,
     ref: ref,
+    prompt: SignInPrompt.chat,
     action: () async {
       final me = ref.read(currentUserProfileProvider).valueOrNull;
       if (me == null) {
@@ -39,7 +41,7 @@ Future<void> openChatWithUser({
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$e')),
+            SnackBar(content: Text(friendlyError(e))),
           );
         }
       }

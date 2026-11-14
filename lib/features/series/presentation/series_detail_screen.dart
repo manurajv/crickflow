@@ -1,22 +1,49 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/series/series.dart';
+import '../../../domain/services/series/org_competition_access.dart';
+import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
+import '../../../shared/widgets/removed_content_view.dart';
+import 'tabs/org_leaderboard_tab.dart';
+import 'tabs/org_matches_tab.dart';
+import 'tabs/org_tournaments_tab.dart';
+import 'series_announcements_screen.dart';
+import 'widgets/series_status_banner.dart';
+import 'widgets/series_user_name.dart';
+import 'widgets/org_welcome_sheet.dart';
 import 'widgets/series_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Orgs profile hub — Associations / Clubs / Series share this screen.
 /// Tournament-style collapsing cover + logo + pinned tabs.
 class SeriesDetailScreen extends ConsumerStatefulWidget {
-  const SeriesDetailScreen({super.key, required this.seriesId});
+  const SeriesDetailScreen({
+    super.key,
+    required this.seriesId,
+    this.initialTab,
+  });
   final String seriesId;
+
+  /// overview · matches · tournaments · leaderboard · teams · about
+  final String? initialTab;
+
+  static const tabSlugs = [
+    'overview',
+    'matches',
+    'tournaments',
+    'leaderboard',
+    'teams',
+    'about',
+  ];
 
   @override
   ConsumerState<SeriesDetailScreen> createState() => _SeriesDetailScreenState();
@@ -31,10 +58,22 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   static const _coverHeight = 168.0;
 
+  bool _welcomeChecked = false;
+
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 5, vsync: this);
+    final initial = SeriesDetailScreen.tabSlugs.indexOf(
+      widget.initialTab ?? '',
+    );
+    _tabs =
+        TabController(
+          length: SeriesDetailScreen.tabSlugs.length,
+          vsync: this,
+          initialIndex: initial < 0 ? 0 : initial,
+        )..addListener(() {
+          if (mounted) setState(() {});
+        });
     _scrollController = ScrollController()..addListener(_syncTitleVisibility);
   }
 
@@ -65,27 +104,30 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     final seriesId = widget.seriesId;
     final series = ref.watch(seriesByIdProvider(seriesId));
     final role = ref.watch(mySeriesRoleProvider(seriesId));
-    final canAdmin =
-        role == SeriesRole.superAdmin || role == SeriesRole.seriesAdmin;
-    final canPropose = canAdmin || role == SeriesRole.clubAdmin;
+    final canAdmin = role.isFullOrgAdmin;
+    final canStaff = role.isOrgStaff;
+    final access = ref.watch(orgCompetitionAccessProvider(seriesId));
+    if (canAdmin) ref.watch(orgTeamLinkMigrationProvider(seriesId));
 
     return series.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: const CfChromeAppBar(title: Text('Organization')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
       data: (item) {
         if (item == null) {
-          return const Scaffold(
-            body: Center(child: Text('Organization not found')),
+          return Scaffold(
+            appBar: const CfChromeAppBar(title: Text('Organization')),
+            body: const RemovedContentView(kind: 'organization'),
           );
         }
 
         final membersTab = item.memberUnitsTabLabel;
         final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
         _titleThreshold = _coverHeight - topInset - 1;
+        _scheduleWelcomeIfNeeded(item, canAdmin);
 
         final appBarTheme = Theme.of(context).appBarTheme;
         final tabBar = TabBar(
@@ -98,7 +140,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           dividerColor: cf.border,
           tabs: [
             const Tab(text: 'Overview'),
-            const Tab(text: 'Fixtures'),
+            const Tab(text: 'Matches'),
+            const Tab(text: 'Tournaments'),
             const Tab(text: 'Leaderboard'),
             Tab(text: membersTab),
             const Tab(text: 'About'),
@@ -106,24 +149,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
         );
 
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: appBarTheme.systemOverlayStyle ??
+          value:
+              appBarTheme.systemOverlayStyle ??
               (cf.isLight
                   ? SystemUiOverlayStyle.dark
                   : SystemUiOverlayStyle.light),
           child: Scaffold(
             backgroundColor: cf.background,
-            floatingActionButton: FloatingActionButton.extended(
-              backgroundColor: cf.fabBackground,
-              foregroundColor: cf.fabForeground,
-              onPressed: () {
-                if (FirebaseAuth.instance.currentUser == null) {
-                  context.push('/login');
-                  return;
-                }
-                context.push('/series/$seriesId/clubs/create');
-              },
-              icon: const Icon(Icons.add),
-              label: Text(item.memberUnitsSingular),
+            floatingActionButton: _orgFab(
+              context: context,
+              seriesId: seriesId,
+              item: item,
+              access: access,
+              cf: cf,
             ),
             body: NestedScrollView(
               controller: _scrollController,
@@ -149,15 +187,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     leading: IconButton(
                       icon: const Icon(Icons.arrow_back),
                       color: overlayFg,
-                      tooltip: MaterialLocalizations.of(context)
-                          .backButtonTooltip,
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).backButtonTooltip,
                       onPressed: () {
                         if (context.canPop()) {
                           context.pop();
                         } else {
-                          context.go(
-                            OrgFamily.forKind(item.kind).routePath,
-                          );
+                          context.go(OrgFamily.forKind(item.kind).routePath);
                         }
                       },
                     ),
@@ -166,28 +203,21 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             item.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: appBarTheme.titleTextStyle?.copyWith(
+                            style:
+                                appBarTheme.titleTextStyle?.copyWith(
                                   color: chromeFg,
                                   fontWeight: FontWeight.w700,
                                 ) ??
-                                Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      color: chromeFg,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                Theme.of(
+                                  context,
+                                ).textTheme.titleMedium?.copyWith(
+                                  color: chromeFg,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           )
                         : null,
                     actions: [
-                      if (canPropose)
-                        IconButton(
-                          tooltip: 'Propose match',
-                          onPressed: () =>
-                              context.push('/series/$seriesId/propose-match'),
-                          icon: Icon(
-                            Icons.sports_cricket_outlined,
-                            color: overlayFg,
-                          ),
-                        ),
-                      if (canAdmin)
+                      if (canStaff)
                         IconButton(
                           tooltip: 'Approvals',
                           onPressed: () =>
@@ -197,15 +227,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             color: overlayFg,
                           ),
                         ),
-                      if (role == SeriesRole.superAdmin)
+                      if (canAdmin)
                         IconButton(
                           tooltip: 'Settings',
                           onPressed: () =>
                               context.push('/series/$seriesId/settings'),
-                          icon: Icon(
-                            Icons.settings_outlined,
-                            color: overlayFg,
-                          ),
+                          icon: Icon(Icons.settings_outlined, color: overlayFg),
                         ),
                     ],
                     flexibleSpace: FlexibleSpaceBar(
@@ -223,8 +250,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 controller: _tabs,
                 children: [
                   _Overview(series: item, canAdmin: canAdmin),
-                  _FixturesTab(seriesId: seriesId),
-                  _LeaderboardTab(seriesId: seriesId, series: item),
+                  OrgMatchesTab(seriesId: seriesId),
+                  OrgTournamentsTab(seriesId: seriesId),
+                  OrgLeaderboardTab(seriesId: seriesId, series: item),
                   _MemberUnits(seriesId: seriesId, series: item),
                   _About(series: item),
                 ],
@@ -233,6 +261,127 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ),
         );
       },
+    );
+  }
+
+  void _scheduleWelcomeIfNeeded(SeriesModel item, bool canAdmin) {
+    if (_welcomeChecked || !canAdmin) return;
+    _welcomeChecked = true;
+    final uid = ref.read(authStateProvider).valueOrNull?.uid ?? '';
+    if (uid.isEmpty) return;
+    final force =
+        GoRouterState.of(context).uri.queryParameters['welcome'] == '1';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      maybeShowOrgWelcome(
+        context,
+        seriesId: item.id,
+        uid: uid,
+        orgLabel: item.kind.label,
+        forceFromCreate: force,
+      );
+    });
+  }
+
+  Widget? _orgFab({
+    required BuildContext context,
+    required String seriesId,
+    required SeriesModel item,
+    required OrgCompetitionAccess access,
+    required CfColors cf,
+  }) {
+    final index = _tabs.index;
+    Widget? fab;
+    if (index == 1) {
+      // Matches
+      if (access.match == OrgStartMode.none) {
+        fab = null;
+      } else {
+        final label = OrgCompetitionAccess.actionLabel(
+          access.match,
+          tournament: false,
+        );
+        fab = FloatingActionButton.extended(
+          key: const ValueKey('org_fab_match'),
+          heroTag: 'org_fab_match',
+          backgroundColor: cf.fabBackground,
+          foregroundColor: cf.fabForeground,
+          onPressed: () => requireLogin(
+            context: context,
+            ref: ref,
+            prompt: SignInPrompt.proposeMatch,
+            returnPath: '/series/$seriesId/propose-match',
+            action: () async {
+              if (context.mounted) {
+                context.push('/series/$seriesId/propose-match');
+              }
+            },
+          ),
+          icon: const Icon(Icons.sports_cricket_outlined),
+          label: Text(label),
+        );
+      }
+    } else if (index == 2) {
+      // Tournaments
+      if (access.tournament == OrgStartMode.none) {
+        fab = null;
+      } else {
+        final label = OrgCompetitionAccess.actionLabel(
+          access.tournament,
+          tournament: true,
+        );
+        fab = FloatingActionButton.extended(
+          key: const ValueKey('org_fab_tournament'),
+          heroTag: 'org_fab_tournament',
+          backgroundColor: cf.fabBackground,
+          foregroundColor: cf.fabForeground,
+          onPressed: () => requireLogin(
+            context: context,
+            ref: ref,
+            prompt: SignInPrompt.proposeTournament,
+            returnPath: '/series/$seriesId/propose-tournament',
+            action: () async {
+              if (context.mounted) {
+                context.push('/series/$seriesId/propose-tournament');
+              }
+            },
+          ),
+          icon: const Icon(Icons.emoji_events_outlined),
+          label: Text(label),
+        );
+      }
+    } else if (index == 4) {
+      // Teams / member units
+      fab = FloatingActionButton.extended(
+        key: const ValueKey('org_fab_team'),
+        heroTag: 'org_fab_team',
+        backgroundColor: cf.fabBackground,
+        foregroundColor: cf.fabForeground,
+        onPressed: () => requireLogin(
+          context: context,
+          ref: ref,
+          prompt: SignInPrompt.createOrgTeam,
+          returnPath: '/series/$seriesId/clubs/create',
+          action: () async {
+            if (context.mounted) {
+              context.push('/series/$seriesId/clubs/create');
+            }
+          },
+        ),
+        icon: const Icon(Icons.add),
+        label: Text(item.memberUnitsSingular),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, anim) => ScaleTransition(
+        scale: anim,
+        child: FadeTransition(opacity: anim, child: child),
+      ),
+      child: fab ?? const SizedBox.shrink(key: ValueKey('org_fab_none')),
     );
   }
 }
@@ -279,10 +428,7 @@ class _OrgHeaderBanner extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (hasCover)
-          CachedNetworkImage(
-            imageUrl: series.coverImageUrl!,
-            fit: BoxFit.cover,
-          )
+          CachedNetworkImage(imageUrl: series.coverImageUrl!, fit: BoxFit.cover)
         else
           DecoratedBox(decoration: BoxDecoration(gradient: cf.heroGradient)),
         DecoratedBox(
@@ -290,10 +436,7 @@ class _OrgHeaderBanner extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.15),
-                cf.bannerScrimEnd,
-              ],
+              colors: [Colors.black.withValues(alpha: 0.15), cf.bannerScrimEnd],
             ),
           ),
         ),
@@ -366,17 +509,62 @@ class _OrgHeaderBanner extends StatelessWidget {
   }
 }
 
-class _Overview extends StatelessWidget {
+class _Overview extends ConsumerWidget {
   const _Overview({required this.series, required this.canAdmin});
   final SeriesModel series;
   final bool canAdmin;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cf = context.cf;
+    final pending = canAdmin
+        ? (ref.watch(pendingSeriesApprovalsProvider(series.id)).valueOrNull ??
+              const <SeriesApprovalModel>[])
+        : const <SeriesApprovalModel>[];
+    final announcements =
+        ref.watch(seriesAnnouncementsProvider(series.id)).valueOrNull ??
+        const <SeriesAnnouncementModel>[];
+    final audit = canAdmin
+        ? (ref.watch(seriesAuditLogsProvider(series.id)).valueOrNull ??
+              const <SeriesAuditLogModel>[])
+        : const <SeriesAuditLogModel>[];
+
     return ListView(
       padding: const EdgeInsets.all(AppDimens.spaceMd),
       children: [
+        if (series.status != SeriesStatus.active || series.platformHold) ...[
+          SeriesStatusBanner(series: series),
+          const SizedBox(height: AppDimens.spaceMd),
+        ],
+        if (canAdmin) ...[
+          ListTile(
+            tileColor: cf.accent.withValues(alpha: cf.isLight ? 0.08 : 0.14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            leading: Icon(Icons.fact_check_outlined, color: cf.accent),
+            title: const Text('Pending approvals'),
+            subtitle: Text(
+              pending.isEmpty
+                  ? 'All caught up'
+                  : '${pending.length} waiting for review',
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (pending.isNotEmpty)
+                  Badge(
+                    label: Text('${pending.length}'),
+                    backgroundColor: cf.accent,
+                    textColor: cf.onAccent,
+                  ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            onTap: () => context.push('/series/${series.id}/approvals'),
+          ),
+          const SizedBox(height: AppDimens.spaceMd),
+        ],
         Text(
           series.description.isEmpty
               ? 'Official CrickFlow ${series.kind.label.toLowerCase()}'
@@ -400,9 +588,41 @@ class _Overview extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppDimens.spaceLg),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Latest announcements',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            TextButton(
+              onPressed: () =>
+                  context.push('/series/${series.id}/announcements'),
+              child: const Text('See all'),
+            ),
+          ],
+        ),
+        if (announcements.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppDimens.spaceMd),
+            child: Text(
+              'No announcements yet',
+              style: TextStyle(color: cf.textSecondary),
+            ),
+          )
+        else ...[
+          for (final a in announcements.take(2)) ...[
+            SeriesAnnouncementCard(announcement: a),
+            const SizedBox(height: AppDimens.spaceSm),
+          ],
+          const SizedBox(height: AppDimens.spaceSm),
+        ],
         ListTile(
           tileColor: cf.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           leading: Icon(Icons.inbox_outlined, color: cf.accent),
           title: const Text('My requests'),
           subtitle: const Text('Track join and registration status'),
@@ -416,185 +636,55 @@ class _Overview extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            leading: Icon(Icons.fact_check_outlined, color: cf.accent),
-            title: const Text('Pending approvals'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/series/${series.id}/approvals'),
-          ),
-          const SizedBox(height: AppDimens.spaceSm),
-          ListTile(
-            tileColor: cf.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            leading: Icon(
+              Icons.admin_panel_settings_outlined,
+              color: cf.accent,
             ),
-            leading: Icon(Icons.admin_panel_settings_outlined, color: cf.accent),
             title: const Text('Admins'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/series/${series.id}/admins'),
           ),
-          const SizedBox(height: AppDimens.spaceSm),
-          ListTile(
-            tileColor: cf.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            leading: Icon(Icons.history, color: cf.accent),
-            title: const Text('Audit log'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/series/${series.id}/audit'),
+          const SizedBox(height: AppDimens.spaceMd),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Recent activity',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/series/${series.id}/audit'),
+                child: const Text('See all'),
+              ),
+            ],
           ),
+          if (audit.isEmpty)
+            Text('No activity yet', style: TextStyle(color: cf.textSecondary))
+          else
+            for (final log in audit.take(5))
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.receipt_long_outlined, color: cf.accent),
+                title: Text(seriesAuditActionLabel(log.action)),
+                subtitle: Row(
+                  children: [
+                    Flexible(
+                      child: SeriesUserName(
+                        log.actorUserId,
+                        fallback: 'Someone',
+                        style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      ' · ${seriesShortDate(log.timestamp)}',
+                      style: TextStyle(color: cf.textSecondary, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
         ],
-      ],
-    );
-  }
-}
-
-class _FixturesTab extends StatelessWidget {
-  const _FixturesTab({required this.seriesId});
-  final String seriesId;
-
-  @override
-  Widget build(BuildContext context) {
-    final cf = context.cf;
-    return ListView(
-      padding: const EdgeInsets.all(AppDimens.spaceMd),
-      children: [
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          leading: Icon(Icons.event_outlined, color: cf.accent),
-          title: const Text('All fixtures'),
-          subtitle: const Text('Matches and tournaments'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/$seriesId/fixtures'),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          leading: Icon(Icons.sports_cricket_outlined, color: cf.accent),
-          title: const Text('Propose match'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/$seriesId/propose-match'),
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        ListTile(
-          tileColor: cf.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          leading: Icon(Icons.emoji_events_outlined, color: cf.accent),
-          title: const Text('Propose tournament'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/series/$seriesId/propose-tournament'),
-        ),
-      ],
-    );
-  }
-}
-
-class _LeaderboardTab extends ConsumerWidget {
-  const _LeaderboardTab({required this.seriesId, required this.series});
-  final String seriesId;
-  final SeriesModel series;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cf = context.cf;
-    final tableLabel = switch (OrgFamily.forKind(series.kind)) {
-      OrgFamily.clubs => 'Squad table',
-      OrgFamily.associations => 'Member club table',
-      OrgFamily.series => 'Club table',
-    };
-    final clubs = ref.watch(seriesClubRankingsProvider(seriesId));
-    final players = ref.watch(seriesPlayerRankingsProvider(seriesId));
-    return ListView(
-      padding: const EdgeInsets.all(AppDimens.spaceMd),
-      children: [
-        Row(
-          children: [
-            Text(tableLabel, style: Theme.of(context).textTheme.titleMedium),
-            const Spacer(),
-            TextButton(
-              onPressed: () => context.push('/series/$seriesId/rankings'),
-              child: const Text('Full rankings'),
-            ),
-          ],
-        ),
-        clubs.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (e, _) => Text('$e'),
-          data: (rows) {
-            if (rows.isEmpty) {
-              return SeriesEmptyState(
-                icon: Icons.leaderboard_outlined,
-                title:
-                    'No ${series.memberUnitsStatLabel.toLowerCase()} rankings yet',
-              );
-            }
-            return Column(
-              children: rows.take(8).toList().asMap().entries.map((e) {
-                final i = e.key;
-                final row = e.value;
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        cf.accent.withValues(alpha: cf.isLight ? 0.1 : 0.15),
-                    child: Text(
-                      '${i + 1}',
-                      style: TextStyle(color: cf.accent),
-                    ),
-                  ),
-                  title: Text(row.clubName),
-                  subtitle:
-                      Text('P ${row.played} · W ${row.won} · L ${row.lost}'),
-                  trailing: Text(
-                    '${row.points} pts',
-                    style: TextStyle(
-                      color: cf.accent,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        ),
-        const SizedBox(height: AppDimens.spaceLg),
-        Text('Player leaders', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppDimens.spaceSm),
-        players.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (e, _) => Text('$e'),
-          data: (rows) {
-            if (rows.isEmpty) {
-              return Text(
-                'Player rankings appear after official matches complete.',
-                style: TextStyle(color: cf.textSecondary),
-              );
-            }
-            return Column(
-              children: rows.take(8).map((row) {
-                return ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.person_outline),
-                  ),
-                  title: Text(
-                    row.displayName.isEmpty ? 'Player' : row.displayName,
-                  ),
-                  trailing: Text(
-                    '${row.runs} runs · ${row.wickets} wkts',
-                    style: TextStyle(color: cf.textSecondary),
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        ),
       ],
     );
   }
@@ -636,7 +726,7 @@ class _About extends StatelessWidget {
         ],
         const SizedBox(height: AppDimens.spaceLg),
         Text(
-          'Max club squad: ${series.settings.maxSquadSize}',
+          'Max team squad: ${series.settings.maxSquadSize}',
           style: TextStyle(color: cf.textSecondary),
         ),
       ],
@@ -655,7 +745,7 @@ class _MemberUnits extends ConsumerWidget {
         .watch(clubsForSeriesProvider(seriesId))
         .when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => Center(child: Text(friendlyError(e))),
           data: (clubs) {
             final qController = TextEditingController();
             return _MemberUnitsSearchableList(
@@ -687,7 +777,8 @@ class _MemberUnitsSearchableList extends StatefulWidget {
       _MemberUnitsSearchableListState();
 }
 
-class _MemberUnitsSearchableListState extends State<_MemberUnitsSearchableList> {
+class _MemberUnitsSearchableListState
+    extends State<_MemberUnitsSearchableList> {
   String _q = '';
 
   @override
@@ -703,8 +794,8 @@ class _MemberUnitsSearchableListState extends State<_MemberUnitsSearchableList> 
     final filtered = _q.isEmpty
         ? widget.clubs
         : widget.clubs
-            .where((c) => c.name.toLowerCase().contains(_q.toLowerCase()))
-            .toList();
+              .where((c) => c.name.toLowerCase().contains(_q.toLowerCase()))
+              .toList();
     if (widget.clubs.isEmpty) {
       return SeriesEmptyState(
         icon: Icons.shield_outlined,
@@ -737,8 +828,9 @@ class _MemberUnitsSearchableListState extends State<_MemberUnitsSearchableList> 
               final club = filtered[i];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor:
-                      cf.accent.withValues(alpha: cf.isLight ? 0.1 : 0.15),
+                  backgroundColor: cf.accent.withValues(
+                    alpha: cf.isLight ? 0.1 : 0.15,
+                  ),
                   backgroundImage: club.logoUrl == null
                       ? null
                       : NetworkImage(club.logoUrl!),
@@ -754,9 +846,8 @@ class _MemberUnitsSearchableListState extends State<_MemberUnitsSearchableList> 
                 title: Text(club.name),
                 subtitle: Text(club.status.label),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push(
-                  '/series/${widget.seriesId}/clubs/${club.id}',
-                ),
+                onTap: () =>
+                    context.push('/series/${widget.seriesId}/clubs/${club.id}'),
               );
             },
           ),

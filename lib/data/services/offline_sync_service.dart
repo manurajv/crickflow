@@ -23,7 +23,9 @@ class OfflineSyncService {
     FirebaseAuth? auth,
     PublicScorecardSync? publicScorecardSync,
     Uuid? uuid,
-  })  : _localStore = localStore,
+    SeriesMatchRegistrar? seriesMatchRegistrar,
+  })  : _seriesMatchRegistrar = seriesMatchRegistrar,
+        _localStore = localStore,
         _connectivity = connectivity,
         _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
@@ -31,6 +33,7 @@ class OfflineSyncService {
         _uuid = uuid ?? const Uuid();
 
   final MatchLocalStore _localStore;
+  final SeriesMatchRegistrar? _seriesMatchRegistrar;
   final ConnectivityService _connectivity;
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -128,6 +131,12 @@ class OfflineSyncService {
     try {
       final preparedMatches = <String>{};
       for (final action in pending) {
+        if (action.type == SyncActionType.seriesMatchRegistration) {
+          // Never blocks scoring sync: kept for the next flush on transient
+          // errors, dropped when the server refuses for good.
+          await _flushSeriesRegistration(action);
+          continue;
+        }
         try {
           if (preparedMatches.add(action.matchId)) {
             await _ensureScorerCanSync(action.matchId, user.uid);
@@ -366,6 +375,42 @@ class OfflineSyncService {
       return error.message ?? error.code;
     }
     return error.toString();
+  }
+
+  /// Queue an org registration for [matchId]; flushed now when online, else
+  /// on reconnect. Safe to call more than once (server is idempotent).
+  Future<void> enqueueSeriesMatchRegistration({
+    required String seriesId,
+    required String matchId,
+  }) {
+    return enqueue(newAction(
+      matchId: matchId,
+      type: SyncActionType.seriesMatchRegistration,
+      payload: {'seriesId': seriesId},
+    ));
+  }
+
+  Future<void> _flushSeriesRegistration(PendingSyncAction action) async {
+    final registrar = _seriesMatchRegistrar;
+    final seriesId = action.payload['seriesId']?.toString() ?? '';
+    if (registrar == null || seriesId.isEmpty) {
+      await _localStore.removeSyncAction(action.id);
+      return;
+    }
+    try {
+      await registrar(seriesId, action.matchId);
+      await _localStore.removeSyncAction(action.id);
+    } catch (e) {
+      final outcome = seriesRegistrationFailureOutcome(e, action.attemptCount);
+      debugPrint('OfflineSyncService: org registration ${outcome.name}: $e');
+      if (outcome == SeriesRegistrationOutcome.drop) {
+        await _localStore.removeSyncAction(action.id);
+      } else {
+        await _localStore.updateSyncAction(
+          action.copyWith(attemptCount: action.attemptCount + 1),
+        );
+      }
+    }
   }
 
   Future<void> _execute(PendingSyncAction action) async {
@@ -681,9 +726,20 @@ class OfflineSyncService {
     for (final field in fieldDeletes) {
       updateData[field] = FieldValue.delete();
     }
-    await _matchDoc(matchId).update(updateData);
+    final rawOverlay = action.payload['overlayData'];
+    OverlayStateModel? overlay;
+    if (rawOverlay is Map) {
+      final overlayData = Map<String, dynamic>.from(rawOverlay);
+      final batch = _firestore.batch();
+      batch.update(_matchDoc(matchId), updateData);
+      batch.set(_overlayDoc(matchId), overlayData);
+      await batch.commit();
+      overlay = OverlayStateModel.fromMap(overlayData);
+    } else {
+      await _matchDoc(matchId).update(updateData);
+    }
     final match = MatchModel.fromMap(matchId, rawMatchData);
-    await _syncPublicScorecard(match);
+    await _syncPublicScorecard(match, overlay: overlay);
   }
 
   Future<void> _executeFirestoreBatch(PendingSyncAction action) async {
@@ -774,4 +830,41 @@ class OfflineSyncService {
     _authSub?.cancel();
     _statusController.close();
   }
+}
+
+
+/// Calls the `startSeriesMatch` callable.
+typedef SeriesMatchRegistrar = Future<void> Function(
+  String seriesId,
+  String matchId,
+);
+
+enum SeriesRegistrationOutcome { retry, drop }
+
+/// Permanent refusals (no access, quick match, wrong teams, …) are dropped;
+/// the server-side fallback at match completion applies the same checks.
+/// `not-found` is retried: the match doc may not have synced yet.
+SeriesRegistrationOutcome seriesRegistrationFailureOutcome(
+  Object error,
+  int attemptCount,
+) {
+  if (attemptCount >= 20) return SeriesRegistrationOutcome.drop;
+  final code = _errorCode(error);
+  const permanent = {
+    'permission-denied',
+    'failed-precondition',
+    'invalid-argument',
+    'already-exists',
+  };
+  return permanent.contains(code)
+      ? SeriesRegistrationOutcome.drop
+      : SeriesRegistrationOutcome.retry;
+}
+
+String _errorCode(Object error) {
+  try {
+    final code = (error as dynamic).code;
+    if (code is String) return code;
+  } catch (_) {}
+  return '';
 }

@@ -13,6 +13,7 @@ import 'widgets/create_team_form.dart';
 import 'widgets/team_list_scope.dart';
 import 'widgets/team_list_tile.dart';
 import 'widgets/teams_list_toolbar.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Teams hub: list + create.
 class TeamScreen extends ConsumerStatefulWidget {
@@ -195,7 +196,7 @@ class _TeamsBrowseTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 }

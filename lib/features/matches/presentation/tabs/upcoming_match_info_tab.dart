@@ -8,6 +8,7 @@ import '../../../../shared/providers/tournament_match_repair.dart';
 import '../../../../shared/providers/providers.dart';
 import '../widgets/info/match_tournament_info_card.dart';
 import '../widgets/upcoming/upcoming_match_sections.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Pre-match hub — preview, head-to-head, info, milestones, and actions.
 class UpcomingMatchInfoTab extends ConsumerWidget {
@@ -50,7 +51,7 @@ class UpcomingMatchInfoTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 }

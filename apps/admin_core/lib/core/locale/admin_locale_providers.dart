@@ -159,7 +159,6 @@ class AdminFormatters {
 final adminFormattersProvider = Provider<AdminFormatters>((ref) {
   final settings = ref.watch(adminRegionalSettingsProvider);
   final overrideLocale = ref.watch(adminLocaleProvider);
-  final locale = overrideLocale ??
-      WidgetsBinding.instance.platformDispatcher.locale;
+  final locale = overrideLocale ?? AdminLocaleCatalog.safeDeviceLocale();
   return AdminFormatters(locale: locale, settings: settings);
 });

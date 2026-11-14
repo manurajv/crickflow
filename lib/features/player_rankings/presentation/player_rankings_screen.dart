@@ -351,7 +351,7 @@ class _PlayerRankingsScreenState extends ConsumerState<PlayerRankingsScreen> {
           final isMe = feed.myEntry?.playerDocId == entry.playerDocId;
           return Padding(
             padding: const EdgeInsets.only(bottom: AppDimens.spaceSm),
-            child: _RankingCard(entry: entry, highlightAsYou: isMe),
+            child: PlayerRankingCard(entry: entry, highlightAsYou: isMe),
           );
         },
       ),
@@ -377,8 +377,10 @@ class _ChipRow extends StatelessWidget {
   }
 }
 
-class _RankingCard extends StatelessWidget {
-  const _RankingCard({
+/// One ranked player row; shared with the org leaderboard.
+class PlayerRankingCard extends StatelessWidget {
+  const PlayerRankingCard({
+    super.key,
     required this.entry,
     this.highlightAsYou = false,
     this.compact = false,
@@ -606,7 +608,7 @@ class _MyRankBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              _RankingCard(entry: entry, highlightAsYou: true, compact: true),
+              PlayerRankingCard(entry: entry, highlightAsYou: true, compact: true),
             ],
           ),
         ),

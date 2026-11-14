@@ -859,10 +859,14 @@ class TournamentRepository {
       throw StateError('Both teams must be in the tournament');
     }
 
-    final matchRules = (rules ?? _rulesFor(tournament)).copyWith(
+    var matchRules = (rules ?? _rulesFor(tournament)).copyWith(
       totalOvers: rules?.totalOvers ?? totalOvers,
       cricketMatchType: rules?.cricketMatchType ?? cricketMatchType,
     );
+    if (rules == null && matchRules.isIndoor) {
+      // Indoor default: free hit off unless the organiser enabled it.
+      matchRules = matchRules.copyWith(freeHitEnabled: false);
+    }
 
     final asKnockout = shouldTagTournamentMatchAsKnockout(
       tournamentFormat: tournament.format,

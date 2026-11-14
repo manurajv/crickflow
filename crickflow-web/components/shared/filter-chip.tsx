@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { cn } from "@/lib/utils";
 
 export function FilterChip({

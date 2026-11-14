@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/multi_camera_watch_section.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Low-latency viewer entry (signaling live; full WebRTC media in a follow-up).
 class WebrtcViewerScreen extends ConsumerWidget {
@@ -61,7 +62,7 @@ class WebrtcViewerScreen extends ConsumerWidget {
                   );
                 },
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('$e'),
+                error: (e, _) => Text(friendlyError(e)),
               ),
               const SizedBox(height: 12),
               MultiCameraWatchSection(
@@ -88,7 +89,7 @@ class WebrtcViewerScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

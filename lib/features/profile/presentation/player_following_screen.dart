@@ -8,6 +8,7 @@ import '../../../shared/providers/player_social_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/player_card_tile.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class PlayerFollowingScreen extends ConsumerStatefulWidget {
   const PlayerFollowingScreen({
@@ -103,14 +104,14 @@ class _PlayerFollowingScreenState extends ConsumerState<PlayerFollowingScreen> {
                   },
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('$e')),
+                  error: (e, _) => Center(child: Text(friendlyError(e))),
                 ),
               ),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

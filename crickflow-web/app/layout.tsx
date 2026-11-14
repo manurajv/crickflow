@@ -5,6 +5,7 @@ import { AppProviders } from "@/components/providers";
 import { Analytics } from "@/components/analytics";
 import { SkipToContent } from "@/components/layout/skip-to-content";
 import { SiteFooter, SiteHeader } from "@/components/layout/site-header";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { siteConfig } from "@/config/site";
 import "./globals.css";
 
@@ -66,10 +67,11 @@ export default function RootLayout({
         <SkipToContent />
         <AppProviders>
           <SiteHeader />
-          <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
+          <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 pb-24 lg:pb-8">
             {children}
           </main>
           <SiteFooter />
+          <MobileBottomNav />
           <Analytics />
         </AppProviders>
       </body>

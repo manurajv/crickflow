@@ -76,6 +76,7 @@ class TeamModel extends Equatable {
     this.createdBy,
     this.createdAt,
     this.profileViewsCount = 0,
+    this.orgLock,
   });
 
   final String id;
@@ -101,6 +102,13 @@ class TeamModel extends Equatable {
 
   /// Unique viewer-day count; maintained by Cloud Functions.
   final int profileViewsCount;
+
+  /// Set by Cloud Functions when this team backs an org team (series_clubs).
+  /// Name, roster and details are then managed only through the org.
+  /// Server-owned: never written by [toMap].
+  final TeamOrgLock? orgLock;
+
+  bool get isOrgLocked => orgLock != null;
 
   String? get profileImageUrl =>
       _nonEmpty(teamProfileImageUrl) ?? _nonEmpty(logoUrl);
@@ -136,6 +144,7 @@ class TeamModel extends Equatable {
       createdBy: map['createdBy'] as String?,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
       profileViewsCount: (map['profileViewsCount'] as num?)?.toInt() ?? 0,
+      orgLock: TeamOrgLock.fromMap(map['orgLock']),
     );
   }
 
@@ -208,9 +217,40 @@ class TeamModel extends Equatable {
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       profileViewsCount: profileViewsCount ?? this.profileViewsCount,
+      orgLock: orgLock,
     );
   }
 
   @override
-  List<Object?> get props => [id, name];
+  List<Object?> get props => [id, name, orgLock];
+}
+
+/// `teams/{id}.orgLock` — which org team owns this CrickFlow team.
+class TeamOrgLock extends Equatable {
+  const TeamOrgLock({
+    required this.seriesId,
+    required this.clubId,
+    this.seriesName = '',
+  });
+
+  final String seriesId;
+  final String clubId;
+  final String seriesName;
+
+  static TeamOrgLock? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    final seriesId = raw['seriesId']?.toString() ?? '';
+    final clubId = raw['clubId']?.toString() ?? '';
+    if (seriesId.isEmpty || clubId.isEmpty) return null;
+    return TeamOrgLock(
+      seriesId: seriesId,
+      clubId: clubId,
+      seriesName: raw['seriesName']?.toString() ?? '',
+    );
+  }
+
+  String get orgTeamPath => '/series/$seriesId/clubs/$clubId';
+
+  @override
+  List<Object?> get props => [seriesId, clubId, seriesName];
 }

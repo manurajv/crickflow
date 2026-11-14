@@ -32,6 +32,8 @@ Backend logic runs in **`functions/`** (Node.js 20, Firebase Functions v2). The 
 |--------|---------|---------|
 | `onMatchCompleted` | `matches/{id}` updated → `status: completed` | **Stats from `ball_events` replay** (fallback innings cache), badges, hero, `statsSource` |
 | `onMatchLive` | `matches/{id}` updated | Match start, 1st innings complete, 2nd innings start — fan-out + enriched messages |
+| `onOrgMatchSquad` | `matches/{id}` updated | Org setting `allowWalkIns = false`: removes walk-in / guest players added to an unfinished org match (or org tournament match) squad |
+| `onOrgMatchDigest` | `matches/{id}` written | Writes / refreshes / removes `series_match_digests/{id}` for finished org matches |
 | `onMatchBreak` | `matches/{id}` updated | Match break started / resumed — fan-out with current score |
 | `onMatchRevisionCreated` | `matches/{id}/matchRevisions/{id}` created | DLS / target revision notifications |
 | `onBallEventCreated` | `matches/{id}/ball_events/{eventId}` created | Wicket, four, six, milestones — enriched fan-out |
@@ -141,3 +143,25 @@ Or rules only / batched functions via the main script:
 Global function defaults (`functions/src/index.js`): `256MiB`, `cpu: 0.25` — keeps ~35 Cloud Run services within regional quota. Request a quota increase in [GCP Quotas](https://console.cloud.google.com/iam-admin/quotas?project=crickflow-b06bc) for **Cloud Run CPU** in `us-central1` if needed.
 
 Requires Blaze plan for outbound FCM/network from functions.
+
+## Org tournaments and matches (Oct 2026)
+
+| Callable | Who | What |
+|---|---|---|
+| `startSeriesTournament` | Owner/admins directly; team admins (players if `competitionPolicy.membersCanRequest`) as a request | Links a tournament the caller organizes to the org (`mode: create` after the wizard, `mode: link` = admins adding an existing one), adds chosen org teams, writes a `series_competitions` row, audit + approval + notifications. |
+| `startSeriesMatch` | Match creator/scorer; requester must own one side | Registers a match between two approved org teams. Inside an org tournament it inherits the tournament's status. |
+| `updateSeriesCompetitionPolicy` | Owner | `series.competitionPolicy`: per kind `matchProposeAccess` / `tournamentProposeAccess` (`admins`/`teamAdmins`/`everyone`), per kind and role `{match,tournament}{TeamAdmins,Players}NeedApproval` (default true), `allowWalkIns` (default true) plus legacy mirrors (`proposeAccess`, `membersCanRequest`, `*RequestsNeedApproval`). Merges onto the stored policy. See [ORGS_COMPETITION_RULES.md](ORGS_COMPETITION_RULES.md). |
+| `rebuildSeriesStandings` | Org admins | Rebuilds `series_match_digests` for every finished org match (fielding, dot balls, maidens, fastest 50/100 for the web leaderboard). Safe to re-run. |
+| `proposeSeriesTournament` (legacy) | as `startSeriesTournament` link | Older app builds; now requires the caller to organize the tournament. |
+
+`reviewSeriesApproval` stores a rejection reason (older apps that send none get "No reason given"); a rejection unlinks the tournament/match from the org. Approval counts already-finished matches. Org rankings only count a match when an approved `series_competitions` row covers it (directly or via its tournament).
+
+`proposeSeriesMatch` follows the same access rules as `startSeriesMatch`: players can propose only when `membersCanRequest` is on, and only for a match involving their own org team.
+
+## Org teams are CrickFlow teams (Oct 2026)
+
+- Every `series_clubs` row has `linkedTeamId` → a real `teams/{id}`. The app creates the team with the normal create-team flow and passes `linkedTeamId` to `createSeriesClub` (caller must own the team). Web / older apps don't, so `createSeriesClub` creates the team server-side (owner = caller).
+- That team carries `orgLock: { seriesId, clubId, seriesName, lockedAt }`. Firestore rules then refuse client edits to its name, roster and details, deletion, team join requests/invitations, and moving players onto/off it. Stats/badges still update. Platform admins (`canManageTeams`) keep their moderation fields.
+- The roster mirrors approved org membership changes (`activateMembership`, player removals) — done by Cloud Functions only. Match-only guests never touch it.
+- A rejected org team is unlocked and stays a normal team.
+- `migrateSeriesTeamLinks({ seriesId })` (org admins; the app runs it once per session when an admin opens the org) backfills existing org teams without deleting anything: locks a linked team owned by the org team's creator and adds active org members to it, or creates a team for org teams with none. Teams owned by someone else / already locked elsewhere are skipped and reported.

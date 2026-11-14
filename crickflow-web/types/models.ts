@@ -123,6 +123,7 @@ export interface Innings {
   batsmen: BatsmanInnings[];
   bowlers: BowlerInnings[];
   fielders: InningsFielder[];
+  isSuperOver?: boolean;
   partnershipRuns: number;
   partnershipBalls: number;
   isFreeHitActive: boolean;
@@ -149,6 +150,8 @@ export interface MatchRules {
   totalOvers: number;
   ballsPerOver: number;
   freeHitEnabled: boolean;
+  /** Wickets that end an innings (app default 10). */
+  maxWickets?: number;
 }
 
 export interface Match {
@@ -162,6 +165,12 @@ export interface Match {
   teamBName: string;
   tournamentId?: string;
   roundName?: string;
+  /** Org (series) fields — present on matches played inside an org. */
+  seriesId?: string;
+  seriesOfficialStatus?: string;
+  seriesClubAId?: string;
+  seriesClubBId?: string;
+  matchMode?: string;
   rules: MatchRules;
   innings: Innings[];
   currentInningsIndex: number;
@@ -170,7 +179,12 @@ export interface Match {
   scheduledAt?: Date | null;
   startedAt?: Date | null;
   completedAt?: Date | null;
+  createdAt?: Date | null;
   createdBy?: string;
+  scorerIds?: string[];
+  scorer1UserId?: string;
+  scorer2UserId?: string;
+  currentScorerId?: string;
   winnerTeamId?: string;
   resultSummary: string;
   matchHero?: { playerId?: string; playerName: string; reason: string };
@@ -249,6 +263,7 @@ export interface Player {
   id: string;
   name: string;
   teamId?: string;
+  teamIds?: string[];
   jerseyNumber?: number;
   battingStyle?: string;
   bowlingStyle?: string;
@@ -276,6 +291,9 @@ export interface UserProfile {
   battingStyle?: string;
   bowlingStyle?: string;
   jerseyNumber?: number;
+  /** ISO date string (YYYY-MM-DD or full ISO), mirrors app `dob`. */
+  dateOfBirth?: string;
+  gender?: "male" | "female" | "other" | string;
   onboardingCompleted: boolean;
 }
 
@@ -316,9 +334,12 @@ export interface Tournament {
   thumbnailUrl?: string;
   grounds: string[];
   organizerName?: string;
+  organizerId?: string;
   createdBy?: string;
   startDate?: Date | null;
   endDate?: Date | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
 }
 
 export interface MatchHighlight {
@@ -422,6 +443,8 @@ export interface AppNotification {
   tab?: string;
   type?: string;
   category?: string;
+  /** Server-stamped; older docs fall back to type mapping. */
+  priority?: boolean | null;
   read: boolean;
   createdAt?: Date | null;
 }

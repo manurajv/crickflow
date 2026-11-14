@@ -16,7 +16,7 @@ features/<name>/
 ```
 
 Permissions: `AdminPermission` + route map + `PermissionGate`.  
-Nav: `apps/admin` / `apps/superadmin` `nav_config.dart`.
+Nav: `apps/superadmin` `nav_config.dart`.
 
 ---
 

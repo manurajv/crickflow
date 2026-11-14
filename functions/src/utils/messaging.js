@@ -53,6 +53,7 @@ async function createUserNotification(db, userId, payload) {
     tournamentId: payload.tournamentId || null,
     requestId: payload.requestId || null,
     type: payload.type || null,
+    priority: isPriorityType(payload.type),
     category: payload.category || null,
     tab: payload.tab || null,
     actionStatus: payload.actionStatus || null,
@@ -63,5 +64,7 @@ async function createUserNotification(db, userId, payload) {
     createdAt: new Date().toISOString(),
   });
 }
+
+const { isPriorityType } = require('../notifications/notificationPriority');
 
 module.exports = { notifyMatchTopic, createUserNotification, MATCH_CHANNEL_ID };
