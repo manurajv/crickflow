@@ -9,6 +9,7 @@ import '../../../data/models/fantasy_entry_model.dart';
 import '../../../data/models/fantasy_league_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class FantasyLeagueScreen extends ConsumerStatefulWidget {
   const FantasyLeagueScreen({super.key, required this.leagueId});
@@ -52,14 +53,22 @@ class _FantasyLeagueScreenState extends ConsumerState<FantasyLeagueScreen> {
           body: RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(fantasyLeaderboardProvider(widget.leagueId));
-              final events =
-                  await ref.read(matchRepositoryProvider).getBallEvents(
-                        league.matchId,
-                      );
-              await ref.read(fantasyRepositoryProvider).refreshLeaguePoints(
-                    league: league,
-                    ballEvents: events,
+              try {
+                final events =
+                    await ref.read(matchRepositoryProvider).getBallEvents(
+                          league.matchId,
+                        );
+                await ref.read(fantasyRepositoryProvider).refreshLeaguePoints(
+                      league: league,
+                      ballEvents: events,
+                    );
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(friendlyError(e))),
                   );
+                }
+              }
             },
             child: ListView(
               padding: const EdgeInsets.all(AppDimens.spaceMd),
@@ -127,7 +136,7 @@ class _FantasyLeagueScreenState extends ConsumerState<FantasyLeagueScreen> {
                   },
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Text('Error: $e'),
+                  error: (e, _) => Text(friendlyError(e)),
                 ),
               ],
             ),
@@ -137,7 +146,7 @@ class _FantasyLeagueScreenState extends ConsumerState<FantasyLeagueScreen> {
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
     );
   }
 
@@ -152,6 +161,8 @@ class _FantasyLeagueScreenState extends ConsumerState<FantasyLeagueScreen> {
             league: league,
             ballEvents: events,
           );
+    } catch (e) {
+      debugPrint('fantasy points refresh skipped: $e');
     } finally {
       if (mounted) setState(() => _refreshingPoints = false);
     }
@@ -301,7 +312,7 @@ class _FantasyLeagueScreenState extends ConsumerState<FantasyLeagueScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }

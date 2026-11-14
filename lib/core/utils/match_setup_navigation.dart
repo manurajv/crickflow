@@ -15,6 +15,7 @@ import '../../shared/providers/providers.dart';
 import '../../shared/providers/offline_sync_provider.dart';
 import '../../shared/providers/start_match_draft_provider.dart';
 import '../../shared/providers/tournament_providers.dart';
+import 'friendly_error.dart';
 
 /// Step indices for the create-match wizard.
 abstract final class StartMatchFlowStep {
@@ -434,7 +435,7 @@ Future<void> openMatchSetupFlow(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not load match setup: $e')),
+        SnackBar(content: Text('Could not load match setup: ${friendlyError(e)}')),
       );
     }
     return;

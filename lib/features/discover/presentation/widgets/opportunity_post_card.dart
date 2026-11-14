@@ -20,6 +20,7 @@ import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../../domain/opportunity_category.dart';
 import '../create_opportunity_flow.dart';
 import 'opportunity_author_sheet.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Compact marketplace card for an opportunity listing.
 class OpportunityPostCard extends ConsumerWidget {
@@ -724,7 +725,7 @@ class _Footer extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$e')),
+              SnackBar(content: Text(friendlyError(e))),
             );
           }
         }
@@ -1044,7 +1045,7 @@ class _OverflowMenu extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not report: $e')),
+              SnackBar(content: Text('Could not report: ${friendlyError(e)}')),
             );
           }
         }

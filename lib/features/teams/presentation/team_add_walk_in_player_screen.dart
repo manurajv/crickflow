@@ -10,6 +10,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
 import '../../../shared/widgets/cf_button.dart';
 import 'widgets/walk_in_player_form_fields.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Add a walk-in player to the team roster (no CrickFlow account).
 class TeamAddWalkInPlayerScreen extends ConsumerStatefulWidget {
@@ -89,7 +90,7 @@ class _TeamAddWalkInPlayerScreenState
         SnackBar(content: Text('$name added to squad')),
       );
     } catch (e) {
-      if (mounted) _showError('Could not create player: $e');
+      if (mounted) _showError('Could not create player: ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _creating = false);
     }

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -331,16 +332,31 @@ class NotificationRepository {
     }
   }
 
+  /// Removes the signed-in user's own notifications about [teamId]
+  /// (inbox rows and ones they sent). Other users' inboxes are private, so
+  /// they are not touched. Best-effort: never throws.
   Future<void> deleteNotificationsForTeam(String teamId) async {
-    while (true) {
-      final snap =
-          await _col.where('teamId', isEqualTo: teamId).limit(100).get();
-      if (snap.docs.isEmpty) break;
-      final batch = _firestore.batch();
-      for (final doc in snap.docs) {
-        batch.delete(doc.reference);
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || teamId.isEmpty) return;
+    for (final field in const ['userId', 'addedByUserId']) {
+      try {
+        for (var page = 0; page < 20; page++) {
+          final snap = await _col
+              .where('teamId', isEqualTo: teamId)
+              .where(field, isEqualTo: uid)
+              .limit(100)
+              .get();
+          if (snap.docs.isEmpty) break;
+          final batch = _firestore.batch();
+          for (final doc in snap.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
+          if (snap.docs.length < 100) break;
+        }
+      } catch (e) {
+        debugPrint('deleteNotificationsForTeam($field) skipped: $e');
       }
-      await batch.commit();
     }
   }
 

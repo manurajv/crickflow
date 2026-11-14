@@ -5,6 +5,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../domain/services/series/org_competition_access.dart';
 import '../../../../shared/providers/series_providers.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Org settings › Permissions: who may propose a match / a tournament
 /// (independently), whether each role's request waits for an org admin, and
@@ -45,7 +46,7 @@ class _OrgPermissionsSectionState extends ConsumerState<OrgPermissionsSection> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save permissions: $e')),
+          SnackBar(content: Text('Could not save permissions: ${friendlyError(e)}')),
         );
       }
     } finally {

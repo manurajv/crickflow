@@ -12,6 +12,7 @@ import '../../../shared/providers/start_match_draft_provider.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 import 'widgets/series_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Start (admins) or request (team admins / allowed members) a match between
 /// two org teams, then continue into the normal match setup (orgs do not
@@ -82,7 +83,7 @@ class _SeriesProposeMatchScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not continue: $e')));
+            .showSnackBar(SnackBar(content: Text('Could not continue: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -119,7 +120,7 @@ class _SeriesProposeMatchScreenState
             )
           : teamsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
               data: (all) {
                 final teams = playableOrgTeams(all);
                 final unlinked = all

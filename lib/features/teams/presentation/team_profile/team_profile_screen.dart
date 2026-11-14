@@ -16,6 +16,7 @@ import 'tabs/team_stats_tab.dart';
 import 'tabs/team_trophies_tab.dart';
 import 'widgets/team_profile_empty_state.dart';
 import 'widgets/team_profile_header.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// CricHeroes-style team profile hub:
 /// Matches · Leaderboard · Stats · Members · Trophies · Profile.
@@ -141,7 +142,7 @@ class _TeamProfileScreenState extends ConsumerState<TeamProfileScreen>
           error: (e, _) => TeamProfileEmptyState(
             icon: Icons.error_outline,
             title: 'Unable to load team',
-            subtitle: '$e',
+            subtitle: friendlyError(e),
           ),
           data: (snap) {
             final title = snap.team.name;

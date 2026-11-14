@@ -11,6 +11,7 @@ import '../../../../../shared/providers/team_profile_provider.dart';
 import '../../../../../shared/widgets/venue_location_sheet.dart';
 import '../../utils/team_location_parts.dart';
 import '../widgets/team_profile_empty_state.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 class TeamInfoTab extends ConsumerStatefulWidget {
   const TeamInfoTab({super.key, required this.teamId});
@@ -33,7 +34,7 @@ class _TeamInfoTabState extends ConsumerState<TeamInfoTab> {
       error: (e, _) => TeamProfileEmptyState(
         icon: Icons.error_outline,
         title: 'Unable to load profile',
-        subtitle: '$e',
+        subtitle: friendlyError(e),
       ),
       data: (snap) {
         final team = snap.team;

@@ -12,6 +12,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/series/series.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
+import '../../../core/utils/friendly_error.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../player_onboarding/presentation/widgets/country_picker_sheet.dart';
 import '../../teams/presentation/utils/team_image_upload.dart';
@@ -256,7 +257,7 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
     } on FirebaseFunctionsException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create $typeLabel: ${e.message}')),
+          SnackBar(content: Text('Could not create $typeLabel: ${friendlyError(e)}')),
         );
       }
     } catch (error) {

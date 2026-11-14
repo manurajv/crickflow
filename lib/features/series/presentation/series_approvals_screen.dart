@@ -8,6 +8,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Pending org approvals — admin-only review queue.
 class SeriesApprovalsScreen extends ConsumerStatefulWidget {
@@ -185,7 +186,7 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
             error: (e, _) => SeriesEmptyState(
               icon: Icons.error_outline,
               title: 'Could not load approvals',
-              message: '$e',
+              message: friendlyError(e),
             ),
             data: (items) {
               final types = {for (final i in items) i.targetType}.toList()

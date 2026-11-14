@@ -11,6 +11,7 @@ import '../../../shared/providers/start_match_draft_provider.dart';
 import '../../../core/utils/match_setup_navigation.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Assign umpires, scorers, commentators, referee, and streamers.
 class MatchOfficialsScreen extends ConsumerStatefulWidget {
@@ -76,7 +77,7 @@ class _MatchOfficialsScreenState extends ConsumerState<MatchOfficialsScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save officials: $e')),
+            SnackBar(content: Text('Could not save officials: ${friendlyError(e)}')),
           );
         }
         return;

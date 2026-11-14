@@ -10,6 +10,7 @@ import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
 import 'widgets/team_add_method_tile.dart';
 import 'widgets/team_invite_share_card.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Ways to invite players and add them to a team roster.
 class TeamAddPlayersScreen extends ConsumerWidget {
@@ -38,7 +39,7 @@ class TeamAddPlayersScreen extends ConsumerWidget {
           return _AddPlayersBody(team: team, teamId: teamId);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }
@@ -84,7 +85,7 @@ class _AddPlayersBody extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }

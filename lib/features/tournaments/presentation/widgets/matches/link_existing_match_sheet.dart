@@ -10,6 +10,7 @@ import '../../../../../data/services/tournament_functions_service.dart';
 import '../../../../../domain/services/tournament/tournament_match_link_policy.dart';
 import '../../../../../shared/providers/providers.dart';
 import '../../../../../shared/providers/tournament_providers.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 /// Tournament admins: add an existing normal/quick match between tournament
 /// teams. Linking is validated by the `linkMatchToTournament` callable, which
@@ -148,7 +149,7 @@ class _LinkExistingMatchSheetState
                   padding: EdgeInsets.all(AppDimens.spaceLg),
                   child: Center(child: CircularProgressIndicator()),
                 ),
-                error: (e, _) => Text('Could not load matches: $e'),
+                error: (e, _) => Text('Could not load matches: ${friendlyError(e)}'),
                 data: (list) {
                   if (list.isEmpty) {
                     return Padding(

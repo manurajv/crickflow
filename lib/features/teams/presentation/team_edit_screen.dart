@@ -18,6 +18,7 @@ import 'utils/team_image_upload.dart';
 import 'utils/team_location_parts.dart';
 import 'utils/team_squad_utils.dart';
 import 'widgets/team_detail_banner.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TeamEditScreen extends ConsumerStatefulWidget {
   const TeamEditScreen({super.key, required this.teamId});
@@ -202,7 +203,7 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+        ).showSnackBar(SnackBar(content: Text('Save failed: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -423,7 +424,7 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
       },
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
     );
   }
 }

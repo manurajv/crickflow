@@ -12,6 +12,7 @@ import '../../../shared/providers/player_social_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/player_card_tile.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class FindCricketersScreen extends ConsumerStatefulWidget {
   const FindCricketersScreen({super.key});
@@ -84,7 +85,7 @@ class _FindCricketersScreenState extends ConsumerState<FindCricketersScreen> {
       if (mounted) {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Search failed: $e')),
+          SnackBar(content: Text('Search failed: ${friendlyError(e)}')),
         );
       }
     }

@@ -25,6 +25,7 @@ import 'tabs/tournament_summary_tab.dart';
 import 'tournament_dashboard_sections.dart';
 import 'tournament_overview_screen.dart';
 import 'widgets/tournament_share_sheet.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TournamentDashboardScreen extends ConsumerStatefulWidget {
   const TournamentDashboardScreen({
@@ -340,7 +341,7 @@ class _TournamentDashboardScreenState
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Tournament')),
-        body: Center(child: Text('$e', style: TextStyle(color: cf.error))),
+        body: Center(child: Text(friendlyError(e), style: TextStyle(color: cf.error))),
       ),
     );
   }

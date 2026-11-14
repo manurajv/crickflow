@@ -20,6 +20,7 @@ import 'create_community_post_sheet.dart';
 import 'widgets/community_feed_skeleton.dart';
 import 'widgets/community_location_filter_sheet.dart';
 import 'widgets/community_post_card.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Social cricket community feed — extends the existing `community_posts` model.
 class CommunityScreen extends ConsumerStatefulWidget {
@@ -178,7 +179,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not block: $e')),
+              SnackBar(content: Text('Could not block: ${friendlyError(e)}')),
             );
           }
         }
@@ -245,7 +246,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not delete: $e')),
+          SnackBar(content: Text('Could not delete: ${friendlyError(e)}')),
         );
       }
     }
@@ -288,7 +289,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not hide: $e')),
+          SnackBar(content: Text('Could not hide: ${friendlyError(e)}')),
         );
       }
     }
@@ -338,7 +339,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not report: $e')),
+              SnackBar(content: Text('Could not report: ${friendlyError(e)}')),
             );
           }
         }

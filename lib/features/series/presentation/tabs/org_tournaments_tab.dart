@@ -10,6 +10,7 @@ import '../../../../shared/providers/series_providers.dart';
 import '../../../../shared/widgets/tournament_list_card.dart';
 import '../widgets/series_ui.dart';
 import 'org_list_ui.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Org Tournaments tab: the org's tournaments as the same cards My Cricket
 /// uses, grouped Live / Upcoming / Completed with a status filter.
@@ -33,7 +34,7 @@ class _OrgTournamentsTabState extends ConsumerState<OrgTournamentsTab> {
 
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
       data: (all) {
         final visible = visibleOrgTournaments(
           all,

@@ -8,6 +8,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/shell_tab_scaffold.dart';
 import 'widgets/player_profile_body.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -71,7 +72,7 @@ class ProfileScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

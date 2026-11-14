@@ -16,6 +16,7 @@ import '../domain/opportunity_category.dart';
 import '../domain/opportunity_field_schema.dart';
 import 'widgets/opportunity_dynamic_form.dart';
 import 'widgets/opportunity_post_card.dart';
+import '../../../core/utils/friendly_error.dart';
 
 Future<void> showCreateOpportunityFlow(
   BuildContext context, {
@@ -305,8 +306,8 @@ class _CreateOpportunityFlowState extends ConsumerState<CreateOpportunityFlow> {
               SnackBar(
                 content: Text(
                   _isEditing
-                      ? 'Could not update: $e'
-                      : 'Could not publish: $e',
+                      ? 'Could not update: ${friendlyError(e)}'
+                      : 'Could not publish: ${friendlyError(e)}',
                 ),
               ),
             );

@@ -16,6 +16,7 @@ import 'widgets/add_match_squad_player_sheet.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../core/utils/friendly_error.dart';
 
 enum _SquadSlot { playing, substitute, none }
 
@@ -197,7 +198,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save squad: $e')),
+          SnackBar(content: Text('Could not save squad: ${friendlyError(e)}')),
         );
       }
       return;
@@ -256,7 +257,7 @@ class _SelectMatchSquadScreenState extends ConsumerState<SelectMatchSquadScreen>
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('${snapshot.error}'));
+            return Center(child: Text(friendlyError(snapshot.error)));
           }
 
           final players = snapshot.data ?? [];

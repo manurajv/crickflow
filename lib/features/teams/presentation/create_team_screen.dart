@@ -13,6 +13,7 @@ import '../../../shared/providers/tournament_team_request_provider.dart';
 import '../../../config/routes/app_router.dart';
 import '../../tournaments/presentation/widgets/teams/tournament_team_confirm_sheet.dart';
 import 'widgets/create_team_form.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Standalone screen that hosts the create-team form.
 /// Optional [tournamentId] auto-adds the new team to that tournament for organizers.
@@ -155,7 +156,7 @@ class CreateTeamScreen extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       context.go('/teams/$teamId');
     }
   }

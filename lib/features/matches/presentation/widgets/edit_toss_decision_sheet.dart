@@ -8,6 +8,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import 'cf_selection_card.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Bottom sheet to flip toss winner's bat/bowl choice (swaps batting & bowling).
 class EditTossDecisionSheet extends ConsumerStatefulWidget {
@@ -94,7 +95,7 @@ class _EditTossDecisionSheetState extends ConsumerState<EditTossDecisionSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {

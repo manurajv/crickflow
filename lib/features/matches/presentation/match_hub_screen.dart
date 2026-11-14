@@ -36,6 +36,7 @@ import 'tabs/match_mvp_tab.dart';
 import 'tabs/match_scorecard_tab.dart';
 import 'tabs/match_squads_tab.dart';
 import 'tabs/match_summary_tab.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Multi-tab match experience — Live tab while in progress, Summary after completion.
 class MatchHubScreen extends ConsumerWidget {
@@ -81,7 +82,7 @@ class MatchHubScreen extends ConsumerWidget {
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
     );
   }
 }

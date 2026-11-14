@@ -17,6 +17,7 @@ import '../../../player_rankings/presentation/player_rankings_screen.dart'
 import '../../../tournaments/presentation/widgets/points/tournament_points_table_view.dart';
 import '../widgets/series_ui.dart';
 import 'org_list_ui.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 enum OrgLeaderboardView { table, players }
 
@@ -120,7 +121,7 @@ class _OrgLeaderboardTabState extends ConsumerState<OrgLeaderboardTab> {
       ),
       error: (e, _) => Padding(
         padding: const EdgeInsets.all(AppDimens.spaceMd),
-        child: Text('$e'),
+        child: Text(friendlyError(e)),
       ),
       data: (clubs) {
         Set<String>? seed;
@@ -352,7 +353,7 @@ class _OrgLeaderboardTabState extends ConsumerState<OrgLeaderboardTab> {
           ),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(AppDimens.spaceMd),
-            child: Text('Could not load rankings: $e'),
+            child: Text('Could not load rankings: ${friendlyError(e)}'),
           ),
           data: (entries) {
             if (entries.isEmpty) {

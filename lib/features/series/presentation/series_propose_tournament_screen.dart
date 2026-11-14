@@ -10,6 +10,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 import 'widgets/series_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Teams picked for an org tournament before the creation wizard runs.
 /// Read (and cleared) by the wizard once the tournament exists.
@@ -98,7 +99,7 @@ class _SeriesProposeTournamentScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not add: $e')));
+            .showSnackBar(SnackBar(content: Text('Could not add: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -124,7 +125,7 @@ class _SeriesProposeTournamentScreenState
             )
           : teamsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
               data: (all) {
                 final teams = playableOrgTeams(all);
                 return ListView(

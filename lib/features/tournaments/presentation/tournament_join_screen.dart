@@ -19,6 +19,7 @@ import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../teams/presentation/widgets/team_list_tile.dart';
 import 'utils/tournament_join_utils.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TournamentJoinScreen extends ConsumerStatefulWidget {
   const TournamentJoinScreen({
@@ -76,7 +77,7 @@ class _TournamentJoinScreenState extends ConsumerState<TournamentJoinScreen> {
         ),
         body: tournamentAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => Center(child: Text(friendlyError(e))),
           data: (tournament) {
             if (tournament == null) {
               return const Center(child: Text('Tournament not found'));
@@ -102,7 +103,7 @@ class _TournamentJoinScreenState extends ConsumerState<TournamentJoinScreen> {
 
             return teamsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
               data: (allTeams) {
                 final player = playerAsync.valueOrNull;
                 final leadershipTeams = TeamLeadershipUtils.leadershipTeams(
@@ -267,7 +268,7 @@ class _TournamentJoinScreenState extends ConsumerState<TournamentJoinScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);

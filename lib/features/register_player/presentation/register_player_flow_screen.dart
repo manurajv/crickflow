@@ -15,6 +15,7 @@ import '../../../data/models/register_player_models.dart';
 import '../../../data/repositories/register_player_repository.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
+import '../../../core/utils/friendly_error.dart';
 
 final registerPlayerRepositoryProvider =
     Provider<RegisterPlayerRepository>((ref) => RegisterPlayerRepository());
@@ -124,13 +125,13 @@ class _RegisterPlayerFlowScreenState
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e.message ?? 'Could not create the invite';
+        _error = friendlyError(e);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e.toString();
+        _error = friendlyError(e);
       });
     }
   }

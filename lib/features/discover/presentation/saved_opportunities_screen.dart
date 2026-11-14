@@ -6,6 +6,7 @@ import '../../../core/theme/cf_colors.dart';
 import '../../../shared/providers/opportunity_provider.dart';
 import 'widgets/opportunity_author_sheet.dart';
 import 'widgets/opportunity_post_card.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Profile-hub list of bookmarked opportunity posts.
 class SavedOpportunitiesScreen extends ConsumerWidget {
@@ -32,7 +33,7 @@ class SavedOpportunitiesScreen extends ConsumerWidget {
                 Text('Could not load saved posts', style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
                 Text(
-                  '$e',
+                  friendlyError(e),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(color: cf.textMuted),
                 ),

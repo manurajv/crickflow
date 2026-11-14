@@ -15,6 +15,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Bottom sheet: permanently add a team player or create a match-only guest.
 Future<MatchPlayerSnapshot?> showAddMatchSquadPlayerSheet(
@@ -191,7 +192,7 @@ class _AddMatchSquadPlayerSheetState
       );
     } catch (e) {
       if (mounted) {
-        _showError('Could not send invitation: $e');
+        _showError('Could not send invitation: ${friendlyError(e)}');
       }
     } finally {
       if (mounted) setState(() => _addingPlayerId = null);

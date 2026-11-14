@@ -9,6 +9,7 @@ import '../../../data/models/user_model.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_registration_fields.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Search result → fill org-required details / docs → add to club squad.
 class SeriesAddPlayerScreen extends ConsumerStatefulWidget {
@@ -145,7 +146,7 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
       await _uploads.rollback();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add player: $e')),
+          SnackBar(content: Text('Could not add player: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -169,7 +170,7 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: const CfChromeAppBar(title: Text('Add player')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
       data: (series) {
         if (series == null) {

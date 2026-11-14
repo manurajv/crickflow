@@ -6,6 +6,7 @@ import '../../../../shared/providers/match_summary_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../widgets/match_scorecard_view.dart';
 import '../widgets/summary/match_summary_sections.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class MatchScorecardTab extends ConsumerWidget {
   const MatchScorecardTab({super.key, required this.matchId});
@@ -35,7 +36,7 @@ class MatchScorecardTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 }

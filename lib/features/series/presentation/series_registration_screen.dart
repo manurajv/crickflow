@@ -10,6 +10,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_registration_fields.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Collects Series registration fields from [SeriesSettingsModel], then optionally
 /// submits a club join request.
@@ -157,7 +158,7 @@ class _SeriesRegistrationScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not submit: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -172,7 +173,7 @@ class _SeriesRegistrationScreenState
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: const CfChromeAppBar(title: Text('Registration')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
       data: (series) {
         if (series == null) {

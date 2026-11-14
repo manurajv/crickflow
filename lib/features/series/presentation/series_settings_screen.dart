@@ -12,6 +12,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/org_permissions_section.dart';
 import 'widgets/series_owner_section.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SeriesSettingsScreen extends ConsumerStatefulWidget {
   const SeriesSettingsScreen({super.key, required this.seriesId});
@@ -202,7 +203,7 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not save: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not save: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -239,7 +240,7 @@ class _SeriesSettingsScreenState extends ConsumerState<SeriesSettingsScreen> {
     return seriesAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
       data: (series) {
         if (series == null) {
           return const Scaffold(body: Center(child: Text('Series not found')));

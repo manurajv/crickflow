@@ -8,6 +8,7 @@ import '../../../../domain/services/series/series_owner_actions.dart';
 import '../../../../shared/providers/series_providers.dart';
 import 'series_status_banner.dart';
 import 'series_user_name.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Owner-only: transfer ownership and archive / reactivate the org.
 class SeriesOwnerSection extends ConsumerStatefulWidget {
@@ -57,7 +58,7 @@ class _SeriesOwnerSectionState extends ConsumerState<SeriesOwnerSection> {
             : 'Organization reactivated',
       );
     } catch (e) {
-      _snack('Could not update: $e');
+      _snack('Could not update: ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -122,7 +123,7 @@ class _SeriesOwnerSectionState extends ConsumerState<SeriesOwnerSection> {
           );
       _snack('Ownership transferred');
     } catch (e) {
-      _snack('Could not transfer: $e');
+      _snack('Could not transfer: ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

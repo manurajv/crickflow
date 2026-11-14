@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/scorer_qr_utils.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Prompt shown when a user scans a scorer takeover QR / deep link.
 class ScorerTakeoverDialog {
@@ -49,7 +50,7 @@ class ScorerTakeoverDialog {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Takeover failed: $e')),
+          SnackBar(content: Text('Takeover failed: ${friendlyError(e)}')),
         );
       }
     }

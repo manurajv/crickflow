@@ -16,6 +16,7 @@ import '../../../shared/providers/providers.dart';
 import '../../player_onboarding/presentation/widgets/onboarding_location_section.dart';
 import '../community_post_ui.dart';
 import 'utils/community_image_crop.dart';
+import '../../../core/utils/friendly_error.dart';
 
 Future<void> showCreateCommunityPostSheet(
   BuildContext context, {
@@ -199,7 +200,7 @@ class _CreateCommunityPostSheetState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isEditing ? 'Could not update: $e' : 'Could not post: $e',
+              _isEditing ? 'Could not update: ${friendlyError(e)}' : 'Could not post: ${friendlyError(e)}',
             ),
           ),
         );

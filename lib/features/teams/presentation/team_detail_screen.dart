@@ -19,6 +19,7 @@ import 'widgets/org_locked_team_notice.dart';
 import 'widgets/team_notification_pref_tile.dart';
 import 'widgets/team_squad_empty_state.dart';
 import 'widgets/team_squad_player_card.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TeamDetailScreen extends ConsumerWidget {
   const TeamDetailScreen({super.key, required this.teamId});
@@ -184,11 +185,11 @@ class TeamDetailScreen extends ConsumerWidget {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
+            error: (e, _) => Center(child: Text(friendlyError(e))),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
       bottomNavigationBar: teamAsync.maybeWhen(
         data: (team) {

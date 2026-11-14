@@ -11,6 +11,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SeriesAdminsScreen extends ConsumerStatefulWidget {
   const SeriesAdminsScreen({super.key, required this.seriesId});
@@ -164,7 +165,7 @@ class _SeriesAdminsScreenState extends ConsumerState<SeriesAdminsScreen> {
           : admins.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
               data: (items) {
                 final active =
                     items.where((a) => a.status == 'active').toList();

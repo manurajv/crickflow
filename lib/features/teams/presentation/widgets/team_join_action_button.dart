@@ -9,6 +9,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/team_join_request_provider.dart';
 import '../utils/team_squad_utils.dart';
 import '../../../../shared/widgets/cf_button.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Sends a join request to the team owner (or shows pending state).
 Future<bool> sendTeamJoinRequest({
@@ -63,7 +64,7 @@ Future<bool> sendTeamJoinRequest({
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not send request: $e')),
+        SnackBar(content: Text('Could not send request: ${friendlyError(e)}')),
       );
     }
     return false;

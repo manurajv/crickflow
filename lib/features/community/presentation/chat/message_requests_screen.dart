@@ -11,6 +11,7 @@ import '../../../../data/models/team_model.dart';
 import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_chrome_app_bar.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class MessageRequestsScreen extends ConsumerWidget {
   const MessageRequestsScreen({super.key});
@@ -132,7 +133,7 @@ class MessageRequestsScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

@@ -10,6 +10,7 @@ import '../../../../shared/providers/tournament_analytics_providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/match_team_avatar.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 Future<void> showTournamentCompletionSheet(
   BuildContext context,
@@ -356,7 +357,7 @@ class _TournamentCompletionSheetState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {

@@ -10,6 +10,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../core/routing/pop_or_home.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Directory for one Orgs family: Associations, Clubs, or Series.
 class OrgsDirectoryScreen extends ConsumerStatefulWidget {
@@ -75,7 +76,7 @@ class _OrgsDirectoryScreenState extends ConsumerState<OrgsDirectoryScreen> {
         ),
         body: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Could not load: $e')),
+          error: (e, _) => Center(child: Text('Could not load: ${friendlyError(e)}')),
           data: (all) {
             final familyItems = all
                 .where((o) => family.kinds.contains(o.kind))

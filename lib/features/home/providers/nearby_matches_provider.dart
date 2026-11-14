@@ -13,6 +13,7 @@ import '../../../shared/providers/player_social_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../domain/nearby_match_item.dart';
 import 'nearby_anchor_location_provider.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Home "Matches Near You" / "Matches in {region}".
 ///
@@ -40,7 +41,7 @@ final nearbyMatchesProvider =
   } catch (e) {
     return NearbyMatchesState(
       status: NearbyMatchesStatus.error,
-      message: 'Could not load matches: $e',
+      message: 'Could not load matches: ${friendlyError(e)}',
     );
   }
 

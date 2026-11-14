@@ -9,6 +9,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Org announcements: everyone signed in can read; owner + admins can post.
 class SeriesAnnouncementsScreen extends ConsumerWidget {
@@ -50,7 +51,7 @@ class SeriesAnnouncementsScreen extends ConsumerWidget {
           : ref.watch(seriesAnnouncementsProvider(seriesId)).when(
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('$e')),
+                error: (e, _) => Center(child: Text(friendlyError(e))),
                 data: (items) => items.isEmpty
                     ? SeriesEmptyState(
                         icon: Icons.campaign_outlined,
@@ -197,7 +198,7 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not send: $e')));
+            .showSnackBar(SnackBar(content: Text('Could not send: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _sending = false);

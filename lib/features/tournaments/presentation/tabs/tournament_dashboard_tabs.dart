@@ -21,6 +21,7 @@ import '../utils/tournament_display_utils.dart';
 import '../widgets/tournament_completion_sheet.dart';
 import '../widgets/tournament_delete_sheet.dart';
 import '../widgets/tournament_share_sheet.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 export 'tournament_fixtures_tab.dart';
 
@@ -139,7 +140,7 @@ class TournamentPointsTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 }
@@ -191,7 +192,7 @@ class TournamentSponsorsTab extends ConsumerWidget {
         ],
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 
@@ -291,7 +292,7 @@ class _TournamentRulesTabState extends ConsumerState<TournamentRulesTab> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 

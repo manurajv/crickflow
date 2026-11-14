@@ -24,6 +24,7 @@ import '../../my_cricket_filters.dart';
 import '../widgets/my_cricket_action_banner.dart';
 import '../widgets/my_cricket_guest_sign_in_prompt.dart';
 import '../widgets/my_cricket_sort_button.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class MyCricketMatchesTab extends ConsumerStatefulWidget {
   const MyCricketMatchesTab({super.key});
@@ -249,7 +250,7 @@ class _MyCricketMatchesTabState extends ConsumerState<MyCricketMatchesTab> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
             ),
           ),
         ),
@@ -470,7 +471,7 @@ class _GuestMatchesBody extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
             ),
           ),
         ),

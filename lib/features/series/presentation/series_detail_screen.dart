@@ -21,6 +21,7 @@ import 'widgets/series_status_banner.dart';
 import 'widgets/series_user_name.dart';
 import 'widgets/org_welcome_sheet.dart';
 import 'widgets/series_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Orgs profile hub — Associations / Clubs / Series share this screen.
 /// Tournament-style collapsing cover + logo + pinned tabs.
@@ -113,7 +114,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: const CfChromeAppBar(title: Text('Organization')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
       data: (item) {
         if (item == null) {
@@ -744,7 +745,7 @@ class _MemberUnits extends ConsumerWidget {
         .watch(clubsForSeriesProvider(seriesId))
         .when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => Center(child: Text(friendlyError(e))),
           data: (clubs) {
             final qController = TextEditingController();
             return _MemberUnitsSearchableList(

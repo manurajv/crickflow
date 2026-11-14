@@ -13,6 +13,7 @@ import '../../../../shared/providers/match_summary_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../widgets/match_break_history_section.dart';
 import '../widgets/summary/match_summary_sections.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Broadcast-style match summary — result, insights, heroes, and quick actions.
 class MatchSummaryTab extends ConsumerWidget {
@@ -55,7 +56,7 @@ class MatchSummaryTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 }
@@ -173,7 +174,7 @@ class _SummaryBody extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }

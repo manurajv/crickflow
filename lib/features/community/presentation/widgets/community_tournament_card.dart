@@ -16,6 +16,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/venue_location_sheet.dart';
 import 'community_media_viewer.dart';
+import '../../../../core/utils/friendly_error.dart';
 /// Tournament embed: name → organizer → thumbnail → details.
 class CommunityTournamentCard extends ConsumerWidget {
   const CommunityTournamentCard({
@@ -295,7 +296,7 @@ class CommunityTournamentCard extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$e')),
+              SnackBar(content: Text(friendlyError(e))),
             );
           }
         }

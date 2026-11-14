@@ -14,6 +14,7 @@ import '../../../../../shared/widgets/match_list_card.dart';
 import '../../utils/tournament_display_utils.dart';
 import '../teams/tournament_team_confirm_sheet.dart';
 import 'walkover_match_sheet.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 /// Tournament match row with round, group, venue and schedule metadata.
 class TournamentMatchCard extends ConsumerWidget {
@@ -147,7 +148,7 @@ class TournamentMatchCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }

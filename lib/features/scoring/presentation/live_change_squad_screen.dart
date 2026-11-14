@@ -12,6 +12,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/series_providers.dart';
 import '../../matches/presentation/widgets/add_match_squad_player_sheet.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../core/utils/friendly_error.dart';
 
 enum _SquadSlot { playing, substitute, none }
 
@@ -116,7 +117,7 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
+          SnackBar(content: Text('Save failed: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -509,7 +510,7 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Change Squad')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
     );
   }

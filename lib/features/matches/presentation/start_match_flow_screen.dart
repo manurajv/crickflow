@@ -19,6 +19,7 @@ import 'widgets/start_match_setup_form.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Start match: select teams → setup → create.
 class StartMatchFlowScreen extends ConsumerStatefulWidget {
@@ -244,7 +245,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create match: $e')),
+          SnackBar(content: Text('Failed to create match: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -278,7 +279,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save setup: $e')),
+            SnackBar(content: Text('Could not save setup: ${friendlyError(e)}')),
           );
         }
         return;

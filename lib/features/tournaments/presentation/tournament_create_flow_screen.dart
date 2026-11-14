@@ -17,6 +17,7 @@ import 'widgets/tournament_create/tournament_create_basic_step.dart';
 import 'widgets/tournament_create/tournament_create_officials_step.dart';
 import 'widgets/tournament_create/tournament_create_teams_step.dart';
 import 'widgets/tournament_create/tournament_create_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Multi-step tournament creation wizard (CricHeroes-inspired, CrickFlow themed).
 class TournamentCreateFlowScreen extends ConsumerStatefulWidget {
@@ -154,7 +155,7 @@ class _TournamentCreateFlowScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {
@@ -198,7 +199,7 @@ class _TournamentCreateFlowScreenState
           builder: (ctx) => AlertDialog(
             title: const Text('Not added to the org yet'),
             content: Text(
-              'The tournament was created, but linking it to the org failed: $e',
+              'The tournament was created, but linking it to the org failed: ${friendlyError(e)}',
             ),
             actions: [
               TextButton(

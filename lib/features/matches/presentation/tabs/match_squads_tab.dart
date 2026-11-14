@@ -11,6 +11,7 @@ import '../../../../shared/providers/match_squads_provider.dart';
 import '../../../../shared/providers/player_cricket_profile_provider.dart';
 import '../../../../shared/widgets/match_team_avatar.dart';
 import '../../../../shared/widgets/player_cluster_text.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class MatchSquadsTab extends ConsumerWidget {
   const MatchSquadsTab({super.key, required this.matchId});
@@ -93,7 +94,7 @@ class MatchSquadsTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 }

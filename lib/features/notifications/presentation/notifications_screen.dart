@@ -18,6 +18,7 @@ import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/providers/tournament_team_request_provider.dart';
 import '../../teams/domain/team_notification_actions.dart';
 import '../../tournaments/domain/tournament_notification_actions.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -350,7 +351,7 @@ class _NotificationCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }
@@ -431,7 +432,7 @@ class _NotificationCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }

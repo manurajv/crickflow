@@ -8,6 +8,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SeriesAuditScreen extends ConsumerWidget {
   const SeriesAuditScreen({super.key, required this.seriesId});
@@ -34,7 +35,7 @@ class SeriesAuditScreen extends ConsumerWidget {
       appBar: const CfChromeAppBar(title: Text('Activity log')),
       body: ref.watch(seriesAuditLogsProvider(seriesId)).when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
+            error: (e, _) => Center(child: Text(friendlyError(e))),
             data: (logs) => logs.isEmpty
                 ? const SeriesEmptyState(
                     icon: Icons.history,

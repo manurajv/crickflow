@@ -14,6 +14,7 @@ import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SeriesClubDetailScreen extends ConsumerStatefulWidget {
   const SeriesClubDetailScreen({
@@ -87,7 +88,7 @@ class _SeriesClubDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not submit: ${friendlyError(e)}')));
       }
     } finally {
       reasonController.dispose();
@@ -226,7 +227,7 @@ class _SeriesClubDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Review failed: $e')));
+        ).showSnackBar(SnackBar(content: Text('Review failed: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -259,7 +260,7 @@ class _SeriesClubDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not add admin: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not add admin: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -283,7 +284,7 @@ class _SeriesClubDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not remove: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not remove: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -307,12 +308,6 @@ class _SeriesClubDetailScreenState
         clubId: widget.clubId,
       )),
     );
-    final joinPending = ref.watch(
-      pendingClubJoinApprovalsProvider((
-        seriesId: widget.seriesId,
-        clubId: widget.clubId,
-      )),
-    );
     final uid = FirebaseAuth.instance.currentUser?.uid;
     final isClubAdminForThis = clubAdminsAsync.maybeWhen(
       data: (admins) =>
@@ -323,6 +318,15 @@ class _SeriesClubDetailScreenState
         role == SeriesRole.superAdmin ||
         role == SeriesRole.seriesAdmin ||
         isClubAdminForThis;
+    // Only org staff and this team's admins may read its join queue.
+    final joinPending = canManage
+        ? ref.watch(
+            pendingClubJoinApprovalsProvider((
+              seriesId: widget.seriesId,
+              clubId: widget.clubId,
+            )),
+          )
+        : const AsyncValue<List<SeriesApprovalModel>>.data([]);
     final access = ref.watch(orgCompetitionAccessProvider(widget.seriesId));
     final canManageAdmins =
         role == SeriesRole.superAdmin ||
@@ -333,7 +337,7 @@ class _SeriesClubDetailScreenState
       appBar: const CfChromeAppBar(title: Text('Team')),
       body: club.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (item) {
           if (item == null) return const Center(child: Text('Team not found'));
           return ListView(
@@ -463,7 +467,7 @@ class _SeriesClubDetailScreenState
                 const SizedBox(height: AppDimens.spaceSm),
                 joinPending.when(
                   loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
+                  error: (e, _) => Text(friendlyError(e)),
                   data: (items) {
                     if (items.isEmpty) {
                       return Text(
@@ -552,7 +556,7 @@ class _SeriesClubDetailScreenState
                 ),
                 clubAdminsAsync.when(
                   loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
+                  error: (e, _) => Text(friendlyError(e)),
                   data: (admins) {
                     final active =
                         admins.where((a) => a.status != 'removed').toList();
@@ -612,7 +616,7 @@ class _SeriesClubDetailScreenState
               const SizedBox(height: AppDimens.spaceSm),
               squad.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Text('$e'),
+                error: (e, _) => Text(friendlyError(e)),
                 data: (members) {
                   final active = members.where((m) => m.isActive).toList();
                   return active.isEmpty

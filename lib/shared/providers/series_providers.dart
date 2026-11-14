@@ -94,20 +94,28 @@ final seriesClubAdminsProvider =
 
 /// Pending player-join requests for a club awaiting Club Admin first-pass.
 final pendingClubJoinApprovalsProvider =
-    Provider.family<
-      AsyncValue<List<SeriesApprovalModel>>,
+    StreamProvider.autoDispose.family<
+      List<SeriesApprovalModel>,
       ({String seriesId, String clubId})
     >((ref, params) {
-      return ref.watch(pendingSeriesApprovalsProvider(params.seriesId)).whenData(
-        (items) => items
-            .where(
-              (a) =>
-                  a.targetType == SeriesApprovalTargetType.playerJoin &&
-                  a.clubId == params.clubId &&
-                  a.metadata['clubReviewStatus'] != 'approved',
-            )
-            .toList(),
-      );
+      if (params.seriesId.isEmpty || params.clubId.isEmpty) {
+        return Stream.value(const []);
+      }
+      return ref
+          .watch(seriesApprovalRepositoryProvider)
+          .watchPendingClubApprovals(
+            seriesId: params.seriesId,
+            clubId: params.clubId,
+          )
+          .map(
+            (items) => items
+                .where(
+                  (a) =>
+                      a.targetType == SeriesApprovalTargetType.playerJoin &&
+                      a.metadata['clubReviewStatus'] != 'approved',
+                )
+                .toList(),
+          );
     });
 
 final seriesClubRankingsProvider =

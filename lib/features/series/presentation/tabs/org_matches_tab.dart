@@ -10,6 +10,7 @@ import '../../../../shared/providers/series_providers.dart';
 import '../../../../shared/widgets/match_list_card.dart';
 import '../widgets/series_ui.dart';
 import 'org_list_ui.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Org Matches tab: every official match of the org (including matches of its
 /// tournaments) as the same cards My Cricket uses, grouped Live / Upcoming /
@@ -38,7 +39,7 @@ class _OrgMatchesTabState extends ConsumerState<OrgMatchesTab> {
 
     return matchesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
       data: (all) {
         final visible = visibleOrgMatches(
           all,

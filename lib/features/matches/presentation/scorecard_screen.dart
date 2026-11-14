@@ -26,6 +26,7 @@ import '../../../shared/widgets/match_follow_button.dart';
 import '../../../shared/widgets/match_stream_watch_section.dart';
 import '../../../shared/widgets/stream_live_toggle_action.dart';
 import 'widgets/match_scorecard_view.dart';
+import '../../../core/utils/friendly_error.dart';
 
 
 
@@ -209,7 +210,7 @@ class _ScorecardScreenState extends ConsumerState<ScorecardScreen> {
 
           loading: () => const Center(child: CircularProgressIndicator()),
 
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => Center(child: Text(friendlyError(e))),
 
         ),
 

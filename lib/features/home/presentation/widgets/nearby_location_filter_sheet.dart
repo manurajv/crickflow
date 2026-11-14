@@ -7,6 +7,7 @@ import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/location_model.dart';
 import '../../../../data/services/google_maps_location_service.dart';
 import '../../providers/nearby_anchor_location_provider.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Home nearby location filter — search a city to set state/province + country.
 Future<LocationModel?> showNearbyLocationFilterSheet(
@@ -180,7 +181,7 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
         if (!mounted) return;
         setState(() {
           _suggestions = [];
-          _statusMessage = '$e';
+          _statusMessage = friendlyError(e);
         });
       }
     });
@@ -210,7 +211,7 @@ class _NearbyLocationFilterSheetState extends State<_NearbyLocationFilterSheet> 
       });
     } catch (e) {
       if (mounted) {
-        setState(() => _statusMessage = 'Could not load place: $e');
+        setState(() => _statusMessage = 'Could not load place: ${friendlyError(e)}');
       }
     } finally {
       if (mounted) setState(() => _resolvingPlace = false);

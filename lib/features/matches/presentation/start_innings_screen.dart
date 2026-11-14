@@ -16,6 +16,7 @@ import 'widgets/innings_player_slot_card.dart';
 import 'widgets/select_lineup_player_sheet.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// After toss: pick opening striker, non-striker, and bowler before live scoring.
 class StartInningsScreen extends ConsumerStatefulWidget {
@@ -188,7 +189,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not start scoring: $e')),
+          SnackBar(content: Text('Could not start scoring: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -232,7 +233,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
       ),
       body: matchAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (match) {
           if (match == null) {
             return const Center(child: Text('Match not found'));
@@ -258,7 +259,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
           if (MatchLifecycle.currentInningsNeedsOpeningLineup(match)) {
             return squadsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Squads: $e')),
+              error: (e, _) => Center(child: Text('Squads: ${friendlyError(e)}')),
               data: (squads) => _buildLineupBody(match, squads, cf),
             );
           }
@@ -295,7 +296,7 @@ class _StartInningsScreenState extends ConsumerState<StartInningsScreen> {
 
           return squadsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Squads: $e')),
+            error: (e, _) => Center(child: Text('Squads: ${friendlyError(e)}')),
             data: (squads) => _buildLineupBody(match, squads, cf),
           );
         },

@@ -22,6 +22,7 @@ import '../../community_post_ui.dart';
 import 'community_comments_sheet.dart';
 import 'community_media_viewer.dart';
 import 'community_tournament_card.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class CommunityPostCard extends ConsumerWidget {
   const CommunityPostCard({
@@ -245,7 +246,7 @@ class CommunityPostCard extends ConsumerWidget {
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Could not save: $e')),
+                      SnackBar(content: Text('Could not save: ${friendlyError(e)}')),
                     );
                   }
                 }

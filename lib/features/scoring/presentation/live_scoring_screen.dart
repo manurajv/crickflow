@@ -67,6 +67,7 @@ import 'live_change_squad_screen.dart';
 import '../../../data/models/wagon_wheel_data.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_eligibility.dart';
 import '../../wagon_wheel/presentation/wagon_wheel_selection_sheet.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class LiveScoringScreen extends ConsumerStatefulWidget {
   const LiveScoringScreen({super.key, required this.matchId});
@@ -333,7 +334,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Scoring error: $e')),
+          SnackBar(content: Text('Scoring error: ${friendlyError(e)}')),
         );
       }
       return null;
@@ -405,7 +406,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                   ? ScoringDisplayUtils.wicketKeeperCannotBowlReason
                   : previousBowlerId != null
                       ? 'Unable to change bowler. Please try again.'
-                      : 'Lineup error: $e',
+                      : 'Lineup error: ${friendlyError(e)}',
             ),
           ),
         );
@@ -514,7 +515,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not end over: $e')),
+          SnackBar(content: Text('Could not end over: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -1449,7 +1450,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
       return null;
@@ -1669,7 +1670,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       if (mounted) {
         setState(() => _suppressInningsBreakCheck = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not continue: $e')),
+          SnackBar(content: Text('Could not continue: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -1759,7 +1760,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Undo failed: $e')),
+          SnackBar(content: Text('Undo failed: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -2291,7 +2292,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Keeper change error: $e')),
+          SnackBar(content: Text('Keeper change error: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -2386,7 +2387,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not end innings: $e')),
+              SnackBar(content: Text('Could not end innings: ${friendlyError(e)}')),
             );
           }
           rethrow;
@@ -2418,7 +2419,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share: $e')),
+          SnackBar(content: Text('Could not share: ${friendlyError(e)}')),
         );
       }
     }
@@ -2839,7 +2840,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

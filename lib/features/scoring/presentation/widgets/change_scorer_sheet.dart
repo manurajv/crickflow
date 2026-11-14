@@ -15,6 +15,7 @@ import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 enum _ChangeScorerTab { qrCode, teams, officials, search }
 
@@ -84,7 +85,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not load QR: $e')),
+          SnackBar(content: Text('Could not load QR: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -120,7 +121,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _searchError = 'Search failed: $e');
+        setState(() => _searchError = 'Search failed: ${friendlyError(e)}');
       }
     } finally {
       if (mounted) setState(() => _searching = false);
@@ -178,7 +179,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not change scorer: $e')),
+          SnackBar(content: Text('Could not change scorer: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -223,7 +224,7 @@ class _ChangeScorerSheetState extends ConsumerState<ChangeScorerSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Transfer failed: $e')),
+          SnackBar(content: Text('Transfer failed: ${friendlyError(e)}')),
         );
       }
     } finally {

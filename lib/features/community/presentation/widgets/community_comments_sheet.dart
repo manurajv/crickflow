@@ -11,6 +11,7 @@ import '../../../../data/models/community_comment_model.dart';
 import '../../../../shared/providers/community_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/report_reason_dialog.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 Future<void> showCommunityCommentsSheet(
   BuildContext context, {
@@ -79,7 +80,7 @@ class _CommunityCommentsSheetState
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not comment: $e')),
+              SnackBar(content: Text('Could not comment: ${friendlyError(e)}')),
             );
           }
         } finally {
@@ -154,7 +155,7 @@ class _CommunityCommentsSheetState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not update: $e')),
+          SnackBar(content: Text('Could not update: ${friendlyError(e)}')),
         );
       }
     }
@@ -195,7 +196,7 @@ class _CommunityCommentsSheetState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not delete: $e')),
+          SnackBar(content: Text('Could not delete: ${friendlyError(e)}')),
         );
       }
     }
@@ -239,7 +240,7 @@ class _CommunityCommentsSheetState
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not report: $e')),
+              SnackBar(content: Text('Could not report: ${friendlyError(e)}')),
             );
           }
         }
@@ -363,7 +364,7 @@ class _CommunityCommentsSheetState
                 },
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('$e')),
+                error: (e, _) => Center(child: Text(friendlyError(e))),
               ),
             ),
             if (_replyToName != null)

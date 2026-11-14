@@ -9,6 +9,7 @@ import 'widgets/toss_coin_flip.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Toss: coin flip, then winner, bat/bowl, then create match and start scoring.
 class MatchTossScreen extends ConsumerStatefulWidget {
@@ -132,7 +133,7 @@ class _MatchTossScreenState extends ConsumerState<MatchTossScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not start match: $e')),
+          SnackBar(content: Text('Could not start match: ${friendlyError(e)}')),
         );
       }
     } finally {
