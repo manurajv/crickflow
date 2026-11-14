@@ -39,23 +39,29 @@ service firebase.storage {
     }
 
     // Single Firestore read per evaluation (deduped by path).
+    // firestore.get() on a missing doc is an error in Storage rules (there is
+    // no `.exists` on the result), so always check firestore.exists() first.
     function teamSnapshot(teamId) {
       return firestore.get(/databases/(default)/documents/teams/$(teamId));
     }
 
-    function isTeamCreator(teamId) {
-      let team = teamSnapshot(teamId);
-      return isSignedIn()
-        && team.exists
-        && team.data.createdBy == request.auth.uid;
+    function teamDocExists(teamId) {
+      return firestore.exists(/databases/(default)/documents/teams/$(teamId));
     }
 
-    // Profile/cover/logo upload during create (before doc) or by creator after.
+    function isTeamCreator(teamId) {
+      return isSignedIn()
+        && teamDocExists(teamId)
+        && teamSnapshot(teamId).data.get('createdBy', '') == request.auth.uid;
+    }
+
+    // Profile/cover/logo upload during create (before the team doc exists,
+    // atomic create) or by the creator afterwards. Same for every signed-in
+    // user; org membership or staff roles don't matter here.
     function canWriteTeamImages(teamId) {
-      let team = teamSnapshot(teamId);
       return isSignedIn() && (
-        !team.exists
-        || team.data.createdBy == request.auth.uid
+        !teamDocExists(teamId)
+        || teamSnapshot(teamId).data.get('createdBy', '') == request.auth.uid
       );
     }
 

@@ -96,3 +96,43 @@ test('outsiders cannot upload into another player registration folder', async ()
   const path = 'series/s1/clubs/c1/registrations/player1/doc_u2_9.jpg';
   await assertFails(uploadBytes(ref(auth('u2').storage(), path), jpeg, meta));
 });
+
+// t47: team logo is uploaded BEFORE the team doc exists (atomic create). A
+// missing team doc must not break the rule (firestore.get on a missing doc
+// errors in Storage rules; use firestore.exists first).
+test('team images: logo upload before the team doc exists (outside and inside orgs)', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'teams/orgTeamS'), {
+      name: 'Org team', createdBy: 'orgmem', orgLock: { seriesId: 's1', clubId: 'c1' },
+    });
+    await setDoc(doc(db, 'players/orgmem'), {
+      name: 'M', userId: 'orgmem', teamIds: ['orgTeamS'], teamId: 'orgTeamS', rosterChangeTeamId: 'orgTeamS',
+    });
+    await setDoc(doc(db, 'teams/existingT'), { name: 'Existing', createdBy: 'tcreator' });
+  });
+  for (const uid of ['plain', 'orgmem', 'owner', 'fulladm']) {
+    const st = auth(uid).storage();
+    // New normal team (doc not written yet): creator uploads, then can undo.
+    const r = ref(st, `teams/newteam_${uid}/profile_${uid}.jpg`);
+    await assertSucceeds(uploadBytes(r, jpeg, meta));
+    await assertSucceeds(deleteObject(r));
+    await assertSucceeds(uploadBytes(r, jpeg, meta));
+    // Someone else's file name in the same new folder is refused.
+    await assertFails(uploadBytes(ref(st, `teams/newteam_${uid}/profile_someoneelse.jpg`), jpeg, meta));
+  }
+  // Org-team create (CreateTeamScreen?seriesId=...) uses the same pre-doc upload.
+  await assertSucceeds(uploadBytes(ref(auth('owner').storage(), 'teams/neworgteam/profile_owner.jpg'), jpeg, meta));
+  // Existing team: creator only.
+  await assertSucceeds(uploadBytes(ref(auth('tcreator').storage(), 'teams/existingT/profile_tcreator.jpg'), jpeg, meta));
+  await assertFails(uploadBytes(ref(auth('plain').storage(), 'teams/existingT/profile_plain.jpg'), jpeg, meta));
+  await assertFails(uploadBytes(ref(auth('orgmem').storage(), 'teams/existingT/profile_orgmem.jpg'), jpeg, meta));
+  await assertSucceeds(uploadBytes(ref(auth('orgmem').storage(), 'teams/orgTeamS/profile_orgmem.jpg'), jpeg, meta));
+  // Invite QR: creator of an existing team only; never for a team that doesn't exist.
+  const png = { contentType: 'image/png' };
+  await assertSucceeds(uploadBytes(ref(auth('tcreator').storage(), 'teams/existingT/invite_qr.png'), jpeg, png));
+  await assertFails(uploadBytes(ref(auth('plain').storage(), 'teams/existingT/invite_qr.png'), jpeg, png));
+  await assertFails(uploadBytes(ref(auth('plain').storage(), 'teams/nosuchteam/invite_qr.png'), jpeg, png));
+  // Signed out: nothing.
+  await assertFails(uploadBytes(ref(env.unauthenticatedContext().storage(), 'teams/x/profile_anon.jpg'), jpeg, meta));
+});
