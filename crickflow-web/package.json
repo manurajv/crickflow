@@ -2,7 +2,7 @@
   "name": "crickflow-web",
   "version": "1.0.0",
   "private": true,
-  "description": "CrickFlow consumer web platform — independent of mobile and admin apps.",
+  "description": "CrickFlow consumer web platform \u2014 independent of mobile and admin apps.",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "gate": "node scripts/check-production.mjs",
-    "ci": "npm run typecheck && npm run test && npm run lint && npm run gate && npm run build"
+    "ci": "npm run typecheck && npm run test && npm run lint && npm run gate && npm run build && npm run check:built-env",
+    "check:built-env": "node scripts/check-built-env.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
