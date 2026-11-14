@@ -12,6 +12,7 @@ import { searchHaystack } from "@/lib/utils";
 import { listMatches, watchLiveMatches } from "@/repositories";
 import type { Match } from "@/types/models";
 import type { MatchStatus } from "@/types/enums";
+import { friendlyError } from "@/lib/friendly-error";
 
 function MatchesList() {
   const searchParams = useSearchParams();
@@ -44,7 +45,7 @@ function MatchesList() {
       .catch((err) => {
         if (cancelled) return;
         console.error("Match list error:", err);
-        setError(err instanceof Error ? err.message : "Failed to load matches");
+        setError(friendlyError(err, "Failed to load matches"));
         setMatches([]);
       });
     return () => {

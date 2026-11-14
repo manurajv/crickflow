@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-provider";
 import { openOrCreateChat } from "@/repositories";
+import { friendlyError } from "@/lib/friendly-error";
 
 export function StartChatButton({
   otherId,
@@ -53,7 +54,7 @@ export function StartChatButton({
           );
           router.push(`/chat/${chatId}`);
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Could not start chat");
+          toast.error(friendlyError(error, "Could not start chat"));
         } finally {
           setBusy(false);
         }

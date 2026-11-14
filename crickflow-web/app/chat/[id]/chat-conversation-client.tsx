@@ -11,6 +11,7 @@ import { formatRelativeTime } from "@/lib/cricket/format";
 import { usePathParam } from "@/lib/use-path-param";
 import { blockUser, markChatRead, sendChatMessage, setChatArchived, setChatStatus, watchChat, watchMessages } from "@/repositories";
 import type { ChatMessage, ChatThread } from "@/types/models";
+import { friendlyError } from "@/lib/friendly-error";
 
 export function ChatConversationClient() {
   const chatId = usePathParam("id", 1);
@@ -92,7 +93,7 @@ export function ChatConversationClient() {
                 await blockUser(user.uid, otherId);
                 router.push("/chat");
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Could not block");
+                setError(friendlyError(err, "Could not block"));
                 setBlocking(false);
               }
             }}
@@ -143,7 +144,7 @@ export function ChatConversationClient() {
               setText("");
               setError("");
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Could not send");
+              setError(friendlyError(err, "Could not send"));
             }
           }}
         >

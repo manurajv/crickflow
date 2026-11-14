@@ -1004,8 +1004,33 @@ export async function reportPost(
   });
 }
 
+/** Author/moderator delete. Likes, comments and comment likes are removed
+ * best-effort first (same as the app). Saves are private and stay hidden. */
 export async function deleteCommunityPost(postId: string) {
-  await deleteDoc(doc(getDb(), collections.communityPosts, postId));
+  const db = getDb();
+  const deleteAll = async (path: string[]) => {
+    try {
+      const snap = await getDocs(query(collection(db, collections.communityPosts, postId, ...path), limit(200)));
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref).catch(() => undefined)));
+      return snap.docs.map((d) => d.id);
+    } catch {
+      return [] as string[];
+    }
+  };
+  await deleteAll(["likes"]);
+  const commentIds = await (async () => {
+    try {
+      const snap = await getDocs(query(collection(db, collections.communityPosts, postId, "comments"), limit(200)));
+      return snap.docs.map((d) => d.id);
+    } catch {
+      return [] as string[];
+    }
+  })();
+  for (const id of commentIds) {
+    await deleteAll(["comments", id, "likes"]);
+    await deleteDoc(doc(db, collections.communityPosts, postId, "comments", id)).catch(() => undefined);
+  }
+  await deleteDoc(doc(db, collections.communityPosts, postId));
 }
 
 export async function deleteOpportunityPost(postId: string) {

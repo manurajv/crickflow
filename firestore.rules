@@ -1829,8 +1829,11 @@ service cloud.firestore {
     }
 
     match /matchFollowers/{followerId} {
+      // Doc id is `{matchId}_{userId}`. The id check lets the follow button
+      // read its own doc before it exists (resource is null then).
       allow read: if isSignedIn()
-        && resource.data.userId == request.auth.uid;
+        && (followerId.matches('^.+_' + request.auth.uid + '$')
+          || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.matchId is string

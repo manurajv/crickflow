@@ -8,6 +8,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { shareEntity } from "@/lib/share";
 import { toggleFollow, watchIsFollowing } from "@/repositories";
 import type { FollowKind } from "@/lib/follow";
+import { friendlyError } from "@/lib/friendly-error";
 
 export function FollowShare({
   kind,
@@ -57,7 +58,7 @@ export function FollowShare({
                 followerName: profile?.displayName || profile?.name || user.displayName || "CrickFlow user",
               });
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Could not update follow");
+              toast.error(friendlyError(error, "Could not update follow"));
             } finally {
               setBusy(false);
             }

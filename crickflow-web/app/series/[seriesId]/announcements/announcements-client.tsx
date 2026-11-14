@@ -12,6 +12,7 @@ import { useSendSeriesAnnouncement, useSeriesAnnouncements, useSeriesDetail } fr
 import { loginUrl } from "@/lib/auth/guest-access";
 import { sanitizeAnnouncementText, wrapMarkdownSelection } from "@/lib/rich-text";
 import { usePathParam } from "@/lib/use-path-param";
+import { friendlyError } from "@/lib/friendly-error";
 
 const AUDIENCES: { id: "all" | "admins" | "clubAdmins" | "members"; label: string }[] = [
   { id: "all", label: "Everyone" },
@@ -179,7 +180,7 @@ function AnnouncementComposer({ seriesId }: { seriesId: string }) {
             const count = result.recipientCount ?? 0;
             setError(`Sent to ${count} ${count === 1 ? "person" : "people"}.`);
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Could not send announcement.");
+            setError(friendlyError(err, "Could not send announcement."));
           }
         }}
       >

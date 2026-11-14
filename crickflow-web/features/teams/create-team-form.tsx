@@ -14,6 +14,7 @@ import { uploadTeamLogo, storageUploadHint } from "@/lib/media-upload";
 import { collections } from "@/config/site";
 import { PhotoPicker } from "@/components/shared/media";
 import type { LocationData } from "@/types/models";
+import { friendlyError } from "@/lib/friendly-error";
 
 export function CreateTeamForm({ onClose }: { onClose?: () => void }) {
   const { user, profile } = useAuth();
@@ -126,7 +127,7 @@ export function CreateTeamForm({ onClose }: { onClose?: () => void }) {
         if (logoUrl) {
           await deleteObject(storageRef(getFirebaseStorage(), logoUrl)).catch(() => undefined);
         }
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = friendlyError(error);
         throw new Error(
           /permission/i.test(msg)
             ? "You don't have permission to do this. Nothing was saved."
@@ -138,7 +139,7 @@ export function CreateTeamForm({ onClose }: { onClose?: () => void }) {
       onClose?.();
       router.push(`/teams/${teamId}`);
     } catch (error) {
-      toast.error(`Could not create team: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(`Could not create team: ${friendlyError(error)}`);
     } finally {
       setCreating(false);
     }

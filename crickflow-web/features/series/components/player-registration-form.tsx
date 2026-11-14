@@ -8,6 +8,7 @@ import {
   deleteStorageUrl,
   uploadSeriesRegistrationImage,
 } from "@/lib/media-upload";
+import { friendlyError } from "@/lib/friendly-error";
 
 export type PlayerRegistrationValues = {
   clubId: string;
@@ -149,7 +150,7 @@ export function PlayerRegistrationForm({
       });
     } catch (err) {
       await Promise.all(uploaded.map((url) => deleteStorageUrl(url).catch(() => undefined)));
-      setError(err instanceof Error ? err.message : "Could not submit registration");
+      setError(friendlyError(err, "Could not submit registration"));
     }
   }
 

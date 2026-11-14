@@ -13,6 +13,7 @@ import { uploadTournamentBanner, storageUploadHint } from "@/lib/media-upload";
 import { collections } from "@/config/site";
 import { PhotoPicker } from "@/components/shared/media";
 import type { LocationData } from "@/types/models";
+import { friendlyError } from "@/lib/friendly-error";
 
 const FORMATS = [
   { value: "league", label: "League" },
@@ -101,7 +102,7 @@ export function CreateTournamentForm({ onClose }: { onClose?: () => void }) {
       onClose?.();
       router.push(`/tournaments/${tournamentId}`);
     } catch (error) {
-      toast.error(`Could not create tournament: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(`Could not create tournament: ${friendlyError(error)}`);
     } finally {
       setCreating(false);
     }

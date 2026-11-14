@@ -286,6 +286,26 @@ allow('user checks a chat that does not exist yet', () => getDoc(doc(as('plain')
 deny('outsider reads a chat', () => getDocs(query(collection(as('inv'), 'chats/plain_req/messages'))));
 allow('user lists own blocks', () => getDocs(query(collection(as('plain'), 'chat_blocks'), where('blockerId', '==', 'plain'))));
 
+// ── Follow buttons (own doc may not exist yet) ─────────────────────────────
+allow('user checks if they follow a match (doc missing)', () => getDoc(doc(as('plain'), 'matchFollowers/M1_plain')));
+allow('user follows a match', () => setDoc(doc(as('plain'), 'matchFollowers/M1_plain'), { matchId: 'M1', userId: 'plain', createdAt: NOW }));
+allow('user reads own match follow', () => getDoc(doc(as('plain'), 'matchFollowers/M1_plain')));
+allow('user lists own match follows', () => getDocs(query(collection(as('plain'), 'matchFollowers'), where('userId', '==', 'plain'), limit(24))));
+deny('user reads someone else\'s match follow', () => getDoc(doc(as('req'), 'matchFollowers/M1_plain')));
+deny('guest checks a match follow', () => getDoc(doc(anon(), 'matchFollowers/M1_plain')));
+allow('user unfollows a match', () => deleteDoc(doc(as('plain'), 'matchFollowers/M1_plain')));
+allow('user checks if they follow a team (doc missing)', () => getDoc(doc(as('plain'), 'teamFollowers/T1_plain')));
+allow('user checks if they follow a player (doc missing)', () => getDoc(doc(as('plain'), 'playerFollows/plain_owner')));
+allow('user checks a chat block both ways (docs missing)', async () => {
+  await getDoc(doc(as('plain'), 'chat_blocks/plain_req'));
+  return getDoc(doc(as('plain'), 'chat_blocks/req_plain'));
+});
+allow('user checks own saved post (doc missing)', () => getDoc(doc(as('plain'), 'community_posts/P2/saves/plain')));
+allow('user checks own like (doc missing)', () => getDoc(doc(as('plain'), 'community_posts/P2/likes/plain')));
+allow('web: staff lists legacy org approvals', () => getDocs(query(collection(as('oadm'), 'series_approvals'), where('seriesId', '==', 'S1'), where('status', '==', 'pending'), limit(100))));
+allow('web: user lists own org team-admin roles', () => getDocs(query(collection(as('ocadm'), 'series_club_admins'), where('seriesId', '==', 'S1'), where('userId', '==', 'ocadm'), limit(50))));
+allow('web: user lists own saved community posts', () => getDocs(query(collection(as('plain'), 'users/plain/saved_community_posts'), orderBy('createdAt', 'desc'), limit(40))));
+
 // ── Misc signed-in reads ────────────────────────────────────────────────────
 allow('signed-in user reads platform admin list (Discover badges)', () => getDoc(doc(as('plain'), 'app_meta/platform_admins')));
 allow('team code allocation (app_meta counter)', () => setDoc(doc(as('plain'), 'app_meta/cf_team_ids'), { lastNumber: 3, updatedAt: NOW }, { merge: true }));

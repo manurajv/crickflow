@@ -6,6 +6,7 @@ import { MatchCentre } from "@/features/matches/match-centre";
 import { usePathParam } from "@/lib/use-path-param";
 import { getMatch, listBallEvents } from "@/repositories";
 import type { BallEvent, Match } from "@/types/models";
+import { friendlyError } from "@/lib/friendly-error";
 
 type Tab =
   | "scorecard"
@@ -47,7 +48,7 @@ export function MatchCentreLoader({
       .catch((err) => {
         if (!cancelled) {
           console.error("Match load error:", err);
-          setError(err instanceof Error ? err.message : "Failed to load match");
+          setError(friendlyError(err, "Failed to load match"));
           setMissing(true);
         }
       });

@@ -21,6 +21,7 @@ import {
   watchLiveMatches,
 } from "@/repositories";
 import type { CommunityPost, HomePromotion, Match, Player, Team, Tournament } from "@/types/models";
+import { friendlyError } from "@/lib/friendly-error";
 
 export function HomeFeed() {
   const { user } = useAuth();
@@ -60,7 +61,7 @@ export function HomeFeed() {
       setError(null);
     }).catch((err) => {
       console.error("Home feed data error:", err);
-      setError(err instanceof Error ? err.message : "Failed to load data");
+      setError(friendlyError(err, "Failed to load data"));
     }).finally(() => setReady(true));
   }, []);
 
