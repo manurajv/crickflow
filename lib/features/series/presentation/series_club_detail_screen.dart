@@ -10,6 +10,7 @@ import '../../../data/models/series/series.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/player_discovery_repository.dart';
 import '../../../domain/services/series/org_competition_access.dart';
+import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
@@ -308,10 +309,16 @@ class _SeriesClubDetailScreenState
         clubId: widget.clubId,
       )),
     );
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final profileAsync = ref.watch(currentUserProfileProvider);
+    final uid = profileAsync.valueOrNull?.id;
     final isClubAdminForThis = clubAdminsAsync.maybeWhen(
       data: (admins) =>
           admins.any((a) => a.userId == uid && a.status == 'active'),
+      orElse: () => false,
+    );
+    final onThisSquad = squad.maybeWhen(
+      data: (members) =>
+          uid != null && members.any((m) => m.isActive && m.userId == uid),
       orElse: () => false,
     );
     final canManage =
@@ -397,24 +404,20 @@ class _SeriesClubDetailScreenState
                 Text(item.description),
               ],
               const SizedBox(height: AppDimens.spaceLg),
-              if (item.isApproved)
+              if (item.isApproved &&
+                  !profileAsync.isLoading &&
+                  !isClubAdminForThis &&
+                  !onThisSquad &&
+                  !(uid != null && squad.isLoading)) ...[
                 FilledButton.icon(
+                  key: const Key('org_team_request_to_join'),
                   onPressed: _busy ? null : _requestJoin,
                   icon: const Icon(Icons.person_add_alt_1),
-                  label: const Text('Register & request to join'),
+                  label: const Text('Request to join'),
                 ),
-              if (canManage) ...[
                 const SizedBox(height: AppDimens.spaceSm),
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _addPlayerSearch,
-                  icon: const Icon(Icons.person_search_outlined),
-                  label: Text(
-                    role == SeriesRole.superAdmin ||
-                            role == SeriesRole.seriesAdmin
-                        ? 'Search & add player'
-                        : 'Search & request add player',
-                  ),
-                ),
+              ],
+              if (canManage) ...[
                 if (access.match != OrgStartMode.none) ...[
                 const SizedBox(height: AppDimens.spaceSm),
                 OutlinedButton.icon(
@@ -612,7 +615,23 @@ class _SeriesClubDetailScreenState
                 ),
               ],
               const SizedBox(height: AppDimens.spaceLg),
-              Text('Squad', style: Theme.of(context).textTheme.titleLarge),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Squad',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  if (canManage)
+                    TextButton.icon(
+                      key: const Key('org_team_squad_add'),
+                      onPressed: _busy ? null : _addPlayerSearch,
+                      icon: const Icon(Icons.person_add_outlined),
+                      label: const Text('Add'),
+                    ),
+                ],
+              ),
               const SizedBox(height: AppDimens.spaceSm),
               squad.when(
                 loading: () => const Center(child: CircularProgressIndicator()),

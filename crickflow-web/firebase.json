@@ -213,6 +213,14 @@
         "destination": "/series/_/my-requests/index.html"
       },
       {
+        "source": "/series/*/teams/*",
+        "destination": "/series/_/teams/_/index.html"
+      },
+      {
+        "source": "/series/*/teams/*/",
+        "destination": "/series/_/teams/_/index.html"
+      },
+      {
         "source": "/series/*",
         "destination": "/series/_/index.html"
       },

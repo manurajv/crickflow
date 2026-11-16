@@ -164,6 +164,27 @@ function invalidRegistrationMediaUrls(data, ctx) {
   return bad;
 }
 
+/**
+ * Name and CrickFlow player ID always come from the user's profile.
+ * Client-sent values are ignored so a form cannot spoof another identity.
+ */
+function officialIdentityFromProfile(profile) {
+  const data = profile && typeof profile === 'object' ? profile : {};
+  const fullName = String(data.displayName || data.name || '').trim();
+  const crickFlowPlayerId = String(data.playerId || data.cfPlayerId || '').trim();
+  return { fullName, crickFlowPlayerId };
+}
+
+function applyOfficialIdentity(input, profile) {
+  const identity = officialIdentityFromProfile(profile);
+  return {
+    ...(input && typeof input === 'object' ? input : {}),
+    fullName: identity.fullName,
+    displayName: identity.fullName,
+    crickFlowPlayerId: identity.crickFlowPlayerId,
+  };
+}
+
 module.exports = {
   MAX_CUSTOM_FIELDS,
   normalizeSeriesSettings,
@@ -171,4 +192,6 @@ module.exports = {
   missingRegistrationFields,
   isAllowedRegistrationMediaUrl,
   invalidRegistrationMediaUrls,
+  officialIdentityFromProfile,
+  applyOfficialIdentity,
 };

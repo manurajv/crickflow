@@ -1,12 +1,14 @@
 import {
   collection,
   doc,
+  endAt,
   getDoc,
   getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
+  startAt,
   where,
   type QuerySnapshot,
   type Unsubscribe,
@@ -773,4 +775,114 @@ export function seriesAuditActionLabel(action: string): string {
     ANNOUNCEMENT_SENT: "Posted an announcement",
   };
   return map[action] || action.replace(/_/g, " ").toLowerCase();
+}
+
+export type ClubMember = {
+  id: string;
+  userId: string;
+  displayName: string;
+  status: string;
+};
+
+export async function listClubSquad(seriesId: string, clubId: string): Promise<ClubMember[]> {
+  const snap = await getDocs(
+    query(
+      collection(getDb(), collections.seriesMemberships),
+      where("seriesId", "==", seriesId),
+      where("clubId", "==", clubId),
+      limit(200),
+    ),
+  );
+  return snap.docs.map((d) => {
+    const x = d.data() as Data;
+    return {
+      id: d.id,
+      userId: text(x, "userId"),
+      displayName: text(x, "displayName"),
+      status: text(x, "status") || "active",
+    };
+  });
+}
+
+export async function listClubAdmins(seriesId: string, clubId: string): Promise<ClubMember[]> {
+  const snap = await getDocs(
+    query(
+      collection(getDb(), collections.seriesClubAdmins),
+      where("seriesId", "==", seriesId),
+      where("clubId", "==", clubId),
+      limit(50),
+    ),
+  );
+  return snap.docs.map((d) => {
+    const x = d.data() as Data;
+    return {
+      id: d.id,
+      userId: text(x, "userId"),
+      displayName: text(x, "displayName"),
+      status: text(x, "status") || "active",
+    };
+  });
+}
+
+export type PlayerSearchHit = {
+  id: string;
+  displayName: string;
+  name: string;
+  playerId: string;
+  photoUrl?: string;
+};
+
+export async function searchPlayersForOrg(
+  queryText: string,
+  currentUserId?: string,
+): Promise<PlayerSearchHit[]> {
+  const q = queryText.trim();
+  if (q.length < 2) return [];
+  const users = collection(getDb(), collections.users);
+  const hits: PlayerSearchHit[] = [];
+  const seen = new Set<string>();
+  const add = (id: string, data: Data) => {
+    if (currentUserId && id === currentUserId) return;
+    if (seen.has(id)) return;
+    seen.add(id);
+    const displayName = text(data, "displayName") || text(data, "name");
+    hits.push({
+      id,
+      displayName,
+      name: text(data, "name"),
+      playerId: text(data, "playerId") || text(data, "cfPlayerId"),
+      photoUrl: text(data, "photoUrl") || undefined,
+    });
+  };
+  const normalizedId = q.toUpperCase();
+  const looksLikeId = /^CF[-_]?[A-Z0-9]+$/i.test(q);
+  try {
+    if (looksLikeId) {
+      const byId = await getDocs(query(users, where("playerId", "==", normalizedId), limit(5)));
+      byId.docs.forEach((d) => add(d.id, d.data() as Data));
+    }
+    const prefixSnap = await getDocs(
+      query(users, orderBy("displayName"), startAt(q), endAt(`${q}\uf8ff`), limit(20)),
+    );
+    prefixSnap.docs.forEach((d) => add(d.id, d.data() as Data));
+  } catch {
+    // Listing users can be denied by rules; exact ID lookup may still have succeeded.
+  }
+  return hits.slice(0, 20);
+}
+
+export async function submitPlayerAddRequest(input: Record<string, unknown>) {
+  const callable = httpsCallable(getFirebaseFunctions(), "submitPlayerAddRequest");
+  const result = await callable(input);
+  return (result.data ?? {}) as { ok?: boolean; approvalId?: string; membershipId?: string };
+}
+
+export async function addSeriesClubAdmin(input: {
+  seriesId: string;
+  clubId: string;
+  userId: string;
+  displayName?: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "addSeriesClubAdmin");
+  await callable(input);
 }

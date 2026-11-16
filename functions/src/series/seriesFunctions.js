@@ -27,6 +27,7 @@ const {
   normalizeSeriesSettings,
   missingRegistrationFields,
   invalidRegistrationMediaUrls,
+  applyOfficialIdentity,
 } = require('./seriesRegistration');
 
 const COLLECTIONS = {
@@ -1013,6 +1014,14 @@ exports.reviewSeriesApproval = onCall(async (request) => {
   return { ok: true, status: decision };
 });
 
+async function loadUserProfile(firestore, userId) {
+  const snap = await firestore.collection(COLLECTIONS.users).doc(userId).get();
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'Player profile not found');
+  }
+  return snap.data() || {};
+}
+
 function validateRegistrationFields(settings, data, mediaCtx) {
   const missing = missingRegistrationFields(settings, data);
   if (missing.length) {
@@ -1113,7 +1122,11 @@ exports.submitSeriesRegistration = onCall(async (request) => {
   const series = await getSeriesOrThrow(firestore, seriesId);
   const settings = series.settings || {};
   const clubId = request.data?.clubId || null;
-  validateRegistrationFields(settings, request.data || {}, {
+  const data = applyOfficialIdentity(
+    { ...(request.data || {}), clubId },
+    await loadUserProfile(firestore, uid),
+  );
+  validateRegistrationFields(settings, data, {
     seriesId,
     subjectUserId: uid,
     clubId,
@@ -1123,7 +1136,7 @@ exports.submitSeriesRegistration = onCall(async (request) => {
     seriesId,
     userId: uid,
     createdBy: uid,
-    data: { ...request.data, clubId },
+    data,
     status: 'pending',
   });
 
@@ -1163,8 +1176,10 @@ exports.submitPlayerJoinRequest = onCall(async (request) => {
 
   const settings = series.settings || {};
   const mediaCtx = { seriesId, subjectUserId: uid, clubId };
+  const profile = await loadUserProfile(firestore, uid);
+  const official = applyOfficialIdentity(request.data || {}, profile);
   let registrationId = String(request.data?.registrationId || '').trim() || null;
-  let displayName = String(request.data?.displayName || request.data?.fullName || '').trim();
+  let displayName = official.fullName;
 
   const existingPending = await findPendingPlayerRequest(
     firestore, seriesId, uid, clubId, 'playerJoin',
@@ -1176,15 +1191,20 @@ exports.submitPlayerJoinRequest = onCall(async (request) => {
     );
   }
 
-  if (registrationId && !requestHasRegistrationFields(request.data)) {
-    const combined = await loadRegistrationFields(firestore, seriesId, registrationId, uid);
+  if (registrationId && !requestHasRegistrationFields(official)) {
+    const combined = applyOfficialIdentity(
+      await loadRegistrationFields(firestore, seriesId, registrationId, uid),
+      profile,
+    );
     validateRegistrationFields(settings, combined, mediaCtx);
-    displayName = displayName || String(combined.fullName || '').trim();
+    displayName = official.fullName || String(combined.fullName || '').trim();
   } else {
     const regInput = {
-      ...request.data,
+      ...official,
       clubId,
-      fullName: displayName || String(request.data?.fullName || ''),
+      fullName: official.fullName,
+      displayName: official.fullName,
+      crickFlowPlayerId: official.crickFlowPlayerId,
     };
     validateRegistrationFields(settings, regInput, mediaCtx);
     const registration = await writeRegistration(firestore, {
@@ -1195,7 +1215,7 @@ exports.submitPlayerJoinRequest = onCall(async (request) => {
       status: 'pending',
     });
     registrationId = registration.id;
-    displayName = displayName || registration.fullName;
+    displayName = official.fullName || registration.fullName;
   }
 
   const approval = await createApproval(firestore, {
@@ -1478,15 +1498,19 @@ exports.submitPlayerAddRequest = onCall(async (request) => {
   }
 
   const settings = series.settings || {};
-  const displayName = String(
-    request.data?.fullName || request.data?.displayName || '',
-  ).trim();
+  const official = applyOfficialIdentity(
+    request.data || {},
+    await loadUserProfile(firestore, targetUserId),
+  );
+  const displayName = official.fullName;
   const regInput = {
-    ...request.data,
+    ...official,
     clubId,
     fullName: displayName,
     displayName,
-    playerDocId: request.data?.playerDocId || targetUserId,
+    crickFlowPlayerId: official.crickFlowPlayerId,
+    playerDocId: targetUserId,
+    userId: targetUserId,
   };
   validateRegistrationFields(settings, regInput, {
     seriesId,

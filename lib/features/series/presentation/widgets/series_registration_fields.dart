@@ -55,6 +55,7 @@ class SeriesRegistrationFields extends ConsumerStatefulWidget {
     this.customFieldValues,
     this.onCustomFieldsChanged,
     this.showOptionalEmptyFields = false,
+    this.lockIdentity = false,
   });
 
   final SeriesSettingsModel settings;
@@ -81,6 +82,9 @@ class SeriesRegistrationFields extends ConsumerStatefulWidget {
 
   /// When true, show common fields even if not required (admins filling for a player).
   final bool showOptionalEmptyFields;
+
+  /// Name and CrickFlow ID are shown locked from the player's real profile.
+  final bool lockIdentity;
 
   @override
   ConsumerState<SeriesRegistrationFields> createState() =>
@@ -244,25 +248,37 @@ class _SeriesRegistrationFieldsState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showName)
+        if (showName || widget.lockIdentity)
           TextFormField(
+            key: const Key('org_registration_full_name'),
             controller: widget.fullName,
+            readOnly: widget.lockIdentity,
+            enableInteractiveSelection: !widget.lockIdentity,
             decoration: InputDecoration(
               labelText: s.requireFullName ? 'Full name *' : 'Full name',
+              suffixIcon: widget.lockIdentity
+                  ? const Icon(Icons.lock_outline)
+                  : null,
             ),
             validator: (v) => s.requireFullName &&
                     (v == null || v.trim().isEmpty)
                 ? 'Required'
                 : null,
           ),
-        if (showPlayerId) ...[
+        if (showPlayerId || widget.lockIdentity) ...[
           const SizedBox(height: AppDimens.spaceMd),
           TextFormField(
+            key: const Key('org_registration_player_id'),
             controller: widget.playerId,
+            readOnly: widget.lockIdentity,
+            enableInteractiveSelection: !widget.lockIdentity,
             decoration: InputDecoration(
               labelText: s.requireCrickFlowPlayerId
                   ? 'CrickFlow Player ID *'
                   : 'CrickFlow Player ID',
+              suffixIcon: widget.lockIdentity
+                  ? const Icon(Icons.lock_outline)
+                  : null,
             ),
             validator: (v) => s.requireCrickFlowPlayerId &&
                     (v == null || v.trim().isEmpty)

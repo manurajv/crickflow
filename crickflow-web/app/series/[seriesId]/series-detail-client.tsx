@@ -413,12 +413,14 @@ export function SeriesDetailPage() {
             <EmptyState title="No teams yet" />
           ) : (
             clubs.map((c) => (
-              <Card key={c.id} className="p-4">
-                <p className="font-bold">{c.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {c.status} · {c.squadCount} players
-                </p>
-              </Card>
+              <Link key={c.id} href={`/series/${seriesId}/teams/${c.id}`} className="block">
+                <Card className="p-4 transition-colors hover:bg-muted/40">
+                  <p className="font-bold">{c.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {c.status} · {c.squadCount} players
+                  </p>
+                </Card>
+              </Link>
             ))
           )}
           {showTeamFab ? (
@@ -460,6 +462,7 @@ export function SeriesDetailPage() {
                     seriesId={seriesId}
                     settings={series.settings}
                     clubs={clubs}
+                    lockIdentity
                     pending={joinClub.isPending}
                     onSubmit={async (values) => {
                       await joinClub.mutateAsync(values);

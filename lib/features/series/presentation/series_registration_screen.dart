@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/auth/sign_in_prompts.dart';
 import '../../../core/auth/auth_gate.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/series/series.dart';
@@ -68,14 +67,10 @@ class _SeriesRegistrationScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(currentUserProfileProvider).valueOrNull;
       if (user == null) return;
-      if (_fullName.text.isEmpty) {
-        _fullName.text = user.displayName.isNotEmpty
-            ? user.displayName
-            : user.name;
-      }
-      if (_playerId.text.isEmpty && (user.playerId?.isNotEmpty ?? false)) {
-        _playerId.text = user.playerId!;
-      }
+      _fullName.text = user.displayName.isNotEmpty
+          ? user.displayName
+          : user.name;
+      _playerId.text = user.playerId ?? '';
       if (_phone.text.isEmpty && user.effectiveMobile.isNotEmpty) {
         _phone.text = user.effectiveMobile;
       }
@@ -189,7 +184,7 @@ class _SeriesRegistrationScreenState
           return Scaffold(
             appBar: CfChromeAppBar(
               title: Text(
-                widget.afterJoin ? 'Register & join' : 'Series registration',
+                widget.afterJoin ? 'Request to join' : 'Series registration',
               ),
             ),
             body: Padding(
@@ -218,7 +213,7 @@ class _SeriesRegistrationScreenState
         return Scaffold(
           appBar: CfChromeAppBar(
             title: Text(
-              widget.afterJoin ? 'Register & join' : 'Series registration',
+              widget.afterJoin ? 'Request to join' : 'Series registration',
             ),
           ),
           body: Form(
@@ -237,6 +232,7 @@ class _SeriesRegistrationScreenState
                   seriesId: widget.seriesId,
                   clubId: widget.clubId,
                   uploadSession: _uploads,
+                  lockIdentity: true,
                   fullName: _fullName,
                   playerId: _playerId,
                   phone: _phone,

@@ -20,7 +20,12 @@ import {
   reviewClubJoinRequest,
   reviewSeriesApproval,
   submitPlayerJoinRequest,
+  submitPlayerAddRequest,
   submitSeriesRegistration,
+  addSeriesClubAdmin,
+  listClubAdmins,
+  listClubSquad,
+  searchPlayersForOrg,
   updateSeriesSettings,
   updateSeriesCompetitionPolicy,
   listSeriesAnnouncements,
@@ -316,5 +321,52 @@ export function useActiveSeriesByKind(kind?: string) {
   return useQuery({
     queryKey: ["series", "active", kind || "all"],
     queryFn: () => listActiveSeriesByKind(kind),
+  });
+}
+
+export function useClubSquad(seriesId: string, clubId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "club", clubId, "squad"],
+    queryFn: () => listClubSquad(seriesId, clubId),
+    enabled: Boolean(seriesId && clubId),
+  });
+}
+
+export function useClubAdmins(seriesId: string, clubId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "club", clubId, "admins"],
+    queryFn: () => listClubAdmins(seriesId, clubId),
+    enabled: Boolean(seriesId && clubId),
+  });
+}
+
+export function useSearchPlayersForOrg() {
+  return useMutation({
+    mutationFn: (input: { query: string; currentUserId?: string }) =>
+      searchPlayersForOrg(input.query, input.currentUserId),
+  });
+}
+
+export function useAddPlayerToClub(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Record<string, unknown>) =>
+      submitPlayerAddRequest({ seriesId, clubId, ...input }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useAddClubAdmin(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; displayName?: string }) =>
+      addSeriesClubAdmin({ seriesId, clubId, ...input }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
   });
 }

@@ -222,6 +222,7 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
                   clubId: widget.clubId,
                   subjectUserId: widget.player.id,
                   uploadSession: _uploads,
+                  lockIdentity: true,
                   fullName: _fullName,
                   playerId: _playerId,
                   phone: _phone,
@@ -240,7 +241,7 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
                   onPassportDocUrl: (u) => setState(() => _passportDocUrl = u),
                   customFieldValues: _customFields,
                   onCustomFieldsChanged: (m) => _customFields = m,
-                  showOptionalEmptyFields: true,
+                  showOptionalEmptyFields: false,
                 ),
                 const SizedBox(height: AppDimens.spaceLg),
                 FilledButton.icon(

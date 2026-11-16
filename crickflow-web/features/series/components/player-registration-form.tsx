@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-provider";
 import type { SeriesSettings } from "@/features/series/types";
+import { officialIdentityFromProfile } from "@/lib/cricket/official-identity";
 import {
   deleteStorageUrl,
   uploadSeriesRegistrationImage,
@@ -31,7 +32,43 @@ type Props = {
   clubs: Array<{ id: string; name: string; status: string }>;
   onSubmit: (values: PlayerRegistrationValues) => Promise<void>;
   pending?: boolean;
+  lockIdentity?: boolean;
+  fixedClubId?: string;
+  identity?: { fullName: string; crickFlowPlayerId: string };
+  subjectUserId?: string;
+  submitLabel?: string;
 };
+
+function LockedField({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: string;
+  testId: string;
+}) {
+  return (
+    <label className="block text-sm">
+      {label}
+      <span className="relative mt-1 block">
+        <input
+          data-testid={testId}
+          className="w-full rounded-md border border-border bg-muted/40 px-3 py-2 pr-9"
+          value={value}
+          readOnly
+          aria-readonly="true"
+        />
+        <span
+          className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-muted-foreground"
+          aria-hidden
+        >
+          🔒
+        </span>
+      </span>
+    </label>
+  );
+}
 
 export function PlayerRegistrationForm({
   seriesId,
@@ -39,15 +76,21 @@ export function PlayerRegistrationForm({
   clubs,
   onSubmit,
   pending,
+  lockIdentity = true,
+  fixedClubId,
+  identity,
+  subjectUserId,
+  submitLabel = "Request to join",
 }: Props) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const official = identity ?? officialIdentityFromProfile(profile);
   const approved = useMemo(
     () => clubs.filter((c) => c.status === "approved"),
     [clubs],
   );
-  const [clubId, setClubId] = useState("");
-  const [fullName, setFullName] = useState(user?.displayName || "");
-  const [playerId, setPlayerId] = useState(user?.uid || "");
+  const [clubId, setClubId] = useState(fixedClubId || "");
+  const [fullName, setFullName] = useState(official.fullName);
+  const [playerId, setPlayerId] = useState(official.crickFlowPlayerId);
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [dob, setDob] = useState("");
@@ -59,15 +102,27 @@ export function PlayerRegistrationForm({
   const [passportDoc, setPassportDoc] = useState<File | null>(null);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (fixedClubId) setClubId(fixedClubId);
+  }, [fixedClubId]);
+
+  useEffect(() => {
+    if (!lockIdentity) return;
+    setFullName(official.fullName);
+    setPlayerId(official.crickFlowPlayerId);
+  }, [lockIdentity, official.fullName, official.crickFlowPlayerId]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
     if (!clubId || !user) return;
-    if (settings.requireFullName && !fullName.trim()) {
+    const submittedName = lockIdentity ? official.fullName : fullName.trim();
+    const submittedId = lockIdentity ? official.crickFlowPlayerId : playerId.trim();
+    if (settings.requireFullName && !submittedName) {
       setError("Full name is required");
       return;
     }
-    if (settings.requireCrickFlowPlayerId && !playerId.trim()) {
+    if (settings.requireCrickFlowPlayerId && !submittedId) {
       setError("CrickFlow Player ID is required");
       return;
     }
@@ -111,33 +166,34 @@ export function PlayerRegistrationForm({
     }
 
     const uploaded: string[] = [];
+    const ownerId = subjectUserId || user.uid;
     try {
       let profilePhotoUrl: string | undefined;
       let nationalIdDocUrl: string | undefined;
       let passportDocUrl: string | undefined;
-      const opts = { clubId, subjectUserId: user.uid };
+      const opts = { clubId, subjectUserId: ownerId };
       if (profileFile) {
         profilePhotoUrl = await uploadSeriesRegistrationImage(
-          seriesId, user.uid, profileFile, "photo", opts,
+          seriesId, ownerId, profileFile, "photo", opts,
         );
         uploaded.push(profilePhotoUrl);
       }
       if (nationalDoc) {
         nationalIdDocUrl = await uploadSeriesRegistrationImage(
-          seriesId, user.uid, nationalDoc, "doc", opts,
+          seriesId, ownerId, nationalDoc, "doc", opts,
         );
         uploaded.push(nationalIdDocUrl);
       }
       if (passportDoc) {
         passportDocUrl = await uploadSeriesRegistrationImage(
-          seriesId, user.uid, passportDoc, "doc", opts,
+          seriesId, ownerId, passportDoc, "doc", opts,
         );
         uploaded.push(passportDocUrl);
       }
       await onSubmit({
         clubId,
-        fullName: fullName.trim(),
-        crickFlowPlayerId: playerId.trim() || undefined,
+        fullName: submittedName,
+        crickFlowPlayerId: submittedId || undefined,
         phoneNumber: phone.trim() || undefined,
         address: address.trim() || undefined,
         dateOfBirth: dob || undefined,
@@ -174,20 +230,31 @@ export function PlayerRegistrationForm({
     );
   }
 
+  const showName = settings.requireFullName || lockIdentity;
+  const showPlayerId = settings.requireCrickFlowPlayerId || lockIdentity;
+
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
-      <select
-        className="w-full rounded-md border border-border bg-background px-3 py-2"
-        value={clubId}
-        onChange={(e) => setClubId(e.target.value)}
-        required
-      >
-        <option value="">Join a team</option>
-        {approved.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
-      {(settings.requireFullName || true) && (
+      {fixedClubId ? null : (
+        <select
+          className="w-full rounded-md border border-border bg-background px-3 py-2"
+          value={clubId}
+          onChange={(e) => setClubId(e.target.value)}
+          required
+        >
+          <option value="">Join a team</option>
+          {approved.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      )}
+      {showName && (lockIdentity ? (
+        <LockedField
+          label={settings.requireFullName ? "Full name *" : "Full name"}
+          value={fullName}
+          testId="org-registration-full-name"
+        />
+      ) : (
         <input
           className="w-full rounded-md border border-border bg-background px-3 py-2"
           placeholder={settings.requireFullName ? "Your name *" : "Your name"}
@@ -195,16 +262,22 @@ export function PlayerRegistrationForm({
           onChange={(e) => setFullName(e.target.value)}
           required={settings.requireFullName}
         />
-      )}
-      {settings.requireCrickFlowPlayerId && (
+      ))}
+      {showPlayerId && (lockIdentity ? (
+        <LockedField
+          label={settings.requireCrickFlowPlayerId ? "CrickFlow Player ID *" : "CrickFlow Player ID"}
+          value={playerId}
+          testId="org-registration-player-id"
+        />
+      ) : (
         <input
           className="w-full rounded-md border border-border bg-background px-3 py-2"
           placeholder="CrickFlow Player ID *"
           value={playerId}
           onChange={(e) => setPlayerId(e.target.value)}
-          required
+          required={settings.requireCrickFlowPlayerId}
         />
-      )}
+      ))}
       {settings.requirePhoneNumber && (
         <input
           className="w-full rounded-md border border-border bg-background px-3 py-2"
@@ -287,7 +360,7 @@ export function PlayerRegistrationForm({
       ))}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" variant="outline" disabled={pending || !clubId}>
-        {pending ? "…" : "Request to join"}
+        {pending ? "…" : submitLabel}
       </Button>
       <p className="text-xs text-muted-foreground">
         The team admin reviews your documents first, then organization admins make the final decision.
