@@ -93,6 +93,8 @@ const {
   getSeriesRegistrationIdentity,
   reviewClubJoinRequest,
   addSeriesClubAdmin,
+  respondSeriesClubAdminInvite,
+  cancelSeriesClubAdminInvite,
   removeSeriesClubAdmin,
   syncSeriesApprovalMirrors,
   transferSeriesOwnership,
@@ -171,6 +173,8 @@ exports.migrateSeriesTeamLinks = migrateSeriesTeamLinks;
 exports.getSeriesRegistrationIdentity = getSeriesRegistrationIdentity;
 exports.reviewClubJoinRequest = reviewClubJoinRequest;
 exports.addSeriesClubAdmin = addSeriesClubAdmin;
+exports.respondSeriesClubAdminInvite = respondSeriesClubAdminInvite;
+exports.cancelSeriesClubAdminInvite = cancelSeriesClubAdminInvite;
 exports.removeSeriesClubAdmin = removeSeriesClubAdmin;
 exports.syncSeriesApprovalMirrors = syncSeriesApprovalMirrors;
 // Admin panel: permanent cascading delete (team / tournament / org / match).

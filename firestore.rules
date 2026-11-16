@@ -1824,7 +1824,12 @@ service cloud.firestore {
           'series_approval_rejected',
           'series_club_join_request',
           'series_member_added',
-          'series_member_removed'
+          'series_member_removed',
+          'series_club_admin_invite',
+          'series_club_admin_invite_accepted',
+          'series_club_admin_invite_declined',
+          'series_club_admin_invite_cancelled',
+          'series_player_removal_requested'
         ];
     }
 
@@ -2691,6 +2696,8 @@ service cloud.firestore {
     }
 
     match /series_club_admins/{id} {
+      // Team-admin grants go only through callables (invite → accept).
+      // Clients cannot create an active admin or promote an invitation.
       allow read: if true;
       allow create, update, delete: if false;
     }

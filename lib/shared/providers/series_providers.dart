@@ -118,6 +118,23 @@ final pendingClubJoinApprovalsProvider = StreamProvider.autoDispose
           );
     });
 
+/// All pending reviews scoped to one org team (joins and removals).
+final pendingClubReviewApprovalsProvider = StreamProvider.autoDispose
+    .family<List<SeriesApprovalModel>, ({String seriesId, String clubId})>((
+      ref,
+      params,
+    ) {
+      if (params.seriesId.isEmpty || params.clubId.isEmpty) {
+        return Stream.value(const []);
+      }
+      return ref
+          .watch(seriesApprovalRepositoryProvider)
+          .watchPendingClubApprovals(
+            seriesId: params.seriesId,
+            clubId: params.clubId,
+          );
+    });
+
 final seriesClubRankingsProvider =
     StreamProvider.family<List<SeriesClubRankingModel>, String>((
       ref,

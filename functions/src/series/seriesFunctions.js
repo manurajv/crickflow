@@ -29,6 +29,13 @@ const {
   invalidRegistrationMediaUrls,
   applyOfficialIdentity,
 } = require('./seriesRegistration');
+const {
+  CLUB_ADMIN_STATUS,
+  isOpenClubAdminInvite,
+  canInviteClubAdmin,
+  nextClubAdminStatusOnAccept,
+  playerRemovalPath,
+} = require('./seriesTeamStaff');
 
 const COLLECTIONS = {
   series: 'series',
@@ -893,27 +900,62 @@ exports.reviewSeriesApproval = onCall(async (request) => {
   }
 
   if (targetType === 'playerRemoval') {
-    if (decision === 'approved') {
-      const clubId = approval.clubId;
-      const userId = approval.metadata?.userId;
-      if (clubId && userId) {
-        const mid = membershipDocId(seriesId, clubId, userId);
-        const prev = (await firestore.collection(COLLECTIONS.memberships).doc(mid).get()).data() || {};
-        await firestore.collection(COLLECTIONS.memberships).doc(mid).update({
-          status: 'removed',
-          leftAt: ts,
+    const clubId = approval.clubId;
+    const userId = approval.metadata?.userId;
+    if (clubId && userId) {
+      const mid = membershipDocId(seriesId, clubId, userId);
+      const memRef = firestore.collection(COLLECTIONS.memberships).doc(mid);
+      const prev = (await memRef.get()).data() || {};
+      if (decision === 'approved') {
+        await finalizePlayerRemoval(firestore, {
+          seriesId,
+          clubId,
+          targetUserId: userId,
+          actorUid: uid,
+          actorRole,
+          reason,
+          previousStatus: prev.status || 'pendingRemoval',
         });
-        await mirrorRoster(firestore, 'remove', { clubId, userId, playerDocId: prev.playerDocId });
-        await firestore.collection(COLLECTIONS.clubs).doc(clubId).update({
-          squadCount: FieldValue.increment(-1),
+        auditAction = 'PLAYER_REMOVED';
+        const clubName = ((await firestore.collection(COLLECTIONS.clubs).doc(clubId).get()).data() || {}).name
+          || 'the team';
+        const staff = [
+          ...(await listFullSeriesAdminUids(firestore, series, seriesId)),
+          ...(await listActiveClubAdminUids(firestore, seriesId, clubId)),
+          approval.requestedBy,
+        ];
+        await notifyMany(firestore, [userId, ...staff], {
+          title: `Removed from ${clubName}`,
+          body: `${approval.metadata?.displayName || 'A player'} was removed from ${clubName}. Reason: ${reason}`,
+          type: 'series_member_removed',
+          seriesId,
+          extra: { clubId, requestId: approvalId },
+          from: uid,
+        });
+      } else if (prev.status === 'pendingRemoval') {
+        await memRef.update({
+          status: 'active',
+          removalRequestedAt: FieldValue.delete(),
+          removalReason: FieldValue.delete(),
           updatedAt: ts,
         });
-        await firestore.collection(COLLECTIONS.series).doc(seriesId).update({
-          playerCount: FieldValue.increment(-1),
-          updatedAt: ts,
+        auditAction = 'PLAYER_REMOVAL_REJECTED';
+        const clubName = ((await firestore.collection(COLLECTIONS.clubs).doc(clubId).get()).data() || {}).name
+          || 'the team';
+        const staff = [
+          ...(await listFullSeriesAdminUids(firestore, series, seriesId)),
+          ...(await listActiveClubAdminUids(firestore, seriesId, clubId)),
+          approval.requestedBy,
+        ];
+        await notifyMany(firestore, [userId, ...staff], {
+          title: `Removal request declined`,
+          body: `The request to remove ${approval.metadata?.displayName || 'a player'} from ${clubName} was declined. Reason: ${reason}`,
+          type: 'series_approval_rejected',
+          seriesId,
+          extra: { clubId, requestId: approvalId },
+          from: uid,
         });
       }
-      auditAction = 'PLAYER_REMOVED';
     }
   }
 
@@ -987,6 +1029,10 @@ exports.reviewSeriesApproval = onCall(async (request) => {
   });
 
   // Notify requester and (for player flows) the player of the decision.
+  // Player removals already notify the player and admins above.
+  if (targetType === 'playerRemoval') {
+    return { ok: true, status: decision };
+  }
   try {
     const typeLabel = ({
       match: 'Match request',
@@ -994,6 +1040,7 @@ exports.reviewSeriesApproval = onCall(async (request) => {
       playerJoin: 'Player registration',
       playerAdd: 'Player registration',
       playerRegistration: 'Player registration',
+      playerRemoval: 'Player removal',
     })[targetType] || targetType;
     const recipients = [approval.requestedBy, approval.metadata?.userId]
       .filter(Boolean);
@@ -1403,6 +1450,9 @@ exports.addSeriesClubAdmin = onCall(async (request) => {
   if (!seriesId || !clubId || !targetUserId) {
     throw new HttpsError('invalid-argument', 'seriesId, clubId, userId required');
   }
+  if (targetUserId === uid) {
+    throw new HttpsError('failed-precondition', 'You cannot invite yourself');
+  }
   const firestore = db();
   const series = await getSeriesOrThrow(firestore, seriesId);
   const asSeries = await isSeriesAdmin(firestore, series, uid);
@@ -1414,32 +1464,166 @@ exports.addSeriesClubAdmin = onCall(async (request) => {
   if (!clubSnap.exists || clubSnap.data().seriesId !== seriesId) {
     throw new HttpsError('not-found', 'Team not found');
   }
-  const ts = nowIso();
-  const status = clubSnap.data().status === 'approved' ? 'active' : 'pending';
   const ref = firestore.collection(COLLECTIONS.clubAdmins).doc(
     clubAdminDocId(seriesId, clubId, targetUserId),
   );
+  const existing = await ref.get();
+  const prevStatus = existing.exists ? existing.data()?.status : null;
+  if (!canInviteClubAdmin(prevStatus)) {
+    throw new HttpsError(
+      'already-exists',
+      prevStatus === CLUB_ADMIN_STATUS.invited
+        ? 'An invitation is already pending for this person'
+        : 'This person is already a team admin',
+    );
+  }
+  const ts = nowIso();
+  const displayName = String(request.data?.displayName || '').trim();
+  // Invitations are always pending until the invited user accepts.
+  // Never write active/pending-from-client — existing active admins are untouched.
   await ref.set({
     seriesId,
     clubId,
     userId: targetUserId,
-    displayName: String(request.data?.displayName || ''),
-    status,
+    displayName,
+    status: CLUB_ADMIN_STATUS.invited,
+    invitedBy: uid,
     createdBy: uid,
-    createdAt: ts,
+    createdAt: existing.data()?.createdAt || ts,
+    invitedAt: ts,
+    updatedAt: ts,
   }, { merge: true });
   await writeAudit(firestore, {
     seriesId,
     clubId,
     actorUserId: uid,
     actorRole: asSeries ? (isSuperAdmin(series, uid) ? 'superAdmin' : 'seriesAdmin') : 'clubAdmin',
-    action: 'CLUB_ADMIN_ADDED',
+    action: 'CLUB_ADMIN_INVITED',
     targetType: 'club_admin',
     targetId: targetUserId,
-    previousState: {},
-    newState: { status },
+    previousState: { status: prevStatus },
+    newState: { status: CLUB_ADMIN_STATUS.invited },
   });
-  return { ok: true, clubAdminId: ref.id, status };
+  const clubName = clubSnap.data()?.name || 'the team';
+  await notifyUser(firestore, targetUserId, {
+    title: 'Team admin invitation',
+    body: `You've been invited to be a team admin of ${clubName} in ${series.name || 'this organization'}.`,
+    type: 'series_club_admin_invite',
+    seriesId,
+    extra: { clubId, clubName, seriesName: series.name || '', requestId: ref.id },
+    from: uid,
+  });
+  return { ok: true, clubAdminId: ref.id, status: CLUB_ADMIN_STATUS.invited };
+});
+
+exports.respondSeriesClubAdminInvite = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const seriesId = String(request.data?.seriesId || '');
+  const clubId = String(request.data?.clubId || '');
+  const decision = String(request.data?.decision || '').toLowerCase();
+  if (!seriesId || !clubId || !['accepted', 'declined'].includes(decision)) {
+    throw new HttpsError('invalid-argument', 'seriesId, clubId, and accepted/declined are required');
+  }
+  const firestore = db();
+  const series = await getSeriesOrThrow(firestore, seriesId);
+  const ref = firestore.collection(COLLECTIONS.clubAdmins).doc(
+    clubAdminDocId(seriesId, clubId, uid),
+  );
+  const snap = await ref.get();
+  if (!snap.exists || !isOpenClubAdminInvite(snap.data()?.status)) {
+    throw new HttpsError('failed-precondition', 'No pending invitation found');
+  }
+  const clubSnap = await firestore.collection(COLLECTIONS.clubs).doc(clubId).get();
+  if (!clubSnap.exists || clubSnap.data().seriesId !== seriesId) {
+    throw new HttpsError('not-found', 'Team not found');
+  }
+  const ts = nowIso();
+  const nextStatus = decision === 'accepted'
+    ? nextClubAdminStatusOnAccept(clubSnap.data()?.status)
+    : CLUB_ADMIN_STATUS.declined;
+  await ref.set({
+    status: nextStatus,
+    respondedAt: ts,
+    updatedAt: ts,
+  }, { merge: true });
+  await writeAudit(firestore, {
+    seriesId,
+    clubId,
+    actorUserId: uid,
+    actorRole: 'invitee',
+    action: decision === 'accepted' ? 'CLUB_ADMIN_INVITE_ACCEPTED' : 'CLUB_ADMIN_INVITE_DECLINED',
+    targetType: 'club_admin',
+    targetId: uid,
+    previousState: { status: CLUB_ADMIN_STATUS.invited },
+    newState: { status: nextStatus },
+  });
+  const invitedBy = snap.data()?.invitedBy || snap.data()?.createdBy;
+  const clubName = clubSnap.data()?.name || 'the team';
+  const displayName = snap.data()?.displayName || 'A player';
+  await notifyUser(firestore, invitedBy, {
+    title: decision === 'accepted' ? 'Team admin invitation accepted' : 'Team admin invitation declined',
+    body: decision === 'accepted'
+      ? `${displayName} accepted the invitation to admin ${clubName}.`
+      : `${displayName} declined the invitation to admin ${clubName}.`,
+    type: decision === 'accepted'
+      ? 'series_club_admin_invite_accepted'
+      : 'series_club_admin_invite_declined',
+    seriesId,
+    extra: { clubId },
+    from: uid,
+  });
+  return { ok: true, status: nextStatus };
+});
+
+exports.cancelSeriesClubAdminInvite = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const seriesId = String(request.data?.seriesId || '');
+  const clubId = String(request.data?.clubId || '');
+  const targetUserId = String(request.data?.userId || '');
+  if (!seriesId || !clubId || !targetUserId) {
+    throw new HttpsError('invalid-argument', 'seriesId, clubId, userId required');
+  }
+  const firestore = db();
+  const series = await getSeriesOrThrow(firestore, seriesId);
+  const asSeries = await isSeriesAdmin(firestore, series, uid);
+  const asClub = await isClubAdmin(firestore, seriesId, clubId, uid);
+  if (!asSeries && !asClub) {
+    throw new HttpsError('permission-denied', 'Team admin or org admin required');
+  }
+  const ref = firestore.collection(COLLECTIONS.clubAdmins).doc(
+    clubAdminDocId(seriesId, clubId, targetUserId),
+  );
+  const snap = await ref.get();
+  if (!snap.exists || !isOpenClubAdminInvite(snap.data()?.status)) {
+    throw new HttpsError('failed-precondition', 'No pending invitation to cancel');
+  }
+  const ts = nowIso();
+  await ref.set({
+    status: CLUB_ADMIN_STATUS.cancelled,
+    cancelledBy: uid,
+    cancelledAt: ts,
+    updatedAt: ts,
+  }, { merge: true });
+  await writeAudit(firestore, {
+    seriesId,
+    clubId,
+    actorUserId: uid,
+    actorRole: asSeries ? (isSuperAdmin(series, uid) ? 'superAdmin' : 'seriesAdmin') : 'clubAdmin',
+    action: 'CLUB_ADMIN_INVITE_CANCELLED',
+    targetType: 'club_admin',
+    targetId: targetUserId,
+    previousState: { status: CLUB_ADMIN_STATUS.invited },
+    newState: { status: CLUB_ADMIN_STATUS.cancelled },
+  });
+  await notifyUser(firestore, targetUserId, {
+    title: 'Team admin invitation cancelled',
+    body: `The invitation to be a team admin of ${series.name || 'this organization'} was cancelled.`,
+    type: 'series_club_admin_invite_cancelled',
+    seriesId,
+    extra: { clubId },
+    from: uid,
+  });
+  return { ok: true, status: CLUB_ADMIN_STATUS.cancelled };
 });
 
 exports.removeSeriesClubAdmin = onCall(async (request) => {
@@ -1596,64 +1780,174 @@ exports.submitPlayerAddRequest = onCall(async (request) => {
   };
 });
 
+async function finalizePlayerRemoval(firestore, {
+  seriesId, clubId, targetUserId, actorUid, actorRole, reason, previousStatus,
+}) {
+  const mid = membershipDocId(seriesId, clubId, targetUserId);
+  const memRef = firestore.collection(COLLECTIONS.memberships).doc(mid);
+  const prevSnap = await memRef.get();
+  if (!prevSnap.exists) {
+    throw new HttpsError('not-found', 'Player is not on this squad');
+  }
+  const prev = prevSnap.data() || {};
+  const ts = nowIso();
+  const batch = firestore.batch();
+  batch.update(memRef, {
+    status: 'removed',
+    leftAt: ts,
+    removalReason: reason,
+    updatedAt: ts,
+  });
+  batch.update(firestore.collection(COLLECTIONS.clubs).doc(clubId), {
+    squadCount: FieldValue.increment(-1),
+    updatedAt: ts,
+  });
+  batch.update(firestore.collection(COLLECTIONS.series).doc(seriesId), {
+    playerCount: FieldValue.increment(-1),
+    updatedAt: ts,
+  });
+  await batch.commit();
+  await mirrorRoster(firestore, 'remove', {
+    clubId, userId: targetUserId, playerDocId: prev.playerDocId,
+  });
+  await writeAudit(firestore, {
+    seriesId,
+    clubId,
+    actorUserId: actorUid,
+    actorRole,
+    action: 'PLAYER_REMOVED',
+    targetType: 'membership',
+    targetId: mid,
+    reason,
+    previousState: { status: previousStatus || prev.status || 'active' },
+    newState: { status: 'removed' },
+  });
+  return { mid, displayName: prev.displayName || '', prev };
+}
+
 exports.submitPlayerRemovalRequest = onCall(async (request) => {
   const uid = requireAuth(request);
   const seriesId = String(request.data?.seriesId || '');
   const clubId = String(request.data?.clubId || '');
   const targetUserId = String(request.data?.userId || uid);
-  const reason = String(request.data?.reason || '');
-  if (!seriesId || !clubId) {
-    throw new HttpsError('invalid-argument', 'seriesId and clubId required');
+  if (!seriesId || !clubId || !targetUserId) {
+    throw new HttpsError('invalid-argument', 'seriesId, clubId, and userId required');
   }
   const firestore = db();
   const series = await getSeriesOrThrow(firestore, seriesId);
+  const asOrgAdmin = await isSeriesAdmin(firestore, series, uid);
+  const asClubAdmin = await isClubAdmin(firestore, seriesId, clubId, uid);
+  const isSelf = targetUserId === uid;
+  if (!asOrgAdmin && !asClubAdmin && !isSelf) {
+    throw new HttpsError('permission-denied', 'Not allowed');
+  }
 
-  // Super Admin can remove directly.
-  if (isSuperAdmin(series, uid) && request.data?.direct === true) {
-    const mid = membershipDocId(seriesId, clubId, targetUserId);
-    const prev = (await firestore.collection(COLLECTIONS.memberships).doc(mid).get()).data() || {};
-    await firestore.collection(COLLECTIONS.memberships).doc(mid).update({
-      status: 'removed',
-      leftAt: nowIso(),
-    });
-    await mirrorRoster(firestore, 'remove', {
-      clubId, userId: targetUserId, playerDocId: prev.playerDocId,
-    });
-    await firestore.collection(COLLECTIONS.clubs).doc(clubId).update({
-      squadCount: FieldValue.increment(-1),
-      updatedAt: nowIso(),
-    });
-    await writeAudit(firestore, {
+  let path;
+  try {
+    path = playerRemovalPath({ isOrgAdmin: asOrgAdmin, reason: request.data?.reason });
+  } catch (err) {
+    throw new HttpsError(err.code || 'invalid-argument', err.message);
+  }
+  const reason = path.reason;
+  const mid = membershipDocId(seriesId, clubId, targetUserId);
+  const memSnap = await firestore.collection(COLLECTIONS.memberships).doc(mid).get();
+  if (!memSnap.exists || memSnap.data()?.status === 'removed') {
+    throw new HttpsError('not-found', 'Player is not on this squad');
+  }
+  const displayName = String(memSnap.data()?.displayName || '').trim();
+  const clubName = ((await firestore.collection(COLLECTIONS.clubs).doc(clubId).get()).data() || {}).name
+    || 'the team';
+
+  if (path.mode === 'direct') {
+    const result = await finalizePlayerRemoval(firestore, {
       seriesId,
       clubId,
-      actorUserId: uid,
-      actorRole: 'superAdmin',
-      action: 'PLAYER_REMOVED',
-      targetType: 'membership',
-      targetId: mid,
+      targetUserId,
+      actorUid: uid,
+      actorRole: isSuperAdmin(series, uid) ? 'superAdmin' : 'seriesAdmin',
       reason,
-      previousState: { status: 'active' },
-      newState: { status: 'removed' },
+      previousStatus: memSnap.data()?.status,
+    });
+    // Close any open removal request for this player.
+    const pending = await firestore.collection(COLLECTIONS.approvals)
+      .where('seriesId', '==', seriesId)
+      .where('targetType', '==', 'playerRemoval')
+      .where('status', '==', 'pending')
+      .get();
+    for (const docSnap of pending.docs) {
+      const data = docSnap.data() || {};
+      if (data.clubId === clubId && data.metadata?.userId === targetUserId) {
+        await updateApprovalDocs(firestore, seriesId, docSnap.id, {
+          status: 'approved',
+          reviewedBy: uid,
+          reviewedAt: nowIso(),
+          reason,
+        });
+      }
+    }
+    const staff = [
+      ...(await listFullSeriesAdminUids(firestore, series, seriesId)),
+      ...(await listActiveClubAdminUids(firestore, seriesId, clubId)),
+    ];
+    await notifyMany(firestore, [targetUserId, ...staff], {
+      title: `Removed from ${clubName}`,
+      body: `${result.displayName || 'A player'} was removed from ${clubName}. Reason: ${reason}`,
+      type: 'series_member_removed',
+      seriesId,
+      extra: { clubId, userId: targetUserId },
+      from: uid,
     });
     return { ok: true, direct: true };
   }
 
-  const asClubAdmin = await isClubAdmin(firestore, seriesId, clubId, uid);
-  const isSelf = targetUserId === uid;
-  if (!asClubAdmin && !isSelf && !(await isSeriesAdmin(firestore, series, uid))) {
-    throw new HttpsError('permission-denied', 'Not allowed');
+  if (memSnap.data()?.status === 'pendingRemoval') {
+    throw new HttpsError('already-exists', 'A removal request is already pending for this player');
   }
 
-  const approval = await createApproval(firestore, {
+  const approvalRef = firestore.collection(COLLECTIONS.approvals).doc();
+  const ts = nowIso();
+  const payload = {
     seriesId,
     clubId,
     targetType: 'playerRemoval',
     targetId: `${clubId}_${targetUserId}`,
     requestedBy: uid,
+    status: 'pending',
+    requestedAt: ts,
     reason,
-    metadata: { userId: targetUserId },
+    metadata: { userId: targetUserId, displayName },
+  };
+  const memRef = firestore.collection(COLLECTIONS.memberships).doc(mid);
+  const nestedRef = seriesApprovalRef(firestore, seriesId, approvalRef.id);
+  const batch = firestore.batch();
+  batch.update(memRef, {
+    status: 'pendingRemoval',
+    removalRequestedAt: ts,
+    removalReason: reason,
+    updatedAt: ts,
   });
-  return { approvalId: approval.id, status: 'pending' };
+  batch.set(approvalRef, payload);
+  batch.set(nestedRef, payload);
+  await batch.commit();
+
+  const orgAdmins = await listFullSeriesAdminUids(firestore, series, seriesId);
+  await notifyMany(firestore, orgAdmins, {
+    title: 'Series approval needed',
+    body: `Player removal pending in ${series.name || 'this organization'}`,
+    type: 'series_approval_pending',
+    seriesId,
+    extra: { priority: true, requestId: approvalRef.id, clubId },
+    from: uid,
+  });
+  await notifyUser(firestore, targetUserId, {
+    title: `Removal requested from ${clubName}`,
+    body: `A team admin requested your removal from ${clubName}. Reason: ${reason}`,
+    type: 'series_player_removal_requested',
+    seriesId,
+    extra: { clubId, requestId: approvalRef.id },
+    from: uid,
+  });
+  return { approvalId: approvalRef.id, status: 'pending', autoApproved: false };
 });
 
 exports.proposeSeriesMatch = onCall(async (request) => {

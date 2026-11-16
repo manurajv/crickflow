@@ -1,22 +1,28 @@
 "use client";
 
 import { AppLink as Link } from "@/components/shared/app-link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input, Textarea } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/states";
 import { useAuth } from "@/features/auth/auth-provider";
 import { PlayerRegistrationForm } from "@/features/series/components/player-registration-form";
 import {
   useAddClubAdmin,
   useAddPlayerToClub,
+  useCancelClubAdminInvite,
   useClubAdmins,
   useClubSquad,
   useJoinClub,
   useMyLinkableTournaments,
   useProposeSeriesMatch,
   useProposeSeriesTournament,
+  useRemoveClubAdmin,
+  useRemovePlayerFromClub,
+  useRespondClubAdminInvite,
   useReviewClubJoinRequest,
+  useReviewSeriesApproval,
   useSearchPlayersForOrg,
   useSeriesDetail,
 } from "@/features/series/hooks";
@@ -29,9 +35,115 @@ import {
   orgCompetitionPolicyFromMap,
   orgStartMode,
 } from "@/lib/cricket/org-competition-access";
+import {
+  clubAdminStatusLabel,
+  isListedSquadMember,
+  isOpenClubAdminInvite,
+  squadStatusLabel,
+} from "@/lib/cricket/series-team-staff";
 import { loginUrl, SIGN_IN_PROMPTS } from "@/lib/auth/guest-access";
 import { usePathParam } from "@/lib/use-path-param";
 import { friendlyError } from "@/lib/friendly-error";
+
+type ConfirmState =
+  | { kind: "removeAdmin"; userId: string; name: string }
+  | { kind: "removePlayer"; userId: string; name: string; direct: boolean }
+  | { kind: "rejectRemoval"; approvalId: string; name: string };
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
+}
+
+function PlayerSearchPanel({
+  query,
+  onQuery,
+  hits,
+  loading,
+  error,
+  emptyHint,
+  onRetry,
+  onSelect,
+}: {
+  query: string;
+  onQuery: (value: string) => void;
+  hits: PlayerSearchHit[];
+  loading: boolean;
+  error: string;
+  emptyHint: string;
+  onRetry: () => void;
+  onSelect: (hit: PlayerSearchHit) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          ⌕
+        </span>
+        <Input
+          className="pl-8 pr-10"
+          placeholder="Search by name or CrickFlow ID"
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          aria-label="Search players"
+          data-testid="org-player-search-field"
+        />
+        {query ? (
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+            onClick={() => onQuery("")}
+            aria-label="Clear search"
+          >
+            ✕
+          </button>
+        ) : null}
+      </div>
+      {loading ? <p className="text-sm text-muted-foreground">Searching…</p> : null}
+      {error ? (
+        <div className="flex items-center justify-between gap-2 text-sm text-destructive">
+          <span>{error}</span>
+          <Button size="sm" variant="outline" type="button" onClick={onRetry}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
+      {!loading && !error && query.trim().length < 2 ? (
+        <p className="text-sm text-muted-foreground">{emptyHint}</p>
+      ) : null}
+      {!loading && !error && query.trim().length >= 2 && hits.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No players matched that search.</p>
+      ) : null}
+      {hits.map((hit) => {
+        const name = hit.displayName || hit.name || "Player";
+        return (
+          <button
+            type="button"
+            key={hit.id}
+            className="flex w-full items-center gap-3 rounded-xl border border-border px-3 py-2 text-left hover:bg-muted"
+            onClick={() => onSelect(hit)}
+          >
+            {hit.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={hit.photoUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+            ) : (
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                {initials(name)}
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{name}</span>
+              <span className="block text-xs text-muted-foreground">
+                {hit.playerId || "No CrickFlow ID"}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function OrgTeamDetailPage() {
   const seriesId = usePathParam("seriesId", 1);
@@ -43,6 +155,11 @@ export function OrgTeamDetailPage() {
   const joinClub = useJoinClub(seriesId);
   const addPlayer = useAddPlayerToClub(seriesId, clubId);
   const addAdmin = useAddClubAdmin(seriesId, clubId);
+  const removeAdmin = useRemoveClubAdmin(seriesId, clubId);
+  const cancelInvite = useCancelClubAdminInvite(seriesId, clubId);
+  const respondInvite = useRespondClubAdminInvite(seriesId, clubId);
+  const removePlayer = useRemovePlayerFromClub(seriesId, clubId);
+  const reviewApproval = useReviewSeriesApproval(seriesId);
   const searchPlayers = useSearchPlayersForOrg();
   const proposeMatch = useProposeSeriesMatch(seriesId);
   const proposeTournament = useProposeSeriesTournament(seriesId);
@@ -55,10 +172,48 @@ export function OrgTeamDetailPage() {
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
   const [addAdminOpen, setAddAdminOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
+  const [searchFor, setSearchFor] = useState<"admin" | "player" | null>(null);
   const [searchHits, setSearchHits] = useState<PlayerSearchHit[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerSearchHit | null>(null);
   const [adminHits, setAdminHits] = useState<PlayerSearchHit[]>([]);
   const [actionError, setActionError] = useState("");
+  const [actionNotice, setActionNotice] = useState("");
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    if (!searchFor) return;
+    const value = searchQ.trim();
+    if (value.length < 2) {
+      setSearchError("");
+      setSearchLoading(false);
+      if (searchFor === "admin") setAdminHits([]);
+      else setSearchHits([]);
+      return;
+    }
+    const handle = window.setTimeout(async () => {
+      setSearchLoading(true);
+      setSearchError("");
+      try {
+        const hits = await searchPlayers.mutateAsync({
+          query: value,
+          currentUserId: user?.uid,
+        });
+        if (searchFor === "admin") setAdminHits(hits);
+        else setSearchHits(hits);
+      } catch (err) {
+        setSearchError(friendlyError(err, "Could not search players"));
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+    return () => window.clearTimeout(handle);
+  // mutateAsync is used for the search request; omit the mutation object so
+  // loading-state updates do not retrigger the effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQ, searchFor, user?.uid]);
 
   const club = (data?.clubs ?? []).find((c) => c.id === clubId);
   const access = useMemo(() => {
@@ -77,9 +232,9 @@ export function OrgTeamDetailPage() {
   const isOrgAdmin = Boolean(data.isSuperAdmin || data.canManage);
   const isTeamAdmin = data.myAdminClubIds.includes(clubId);
   const canManage = isOrgAdmin || isTeamAdmin;
-  const activeSquad = (squad.data ?? []).filter((m) => m.status === "active");
+  const listedSquad = (squad.data ?? []).filter((m) => isListedSquadMember(m.status));
   const isOnSquad = Boolean(
-    user && activeSquad.some((m) => m.userId === user.uid),
+    user && listedSquad.some((m) => m.userId === user.uid),
   ) || Boolean(user && !squad.data && data.myTeamIds.includes(clubId));
   const showJoin = canRequestToJoinOrgTeam({
     signedIn: Boolean(user),
@@ -97,25 +252,70 @@ export function OrgTeamDetailPage() {
       (typeof a.metadata.clubId === "string" ? a.metadata.clubId : "");
     return requestClub === clubId && a.metadata.clubReviewStatus !== "approved";
   });
-  const activeAdmins = (admins.data ?? []).filter((a) => a.status !== "removed");
+  const removalRequests = (data.approvals ?? []).filter((a) => {
+    if (a.targetType !== "playerRemoval") return false;
+    const requestClub =
+      (typeof a.clubId === "string" && a.clubId) ||
+      (typeof a.metadata.clubId === "string" ? a.metadata.clubId : "");
+    return requestClub === clubId && a.status === "pending";
+  });
+  const visibleAdmins = (admins.data ?? []).filter(
+    (a) => a.status !== "removed" && a.status !== "cancelled" && a.status !== "declined",
+  );
+  const myInvite = (admins.data ?? []).find(
+    (a) => user && a.userId === user.uid && isOpenClubAdminInvite(a.status),
+  );
 
-  async function runSearch(forAdmin: boolean, value: string) {
-    setSearchQ(value);
-    if (value.trim().length < 2) {
-      if (forAdmin) setAdminHits([]);
-      else setSearchHits([]);
+  function openPlayerSearch() {
+    setAddPlayerOpen(true);
+    setSelectedPlayer(null);
+    setSearchHits([]);
+    setSearchQ("");
+    setSearchFor("player");
+    setSearchError("");
+  }
+
+  async function runAction(message: string, work: () => Promise<unknown>) {
+    setActionError("");
+    setActionNotice("");
+    try {
+      await work();
+      setActionNotice(message);
+    } catch (err) {
+      setActionError(friendlyError(err, "Something went wrong"));
+    }
+  }
+
+  async function submitConfirm() {
+    if (!confirm) return;
+    if (confirm.kind === "removeAdmin") {
+      await runAction("Admin removed", () => removeAdmin.mutateAsync(confirm.userId));
+      setConfirm(null);
       return;
     }
-    try {
-      const hits = await searchPlayers.mutateAsync({
-        query: value,
-        currentUserId: user?.uid,
-      });
-      if (forAdmin) setAdminHits(hits);
-      else setSearchHits(hits);
-    } catch (err) {
-      setActionError(friendlyError(err, "Could not search players"));
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      setActionError("Please enter a reason");
+      return;
     }
+    if (confirm.kind === "removePlayer") {
+      await runAction(
+        confirm.direct ? "Player removed" : "Removal request submitted",
+        () => removePlayer.mutateAsync({ userId: confirm.userId, reason: trimmed }),
+      );
+      setConfirm(null);
+      setReason("");
+      return;
+    }
+    await runAction("Removal declined", () =>
+      reviewApproval.mutateAsync({
+        approvalId: confirm.approvalId,
+        decision: "rejected",
+        reason: trimmed,
+      }),
+    );
+    setConfirm(null);
+    setReason("");
   }
 
   return (
@@ -133,6 +333,30 @@ export function OrgTeamDetailPage() {
         ) : null}
       </div>
       {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
+      {actionNotice ? <p className="text-sm text-primary">{actionNotice}</p> : null}
+
+      {myInvite ? (
+        <Card className="space-y-3 p-4" data-testid="org-team-admin-invite-banner">
+          <p className="text-sm font-medium">
+            You&apos;ve been invited to be a team admin for {club.name}.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => runAction("Invitation accepted", () => respondInvite.mutateAsync("accepted"))}
+              disabled={respondInvite.isPending}
+            >
+              Accept
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => runAction("Invitation declined", () => respondInvite.mutateAsync("declined"))}
+              disabled={respondInvite.isPending}
+            >
+              Decline
+            </Button>
+          </div>
+        </Card>
+      ) : null}
 
       {showJoin ? (
         <div className="space-y-3">
@@ -173,6 +397,12 @@ export function OrgTeamDetailPage() {
             </Card>
           )}
         </div>
+      ) : null}
+
+      {canManage ? (
+        <Button data-testid="org-team-search-add-player" onClick={openPlayerSearch}>
+          Search & add player
+        </Button>
       ) : null}
 
       {canManage && (matchMode !== "none" || tournamentMode !== "none" || isOrgAdmin) ? (
@@ -273,66 +503,151 @@ export function OrgTeamDetailPage() {
         </section>
       ) : null}
 
-      {canManage ? (
+      {canManage || removalRequests.length > 0 ? (
         <section className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-bold">Team admins</h2>
-            <Button variant="ghost" size="sm" onClick={() => setAddAdminOpen((v) => !v)}>
-              + Add
-            </Button>
-          </div>
-          {addAdminOpen ? (
-            <Card className="space-y-2 p-3">
-              <input
-                className="w-full rounded-md border border-border bg-background px-3 py-2"
-                placeholder="Search by name or CrickFlow Player ID"
-                value={addAdminOpen ? searchQ : ""}
-                onChange={(e) => runSearch(true, e.target.value)}
-              />
-              {adminHits.map((hit) => (
-                <button
-                  type="button"
-                  key={hit.id}
-                  className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left hover:bg-muted"
-                  onClick={async () => {
-                    await addAdmin.mutateAsync({
-                      userId: hit.id,
-                      displayName: hit.displayName,
-                    });
-                    setAddAdminOpen(false);
-                    setAdminHits([]);
-                  }}
-                >
-                  <span>{hit.displayName || hit.name}</span>
-                  <span className="text-xs text-muted-foreground">{hit.playerId}</span>
-                </button>
-              ))}
-            </Card>
-          ) : null}
-          {admins.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : activeAdmins.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No team admins yet.</p>
+          <h2 className="text-lg font-bold">Removal requests</h2>
+          {removalRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No pending removal reviews.</p>
           ) : (
-            activeAdmins.map((a) => (
-              <Card key={a.id} className="p-3">
-                <p className="font-medium">{a.displayName || a.userId}</p>
-                <p className="text-xs capitalize text-muted-foreground">{a.status}</p>
-              </Card>
-            ))
+            removalRequests.map((a) => {
+              const name = String(a.metadata.displayName || a.metadata.userId || a.requestedBy);
+              return (
+                <Card key={a.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                  <div>
+                    <p className="text-sm font-medium">{name}</p>
+                    {a.reason || a.metadata.reason ? (
+                      <p className="text-xs text-muted-foreground">
+                        {String(a.reason || a.metadata.reason)}
+                      </p>
+                    ) : null}
+                  </div>
+                  {isOrgAdmin ? (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          runAction("Player removed", () =>
+                            reviewApproval.mutateAsync({ approvalId: a.id, decision: "approved" }),
+                          )
+                        }
+                        disabled={reviewApproval.isPending}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setConfirm({ kind: "rejectRemoval", approvalId: a.id, name })}
+                        disabled={reviewApproval.isPending}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Pending</p>
+                  )}
+                </Card>
+              );
+            })
           )}
         </section>
       ) : null}
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-bold">Team admins</h2>
+          {canManage ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setAddAdminOpen((v) => !v);
+                setSearchQ("");
+                setSearchFor("admin");
+                setAdminHits([]);
+                setSearchError("");
+              }}
+            >
+              + Add
+            </Button>
+          ) : null}
+        </div>
+        {addAdminOpen && canManage ? (
+          <Card className="space-y-2 p-3">
+            <PlayerSearchPanel
+              query={searchFor === "admin" ? searchQ : ""}
+              onQuery={(value) => {
+                setSearchFor("admin");
+                setSearchQ(value);
+              }}
+              hits={adminHits}
+              loading={searchFor === "admin" && searchLoading}
+              error={searchFor === "admin" ? searchError : ""}
+              emptyHint="Type a name or CrickFlow ID to invite a team admin"
+              onRetry={() => setSearchQ((q) => q + " ")}
+              onSelect={async (hit) => {
+                await runAction("Invitation sent", () =>
+                  addAdmin.mutateAsync({
+                    userId: hit.id,
+                    displayName: hit.displayName || hit.name,
+                  }),
+                );
+                setAddAdminOpen(false);
+                setAdminHits([]);
+                setSearchQ("");
+              }}
+            />
+          </Card>
+        ) : null}
+        {admins.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : visibleAdmins.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No team admins yet.</p>
+        ) : (
+          visibleAdmins.map((a) => {
+            const name = a.displayName || a.userId;
+            const invited = isOpenClubAdminInvite(a.status);
+            return (
+              <Card key={a.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                <div>
+                  <p className="font-medium">{name}</p>
+                  <p className="text-xs text-muted-foreground">{clubAdminStatusLabel(a.status)}</p>
+                </div>
+                <div className="flex gap-2">
+                  {invited && canManage ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        runAction("Invitation cancelled", () => cancelInvite.mutateAsync(a.userId))
+                      }
+                      disabled={cancelInvite.isPending}
+                    >
+                      Cancel
+                    </Button>
+                  ) : null}
+                  {!invited && a.status === "active" && isOrgAdmin ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive"
+                      onClick={() => setConfirm({ kind: "removeAdmin", userId: a.userId, name })}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              </Card>
+            );
+          })
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-bold">Squad</h2>
           {canManage ? (
-            <Button variant="ghost" size="sm" onClick={() => {
-              setAddPlayerOpen((v) => !v);
-              setSelectedPlayer(null);
-              setSearchHits([]);
-            }}>
+            <Button variant="ghost" size="sm" onClick={openPlayerSearch}>
               + Add
             </Button>
           ) : null}
@@ -373,45 +688,137 @@ export function OrgTeamDetailPage() {
                 />
               </>
             ) : (
-              <>
-                <input
-                  className="w-full rounded-md border border-border bg-background px-3 py-2"
-                  placeholder="Search by name or CrickFlow Player ID"
-                  value={searchQ}
-                  onChange={(e) => runSearch(false, e.target.value)}
-                />
-                {searchHits.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Type a name to find players</p>
-                ) : (
-                  searchHits.map((hit) => (
-                    <button
-                      type="button"
-                      key={hit.id}
-                      className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left hover:bg-muted"
-                      onClick={() => setSelectedPlayer(hit)}
-                    >
-                      <span>{hit.displayName || hit.name}</span>
-                      <span className="text-xs text-muted-foreground">{hit.playerId}</span>
-                    </button>
-                  ))
-                )}
-              </>
+              <PlayerSearchPanel
+                query={searchFor === "player" ? searchQ : ""}
+                onQuery={(value) => {
+                  setSearchFor("player");
+                  setSearchQ(value);
+                }}
+                hits={searchHits}
+                loading={searchFor === "player" && searchLoading}
+                error={searchFor === "player" ? searchError : ""}
+                emptyHint="Type a name or CrickFlow ID to find players"
+                onRetry={() => setSearchQ((q) => q + " ")}
+                onSelect={setSelectedPlayer}
+              />
             )}
           </Card>
         ) : null}
         {squad.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : activeSquad.length === 0 ? (
+        ) : listedSquad.length === 0 ? (
           <p className="text-sm text-muted-foreground">Squad not published</p>
         ) : (
-          activeSquad.map((m) => (
-            <Card key={m.id} className="p-3">
-              <p className="font-medium">{m.displayName || m.userId}</p>
-              <p className="text-xs capitalize text-muted-foreground">{m.status}</p>
-            </Card>
-          ))
+          listedSquad.map((m) => {
+            const name = m.displayName || m.userId;
+            const pendingRemoval = m.status === "pendingRemoval";
+            return (
+              <Card key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                <div>
+                  <p className="font-medium">{name}</p>
+                  <p className="text-xs text-muted-foreground">{squadStatusLabel(m.status)}</p>
+                </div>
+                {canManage && !pendingRemoval ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive"
+                    onClick={() =>
+                      setConfirm({
+                        kind: "removePlayer",
+                        userId: m.userId,
+                        name,
+                        direct: isOrgAdmin,
+                      })
+                    }
+                  >
+                    Remove
+                  </Button>
+                ) : null}
+              </Card>
+            );
+          })
         )}
       </section>
+
+      {confirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md space-y-3 p-4">
+            {confirm.kind === "removeAdmin" ? (
+              <>
+                <h2 className="text-lg font-bold">Remove admin?</h2>
+                <p className="text-sm text-muted-foreground">
+                  Remove {confirm.name} as a team admin? They will lose admin access immediately.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" type="button" onClick={() => setConfirm(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-red-600 text-white hover:bg-red-700"
+                    onClick={submitConfirm}
+                    disabled={removeAdmin.isPending}
+                  >
+                    Remove admin
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold">
+                  {confirm.kind === "rejectRemoval"
+                    ? "Decline removal?"
+                    : confirm.direct
+                      ? "Remove player?"
+                      : "Request player removal?"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {confirm.kind === "rejectRemoval"
+                    ? `Explain why ${confirm.name} should stay on the squad.`
+                    : confirm.direct
+                      ? `Remove ${confirm.name} from the squad? Please give a reason.`
+                      : `Ask organization admins to remove ${confirm.name} from the squad. The player stays listed as Removal pending until this is approved.`}
+                </p>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Reason (required)"
+                  rows={3}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => {
+                      setConfirm(null);
+                      setReason("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className={confirm.kind === "rejectRemoval" ? "" : "bg-red-600 text-white hover:bg-red-700"}
+                    onClick={submitConfirm}
+                    disabled={
+                      !reason.trim() ||
+                      removePlayer.isPending ||
+                      reviewApproval.isPending
+                    }
+                  >
+                    {confirm.kind === "rejectRemoval"
+                      ? "Decline"
+                      : confirm.direct
+                        ? "Remove player"
+                        : "Request removal"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }

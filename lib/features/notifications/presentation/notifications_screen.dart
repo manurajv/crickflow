@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/series_notification_types.dart';
 import '../../../core/constants/team_notification_types.dart';
 import '../../../core/constants/tournament_notification_types.dart';
 import '../../../core/navigation/notification_navigation.dart';
@@ -13,6 +14,7 @@ import '../../../core/utils/date_utils.dart';
 import '../../../data/models/notification_model.dart';
 import '../../../domain/notifications/notification_priority.dart';
 import '../../../shared/providers/notification_provider.dart';
+import '../../../shared/providers/series_providers.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/providers/tournament_team_request_provider.dart';
@@ -278,6 +280,35 @@ class _NotificationCard extends ConsumerWidget {
   }) async {
     if (notification.hasActionStatus) return;
     try {
+      if (notification.type == SeriesNotificationTypes.clubAdminInvite) {
+        final seriesId = notification.seriesId ?? '';
+        final clubId = notification.clubId ?? '';
+        if (seriesId.isEmpty || clubId.isEmpty) {
+          throw StateError('This invitation is missing team details');
+        }
+        await ref.read(seriesFunctionsServiceProvider).respondSeriesClubAdminInvite(
+              seriesId: seriesId,
+              clubId: clubId,
+              decision: accept ? 'accepted' : 'declined',
+            );
+        await ref.read(notificationRepositoryProvider).setActionStatus(
+              notification.id,
+              accept ? 'accepted' : 'rejected',
+            );
+        await ref
+            .read(notificationRepositoryProvider)
+            .markRelatedRead(NotificationRelation.of(notification));
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              accept ? 'Invitation accepted' : 'Invitation declined',
+            ),
+          ),
+        );
+        return;
+      }
+
       if (notification.type == TeamNotificationTypes.invitation) {
         if (accept) {
           await TeamNotificationActions.accept(

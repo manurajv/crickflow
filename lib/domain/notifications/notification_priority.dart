@@ -27,6 +27,7 @@ class NotificationPriority {
     TournamentNotificationTypes.officialInvitation,
     SeriesNotificationTypes.approvalPending,
     SeriesNotificationTypes.clubJoinRequest,
+    SeriesNotificationTypes.clubAdminInvite,
     'admin_roster_report',
   };
 
@@ -43,6 +44,11 @@ class NotificationPriority {
     TournamentNotificationTypes.officialInvitationRejected,
     SeriesNotificationTypes.approvalApproved,
     SeriesNotificationTypes.approvalRejected,
+    SeriesNotificationTypes.clubAdminInviteAccepted,
+    SeriesNotificationTypes.clubAdminInviteDeclined,
+    SeriesNotificationTypes.clubAdminInviteCancelled,
+    SeriesNotificationTypes.playerRemovalRequested,
+    SeriesNotificationTypes.memberRemoved,
   };
 
   static bool isPriorityType(String? type) =>

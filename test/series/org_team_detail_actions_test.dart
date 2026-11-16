@@ -51,6 +51,8 @@ List<Override> _overrides({
     seriesClubAdminsProvider(params).overrideWith((_) => Stream.value(admins)),
     pendingClubJoinApprovalsProvider(params)
         .overrideWith((_) => Stream.value(const [])),
+    pendingClubReviewApprovalsProvider(params)
+        .overrideWith((_) => Stream.value(const [])),
     mySeriesRoleProvider('s1').overrideWithValue(role),
     orgCompetitionAccessProvider('s1').overrideWithValue(resolvedAccess),
     currentUserProfileProvider.overrideWith((_) async => user),
@@ -137,7 +139,8 @@ void main() {
       ),
     );
     expect(find.byKey(const Key('org_team_request_to_join')), findsNothing);
-    expect(find.text('Search & add player'), findsNothing);
+    expect(find.byKey(const Key('org_team_search_add_player')), findsOneWidget);
+    expect(find.text('Search & add player'), findsOneWidget);
     expect(find.byKey(const Key('org_team_squad_add')), findsOneWidget);
     expect(find.text('Request a match'), findsOneWidget);
     expect(find.text('Request a tournament'), findsOneWidget);
@@ -157,9 +160,122 @@ void main() {
     );
     expect(find.byKey(const Key('org_team_request_to_join')), findsOneWidget);
     expect(find.byKey(const Key('org_team_squad_add')), findsOneWidget);
-    expect(find.text('Search & add player'), findsNothing);
+    expect(find.byKey(const Key('org_team_search_add_player')), findsOneWidget);
+    expect(find.text('Search & add player'), findsOneWidget);
     expect(find.text('Start a match'), findsOneWidget);
     expect(find.text('Start a tournament'), findsOneWidget);
     expect(find.text('Pending approvals'), findsOneWidget);
+  });
+
+
+  testWidgets('a team admin who is also a player appears in both lists', (tester) async {
+    await _pump(
+      tester,
+      user: _user('ta1'),
+      role: SeriesRole.clubAdmin,
+      squad: [_member('ta1')],
+      admins: const [
+        SeriesClubAdminModel(
+          id: 'a1',
+          seriesId: 's1',
+          clubId: 'c1',
+          userId: 'ta1',
+          displayName: 'Player ta1',
+        ),
+      ],
+      access: const OrgCompetitionAccess(
+        role: SeriesRole.clubAdmin,
+        policy: OrgCompetitionPolicy(),
+        myTeamIds: ['c1'],
+      ),
+    );
+    expect(find.text('Team admins'), findsOneWidget);
+    expect(find.text('Squad'), findsOneWidget);
+    expect(find.text('Player ta1'), findsNWidgets(2));
+  });
+
+  testWidgets('pending invitations show as Pending with Cancel', (tester) async {
+    await _pump(
+      tester,
+      user: _user('owner'),
+      role: SeriesRole.seriesAdmin,
+      admins: const [
+        SeriesClubAdminModel(
+          id: 'a1',
+          seriesId: 's1',
+          clubId: 'c1',
+          userId: 'invitee',
+          displayName: 'Invited Person',
+          status: 'invited',
+        ),
+      ],
+      access: const OrgCompetitionAccess(
+        role: SeriesRole.seriesAdmin,
+        policy: OrgCompetitionPolicy(),
+      ),
+    );
+    expect(find.text('Invited Person'), findsOneWidget);
+    expect(find.text('Pending'), findsWidgets);
+    expect(find.text('Cancel'), findsOneWidget);
+  });
+
+  testWidgets('removing a team admin asks for confirmation', (tester) async {
+    await _pump(
+      tester,
+      user: _user('owner'),
+      role: SeriesRole.seriesAdmin,
+      admins: const [
+        SeriesClubAdminModel(
+          id: 'a1',
+          seriesId: 's1',
+          clubId: 'c1',
+          userId: 'ta1',
+          displayName: 'Alex Admin',
+        ),
+      ],
+      access: const OrgCompetitionAccess(
+        role: SeriesRole.seriesAdmin,
+        policy: OrgCompetitionPolicy(),
+      ),
+    );
+    await tester.tap(find.byTooltip('Remove'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove admin?'), findsOneWidget);
+    expect(find.textContaining('Alex Admin'), findsWidgets);
+    expect(find.text('Remove admin'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
+  });
+
+  testWidgets('removal-pending players stay on the squad list', (tester) async {
+    await _pump(
+      tester,
+      user: _user('ta1'),
+      role: SeriesRole.clubAdmin,
+      squad: [
+        SeriesMembershipModel(
+          id: 'm-p2',
+          seriesId: 's1',
+          clubId: 'c1',
+          userId: 'p2',
+          displayName: 'Leaving Player',
+          status: SeriesMembershipStatus.pendingRemoval,
+        ),
+      ],
+      admins: const [
+        SeriesClubAdminModel(
+          id: 'a1',
+          seriesId: 's1',
+          clubId: 'c1',
+          userId: 'ta1',
+        ),
+      ],
+      access: const OrgCompetitionAccess(
+        role: SeriesRole.clubAdmin,
+        policy: OrgCompetitionPolicy(),
+        myTeamIds: ['c1'],
+      ),
+    );
+    expect(find.text('Leaving Player'), findsOneWidget);
+    expect(find.text('Removal pending'), findsOneWidget);
   });
 }

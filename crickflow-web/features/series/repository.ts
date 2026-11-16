@@ -131,6 +131,8 @@ export function mapSeriesApproval(id: string, data: Data): SeriesApproval {
     targetId: text(data, "targetId"),
     requestedBy: text(data, "requestedBy"),
     clubId: text(data, "clubId") || undefined,
+    status: text(data, "status") || undefined,
+    reason: text(data, "reason") || undefined,
     metadata: (data.metadata && typeof data.metadata === "object"
       ? data.metadata
       : {}) as Record<string, unknown>,
@@ -885,4 +887,43 @@ export async function addSeriesClubAdmin(input: {
 }) {
   const callable = httpsCallable(getFirebaseFunctions(), "addSeriesClubAdmin");
   await callable(input);
+}
+
+export async function removeSeriesClubAdmin(input: {
+  seriesId: string;
+  clubId: string;
+  userId: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "removeSeriesClubAdmin");
+  await callable(input);
+}
+
+export async function respondSeriesClubAdminInvite(input: {
+  seriesId: string;
+  clubId: string;
+  decision: "accepted" | "declined";
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "respondSeriesClubAdminInvite");
+  const result = await callable(input);
+  return (result.data ?? {}) as { ok?: boolean; status?: string };
+}
+
+export async function cancelSeriesClubAdminInvite(input: {
+  seriesId: string;
+  clubId: string;
+  userId: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "cancelSeriesClubAdminInvite");
+  await callable(input);
+}
+
+export async function submitPlayerRemovalRequest(input: {
+  seriesId: string;
+  clubId: string;
+  userId: string;
+  reason: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "submitPlayerRemovalRequest");
+  const result = await callable(input);
+  return (result.data ?? {}) as { ok?: boolean; direct?: boolean; approvalId?: string; status?: string };
 }

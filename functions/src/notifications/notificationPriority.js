@@ -11,6 +11,7 @@ const ACTION_TYPES = new Set([
   'tournament_official_invitation',
   'series_approval_pending',
   'series_club_join_request',
+  'series_club_admin_invite',
   'admin_roster_report',
 ]);
 
@@ -27,6 +28,11 @@ const DECISION_TYPES = new Set([
   'tournament_official_invitation_rejected',
   'series_approval_approved',
   'series_approval_rejected',
+  'series_club_admin_invite_accepted',
+  'series_club_admin_invite_declined',
+  'series_club_admin_invite_cancelled',
+  'series_player_removal_requested',
+  'series_member_removed',
 ]);
 
 function isPriorityType(type) {

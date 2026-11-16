@@ -117,6 +117,11 @@ class SeriesMembershipModel extends Equatable {
 
   bool get isActive => status == SeriesMembershipStatus.active;
 
+  /// Still shown on the squad: active players and those awaiting removal review.
+  bool get isListedOnSquad =>
+      status == SeriesMembershipStatus.active ||
+      status == SeriesMembershipStatus.pendingRemoval;
+
   factory SeriesMembershipModel.fromMap(String id, Map<String, dynamic> map) {
     return SeriesMembershipModel(
       id: id,

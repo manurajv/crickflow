@@ -59,6 +59,8 @@ export interface SeriesApproval {
   targetId: string;
   requestedBy: string;
   clubId?: string;
+  status?: string;
+  reason?: string;
   metadata: Record<string, unknown>;
 }
 

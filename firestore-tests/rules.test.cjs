@@ -580,3 +580,37 @@ test('series registration identity is limited to player, team admins, and org ad
   await assertSucceeds(getDoc(doc(as('cadm'), 'series_registrations/regDocs')));
   await assertSucceeds(getDoc(doc(as('player1'), 'series_registrations/regDocs')));
 });
+
+// Team-admin documents are callable-only. A client cannot create an active
+// admin or promote a pending invitation.
+test('series club admins cannot be written directly by clients', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'series_club_admins/s1_c1_invitee'), {
+      seriesId: 's1', clubId: 'c1', userId: 'invitee', status: 'invited', invitedBy: 'cadm',
+    });
+    await setDoc(doc(db, 'series_club_admins/s1_c1_cadm'), {
+      seriesId: 's1', clubId: 'c1', userId: 'cadm', status: 'active',
+    });
+  });
+
+  const staff = as('cadm');
+  const owner = as('owner');
+  const invitee = as('invitee');
+
+  await assertSucceeds(getDoc(doc(invitee, 'series_club_admins/s1_c1_invitee')));
+  await assertFails(setDoc(doc(staff, 'series_club_admins/s1_c1_spoof'), {
+    seriesId: 's1', clubId: 'c1', userId: 'spoof', status: 'active', createdBy: 'cadm',
+  }));
+  await assertFails(setDoc(doc(owner, 'series_club_admins/s1_c1_spoof2'), {
+    seriesId: 's1', clubId: 'c1', userId: 'spoof2', status: 'active', createdBy: 'owner',
+  }));
+  await assertFails(updateDoc(doc(staff, 'series_club_admins/s1_c1_invitee'), { status: 'active' }));
+  await assertFails(updateDoc(doc(invitee, 'series_club_admins/s1_c1_invitee'), { status: 'active' }));
+  await assertFails(updateDoc(doc(owner, 'series_club_admins/s1_c1_cadm'), { status: 'removed' }));
+  await assertFails(deleteDoc(doc(owner, 'series_club_admins/s1_c1_cadm')));
+  await assertFails(setDoc(doc(as('u2'), 'series_memberships/s1_c1_u2'), {
+    seriesId: 's1', clubId: 'c1', userId: 'u2', status: 'removed',
+  }));
+  await assertFails(updateDoc(doc(staff, 'series_memberships/missing'), { status: 'removed' }));
+});

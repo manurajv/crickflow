@@ -53,7 +53,12 @@ String seriesAdminStatusLabel(String? status) {
     case 'removed':
       return 'Removed';
     case 'pending':
+    case 'invited':
       return 'Pending';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'declined':
+      return 'Declined';
     case 'suspended':
       return 'Suspended';
     default:

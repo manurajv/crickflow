@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/constants/tournament_notification_types.dart';
 import '../../core/constants/team_notification_types.dart';
+import '../../core/constants/series_notification_types.dart';
 import '../../core/navigation/notification_navigation.dart';
 import '../../domain/notifications/notification_priority.dart';
 import '../repositories/notification_repository.dart';
@@ -118,7 +119,8 @@ class PushNotificationHandler {
     }
     if (type == TournamentNotificationTypes.invitation ||
         type == TeamNotificationTypes.invitation ||
-        type == TournamentNotificationTypes.officialInvitation) {
+        type == TournamentNotificationTypes.officialInvitation ||
+        type == SeriesNotificationTypes.clubAdminInvite) {
       _router?.push('/notifications');
       return;
     }
@@ -130,6 +132,8 @@ class PushNotificationHandler {
       playerId: data['playerId'],
       tab: data['tab'],
       requestId: data['requestId'],
+      seriesId: data['seriesId'],
+      clubId: data['clubId'],
     );
     if (route == null) {
       _router?.push('/notifications');

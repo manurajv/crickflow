@@ -23,6 +23,10 @@ import {
   submitPlayerAddRequest,
   submitSeriesRegistration,
   addSeriesClubAdmin,
+  removeSeriesClubAdmin,
+  respondSeriesClubAdminInvite,
+  cancelSeriesClubAdminInvite,
+  submitPlayerRemovalRequest,
   listClubAdmins,
   listClubSquad,
   searchPlayersForOrg,
@@ -364,6 +368,54 @@ export function useAddClubAdmin(seriesId: string, clubId: string) {
   return useMutation({
     mutationFn: (input: { userId: string; displayName?: string }) =>
       addSeriesClubAdmin({ seriesId, clubId, ...input }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useRemoveClubAdmin(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      removeSeriesClubAdmin({ seriesId, clubId, userId }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useRespondClubAdminInvite(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (decision: "accepted" | "declined") =>
+      respondSeriesClubAdminInvite({ seriesId, clubId, decision }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useCancelClubAdminInvite(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      cancelSeriesClubAdminInvite({ seriesId, clubId, userId }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useRemovePlayerFromClub(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; reason: string }) =>
+      submitPlayerRemovalRequest({ seriesId, clubId, ...input }),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["series", seriesId] });
       client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });

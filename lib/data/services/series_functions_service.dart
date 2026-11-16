@@ -186,6 +186,28 @@ class SeriesFunctionsService {
         'displayName': displayName,
       });
 
+  Future<Map<String, dynamic>> respondSeriesClubAdminInvite({
+    required String seriesId,
+    required String clubId,
+    required String decision,
+  }) =>
+      _call('respondSeriesClubAdminInvite', {
+        'seriesId': seriesId,
+        'clubId': clubId,
+        'decision': decision,
+      });
+
+  Future<Map<String, dynamic>> cancelSeriesClubAdminInvite({
+    required String seriesId,
+    required String clubId,
+    required String userId,
+  }) =>
+      _call('cancelSeriesClubAdminInvite', {
+        'seriesId': seriesId,
+        'clubId': clubId,
+        'userId': userId,
+      });
+
   Future<Map<String, dynamic>> removeSeriesClubAdmin({
     required String seriesId,
     required String clubId,
