@@ -183,3 +183,10 @@ exports.removeSeriesClubAdmin = removeSeriesClubAdmin;
 exports.syncSeriesApprovalMirrors = syncSeriesApprovalMirrors;
 // Admin panel: permanent cascading delete (team / tournament / org / match).
 exports.adminDeleteEntity = require('./admin/adminDeleteEntity').adminDeleteEntity;
+exports.adminSendNotificationCampaign =
+  require('./admin/adminSendNotificationCampaign').adminSendNotificationCampaign;
+exports.onAdminNotificationCampaignWritten =
+  require('./admin/adminSendNotificationCampaign').onAdminNotificationCampaignWritten;
+exports.processScheduledNotificationCampaigns =
+  require('./admin/adminSendNotificationCampaign').processScheduledNotificationCampaigns;
+

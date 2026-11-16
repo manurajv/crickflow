@@ -43,6 +43,7 @@ class ManagedNotificationCampaign extends Equatable {
     this.openedCount = 0,
     this.clickedCount = 0,
     this.failedCount = 0,
+    this.skippedCount = 0,
     this.recipientCount = 0,
     this.createdByUid = '',
     this.createdByEmail = '',
@@ -89,6 +90,7 @@ class ManagedNotificationCampaign extends Equatable {
   final int openedCount;
   final int clickedCount;
   final int failedCount;
+  final int skippedCount;
   final int recipientCount;
   final String createdByUid;
   final String createdByEmail;
@@ -117,8 +119,9 @@ class ManagedNotificationCampaign extends Equatable {
     return clickedCount / deliveredCount;
   }
 
-  String get displayTitle =>
-      title.trim().isNotEmpty ? title.trim() : (campaignName.trim().isNotEmpty ? campaignName.trim() : 'Untitled');
+  String get displayTitle => title.trim().isNotEmpty
+      ? title.trim()
+      : (campaignName.trim().isNotEmpty ? campaignName.trim() : 'Untitled');
 
   factory ManagedNotificationCampaign.fromFirestore({
     required String id,
@@ -158,7 +161,8 @@ class ManagedNotificationCampaign extends Equatable {
       audienceIds: List<String>.from(map['audienceIds'] as List? ?? const []),
       audienceLabel: map['audienceLabel'] as String? ?? '',
       country: map['country'] as String? ?? '',
-      stateProvince: map['stateProvince'] as String? ?? map['state'] as String? ?? '',
+      stateProvince:
+          map['stateProvince'] as String? ?? map['state'] as String? ?? '',
       city: map['city'] as String? ?? '',
       platforms: platforms,
       scheduleMode: ManagedScheduleMode.parse(map['scheduleMode'] as String?),
@@ -174,6 +178,7 @@ class ManagedNotificationCampaign extends Equatable {
       openedCount: (map['openedCount'] as num?)?.toInt() ?? 0,
       clickedCount: (map['clickedCount'] as num?)?.toInt() ?? 0,
       failedCount: (map['failedCount'] as num?)?.toInt() ?? 0,
+      skippedCount: (map['skippedCount'] as num?)?.toInt() ?? 0,
       recipientCount: (map['recipientCount'] as num?)?.toInt() ?? 0,
       createdByUid: map['createdByUid'] as String? ?? '',
       createdByEmail: map['createdByEmail'] as String? ?? '',
@@ -223,6 +228,7 @@ class ManagedNotificationCampaign extends Equatable {
       'openedCount': openedCount,
       'clickedCount': clickedCount,
       'failedCount': failedCount,
+      'skippedCount': skippedCount,
       'recipientCount': recipientCount,
       'createdByUid': createdByUid,
       'createdByEmail': createdByEmail,
@@ -272,6 +278,7 @@ class ManagedNotificationCampaign extends Equatable {
     int? openedCount,
     int? clickedCount,
     int? failedCount,
+    int? skippedCount,
     int? recipientCount,
     String? deliveryNote,
     DateTime? sentAt,
@@ -297,8 +304,7 @@ class ManagedNotificationCampaign extends Equatable {
       city: city ?? this.city,
       platforms: platforms ?? this.platforms,
       scheduleMode: scheduleMode ?? this.scheduleMode,
-      scheduledAt:
-          clearScheduledAt ? null : (scheduledAt ?? this.scheduledAt),
+      scheduledAt: clearScheduledAt ? null : (scheduledAt ?? this.scheduledAt),
       recurrence: recurrence ?? this.recurrence,
       timezone: timezone ?? this.timezone,
       campaignName: campaignName ?? this.campaignName,
@@ -310,6 +316,7 @@ class ManagedNotificationCampaign extends Equatable {
       openedCount: openedCount ?? this.openedCount,
       clickedCount: clickedCount ?? this.clickedCount,
       failedCount: failedCount ?? this.failedCount,
+      skippedCount: skippedCount ?? this.skippedCount,
       recipientCount: recipientCount ?? this.recipientCount,
       createdByUid: createdByUid,
       createdByEmail: createdByEmail,
@@ -378,15 +385,15 @@ class ManagedNotificationTemplate extends Equatable {
   }
 
   Map<String, dynamic> toFirestoreMap({bool forCreate = false}) => {
-        'name': name,
-        'title': title,
-        'body': body,
-        'type': type.wireValue,
-        'deepLink': deepLink,
-        if (organizationId != null) 'organizationId': organizationId,
-        'updatedAt': DateTime.now().toIso8601String(),
-        if (forCreate) 'createdAt': DateTime.now().toIso8601String(),
-      };
+    'name': name,
+    'title': title,
+    'body': body,
+    'type': type.wireValue,
+    'deepLink': deepLink,
+    if (organizationId != null) 'organizationId': organizationId,
+    'updatedAt': DateTime.now().toIso8601String(),
+    if (forCreate) 'createdAt': DateTime.now().toIso8601String(),
+  };
 
   @override
   List<Object?> get props => [id, name, updatedAt];
@@ -430,15 +437,15 @@ class ManagedNotificationSegment extends Equatable {
   }
 
   Map<String, dynamic> toFirestoreMap({bool forCreate = false}) => {
-        'name': name,
-        'description': description,
-        'audience': audience.wireValue,
-        'filters': filters,
-        'estimatedCount': estimatedCount,
-        if (organizationId != null) 'organizationId': organizationId,
-        if (forCreate) 'createdAt': DateTime.now().toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
-      };
+    'name': name,
+    'description': description,
+    'audience': audience.wireValue,
+    'filters': filters,
+    'estimatedCount': estimatedCount,
+    if (organizationId != null) 'organizationId': organizationId,
+    if (forCreate) 'createdAt': DateTime.now().toIso8601String(),
+    'updatedAt': DateTime.now().toIso8601String(),
+  };
 
   @override
   List<Object?> get props => [id, name];
@@ -548,20 +555,20 @@ class ManagedAnnouncement extends Equatable {
   }
 
   Map<String, dynamic> toFirestoreMap({bool forCreate = false}) => {
-        'kind': kind,
-        'title': title,
-        'description': description,
-        'imageUrl': imageUrl,
-        'buttonText': buttonText,
-        'redirectAction': redirectAction,
-        'redirectUrl': redirectUrl,
-        'priority': priority,
-        'active': active,
-        if (expiresAt != null) 'expiresAt': Timestamp.fromDate(expiresAt!),
-        if (organizationId != null) 'organizationId': organizationId,
-        if (forCreate) 'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+    'kind': kind,
+    'title': title,
+    'description': description,
+    'imageUrl': imageUrl,
+    'buttonText': buttonText,
+    'redirectAction': redirectAction,
+    'redirectUrl': redirectUrl,
+    'priority': priority,
+    'active': active,
+    if (expiresAt != null) 'expiresAt': Timestamp.fromDate(expiresAt!),
+    if (organizationId != null) 'organizationId': organizationId,
+    if (forCreate) 'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
 
   @override
   List<Object?> get props => [id, title, active, priority];

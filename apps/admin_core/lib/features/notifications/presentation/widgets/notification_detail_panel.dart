@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -27,8 +28,7 @@ class NotificationDetailPanel extends ConsumerWidget {
       child: SizedBox(
         width: 460,
         child: async.when(
-          loading: () =>
-              const CfLoadingState(message: 'Loading notification…'),
+          loading: () => const CfLoadingState(message: 'Loading notification…'),
           error: (e, _) => Center(child: Text('$e')),
           data: (campaign) {
             if (campaign == null) {
@@ -46,9 +46,7 @@ class NotificationDetailPanel extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             'Notification details',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -93,10 +91,7 @@ class NotificationDetailPanel extends ConsumerWidget {
 }
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({
-    required this.campaign,
-    required this.controller,
-  });
+  const _OverviewTab({required this.campaign, required this.controller});
 
   final ManagedNotificationCampaign campaign;
   final NotificationsHubController controller;
@@ -110,9 +105,9 @@ class _OverviewTab extends StatelessWidget {
       children: [
         Text(
           c.displayTitle,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         if (c.subtitle.isNotEmpty) ...[
           const SizedBox(height: 4),
@@ -157,7 +152,10 @@ class _OverviewTab extends StatelessWidget {
           const SizedBox(height: 16),
         ],
         _KeyValue('Deep link', c.deepLink.isEmpty ? '—' : c.deepLink),
-        _KeyValue('Action button', c.actionButtonText.isEmpty ? '—' : c.actionButtonText),
+        _KeyValue(
+          'Action button',
+          c.actionButtonText.isEmpty ? '—' : c.actionButtonText,
+        ),
         _KeyValue('Priority', c.priority.label),
         _KeyValue('Sound', c.sound.label),
         _KeyValue(
@@ -168,12 +166,12 @@ class _OverviewTab extends StatelessWidget {
           'Scheduled',
           c.scheduledAt == null ? '—' : dateFmt.format(c.scheduledAt!),
         ),
-        _KeyValue(
-          'Sent',
-          c.sentAt == null ? '—' : dateFmt.format(c.sentAt!),
-        ),
+        _KeyValue('Sent', c.sentAt == null ? '—' : dateFmt.format(c.sentAt!)),
         if (c.isCampaign) ...[
-          _KeyValue('Campaign name', c.campaignName.isEmpty ? '—' : c.campaignName),
+          _KeyValue(
+            'Campaign name',
+            c.campaignName.isEmpty ? '—' : c.campaignName,
+          ),
         ],
         const SizedBox(height: 16),
         _Actions(campaign: c, controller: controller),
@@ -201,6 +199,7 @@ class _DeliveryTab extends StatelessWidget {
         _KeyValue('Opened', '${c.openedCount}'),
         _KeyValue('Clicked', '${c.clickedCount}'),
         _KeyValue('Failed', '${c.failedCount}'),
+        _KeyValue('Skipped', '${c.skippedCount}'),
         _KeyValue(
           'Open rate',
           c.deliveredCount > 0
@@ -327,10 +326,7 @@ class _AuditTab extends ConsumerWidget {
 }
 
 class _Actions extends StatelessWidget {
-  const _Actions({
-    required this.campaign,
-    required this.controller,
-  });
+  const _Actions({required this.campaign, required this.controller});
 
   final ManagedNotificationCampaign campaign;
   final NotificationsHubController controller;
@@ -354,9 +350,7 @@ class _Actions extends StatelessWidget {
             const SizedBox(height: 12),
             TextField(
               controller: reasonController,
-              decoration: const InputDecoration(
-                labelText: 'Reason (optional)',
-              ),
+              decoration: const InputDecoration(labelText: 'Reason (optional)'),
             ),
           ],
         ),
@@ -375,15 +369,29 @@ class _Actions extends StatelessWidget {
       ),
     );
     if (ok == true) {
-      await run(
-        reasonController.text.trim().isEmpty
-            ? null
-            : reasonController.text.trim(),
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$title completed')),
+      try {
+        await run(
+          reasonController.text.trim().isEmpty
+              ? null
+              : reasonController.text.trim(),
         );
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$title completed')));
+        }
+      } on FirebaseFunctionsException catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.message ?? e.code)));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$e')));
+        }
       }
     }
   }
@@ -393,9 +401,14 @@ class _Actions extends StatelessWidget {
     final c = campaign;
     final isDraft = c.status == ManagedNotificationStatus.draft;
     final isScheduled = c.status == ManagedNotificationStatus.scheduled;
-    final canSend = isDraft ||
-        c.status == ManagedNotificationStatus.failed ||
-        c.status == ManagedNotificationStatus.cancelled;
+    final isSending = c.status == ManagedNotificationStatus.sending;
+    final canSend =
+        !isSending &&
+        (isDraft ||
+            isScheduled ||
+            c.status == ManagedNotificationStatus.failed ||
+            c.status == ManagedNotificationStatus.cancelled ||
+            c.status == ManagedNotificationStatus.queued);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,15 +419,32 @@ class _Actions extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
+            if (isSending)
+              const Chip(
+                label: Text('Sending…'),
+                visualDensity: VisualDensity.compact,
+              ),
+            if (canSend)
+              OutlinedButton(
+                onPressed: () => _confirmAction(
+                  context,
+                  title: 'Dry run',
+                  message:
+                      'Count eligible recipients without writing inbox docs or sending FCM. Use this before a real send.',
+                  run: (r) => controller.sendNow(c, reason: r, dryRun: true),
+                ),
+                child: const Text('Dry run'),
+              ),
             if (canSend)
               OutlinedButton(
                 onPressed: () => _confirmAction(
                   context,
                   title: 'Send now',
-                  message: 'Send this notification immediately?',
+                  message:
+                      'Start a server send to the selected audience. Eligible users get an in-app notification and an FCM push if they have a token and have not opted out. This is not a test; it will reach real users in that audience.',
                   run: (r) => controller.sendNow(c, reason: r),
                 ),
-                child: const Text('Send / Queue'),
+                child: const Text('Send now'),
               ),
             if (isDraft || isScheduled)
               OutlinedButton(
@@ -447,9 +477,9 @@ class _Actions extends StatelessWidget {
                     timezone: c.timezone,
                   );
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Scheduled')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('Scheduled')));
                   }
                 },
                 child: const Text('Schedule'),
@@ -540,9 +570,9 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
     );
   }
 }
