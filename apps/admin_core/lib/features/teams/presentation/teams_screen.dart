@@ -12,6 +12,8 @@ import 'widgets/team_detail_panel.dart';
 import 'widgets/teams_filter_drawer.dart';
 import 'widgets/teams_table.dart';
 import 'widgets/teams_toolbar.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class TeamsScreen extends ConsumerStatefulWidget {
   const TeamsScreen({super.key});
@@ -28,10 +30,7 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(breadcrumbProvider.notifier).state = [
-        'Management',
-        'Teams',
-      ];
+      ref.read(breadcrumbProvider.notifier).state = ['Management', 'Teams'];
     });
   }
 
@@ -65,18 +64,13 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen> {
             child: RefreshIndicator(
               onRefresh: controller.refresh,
               child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  showPanel ? 460 : 20,
-                  32,
-                ),
+                padding: EdgeInsets.fromLTRB(20, 20, showPanel ? 460 : 20, 32),
                 children: [
                   Text(
                     'Teams',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -105,15 +99,16 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen> {
                       }
                     },
                     onRefresh: controller.refresh,
-                    onExport: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Export (CSV / Excel / PDF) coming soon',
-                          ),
-                        ),
-                      );
-                    },
+                    onExport: () => showAdminListExport(
+                      context: context,
+                      filenameBase: 'crickflow-teams',
+                      headers: AdminListExports.teamHeaders,
+                      rows: [
+                        for (final t in state.teams)
+                          AdminListExports.teamRow(t),
+                      ],
+                      hasMore: state.hasMore,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (state.error != null)

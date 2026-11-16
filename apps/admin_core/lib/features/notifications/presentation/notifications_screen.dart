@@ -20,6 +20,8 @@ import 'widgets/notifications_table.dart';
 import 'widgets/notifications_toolbar.dart';
 import 'widgets/segments_panel.dart';
 import 'widgets/templates_panel.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -65,6 +67,63 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     });
   }
 
+  void _export(NotificationsHubState state) {
+    switch (state.section) {
+      case NotificationHubSection.announcements:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-announcements',
+          headers: AdminListExports.announcementHeaders,
+          rows: [
+            for (final a in state.announcements)
+              AdminListExports.announcementRow(a),
+          ],
+          hasMore: state.hasMore,
+        );
+      case NotificationHubSection.templates:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-notification-templates',
+          headers: AdminListExports.templateHeaders,
+          rows: [
+            for (final t in state.templates) AdminListExports.templateRow(t),
+          ],
+          hasMore: state.hasMore,
+        );
+      case NotificationHubSection.segments:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-notification-segments',
+          headers: AdminListExports.segmentHeaders,
+          rows: [
+            for (final s in state.segments) AdminListExports.segmentRow(s),
+          ],
+          hasMore: state.hasMore,
+        );
+      case NotificationHubSection.autoNotifications:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-auto-notifications',
+          headers: AdminListExports.autoNotificationHeaders,
+          rows: [
+            for (final n in state.autoNotifications)
+              AdminListExports.autoNotificationRow(n),
+          ],
+          hasMore: state.hasMore,
+        );
+      default:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-notification-campaigns',
+          headers: AdminListExports.campaignHeaders,
+          rows: [
+            for (final c in state.campaigns) AdminListExports.campaignRow(c),
+          ],
+          hasMore: state.hasMore,
+        );
+    }
+  }
+
   bool _usesCampaignTable(NotificationHubSection section) {
     return section == NotificationHubSection.dashboard ||
         section == NotificationHubSection.notifications ||
@@ -82,8 +141,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(notificationsHubControllerProvider);
     final controller = ref.read(notificationsHubControllerProvider.notifier);
-    final showDetailPanel =
-        state.selectedId != null && !state.composerOpen;
+    final showDetailPanel = state.selectedId != null && !state.composerOpen;
     final showComposer = state.composerOpen;
     final rightPanelOpen = showDetailPanel || showComposer;
 
@@ -105,8 +163,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   Text(
                     'Notifications',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -157,15 +215,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         }
                       },
                       onRefresh: controller.refresh,
-                      onExport: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Export (CSV / Excel / PDF) coming soon',
-                            ),
-                          ),
-                        );
-                      },
+                      onExport: () => _export(state),
                     )
                   else
                     NotificationsToolbar(
@@ -174,21 +224,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       onSearchSubmitted: () {},
                       filterActive: false,
                       refreshing: state.isLoading,
-                      showCreate: state.section ==
+                      showCreate:
+                          state.section ==
                               NotificationHubSection.notifications ||
                           state.section == NotificationHubSection.dashboard,
                       onCreate: () => controller.openComposer(),
                       onFilter: () {},
                       onRefresh: controller.refresh,
-                      onExport: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Export (CSV / Excel / PDF) coming soon',
-                            ),
-                          ),
-                        );
-                      },
+                      onExport: () => _export(state),
                       hintText: _sectionSearchHint(state.section),
                     ),
                   const SizedBox(height: 16),
@@ -241,8 +284,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       NotificationHubSection.announcements => 'Search announcements…',
       NotificationHubSection.templates => 'Search templates…',
       NotificationHubSection.segments => 'Search segments…',
-      NotificationHubSection.autoNotifications =>
-        'Search auto notifications…',
+      NotificationHubSection.autoNotifications => 'Search auto notifications…',
       _ => null,
     };
   }
@@ -262,16 +304,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 child: Text(
                   '${state.summary.scheduled} notification(s) pending scheduled delivery',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: context.adminColors.info,
-                      ),
+                    fontWeight: FontWeight.w700,
+                    color: context.adminColors.info,
+                  ),
                 ),
               ),
             Text(
               'Recent campaigns',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             NotificationsTable(

@@ -15,7 +15,7 @@ class AnalyticsSectionBody extends StatelessWidget {
     required this.reportKind,
     required this.onReportKindChanged,
     required this.onExportCsv,
-    required this.onExportStub,
+    required this.onExportExcelCsv,
   });
 
   final AnalyticsHubSection section;
@@ -23,7 +23,7 @@ class AnalyticsSectionBody extends StatelessWidget {
   final AnalyticsReportKind reportKind;
   final ValueChanged<AnalyticsReportKind> onReportKindChanged;
   final VoidCallback onExportCsv;
-  final ValueChanged<AnalyticsExportFormat> onExportStub;
+  final VoidCallback onExportExcelCsv;
 
   @override
   Widget build(BuildContext context) {
@@ -39,14 +39,14 @@ class AnalyticsSectionBody extends StatelessWidget {
       AnalyticsHubSection.advertisements => _Ads(snapshot: snapshot),
       AnalyticsHubSection.revenue => _Revenue(snapshot: snapshot),
       AnalyticsHubSection.reports => _Reports(
-          snapshot: snapshot,
-          kind: reportKind,
-          onKindChanged: onReportKindChanged,
-        ),
+        snapshot: snapshot,
+        kind: reportKind,
+        onKindChanged: onReportKindChanged,
+      ),
       AnalyticsHubSection.exportCenter => _Export(
-          onExportCsv: onExportCsv,
-          onExportStub: onExportStub,
-        ),
+        onExportCsv: onExportCsv,
+        onExportExcelCsv: onExportExcelCsv,
+      ),
     };
   }
 }
@@ -113,10 +113,7 @@ class _Overview extends StatelessWidget {
             }
             return Column(
               children: [
-                for (final ch in charts) ...[
-                  ch,
-                  const SizedBox(height: 12),
-                ],
+                for (final ch in charts) ...[ch, const SizedBox(height: 12)],
               ],
             );
           },
@@ -196,7 +193,9 @@ class _Users extends StatelessWidget {
               ],
             );
             if (!wide) {
-              return Column(children: [left, const SizedBox(height: 12), right]);
+              return Column(
+                children: [left, const SizedBox(height: 12), right],
+              );
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,10 +272,7 @@ class _Teams extends StatelessWidget {
           values: t.mostActive,
         ),
         const SizedBox(height: 12),
-        AnalyticsNamedListCard(
-          title: 'Most followed',
-          values: t.mostFollowed,
-        ),
+        AnalyticsNamedListCard(title: 'Most followed', values: t.mostFollowed),
         const SizedBox(height: 12),
         AnalyticsNamedListCard(
           title: 'Highest winning',
@@ -338,10 +334,7 @@ class _Streaming extends StatelessWidget {
       children: [
         AnalyticsKpiGrid(kpis: s.kpis),
         const SizedBox(height: 16),
-        AnalyticsLineChartCard(
-          title: 'Streaming activity',
-          points: s.series,
-        ),
+        AnalyticsLineChartCard(title: 'Streaming activity', points: s.series),
         const SizedBox(height: 12),
         AnalyticsBarChartCard(
           title: 'Platforms (YouTube / Facebook / RTMP)',
@@ -363,10 +356,7 @@ class _Community extends StatelessWidget {
       children: [
         AnalyticsKpiGrid(kpis: c.kpis),
         const SizedBox(height: 16),
-        AnalyticsLineChartCard(
-          title: 'Community activity',
-          points: c.series,
-        ),
+        AnalyticsLineChartCard(title: 'Community activity', points: c.series),
         const SizedBox(height: 12),
         AnalyticsNamedListCard(
           title: 'Most popular posts (likes)',
@@ -443,10 +433,7 @@ class _Revenue extends StatelessWidget {
           values: r.breakdown,
         ),
         const SizedBox(height: 12),
-        AnalyticsLineChartCard(
-          title: 'Estimated trend',
-          points: r.series,
-        ),
+        AnalyticsLineChartCard(title: 'Estimated trend', points: r.series),
       ],
     );
   }
@@ -495,9 +482,9 @@ class _Reports extends StatelessWidget {
             children: [
               Text(
                 kind.label,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
               for (final line in lines)
@@ -507,7 +494,7 @@ class _Reports extends StatelessWidget {
                 ),
               const SizedBox(height: 8),
               Text(
-                'Use Export Center to download CSV. PDF / Excel / email '
+                'Use Export Center to download CSV or Excel-compatible CSV. '
                 'scheduling are prepared for later.',
                 style: TextStyle(
                   fontSize: 12,
@@ -525,13 +512,10 @@ class _Reports extends StatelessWidget {
 }
 
 class _Export extends StatelessWidget {
-  const _Export({
-    required this.onExportCsv,
-    required this.onExportStub,
-  });
+  const _Export({required this.onExportCsv, required this.onExportExcelCsv});
 
   final VoidCallback onExportCsv;
-  final ValueChanged<AnalyticsExportFormat> onExportStub;
+  final VoidCallback onExportExcelCsv;
 
   @override
   Widget build(BuildContext context) {
@@ -543,14 +527,15 @@ class _Export extends StatelessWidget {
             children: [
               Text(
                 'Export Center',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
-                'Download analytics snapshots. Scheduled email reports are '
-                'future-ready (no mailer wired yet).',
+                'Download the current analytics snapshot as CSV. '
+                'Excel-compatible CSV adds a UTF-8 BOM. There is no PDF '
+                'or email-report mailer.',
                 style: TextStyle(color: context.adminColors.textMuted),
               ),
               const SizedBox(height: 16),
@@ -564,27 +549,9 @@ class _Export extends StatelessWidget {
                     label: const Text('Export CSV'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => onExportStub(AnalyticsExportFormat.excel),
+                    onPressed: onExportExcelCsv,
                     icon: const Icon(Icons.grid_on_outlined),
-                    label: const Text('Excel (soon)'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () => onExportStub(AnalyticsExportFormat.pdf),
-                    icon: const Icon(Icons.picture_as_pdf_outlined),
-                    label: const Text('PDF (soon)'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Scheduled / email reports — architecture ready',
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.schedule_send_outlined),
-                    label: const Text('Schedule (soon)'),
+                    label: const Text('Excel-compatible CSV'),
                   ),
                 ],
               ),

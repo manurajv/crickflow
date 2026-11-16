@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -11,6 +10,8 @@ import '../../models/audit_log_view.dart';
 import '../../providers/audit_providers.dart';
 import 'audit_chrome.dart';
 import 'audit_table.dart';
+import '../../../../core/export/admin_csv.dart';
+import '../../../../core/export/admin_export_sheet.dart';
 
 class AuditSectionBody extends ConsumerWidget {
   const AuditSectionBody({super.key});
@@ -22,79 +23,77 @@ class AuditSectionBody extends ConsumerWidget {
 
     return switch (state.section) {
       AuditHubSection.dashboard => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AuditDashboardCards(stats: state.snapshot.stats),
-            const SizedBox(height: 20),
-            AuditSectionCard(
-              title: 'Retention policy',
-              subtitle:
-                  'Configurable retention prepared for future automatic cleanup.',
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final r in AuditRetentionPeriod.values)
-                    Chip(
-                      label: Text(r.label),
-                      backgroundColor: r == state.snapshot.retention
-                          ? AdminColors.primaryBlue.withValues(alpha: 0.15)
-                          : null,
-                    ),
-                ],
-              ),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AuditDashboardCards(stats: state.snapshot.stats),
+          const SizedBox(height: 20),
+          AuditSectionCard(
+            title: 'Retention policy',
+            subtitle:
+                'Configurable retention prepared for future automatic cleanup.',
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final r in AuditRetentionPeriod.values)
+                  Chip(
+                    label: Text(r.label),
+                    backgroundColor: r == state.snapshot.retention
+                        ? AdminColors.primaryBlue.withValues(alpha: 0.15)
+                        : null,
+                  ),
+              ],
             ),
-            const SizedBox(height: 16),
-            AuditSectionCard(
-              title: 'Recent activity',
-              subtitle: 'Latest administrative actions across the platform.',
-              child: state.snapshot.recent.isEmpty
-                  ? const Text('No recent activity yet.')
-                  : Column(
-                      children: [
-                        for (final l in state.snapshot.recent.take(8))
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            title: Text(
-                              l.actionLabel,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
+          ),
+          const SizedBox(height: 16),
+          AuditSectionCard(
+            title: 'Recent activity',
+            subtitle: 'Latest administrative actions across the platform.',
+            child: state.snapshot.recent.isEmpty
+                ? const Text('No recent activity yet.')
+                : Column(
+                    children: [
+                      for (final l in state.snapshot.recent.take(8))
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: Text(
+                            l.actionLabel,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
                             ),
-                            subtitle: Text(
-                              '${l.actorEmail} · ${l.module.label}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: context.adminColors.textMuted,
-                              ),
-                            ),
-                            trailing: AuditSeverityBadge(severity: l.severity),
-                            onTap: () => controller.selectLog(l.id),
                           ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
+                          subtitle: Text(
+                            '${l.actorEmail} · ${l.module.label}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: context.adminColors.textMuted,
+                            ),
+                          ),
+                          trailing: AuditSeverityBadge(severity: l.severity),
+                          onTap: () => controller.selectLog(l.id),
+                        ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
       AuditHubSection.timeline => const _TimelinePanel(),
       AuditHubSection.auditLogs ||
       AuditHubSection.loginHistory ||
       AuditHubSection.securityEvents ||
       AuditHubSection.permissionChanges ||
       AuditHubSection.dataChanges ||
-      AuditHubSection.systemEvents =>
-        AuditLogsTable(
-          logs: controller.logsForSection(),
-          isLoading: state.isLoading,
-          hasMore: state.hasMore &&
-              state.section == AuditHubSection.auditLogs,
-          isLoadingMore: state.isLoadingMore,
-          selectedId: state.selectedId,
-          onSelect: (l) => controller.selectLog(l.id),
-          onLoadMore: controller.loadMore,
-        ),
+      AuditHubSection.systemEvents => AuditLogsTable(
+        logs: controller.logsForSection(),
+        isLoading: state.isLoading,
+        hasMore: state.hasMore && state.section == AuditHubSection.auditLogs,
+        isLoadingMore: state.isLoadingMore,
+        selectedId: state.selectedId,
+        onSelect: (l) => controller.selectLog(l.id),
+        onLoadMore: controller.loadMore,
+      ),
       AuditHubSection.exportCenter => const _ExportPanel(),
     };
   }
@@ -233,44 +232,60 @@ class _ExportPanel extends ConsumerWidget {
     return AuditSectionCard(
       title: 'Export Center',
       subtitle:
-          'CSV and JSON are available now. Excel, PDF, and backup are prepared for later.',
+          'Download the currently loaded audit rows as CSV, Excel-compatible CSV, or JSON. There is no PDF or backup writer.',
       child: Column(
         children: [
-          for (final format in AuditExportFormat.values)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(_icon(format)),
-              title: Text(format.label),
-              trailing: format == AuditExportFormat.csv ||
-                      format == AuditExportFormat.json
-                  ? FilledButton(
-                      onPressed: () async {
-                        final text = format == AuditExportFormat.csv
-                            ? controller.exportCsv()
-                            : controller.exportJson();
-                        await Clipboard.setData(ClipboardData(text: text));
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${format.label} copied to clipboard'),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text('Copy'),
-                    )
-                  : const Chip(
-                      label: Text('Coming soon'),
-                      visualDensity: VisualDensity.compact,
-                    ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.table_chart_outlined),
+            title: const Text('CSV'),
+            trailing: FilledButton(
+              onPressed: () async {
+                final stamp = DateTime.now().toIso8601String().split('T').first;
+                await downloadAdminTextFile(
+                  context: context,
+                  filename: 'crickflow-audit_$stamp.csv',
+                  content: controller.exportCsv(),
+                );
+              },
+              child: const Text('Download'),
             ),
-          const SizedBox(height: 12),
-          Text(
-            'Future alerts: critical security events, multiple failed logins, '
-            'unauthorized access, mass deletions, permission escalation.',
-            style: TextStyle(
-              fontSize: 12,
-              color: context.adminColors.textMuted,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.grid_on_outlined),
+            title: const Text('Excel-compatible CSV'),
+            trailing: FilledButton(
+              onPressed: () async {
+                final stamp = DateTime.now().toIso8601String().split('T').first;
+                final csv = controller.exportCsv();
+                final content = csv.startsWith(AdminCsv.bom)
+                    ? csv
+                    : '${AdminCsv.bom}$csv';
+                await downloadAdminTextFile(
+                  context: context,
+                  filename: 'crickflow-audit_${stamp}_excel.csv',
+                  content: content,
+                );
+              },
+              child: const Text('Download'),
+            ),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.data_object),
+            title: const Text('JSON'),
+            trailing: FilledButton(
+              onPressed: () async {
+                final stamp = DateTime.now().toIso8601String().split('T').first;
+                await downloadAdminTextFile(
+                  context: context,
+                  filename: 'crickflow-audit_$stamp.json',
+                  content: controller.exportJson(),
+                  mimeType: 'application/json;charset=utf-8',
+                );
+              },
+              child: const Text('Download'),
             ),
           ),
         ],
@@ -278,11 +293,4 @@ class _ExportPanel extends ConsumerWidget {
     );
   }
 
-  IconData _icon(AuditExportFormat f) => switch (f) {
-        AuditExportFormat.csv => Icons.table_chart_outlined,
-        AuditExportFormat.excel => Icons.grid_on_outlined,
-        AuditExportFormat.pdf => Icons.picture_as_pdf_outlined,
-        AuditExportFormat.json => Icons.data_object,
-        AuditExportFormat.backup => Icons.backup_outlined,
-      };
 }

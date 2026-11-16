@@ -12,6 +12,8 @@ import 'widgets/user_detail_panel.dart';
 import 'widgets/users_filter_drawer.dart';
 import 'widgets/users_table.dart';
 import 'widgets/users_toolbar.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
@@ -62,18 +64,13 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
             child: RefreshIndicator(
               onRefresh: controller.refresh,
               child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  showPanel ? 460 : 20,
-                  32,
-                ),
+                padding: EdgeInsets.fromLTRB(20, 20, showPanel ? 460 : 20, 32),
                 children: [
                   Text(
                     'Users',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -102,15 +99,16 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                       }
                     },
                     onRefresh: controller.refresh,
-                    onExport: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Export (CSV / Excel / PDF) coming soon',
-                          ),
-                        ),
-                      );
-                    },
+                    onExport: () => showAdminListExport(
+                      context: context,
+                      filenameBase: 'crickflow-users',
+                      headers: AdminListExports.userHeaders,
+                      rows: [
+                        for (final u in state.users)
+                          AdminListExports.userRow(u),
+                      ],
+                      hasMore: state.hasMore,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (state.error != null)

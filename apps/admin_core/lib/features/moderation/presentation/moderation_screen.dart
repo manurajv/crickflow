@@ -19,6 +19,8 @@ import 'widgets/moderation_posts_table.dart';
 import 'widgets/moderation_reports_table.dart';
 import 'widgets/moderation_summary_cards.dart';
 import 'widgets/moderation_toolbar.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class ModerationScreen extends ConsumerStatefulWidget {
   const ModerationScreen({
@@ -69,12 +71,59 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
   }
 
   void _onQueryChanged(String value) {
-    ref.read(moderationHubControllerProvider(_surface).notifier).setQuery(value);
+    ref
+        .read(moderationHubControllerProvider(_surface).notifier)
+        .setQuery(value);
     setState(() {});
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () {
       ref.read(moderationHubControllerProvider(_surface).notifier).refresh();
     });
+  }
+
+  void _export(ModerationHubState state) {
+    switch (state.section) {
+      case ModerationHubSection.reports:
+      case ModerationHubSection.reportedUsers:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-moderation-reports',
+          headers: AdminListExports.reportHeaders,
+          rows: [for (final r in state.reports) AdminListExports.reportRow(r)],
+          hasMore: state.hasMore,
+        );
+      case ModerationHubSection.chats:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-chat-threads',
+          headers: AdminListExports.chatHeaders,
+          rows: [for (final c in state.chats) AdminListExports.chatRow(c)],
+          hasMore: state.hasMore,
+          emptyMessage:
+              'No chat-thread metadata is listed. Message bodies are never exported.',
+        );
+      default:
+        final posts = [
+          ...state.posts,
+          if (state.section == ModerationHubSection.trending ||
+              state.section == ModerationHubSection.overview)
+            ...state.trending,
+        ];
+        final seen = <String>{};
+        final rows = <List<String?>>[];
+        for (final post in posts) {
+          if (seen.add(post.id)) {
+            rows.add(AdminListExports.moderationPostRow(post));
+          }
+        }
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-moderation-posts',
+          headers: AdminListExports.moderationPostHeaders,
+          rows: rows,
+          hasMore: state.hasMore,
+        );
+    }
   }
 
   ManagedModerationPost? _postFromReport(ManagedContentReport report) {
@@ -96,8 +145,9 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(moderationHubControllerProvider(_surface));
-    final controller =
-        ref.read(moderationHubControllerProvider(_surface).notifier);
+    final controller = ref.read(
+      moderationHubControllerProvider(_surface).notifier,
+    );
     final showPanel = state.selectedPostId != null;
 
     final body = Stack(
@@ -106,18 +156,13 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
           child: RefreshIndicator(
             onRefresh: controller.refresh,
             child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                20,
-                showPanel ? 480 : 20,
-                32,
-              ),
+              padding: EdgeInsets.fromLTRB(20, 20, showPanel ? 480 : 20, 32),
               children: [
                 Text(
                   _surface.title,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -161,8 +206,7 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
                       'Search post ID, author, hashtags, tournament…',
                     ModerationSurface.discover =>
                       'Search opportunity, author, location, category…',
-                    ModerationSurface.queue =>
-                      'Search reports, users, chats…',
+                    ModerationSurface.queue => 'Search reports, users, chats…',
                   },
                   onFilter: () async {
                     final next = await showModerationFilterDrawer(
@@ -178,15 +222,7 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
                     }
                   },
                   onRefresh: controller.refresh,
-                  onExport: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Export (CSV / Excel / PDF) coming soon',
-                        ),
-                      ),
-                    );
-                  },
+                  onExport: () => _export(state),
                 ),
                 const SizedBox(height: 16),
                 if (state.error != null)
@@ -226,10 +262,7 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
     );
 
     if (widget.permissions != null && widget.permissions!.isNotEmpty) {
-      return PermissionGateAny(
-        permissions: widget.permissions!,
-        child: body,
-      );
+      return PermissionGateAny(permissions: widget.permissions!, child: body);
     }
     final single = widget.permission;
     if (single == null) {
@@ -239,10 +272,7 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
         message: 'You do not have access to this section.',
       );
     }
-    return PermissionGate(
-      permission: single,
-      child: body,
-    );
+    return PermissionGate(permission: single, child: body);
   }
 
   Widget _buildSectionContent(
@@ -256,9 +286,9 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
           children: [
             Text(
               'Pending reports',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             ModerationPendingReportsList(
@@ -365,7 +395,7 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
       case ModerationHubSection.queue:
         final discoverQueue =
             state.section == ModerationHubSection.queue &&
-                _surface == ModerationSurface.discover;
+            _surface == ModerationSurface.discover;
         if (discoverQueue) {
           return ModerationDiscoverTable(
             posts: state.posts,
@@ -409,8 +439,7 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
             _ => 'No community posts found',
           },
           emptyMessage: switch (state.section) {
-            ModerationHubSection.queue =>
-              'No posts pending review right now.',
+            ModerationHubSection.queue => 'No posts pending review right now.',
             ModerationHubSection.media =>
               'Try adjusting filters to find media posts.',
             _ => 'Try adjusting search or filters.',

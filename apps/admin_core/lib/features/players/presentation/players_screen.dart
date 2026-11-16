@@ -11,6 +11,8 @@ import '../providers/players_providers.dart';
 import 'widgets/player_detail_panel.dart';
 import 'widgets/players_chrome.dart';
 import 'widgets/players_table.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class PlayersScreen extends ConsumerStatefulWidget {
   const PlayersScreen({super.key});
@@ -27,10 +29,7 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(breadcrumbProvider.notifier).state = [
-        'Management',
-        'Players',
-      ];
+      ref.read(breadcrumbProvider.notifier).state = ['Management', 'Players'];
     });
   }
 
@@ -64,18 +63,13 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
             child: RefreshIndicator(
               onRefresh: controller.refresh,
               child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  showPanel ? 460 : 20,
-                  32,
-                ),
+                padding: EdgeInsets.fromLTRB(20, 20, showPanel ? 460 : 20, 32),
                 children: [
                   Text(
                     'Players',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -104,6 +98,16 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
                       }
                     },
                     onRefresh: controller.refresh,
+                    onExport: () => showAdminListExport(
+                      context: context,
+                      filenameBase: 'crickflow-players',
+                      headers: AdminListExports.playerHeaders,
+                      rows: [
+                        for (final p in state.players)
+                          AdminListExports.playerRow(p),
+                      ],
+                      hasMore: state.hasMore,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (state.error != null)

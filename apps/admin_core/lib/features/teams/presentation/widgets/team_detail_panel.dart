@@ -15,6 +15,9 @@ import '../../models/managed_team.dart';
 import '../../models/team_enums.dart';
 import '../../providers/teams_providers.dart';
 import 'team_status_badge.dart';
+import '../../../../core/data/related_records.dart';
+import '../../../../core/data/related_records_providers.dart';
+import '../../../../shared/widgets/related_records_section.dart';
 
 class TeamDetailPanel extends ConsumerWidget {
   const TeamDetailPanel({super.key, required this.onClose});
@@ -51,10 +54,8 @@ class TeamDetailPanel extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           'Team details',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
                       IconButton(
@@ -80,18 +81,9 @@ class TeamDetailPanel extends ConsumerWidget {
                       ],
                       _AuditSection(),
                       const SizedBox(height: 16),
-                      const _SectionTitle('Related (placeholders)'),
+                      const _SectionTitle('Related'),
                       const SizedBox(height: 8),
-                      const _PlaceholderList(
-                        items: [
-                          'Members roster',
-                          'Matches (upcoming / live / completed)',
-                          'Tournaments & trophies',
-                          'Followers',
-                          'Reports',
-                          'Advanced statistics',
-                        ],
-                      ),
+                      _TeamRelated(team: team),
                     ],
                   ),
                 ),
@@ -155,14 +147,11 @@ class _Hero extends StatelessWidget {
         Text(
           team.name,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
-        Text(
-          team.shortLabel,
-          style: TextStyle(color: colors.textMuted),
-        ),
+        Text(team.shortLabel, style: TextStyle(color: colors.textMuted)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -204,10 +193,7 @@ class _Overview extends StatelessWidget {
       MapEntry('Followers', '${t.followersCount}'),
       MapEntry('Ball type', t.ballType?.label ?? '—'),
       MapEntry('Category', t.category?.label ?? '—'),
-      MapEntry(
-        'Founded',
-        t.createdAt == null ? '—' : '${t.createdAt!.year}',
-      ),
+      MapEntry('Founded', t.createdAt == null ? '—' : '${t.createdAt!.year}'),
       if (t.isSoftDeleted)
         MapEntry(
           'Deleted at',
@@ -302,10 +288,7 @@ class _Stats extends StatelessWidget {
       child: Column(
         children: [
           Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
-          Text(
-            label,
-            style: TextStyle(color: colors.textMuted, fontSize: 11),
-          ),
+          Text(label, style: TextStyle(color: colors.textMuted, fontSize: 11)),
         ],
       ),
     );
@@ -360,7 +343,7 @@ class _Actions extends ConsumerWidget {
     final controller = ref.read(teamsListControllerProvider.notifier);
     final isSuper =
         AdminRole.tryParse(ref.watch(adminSessionProvider).adminUser?.roleId) ==
-            AdminRole.superAdmin;
+        AdminRole.superAdmin;
 
     Future<void> confirmAction({
       required String title,
@@ -394,8 +377,9 @@ class _Actions extends ConsumerWidget {
             ),
             CfButton(
               label: 'Confirm',
-              variant:
-                  danger ? CfButtonVariant.danger : CfButtonVariant.primary,
+              variant: danger
+                  ? CfButtonVariant.danger
+                  : CfButtonVariant.primary,
               onPressed: () => Navigator.pop(context, true),
             ),
           ],
@@ -408,9 +392,9 @@ class _Actions extends ConsumerWidget {
               : reasonController.text.trim(),
         );
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$title completed')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$title completed')));
         }
       }
     }
@@ -467,9 +451,7 @@ class _Actions extends ConsumerWidget {
               ),
               OutlinedButton(
                 onPressed: () => confirmAction(
-                  title: team.adminFeatured
-                      ? 'Remove Feature'
-                      : 'Feature Team',
+                  title: team.adminFeatured ? 'Remove Feature' : 'Feature Team',
                   message: team.adminFeatured
                       ? 'Remove team feature?'
                       : 'Feature this team?',
@@ -605,7 +587,9 @@ class _Actions extends ConsumerWidget {
     );
 
     if (ok == true) {
-      await ref.read(teamsListControllerProvider.notifier).saveBasicInfo(
+      await ref
+          .read(teamsListControllerProvider.notifier)
+          .saveBasicInfo(
             team,
             name: name.text.trim(),
             coachName: coach.text.trim(),
@@ -614,36 +598,6 @@ class _Actions extends ConsumerWidget {
             ballType: ballType,
           );
     }
-  }
-}
-
-class _PlaceholderList extends StatelessWidget {
-  const _PlaceholderList({required this.items});
-
-  final List<String> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.adminColors;
-    return Column(
-      children: [
-        for (final item in items)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(item),
-            subtitle: Text(
-              'Coming soon',
-              style: TextStyle(color: colors.textMuted, fontSize: 12),
-            ),
-            trailing: Icon(
-              Icons.lock_outline,
-              size: 16,
-              color: colors.textMuted,
-            ),
-          ),
-      ],
-    );
   }
 }
 
@@ -656,9 +610,55 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
+      style: Theme.of(
+        context,
+      ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    );
+  }
+}
+
+class _TeamRelated extends ConsumerWidget {
+  const _TeamRelated({required this.team});
+
+  final ManagedTeam team;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RelatedRecordsAsync<TeamRelatedSnapshot>(
+      async: ref.watch(teamRelatedRecordsProvider(team)),
+      builder: (data) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RelatedRecordsSection(
+            title: 'Squad',
+            section: data.squad,
+            emptyMessage: team.playerIds.isEmpty
+                ? 'No player IDs are stored on this team.'
+                : 'Player IDs are stored, but matching player profiles were not found.',
           ),
+          RelatedRecordsSection(
+            title: 'Matches',
+            section: data.matches,
+            emptyMessage: 'No matches list this team as team A or team B.',
+          ),
+          RelatedRecordsSection(
+            title: 'Tournaments',
+            section: data.tournaments,
+            emptyMessage:
+                'This team is not on any tournament team lists we can read.',
+          ),
+          RelatedRecordsSection(
+            title: 'Reports',
+            section: data.reports,
+            emptyMessage: 'No reports are linked to this team.',
+          ),
+          RelatedNote(
+            data.followersCount == 0
+                ? 'Follower count on this team document is 0. Individual follower profiles are not stored for listing.'
+                : '${data.followersCount} followers are recorded on the team document. Individual follower profiles are not stored for listing.',
+          ),
+        ],
+      ),
     );
   }
 }

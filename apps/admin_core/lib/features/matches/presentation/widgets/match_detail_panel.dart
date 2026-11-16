@@ -16,6 +16,9 @@ import '../../models/match_enums.dart';
 import '../../models/managed_match.dart';
 import '../../providers/matches_providers.dart';
 import 'match_status_badge.dart';
+import '../../../../core/data/related_records.dart';
+import '../../../../core/data/related_records_providers.dart';
+import '../../../../shared/widgets/related_records_section.dart';
 
 class MatchDetailPanel extends ConsumerWidget {
   const MatchDetailPanel({super.key, required this.onClose});
@@ -52,10 +55,8 @@ class MatchDetailPanel extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           'Match details',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
                       IconButton(
@@ -85,15 +86,9 @@ class MatchDetailPanel extends ConsumerWidget {
                       const SizedBox(height: 16),
                       if (canManage) _Actions(match: match),
                       const SizedBox(height: 16),
-                      const _PlaceholderList(
-                        items: [
-                          'Teams & XI',
-                          'Officials',
-                          'Reports',
-                          'Advanced statistics',
-                          'Broadcast monitor',
-                        ],
-                      ),
+                      const _SectionTitle('Related'),
+                      const SizedBox(height: 8),
+                      _MatchRelated(match: match),
                     ],
                   ),
                 ),
@@ -119,9 +114,9 @@ class _Hero extends StatelessWidget {
         Text(
           match.title,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 4),
         Text(match.id, style: TextStyle(color: colors.textMuted)),
@@ -148,6 +143,7 @@ class _Hero extends StatelessWidget {
     );
   }
 }
+
 class _Overview extends StatelessWidget {
   const _Overview({required this.match});
 
@@ -220,6 +216,7 @@ class _Overview extends StatelessWidget {
     );
   }
 }
+
 class _LiveScore extends StatelessWidget {
   const _LiveScore({required this.match});
 
@@ -257,7 +254,9 @@ class _LiveScore extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 4),
-        Text('Extras: ${live.extras} · Fours: ${live.fours} · Sixes: ${live.sixes}'),
+        Text(
+          'Extras: ${live.extras} · Fours: ${live.fours} · Sixes: ${live.sixes}',
+        ),
       ],
     );
   }
@@ -277,7 +276,10 @@ class _LiveScore extends StatelessWidget {
             Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
             Text(
               label,
-              style: TextStyle(color: context.adminColors.textMuted, fontSize: 11),
+              style: TextStyle(
+                color: context.adminColors.textMuted,
+                fontSize: 11,
+              ),
             ),
           ],
         ),
@@ -285,6 +287,7 @@ class _LiveScore extends StatelessWidget {
     );
   }
 }
+
 class _Streaming extends StatelessWidget {
   const _Streaming({required this.match});
 
@@ -314,17 +317,16 @@ class _Streaming extends StatelessWidget {
               onPressed: match.watchUrl == null
                   ? null
                   : () => launchUrl(
-                        Uri.parse(match.watchUrl!),
-                        mode: LaunchMode.externalApplication,
-                      ),
+                      Uri.parse(match.watchUrl!),
+                      mode: LaunchMode.externalApplication,
+                    ),
               child: const Text('Open Watch URL'),
             ),
             OutlinedButton(
               onPressed: match.watchUrl == null
                   ? null
-                  : () => Clipboard.setData(
-                        ClipboardData(text: match.watchUrl!),
-                      ),
+                  : () =>
+                        Clipboard.setData(ClipboardData(text: match.watchUrl!)),
               child: const Text('Copy Watch URL'),
             ),
           ],
@@ -333,6 +335,7 @@ class _Streaming extends StatelessWidget {
     );
   }
 }
+
 class _CommentarySection extends ConsumerStatefulWidget {
   @override
   ConsumerState<_CommentarySection> createState() => _CommentarySectionState();
@@ -392,8 +395,9 @@ class _CommentarySectionState extends ConsumerState<_CommentarySection> {
                         trailing: Text(
                           item.timestamp == null
                               ? ''
-                              : DateFormat('MMM d HH:mm')
-                                  .format(item.timestamp!),
+                              : DateFormat(
+                                  'MMM d HH:mm',
+                                ).format(item.timestamp!),
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
                       ),
@@ -404,8 +408,83 @@ class _CommentarySectionState extends ConsumerState<_CommentarySection> {
     );
   }
 }
-class _TimelineSection extends ConsumerWidget { @override Widget build(BuildContext context, WidgetRef ref) { final async = ref.watch(selectedMatchTimelineProvider); return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const _SectionTitle('Timeline'), const SizedBox(height: 8), async.when(loading: () => const LinearProgressIndicator(), error: (e, _) => Text('$e'), data: (items) => items.isEmpty ? Text('No timeline yet', style: TextStyle(color: context.adminColors.textMuted)) : Column(children: [for (final item in items.take(20)) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(item.title), subtitle: Text(item.subtitle), trailing: Text(DateFormat('MMM d HH:mm').format(item.occurredAt), style: Theme.of(context).textTheme.labelSmall))]))]); }}
-class _AuditSection extends ConsumerWidget { @override Widget build(BuildContext context, WidgetRef ref) { final async = ref.watch(selectedMatchAuditProvider); return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const _SectionTitle('Audit Log'), const SizedBox(height: 8), async.when(loading: () => const LinearProgressIndicator(), error: (e, _) => Text('$e'), data: (items) => items.isEmpty ? Text('No admin actions yet', style: TextStyle(color: context.adminColors.textMuted)) : Column(children: [for (final item in items.take(20)) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(item.action), subtitle: Text(item.reason ?? item.actorEmail), trailing: Text(DateFormat('MMM d HH:mm').format(item.timestamp), style: Theme.of(context).textTheme.labelSmall))]))]); }}
+
+class _TimelineSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(selectedMatchTimelineProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle('Timeline'),
+        const SizedBox(height: 8),
+        async.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+          data: (items) => items.isEmpty
+              ? Text(
+                  'No timeline yet',
+                  style: TextStyle(color: context.adminColors.textMuted),
+                )
+              : Column(
+                  children: [
+                    for (final item in items.take(20))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(item.title),
+                        subtitle: Text(item.subtitle),
+                        trailing: Text(
+                          DateFormat('MMM d HH:mm').format(item.occurredAt),
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AuditSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(selectedMatchAuditProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle('Audit Log'),
+        const SizedBox(height: 8),
+        async.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+          data: (items) => items.isEmpty
+              ? Text(
+                  'No admin actions yet',
+                  style: TextStyle(color: context.adminColors.textMuted),
+                )
+              : Column(
+                  children: [
+                    for (final item in items.take(20))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(item.action),
+                        subtitle: Text(item.reason ?? item.actorEmail),
+                        trailing: Text(
+                          DateFormat('MMM d HH:mm').format(item.timestamp),
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
 class _Actions extends ConsumerWidget {
   const _Actions({required this.match});
   final ManagedMatch match;
@@ -413,9 +492,8 @@ class _Actions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(matchesListControllerProvider.notifier);
-    final isSuper = AdminRole.tryParse(
-          ref.watch(adminSessionProvider).adminUser?.roleId,
-        ) ==
+    final isSuper =
+        AdminRole.tryParse(ref.watch(adminSessionProvider).adminUser?.roleId) ==
         AdminRole.superAdmin;
 
     Future<void> confirmAction({
@@ -437,8 +515,9 @@ class _Actions extends ConsumerWidget {
                 const SizedBox(height: 12),
                 TextField(
                   controller: reasonController,
-                  decoration:
-                      const InputDecoration(labelText: 'Reason (optional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Reason (optional)',
+                  ),
                 ),
               ],
             ),
@@ -450,8 +529,9 @@ class _Actions extends ConsumerWidget {
               ),
               CfButton(
                 label: 'Confirm',
-                variant:
-                    danger ? CfButtonVariant.danger : CfButtonVariant.primary,
+                variant: danger
+                    ? CfButtonVariant.danger
+                    : CfButtonVariant.primary,
                 onPressed: () => Navigator.pop(context, true),
               ),
             ],
@@ -464,9 +544,9 @@ class _Actions extends ConsumerWidget {
                 : reasonController.text.trim(),
           );
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$title completed')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('$title completed')));
           }
         }
       } finally {
@@ -495,8 +575,11 @@ class _Actions extends ConsumerWidget {
                   message: match.adminPaused
                       ? 'Resume admin monitoring state?'
                       : 'Pause admin monitoring state? This does not alter scoring engine.',
-                  run: (r) =>
-                      controller.setPaused(match, !match.adminPaused, reason: r),
+                  run: (r) => controller.setPaused(
+                    match,
+                    !match.adminPaused,
+                    reason: r,
+                  ),
                 ),
                 child: Text(match.adminPaused ? 'Resume' : 'Pause'),
               ),
@@ -624,7 +707,9 @@ class _Actions extends ConsumerWidget {
         ),
       );
       if (ok == true) {
-        await ref.read(matchesListControllerProvider.notifier).saveMetadata(
+        await ref
+            .read(matchesListControllerProvider.notifier)
+            .saveMetadata(
               match,
               title: title.text.trim(),
               venue: venue.text.trim(),
@@ -636,6 +721,79 @@ class _Actions extends ConsumerWidget {
     }
   }
 }
-class _PlaceholderList extends StatelessWidget { const _PlaceholderList({required this.items}); final List<String> items; @override Widget build(BuildContext context) { final colors = context.adminColors; return Column(children: [for (final item in items) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(item), subtitle: Text('Coming soon', style: TextStyle(color: colors.textMuted, fontSize: 12)), trailing: Icon(Icons.lock_outline, size: 16, color: colors.textMuted))]); }}
-class _SectionTitle extends StatelessWidget { const _SectionTitle(this.text); final String text; @override Widget build(BuildContext context) => Text(text, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)); }
-extension on String { String ifEmpty(String fallback) => isEmpty ? fallback : this; }
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+  );
+}
+
+extension on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
+}
+
+class _MatchRelated extends ConsumerWidget {
+  const _MatchRelated({required this.match});
+
+  final ManagedMatch match;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RelatedRecordsAsync<MatchRelatedSnapshot>(
+      async: ref.watch(matchRelatedRecordsProvider(match)),
+      builder: (data) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RelatedRecordsSection(
+            title: '${data.teamAName.isEmpty ? 'Team A' : data.teamAName} XI',
+            section: RelatedSection(
+              items: [
+                for (final name in data.teamAXi)
+                  RelatedRecord(id: name, title: name),
+              ],
+            ),
+            emptyMessage: 'No playing XI is stored on this match for team A.',
+          ),
+          RelatedRecordsSection(
+            title: '${data.teamBName.isEmpty ? 'Team B' : data.teamBName} XI',
+            section: RelatedSection(
+              items: [
+                for (final name in data.teamBXi)
+                  RelatedRecord(id: name, title: name),
+              ],
+            ),
+            emptyMessage: 'No playing XI is stored on this match for team B.',
+          ),
+          RelatedRecordsSection(
+            title: 'Officials',
+            section: data.officials,
+            emptyMessage:
+                'No umpires, scorers, or other officials are stored on this match.',
+          ),
+          RelatedRecordsSection(
+            title: 'Scorecard summary',
+            section: data.scorecard,
+            emptyMessage:
+                'No innings or result has been recorded on this match yet.',
+          ),
+          RelatedRecordsSection(
+            title: 'Stream',
+            section: data.stream,
+            emptyMessage: 'No stream metadata is stored on this match.',
+          ),
+          RelatedRecordsSection(
+            title: 'Reports',
+            section: data.reports,
+            emptyMessage: 'No reports are linked to this match.',
+          ),
+        ],
+      ),
+    );
+  }
+}

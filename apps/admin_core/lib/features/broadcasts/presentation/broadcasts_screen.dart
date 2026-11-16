@@ -12,6 +12,8 @@ import 'widgets/broadcast_detail_panel.dart';
 import 'widgets/broadcasts_filter_drawer.dart';
 import 'widgets/broadcasts_table.dart';
 import 'widgets/broadcasts_toolbar.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class BroadcastsScreen extends ConsumerStatefulWidget {
   const BroadcastsScreen({super.key});
@@ -65,18 +67,13 @@ class _BroadcastsScreenState extends ConsumerState<BroadcastsScreen> {
             child: RefreshIndicator(
               onRefresh: controller.refresh,
               child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  showPanel ? 480 : 20,
-                  32,
-                ),
+                padding: EdgeInsets.fromLTRB(20, 20, showPanel ? 480 : 20, 32),
                 children: [
                   Text(
                     'Broadcasts',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -108,15 +105,16 @@ class _BroadcastsScreenState extends ConsumerState<BroadcastsScreen> {
                       }
                     },
                     onRefresh: controller.refresh,
-                    onExport: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Export (CSV / Excel / PDF) coming soon',
-                          ),
-                        ),
-                      );
-                    },
+                    onExport: () => showAdminListExport(
+                      context: context,
+                      filenameBase: 'crickflow-broadcasts',
+                      headers: AdminListExports.broadcastHeaders,
+                      rows: [
+                        for (final b in state.broadcasts)
+                          AdminListExports.broadcastRow(b),
+                      ],
+                      hasMore: state.hasMore,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (state.error != null)

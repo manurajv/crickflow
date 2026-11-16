@@ -15,6 +15,9 @@ import '../../models/managed_tournament.dart';
 import '../../models/tournament_enums.dart';
 import '../../providers/tournaments_providers.dart';
 import 'tournament_status_badge.dart';
+import '../../../../core/data/related_records.dart';
+import '../../../../core/data/related_records_providers.dart';
+import '../../../../shared/widgets/related_records_section.dart';
 
 class TournamentDetailPanel extends ConsumerWidget {
   const TournamentDetailPanel({super.key, required this.onClose});
@@ -35,8 +38,7 @@ class TournamentDetailPanel extends ConsumerWidget {
       child: SizedBox(
         width: 440,
         child: async.when(
-          loading: () =>
-              const CfLoadingState(message: 'Loading tournament…'),
+          loading: () => const CfLoadingState(message: 'Loading tournament…'),
           error: (e, _) => Center(child: Text('$e')),
           data: (tournament) {
             if (tournament == null) {
@@ -52,10 +54,8 @@ class TournamentDetailPanel extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           'Tournament details',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
                       IconButton(
@@ -79,19 +79,9 @@ class TournamentDetailPanel extends ConsumerWidget {
                         _Actions(tournament: tournament),
                         const SizedBox(height: 16),
                       ],
-                      const _SectionTitle('Related (placeholders)'),
+                      const _SectionTitle('Related'),
                       const SizedBox(height: 8),
-                      const _PlaceholderList(
-                        items: [
-                          'Participating teams',
-                          'Fixtures & results',
-                          'Officials / scorers / umpires',
-                          'Streaming crew',
-                          'Live monitor',
-                          'Reports',
-                          'Tournament statistics',
-                        ],
-                      ),
+                      _TournamentRelated(tournament: tournament),
                     ],
                   ),
                 ),
@@ -138,9 +128,9 @@ class _Hero extends StatelessWidget {
         Text(
           tournament.name,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         Text(
           tournament.tournamentCode ?? tournament.id,
@@ -176,27 +166,34 @@ class _Info extends StatelessWidget {
     final t = tournament;
     final rows = <MapEntry<String, String>>[
       MapEntry('Organizer', t.organizerName.isEmpty ? '—' : t.organizerName),
-      MapEntry('Contact', [
-        if (t.organizerPhone.isNotEmpty) t.organizerPhone,
-        if (t.organizerEmail.isNotEmpty) t.organizerEmail,
-      ].join(' · ').ifEmpty('—')),
-      MapEntry('Location', t.locationLabel),
       MapEntry(
-        'Grounds',
-        t.grounds.isEmpty ? '—' : t.grounds.join(', '),
+        'Contact',
+        [
+          if (t.organizerPhone.isNotEmpty) t.organizerPhone,
+          if (t.organizerEmail.isNotEmpty) t.organizerEmail,
+        ].join(' · ').ifEmpty('—'),
       ),
+      MapEntry('Location', t.locationLabel),
+      MapEntry('Grounds', t.grounds.isEmpty ? '—' : t.grounds.join(', ')),
       MapEntry(
         'Entry fee',
         t.isFree ? 'Free' : (t.entryFee?.toStringAsFixed(0) ?? '—'),
       ),
-      MapEntry('Prize', t.winningPrize?.isNotEmpty == true ? t.winningPrize! : '—'),
+      MapEntry(
+        'Prize',
+        t.winningPrize?.isNotEmpty == true ? t.winningPrize! : '—',
+      ),
       MapEntry('Ball', t.ballType?.label ?? '—'),
-      MapEntry('Teams', '${t.teamCount}${t.teamsRequired != null ? ' / ${t.teamsRequired}' : ''}'),
+      MapEntry(
+        'Teams',
+        '${t.teamCount}${t.teamsRequired != null ? ' / ${t.teamsRequired}' : ''}',
+      ),
       MapEntry('Matches', '${t.matchCount}'),
       MapEntry(
         'Dates',
         [
-          if (t.startDate != null) DateFormat('yyyy-MM-dd').format(t.startDate!),
+          if (t.startDate != null)
+            DateFormat('yyyy-MM-dd').format(t.startDate!),
           if (t.endDate != null) DateFormat('yyyy-MM-dd').format(t.endDate!),
         ].join(' → ').ifEmpty('—'),
       ),
@@ -278,7 +275,9 @@ class _PointsPreview extends StatelessWidget {
         if (rows.isEmpty)
           Text('No standings yet', style: TextStyle(color: colors.textMuted))
         else
-          ...rows.take(8).map(
+          ...rows
+              .take(8)
+              .map(
                 (r) => ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -312,7 +311,7 @@ class _Actions extends ConsumerWidget {
     final controller = ref.read(tournamentsListControllerProvider.notifier);
     final isSuper =
         AdminRole.tryParse(ref.watch(adminSessionProvider).adminUser?.roleId) ==
-            AdminRole.superAdmin;
+        AdminRole.superAdmin;
 
     Future<void> confirmAction({
       required String title,
@@ -346,8 +345,9 @@ class _Actions extends ConsumerWidget {
             ),
             CfButton(
               label: 'Confirm',
-              variant:
-                  danger ? CfButtonVariant.danger : CfButtonVariant.primary,
+              variant: danger
+                  ? CfButtonVariant.danger
+                  : CfButtonVariant.primary,
               onPressed: () => Navigator.pop(context, true),
             ),
           ],
@@ -361,15 +361,15 @@ class _Actions extends ConsumerWidget {
                 : reasonController.text.trim(),
           );
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$title completed')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('$title completed')));
           }
         } catch (e) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('$e')));
           }
         }
       }
@@ -425,9 +425,7 @@ class _Actions extends ConsumerWidget {
                   reason: r,
                 ),
               ),
-              child: Text(
-                tournament.adminFeatured ? 'Unfeature' : 'Feature',
-              ),
+              child: Text(tournament.adminFeatured ? 'Unfeature' : 'Feature'),
             ),
             OutlinedButton(
               onPressed: () => _editBasic(context, ref, tournament),
@@ -445,21 +443,21 @@ class _Actions extends ConsumerWidget {
                 child: const Text('Cancel'),
               ),
             OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.error,
-                ),
-                onPressed: () async {
-                  final deleted = await showPermanentDeleteDialog(
-                    context: context,
-                    ref: ref,
-                    target: AdminDeleteTarget.tournament,
-                    id: tournament.id,
-                    name: tournament.name,
-                  );
-                  if (deleted) await controller.refresh();
-                },
-                child: const Text('Delete permanently'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
               ),
+              onPressed: () async {
+                final deleted = await showPermanentDeleteDialog(
+                  context: context,
+                  ref: ref,
+                  target: AdminDeleteTarget.tournament,
+                  id: tournament.id,
+                  name: tournament.name,
+                );
+                if (deleted) await controller.refresh();
+              },
+              child: const Text('Delete permanently'),
+            ),
             if (!tournament.isSoftDeleted) ...[
               OutlinedButton(
                 onPressed: () => confirmAction(
@@ -551,7 +549,9 @@ class _Actions extends ConsumerWidget {
       ),
     );
     if (ok == true) {
-      await ref.read(tournamentsListControllerProvider.notifier).saveBasicInfo(
+      await ref
+          .read(tournamentsListControllerProvider.notifier)
+          .saveBasicInfo(
             t,
             name: name.text.trim(),
             description: desc.text.trim(),
@@ -559,33 +559,6 @@ class _Actions extends ConsumerWidget {
             entryFee: double.tryParse(fee.text.trim()),
           );
     }
-  }
-}
-
-class _PlaceholderList extends StatelessWidget {
-  const _PlaceholderList({required this.items});
-
-  final List<String> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.adminColors;
-    return Column(
-      children: [
-        for (final item in items)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(item),
-            subtitle: Text(
-              'Coming soon',
-              style: TextStyle(color: colors.textMuted, fontSize: 12),
-            ),
-            trailing:
-                Icon(Icons.lock_outline, size: 16, color: colors.textMuted),
-          ),
-      ],
-    );
   }
 }
 
@@ -598,9 +571,50 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
+      style: Theme.of(
+        context,
+      ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    );
+  }
+}
+
+class _TournamentRelated extends ConsumerWidget {
+  const _TournamentRelated({required this.tournament});
+
+  final ManagedTournament tournament;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RelatedRecordsAsync<TournamentRelatedSnapshot>(
+      async: ref.watch(tournamentRelatedRecordsProvider(tournament)),
+      builder: (data) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RelatedRecordsSection(
+            title: 'Teams',
+            section: data.teams,
+            emptyMessage: tournament.teamIds.isEmpty
+                ? 'No team IDs are stored on this tournament.'
+                : 'Team IDs are stored, but matching team documents were not found.',
           ),
+          RelatedRecordsSection(
+            title: 'Fixtures',
+            section: data.fixtures,
+            emptyMessage: 'No matches are linked to this tournament.',
+          ),
+          RelatedRecordsSection(
+            title: 'Reports and posts',
+            section: data.reports,
+            emptyMessage:
+                'No reports or community posts are linked to this tournament.',
+          ),
+          RelatedNote(
+            data.organizer.isEmpty
+                ? 'No officials, scorers, umpires, or streaming crew are stored on this tournament document.'
+                : 'Organizer on this document: ${data.organizer}. No separate officials or streaming-crew lists are stored.',
+          ),
+        ],
+      ),
     );
   }
 }
