@@ -18,17 +18,31 @@ class SeriesPlayerSearchScreen extends StatefulWidget {
   const SeriesPlayerSearchScreen({
     super.key,
     this.title = 'Search players',
+    this.includeSelf = true,
+    this.excludeUserIds = const {},
   });
 
   final String title;
 
+  /// When true, the signed-in admin can find themselves (unless excluded).
+  final bool includeSelf;
+
+  /// People already on the squad, already admins, or already invited.
+  final Set<String> excludeUserIds;
+
   static Future<UserModel?> open(
     BuildContext context, {
     String title = 'Search players',
+    bool includeSelf = true,
+    Set<String> excludeUserIds = const {},
   }) {
     return Navigator.of(context).push<UserModel>(
       MaterialPageRoute(
-        builder: (_) => SeriesPlayerSearchScreen(title: title),
+        builder: (_) => SeriesPlayerSearchScreen(
+          title: title,
+          includeSelf: includeSelf,
+          excludeUserIds: excludeUserIds,
+        ),
       ),
     );
   }
@@ -82,10 +96,13 @@ class _SeriesPlayerSearchScreenState extends State<SeriesPlayerSearchScreen> {
       final list = await _discovery.searchPlayers(
         query: q,
         currentUserId: FirebaseAuth.instance.currentUser?.uid,
+        includeSelf: widget.includeSelf,
       );
       if (!mounted || _lastQuery != q) return;
       setState(() {
-        _results = list;
+        _results = list
+            .where((u) => !widget.excludeUserIds.contains(u.id))
+            .toList();
         _loading = false;
       });
     } catch (e) {

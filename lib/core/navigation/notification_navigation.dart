@@ -322,14 +322,7 @@ extension NotificationPresentation on NotificationModel {
         _ => categoryKey.replaceAll('_', ' '),
       };
 
-  String? get actionStatusLabel => switch (actionStatus) {
-        'accepted' => 'Accepted',
-        'rejected' || 'declined' => 'Rejected',
-        'joined' => 'Joined',
-        'expired' => 'Expired',
-        'cancelled' => 'Cancelled',
-        _ => actionStatus,
-      };
+  String? get actionStatusLabel => notificationActionStatusLabel(actionStatus);
 
   bool get isJoinRequest => type == TeamNotificationTypes.joinRequest;
 
@@ -342,11 +335,21 @@ extension NotificationPresentation on NotificationModel {
           type == TournamentNotificationTypes.officialInvitation) &&
       !hasActionStatus;
 
-  bool get isSeriesActionable =>
+  bool get isSeriesAdminInviteActionable =>
       type == SeriesNotificationTypes.clubAdminInvite && !hasActionStatus;
+
+  bool get isSeriesApprovalActionable =>
+      type == SeriesNotificationTypes.approvalPending &&
+      (reviewScope == 'org' || reviewScope == 'club') &&
+      !hasActionStatus;
+
+  bool get isSeriesActionable =>
+      isSeriesAdminInviteActionable || isSeriesApprovalActionable;
 
   bool get isActionable =>
       isTournamentActionable || isTeamActionable || isSeriesActionable;
+
+  bool get usesApproveRejectActions => isSeriesApprovalActionable;
 
   bool get canReportUnauthorizedAdd =>
       type == TeamNotificationTypes.memberAdded;
@@ -382,4 +385,16 @@ extension NotificationPresentation on NotificationModel {
           'View tournament',
         _ => null,
       };
+}
+
+String? notificationActionStatusLabel(String? actionStatus) {
+  return switch (actionStatus) {
+    'accepted' || 'joined' => 'You accepted',
+    'declined' => 'You declined',
+    'approved' => 'Approved',
+    'rejected' => 'Rejected',
+    'expired' => 'Expired',
+    'cancelled' || 'canceled' => 'Cancelled by sender',
+    _ => actionStatus,
+  };
 }

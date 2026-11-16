@@ -1776,8 +1776,13 @@ service cloud.firestore {
         || hasAdminPermission('canSendNotifications')
         || hasAdminPermission('canViewSystemHealth')
       );
+      // The owner may only mark a notification read. Outcomes (accepted /
+      // declined / approved / …) are written by Cloud Functions.
       allow update: if isSignedIn()
-        && resource.data.userId == request.auth.uid;
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['read', 'isRead'])
+        && request.resource.data.read == true;
       allow delete: if isSignedIn() && (
         resource.data.userId == request.auth.uid
         || resource.data.addedByUserId == request.auth.uid

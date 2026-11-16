@@ -197,9 +197,19 @@ export function OrgTeamDetailPage() {
       setSearchLoading(true);
       setSearchError("");
       try {
+        const excludeUserIds =
+          searchFor === "admin"
+            ? (admins.data ?? [])
+                .filter((a) => a.status === "invited" || a.status === "active")
+                .map((a) => a.userId)
+            : (squad.data ?? [])
+                .filter((m) => m.status === "active" || m.status === "pendingRemoval")
+                .map((m) => m.userId);
         const hits = await searchPlayers.mutateAsync({
           query: value,
           currentUserId: user?.uid,
+          includeSelf: true,
+          excludeUserIds,
         });
         if (searchFor === "admin") setAdminHits(hits);
         else setSearchHits(hits);
@@ -213,7 +223,7 @@ export function OrgTeamDetailPage() {
   // mutateAsync is used for the search request; omit the mutation object so
   // loading-state updates do not retrigger the effect.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQ, searchFor, user?.uid]);
+  }, [searchQ, searchFor, user?.uid, squad.data, admins.data]);
 
   const club = (data?.clubs ?? []).find((c) => c.id === clubId);
   const access = useMemo(() => {
@@ -334,6 +344,36 @@ export function OrgTeamDetailPage() {
       </div>
       {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
       {actionNotice ? <p className="text-sm text-primary">{actionNotice}</p> : null}
+      {addAdmin.isPending ||
+      addPlayer.isPending ||
+      joinClub.isPending ||
+      respondInvite.isPending ||
+      cancelInvite.isPending ||
+      removeAdmin.isPending ||
+      removePlayer.isPending ||
+      clubReview.isPending ||
+      reviewApproval.isPending ? (
+        <p className="flex items-center gap-2 text-sm font-medium">
+          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          {addAdmin.isPending
+            ? "Adding admin…"
+            : addPlayer.isPending
+              ? "Adding player…"
+              : joinClub.isPending
+                ? "Sending request…"
+                : respondInvite.isPending
+                  ? "Sending request…"
+                  : cancelInvite.isPending
+                    ? "Cancelling invitation…"
+                    : removeAdmin.isPending
+                      ? "Removing admin…"
+                      : removePlayer.isPending
+                        ? "Sending request…"
+                        : clubReview.isPending || reviewApproval.isPending
+                          ? "Sending request…"
+                          : "Working…"}
+        </p>
+      ) : null}
 
       {myInvite ? (
         <Card className="space-y-3 p-4" data-testid="org-team-admin-invite-banner">
@@ -378,6 +418,7 @@ export function OrgTeamDetailPage() {
                   identity={officialIdentityFromProfile(profile)}
                   existingProfilePhotoUrl={profile?.photoUrl}
                   pending={joinClub.isPending}
+                  pendingLabel="Sending request…"
                   onSubmit={async (values) => {
                     await joinClub.mutateAsync(values);
                     setJoinOpen(false);
@@ -677,6 +718,7 @@ export function OrgTeamDetailPage() {
                   existingProfilePhotoUrl={selectedPlayer.photoUrl}
                   submitLabel="Add player"
                   pending={addPlayer.isPending}
+                  pendingLabel="Adding player…"
                   onSubmit={async (values) => {
                     await addPlayer.mutateAsync({
                       ...values,

@@ -44,6 +44,8 @@ const { onTeamJoinRequestCreated } = require('./notifications/onTeamJoinRequestC
 const {
   onTeamJoinRequestResolved,
   onTournamentTeamRequestResolved,
+  onSeriesClubAdminResolved,
+  onSeriesApprovalResolved,
 } = require('./notifications/onRequestResolved');
 const { onTeamRosterReportCreated } = require('./notifications/onTeamRosterReportCreated');
 const {
@@ -129,6 +131,8 @@ exports.onNotificationCreated = onNotificationCreated;
 exports.onTeamJoinRequestCreated = onTeamJoinRequestCreated;
 exports.onTeamJoinRequestResolved = onTeamJoinRequestResolved;
 exports.onTournamentTeamRequestResolved = onTournamentTeamRequestResolved;
+exports.onSeriesClubAdminResolved = onSeriesClubAdminResolved;
+exports.onSeriesApprovalResolved = onSeriesApprovalResolved;
 exports.onTeamRosterReportCreated = onTeamRosterReportCreated;
 exports.onPlayerFollowWritten = onPlayerFollowWritten;
 exports.onProfileViewWritten = onProfileViewWritten;

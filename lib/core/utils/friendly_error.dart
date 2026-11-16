@@ -167,3 +167,32 @@ bool _looksTechnical(String text) {
       lower.contains('type \'') ||
       lower.contains('nosuchmethod');
 }
+
+
+/// User-facing text for a photo / document upload failure.
+String friendlyUploadError(Object? error, {bool isDocument = true}) {
+  final limit = isDocument ? '5 MB' : '2 MB';
+  if (error == null) return 'Could not upload the photo. Please try again.';
+  if (error is FirebaseException) {
+    final message = error.message?.trim() ?? '';
+    if (_isConnectionCode(error.code) || _isConnectionText(message)) {
+      return _offline;
+    }
+    if (error.code == 'unauthorized' ||
+        error.code == 'permission-denied' ||
+        error.code == 'unauthenticated') {
+      return "This photo couldn't be uploaded. It may be too large (max $limit), "
+          "isn't an allowed image type, or you don't have permission.";
+    }
+  }
+  final raw = error.toString();
+  if (_isConnectionText(raw)) return _offline;
+  final lower = raw.toLowerCase();
+  if (lower.contains('too large') || lower.contains('exceeds the maximum')) {
+    return 'This photo is too large. Use a photo under $limit.';
+  }
+  if (lower.contains('empty') && lower.contains('crop')) {
+    return 'The cropped photo is empty. Please try again.';
+  }
+  return friendlyError(error);
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { friendlyError } from "@/lib/friendly-error";
+import { friendlyError, friendlyUploadError } from "@/lib/friendly-error";
 
 describe("friendlyError", () => {
   it("never shows raw Firestore permission errors", () => {
@@ -39,5 +39,13 @@ describe("friendlyError", () => {
     expect(friendlyError(new Error("Team name is required"))).toBe("Team name is required");
     expect(friendlyError(new TypeError("Cannot read properties of undefined"), "Could not send")).toBe("Could not send");
     expect(friendlyError(undefined, "Could not load")).toBe("Could not load");
+  });
+
+  it("explains upload size, permission, and connection failures", () => {
+    expect(friendlyUploadError(new Error("This photo is too large. Use a photo under 5 MB."))).toContain("5 MB");
+    expect(friendlyUploadError({ code: "storage/unauthorized", message: "denied" })).toContain("too large");
+    expect(friendlyUploadError({ code: "retry-limit-exceeded" })).toBe(
+      "No internet connection. Check your connection and try again.",
+    );
   });
 });

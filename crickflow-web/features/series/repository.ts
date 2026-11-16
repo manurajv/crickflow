@@ -837,14 +837,18 @@ export type PlayerSearchHit = {
 export async function searchPlayersForOrg(
   queryText: string,
   currentUserId?: string,
+  options?: { includeSelf?: boolean; excludeUserIds?: string[] },
 ): Promise<PlayerSearchHit[]> {
   const q = queryText.trim();
   if (q.length < 2) return [];
+  const includeSelf = options?.includeSelf ?? true;
+  const excluded = new Set(options?.excludeUserIds ?? []);
   const users = collection(getDb(), collections.users);
   const hits: PlayerSearchHit[] = [];
   const seen = new Set<string>();
   const add = (id: string, data: Data) => {
-    if (currentUserId && id === currentUserId) return;
+    if (excluded.has(id)) return;
+    if (currentUserId && id === currentUserId && !includeSelf) return;
     if (seen.has(id)) return;
     seen.add(id);
     const displayName = text(data, "displayName") || text(data, "name");

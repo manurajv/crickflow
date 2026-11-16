@@ -120,11 +120,9 @@ class NotificationRepository {
     String notificationId,
     String status,
   ) async {
-    await _col.doc(notificationId).update({
-      'actionStatus': status,
-      'read': true,
-      'isRead': true,
-    });
+    // Outcomes are written by Cloud Functions when the request changes.
+    // The inbox owner may only mark the notification read.
+    await markRead(notificationId);
   }
 
   Future<void> createNotification({

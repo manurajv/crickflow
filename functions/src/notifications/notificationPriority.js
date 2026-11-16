@@ -66,6 +66,87 @@ async function markDocsRead(db, docs) {
   return unread.length;
 }
 
+
+function actionStatusFromRequestStatus(status) {
+  const s = String(status || '').toLowerCase();
+  if (['accepted', 'active', 'joined'].includes(s)) return 'accepted';
+  if (s === 'declined') return 'declined';
+  if (s === 'approved') return 'approved';
+  if (['rejected', 'denied'].includes(s)) return 'rejected';
+  if (['cancelled', 'canceled'].includes(s)) return 'cancelled';
+  if (s === 'expired') return 'expired';
+  return '';
+}
+
+function actionStatusLabel(status) {
+  switch (String(status || '')) {
+    case 'accepted': return 'You accepted';
+    case 'declined': return 'You declined';
+    case 'approved': return 'Approved';
+    case 'rejected': return 'Rejected';
+    case 'cancelled':
+    case 'canceled': return 'Cancelled by sender';
+    case 'expired': return 'Expired';
+    default: return status || '';
+  }
+}
+
+/** Marks actionable notification docs resolved: hide buttons, stamp outcome, mark read. */
+async function markDocsResolved(db, docs, actionStatus) {
+  if (!actionStatus || !docs?.length) return 0;
+  const pending = docs.filter((d) => {
+    const n = d.data() || {};
+    return !n.actionStatus;
+  });
+  for (let i = 0; i < pending.length; i += 400) {
+    const batch = db.batch();
+    pending.slice(i, i + 400).forEach((d) => batch.update(d.ref, {
+      actionStatus,
+      read: true,
+      isRead: true,
+      actionResolvedAt: new Date().toISOString(),
+    }));
+    await batch.commit();
+  }
+  return pending.length;
+}
+
+/**
+ * Find notifications for a resolved request and stamp [actionStatus].
+ * Prefer requestId (set on series invites/approvals). Fall back to type+team/series filters.
+ */
+async function resolveActionableNotifications(db, {
+  requestId,
+  types,
+  teamId,
+  seriesId,
+  clubId,
+  actionStatus,
+  reviewScope,
+} = {}) {
+  if (!db || !actionStatus) return 0;
+  let snap = null;
+  if (requestId) {
+    snap = await db.collection('notifications').where('requestId', '==', requestId).get();
+  } else if (teamId && types?.length) {
+    snap = await db.collection('notifications').where('teamId', '==', teamId).where('type', 'in', types.slice(0, 10)).get();
+  } else if (seriesId && types?.length) {
+    snap = await db.collection('notifications').where('seriesId', '==', seriesId).where('type', 'in', types.slice(0, 10)).get();
+  } else {
+    return 0;
+  }
+  const typeSet = types && types.length ? new Set(types) : null;
+  const docs = snap.docs.filter((d) => {
+    const n = d.data() || {};
+    if (typeSet && !typeSet.has(n.type)) return false;
+    if (clubId && n.clubId && n.clubId !== clubId) return false;
+    if (teamId && n.teamId && n.teamId !== teamId) return false;
+    if (reviewScope && n.reviewScope && n.reviewScope !== reviewScope) return false;
+    return true;
+  });
+  return markDocsResolved(db, docs, actionStatus);
+}
+
 module.exports = {
   ACTION_TYPES,
   DECISION_TYPES,
@@ -73,4 +154,8 @@ module.exports = {
   isPriorityType,
   isTeamRequestNotification,
   markDocsRead,
+  markDocsResolved,
+  actionStatusFromRequestStatus,
+  actionStatusLabel,
+  resolveActionableNotifications,
 };

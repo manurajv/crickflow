@@ -82,4 +82,26 @@ void main() {
     expect(friendlyError(TypeError()), 'Something went wrong. Please try again.');
     expect(friendlyError(null), 'Something went wrong. Please try again.');
   });
+
+  test('upload errors name size, permission, and connection problems', () {
+    expect(
+      friendlyUploadError(Exception('This photo is too large. Use a photo under 5 MB.')),
+      'This photo is too large. Use a photo under 5 MB.',
+    );
+    expect(
+      friendlyUploadError(FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'unauthorized',
+        message: 'User is not authorized',
+      )),
+      contains('too large'),
+    );
+    expect(
+      friendlyUploadError(FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'retry-limit-exceeded',
+      )),
+      'No internet connection. Check your connection and try again.',
+    );
+  });
 }

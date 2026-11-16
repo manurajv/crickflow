@@ -136,3 +136,16 @@ test('team images: logo upload before the team doc exists (outside and inside or
   // Signed out: nothing.
   await assertFails(uploadBytes(ref(env.unauthenticatedContext().storage(), 'teams/x/profile_anon.jpg'), jpeg, meta));
 });
+
+test('registration docs accept under 5 MB and reject larger; photos cap at 2 MB', async () => {
+  const almost5 = Buffer.alloc((5 * 1024 * 1024) - 100, 1);
+  const over5 = Buffer.alloc((5 * 1024 * 1024) + 10, 1);
+  const almost2 = Buffer.alloc((2 * 1024 * 1024) - 100, 1);
+  const over2 = Buffer.alloc((2 * 1024 * 1024) + 10, 1);
+  const docPath = 'series/s1/clubs/c1/registrations/player1/doc_player1_size.jpg';
+  const photoPath = 'series/s1/registrations/player1/photo_player1_size.jpg';
+  await assertSucceeds(uploadBytes(ref(auth('player1').storage(), docPath), almost5, meta));
+  await assertFails(uploadBytes(ref(auth('player1').storage(), 'series/s1/clubs/c1/registrations/player1/doc_player1_over.jpg'), over5, meta));
+  await assertSucceeds(uploadBytes(ref(auth('player1').storage(), photoPath), almost2, meta));
+  await assertFails(uploadBytes(ref(auth('player1').storage(), 'series/s1/registrations/player1/photo_player1_over.jpg'), over2, meta));
+});

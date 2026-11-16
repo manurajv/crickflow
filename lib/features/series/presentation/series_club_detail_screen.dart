@@ -32,6 +32,25 @@ class SeriesClubDetailScreen extends ConsumerStatefulWidget {
 class _SeriesClubDetailScreenState
     extends ConsumerState<SeriesClubDetailScreen> {
   bool _busy = false;
+  String? _busyMessage;
+
+
+  Future<void> _runBusy(String message, Future<void> Function() action) async {
+    setState(() {
+      _busy = true;
+      _busyMessage = message;
+    });
+    try {
+      await action();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _busyMessage = null;
+        });
+      }
+    }
+  }
 
   Future<void> _requestJoin() async {
     final path =
@@ -109,7 +128,7 @@ class _SeriesClubDetailScreenState
       reasonController.dispose();
       return;
     }
-    setState(() => _busy = true);
+    setState(() { _busy = true; _busyMessage = isOrgAdmin ? 'Removing player…' : 'Sending request…'; });
     try {
       await ref.read(seriesFunctionsServiceProvider).submitPlayerRemovalRequest({
         'seriesId': widget.seriesId,
@@ -130,14 +149,24 @@ class _SeriesClubDetailScreenState
       }
     } finally {
       reasonController.dispose();
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() { _busy = false; _busyMessage = null; });
     }
   }
 
   Future<void> _addPlayerSearch() async {
+    final members = ref.read(seriesClubSquadProvider((
+      seriesId: widget.seriesId,
+      clubId: widget.clubId,
+    ))).valueOrNull ?? const [];
+    final exclude = {
+      for (final m in members)
+        if (m.isListedOnSquad) m.userId,
+    };
     final selected = await SeriesPlayerSearchScreen.open(
       context,
       title: 'Search & add player',
+      includeSelf: true,
+      excludeUserIds: exclude,
     );
     if (selected == null || !mounted) return;
     await context.push<bool>(
@@ -241,7 +270,7 @@ class _SeriesClubDetailScreenState
       controller.dispose();
       if (ok != true || reason.isEmpty) return;
     }
-    setState(() => _busy = true);
+    setState(() { _busy = true; _busyMessage = decision == 'approved' ? 'Approving request…' : 'Rejecting request…'; });
     try {
       await ref.read(seriesFunctionsServiceProvider).reviewClubJoinRequest(
         seriesId: widget.seriesId,
@@ -267,26 +296,37 @@ class _SeriesClubDetailScreenState
         ).showSnackBar(SnackBar(content: Text('Review failed: ${friendlyError(e)}')));
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() { _busy = false; _busyMessage = null; });
     }
   }
 
   Future<void> _addClubAdmin() async {
+    final admins = ref.read(seriesClubAdminsProvider((
+      seriesId: widget.seriesId,
+      clubId: widget.clubId,
+    ))).valueOrNull ?? const [];
+    final exclude = {
+      for (final a in admins)
+        if (a.status == 'invited' || a.status == 'active') a.userId,
+    };
     final selected = await SeriesPlayerSearchScreen.open(
       context,
       title: 'Add team admin',
+      includeSelf: true,
+      excludeUserIds: exclude,
     );
     if (selected == null) return;
-    setState(() => _busy = true);
     try {
-      await ref.read(seriesFunctionsServiceProvider).addSeriesClubAdmin(
-        seriesId: widget.seriesId,
-        clubId: widget.clubId,
-        userId: selected.id,
-        displayName: selected.displayName.isNotEmpty
-            ? selected.displayName
-            : selected.name,
-      );
+      await _runBusy('Adding admin…', () async {
+        await ref.read(seriesFunctionsServiceProvider).addSeriesClubAdmin(
+          seriesId: widget.seriesId,
+          clubId: widget.clubId,
+          userId: selected.id,
+          displayName: selected.displayName.isNotEmpty
+              ? selected.displayName
+              : selected.name,
+        );
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invitation sent')),
@@ -298,8 +338,6 @@ class _SeriesClubDetailScreenState
           context,
         ).showSnackBar(SnackBar(content: Text('Could not add admin: ${friendlyError(e)}')));
       }
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -331,7 +369,7 @@ class _SeriesClubDetailScreenState
       ),
     );
     if (ok != true) return;
-    setState(() => _busy = true);
+    setState(() { _busy = true; _busyMessage = 'Removing admin…'; });
     try {
       await ref.read(seriesFunctionsServiceProvider).removeSeriesClubAdmin(
         seriesId: widget.seriesId,
@@ -350,12 +388,12 @@ class _SeriesClubDetailScreenState
         ).showSnackBar(SnackBar(content: Text('Could not remove: ${friendlyError(e)}')));
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() { _busy = false; _busyMessage = null; });
     }
   }
 
   Future<void> _cancelAdminInvite(SeriesClubAdminModel admin) async {
-    setState(() => _busy = true);
+    setState(() { _busy = true; _busyMessage = 'Cancelling invitation…'; });
     try {
       await ref.read(seriesFunctionsServiceProvider).cancelSeriesClubAdminInvite(
         seriesId: widget.seriesId,
@@ -374,12 +412,12 @@ class _SeriesClubDetailScreenState
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() { _busy = false; _busyMessage = null; });
     }
   }
 
   Future<void> _respondOwnInvite(String decision) async {
-    setState(() => _busy = true);
+    setState(() { _busy = true; _busyMessage = decision == 'accepted' ? 'Accepting invitation…' : 'Declining invitation…'; });
     try {
       await ref.read(seriesFunctionsServiceProvider).respondSeriesClubAdminInvite(
         seriesId: widget.seriesId,
@@ -402,7 +440,7 @@ class _SeriesClubDetailScreenState
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() { _busy = false; _busyMessage = null; });
     }
   }
 
@@ -448,7 +486,7 @@ class _SeriesClubDetailScreenState
       controller.dispose();
       if (ok != true || reason.isEmpty) return;
     }
-    setState(() => _busy = true);
+    setState(() { _busy = true; _busyMessage = decision == 'approved' ? 'Approving request…' : 'Rejecting request…'; });
     try {
       await ref.read(seriesFunctionsServiceProvider).reviewSeriesApproval(
         seriesId: widget.seriesId,
@@ -472,7 +510,7 @@ class _SeriesClubDetailScreenState
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() { _busy = false; _busyMessage = null; });
     }
   }
 
@@ -546,7 +584,37 @@ class _SeriesClubDetailScreenState
     return Scaffold(
       backgroundColor: cf.background,
       appBar: const CfChromeAppBar(title: Text('Team')),
-      body: club.when(
+      body: Column(
+        children: [
+          if (_busy)
+            Material(
+              color: cf.surfaceElevated,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.spaceMd,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: AppDimens.spaceMd),
+                    Expanded(
+                      child: Text(
+                        _busyMessage ?? 'Working…',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Expanded(
+            child: club.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (item) {
@@ -989,6 +1057,9 @@ class _SeriesClubDetailScreenState
             ],
           );
         },
+      ),
+          ),
+        ],
       ),
     );
   }

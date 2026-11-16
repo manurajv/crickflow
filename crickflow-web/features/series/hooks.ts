@@ -346,8 +346,16 @@ export function useClubAdmins(seriesId: string, clubId: string) {
 
 export function useSearchPlayersForOrg() {
   return useMutation({
-    mutationFn: (input: { query: string; currentUserId?: string }) =>
-      searchPlayersForOrg(input.query, input.currentUserId),
+    mutationFn: (input: {
+      query: string;
+      currentUserId?: string;
+      includeSelf?: boolean;
+      excludeUserIds?: string[];
+    }) =>
+      searchPlayersForOrg(input.query, input.currentUserId, {
+        includeSelf: input.includeSelf,
+        excludeUserIds: input.excludeUserIds,
+      }),
   });
 }
 

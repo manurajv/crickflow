@@ -1,5 +1,6 @@
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { getFirebaseStorage } from "@/lib/firebase/client";
+import { friendlyUploadError } from "@/lib/friendly-error";
 
 export const COMMUNITY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const PROFILE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
@@ -17,15 +18,12 @@ export function userProfileImagePath(userId: string) {
   return `users/${userId}/profile.jpg`;
 }
 
-export function storageUploadHint(error: unknown) {
+export function storageUploadHint(error: unknown, isDocument = true) {
   const message = error instanceof Error ? error.message : String(error);
-  if (/cors|network|failed to fetch|err_failed/i.test(message)) {
+  if (/cors/i.test(message) && /failed to fetch|err_failed/i.test(message)) {
     return "Photo upload is blocked by Storage CORS. Images still work when posted from the app.";
   }
-  if (/unauthorized|permission|storage\/unauthorized/i.test(message)) {
-    return "Could not upload this photo. Sign in and use a JPEG under the size limit.";
-  }
-  return message || "Could not upload photo";
+  return friendlyUploadError(error, isDocument);
 }
 
 export async function fileToJpegBlob(file: File, maxBytes: number): Promise<Blob> {
@@ -141,7 +139,7 @@ export async function uploadSeriesRegistrationImage(
       options?.subjectUserId,
     ),
     file,
-    SERIES_IMAGE_MAX_BYTES,
+    kind === "doc" ? SERIES_IMAGE_MAX_BYTES : PROFILE_IMAGE_MAX_BYTES,
   );
 }
 

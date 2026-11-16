@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../core/utils/atomic_create.dart';
+import '../../../../core/utils/friendly_error.dart';
 import '../../../../data/models/series/series.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../teams/presentation/utils/team_image_upload.dart';
@@ -94,6 +95,7 @@ class SeriesRegistrationFields extends ConsumerStatefulWidget {
 class _SeriesRegistrationFieldsState
     extends ConsumerState<SeriesRegistrationFields> {
   bool _uploading = false;
+  double? _uploadProgress;
   final Map<String, TextEditingController> _custom = {};
 
   @override
@@ -170,15 +172,19 @@ class _SeriesRegistrationFieldsState
       ),
     );
     if (source == null || !mounted) return;
-    final file = await pickAndCropTeamImage(
-      context,
-      kind: TeamImageKind.document,
-      source: source,
-      cropTitle: title,
-    );
-    if (file == null || !mounted) return;
-    setState(() => _uploading = true);
+    setState(() {
+      _uploading = true;
+      _uploadProgress = null;
+    });
     try {
+      final file = await pickAndCropTeamImage(
+        context,
+        kind: TeamImageKind.document,
+        source: source,
+        cropTitle: title,
+      );
+      if (file == null || !mounted) return;
+      setState(() => _uploadProgress = 0);
       final asset = await ref
           .read(storageServiceProvider)
           .uploadSeriesRegistrationImageAsset(
@@ -187,17 +193,29 @@ class _SeriesRegistrationFieldsState
             kind: kind,
             clubId: widget.clubId,
             subjectUserId: widget.subjectUserId,
+            onProgress: (value) {
+              if (mounted) setState(() => _uploadProgress = value);
+            },
           );
       widget.uploadSession?.add(asset);
       onUrl(asset.url);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not upload image. Try again.')),
+          SnackBar(
+            content: Text(
+              friendlyUploadError(e, isDocument: kind == 'doc'),
+            ),
+          ),
         );
       }
     } finally {
-      if (mounted) setState(() => _uploading = false);
+      if (mounted) {
+        setState(() {
+          _uploading = false;
+          _uploadProgress = null;
+        });
+      }
     }
   }
 
@@ -216,11 +234,20 @@ class _SeriesRegistrationFieldsState
               child: Image.network(url, width: 44, height: 44, fit: BoxFit.cover),
             ),
       title: Text(label),
-      subtitle: Text(url == null ? 'Tap to upload a clear photo' : 'Photo attached'),
+      subtitle: Text(
+        _uploading
+            ? (_uploadProgress == null
+                ? 'Uploading document…'
+                : 'Uploading document… ${(_uploadProgress! * 100).round()}%')
+            : (url == null ? 'Tap to upload a clear photo' : 'Photo attached'),
+      ),
       trailing: _uploading
-          ? const SizedBox.square(
+          ? SizedBox.square(
               dimension: 22,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: _uploadProgress,
+              ),
             )
           : Icon(url == null ? Icons.add_a_photo_outlined : Icons.check_circle,
               color: url == null ? cf.textSecondary : Colors.green),

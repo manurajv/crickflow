@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/utils/atomic_create.dart';
 import '../../core/utils/match_media_naming.dart';
+import '../../features/teams/presentation/utils/team_image_crop_config.dart';
 
 class StorageService {
   StorageService({FirebaseStorage? storage})
@@ -156,17 +157,33 @@ class StorageService {
     String kind = 'photo',
     String? clubId,
     String? subjectUserId,
+    void Function(double progress)? onProgress,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
     final subject =
         (subjectUserId != null && subjectUserId.isNotEmpty) ? subjectUserId : uid;
     final safeKind = kind == 'doc' ? 'doc' : 'photo';
+    final isDocument = safeKind == 'doc';
+    final maxBytes = registrationMaxBytes(isDocument: isDocument);
+    if (!file.existsSync() || file.lengthSync() == 0) {
+      throw Exception('The cropped photo is empty. Please try again.');
+    }
+    if (file.lengthSync() > maxBytes) {
+      throw Exception(registrationTooLargeMessage(isDocument: isDocument));
+    }
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final path = (clubId != null && clubId.isNotEmpty)
         ? 'series/$seriesId/clubs/$clubId/registrations/$subject/${safeKind}_${uid}_$stamp.jpg'
         : 'series/$seriesId/registrations/$subject/${safeKind}_${uid}_$stamp.jpg';
     final ref = _storage.ref().child(path);
-    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    final task = ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    if (onProgress != null) {
+      task.snapshotEvents.listen((snap) {
+        final total = snap.totalBytes;
+        if (total > 0) onProgress(snap.bytesTransferred / total);
+      });
+    }
+    await task;
     final url = await ref.getDownloadURL();
     return UploadedAsset(url: url, delete: () => deleteByUrl(url));
   }

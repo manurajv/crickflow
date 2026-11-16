@@ -254,7 +254,7 @@ class _SeriesAddPlayerScreenState extends ConsumerState<SeriesAddPlayerScreen> {
                       : Icon(isManager ? Icons.person_add : Icons.send_outlined),
                   label: Text(
                     _saving
-                        ? 'Saving…'
+                        ? 'Adding player…'
                         : (isManager ? 'Add to squad' : 'Submit for approval'),
                   ),
                 ),

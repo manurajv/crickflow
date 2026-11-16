@@ -614,3 +614,17 @@ test('series club admins cannot be written directly by clients', async () => {
   }));
   await assertFails(updateDoc(doc(staff, 'series_memberships/missing'), { status: 'removed' }));
 });
+
+test('inbox owner can only mark a notification read', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'notifications/actionable1'), {
+      userId: 'u1', title: 'Invite', body: 'Join', type: 'team_invitation', read: false,
+    });
+  });
+  const mine = as('u1');
+  const other = as('u2');
+  await assertSucceeds(updateDoc(doc(mine, 'notifications/actionable1'), { read: true, isRead: true }));
+  await assertFails(updateDoc(doc(mine, 'notifications/actionable1'), { actionStatus: 'accepted' }));
+  await assertFails(updateDoc(doc(mine, 'notifications/actionable1'), { title: 'hacked' }));
+  await assertFails(updateDoc(doc(other, 'notifications/actionable1'), { read: true }));
+});

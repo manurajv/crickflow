@@ -243,10 +243,28 @@ class _EmptyTab extends StatelessWidget {
   }
 }
 
-class _NotificationCard extends ConsumerWidget {
+class _NotificationCard extends ConsumerStatefulWidget {
   const _NotificationCard({super.key, required this.notification});
 
   final NotificationModel notification;
+
+  @override
+  ConsumerState<_NotificationCard> createState() => _NotificationCardState();
+}
+
+class _NotificationCardState extends ConsumerState<_NotificationCard> {
+  String? _localStatus;
+  bool _acting = false;
+
+  NotificationModel get notification => widget.notification;
+
+  String? get _resolvedStatus =>
+      notification.hasActionStatus ? notification.actionStatus : _localStatus;
+
+  bool get _showActions =>
+      notification.isActionable &&
+      (_resolvedStatus == null || _resolvedStatus!.isEmpty) &&
+      !_acting;
 
   Future<void> _onTap(BuildContext context, WidgetRef ref) async {
     final repo = ref.read(notificationRepositoryProvider);
@@ -278,8 +296,76 @@ class _NotificationCard extends ConsumerWidget {
     WidgetRef ref, {
     required bool accept,
   }) async {
-    if (notification.hasActionStatus) return;
+    if ((_resolvedStatus != null && _resolvedStatus!.isNotEmpty) || _acting) {
+      return;
+    }
+    setState(() => _acting = true);
     try {
+      if (notification.isSeriesApprovalActionable) {
+        final seriesId = notification.seriesId ?? '';
+        final approvalId = notification.requestId ?? '';
+        if (seriesId.isEmpty || approvalId.isEmpty) {
+          throw StateError('This request is missing approval details');
+        }
+        var reason = '';
+        if (!accept) {
+          final controller = TextEditingController();
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Reject request'),
+              content: TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Reason (required)',
+                ),
+                maxLines: 3,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.pop(ctx, controller.text.trim().isNotEmpty),
+                  child: const Text('Reject'),
+                ),
+              ],
+            ),
+          );
+          reason = controller.text.trim();
+          controller.dispose();
+          if (ok != true || reason.isEmpty) return;
+        }
+        if (notification.reviewScope == 'club') {
+          await ref.read(seriesFunctionsServiceProvider).reviewClubJoinRequest(
+                seriesId: seriesId,
+                approvalId: approvalId,
+                decision: accept ? 'approved' : 'rejected',
+                reason: reason,
+              );
+        } else {
+          await ref.read(seriesFunctionsServiceProvider).reviewSeriesApproval(
+                seriesId: seriesId,
+                approvalId: approvalId,
+                decision: accept ? 'approved' : 'rejected',
+                reason: reason,
+              );
+        }
+        if (mounted) setState(() => _localStatus = accept ? 'approved' : 'rejected');
+        await ref.read(notificationRepositoryProvider).markRelatedRead(
+              NotificationRelation.of(notification),
+            );
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(accept ? 'Request approved' : 'Request rejected'),
+          ),
+        );
+        return;
+      }
+
       if (notification.type == SeriesNotificationTypes.clubAdminInvite) {
         final seriesId = notification.seriesId ?? '';
         final clubId = notification.clubId ?? '';
@@ -291,10 +377,7 @@ class _NotificationCard extends ConsumerWidget {
               clubId: clubId,
               decision: accept ? 'accepted' : 'declined',
             );
-        await ref.read(notificationRepositoryProvider).setActionStatus(
-              notification.id,
-              accept ? 'accepted' : 'rejected',
-            );
+        if (mounted) setState(() => _localStatus = accept ? 'accepted' : 'declined');
         await ref
             .read(notificationRepositoryProvider)
             .markRelatedRead(NotificationRelation.of(notification));
@@ -321,10 +404,7 @@ class _NotificationCard extends ConsumerWidget {
             notification: notification,
           );
         }
-        await ref.read(notificationRepositoryProvider).setActionStatus(
-              notification.id,
-              accept ? 'accepted' : 'rejected',
-            );
+        if (mounted) setState(() => _localStatus = accept ? 'accepted' : 'declined');
         await ref
             .read(notificationRepositoryProvider)
             .markRelatedRead(NotificationRelation.of(notification));
@@ -350,10 +430,7 @@ class _NotificationCard extends ConsumerWidget {
           notification: notification,
         );
       }
-      await ref.read(notificationRepositoryProvider).setActionStatus(
-            notification.id,
-            accept ? 'accepted' : 'rejected',
-          );
+      if (mounted) setState(() => _localStatus = accept ? 'accepted' : 'declined');
       await ref
           .read(notificationRepositoryProvider)
           .markRelatedRead(NotificationRelation.of(notification));
@@ -384,6 +461,8 @@ class _NotificationCard extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(friendlyError(e))),
       );
+    } finally {
+      if (mounted) setState(() => _acting = false);
     }
   }
 
@@ -469,7 +548,7 @@ class _NotificationCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cf = context.cf;
     final n = notification;
     final theme = Theme.of(context);
@@ -585,14 +664,22 @@ class _NotificationCard extends ConsumerWidget {
                               ),
                             ),
                           const Spacer(),
-                          if (n.hasActionStatus)
+                          if (_resolvedStatus != null &&
+                              _resolvedStatus!.isNotEmpty)
                             _StatusChip(
-                              label: n.actionStatusLabel ?? '',
+                              label:
+                                  notificationActionStatusLabel(_resolvedStatus) ??
+                                      '',
                               color: accent,
+                            ),
+                          if (_acting)
+                            const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                         ],
                       ),
-                      if (n.isActionable) ...[
+                      if (_showActions) ...[
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -612,7 +699,11 @@ class _NotificationCard extends ConsumerWidget {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  child: const Text('Accept'),
+                                  child: Text(
+                                    n.usesApproveRejectActions
+                                        ? 'Approve'
+                                        : 'Accept',
+                                  ),
                                 ),
                               ),
                             ),
@@ -633,7 +724,11 @@ class _NotificationCard extends ConsumerWidget {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  child: const Text('Decline'),
+                                  child: Text(
+                                    n.usesApproveRejectActions
+                                        ? 'Reject'
+                                        : 'Decline',
+                                  ),
                                 ),
                               ),
                             ),

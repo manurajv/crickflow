@@ -261,7 +261,7 @@ class _SeriesRegistrationScreenState
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check),
-                  label: Text(_saving ? 'Submitting…' : 'Submit'),
+                  label: Text(_saving ? 'Sending request…' : 'Submit'),
                 ),
               ],
             ),

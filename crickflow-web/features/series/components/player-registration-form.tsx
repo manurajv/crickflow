@@ -9,7 +9,7 @@ import {
   deleteStorageUrl,
   uploadSeriesRegistrationImage,
 } from "@/lib/media-upload";
-import { friendlyError } from "@/lib/friendly-error";
+import { friendlyError, friendlyUploadError } from "@/lib/friendly-error";
 import { ImageCropDialog, type ImageCropMode } from "@/components/shared/image-crop-dialog";
 
 export type PlayerRegistrationValues = {
@@ -38,6 +38,7 @@ type Props = {
   identity?: { fullName: string; crickFlowPlayerId: string };
   subjectUserId?: string;
   submitLabel?: string;
+  pendingLabel?: string;
   /** Official profile photo already on the player; reused when no new file is chosen. */
   existingProfilePhotoUrl?: string;
 };
@@ -84,6 +85,7 @@ export function PlayerRegistrationForm({
   identity,
   subjectUserId,
   submitLabel = "Request to join",
+  pendingLabel,
   existingProfilePhotoUrl,
 }: Props) {
   const { user, profile } = useAuth();
@@ -217,7 +219,7 @@ export function PlayerRegistrationForm({
       });
     } catch (err) {
       await Promise.all(uploaded.map((url) => deleteStorageUrl(url).catch(() => undefined)));
-      setError(friendlyError(err, "Could not submit registration"));
+      setError(friendlyUploadError(err));
     }
   }
 
@@ -401,7 +403,7 @@ export function PlayerRegistrationForm({
       ))}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" variant="outline" disabled={pending || !clubId}>
-        {pending ? "…" : submitLabel}
+        {pending ? (pendingLabel ?? "Sending request…") : submitLabel}
       </Button>
       <p className="text-xs text-muted-foreground">
         The team admin reviews your documents first, then organization admins make the final decision.

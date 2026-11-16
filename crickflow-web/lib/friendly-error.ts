@@ -86,3 +86,22 @@ export function friendlyError(error: unknown, fallback = GENERIC): string {
   if (!message || message.length > 200 || looksTechnical(message)) return fallback;
   return withFieldLabels(message);
 }
+
+
+export function friendlyUploadError(error: unknown, isDocument = true) {
+  const limit = isDocument ? "5 MB" : "2 MB";
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const rawCode =
+    typeof error === "object" && error && "code" in error ? String((error as { code: unknown }).code ?? "") : "";
+  const code = rawCode.includes("/") ? rawCode.split("/").pop() ?? "" : rawCode;
+  if (CONNECTION_CODES.has(code) || isConnectionText(message) || isConnectionText(rawCode)) {
+    return OFFLINE;
+  }
+  if (code === "unauthorized" || code === "permission-denied" || code === "unauthenticated") {
+    return `This photo couldn't be uploaded. It may be too large (max ${limit}), isn't an allowed image type, or you don't have permission.`;
+  }
+  if (/too large|exceeds the maximum/i.test(message)) {
+    return `This photo is too large. Use a photo under ${limit}.`;
+  }
+  return friendlyError(error);
+}

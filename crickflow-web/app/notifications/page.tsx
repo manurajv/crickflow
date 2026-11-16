@@ -18,6 +18,13 @@ import {
   unreadNotificationCounts,
   type NotificationTab,
 } from "@/lib/cricket/notification-priority";
+import {
+  isActionableNotification,
+  notificationActionStatusLabel,
+  respondInboxNotification,
+  usesApproveRejectActions,
+} from "@/lib/cricket/notification-actions";
+import { friendlyError } from "@/lib/friendly-error";
 import { cn } from "@/lib/utils";
 
 export default function NotificationsPage() {
@@ -25,6 +32,8 @@ export default function NotificationsPage() {
   const router = useRouter();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [tab, setTab] = useState<NotificationTab>("priority");
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -91,6 +100,7 @@ export default function NotificationsPage() {
           </button>
         ))}
       </div>
+      {actionError ? <p className="mb-3 text-sm text-destructive">{actionError}</p> : null}
       <div className="space-y-2">
         {list.length === 0 ? (
           <EmptyState
@@ -102,33 +112,96 @@ export default function NotificationsPage() {
             }
           />
         ) : (
-          list.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="block w-full text-left"
-              onClick={async () => {
-                const related = relatedNotificationIds(item, items);
-                const ids = related.length ? related : item.read ? [] : [item.id];
-                if (ids.length) await markNotificationsRead(ids);
-                const href = notificationHref(item);
-                if (href) router.push(href);
-              }}
-            >
-              <Card className={`p-4 ${item.read ? "" : "border-primary/40"}`}>
-                <p className="text-xs uppercase text-muted-foreground">
-                  {notificationCategoryLabel(item.category, item.type)}
-                </p>
-                <p className="font-semibold">{item.title}</p>
-                <p className="text-sm text-muted-foreground">{item.body}</p>
-                {item.createdAt ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {formatRelativeTime(item.createdAt)}
+          list.map((item) => {
+            const statusLabel = notificationActionStatusLabel(item.actionStatus);
+            const actionable = isActionableNotification(item) && actingId !== item.id;
+            const approve = usesApproveRejectActions(item);
+            return (
+              <Card key={item.id} className={`p-4 ${item.read ? "" : "border-primary/40"}`}>
+                <button
+                  type="button"
+                  className="block w-full text-left"
+                  onClick={async () => {
+                    const related = relatedNotificationIds(item, items);
+                    const ids = related.length ? related : item.read ? [] : [item.id];
+                    if (ids.length) await markNotificationsRead(ids);
+                    const href = notificationHref(item);
+                    if (href) router.push(href);
+                  }}
+                >
+                  <p className="text-xs uppercase text-muted-foreground">
+                    {notificationCategoryLabel(item.category, item.type)}
                   </p>
+                  <p className="font-semibold">{item.title}</p>
+                  <p className="text-sm text-muted-foreground">{item.body}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    {item.createdAt ? (
+                      <p className="text-xs text-muted-foreground">
+                        {formatRelativeTime(item.createdAt)}
+                      </p>
+                    ) : null}
+                    {statusLabel ? (
+                      <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold">
+                        {statusLabel}
+                      </span>
+                    ) : null}
+                    {actingId === item.id ? (
+                      <span className="text-xs text-muted-foreground">Sending request…</span>
+                    ) : null}
+                  </div>
+                </button>
+                {actionable ? (
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={async (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setActingId(item.id);
+                        setActionError("");
+                        try {
+                          await respondInboxNotification(item, true);
+                          await markNotificationsRead([item.id]);
+                        } catch (err) {
+                          setActionError(friendlyError(err));
+                        } finally {
+                          setActingId(null);
+                        }
+                      }}
+                    >
+                      {approve ? "Approve" : "Accept"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        let reason = "";
+                        if (approve) {
+                          const entered = window.prompt("Reason for rejecting this request?");
+                          if (!entered || !entered.trim()) return;
+                          reason = entered.trim();
+                        }
+                        setActingId(item.id);
+                        setActionError("");
+                        try {
+                          await respondInboxNotification(item, false, reason);
+                          await markNotificationsRead([item.id]);
+                        } catch (err) {
+                          setActionError(friendlyError(err));
+                        } finally {
+                          setActingId(null);
+                        }
+                      }}
+                    >
+                      {approve ? "Reject" : "Decline"}
+                    </Button>
+                  </div>
                 ) : null}
               </Card>
-            </button>
-          ))
+            );
+          })
         )}
       </div>
     </div>

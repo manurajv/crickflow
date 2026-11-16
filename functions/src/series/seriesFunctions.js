@@ -246,7 +246,12 @@ async function createApproval(firestore, data) {
       body,
       type: 'series_approval_pending',
       seriesId: data.seriesId,
-      extra: { priority: true, requestId: ref.id },
+      extra: {
+        priority: true,
+        requestId: ref.id,
+        clubId: data.clubId || null,
+        reviewScope: audience === 'clubAdmins' ? 'club' : 'org',
+      },
       from: data.requestedBy || 'system',
     });
   } catch (err) {
@@ -1437,7 +1442,7 @@ exports.reviewClubJoinRequest = onCall(async (request) => {
     body: 'The team approved your documents. Organization admins will make the final decision.',
     type: 'series_approval_pending',
     seriesId,
-    extra: { requestId: approvalId, clubId, clubReviewStatus: 'approved' },
+    extra: { requestId: approvalId, clubId, clubReviewStatus: 'approved', reviewScope: 'none' },
     from: uid,
   });
   await notifyMany(
@@ -1448,7 +1453,7 @@ exports.reviewClubJoinRequest = onCall(async (request) => {
       body: `${approval.metadata?.displayName || 'A player'} was approved by the team and needs organization approval.`,
       type: 'series_approval_pending',
       seriesId,
-      extra: { priority: true, requestId: approvalId, clubId },
+      extra: { priority: true, requestId: approvalId, clubId, reviewScope: 'org' },
       from: uid,
     },
   );
@@ -1948,7 +1953,7 @@ exports.submitPlayerRemovalRequest = onCall(async (request) => {
     body: `Player removal pending in ${series.name || 'this organization'}`,
     type: 'series_approval_pending',
     seriesId,
-    extra: { priority: true, requestId: approvalRef.id, clubId },
+    extra: { priority: true, requestId: approvalRef.id, clubId, reviewScope: 'org' },
     from: uid,
   });
   await notifyUser(firestore, targetUserId, {

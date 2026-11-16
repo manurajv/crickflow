@@ -443,6 +443,10 @@ export interface AppNotification {
   tab?: string;
   type?: string;
   category?: string;
+  seriesId?: string;
+  clubId?: string;
+  reviewScope?: string;
+  actionStatus?: string;
   /** Server-stamped; older docs fall back to type mapping. */
   priority?: boolean | null;
   read: boolean;
