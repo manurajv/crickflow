@@ -68,7 +68,7 @@ abstract final class AdminCollections {
   /// Advertiser company profiles (additive).
   static const adminAdvertisers = 'admin_advertisers';
 
-  /// AdMob unit / placement config mirror (admin only — mobile AdMob unchanged).
+  /// AdMob unit / placement config (`settings.testMode` is read by the mobile app).
   static const adminAdmobConfig = 'admin_admob_config';
 
   /// Sponsored entity promotions (tournament/team/post links).

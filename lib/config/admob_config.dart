@@ -28,7 +28,30 @@ abstract final class AdMobConfig {
   /// Must be false for Play Store / production release builds.
   static const forceTestAds = false;
 
-  static bool get useTestAds => forceTestAds || kDebugMode;
+  /// Last value of `admin_admob_config/settings.testMode`, or null if the doc
+  /// is missing or could not be read. Null does not force test ads in release
+  /// (preserves current production units). Only an explicit `true` enables
+  /// test units in a release build.
+  static bool? remoteTestMode;
+
+  /// Applies a Firestore `admin_admob_config/settings` document.
+  /// Returns the resolved flag (null = unknown / missing).
+  static bool? applyRemoteConfig(Map<String, dynamic>? data) {
+    if (data == null) {
+      remoteTestMode = null;
+      return null;
+    }
+    final value = data['testMode'];
+    if (value is bool) {
+      remoteTestMode = value;
+      return value;
+    }
+    remoteTestMode = null;
+    return null;
+  }
+
+  static bool get useTestAds =>
+      forceTestAds || kDebugMode || remoteTestMode == true;
 
   static String bannerAdUnitId({required bool isAndroid}) {
     if (useTestAds) {

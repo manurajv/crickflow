@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+import '../../config/admob_config.dart';
 
 /// Initializes the Mobile Ads SDK once at app start.
 class AdMobService {
@@ -29,10 +32,12 @@ class AdMobService {
     try {
       // Let the first Flutter frame / WebView factory settle first.
       await Future<void>.delayed(const Duration(milliseconds: 400));
+      await _syncRemoteTestMode();
       await MobileAds.instance.initialize();
       await MobileAds.instance.updateRequestConfiguration(
         RequestConfiguration(
-          testDeviceIds: kDebugMode ? testDeviceIds : const <String>[],
+          testDeviceIds:
+              AdMobConfig.useTestAds ? testDeviceIds : const <String>[],
         ),
       );
       _initialized = true;
@@ -43,6 +48,23 @@ class AdMobService {
       );
     } catch (e, st) {
       debugPrint('AdMob init failed: $e\n$st');
+    }
+  }
+
+  /// Release builds honor `admin_admob_config/settings.testMode`.
+  /// Missing or unreadable docs leave [AdMobConfig.remoteTestMode] null so
+  /// production units stay in use (safe default for already-shipped releases).
+  static Future<void> _syncRemoteTestMode() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('admin_admob_config')
+          .doc('settings')
+          .get()
+          .timeout(const Duration(seconds: 5));
+      AdMobConfig.applyRemoteConfig(snap.data());
+    } catch (e) {
+      AdMobConfig.applyRemoteConfig(null);
+      debugPrint('AdMob remote testMode unavailable: $e');
     }
   }
 }

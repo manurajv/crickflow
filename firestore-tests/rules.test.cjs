@@ -628,3 +628,25 @@ test('inbox owner can only mark a notification read', async () => {
   await assertFails(updateDoc(doc(mine, 'notifications/actionable1'), { title: 'hacked' }));
   await assertFails(updateDoc(doc(other, 'notifications/actionable1'), { read: true }));
 });
+
+test('admin_admob_config/settings is publicly readable; writes stay staff-only', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'admin_admob_config/settings'), {
+      testMode: true, updatedAt: NOW,
+    });
+    await setDoc(doc(ctx.firestore(), 'admin_admob_config/other'), {
+      testMode: false,
+    });
+  });
+  const guest = anon();
+  const user = as('u1');
+  const staff = as('sa');
+  await assertSucceeds(getDoc(doc(guest, 'admin_admob_config/settings')));
+  await assertSucceeds(getDoc(doc(user, 'admin_admob_config/settings')));
+  await assertFails(getDoc(doc(guest, 'admin_admob_config/other')));
+  await assertFails(getDocs(collection(guest, 'admin_admob_config')));
+  await assertFails(setDoc(doc(guest, 'admin_admob_config/settings'), { testMode: false }));
+  await assertFails(updateDoc(doc(user, 'admin_admob_config/settings'), { testMode: false }));
+  await assertSucceeds(getDocs(collection(staff, 'admin_admob_config')));
+  await assertSucceeds(updateDoc(doc(staff, 'admin_admob_config/settings'), { testMode: false }));
+});

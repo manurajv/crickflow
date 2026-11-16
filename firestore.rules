@@ -2199,7 +2199,7 @@ service cloud.firestore {
       allow read, create, update, delete: if hasAdminPermission('canSendNotifications');
     }
 
-    /// Advertisement manager (additive — does not alter mobile AdMob).
+    /// Advertisement manager (additive campaigns/advertisers).
     match /admin_ad_campaigns/{id} {
       allow read, create, update, delete: if hasAdminPermission('canManageAds');
     }
@@ -2208,8 +2208,11 @@ service cloud.firestore {
       allow read, create, update, delete: if hasAdminPermission('canManageAds');
     }
 
+    /// `settings` is readable so the mobile app can honor testMode.
+    /// List and writes stay staff-only so the collection cannot be enumerated.
     match /admin_admob_config/{id} {
-      allow read, create, update, delete: if hasAdminPermission('canManageAds');
+      allow get: if id == 'settings';
+      allow list, create, update, delete: if hasAdminPermission('canManageAds');
     }
 
     match /admin_sponsored_content/{id} {

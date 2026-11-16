@@ -1,10 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
-/// Snapshot for the admin landing dashboard.
-///
-/// Values are currently placeholder-friendly. Swap the repository later to
-/// load real Firestore aggregates without changing presentation widgets.
+/// Snapshot for the admin landing dashboard, loaded from live Firestore counts.
 class DashboardSnapshot extends Equatable {
   const DashboardSnapshot({
     required this.generatedAt,
@@ -235,12 +232,14 @@ class AnalyticsPlaceholderItem extends Equatable {
     required this.id,
     required this.title,
     required this.subtitle,
+    this.value,
   });
 
   final String id;
   final String title;
   final String subtitle;
+  final String? value;
 
   @override
-  List<Object?> get props => [id];
+  List<Object?> get props => [id, value];
 }

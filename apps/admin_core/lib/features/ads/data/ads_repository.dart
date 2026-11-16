@@ -11,7 +11,8 @@ import '../models/managed_ads.dart';
 
 /// Admin advertisement management.
 ///
-/// Does not modify mobile AdMob (`AdMobConfig` / `google_mobile_ads`).
+/// Writes `admin_admob_config/settings`, which release builds of the
+/// mobile app read for `testMode` (debug builds always use test units).
 /// Custom home carousel creatives may sync to existing `home_promotions`
 /// (kind=advertisement) so the mobile carousel can show approved ads.
 class AdsRepository {
@@ -521,7 +522,7 @@ class AdsRepository {
     );
   }
 
-  // --- AdMob config (admin mirror only) ---
+  // --- AdMob config (read by mobile release builds) ---
 
   Future<ManagedAdmobConfig> fetchAdmobConfig() async {
     try {
