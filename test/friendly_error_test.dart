@@ -17,7 +17,50 @@ void main() {
   test('stringified Firebase errors are mapped', () {
     expect(
       friendlyError(Exception('[cloud_firestore/unavailable] The service is currently unavailable.')),
-      contains('Connection problem'),
+      'No internet connection. Check your connection and try again.',
+    );
+  });
+
+  test('connection codes and timeouts use a clear offline message', () {
+    expect(
+      friendlyError(FirebaseException(
+        plugin: 'firebase_functions',
+        code: 'unavailable',
+        message: 'UNAVAILABLE',
+      )),
+      'No internet connection. Check your connection and try again.',
+    );
+    expect(
+      friendlyError(FirebaseException(
+        plugin: 'cloud_functions',
+        code: 'deadline-exceeded',
+        message: 'Deadline expired',
+      )),
+      'No internet connection. Check your connection and try again.',
+    );
+    expect(
+      friendlyError(FirebaseException(
+        plugin: 'firebase_functions',
+        code: 'network-request-failed',
+      )),
+      'No internet connection. Check your connection and try again.',
+    );
+    expect(
+      friendlyError(Exception('ClientException: Failed host lookup')),
+      'No internet connection. Check your connection and try again.',
+    );
+  });
+
+  test('callable invalid-argument keeps the server reason and uses labels', () {
+    final e = FirebaseException(
+      plugin: 'firebase_functions',
+      code: 'invalid-argument',
+      message:
+          'Registration documents must be uploaded for this player in this organization: profilePhotoUrl',
+    );
+    expect(
+      friendlyError(e),
+      'Registration documents must be uploaded for this player in this organization: Profile photo',
     );
   });
 

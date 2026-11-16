@@ -376,6 +376,7 @@ export function OrgTeamDetailPage() {
                   lockIdentity
                   fixedClubId={clubId}
                   identity={officialIdentityFromProfile(profile)}
+                  existingProfilePhotoUrl={profile?.photoUrl}
                   pending={joinClub.isPending}
                   onSubmit={async (values) => {
                     await joinClub.mutateAsync(values);
@@ -673,6 +674,7 @@ export function OrgTeamDetailPage() {
                     fullName: selectedPlayer.displayName || selectedPlayer.name,
                     crickFlowPlayerId: selectedPlayer.playerId,
                   }}
+                  existingProfilePhotoUrl={selectedPlayer.photoUrl}
                   submitLabel="Add player"
                   pending={addPlayer.isPending}
                   onSubmit={async (values) => {

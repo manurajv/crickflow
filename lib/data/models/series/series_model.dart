@@ -38,16 +38,17 @@ class SeriesSettingsModel extends Equatable {
     if (map == null) return const SeriesSettingsModel();
     return SeriesSettingsModel(
       maxSquadSize: (map['maxSquadSize'] as num?)?.toInt() ?? 20,
-      requireFullName: map['requireFullName'] as bool? ?? true,
-      requireCrickFlowPlayerId: map['requireCrickFlowPlayerId'] as bool? ?? true,
-      requireDateOfBirth: map['requireDateOfBirth'] as bool? ?? false,
-      requireNationalId: map['requireNationalId'] as bool? ?? false,
-      requirePassport: map['requirePassport'] as bool? ?? false,
-      requireNationalIdDocument: map['requireNationalIdDocument'] as bool? ?? false,
-      requirePassportDocument: map['requirePassportDocument'] as bool? ?? false,
-      requirePhoneNumber: map['requirePhoneNumber'] as bool? ?? false,
-      requireAddress: map['requireAddress'] as bool? ?? false,
-      requireProfilePhoto: map['requireProfilePhoto'] as bool? ?? false,
+      requireFullName: _flag(map, 'requireFullName', fallback: true),
+      requireCrickFlowPlayerId:
+          _flag(map, 'requireCrickFlowPlayerId', fallback: true),
+      requireDateOfBirth: _flag(map, 'requireDateOfBirth'),
+      requireNationalId: _flag(map, 'requireNationalId'),
+      requirePassport: _flag(map, 'requirePassport'),
+      requireNationalIdDocument: _flag(map, 'requireNationalIdDocument'),
+      requirePassportDocument: _flag(map, 'requirePassportDocument'),
+      requirePhoneNumber: _flag(map, 'requirePhoneNumber'),
+      requireAddress: _flag(map, 'requireAddress'),
+      requireProfilePhoto: _flag(map, 'requireProfilePhoto'),
       customRequiredFields: List<String>.from(
         map['customRequiredFields'] as List? ?? const [],
       ),
@@ -286,4 +287,17 @@ class SeriesModel extends Equatable {
   @override
   List<Object?> get props =>
       [id, name, status, superAdminUserId, platformHold, updatedAt];
+}
+
+bool _flag(Map<String, dynamic> map, String key, {bool fallback = false}) {
+  final v = map[key];
+  if (v == null) return fallback;
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  if (v is String) {
+    final s = v.toLowerCase().trim();
+    if (s == 'true' || s == '1' || s == 'yes') return true;
+    if (s == 'false' || s == '0' || s == 'no' || s.isEmpty) return false;
+  }
+  return fallback;
 }

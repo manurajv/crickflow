@@ -10,6 +10,7 @@ import {
   uploadSeriesRegistrationImage,
 } from "@/lib/media-upload";
 import { friendlyError } from "@/lib/friendly-error";
+import { ImageCropDialog, type ImageCropMode } from "@/components/shared/image-crop-dialog";
 
 export type PlayerRegistrationValues = {
   clubId: string;
@@ -37,6 +38,8 @@ type Props = {
   identity?: { fullName: string; crickFlowPlayerId: string };
   subjectUserId?: string;
   submitLabel?: string;
+  /** Official profile photo already on the player; reused when no new file is chosen. */
+  existingProfilePhotoUrl?: string;
 };
 
 function LockedField({
@@ -81,6 +84,7 @@ export function PlayerRegistrationForm({
   identity,
   subjectUserId,
   submitLabel = "Request to join",
+  existingProfilePhotoUrl,
 }: Props) {
   const { user, profile } = useAuth();
   const official = identity ?? officialIdentityFromProfile(profile);
@@ -101,6 +105,13 @@ export function PlayerRegistrationForm({
   const [nationalDoc, setNationalDoc] = useState<File | null>(null);
   const [passportDoc, setPassportDoc] = useState<File | null>(null);
   const [error, setError] = useState("");
+  const [crop, setCrop] = useState<{
+    file: File;
+    mode: ImageCropMode;
+    title: string;
+    apply: (file: File) => void;
+  } | null>(null);
+  const existingPhoto = (existingProfilePhotoUrl || "").trim();
 
   useEffect(() => {
     if (fixedClubId) setClubId(fixedClubId);
@@ -146,7 +157,7 @@ export function PlayerRegistrationForm({
       setError("Passport number is required");
       return;
     }
-    if (settings.requireProfilePhoto && !profileFile) {
+    if (settings.requireProfilePhoto && !profileFile && !existingPhoto) {
       setError("Profile photo is required");
       return;
     }
@@ -168,7 +179,7 @@ export function PlayerRegistrationForm({
     const uploaded: string[] = [];
     const ownerId = subjectUserId || user.uid;
     try {
-      let profilePhotoUrl: string | undefined;
+      let profilePhotoUrl: string | undefined = existingPhoto || undefined;
       let nationalIdDocUrl: string | undefined;
       let passportDocUrl: string | undefined;
       const opts = { clubId, subjectUserId: ownerId };
@@ -210,11 +221,25 @@ export function PlayerRegistrationForm({
     }
   }
 
+  function pickCropped(
+    title: string,
+    apply: (file: File) => void,
+  ) {
+    return (file: File | null) => {
+      if (!file) {
+        apply(file as unknown as File);
+        return;
+      }
+      setCrop({ file, mode: "document", title, apply });
+    };
+  }
+
   function fileInput(
     label: string,
     required: boolean,
     onChange: (f: File | null) => void,
     current: File | null,
+    extra?: string,
   ) {
     return (
       <label className="block text-sm">
@@ -223,9 +248,18 @@ export function PlayerRegistrationForm({
           type="file"
           accept="image/*"
           className="mt-1 block w-full text-sm"
-          onChange={(e) => onChange(e.target.files?.[0] || null)}
+          onChange={(e) => {
+            const next = e.target.files?.[0] || null;
+            e.target.value = "";
+            if (!next) {
+              onChange(null);
+              return;
+            }
+            pickCropped(`Crop ${label.replace(/ \*$/, "")}`, onChange)(next);
+          }}
         />
         {current ? <span className="text-xs text-muted-foreground">{current.name}</span> : null}
+        {!current && extra ? <span className="block text-xs text-muted-foreground">{extra}</span> : null}
       </label>
     );
   }
@@ -234,6 +268,7 @@ export function PlayerRegistrationForm({
   const showPlayerId = settings.requireCrickFlowPlayerId || lockIdentity;
 
   return (
+    <>
     <form className="space-y-3" onSubmit={handleSubmit}>
       {fixedClubId ? null : (
         <select
@@ -308,8 +343,14 @@ export function PlayerRegistrationForm({
           required
         />
       )}
-      {settings.requireProfilePhoto &&
-        fileInput("Profile photo", true, setProfileFile, profileFile)}
+      {(settings.requireProfilePhoto || existingPhoto) &&
+        fileInput(
+          "Profile photo",
+          Boolean(settings.requireProfilePhoto),
+          setProfileFile,
+          profileFile,
+          existingPhoto && !profileFile ? "Using this player's existing profile photo" : undefined,
+        )}
       {(settings.requireNationalId || settings.requireNationalIdDocument) && (
         <>
           {settings.requireNationalId && (
@@ -367,5 +408,18 @@ export function PlayerRegistrationForm({
         ID documents stay private to you, team admins, and organization admins.
       </p>
     </form>
+      {crop ? (
+        <ImageCropDialog
+          file={crop.file}
+          mode={crop.mode}
+          title={crop.title}
+          onCancel={() => setCrop(null)}
+          onConfirm={(file) => {
+            crop.apply(file);
+            setCrop(null);
+          }}
+        />
+      ) : null}
+    </>
   );
 }

@@ -10,13 +10,14 @@ String friendlyError(Object? error) {
   if (error == null) return _generic;
   if (error is FirebaseException) {
     final message = error.message?.trim() ?? '';
+    if (_isConnectionCode(error.code) || _isConnectionText(message)) {
+      return _offline;
+    }
     // Callable functions send messages written for users.
     if (error.plugin == 'firebase_functions' &&
         message.isNotEmpty &&
-        message.length <= 160 &&
-        message.toUpperCase() != message &&
         !_looksTechnical(message)) {
-      return message;
+      return _withFieldLabels(message);
     }
     return _forCode(error.code);
   }
@@ -25,23 +26,24 @@ String friendlyError(Object? error) {
   final lower = raw.toLowerCase();
   final bracketCode =
       RegExp(r'\[[a-z_]+/([a-z0-9_-]+)\]').firstMatch(lower)?.group(1);
-  if (bracketCode != null) return _forCode(bracketCode);
+  if (bracketCode != null) {
+    if (_isConnectionCode(bracketCode) || _isConnectionText(raw)) {
+      return _offline;
+    }
+    return _forCode(bracketCode);
+  }
+  if (_isConnectionText(raw)) return _offline;
   for (final code in _codes.keys) {
     // Only distinctive codes; words like "cancelled" also appear in real
     // user-facing messages.
     if (!code.contains('-') && code != 'unauthenticated') continue;
     if (lower.contains(code) || lower.contains(code.replaceAll('-', '_'))) {
+      if (_isConnectionCode(code)) return _offline;
       return _forCode(code);
     }
   }
   if (lower.contains('insufficient permissions')) {
     return _forCode('permission-denied');
-  }
-  if (lower.contains('socketexception') ||
-      lower.contains('failed host lookup') ||
-      lower.contains('network is unreachable') ||
-      lower.contains('timeoutexception')) {
-    return _forCode('unavailable');
   }
 
   var cleaned = raw;
@@ -57,13 +59,14 @@ String friendlyError(Object? error) {
     if (cleaned.startsWith(prefix)) cleaned = cleaned.substring(prefix.length);
   }
   cleaned = cleaned.trim();
-  if (cleaned.isEmpty || cleaned.length > 160 || _looksTechnical(cleaned)) {
+  if (cleaned.isEmpty || cleaned.length > 200 || _looksTechnical(cleaned)) {
     return _generic;
   }
-  return cleaned;
+  return _withFieldLabels(cleaned);
 }
 
 const _generic = 'Something went wrong. Please try again.';
+const _offline = 'No internet connection. Check your connection and try again.';
 
 const Map<String, String> _codes = {
   'permission-denied':
@@ -72,11 +75,10 @@ const Map<String, String> _codes = {
       "You don't have access to this. Pull to refresh or sign in again if you think you should.",
   'unauthenticated': 'Please sign in to continue.',
   'requires-recent-login': 'Please sign in again to continue.',
-  'unavailable': 'Connection problem. Check your internet and try again.',
-  'network-request-failed':
-      'Connection problem. Check your internet and try again.',
-  'deadline-exceeded': 'This is taking too long. Please try again.',
-  'retry-limit-exceeded': 'This is taking too long. Please try again.',
+  'unavailable': _offline,
+  'network-request-failed': _offline,
+  'deadline-exceeded': _offline,
+  'retry-limit-exceeded': _offline,
   'not-found': 'This item is no longer available.',
   'object-not-found': 'This file is no longer available.',
   'already-exists': 'This already exists.',
@@ -101,7 +103,56 @@ const Map<String, String> _codes = {
   'unknown': _generic,
 };
 
+const _connectionCodes = {
+  'unavailable',
+  'network-request-failed',
+  'deadline-exceeded',
+  'retry-limit-exceeded',
+};
+
+bool _isConnectionCode(String code) => _connectionCodes.contains(code);
+
+bool _isConnectionText(String text) {
+  final lower = text.toLowerCase();
+  return lower.contains('socketexception') ||
+      lower.contains('failed host lookup') ||
+      lower.contains('network is unreachable') ||
+      lower.contains('network-request-failed') ||
+      lower.contains('failed to fetch') ||
+      lower.contains('clientexception') ||
+      lower.contains('xmlhttprequest') ||
+      lower.contains('timeoutexception') ||
+      lower.contains('timeout') &&
+          (lower.contains('connection') ||
+              lower.contains('network') ||
+              lower.contains('deadline')) ||
+      lower.contains('offline') ||
+      lower.contains('no internet') ||
+      lower.contains('network_error') ||
+      lower.contains('network error');
+}
+
 String _forCode(String code) => _codes[code] ?? _generic;
+
+const _fieldLabels = {
+  'profilePhotoUrl': 'Profile photo',
+  'nationalIdDocUrl': 'National ID document',
+  'passportDocUrl': 'Passport document',
+  'crickFlowPlayerId': 'CrickFlow Player ID',
+  'fullName': 'Full name',
+  'dateOfBirth': 'Date of birth',
+  'phoneNumber': 'Phone',
+  'nationalId': 'National ID',
+  'passportNumber': 'Passport',
+};
+
+String _withFieldLabels(String message) {
+  var out = message;
+  for (final e in _fieldLabels.entries) {
+    out = out.replaceAll(e.key, e.value);
+  }
+  return out;
+}
 
 bool _looksTechnical(String text) {
   final lower = text.toLowerCase();

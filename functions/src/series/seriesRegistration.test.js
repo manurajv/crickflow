@@ -5,6 +5,8 @@ const {
   missingRegistrationFields,
   isAllowedRegistrationMediaUrl,
   invalidRegistrationMediaUrls,
+  applyOfficialIdentity,
+  registrationFieldLabel,
 } = require('./seriesRegistration');
 
 test('normalizeSeriesSettings applies defaults and new document flags', () => {
@@ -62,4 +64,33 @@ test('isAllowedRegistrationMediaUrl restricts to org + subject paths', () => {
     invalidRegistrationMediaUrls({ nationalIdDocUrl: otherUser }, ctx),
     ['nationalIdDocUrl'],
   );
+});
+
+test('applyOfficialIdentity reuses the player profile photo when none is uploaded', () => {
+  const applied = applyOfficialIdentity(
+    { profilePhotoUrl: '' },
+    { displayName: 'Mavixas', playerId: 'CF000002', photoUrl: 'https://cdn.example/users/u9.jpg' },
+  );
+  assert.equal(applied.fullName, 'Mavixas');
+  assert.equal(applied.crickFlowPlayerId, 'CF000002');
+  assert.equal(applied.profilePhotoUrl, 'https://cdn.example/users/u9.jpg');
+});
+
+test('an official profile photo is allowed even when it is not under the org path', () => {
+  const profile = { photoUrl: 'https://cdn.example/users/u9.jpg' };
+  const ctx = { seriesId: 's1', subjectUserId: 'u9', clubId: 'c2', profile };
+  assert.deepEqual(
+    invalidRegistrationMediaUrls({ profilePhotoUrl: profile.photoUrl }, ctx),
+    [],
+  );
+  assert.deepEqual(
+    invalidRegistrationMediaUrls({ profilePhotoUrl: 'https://cdn.example/users/other.jpg' }, ctx),
+    ['profilePhotoUrl'],
+  );
+});
+
+test('registrationFieldLabel never exposes internal field keys', () => {
+  assert.equal(registrationFieldLabel('profilePhotoUrl'), 'Profile photo');
+  assert.equal(registrationFieldLabel('nationalIdDocUrl'), 'National ID document');
+  assert.equal(registrationFieldLabel('passportDocUrl'), 'Passport document');
 });

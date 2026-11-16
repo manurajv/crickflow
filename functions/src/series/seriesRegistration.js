@@ -6,6 +6,42 @@
 const MAX_CUSTOM_FIELDS = 20;
 const MAX_CUSTOM_LABEL = 80;
 
+const REGISTRATION_FIELD_LABELS = {
+  fullName: 'Full name',
+  displayName: 'Full name',
+  crickFlowPlayerId: 'CrickFlow Player ID',
+  dateOfBirth: 'Date of birth',
+  phoneNumber: 'Phone',
+  address: 'Address',
+  profilePhotoUrl: 'Profile photo',
+  nationalId: 'National ID',
+  nationalIdDocUrl: 'National ID document',
+  passportNumber: 'Passport',
+  passportDocUrl: 'Passport document',
+};
+
+function registrationFieldLabel(key) {
+  if (REGISTRATION_FIELD_LABELS[key]) return REGISTRATION_FIELD_LABELS[key];
+  const spaced = String(key || '')
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  if (!spaced) return String(key || '');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function officialProfilePhotoUrl(profile) {
+  const data = profile && typeof profile === 'object' ? profile : {};
+  return String(data.photoUrl || data.photoURL || '').trim();
+}
+
+function isOfficialProfilePhotoUrl(url, profile) {
+  const official = officialProfilePhotoUrl(profile);
+  const provided = String(url || '').trim();
+  return Boolean(official && provided && official === provided);
+}
+
+
 function asBool(v, defaultValue = false) {
   if (v === undefined || v === null) return defaultValue;
   return !!v;
@@ -159,7 +195,11 @@ function invalidRegistrationMediaUrls(data, ctx) {
   const bad = [];
   for (const key of ['profilePhotoUrl', 'nationalIdDocUrl', 'passportDocUrl']) {
     const url = String(d[key] || '').trim();
-    if (url && !isAllowedRegistrationMediaUrl(url, ctx)) bad.push(key);
+    if (!url) continue;
+    if (key === 'profilePhotoUrl' && isOfficialProfilePhotoUrl(url, ctx && ctx.profile)) {
+      continue;
+    }
+    if (!isAllowedRegistrationMediaUrl(url, ctx)) bad.push(key);
   }
   return bad;
 }
@@ -177,21 +217,31 @@ function officialIdentityFromProfile(profile) {
 
 function applyOfficialIdentity(input, profile) {
   const identity = officialIdentityFromProfile(profile);
-  return {
+  const next = {
     ...(input && typeof input === 'object' ? input : {}),
     fullName: identity.fullName,
     displayName: identity.fullName,
     crickFlowPlayerId: identity.crickFlowPlayerId,
   };
+  const officialPhoto = officialProfilePhotoUrl(profile);
+  const providedPhoto = String(next.profilePhotoUrl || '').trim();
+  if (!providedPhoto && officialPhoto) {
+    next.profilePhotoUrl = officialPhoto;
+  }
+  return next;
 }
 
 module.exports = {
   MAX_CUSTOM_FIELDS,
+  REGISTRATION_FIELD_LABELS,
   normalizeSeriesSettings,
   sanitizeCustomRequiredFields,
   missingRegistrationFields,
   isAllowedRegistrationMediaUrl,
   invalidRegistrationMediaUrls,
   officialIdentityFromProfile,
+  officialProfilePhotoUrl,
+  isOfficialProfilePhotoUrl,
   applyOfficialIdentity,
+  registrationFieldLabel,
 };

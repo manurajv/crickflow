@@ -2,7 +2,15 @@
  * Series / Competition Organization — privileged callables + helpers.
  * All sensitive mutations (approvals, PII, memberships, admin grants) go here.
  */
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall: onCallBase, HttpsError } = require('firebase-functions/v2/https');
+// seriesFunctions is a large module; 256MiB OOMs on cold start (Node 22).
+const SERIES_CALL_OPTS = { memory: '512MiB' };
+function onCall(handlerOrOpts, maybeHandler) {
+  if (typeof handlerOrOpts === 'function') {
+    return onCallBase(SERIES_CALL_OPTS, handlerOrOpts);
+  }
+  return onCallBase({ ...SERIES_CALL_OPTS, ...handlerOrOpts }, maybeHandler);
+}
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const {
   OwnerOpError,
@@ -28,6 +36,7 @@ const {
   missingRegistrationFields,
   invalidRegistrationMediaUrls,
   applyOfficialIdentity,
+  registrationFieldLabel,
 } = require('./seriesRegistration');
 const {
   CLUB_ADMIN_STATUS,
@@ -1072,17 +1081,19 @@ async function loadUserProfile(firestore, userId) {
 function validateRegistrationFields(settings, data, mediaCtx) {
   const missing = missingRegistrationFields(settings, data);
   if (missing.length) {
+    const labels = missing.map(registrationFieldLabel).join(', ');
     throw new HttpsError(
       'invalid-argument',
-      `Missing required registration fields: ${missing.join(', ')}`,
+      `Missing required registration fields: ${labels}`,
     );
   }
   if (mediaCtx) {
     const bad = invalidRegistrationMediaUrls(data, mediaCtx);
     if (bad.length) {
+      const labels = bad.map(registrationFieldLabel).join(', ');
       throw new HttpsError(
         'invalid-argument',
-        `Registration documents must be uploaded for this player in this organization: ${bad.join(', ')}`,
+        `Registration documents must be uploaded for this player in this organization: ${labels}`,
       );
     }
   }
@@ -1169,14 +1180,16 @@ exports.submitSeriesRegistration = onCall(async (request) => {
   const series = await getSeriesOrThrow(firestore, seriesId);
   const settings = series.settings || {};
   const clubId = request.data?.clubId || null;
+  const profile = await loadUserProfile(firestore, uid);
   const data = applyOfficialIdentity(
     { ...(request.data || {}), clubId },
-    await loadUserProfile(firestore, uid),
+    profile,
   );
   validateRegistrationFields(settings, data, {
     seriesId,
     subjectUserId: uid,
     clubId,
+    profile,
   });
 
   const registration = await writeRegistration(firestore, {
@@ -1222,8 +1235,8 @@ exports.submitPlayerJoinRequest = onCall(async (request) => {
   }
 
   const settings = series.settings || {};
-  const mediaCtx = { seriesId, subjectUserId: uid, clubId };
   const profile = await loadUserProfile(firestore, uid);
+  const mediaCtx = { seriesId, subjectUserId: uid, clubId, profile };
   const official = applyOfficialIdentity(request.data || {}, profile);
   let registrationId = String(request.data?.registrationId || '').trim() || null;
   let displayName = official.fullName;
@@ -1682,10 +1695,8 @@ exports.submitPlayerAddRequest = onCall(async (request) => {
   }
 
   const settings = series.settings || {};
-  const official = applyOfficialIdentity(
-    request.data || {},
-    await loadUserProfile(firestore, targetUserId),
-  );
+  const profile = await loadUserProfile(firestore, targetUserId);
+  const official = applyOfficialIdentity(request.data || {}, profile);
   const displayName = official.fullName;
   const regInput = {
     ...official,
@@ -1700,6 +1711,7 @@ exports.submitPlayerAddRequest = onCall(async (request) => {
     seriesId,
     subjectUserId: targetUserId,
     clubId,
+    profile,
   });
   const existingPendingAdd = await findPendingPlayerRequest(
     firestore, seriesId, uid, clubId, 'playerAdd',

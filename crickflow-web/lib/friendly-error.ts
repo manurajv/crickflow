@@ -5,14 +5,16 @@
  * `new Error("…")`) pass through.
  */
 const GENERIC = "Something went wrong. Please try again.";
+const OFFLINE = "No internet connection. Check your connection and try again.";
 
 const CODE_MESSAGES: Record<string, string> = {
   "permission-denied": "You don't have access to this. Refresh or sign in again if you think you should.",
   unauthorized: "You don't have access to this. Refresh or sign in again if you think you should.",
   unauthenticated: "Please sign in to continue.",
-  unavailable: "Connection problem. Check your internet and try again.",
-  "network-request-failed": "Connection problem. Check your internet and try again.",
-  "deadline-exceeded": "This is taking too long. Please try again.",
+  unavailable: OFFLINE,
+  "network-request-failed": OFFLINE,
+  "deadline-exceeded": OFFLINE,
+  "retry-limit-exceeded": OFFLINE,
   "not-found": "This item is no longer available.",
   "object-not-found": "This file is no longer available.",
   "already-exists": "This already exists.",
@@ -26,10 +28,43 @@ const CODE_MESSAGES: Record<string, string> = {
   unknown: GENERIC,
 };
 
+const FIELD_LABELS: Record<string, string> = {
+  profilePhotoUrl: "Profile photo",
+  nationalIdDocUrl: "National ID document",
+  passportDocUrl: "Passport document",
+  crickFlowPlayerId: "CrickFlow Player ID",
+  fullName: "Full name",
+  dateOfBirth: "Date of birth",
+  phoneNumber: "Phone",
+  nationalId: "National ID",
+  passportNumber: "Passport",
+};
+
+const CONNECTION_CODES = new Set([
+  "unavailable",
+  "network-request-failed",
+  "deadline-exceeded",
+  "retry-limit-exceeded",
+]);
+
 function looksTechnical(text: string) {
-  return /firebase|firestore|insufficient permissions|exception|stack|undefined|null|grpc|typeerror|cannot read/i.test(
+  return /firestore|insufficient permissions|exception|stack|undefined|null check|grpc|typeerror|cannot read/i.test(
     text,
   );
+}
+
+function isConnectionText(text: string) {
+  return /socketexception|failed host lookup|network is unreachable|network-request-failed|failed to fetch|clientexception|xmlhttprequest|timeoutexception|offline|no internet|network_error|network error|(timeout.+(connection|network|deadline))/i.test(
+    text,
+  );
+}
+
+function withFieldLabels(message: string) {
+  let out = message;
+  for (const [key, label] of Object.entries(FIELD_LABELS)) {
+    out = out.split(key).join(label);
+  }
+  return out;
 }
 
 export function friendlyError(error: unknown, fallback = GENERIC): string {
@@ -39,13 +74,15 @@ export function friendlyError(error: unknown, fallback = GENERIC): string {
   const code = rawCode.includes("/") ? rawCode.split("/").pop() ?? "" : rawCode;
   const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").trim();
 
+  if (CONNECTION_CODES.has(code) || isConnectionText(message) || isConnectionText(rawCode)) {
+    return OFFLINE;
+  }
   // Callable functions send messages written for users.
-  if (rawCode.startsWith("functions/") && message && message.length <= 160 && !looksTechnical(message)) {
-    return message;
+  if (rawCode.startsWith("functions/") && message && !looksTechnical(message)) {
+    return withFieldLabels(message);
   }
   if (code && CODE_MESSAGES[code]) return CODE_MESSAGES[code];
   if (/insufficient permissions|permission[-_ ]denied/i.test(message)) return CODE_MESSAGES["permission-denied"];
-  if (/failed to fetch|network|offline/i.test(message)) return CODE_MESSAGES.unavailable;
-  if (!message || message.length > 160 || looksTechnical(message)) return fallback;
-  return message;
+  if (!message || message.length > 200 || looksTechnical(message)) return fallback;
+  return withFieldLabels(message);
 }

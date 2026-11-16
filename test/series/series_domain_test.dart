@@ -43,6 +43,15 @@ void main() {
         isTrue,
       );
     });
+
+    test('parses truthy required flags the same way the server does', () {
+      final mapped = SeriesSettingsModel.fromMap({
+        'requireProfilePhoto': 1,
+        'requireNationalIdDocument': 'true',
+      });
+      expect(mapped.requireProfilePhoto, isTrue);
+      expect(mapped.requireNationalIdDocument, isTrue);
+    });
   });
 
   group('SeriesPermissionService', () {

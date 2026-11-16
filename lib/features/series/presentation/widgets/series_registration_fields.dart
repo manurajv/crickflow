@@ -172,7 +172,7 @@ class _SeriesRegistrationFieldsState
     if (source == null || !mounted) return;
     final file = await pickAndCropTeamImage(
       context,
-      kind: TeamImageKind.profile,
+      kind: TeamImageKind.document,
       source: source,
       cropTitle: title,
     );
@@ -243,7 +243,10 @@ class _SeriesRegistrationFieldsState
     final showPassport = s.requirePassport ||
         s.requirePassportDocument ||
         widget.showOptionalEmptyFields;
-    final showPhoto = s.requireProfilePhoto || widget.showOptionalEmptyFields;
+    final showPhoto = s.requireProfilePhoto ||
+        widget.showOptionalEmptyFields ||
+        (widget.profilePhotoUrl != null &&
+            widget.profilePhotoUrl!.trim().isNotEmpty);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
