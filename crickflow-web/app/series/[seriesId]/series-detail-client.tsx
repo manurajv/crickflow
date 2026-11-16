@@ -145,17 +145,38 @@ export function SeriesDetailPage() {
             {series.description || `Official CrickFlow ${series.kind}`}
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              [series.clubCount, "Teams"],
-              [series.playerCount, "Players"],
-              [series.matchCount, "Matches"],
-              [series.tournamentCount, "Tournaments"],
-            ].map(([n, label]) => (
-              <Card key={String(label)} className="p-4 text-center">
-                <p className="text-2xl font-black">{n as number}</p>
-                <p className="text-xs text-muted-foreground">{label as string}</p>
-              </Card>
-            ))}
+            {([
+              { n: series.clubCount, label: "Teams", tab: "teams" as const },
+              { n: series.playerCount, label: "Players" },
+              { n: series.matchCount, label: "Matches", tab: "matches" as const },
+              { n: series.tournamentCount, label: "Tournaments", tab: "tournaments" as const },
+            ]).map((tile) => {
+              const body = (
+                <>
+                  <p className="text-2xl font-black">{tile.n}</p>
+                  <p className="text-xs text-muted-foreground">{tile.label}</p>
+                </>
+              );
+              if (!tile.tab) {
+                return (
+                  <Card key={tile.label} className="p-4 text-center">
+                    {body}
+                  </Card>
+                );
+              }
+              return (
+                <Link
+                  key={tile.label}
+                  href={`/series/${seriesId}?tab=${tile.tab}`}
+                  className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid={`org-overview-stat-${tile.tab}`}
+                >
+                  <Card className="p-4 text-center transition-colors hover:bg-muted/60 active:bg-muted">
+                    {body}
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
           <div>
             <div className="mb-2 flex items-center justify-between">

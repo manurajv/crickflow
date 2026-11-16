@@ -159,8 +159,8 @@ definitions, categories and minimums as the global Rankings screen:
 ## 5a. Walk-in players
 
 Setting: **Org settings > Permissions > Allow walk-in players**
-(`competitionPolicy.allowWalkIns`, default `true`; orgs without the key allow
-them, so nothing changes until the owner turns it off).
+(`competitionPolicy.allowWalkIns`, default `false`; orgs without the key do
+not allow them. Orgs that already saved the flag keep that saved value).
 
 A **walk-in** is a player without a CrickFlow account:
 - a match-only guest (`isMatchOnlyPlayer`, not registered, id `guest_...`), or

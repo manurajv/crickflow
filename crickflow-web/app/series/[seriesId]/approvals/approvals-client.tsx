@@ -4,12 +4,13 @@ import { AppLink as Link } from "@/components/shared/app-link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/shared/states";
+import { EmptyState, ErrorState, Skeleton } from "@/components/shared/states";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
+  usePendingSeriesApprovals,
   useReviewClubJoinRequest,
   useReviewSeriesApproval,
-  useSeriesDetail,
+  useSeriesApprovalsAccess,
   useSeriesRegistrationIdentity,
 } from "@/features/series/hooks";
 import { usePathParam } from "@/lib/use-path-param";
@@ -21,7 +22,11 @@ import type { AppNotification } from "@/types/models";
 export function SeriesApprovalsPage() {
   const seriesId = usePathParam("seriesId", 1);
   const { user } = useAuth();
-  const { data, isLoading } = useSeriesDetail(seriesId, user?.uid);
+  const access = useSeriesApprovalsAccess(seriesId, user?.uid);
+  const approvals = usePendingSeriesApprovals(
+    seriesId || "",
+    Boolean(seriesId && user),
+  );
   const review = useReviewSeriesApproval(seriesId || "");
   const clubReview = useReviewClubJoinRequest(seriesId || "");
   const identity = useSeriesRegistrationIdentity(seriesId || "");
@@ -42,11 +47,11 @@ export function SeriesApprovalsPage() {
     if (ids.length) await markNotificationsRead(ids);
   }
 
-  const isOrgReviewer = Boolean(data?.canManage || data?.isSuperAdmin);
-  const adminClubIds = data?.myAdminClubIds ?? [];
+  const isOrgReviewer = Boolean(access.data?.canManage || access.data?.isSuperAdmin);
+  const adminClubIds = access.data?.myAdminClubIds ?? [];
   const clubPending = useMemo(() => {
     const allowed = new Set(adminClubIds);
-    return (data?.approvals ?? []).filter((a) => {
+    return (approvals.data ?? []).filter((a) => {
       if (a.targetType !== "playerJoin") return false;
       const clubReviewStatus = a.metadata.clubReviewStatus;
       const clubId = typeof a.clubId === "string"
@@ -59,15 +64,15 @@ export function SeriesApprovalsPage() {
         allowed.has(clubId)
       );
     });
-  }, [data?.approvals, adminClubIds]);
+  }, [approvals.data, adminClubIds]);
   const items = useMemo(() => {
-    const all = data?.approvals ?? [];
+    const all = approvals.data ?? [];
     // Org queue: player joins only after the team has approved.
     return all.filter((a) => {
       if (a.targetType !== "playerJoin") return true;
       return a.metadata.clubReviewStatus === "approved";
     });
-  }, [data?.approvals]);
+  }, [approvals.data]);
   const types = useMemo(
     () => [...new Set(items.map((i) => i.targetType))].sort(),
     [items],
@@ -110,7 +115,7 @@ export function SeriesApprovalsPage() {
     }
   }
 
-  if (!seriesId || isLoading) return <p>Loading…</p>;
+  if (!seriesId) return <p>Loading…</p>;
   if (!user) {
     return (
       <EmptyState
@@ -119,7 +124,28 @@ export function SeriesApprovalsPage() {
       />
     );
   }
-  if (!data?.canViewStaff) {
+
+  if (access.isLoading && !access.data) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-8 w-56" />
+        </div>
+        <ApprovalsSkeleton />
+      </div>
+    );
+  }
+  if (access.error) {
+    return (
+      <ErrorState
+        title="Could not load approvals"
+        description="Please try again."
+        onRetry={() => void access.refetch()}
+      />
+    );
+  }
+  if (!access.data?.canViewStaff) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <EmptyState
@@ -157,6 +183,10 @@ export function SeriesApprovalsPage() {
     }
   }
 
+  const approvalsReady = approvals.data !== undefined;
+  const nothingPending =
+    approvalsReady && items.length === 0 && clubPending.length === 0;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -165,6 +195,14 @@ export function SeriesApprovalsPage() {
         </Link>
         <h1 className="text-2xl font-bold">Pending approvals</h1>
       </div>
+      {approvals.isLoading ? <ApprovalsSkeleton /> : null}
+      {approvals.error && !approvalsReady ? (
+        <ErrorState
+          title="Could not load approvals"
+          description="Please try again."
+          onRetry={() => approvals.refetch()}
+        />
+      ) : null}
       {clubPending.length > 0 ? (
         <div className="space-y-3">
           <h2 className="font-semibold">Team review — player registrations</h2>
@@ -247,15 +285,18 @@ export function SeriesApprovalsPage() {
           ))}
         </div>
       ) : null}
-      {isOrgReviewer && items.length === 0 && clubPending.length === 0 ? (
+      {nothingPending ? (
         <div className="flex min-h-[40vh] items-center justify-center">
-          <EmptyState title="All caught up" description="There are no pending approvals." />
+          <EmptyState
+            title="All caught up"
+            description="There's nothing waiting for your approval right now."
+          />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : approvalsReady && isOrgReviewer && filtered.length === 0 && clubPending.length === 0 ? (
         <div className="flex min-h-[40vh] items-center justify-center">
           <EmptyState title="No requests in this filter" description="Try another type." />
         </div>
-      ) : (
+      ) : isOrgReviewer && filtered.length > 0 ? (
         <div className="space-y-3">
           {filtered.map((a) => {
             const name =
@@ -311,7 +352,17 @@ export function SeriesApprovalsPage() {
             );
           })}
         </div>
-      )}
+      ) : null}
+    </div>
+  );
+}
+
+function ApprovalsSkeleton() {
+  return (
+    <div className="space-y-3" data-testid="org-approvals-skeleton">
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
     </div>
   );
 }

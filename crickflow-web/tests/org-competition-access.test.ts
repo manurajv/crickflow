@@ -116,7 +116,10 @@ describe("OrgCompetitionAccess (parity with Flutter)", () => {
 
   it("policy parses missing keys as safe defaults", () => {
     expect(orgCompetitionPolicyFromMap(null)).toEqual(policy);
-    expect(policy.allowWalkIns).toBe(true);
+    expect(policy.allowWalkIns).toBe(false);
+    expect(orgCompetitionPolicyFromMap({}).allowWalkIns).toBe(false);
+    expect(orgCompetitionPolicyFromMap({ allowWalkIns: true }).allowWalkIns).toBe(true);
+    expect(orgCompetitionPolicyFromMap({ allowWalkIns: false }).allowWalkIns).toBe(false);
   });
 
   it("legacy single setting seeds both kinds", () => {
@@ -129,7 +132,7 @@ describe("OrgCompetitionAccess (parity with Flutter)", () => {
     expect(legacyOn.matchTeamAdminsNeedApproval).toBe(false);
     expect(legacyOn.matchPlayersNeedApproval).toBe(false);
     expect(legacyOn.tournamentTeamAdminsNeedApproval).toBe(true);
-    expect(legacyOn.allowWalkIns).toBe(true);
+    expect(legacyOn.allowWalkIns).toBe(false);
     expect(
       orgCompetitionPolicyFromMap({ membersCanRequest: false }).matchProposeAccess,
     ).toBe("teamAdmins");

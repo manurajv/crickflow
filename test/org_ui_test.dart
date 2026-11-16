@@ -22,11 +22,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 SeriesModel _org() => SeriesModel.fromMap('s1', {
-      'name': 'City League',
-      'status': 'active',
-      'kind': 'series',
-      'superAdminUserId': 'owner',
-    });
+  'name': 'City League',
+  'status': 'active',
+  'kind': 'series',
+  'superAdminUserId': 'owner',
+});
 
 MatchModel _match(
   String id, {
@@ -36,18 +36,17 @@ MatchModel _match(
   String a = 'Aces',
   String b = 'Blazers',
   String? createdBy,
-}) =>
-    MatchModel(
-      id: id,
-      title: id,
-      status: status,
-      teamAName: a,
-      teamBName: b,
-      seriesId: seriesId,
-      seriesOfficialStatus: official,
-      createdBy: createdBy,
-      scheduledAt: DateTime.now().add(const Duration(days: 10)),
-    );
+}) => MatchModel(
+  id: id,
+  title: id,
+  status: status,
+  teamAName: a,
+  teamBName: b,
+  seriesId: seriesId,
+  seriesOfficialStatus: official,
+  createdBy: createdBy,
+  scheduledAt: DateTime.now().add(const Duration(days: 10)),
+);
 
 class _FakeFunctions implements SeriesFunctionsService {
   Map<String, dynamic>? policySent;
@@ -69,20 +68,21 @@ List<Override> _base({
   List<MatchModel> matches = const [],
   List<TournamentModel> tournaments = const [],
   OrgCompetitionAccess? access,
-}) =>
-    [
-      seriesByIdProvider('s1').overrideWith((_) => Stream.value(_org())),
-      authStateProvider.overrideWith((_) => Stream<User?>.value(null)),
-      allTeamsProvider.overrideWith((_) => Stream.value(const <TeamModel>[])),
-      tournamentsProvider
-          .overrideWith((_) => Stream.value(const <TournamentModel>[])),
-      currentUserProfileProvider.overrideWith((_) async => null as UserModel?),
-      seriesMatchesProvider('s1').overrideWith((_) => Stream.value(matches)),
-      seriesTournamentsProvider('s1')
-          .overrideWith((_) => Stream.value(tournaments)),
-      if (access != null)
-        orgCompetitionAccessProvider('s1').overrideWithValue(access),
-    ];
+}) => [
+  seriesByIdProvider('s1').overrideWith((_) => Stream.value(_org())),
+  authStateProvider.overrideWith((_) => Stream<User?>.value(null)),
+  allTeamsProvider.overrideWith((_) => Stream.value(const <TeamModel>[])),
+  tournamentsProvider.overrideWith(
+    (_) => Stream.value(const <TournamentModel>[]),
+  ),
+  currentUserProfileProvider.overrideWith((_) async => null as UserModel?),
+  seriesMatchesProvider('s1').overrideWith((_) => Stream.value(matches)),
+  seriesTournamentsProvider(
+    's1',
+  ).overrideWith((_) => Stream.value(tournaments)),
+  if (access != null)
+    orgCompetitionAccessProvider('s1').overrideWithValue(access),
+];
 
 Widget _app(Widget child, {List<Override> overrides = const []}) =>
     ProviderScope(
@@ -94,73 +94,96 @@ Widget _app(Widget child, {List<Override> overrides = const []}) =>
     );
 
 OrgCompetitionAccess _viewer() => const OrgCompetitionAccess(
-      role: SeriesRole.viewer,
-      policy: OrgCompetitionPolicy(),
-    );
+  role: SeriesRole.viewer,
+  policy: OrgCompetitionPolicy(),
+);
 OrgCompetitionAccess _admin() => const OrgCompetitionAccess(
-      role: SeriesRole.seriesAdmin,
-      policy: OrgCompetitionPolicy(),
-    );
+  role: SeriesRole.seriesAdmin,
+  policy: OrgCompetitionPolicy(),
+);
 
 void main() {
   testWidgets('org badge chip shows the org and its state', (tester) async {
-    await tester.pumpWidget(_app(const Column(children: [
-      OrgBadgeChip(name: 'City League'),
-      OrgBadgeChip(name: 'Pending League', pending: true),
-    ])));
+    await tester.pumpWidget(
+      _app(
+        const Column(
+          children: [
+            OrgBadgeChip(name: 'City League'),
+            OrgBadgeChip(name: 'Pending League', pending: true),
+          ],
+        ),
+      ),
+    );
     expect(find.text('City League'), findsOneWidget);
     expect(find.byIcon(Icons.verified), findsOneWidget);
     expect(find.text('Pending'), findsOneWidget);
   });
 
   group('org badge on cards', () {
-    testWidgets('org match cards carry the badge, normal ones do not',
-        (tester) async {
-      await tester.pumpWidget(_app(
-        Column(children: [
-          MatchCardContent(match: _match('org')),
-          MatchCardContent(match: _match('plain', seriesId: null, official: null)),
-        ]),
-        overrides: _base(),
-      ));
+    testWidgets('org match cards carry the badge, normal ones do not', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          Column(
+            children: [
+              MatchCardContent(match: _match('org')),
+              MatchCardContent(
+                match: _match('plain', seriesId: null, official: null),
+              ),
+            ],
+          ),
+          overrides: _base(),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('org_badge')), findsOneWidget);
       expect(find.text('City League'), findsOneWidget);
     });
 
     testWidgets('pending org match is badged as pending', (tester) async {
-      await tester.pumpWidget(_app(
-        MatchCardContent(match: _match('p', official: 'pendingApproval')),
-        overrides: _base(),
-      ));
+      await tester.pumpWidget(
+        _app(
+          MatchCardContent(match: _match('p', official: 'pendingApproval')),
+          overrides: _base(),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Pending'), findsOneWidget);
     });
 
     testWidgets('rejected org match has no badge', (tester) async {
-      await tester.pumpWidget(_app(
-        MatchCardContent(match: _match('r', official: 'rejected')),
-        overrides: _base(),
-      ));
+      await tester.pumpWidget(
+        _app(
+          MatchCardContent(match: _match('r', official: 'rejected')),
+          overrides: _base(),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('org_badge')), findsNothing);
     });
 
     testWidgets('org tournament cards carry the badge', (tester) async {
-      await tester.pumpWidget(_app(
-        Column(children: [
-          const TournamentListCard(
-            tournament: TournamentModel(
-              id: 't1', name: 'Org Cup', seriesId: 's1',
-              seriesOfficialStatus: 'approved',
-            ),
+      await tester.pumpWidget(
+        _app(
+          Column(
+            children: [
+              const TournamentListCard(
+                tournament: TournamentModel(
+                  id: 't1',
+                  name: 'Org Cup',
+                  seriesId: 's1',
+                  seriesOfficialStatus: 'approved',
+                ),
+              ),
+              const TournamentListCard(
+                tournament: TournamentModel(id: 't2', name: 'Street Cup'),
+              ),
+            ],
           ),
-          const TournamentListCard(
-            tournament: TournamentModel(id: 't2', name: 'Street Cup'),
-          ),
-        ]),
-        overrides: _base(),
-      ));
+          overrides: _base(),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('org_badge')), findsOneWidget);
       expect(find.text('City League'), findsOneWidget);
@@ -174,10 +197,12 @@ void main() {
         _match('soon', a: 'Soonies', b: 'Later'),
         _match('hidden', official: 'pendingApproval', a: 'Secret', b: 'Team'),
       ];
-      await tester.pumpWidget(_app(
-        const OrgMatchesTab(seriesId: 's1'),
-        overrides: _base(matches: matches, access: _viewer()),
-      ));
+      await tester.pumpWidget(
+        _app(
+          const OrgMatchesTab(seriesId: 's1'),
+          overrides: _base(matches: matches, access: _viewer()),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Live now'), findsOneWidget);
       expect(find.text('Upcoming'), findsWidgets);
@@ -197,17 +222,20 @@ void main() {
       expect(find.text('No matches in this filter'), findsOneWidget);
     });
 
-    testWidgets('org admins also see pending requests, marked pending',
-        (tester) async {
-      await tester.pumpWidget(_app(
-        const OrgMatchesTab(seriesId: 's1'),
-        overrides: _base(
-          matches: [
-            _match('p', official: 'pendingApproval', a: 'Secret', b: 'Team'),
-          ],
-          access: _admin(),
+    testWidgets('org admins also see pending requests, marked pending', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          const OrgMatchesTab(seriesId: 's1'),
+          overrides: _base(
+            matches: [
+              _match('p', official: 'pendingApproval', a: 'Secret', b: 'Team'),
+            ],
+            access: _admin(),
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
       expect(find.text('Secret'), findsOneWidget);
       expect(find.text('Pending'), findsOneWidget);
@@ -218,26 +246,35 @@ void main() {
 
   group('Tournaments tab', () {
     testWidgets('groups tournaments by status', (tester) async {
-      await tester.pumpWidget(_app(
-        const OrgTournamentsTab(seriesId: 's1'),
-        overrides: _base(
-          tournaments: const [
-            TournamentModel(
-              id: 'a', name: 'Summer Cup', seriesId: 's1',
-              seriesOfficialStatus: 'approved', status: TournamentStatus.live,
-            ),
-            TournamentModel(
-              id: 'b', name: 'Winter Cup', seriesId: 's1',
-              seriesOfficialStatus: 'approved',
-            ),
-            TournamentModel(
-              id: 'c', name: 'Hidden Cup', seriesId: 's1',
-              seriesOfficialStatus: 'pendingApproval',
-            ),
-          ],
-          access: _viewer(),
+      await tester.pumpWidget(
+        _app(
+          const OrgTournamentsTab(seriesId: 's1'),
+          overrides: _base(
+            tournaments: const [
+              TournamentModel(
+                id: 'a',
+                name: 'Summer Cup',
+                seriesId: 's1',
+                seriesOfficialStatus: 'approved',
+                status: TournamentStatus.live,
+              ),
+              TournamentModel(
+                id: 'b',
+                name: 'Winter Cup',
+                seriesId: 's1',
+                seriesOfficialStatus: 'approved',
+              ),
+              TournamentModel(
+                id: 'c',
+                name: 'Hidden Cup',
+                seriesId: 's1',
+                seriesOfficialStatus: 'pendingApproval',
+              ),
+            ],
+            access: _viewer(),
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
       expect(find.text('Live now'), findsOneWidget);
       expect(find.text('Summer Cup'), findsOneWidget);
@@ -247,26 +284,35 @@ void main() {
   });
 
   group('Leaderboard tab', () {
-    testWidgets('shows the points table and the ranking categories',
-        (tester) async {
-      await tester.pumpWidget(_app(
-        OrgLeaderboardTab(seriesId: 's1', series: _org()),
-        overrides: [
-          ..._base(),
-          clubsForSeriesProvider('s1').overrideWith(
-            (_) => Stream.value(const [
-              SeriesClubModel(
-                id: 'ca', seriesId: 's1', name: 'Aces', linkedTeamId: 'ta',
-                status: SeriesClubStatus.approved,
-              ),
-              SeriesClubModel(
-                id: 'cb', seriesId: 's1', name: 'Blazers', linkedTeamId: 'tb',
-                status: SeriesClubStatus.approved,
-              ),
-            ]),
-          ),
-        ],
-      ));
+    testWidgets('shows the points table and the ranking categories', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          OrgLeaderboardTab(seriesId: 's1', series: _org()),
+          overrides: [
+            ..._base(),
+            clubsForSeriesProvider('s1').overrideWith(
+              (_) => Stream.value(const [
+                SeriesClubModel(
+                  id: 'ca',
+                  seriesId: 's1',
+                  name: 'Aces',
+                  linkedTeamId: 'ta',
+                  status: SeriesClubStatus.approved,
+                ),
+                SeriesClubModel(
+                  id: 'cb',
+                  seriesId: 's1',
+                  name: 'Blazers',
+                  linkedTeamId: 'tb',
+                  status: SeriesClubStatus.approved,
+                ),
+              ]),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('org_points_table')), findsOneWidget);
       expect(find.text('Aces'), findsOneWidget);
@@ -285,22 +331,27 @@ void main() {
   });
 
   group('Permissions section', () {
-    Future<_FakeFunctions> pump(WidgetTester tester, Map<String, dynamic> stored) async {
+    Future<_FakeFunctions> pump(
+      WidgetTester tester,
+      Map<String, dynamic> stored,
+    ) async {
       final fns = _FakeFunctions();
       tester.view.physicalSize = const Size(900, 3200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(_app(
-        const SingleChildScrollView(
-          child: OrgPermissionsSection(seriesId: 's1'),
-        ),
-        overrides: [
-          orgCompetitionPolicyProvider('s1').overrideWith(
-            (_) => Stream.value(OrgCompetitionPolicy.fromMap(stored)),
+      await tester.pumpWidget(
+        _app(
+          const SingleChildScrollView(
+            child: OrgPermissionsSection(seriesId: 's1'),
           ),
-          seriesFunctionsServiceProvider.overrideWithValue(fns),
-        ],
-      ));
+          overrides: [
+            orgCompetitionPolicyProvider('s1').overrideWith(
+              (_) => Stream.value(OrgCompetitionPolicy.fromMap(stored)),
+            ),
+            seriesFunctionsServiceProvider.overrideWithValue(fns),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
       return fns;
     }
@@ -310,8 +361,9 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('matches and tournaments are set separately and saved',
-        (tester) async {
+    testWidgets('matches and tournaments are set separately and saved', (
+      tester,
+    ) async {
       final fns = await pump(tester, {'membersCanRequest': false});
 
       expect(find.text('Matches'), findsOneWidget);
@@ -321,7 +373,8 @@ void main() {
       expect(find.text('Everyone in the team'), findsNWidgets(2));
       // Existing org: team admins only everywhere, nothing to save yet.
       expect(
-        tester.widget<FilledButton>(find.byKey(const Key('org_permissions_save')))
+        tester
+            .widget<FilledButton>(find.byKey(const Key('org_permissions_save')))
             .onPressed,
         isNull,
       );
@@ -343,18 +396,30 @@ void main() {
     testWidgets('approval switches follow who is allowed', (tester) async {
       final fns = await pump(tester, {});
       // Team admins only: team-admin switch yes, player switch hidden.
-      expect(find.byKey(const Key('org_match_team_admins_approval')), findsOneWidget);
+      expect(
+        find.byKey(const Key('org_match_team_admins_approval')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('org_match_players_approval')), findsNothing);
 
       await tester.tap(find.byKey(const Key('org_match_access_everyone')));
       await tester.pump();
-      expect(find.byKey(const Key('org_match_players_approval')), findsOneWidget);
-      expect(find.byKey(const Key('org_tournament_players_approval')), findsNothing);
+      expect(
+        find.byKey(const Key('org_match_players_approval')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('org_tournament_players_approval')),
+        findsNothing,
+      );
 
       // Admins only: no approval switches at all for that kind.
       await tester.tap(find.byKey(const Key('org_tournament_access_admins')));
       await tester.pump();
-      expect(find.byKey(const Key('org_tournament_team_admins_approval')), findsNothing);
+      expect(
+        find.byKey(const Key('org_tournament_team_admins_approval')),
+        findsNothing,
+      );
 
       // Players start matches directly, team admins still need approval.
       await tester.tap(find.byKey(const Key('org_match_players_approval')));
@@ -365,19 +430,32 @@ void main() {
       expect(fns.policySent?['tournamentPlayersNeedApproval'], true);
     });
 
-    testWidgets('walk-in players can be switched off', (tester) async {
+    testWidgets('walk-in players are off by default and can be switched on', (
+      tester,
+    ) async {
       final fns = await pump(tester, {});
       final tile = find.byKey(const Key('org_allow_walk_ins'));
-      expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+      expect(tester.widget<SwitchListTile>(tile).value, isFalse);
       await tester.tap(tile);
       await tester.pump();
-      expect(find.textContaining('only use players with a CrickFlow account'), findsOneWidget);
+      expect(tester.widget<SwitchListTile>(tile).value, isTrue);
       await save(tester);
-      expect(fns.policySent?['allowWalkIns'], false);
+      expect(fns.policySent?['allowWalkIns'], true);
     });
 
-    testWidgets('legacy players-can-propose orgs show Everyone selected',
-        (tester) async {
+    testWidgets('a saved walk-in setting is kept', (tester) async {
+      await pump(tester, {'allowWalkIns': true});
+      expect(
+        tester
+            .widget<SwitchListTile>(find.byKey(const Key('org_allow_walk_ins')))
+            .value,
+        isTrue,
+      );
+    });
+
+    testWidgets('legacy players-can-propose orgs show Everyone selected', (
+      tester,
+    ) async {
       await pump(tester, {'membersCanRequest': true});
       for (final kind in ['match', 'tournament']) {
         final everyone = find.descendant(

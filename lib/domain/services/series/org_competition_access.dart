@@ -17,20 +17,20 @@ enum OrgProposeAccess {
   String get wire => name;
 
   String get label => switch (this) {
-        OrgProposeAccess.admins => 'Org admins only',
-        OrgProposeAccess.teamAdmins => 'Team admins only',
-        OrgProposeAccess.everyone => 'Everyone in the team',
-      };
+    OrgProposeAccess.admins => 'Org admins only',
+    OrgProposeAccess.teamAdmins => 'Team admins only',
+    OrgProposeAccess.everyone => 'Everyone in the team',
+  };
 
   /// [noun] is "matches" or "tournaments".
   String describe(String noun) => switch (this) {
-        OrgProposeAccess.admins =>
-          'Only the owner and org admins can start or request $noun.',
-        OrgProposeAccess.teamAdmins =>
-          'Admins of an org team can request $noun. Players cannot.',
-        OrgProposeAccess.everyone =>
-          'Team admins and every player on an org team can request $noun.',
-      };
+    OrgProposeAccess.admins =>
+      'Only the owner and org admins can start or request $noun.',
+    OrgProposeAccess.teamAdmins =>
+      'Admins of an org team can request $noun. Players cannot.',
+    OrgProposeAccess.everyone =>
+      'Team admins and every player on an org team can request $noun.',
+  };
 
   static OrgProposeAccess? fromWire(Object? value) {
     for (final v in OrgProposeAccess.values) {
@@ -58,7 +58,7 @@ class OrgCompetitionPolicy extends Equatable {
     this.matchPlayersNeedApproval = true,
     this.tournamentTeamAdminsNeedApproval = true,
     this.tournamentPlayersNeedApproval = true,
-    this.allowWalkIns = true,
+    this.allowWalkIns = false,
   });
 
   final OrgProposeAccess matchProposeAccess;
@@ -77,8 +77,8 @@ class OrgCompetitionPolicy extends Equatable {
   /// Legacy: the more permissive of the two accesses.
   OrgProposeAccess get proposeAccess =>
       matchProposeAccess.index >= tournamentProposeAccess.index
-          ? matchProposeAccess
-          : tournamentProposeAccess;
+      ? matchProposeAccess
+      : tournamentProposeAccess;
 
   /// Legacy flag: players may propose.
   bool get membersCanRequest => proposeAccess == OrgProposeAccess.everyone;
@@ -91,7 +91,8 @@ class OrgCompetitionPolicy extends Equatable {
 
   factory OrgCompetitionPolicy.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const OrgCompetitionPolicy();
-    final legacyAccess = OrgProposeAccess.fromWire(map['proposeAccess']) ??
+    final legacyAccess =
+        OrgProposeAccess.fromWire(map['proposeAccess']) ??
         (map['membersCanRequest'] == true
             ? OrgProposeAccess.everyone
             : OrgProposeAccess.teamAdmins);
@@ -105,33 +106,41 @@ class OrgCompetitionPolicy extends Equatable {
           OrgProposeAccess.fromWire(map['matchProposeAccess']) ?? legacyAccess,
       tournamentProposeAccess:
           OrgProposeAccess.fromWire(map['tournamentProposeAccess']) ??
-              legacyAccess,
-      matchTeamAdminsNeedApproval:
-          flag('matchTeamAdminsNeedApproval', legacyMatchNeeds),
-      matchPlayersNeedApproval:
-          flag('matchPlayersNeedApproval', legacyMatchNeeds),
-      tournamentTeamAdminsNeedApproval:
-          flag('tournamentTeamAdminsNeedApproval', legacyTournamentNeeds),
-      tournamentPlayersNeedApproval:
-          flag('tournamentPlayersNeedApproval', legacyTournamentNeeds),
-      allowWalkIns: map['allowWalkIns'] != false,
+          legacyAccess,
+      matchTeamAdminsNeedApproval: flag(
+        'matchTeamAdminsNeedApproval',
+        legacyMatchNeeds,
+      ),
+      matchPlayersNeedApproval: flag(
+        'matchPlayersNeedApproval',
+        legacyMatchNeeds,
+      ),
+      tournamentTeamAdminsNeedApproval: flag(
+        'tournamentTeamAdminsNeedApproval',
+        legacyTournamentNeeds,
+      ),
+      tournamentPlayersNeedApproval: flag(
+        'tournamentPlayersNeedApproval',
+        legacyTournamentNeeds,
+      ),
+      allowWalkIns: map['allowWalkIns'] == true,
     );
   }
 
   Map<String, dynamic> toMap() => {
-        'matchProposeAccess': matchProposeAccess.wire,
-        'tournamentProposeAccess': tournamentProposeAccess.wire,
-        'matchTeamAdminsNeedApproval': matchTeamAdminsNeedApproval,
-        'matchPlayersNeedApproval': matchPlayersNeedApproval,
-        'tournamentTeamAdminsNeedApproval': tournamentTeamAdminsNeedApproval,
-        'tournamentPlayersNeedApproval': tournamentPlayersNeedApproval,
-        'allowWalkIns': allowWalkIns,
-        // Legacy mirrors for older app builds.
-        'proposeAccess': proposeAccess.wire,
-        'membersCanRequest': membersCanRequest,
-        'matchRequestsNeedApproval': matchRequestsNeedApproval,
-        'tournamentRequestsNeedApproval': tournamentRequestsNeedApproval,
-      };
+    'matchProposeAccess': matchProposeAccess.wire,
+    'tournamentProposeAccess': tournamentProposeAccess.wire,
+    'matchTeamAdminsNeedApproval': matchTeamAdminsNeedApproval,
+    'matchPlayersNeedApproval': matchPlayersNeedApproval,
+    'tournamentTeamAdminsNeedApproval': tournamentTeamAdminsNeedApproval,
+    'tournamentPlayersNeedApproval': tournamentPlayersNeedApproval,
+    'allowWalkIns': allowWalkIns,
+    // Legacy mirrors for older app builds.
+    'proposeAccess': proposeAccess.wire,
+    'membersCanRequest': membersCanRequest,
+    'matchRequestsNeedApproval': matchRequestsNeedApproval,
+    'tournamentRequestsNeedApproval': tournamentRequestsNeedApproval,
+  };
 
   OrgProposeAccess accessFor({required bool tournament}) =>
       tournament ? tournamentProposeAccess : matchProposeAccess;
@@ -154,32 +163,32 @@ class OrgCompetitionPolicy extends Equatable {
     bool? tournamentTeamAdminsNeedApproval,
     bool? tournamentPlayersNeedApproval,
     bool? allowWalkIns,
-  }) =>
-      OrgCompetitionPolicy(
-        matchProposeAccess: matchProposeAccess ?? this.matchProposeAccess,
-        tournamentProposeAccess:
-            tournamentProposeAccess ?? this.tournamentProposeAccess,
-        matchTeamAdminsNeedApproval:
-            matchTeamAdminsNeedApproval ?? this.matchTeamAdminsNeedApproval,
-        matchPlayersNeedApproval:
-            matchPlayersNeedApproval ?? this.matchPlayersNeedApproval,
-        tournamentTeamAdminsNeedApproval: tournamentTeamAdminsNeedApproval ??
-            this.tournamentTeamAdminsNeedApproval,
-        tournamentPlayersNeedApproval:
-            tournamentPlayersNeedApproval ?? this.tournamentPlayersNeedApproval,
-        allowWalkIns: allowWalkIns ?? this.allowWalkIns,
-      );
+  }) => OrgCompetitionPolicy(
+    matchProposeAccess: matchProposeAccess ?? this.matchProposeAccess,
+    tournamentProposeAccess:
+        tournamentProposeAccess ?? this.tournamentProposeAccess,
+    matchTeamAdminsNeedApproval:
+        matchTeamAdminsNeedApproval ?? this.matchTeamAdminsNeedApproval,
+    matchPlayersNeedApproval:
+        matchPlayersNeedApproval ?? this.matchPlayersNeedApproval,
+    tournamentTeamAdminsNeedApproval:
+        tournamentTeamAdminsNeedApproval ??
+        this.tournamentTeamAdminsNeedApproval,
+    tournamentPlayersNeedApproval:
+        tournamentPlayersNeedApproval ?? this.tournamentPlayersNeedApproval,
+    allowWalkIns: allowWalkIns ?? this.allowWalkIns,
+  );
 
   @override
   List<Object?> get props => [
-        matchProposeAccess,
-        tournamentProposeAccess,
-        matchTeamAdminsNeedApproval,
-        matchPlayersNeedApproval,
-        tournamentTeamAdminsNeedApproval,
-        tournamentPlayersNeedApproval,
-        allowWalkIns,
-      ];
+    matchProposeAccess,
+    tournamentProposeAccess,
+    matchTeamAdminsNeedApproval,
+    matchPlayersNeedApproval,
+    tournamentTeamAdminsNeedApproval,
+    tournamentPlayersNeedApproval,
+    allowWalkIns,
+  ];
 }
 
 enum OrgStartMode {
@@ -278,7 +287,9 @@ class OrgCompetitionAccess {
 
 /// Approved org teams that are linked to a CrickFlow team (can play matches).
 List<SeriesClubModel> playableOrgTeams(List<SeriesClubModel> teams) => teams
-    .where((t) =>
-        t.status == SeriesClubStatus.approved &&
-        (t.linkedTeamId ?? '').isNotEmpty)
+    .where(
+      (t) =>
+          t.status == SeriesClubStatus.approved &&
+          (t.linkedTeamId ?? '').isNotEmpty,
+    )
     .toList();

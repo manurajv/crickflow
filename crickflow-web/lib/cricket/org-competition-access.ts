@@ -37,7 +37,7 @@ const DEFAULT_POLICY: OrgCompetitionPolicy = {
   matchPlayersNeedApproval: true,
   tournamentTeamAdminsNeedApproval: true,
   tournamentPlayersNeedApproval: true,
-  allowWalkIns: true,
+  allowWalkIns: false,
 };
 
 export function defaultOrgCompetitionPolicy(): OrgCompetitionPolicy {
@@ -90,7 +90,7 @@ export function orgCompetitionPolicyFromMap(
       "tournamentPlayersNeedApproval",
       legacyTournamentNeeds,
     ),
-    allowWalkIns: map.allowWalkIns !== false,
+    allowWalkIns: map.allowWalkIns === true,
   };
 }
 

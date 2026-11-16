@@ -45,6 +45,14 @@ class SeriesDetailScreen extends ConsumerStatefulWidget {
     'about',
   ];
 
+  /// Animate the org detail [TabController] to [slug] (same controller as the tabs).
+  static void selectTab(TabController tabs, String slug) {
+    final index = tabSlugs.indexOf(slug);
+    if (index >= 0 && index != tabs.index) {
+      tabs.animateTo(index);
+    }
+  }
+
   @override
   ConsumerState<SeriesDetailScreen> createState() => _SeriesDetailScreenState();
 }
@@ -249,7 +257,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               body: TabBarView(
                 controller: _tabs,
                 children: [
-                  _Overview(series: item, canAdmin: canAdmin),
+                  _Overview(
+                    series: item,
+                    canAdmin: canAdmin,
+                    onOpenTab: (slug) =>
+                        SeriesDetailScreen.selectTab(_tabs, slug),
+                  ),
                   OrgMatchesTab(seriesId: seriesId),
                   OrgTournamentsTab(seriesId: seriesId),
                   OrgLeaderboardTab(seriesId: seriesId, series: item),
@@ -510,9 +523,14 @@ class _OrgHeaderBanner extends StatelessWidget {
 }
 
 class _Overview extends ConsumerWidget {
-  const _Overview({required this.series, required this.canAdmin});
+  const _Overview({
+    required this.series,
+    required this.canAdmin,
+    required this.onOpenTab,
+  });
   final SeriesModel series;
   final bool canAdmin;
+  final void Function(String tabSlug) onOpenTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -572,21 +590,7 @@ class _Overview extends ConsumerWidget {
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: AppDimens.spaceLg),
-        Row(
-          children: [
-            SeriesStat(series.clubCount, series.memberUnitsStatLabel),
-            const SizedBox(width: AppDimens.spaceSm),
-            SeriesStat(series.playerCount, 'Players'),
-          ],
-        ),
-        const SizedBox(height: AppDimens.spaceSm),
-        Row(
-          children: [
-            SeriesStat(series.matchCount, 'Matches'),
-            const SizedBox(width: AppDimens.spaceSm),
-            SeriesStat(series.tournamentCount, 'Tournaments'),
-          ],
-        ),
+        OrgOverviewStatTiles(series: series, onOpenTab: onOpenTab),
         const SizedBox(height: AppDimens.spaceLg),
         Row(
           children: [
@@ -851,6 +855,56 @@ class _MemberUnitsSearchableListState
               );
             },
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Overview Teams / Matches / Tournaments tiles. Tapping one switches tab.
+class OrgOverviewStatTiles extends StatelessWidget {
+  const OrgOverviewStatTiles({
+    super.key,
+    required this.series,
+    required this.onOpenTab,
+  });
+
+  final SeriesModel series;
+  final void Function(String tabSlug) onOpenTab;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            SeriesStat(
+              series.clubCount,
+              series.memberUnitsStatLabel,
+              key: const Key('org_overview_stat_teams'),
+              onTap: () => onOpenTab('teams'),
+            ),
+            const SizedBox(width: AppDimens.spaceSm),
+            SeriesStat(series.playerCount, 'Players'),
+          ],
+        ),
+        const SizedBox(height: AppDimens.spaceSm),
+        Row(
+          children: [
+            SeriesStat(
+              series.matchCount,
+              'Matches',
+              key: const Key('org_overview_stat_matches'),
+              onTap: () => onOpenTab('matches'),
+            ),
+            const SizedBox(width: AppDimens.spaceSm),
+            SeriesStat(
+              series.tournamentCount,
+              'Tournaments',
+              key: const Key('org_overview_stat_tournaments'),
+              onTap: () => onOpenTab('tournaments'),
+            ),
+          ],
         ),
       ],
     );

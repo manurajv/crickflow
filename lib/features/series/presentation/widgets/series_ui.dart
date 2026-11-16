@@ -68,41 +68,43 @@ class SeriesEmptyState extends StatelessWidget {
 }
 
 class SeriesStat extends StatelessWidget {
-  const SeriesStat(this.value, this.label, {super.key});
+  const SeriesStat(this.value, this.label, {super.key, this.onTap});
   final int value;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final radius = BorderRadius.circular(12);
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(AppDimens.spaceMd),
-        decoration: BoxDecoration(
-          color: cf.surface,
-          border: Border.all(color: cf.border),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: cf.isLight
-              ? [
-                  BoxShadow(
-                    color: cf.cardShadow,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+      child: Material(
+        color: cf.surface,
+        elevation: cf.isLight ? 1 : 0,
+        shadowColor: cf.cardShadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: cf.border),
         ),
-        child: Column(
-          children: [
-            Text(
-              '$value',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: cf.accent,
-                fontWeight: FontWeight.bold,
-              ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Padding(
+            padding: const EdgeInsets.all(AppDimens.spaceMd),
+            child: Column(
+              children: [
+                Text(
+                  '$value',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: cf.accent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(label, style: TextStyle(color: cf.textSecondary)),
+              ],
             ),
-            Text(label, style: TextStyle(color: cf.textSecondary)),
-          ],
+          ),
         ),
       ),
     );

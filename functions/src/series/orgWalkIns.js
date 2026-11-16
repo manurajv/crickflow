@@ -6,7 +6,8 @@
  *  - a match-only guest (snapshot isMatchOnlyPlayer / isRegisteredUser false,
  *    ids like `guest_<uuid>`), or
  *  - a roster player whose `players/{id}` doc has no userId.
- * Orgs decide with competitionPolicy.allowWalkIns (default true) whether org
+ * Orgs decide with competitionPolicy.allowWalkIns (default false; missing is
+ * treated as false) whether org
  * matches and org-tournament matches may use them. Org teams' rosters never
  * hold walk-ins (rosters are locked and only change through org approvals).
  */

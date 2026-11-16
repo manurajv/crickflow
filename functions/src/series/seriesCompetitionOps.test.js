@@ -14,7 +14,7 @@ function throwsCode(fn, code) {
   assert.fail(`expected ${code}`);
 }
 
-// Policy defaults: approval needed, only team admins, walk-ins allowed.
+// Policy defaults: approval needed, only team admins, walk-ins off.
 assert.deepStrictEqual(ops.resolvePolicy({}), ops.DEFAULT_POLICY);
 {
   const d = ops.resolvePolicy({});
@@ -22,7 +22,9 @@ assert.deepStrictEqual(ops.resolvePolicy({}), ops.DEFAULT_POLICY);
   assert.strictEqual(d.tournamentProposeAccess, 'teamAdmins');
   assert.strictEqual(d.matchTeamAdminsNeedApproval, true);
   assert.strictEqual(d.tournamentPlayersNeedApproval, true);
-  assert.strictEqual(d.allowWalkIns, true);
+  assert.strictEqual(d.allowWalkIns, false);
+  assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { allowWalkIns: true } }).allowWalkIns, true);
+  assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { allowWalkIns: false } }).allowWalkIns, false);
 }
 throwsCode(() => ops.sanitizePolicy({ membersCanRequest: 'yes' }), 'invalid-argument');
 
@@ -34,7 +36,7 @@ throwsCode(() => ops.sanitizePolicy({ membersCanRequest: 'yes' }), 'invalid-argu
   assert.strictEqual(legacy.matchTeamAdminsNeedApproval, false);
   assert.strictEqual(legacy.matchPlayersNeedApproval, false);
   assert.strictEqual(legacy.tournamentTeamAdminsNeedApproval, true);
-  assert.strictEqual(legacy.allowWalkIns, true);
+  assert.strictEqual(legacy.allowWalkIns, false);
   assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { membersCanRequest: false } }).matchProposeAccess, 'teamAdmins');
   assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'admins', membersCanRequest: true } }).tournamentProposeAccess, 'admins', 'proposeAccess wins over membersCanRequest');
   assert.strictEqual(ops.resolvePolicy({ competitionPolicy: { proposeAccess: 'junk' } }).matchProposeAccess, 'teamAdmins');

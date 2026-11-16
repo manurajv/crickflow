@@ -20,7 +20,8 @@
  *     'everyone'   – team admins and active players of an approved org team
  *   {match,tournament}{TeamAdmins,Players}NeedApproval say whether a request
  *   from that role waits for an org admin (default true) or starts directly.
- *   allowWalkIns (default true) lets org matches use walk-in / guest players.
+ *   allowWalkIns (default false) lets org matches use walk-in / guest players.
+ *   A missing allowWalkIns key is treated as false.
  * Older orgs only have proposeAccess / membersCanRequest and the two
  * *RequestsNeedApproval booleans; they seed both kinds and both roles.
  * membersCanRequest === true means 'everyone', anything else 'teamAdmins'.
@@ -115,7 +116,7 @@ function resolvePolicy(series) {
     matchPlayersNeedApproval,
     tournamentTeamAdminsNeedApproval,
     tournamentPlayersNeedApproval,
-    allowWalkIns: p.allowWalkIns !== false,
+    allowWalkIns: p.allowWalkIns === true,
     // Legacy mirrors (older app builds read these).
     proposeAccess,
     membersCanRequest: proposeAccess === 'everyone',

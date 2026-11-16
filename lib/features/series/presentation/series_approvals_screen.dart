@@ -182,11 +182,16 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
       body: ref
           .watch(pendingSeriesApprovalsProvider(seriesId))
           .when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const _ApprovalsSkeleton(),
             error: (e, _) => SeriesEmptyState(
               icon: Icons.error_outline,
               title: 'Could not load approvals',
               message: friendlyError(e),
+              action: FilledButton(
+                onPressed: () =>
+                    ref.invalidate(pendingSeriesApprovalsProvider(seriesId)),
+                child: const Text('Retry'),
+              ),
             ),
             data: (items) {
               final types = {for (final i in items) i.targetType}.toList()
@@ -205,21 +210,25 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
                 required String title,
                 required String message,
               }) {
-                return RefreshIndicator(
-                  onRefresh: refresh,
-                  child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: SeriesEmptyState(
-                          icon: icon,
-                          title: title,
-                          message: message,
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return RefreshIndicator(
+                      onRefresh: refresh,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: SeriesEmptyState(
+                            icon: icon,
+                            title: title,
+                            message: message,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               }
 
@@ -262,7 +271,8 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
                         ? emptyBody(
                             icon: Icons.task_alt,
                             title: 'All caught up',
-                            message: 'There are no pending approvals.',
+                            message:
+                                "There's nothing waiting for your approval right now.",
                           )
                         : filtered.isEmpty
                         ? emptyBody(
@@ -307,6 +317,33 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
               );
             },
           ),
+    );
+  }
+}
+
+class _ApprovalsSkeleton extends StatelessWidget {
+  const _ApprovalsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    return ListView.separated(
+      key: const Key('org_approvals_skeleton'),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spaceMd,
+        AppDimens.spaceSm,
+        AppDimens.spaceMd,
+        AppDimens.spaceXl,
+      ),
+      itemCount: 4,
+      separatorBuilder: (_, _) => const SizedBox(height: AppDimens.spaceSm),
+      itemBuilder: (_, _) => Container(
+        height: 128,
+        decoration: BoxDecoration(
+          color: cf.card,
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
     );
   }
 }

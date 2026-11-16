@@ -387,6 +387,7 @@ exports.createSeries = onCall(
     createdBy: uid,
     createdAt: ts,
     updatedAt: ts,
+    competitionPolicy: competitionOps.DEFAULT_POLICY,
   };
 
   const adminRef = firestore.collection(COLLECTIONS.admins).doc(adminDocId(ref.id, uid));

@@ -4,9 +4,12 @@ import {
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
   where,
+  type QuerySnapshot,
+  type Unsubscribe,
 } from "firebase/firestore";
 import { collections } from "@/config/site";
 import { getDb } from "@/lib/firebase/client";
@@ -19,6 +22,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import type {
   Series,
+  SeriesApproval,
   SeriesClub,
   SeriesDetailData,
   SeriesAnnouncement,
@@ -113,6 +117,177 @@ export async function listActiveSeries(take = 40): Promise<Series[]> {
     const snap = await getDocs(query(collection(getDb(), collections.series), limit(take)));
     return snap.docs.map((d) => mapSeries(d.id, d.data())).filter((s) => s.status === "active");
   }
+}
+
+
+export const PENDING_APPROVALS_LIMIT = 100;
+
+export function mapSeriesApproval(id: string, data: Data): SeriesApproval {
+  return {
+    id,
+    targetType: text(data, "targetType"),
+    targetId: text(data, "targetId"),
+    requestedBy: text(data, "requestedBy"),
+    clubId: text(data, "clubId") || undefined,
+    metadata: (data.metadata && typeof data.metadata === "object"
+      ? data.metadata
+      : {}) as Record<string, unknown>,
+  };
+}
+
+/** Unions pending queues by id; later lists win. Does not wait on a missing source. */
+export function mergePendingApprovalLists(
+  ...sources: Array<SeriesApproval[] | null | undefined>
+): SeriesApproval[] {
+  const byId = new Map<string, SeriesApproval>();
+  for (const list of sources) {
+    if (!list) continue;
+    for (const item of list) byId.set(item.id, item);
+  }
+  return [...byId.values()];
+}
+
+function pendingNestedQuery(seriesId: string) {
+  return query(
+    collection(getDb(), collections.series, seriesId, "approvals"),
+    where("status", "==", "pending"),
+    orderBy("requestedAt", "desc"),
+    limit(PENDING_APPROVALS_LIMIT),
+  );
+}
+
+function pendingLegacyQuery(seriesId: string) {
+  return query(
+    collection(getDb(), collections.seriesApprovals),
+    where("seriesId", "==", seriesId),
+    where("status", "==", "pending"),
+    orderBy("requestedAt", "desc"),
+    limit(PENDING_APPROVALS_LIMIT),
+  );
+}
+
+function mapApprovalSnap(snap: QuerySnapshot): SeriesApproval[] {
+  return snap.docs.map((d) => mapSeriesApproval(d.id, d.data() as Data));
+}
+
+function syncApprovalMirrorsInBackground(seriesId: string) {
+  const callable = httpsCallable(getFirebaseFunctions(), "syncSeriesApprovalMirrors");
+  void callable({ seriesId }).catch(() => undefined);
+}
+
+/**
+ * Live pending approvals. Nested and legacy queues run in parallel; the
+ * first snapshot paints immediately. Mirror sync is not awaited.
+ */
+export function watchPendingSeriesApprovals(
+  seriesId: string,
+  onData: (items: SeriesApproval[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  syncApprovalMirrorsInBackground(seriesId);
+  let nested: SeriesApproval[] | undefined;
+  let legacy: SeriesApproval[] | undefined;
+  let nestedErr: Error | undefined;
+  let legacyErr: Error | undefined;
+
+  const emit = () => {
+    if (nested === undefined && legacy === undefined) {
+      if (nestedErr && legacyErr) onError?.(nestedErr);
+      return;
+    }
+    onData(mergePendingApprovalLists(legacy, nested));
+  };
+
+  const unsubNested = onSnapshot(
+    pendingNestedQuery(seriesId),
+    (snap) => {
+      nested = mapApprovalSnap(snap);
+      nestedErr = undefined;
+      emit();
+    },
+    (error) => {
+      nestedErr = error;
+      nested = undefined;
+      emit();
+    },
+  );
+  const unsubLegacy = onSnapshot(
+    pendingLegacyQuery(seriesId),
+    (snap) => {
+      legacy = mapApprovalSnap(snap);
+      legacyErr = undefined;
+      emit();
+    },
+    (error) => {
+      legacyErr = error;
+      legacy = undefined;
+      emit();
+    },
+  );
+  return () => {
+    unsubNested();
+    unsubLegacy();
+  };
+}
+
+export async function getSeriesApprovalsAccess(
+  seriesId: string,
+  userId?: string,
+): Promise<{
+  canManage: boolean;
+  canViewStaff: boolean;
+  isSuperAdmin: boolean;
+  myAdminClubIds: string[];
+} | null> {
+  const seriesSnap = await getDoc(doc(getDb(), collections.series, seriesId));
+  if (!seriesSnap.exists()) return null;
+  const series = mapSeries(seriesSnap.id, seriesSnap.data() as Data);
+  if (!userId) {
+    return { canManage: false, canViewStaff: false, isSuperAdmin: false, myAdminClubIds: [] };
+  }
+  const [admins, clubAdmins] = await Promise.all([
+    getDocs(
+      query(
+        collection(getDb(), collections.seriesAdmins),
+        where("seriesId", "==", seriesId),
+        where("userId", "==", userId),
+        limit(1),
+      ),
+    ),
+    getDocs(
+      query(
+        collection(getDb(), collections.seriesClubAdmins),
+        where("seriesId", "==", seriesId),
+        where("userId", "==", userId),
+        limit(50),
+      ),
+    ).catch(() => null),
+  ]);
+  const isSuperAdmin = series.superAdminUserId === userId;
+  const adminActive = Boolean(
+    admins.docs.some((d) => (d.data().status as string | undefined) === "active"),
+  );
+  const canManage = Boolean(
+    isSuperAdmin ||
+      admins.docs.some((d) => {
+        const x = d.data();
+        return x.status === "active" && isFullSeriesAdminTier(text(x as Data, "role"));
+      }),
+  );
+  const myAdminClubIds: string[] = [];
+  for (const d of clubAdmins?.docs ?? []) {
+    const st = d.data().status;
+    if (st === "active" || st == null) {
+      const clubId = typeof d.data().clubId === "string" ? d.data().clubId : "";
+      if (clubId) myAdminClubIds.push(clubId);
+    }
+  }
+  return {
+    canManage,
+    canViewStaff: Boolean(isSuperAdmin || adminActive || myAdminClubIds.length > 0),
+    isSuperAdmin,
+    myAdminClubIds,
+  };
 }
 
 export async function getSeriesDetail(seriesId: string, userId?: string): Promise<SeriesDetailData | null> {
@@ -262,19 +437,7 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
       return [...ids];
     })(),
     pendingApprovalCount: approvals?.size ?? 0,
-    approvals: approvals?.docs.map((d) => {
-      const x = d.data();
-      return {
-        id: d.id,
-        targetType: text(x, "targetType"),
-        targetId: text(x, "targetId"),
-        requestedBy: text(x, "requestedBy"),
-        clubId: text(x, "clubId") || undefined,
-        metadata: (x.metadata && typeof x.metadata === "object"
-          ? x.metadata
-          : {}) as Record<string, unknown>,
-      };
-    }) ?? [],
+    approvals: approvals?.docs.map((d) => mapSeriesApproval(d.id, d.data() as Data)) ?? [],
   };
 }
 

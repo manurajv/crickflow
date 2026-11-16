@@ -15,30 +15,29 @@ import 'package:flutter_test/flutter_test.dart';
 const _policy = OrgCompetitionPolicy();
 
 /// Same access for matches and tournaments (what the old single setting did).
-OrgCompetitionPolicy _both(OrgProposeAccess a) => _policy.copyWith(
-      matchProposeAccess: a,
-      tournamentProposeAccess: a,
-    );
+OrgCompetitionPolicy _both(OrgProposeAccess a) =>
+    _policy.copyWith(matchProposeAccess: a, tournamentProposeAccess: a);
 
-OrgCompetitionAccess _access(SeriesRole role,
-        {OrgCompetitionPolicy policy = _policy, List<String> mine = const []}) =>
-    OrgCompetitionAccess(role: role, policy: policy, myTeamIds: mine);
+OrgCompetitionAccess _access(
+  SeriesRole role, {
+  OrgCompetitionPolicy policy = _policy,
+  List<String> mine = const [],
+}) => OrgCompetitionAccess(role: role, policy: policy, myTeamIds: mine);
 
 List<Override> _overrides(OrgCompetitionAccess access) => [
-      orgCompetitionAccessProvider('s1').overrideWithValue(access),
-      authStateProvider.overrideWith((_) => Stream<User?>.value(null)),
-      seriesMatchesProvider('s1').overrideWith((_) => Stream.value(const [])),
-      seriesTournamentsProvider('s1')
-          .overrideWith((_) => Stream.value(const [])),
-    ];
+  orgCompetitionAccessProvider('s1').overrideWithValue(access),
+  authStateProvider.overrideWith((_) => Stream<User?>.value(null)),
+  seriesMatchesProvider('s1').overrideWith((_) => Stream.value(const [])),
+  seriesTournamentsProvider('s1').overrideWith((_) => Stream.value(const [])),
+];
 
 Widget _tab(OrgCompetitionAccess access, Widget tab) => ProviderScope(
-      overrides: _overrides(access),
-      child: MaterialApp(
-        theme: AppTheme.darkTheme,
-        home: Scaffold(body: tab),
-      ),
-    );
+  overrides: _overrides(access),
+  child: MaterialApp(
+    theme: AppTheme.darkTheme,
+    home: Scaffold(body: tab),
+  ),
+);
 
 Widget _matches(OrgCompetitionAccess access) =>
     _tab(access, const OrgMatchesTab(seriesId: 's1'));
@@ -54,22 +53,26 @@ void main() {
       expect(_access(SeriesRole.seriesAdmin).isOwner, isFalse);
     });
 
-    test('team admins request; auto-approved when the org turns approval off', () {
-      expect(_access(SeriesRole.clubAdmin).match, OrgStartMode.request);
-      final relaxed = _access(
-        SeriesRole.clubAdmin,
-        policy: _policy.copyWith(matchTeamAdminsNeedApproval: false),
-      );
-      expect(relaxed.match, OrgStartMode.requestAutoApproved);
-      expect(relaxed.tournament, OrgStartMode.request);
-    });
+    test(
+      'team admins request; auto-approved when the org turns approval off',
+      () {
+        expect(_access(SeriesRole.clubAdmin).match, OrgStartMode.request);
+        final relaxed = _access(
+          SeriesRole.clubAdmin,
+          policy: _policy.copyWith(matchTeamAdminsNeedApproval: false),
+        );
+        expect(relaxed.match, OrgStartMode.requestAutoApproved);
+        expect(relaxed.tournament, OrgStartMode.request);
+      },
+    );
 
     test('players only when the org allows it; viewers never', () {
       expect(_access(SeriesRole.seriesPlayer).canStartAnything, isFalse);
       expect(
-        _access(SeriesRole.seriesPlayer,
-                policy: _both(OrgProposeAccess.everyone))
-            .tournament,
+        _access(
+          SeriesRole.seriesPlayer,
+          policy: _both(OrgProposeAccess.everyone),
+        ).tournament,
         OrgStartMode.request,
       );
       expect(_access(SeriesRole.viewer).canStartAnything, isFalse);
@@ -84,17 +87,47 @@ void main() {
         expect(at(SeriesRole.seriesAdmin, a).tournament, OrgStartMode.direct);
       }
       // Admins only: nobody else sees anything.
-      expect(at(SeriesRole.clubAdmin, OrgProposeAccess.admins).canStartAnything, isFalse);
-      expect(at(SeriesRole.seriesPlayer, OrgProposeAccess.admins).canStartAnything, isFalse);
+      expect(
+        at(SeriesRole.clubAdmin, OrgProposeAccess.admins).canStartAnything,
+        isFalse,
+      );
+      expect(
+        at(SeriesRole.seriesPlayer, OrgProposeAccess.admins).canStartAnything,
+        isFalse,
+      );
       // Team admins only.
-      expect(at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins).match, OrgStartMode.request);
-      expect(at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins).tournament, OrgStartMode.request);
-      expect(at(SeriesRole.seriesPlayer, OrgProposeAccess.teamAdmins).canStartAnything, isFalse);
+      expect(
+        at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins).match,
+        OrgStartMode.request,
+      );
+      expect(
+        at(SeriesRole.clubAdmin, OrgProposeAccess.teamAdmins).tournament,
+        OrgStartMode.request,
+      );
+      expect(
+        at(
+          SeriesRole.seriesPlayer,
+          OrgProposeAccess.teamAdmins,
+        ).canStartAnything,
+        isFalse,
+      );
       // Everyone in the team.
-      expect(at(SeriesRole.clubAdmin, OrgProposeAccess.everyone).match, OrgStartMode.request);
-      expect(at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone).match, OrgStartMode.request);
-      expect(at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone).tournament, OrgStartMode.request);
-      expect(at(SeriesRole.viewer, OrgProposeAccess.everyone).canStartAnything, isFalse);
+      expect(
+        at(SeriesRole.clubAdmin, OrgProposeAccess.everyone).match,
+        OrgStartMode.request,
+      );
+      expect(
+        at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone).match,
+        OrgStartMode.request,
+      );
+      expect(
+        at(SeriesRole.seriesPlayer, OrgProposeAccess.everyone).tournament,
+        OrgStartMode.request,
+      );
+      expect(
+        at(SeriesRole.viewer, OrgProposeAccess.everyone).canStartAnything,
+        isFalse,
+      );
     });
 
     test('matches and tournaments have separate access', () {
@@ -108,8 +141,10 @@ void main() {
       final teamAdmin = _access(SeriesRole.clubAdmin, policy: split);
       expect(teamAdmin.match, OrgStartMode.request);
       expect(teamAdmin.tournament, OrgStartMode.none);
-      expect(_access(SeriesRole.seriesAdmin, policy: split).tournament,
-          OrgStartMode.direct);
+      expect(
+        _access(SeriesRole.seriesAdmin, policy: split).tournament,
+        OrgStartMode.direct,
+      );
     });
 
     test('approval is separate per kind and per role', () {
@@ -122,16 +157,26 @@ void main() {
         tournamentTeamAdminsNeedApproval: true,
         tournamentPlayersNeedApproval: false,
       );
-      expect(_access(SeriesRole.clubAdmin, policy: p).match,
-          OrgStartMode.requestAutoApproved);
-      expect(_access(SeriesRole.seriesPlayer, policy: p).match,
-          OrgStartMode.request);
-      expect(_access(SeriesRole.clubAdmin, policy: p).tournament,
-          OrgStartMode.request);
-      expect(_access(SeriesRole.seriesPlayer, policy: p).tournament,
-          OrgStartMode.requestAutoApproved);
-      expect(_access(SeriesRole.seriesAdmin, policy: p).match,
-          OrgStartMode.direct);
+      expect(
+        _access(SeriesRole.clubAdmin, policy: p).match,
+        OrgStartMode.requestAutoApproved,
+      );
+      expect(
+        _access(SeriesRole.seriesPlayer, policy: p).match,
+        OrgStartMode.request,
+      );
+      expect(
+        _access(SeriesRole.clubAdmin, policy: p).tournament,
+        OrgStartMode.request,
+      );
+      expect(
+        _access(SeriesRole.seriesPlayer, policy: p).tournament,
+        OrgStartMode.requestAutoApproved,
+      );
+      expect(
+        _access(SeriesRole.seriesAdmin, policy: p).match,
+        OrgStartMode.direct,
+      );
     });
 
     test('requesters must include one of their teams', () {
@@ -139,47 +184,66 @@ void main() {
       expect(a.matchTeamsError('c2', 'c3'), isNotNull);
       expect(a.matchTeamsError('c1', 'c3'), isNull);
       expect(a.matchTeamsError('c1', 'c1'), isNotNull);
-      expect(_access(SeriesRole.seriesAdmin).matchTeamsError('c2', 'c3'), isNull);
+      expect(
+        _access(SeriesRole.seriesAdmin).matchTeamsError('c2', 'c3'),
+        isNull,
+      );
     });
 
     test('policy parses missing keys as safe defaults', () {
       expect(OrgCompetitionPolicy.fromMap(null), _policy);
       expect(_policy.matchProposeAccess, OrgProposeAccess.teamAdmins);
       expect(_policy.tournamentProposeAccess, OrgProposeAccess.teamAdmins);
-      expect(_policy.allowWalkIns, isTrue);
+      expect(_policy.allowWalkIns, isFalse);
       expect(_policy.matchTeamAdminsNeedApproval, isTrue);
       expect(_policy.tournamentPlayersNeedApproval, isTrue);
+      expect(OrgCompetitionPolicy.fromMap({}).allowWalkIns, isFalse);
+      expect(
+        OrgCompetitionPolicy.fromMap({'allowWalkIns': true}).allowWalkIns,
+        isTrue,
+      );
+      expect(
+        OrgCompetitionPolicy.fromMap({'allowWalkIns': false}).allowWalkIns,
+        isFalse,
+      );
     });
 
-    test('existing orgs keep working: the single legacy setting seeds both kinds',
-        () {
-      final legacyOn = OrgCompetitionPolicy.fromMap({
-        'membersCanRequest': true,
-        'matchRequestsNeedApproval': false,
-      });
-      expect(legacyOn.matchProposeAccess, OrgProposeAccess.everyone);
-      expect(legacyOn.tournamentProposeAccess, OrgProposeAccess.everyone);
-      expect(legacyOn.membersCanRequest, isTrue);
-      expect(legacyOn.matchTeamAdminsNeedApproval, isFalse);
-      expect(legacyOn.matchPlayersNeedApproval, isFalse);
-      expect(legacyOn.tournamentTeamAdminsNeedApproval, isTrue);
-      expect(legacyOn.allowWalkIns, isTrue);
-      expect(
-        OrgCompetitionPolicy.fromMap({'membersCanRequest': false}).matchProposeAccess,
-        OrgProposeAccess.teamAdmins,
-      );
-      // proposeAccess wins over membersCanRequest; junk falls back safely.
-      expect(
-        OrgCompetitionPolicy.fromMap(
-          {'proposeAccess': 'admins', 'membersCanRequest': true},
-        ).tournamentProposeAccess,
-        OrgProposeAccess.admins,
-      );
-      expect(
-        OrgCompetitionPolicy.fromMap({'proposeAccess': 'nope'}).matchProposeAccess,
-        OrgProposeAccess.teamAdmins,
-      );
-    });
+    test(
+      'existing orgs keep working: the single legacy setting seeds both kinds',
+      () {
+        final legacyOn = OrgCompetitionPolicy.fromMap({
+          'membersCanRequest': true,
+          'matchRequestsNeedApproval': false,
+        });
+        expect(legacyOn.matchProposeAccess, OrgProposeAccess.everyone);
+        expect(legacyOn.tournamentProposeAccess, OrgProposeAccess.everyone);
+        expect(legacyOn.membersCanRequest, isTrue);
+        expect(legacyOn.matchTeamAdminsNeedApproval, isFalse);
+        expect(legacyOn.matchPlayersNeedApproval, isFalse);
+        expect(legacyOn.tournamentTeamAdminsNeedApproval, isTrue);
+        expect(legacyOn.allowWalkIns, isFalse);
+        expect(
+          OrgCompetitionPolicy.fromMap({
+            'membersCanRequest': false,
+          }).matchProposeAccess,
+          OrgProposeAccess.teamAdmins,
+        );
+        // proposeAccess wins over membersCanRequest; junk falls back safely.
+        expect(
+          OrgCompetitionPolicy.fromMap({
+            'proposeAccess': 'admins',
+            'membersCanRequest': true,
+          }).tournamentProposeAccess,
+          OrgProposeAccess.admins,
+        );
+        expect(
+          OrgCompetitionPolicy.fromMap({
+            'proposeAccess': 'nope',
+          }).matchProposeAccess,
+          OrgProposeAccess.teamAdmins,
+        );
+      },
+    );
 
     test('per-kind fields win over the legacy ones', () {
       final p = OrgCompetitionPolicy.fromMap({
@@ -227,9 +291,26 @@ void main() {
 
   test('playableOrgTeams keeps approved teams linked to a CrickFlow team', () {
     const teams = [
-      SeriesClubModel(id: 'a', seriesId: 's', name: 'A', status: SeriesClubStatus.approved, linkedTeamId: 't1'),
-      SeriesClubModel(id: 'b', seriesId: 's', name: 'B', status: SeriesClubStatus.approved),
-      SeriesClubModel(id: 'c', seriesId: 's', name: 'C', status: SeriesClubStatus.pending, linkedTeamId: 't3'),
+      SeriesClubModel(
+        id: 'a',
+        seriesId: 's',
+        name: 'A',
+        status: SeriesClubStatus.approved,
+        linkedTeamId: 't1',
+      ),
+      SeriesClubModel(
+        id: 'b',
+        seriesId: 's',
+        name: 'B',
+        status: SeriesClubStatus.approved,
+      ),
+      SeriesClubModel(
+        id: 'c',
+        seriesId: 's',
+        name: 'C',
+        status: SeriesClubStatus.pending,
+        linkedTeamId: 't3',
+      ),
     ];
     expect(playableOrgTeams(teams).map((t) => t.id), ['a']);
   });
@@ -252,7 +333,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('org_start_match')), findsNothing);
     expect(find.text('No matches yet'), findsOneWidget);
-    expect(find.textContaining('Official org matches will appear'), findsOneWidget);
+    expect(
+      find.textContaining('Official org matches will appear'),
+      findsOneWidget,
+    );
 
     await tester.pumpWidget(_tournaments(_access(SeriesRole.viewer)));
     await tester.pumpAndSettle();
@@ -309,9 +393,13 @@ void main() {
     );
   });
 
-  testWidgets('tabs no longer embed start buttons (FAB owns them)', (tester) async {
+  testWidgets('tabs no longer embed start buttons (FAB owns them)', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      _matches(_access(SeriesRole.superAdmin, policy: _both(OrgProposeAccess.admins))),
+      _matches(
+        _access(SeriesRole.superAdmin, policy: _both(OrgProposeAccess.admins)),
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('org_start_match')), findsNothing);
@@ -327,19 +415,24 @@ void main() {
 
   testWidgets('rejecting needs a reason', (tester) async {
     String? result = 'unset';
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () async => result = await askRejectionReason(context),
-          child: const Text('go'),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => result = await askRejectionReason(context),
+            child: const Text('go'),
+          ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('go'));
     await tester.pumpAndSettle();
     final confirm = find.byKey(const Key('reject_reason_confirm'));
     expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
-    await tester.enterText(find.byKey(const Key('reject_reason_field')), 'Clash');
+    await tester.enterText(
+      find.byKey(const Key('reject_reason_field')),
+      'Clash',
+    );
     await tester.pump();
     await tester.tap(confirm);
     await tester.pumpAndSettle();

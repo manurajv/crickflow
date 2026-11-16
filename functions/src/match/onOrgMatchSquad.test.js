@@ -71,9 +71,12 @@ const base = {
     assert.strictEqual(fs.updates.length, 0);
   }
 
-  // Allowed (default): nothing happens.
-  fs = fakeFirestore({ policy: {}, players: {} });
-  assert.strictEqual(await enforceOrgWalkIns('m1', base, withGuest, fs), null);
+  // Missing policy is treated as not allowed.
+  fs = fakeFirestore({ policy: {}, players: { p1: 'u1' } });
+  removed = await enforceOrgWalkIns('m1', base, withGuest, fs);
+  assert.deepStrictEqual(removed.map((w) => w.id), ['guest_1']);
+
+  // Explicitly allowed: nothing happens.
   fs = fakeFirestore({ policy: { allowWalkIns: true } });
   assert.strictEqual(await enforceOrgWalkIns('m1', base, withGuest, fs), null);
   assert.strictEqual(fs.updates.length, 0);

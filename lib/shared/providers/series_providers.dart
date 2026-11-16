@@ -93,11 +93,11 @@ final seriesClubAdminsProvider =
     });
 
 /// Pending player-join requests for a club awaiting Club Admin first-pass.
-final pendingClubJoinApprovalsProvider =
-    StreamProvider.autoDispose.family<
-      List<SeriesApprovalModel>,
-      ({String seriesId, String clubId})
-    >((ref, params) {
+final pendingClubJoinApprovalsProvider = StreamProvider.autoDispose
+    .family<List<SeriesApprovalModel>, ({String seriesId, String clubId})>((
+      ref,
+      params,
+    ) {
       if (params.seriesId.isEmpty || params.clubId.isEmpty) {
         return Stream.value(const []);
       }
@@ -249,7 +249,6 @@ final mySeriesRoleProvider = Provider.family<SeriesRole, String>((
   );
 });
 
-
 /// Org competition request policy (`series/{id}.competitionPolicy`).
 final orgCompetitionPolicyProvider =
     StreamProvider.family<OrgCompetitionPolicy, String>((ref, seriesId) {
@@ -274,7 +273,8 @@ final myOrgTeamIdsProvider = Provider.family<List<String>, String>((
   if (userId == null) return const [];
   final admins =
       ref.watch(_clubAdminsProvider(seriesId)).valueOrNull ?? const [];
-  final memberships = ref
+  final memberships =
+      ref
           .watch(
             _mySeriesMembershipsProvider((seriesId: seriesId, userId: userId)),
           )
@@ -291,43 +291,45 @@ final myOrgTeamIdsProvider = Provider.family<List<String>, String>((
 /// Runs once per org per app session when an org admin opens the org:
 /// links every existing org team to a real, org-locked CrickFlow team.
 /// Non-destructive and idempotent on the server; failures are ignored.
-final orgTeamLinkMigrationProvider =
-    FutureProvider.family<void, String>((ref, seriesId) async {
-      ref.keepAlive();
-      try {
-        await ref
-            .read(seriesFunctionsServiceProvider)
-            .migrateSeriesTeamLinks(seriesId);
-      } catch (_) {}
-    });
+final orgTeamLinkMigrationProvider = FutureProvider.family<void, String>((
+  ref,
+  seriesId,
+) async {
+  ref.keepAlive();
+  try {
+    await ref
+        .read(seriesFunctionsServiceProvider)
+        .migrateSeriesTeamLinks(seriesId);
+  } catch (_) {}
+});
 
 /// What the signed-in user may start or request inside an org.
 final orgCompetitionAccessProvider =
     Provider.family<OrgCompetitionAccess, String>((ref, seriesId) {
       return OrgCompetitionAccess(
         role: ref.watch(mySeriesRoleProvider(seriesId)),
-        policy: ref.watch(orgCompetitionPolicyProvider(seriesId)).valueOrNull ??
+        policy:
+            ref.watch(orgCompetitionPolicyProvider(seriesId)).valueOrNull ??
             const OrgCompetitionPolicy(),
         myTeamIds: ref.watch(myOrgTeamIdsProvider(seriesId)),
       );
     });
 
-
 /// Every match registered in an org (approved, pending, rejected…).
 /// Includes matches of org tournaments. Filter with `visibleOrgMatches`.
-final seriesMatchesProvider =
-    StreamProvider.family<List<MatchModel>, String>((ref, seriesId) {
-      if (seriesId.isEmpty) return Stream.value(const []);
-      return FirebaseFirestore.instance
-          .collection(AppConstants.matchesCollection)
-          .where('seriesId', isEqualTo: seriesId)
-          .snapshots()
-          .map(
-            (s) => s.docs
-                .map((d) => MatchModel.fromMap(d.id, d.data()))
-                .toList(),
-          );
-    });
+final seriesMatchesProvider = StreamProvider.family<List<MatchModel>, String>((
+  ref,
+  seriesId,
+) {
+  if (seriesId.isEmpty) return Stream.value(const []);
+  return FirebaseFirestore.instance
+      .collection(AppConstants.matchesCollection)
+      .where('seriesId', isEqualTo: seriesId)
+      .snapshots()
+      .map(
+        (s) => s.docs.map((d) => MatchModel.fromMap(d.id, d.data())).toList(),
+      );
+});
 
 /// Every tournament linked to an org. Filter with `visibleOrgTournaments`.
 final seriesTournamentsProvider =
@@ -357,13 +359,15 @@ final _orgFinishedMatchKeyProvider = Provider.family<String, String>((
 });
 
 /// Finished org matches that count for the org's tables and rankings.
-final orgFinishedMatchesProvider =
-    Provider.family<List<MatchModel>, String>((ref, seriesId) {
-      ref.watch(_orgFinishedMatchKeyProvider(seriesId));
-      final matches =
-          ref.read(seriesMatchesProvider(seriesId)).valueOrNull ?? const [];
-      return orgRankingMatches(matches);
-    });
+final orgFinishedMatchesProvider = Provider.family<List<MatchModel>, String>((
+  ref,
+  seriesId,
+) {
+  ref.watch(_orgFinishedMatchKeyProvider(seriesId));
+  final matches =
+      ref.read(seriesMatchesProvider(seriesId)).valueOrNull ?? const [];
+  return orgRankingMatches(matches);
+});
 
 typedef OrgRankingsQuery = ({
   String seriesId,
@@ -386,22 +390,28 @@ final orgPlayerRankingsProvider = FutureProvider.autoDispose
           .rankFromMatches(matches: matches, filter: q.filter);
     });
 
-
 /// Does the org that owns this match (directly, or through its org tournament)
 /// allow walk-in players? True for non-org matches and while loading.
 final walkInsAllowedProvider =
-    Provider.family<bool, ({String? seriesId, String? tournamentId})>(
-        (ref, key) {
-  var sid = key.seriesId?.trim() ?? '';
-  final tid = key.tournamentId?.trim() ?? '';
-  if (sid.isEmpty && tid.isNotEmpty) {
-    final t = ref.watch(tournamentProvider(tid)).valueOrNull;
-    final tSeries = t?.seriesId?.trim() ?? '';
-    if (t != null && tSeries.isNotEmpty && t.seriesOfficialStatus != 'rejected') {
-      sid = tSeries;
-    }
-  }
-  if (sid.isEmpty) return true;
-  return ref.watch(orgCompetitionPolicyProvider(sid)).valueOrNull?.allowWalkIns ??
-      true;
-});
+    Provider.family<bool, ({String? seriesId, String? tournamentId})>((
+      ref,
+      key,
+    ) {
+      var sid = key.seriesId?.trim() ?? '';
+      final tid = key.tournamentId?.trim() ?? '';
+      if (sid.isEmpty && tid.isNotEmpty) {
+        final t = ref.watch(tournamentProvider(tid)).valueOrNull;
+        final tSeries = t?.seriesId?.trim() ?? '';
+        if (t != null &&
+            tSeries.isNotEmpty &&
+            t.seriesOfficialStatus != 'rejected') {
+          sid = tSeries;
+        }
+      }
+      if (sid.isEmpty) return true;
+      return ref
+              .watch(orgCompetitionPolicyProvider(sid))
+              .valueOrNull
+              ?.allowWalkIns ??
+          false;
+    });

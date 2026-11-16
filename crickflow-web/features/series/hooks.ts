@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createSeries,
   createSeriesClub,
+  getSeriesApprovalsAccess,
   getSeriesDetail,
   getSeriesRegistrationIdentity,
   listActiveSeries,
@@ -25,7 +27,9 @@ import {
   sendSeriesAnnouncement,
   listSeriesAuditLogs,
   listActiveSeriesByKind,
+  watchPendingSeriesApprovals,
 } from "./repository";
+import type { SeriesApproval } from "./types";
 import { getOrgLeaderboardData } from "./leaderboard-repository";
 
 export function useActiveSeries() {
@@ -54,7 +58,10 @@ export function useReviewSeriesApproval(seriesId: string) {
   return useMutation({
     mutationFn: (input: { approvalId: string; decision: "approved" | "rejected"; reason?: string }) =>
       reviewSeriesApproval(seriesId, input.approvalId, input.decision, input.reason ?? ""),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "pending-approvals"] });
+    },
   });
 }
 
@@ -66,7 +73,10 @@ export function useReviewClubJoinRequest(seriesId: string) {
       decision: "approved" | "rejected";
       reason?: string;
     }) => reviewClubJoinRequest({ seriesId, ...input }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "pending-approvals"] });
+    },
   });
 }
 
@@ -225,6 +235,47 @@ export function useRebuildSeriesStandings(seriesId: string) {
     mutationFn: () => rebuildSeriesStandings(seriesId),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId, "leaderboard"] }),
   });
+}
+
+
+export function useSeriesApprovalsAccess(seriesId: string, userId?: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, userId ?? "public", "approvals-access"],
+    queryFn: () => getSeriesApprovalsAccess(seriesId, userId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+/** Live pending approvals; first snapshot paints without waiting on the other queue. */
+export function usePendingSeriesApprovals(seriesId: string, enabled: boolean) {
+  const [data, setData] = useState<SeriesApproval[] | undefined>(undefined);
+  const [error, setError] = useState<Error | null>(null);
+  const [generation, setGeneration] = useState(0);
+
+  useEffect(() => {
+    if (!seriesId || !enabled) {
+      setData(undefined);
+      setError(null);
+      return;
+    }
+    setData(undefined);
+    setError(null);
+    return watchPendingSeriesApprovals(
+      seriesId,
+      (items) => {
+        setData(items);
+        setError(null);
+      },
+      (err) => setError(err),
+    );
+  }, [seriesId, enabled, generation]);
+
+  return {
+    data,
+    isLoading: enabled && data === undefined && !error,
+    error,
+    refetch: () => setGeneration((g) => g + 1),
+  };
 }
 
 export function useSeriesDetail(seriesId: string, userId?: string) {
