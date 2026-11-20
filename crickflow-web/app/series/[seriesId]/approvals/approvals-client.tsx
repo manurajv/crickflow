@@ -1,4 +1,3 @@
-import { useRouter } from "next/navigation";
 "use client";
 
 import { AppLink as Link } from "@/components/shared/app-link";
