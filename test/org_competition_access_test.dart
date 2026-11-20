@@ -2,6 +2,7 @@ import 'package:crickflow/core/theme/app_theme.dart';
 import 'package:crickflow/data/models/series/series.dart';
 import 'package:crickflow/domain/services/series/org_competition_access.dart';
 import 'package:crickflow/features/series/presentation/series_approvals_screen.dart';
+import 'package:crickflow/features/series/presentation/widgets/series_ui.dart';
 import 'package:crickflow/features/series/presentation/tabs/org_matches_tab.dart';
 import 'package:crickflow/features/series/presentation/tabs/org_tournaments_tab.dart';
 import 'package:crickflow/shared/providers/providers.dart';
