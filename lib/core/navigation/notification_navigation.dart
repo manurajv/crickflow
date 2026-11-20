@@ -55,6 +55,9 @@ class NotificationNavigation {
         return '/series/$seriesId/approvals';
       }
     }
+    if (type == 'support_reply') {
+      return '/help';
+    }
     if (type == 'badge_unlock') {
       // Always open the recipient's cricket profile badges tab.
       // playerId on the payload is a players/{id} doc id, not /player/:cfId.

@@ -47,6 +47,7 @@ import '../../features/player_rankings/presentation/player_rankings_screen.dart'
 import '../../features/players/presentation/player_cricket_profile_redirect.dart';
 import '../../features/players/presentation/player_screen.dart';
 import '../../features/store/presentation/store_screen.dart';
+import '../../features/help/presentation/help_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/find_cricketers_screen.dart';
 import '../../features/my_cricket_profile/presentation/my_cricket_profile_screen.dart';
@@ -890,6 +891,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/store', builder: (_, __) => const StoreScreen()),
+      GoRoute(path: '/help', builder: (_, __) => const HelpScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(
         path: '/profile/edit',

@@ -297,6 +297,22 @@ export async function listFollowedPlayers(userId: string): Promise<Player[]> {
   return players.filter((player): player is Player => Boolean(player));
 }
 
+export async function listPlayerFollowers(userId: string): Promise<Player[]> {
+  if (!userId) return [];
+  const snap = await getDocsOrEmpty(
+    query(
+      collection(getDb(), collections.playerFollows),
+      where("followedUserId", "==", userId),
+      limit(24),
+    ),
+  );
+  const followerUserIds = [
+    ...new Set(snap.docs.map((d) => String(dataOf(d).followerUserId ?? "")).filter(Boolean)),
+  ];
+  const players = await Promise.all(followerUserIds.map((id) => getPlayerByUserId(id)));
+  return players.filter((player): player is Player => Boolean(player));
+}
+
 export async function getPlayer(id: string): Promise<Player | null> {
   const snap = await getDoc(doc(getDb(), collections.players, id));
   if (!snap.exists()) return null;

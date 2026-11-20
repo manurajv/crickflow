@@ -681,3 +681,176 @@ test('admin_admob_config/settings is publicly readable; writes stay staff-only',
   await assertSucceeds(getDocs(collection(staff, 'admin_admob_config')));
   await assertSucceeds(updateDoc(doc(staff, 'admin_admob_config/settings'), { testMode: false }));
 });
+
+// ---------- User-facing support threads (CrickFlow Help) ----------
+function threadCreate(uid, extra = {}) {
+  return {
+    userId: uid,
+    userDisplayName: 'User One',
+    status: 'open',
+    lastMessageAt: NOW,
+    lastMessageText: 'Hello, I need help',
+    lastSenderId: uid,
+    lastSenderRole: 'user',
+    userUnreadCount: 0,
+    staffUnreadCount: 1,
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...extra,
+  };
+}
+
+function userMessage(uid, extra = {}) {
+  return {
+    senderId: uid,
+    senderName: 'User One',
+    senderRole: 'user',
+    text: 'Hello, I need help',
+    createdAt: NOW,
+    ...extra,
+  };
+}
+
+test('support_threads: guests cannot read or create', async () => {
+  const db = anon();
+  await assertFails(getDoc(doc(db, 'support_threads/u1')));
+  await assertFails(getDocs(collection(db, 'support_threads')));
+  await assertFails(setDoc(doc(db, 'support_threads/u1'), threadCreate('u1')));
+});
+
+test('support_threads: user can create and read only their own thread', async () => {
+  const u1 = as('u1');
+  const u2 = as('u2');
+  await assertSucceeds(setDoc(doc(u1, 'support_threads/u1'), threadCreate('u1')));
+  await assertSucceeds(getDoc(doc(u1, 'support_threads/u1')));
+  await assertFails(getDoc(doc(u2, 'support_threads/u1')));
+  await assertFails(setDoc(doc(u1, 'support_threads/u2'), threadCreate('u1')));
+  await assertFails(setDoc(doc(u2, 'support_threads/u1'), threadCreate('u2')));
+  await assertFails(getDocs(collection(u1, 'support_threads')));
+});
+
+test('support_threads: user can send a follow-up and mark themselves read', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'support_threads/u1'), threadCreate('u1', {
+      staffUnreadCount: 2,
+      userUnreadCount: 3,
+    }));
+  });
+  const u1 = as('u1');
+  await assertSucceeds(updateDoc(doc(u1, 'support_threads/u1'), {
+    userUnreadCount: 0,
+  }));
+  await assertSucceeds(updateDoc(doc(u1, 'support_threads/u1'), {
+    userDisplayName: 'User One',
+    status: 'open',
+    lastMessageAt: NOW,
+    lastMessageText: 'Following up',
+    lastSenderId: 'u1',
+    lastSenderRole: 'user',
+    userUnreadCount: 0,
+    staffUnreadCount: 3,
+    updatedAt: NOW,
+  }));
+  await assertFails(updateDoc(doc(u1, 'support_threads/u1'), {
+    status: 'resolved',
+    updatedAt: NOW,
+  }));
+  await assertFails(deleteDoc(doc(u1, 'support_threads/u1')));
+});
+
+test('support_threads: staff can list, reply, resolve, and reopen', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'support_threads/u1'), threadCreate('u1', {
+      staffUnreadCount: 2,
+      userUnreadCount: 0,
+    }));
+  });
+  const staff = as('sa');
+  const support = as('sup');
+  const viewer = as('viewer');
+  const other = as('u2');
+  await assertSucceeds(getDocs(collection(staff, 'support_threads')));
+  await assertSucceeds(getDoc(doc(support, 'support_threads/u1')));
+  await assertFails(getDoc(doc(viewer, 'support_threads/u1')));
+  await assertFails(getDoc(doc(other, 'support_threads/u1')));
+
+  await assertSucceeds(updateDoc(doc(staff, 'support_threads/u1'), {
+    staffUnreadCount: 0,
+  }));
+  await assertSucceeds(updateDoc(doc(staff, 'support_threads/u1'), {
+    status: 'open',
+    lastMessageAt: NOW,
+    lastMessageText: 'Thanks, we are looking into this',
+    lastSenderId: 'sa',
+    lastSenderRole: 'staff',
+    staffUnreadCount: 0,
+    userUnreadCount: 1,
+    updatedAt: NOW,
+  }));
+  await assertSucceeds(updateDoc(doc(staff, 'support_threads/u1'), {
+    status: 'resolved',
+    updatedAt: NOW,
+    resolvedAt: NOW,
+    resolvedByUid: 'sa',
+    resolvedByName: 'Super Admin',
+  }));
+  await assertSucceeds(updateDoc(doc(support, 'support_threads/u1'), {
+    status: 'open',
+    updatedAt: NOW,
+    resolvedAt: null,
+    resolvedByUid: null,
+    resolvedByName: null,
+  }));
+  await assertFails(updateDoc(doc(viewer, 'support_threads/u1'), {
+    status: 'resolved',
+    updatedAt: NOW,
+  }));
+  await assertFails(deleteDoc(doc(staff, 'support_threads/u1')));
+});
+
+test('support_threads messages: owner and staff can append; others cannot', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'support_threads/u1'), threadCreate('u1'));
+  });
+  const u1 = as('u1');
+  const u2 = as('u2');
+  const staff = as('sa');
+  const viewer = as('viewer');
+  await assertSucceeds(setDoc(doc(u1, 'support_threads/u1/messages/m1'), userMessage('u1')));
+  await assertSucceeds(getDoc(doc(u1, 'support_threads/u1/messages/m1')));
+  await assertFails(getDoc(doc(u2, 'support_threads/u1/messages/m1')));
+  await assertFails(setDoc(doc(u2, 'support_threads/u1/messages/m2'), userMessage('u2')));
+  await assertSucceeds(setDoc(doc(staff, 'support_threads/u1/messages/m3'), {
+    senderId: 'sa',
+    senderName: 'Super Admin',
+    senderRole: 'staff',
+    text: 'We can help with that',
+    createdAt: NOW,
+  }));
+  await assertFails(setDoc(doc(viewer, 'support_threads/u1/messages/m4'), {
+    senderId: 'viewer',
+    senderName: 'Viewer',
+    senderRole: 'staff',
+    text: 'nope',
+    createdAt: NOW,
+  }));
+  await assertFails(updateDoc(doc(u1, 'support_threads/u1/messages/m1'), { text: 'edit' }));
+  await assertFails(deleteDoc(doc(staff, 'support_threads/u1/messages/m1')));
+  await assertFails(setDoc(doc(u1, 'support_threads/u1/messages/m5'), userMessage('u1', {
+    text: 'x'.repeat(2001),
+  })));
+});
+
+test('notifications: clients cannot create support_reply', async () => {
+  const staff = as('sa');
+  const u1 = as('u1');
+  const payload = {
+    userId: 'u1',
+    title: 'New reply from CrickFlow',
+    body: 'A teammate replied',
+    type: 'support_reply',
+    addedByUserId: 'sa',
+  };
+  await assertFails(setDoc(doc(staff, 'notifications/sr1'), payload));
+  await assertFails(setDoc(doc(u1, 'notifications/sr2'), { ...payload, addedByUserId: 'u1', userId: 'u2' }));
+});

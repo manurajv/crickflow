@@ -191,6 +191,11 @@ class SignInPrompt {
     'Sign in to edit your profile.',
   );
 
+  static const supportChat = SignInPrompt._(
+    'support_chat',
+    'Sign in to chat with CrickFlow staff.',
+  );
+
   /// All prompts keyed for web URL whitelist + lookup.
   static const Map<String, SignInPrompt> byKey = {
     'general': general,
@@ -225,6 +230,7 @@ class SignInPrompt {
     'propose_tournament': proposeTournament,
     'org_manage': orgManage,
     'edit_profile': editProfile,
+    'support_chat': supportChat,
   };
 
   static SignInPrompt fromKey(String? key) {

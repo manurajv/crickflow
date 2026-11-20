@@ -14,4 +14,5 @@ export const SECONDARY_NAV = [
   { href: "/rankings", label: "Rankings" },
   { href: "/grounds", label: "Grounds" },
   { href: "/statistics", label: "Statistics" },
+  { href: "/help", label: "CrickFlow Help" },
 ] as const;

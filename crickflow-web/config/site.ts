@@ -56,6 +56,7 @@ export const collections = {
   fantasyLeagues: "fantasy_leagues",
   playerInvites: "player_invites",
   adminUsers: "admin_users",
+  supportThreads: "support_threads",
 } as const;
 
 export const queryLimits: {

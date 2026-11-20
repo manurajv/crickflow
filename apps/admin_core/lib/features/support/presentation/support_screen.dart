@@ -16,7 +16,9 @@ import 'widgets/support_content_panels.dart';
 import 'widgets/support_summary_cards.dart';
 import 'widgets/support_ticket_detail_panel.dart';
 import 'widgets/support_tickets_table.dart';
+import 'widgets/support_inbox_panel.dart';
 import 'widgets/support_toolbar.dart';
+import '../providers/user_support_providers.dart';
 
 class SupportScreen extends ConsumerStatefulWidget {
   const SupportScreen({super.key});
@@ -57,7 +59,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       s == SupportHubSection.reports;
 
   bool _showsTicketTable(SupportHubSection s) =>
-      !_isContentSection(s) || s == SupportHubSection.dashboard;
+      s != SupportHubSection.inbox &&
+      (!_isContentSection(s) || s == SupportHubSection.dashboard);
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +94,13 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             const SizedBox(height: 16),
             SupportSectionChips(
               section: state.section,
+              inboxUnreadCount: ref.watch(userSupportInboxProvider).maybeWhen(
+                    data: (threads) => threads.fold<int>(
+                      0,
+                      (sum, t) => sum + t.staffUnreadCount,
+                    ),
+                    orElse: () => 0,
+                  ),
               onChanged: (s) async {
                 await controller.setSection(s);
                 ref.read(breadcrumbProvider.notifier).state = [
@@ -101,6 +111,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
               },
             ),
             const SizedBox(height: 12),
+            if (state.section != SupportHubSection.inbox)
             SupportToolbar(
               searchController: _search,
               onQueryChanged: (q) {
@@ -179,12 +190,15 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                   ),
                 ),
               ),
-            if (state.section == SupportHubSection.dashboard ||
+            if (state.section == SupportHubSection.inbox)
+              const SupportInboxPanel()
+            else if (state.section == SupportHubSection.dashboard ||
                 state.section == SupportHubSection.csat) ...[
               SupportSummaryCards(summary: state.summary),
               const SizedBox(height: 16),
             ],
-            if (state.isLoading &&
+            if (state.section != SupportHubSection.inbox &&
+                state.isLoading &&
                 state.tickets.isEmpty &&
                 !_isContentSection(state.section))
               const SizedBox(

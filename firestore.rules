@@ -2258,6 +2258,134 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    /// User-facing CrickFlow Help conversations (one thread per user; id = uid).
+    /// Staff replies are notified by Cloud Functions (type support_reply);
+    /// clients cannot create that notification type.
+    match /support_threads/{threadId} {
+      function isSupportThreadOwner() {
+        return isSignedIn() && request.auth.uid == threadId;
+      }
+
+      function isSupportStaff() {
+        return hasAdminPermission('canManageSupport');
+      }
+
+      function supportMessageKeysOk() {
+        return request.resource.data.keys().hasOnly([
+          'senderId', 'senderName', 'senderRole', 'text', 'createdAt'
+        ])
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.senderName is string
+        && request.resource.data.senderName.size() > 0
+        && request.resource.data.senderName.size() <= 120
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000;
+      }
+
+      allow read: if isSupportThreadOwner() || isSupportStaff();
+
+      allow create: if isSupportThreadOwner()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userId == threadId
+        && request.resource.data.userDisplayName is string
+        && request.resource.data.userDisplayName.size() > 0
+        && request.resource.data.userDisplayName.size() <= 120
+        && request.resource.data.status == 'open'
+        && request.resource.data.lastMessageText is string
+        && request.resource.data.lastMessageText.size() > 0
+        && request.resource.data.lastMessageText.size() <= 2000
+        && request.resource.data.lastSenderId == request.auth.uid
+        && request.resource.data.lastSenderRole == 'user'
+        && request.resource.data.userUnreadCount == 0
+        && request.resource.data.staffUnreadCount == 1
+        && request.resource.data.keys().hasAll([
+          'userId', 'userDisplayName', 'status', 'lastMessageAt',
+          'lastMessageText', 'lastSenderId', 'lastSenderRole',
+          'userUnreadCount', 'staffUnreadCount', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'userId', 'userDisplayName', 'userPhotoUrl', 'status',
+          'lastMessageAt', 'lastMessageText', 'lastSenderId', 'lastSenderRole',
+          'userUnreadCount', 'staffUnreadCount', 'createdAt', 'updatedAt'
+        ]);
+
+      allow update: if isSupportThreadOwner()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && (
+          (
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['userUnreadCount'])
+            && request.resource.data.userUnreadCount == 0
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'userDisplayName', 'userPhotoUrl', 'status', 'lastMessageAt',
+              'lastMessageText', 'lastSenderId', 'lastSenderRole',
+              'userUnreadCount', 'staffUnreadCount', 'updatedAt'
+            ])
+            && request.resource.data.status == 'open'
+            && request.resource.data.lastSenderId == request.auth.uid
+            && request.resource.data.lastSenderRole == 'user'
+            && request.resource.data.userUnreadCount == 0
+            && request.resource.data.staffUnreadCount
+              == resource.data.get('staffUnreadCount', 0) + 1
+            && request.resource.data.lastMessageText is string
+            && request.resource.data.lastMessageText.size() > 0
+            && request.resource.data.lastMessageText.size() <= 2000
+            && request.resource.data.userDisplayName is string
+            && request.resource.data.userDisplayName.size() > 0
+            && request.resource.data.userDisplayName.size() <= 120
+          )
+        );
+
+      allow update: if isSupportStaff()
+        && request.resource.data.userId == resource.data.userId
+        && (
+          (
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['staffUnreadCount'])
+            && request.resource.data.staffUnreadCount == 0
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'updatedAt', 'resolvedAt', 'resolvedByUid', 'resolvedByName'
+            ])
+            && request.resource.data.status in ['open', 'resolved']
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'lastMessageAt', 'lastMessageText', 'lastSenderId',
+              'lastSenderRole', 'staffUnreadCount', 'userUnreadCount',
+              'updatedAt', 'resolvedAt', 'resolvedByName', 'resolvedByUid'
+            ])
+            && request.resource.data.status == 'open'
+            && request.resource.data.lastSenderId == request.auth.uid
+            && request.resource.data.lastSenderRole == 'staff'
+            && request.resource.data.staffUnreadCount == 0
+            && request.resource.data.userUnreadCount
+              == resource.data.get('userUnreadCount', 0) + 1
+            && request.resource.data.lastMessageText is string
+            && request.resource.data.lastMessageText.size() > 0
+            && request.resource.data.lastMessageText.size() <= 2000
+          )
+        );
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isSupportThreadOwner() || isSupportStaff();
+        allow create: if supportMessageKeysOk()
+          && (
+            (isSupportThreadOwner() && request.resource.data.senderRole == 'user')
+            || (isSupportStaff() && request.resource.data.senderRole == 'staff')
+          );
+        allow update, delete: if false;
+      }
+    }
+
+
     /// AI Operations Center — recommendations never auto-mutate user data.
     match /admin_ai_recommendations/{id} {
       allow read, create, update, delete: if hasAdminPermission('canManageAiOps');

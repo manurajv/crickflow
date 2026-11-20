@@ -13,10 +13,12 @@ class SupportSectionChips extends StatelessWidget {
     super.key,
     required this.section,
     required this.onChanged,
+    this.inboxUnreadCount = 0,
   });
 
   final SupportHubSection section;
   final ValueChanged<SupportHubSection> onChanged;
+  final int inboxUnreadCount;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +30,11 @@ class SupportSectionChips extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(s.label),
+                label: Text(
+                  s == SupportHubSection.inbox && inboxUnreadCount > 0
+                      ? '${s.label} ($inboxUnreadCount)'
+                      : s.label,
+                ),
                 selected: section == s,
                 onSelected: (_) => onChanged(s),
               ),

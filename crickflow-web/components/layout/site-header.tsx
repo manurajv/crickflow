@@ -163,6 +163,9 @@ export function SiteHeader() {
               </Link>
             </>
           ) : null}
+          <Link href="/help" onClick={() => setMenuForPath(null)} className="rounded-lg px-3 py-2 text-sm hover:bg-muted">
+            CrickFlow Help
+          </Link>
           <a
             href={siteConfig.playStoreUrl}
             target="_blank"
@@ -199,6 +202,7 @@ const FOOTER_LINKS = {
     { href: "/register", label: "Player registration" },
     { href: "/profile", label: "Profile" },
     { href: "/settings", label: "Settings" },
+    { href: "/help", label: "CrickFlow Help" },
   ],
   Legal: [
     { href: "/legal/privacy", label: "Privacy" },

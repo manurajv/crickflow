@@ -21,6 +21,7 @@ class GuestRoutes {
     '/wagon-wheel',
     '/fantasy',
     '/store',
+    '/help',
     '/settings',
     '/legal/privacy',
     '/legal/terms',

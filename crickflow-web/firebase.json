@@ -194,6 +194,14 @@
         "destination": "/matches/_/index.html"
       },
       {
+        "source": "/players/*/cricket",
+        "destination": "/players/_/cricket/index.html"
+      },
+      {
+        "source": "/players/*/cricket/",
+        "destination": "/players/_/cricket/index.html"
+      },
+      {
         "source": "/players/*",
         "destination": "/players/_/index.html"
       },

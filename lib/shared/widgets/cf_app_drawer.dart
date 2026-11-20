@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../config/feature_flags.dart';
 import '../../core/auth/auth_gate.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
@@ -225,13 +226,23 @@ class CfAppDrawer extends ConsumerWidget {
                       context.push('/settings');
                     },
                   ),
+                  if (FeatureFlags.showCrickFlowProNav)
+                    _DrawerTile(
+                      icon: Icons.workspace_premium_outlined,
+                      label: 'CrickFlow PRO',
+                      subtitle: 'Premium tools',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/store');
+                      },
+                    ),
                   _DrawerTile(
-                    icon: Icons.workspace_premium_outlined,
-                    label: 'CrickFlow PRO',
-                    subtitle: 'Premium tools',
+                    icon: Icons.help_outline,
+                    label: 'CrickFlow Help',
+                    subtitle: 'Contact and support',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/store');
+                      context.push('/help');
                     },
                   ),
                   _DrawerTile(

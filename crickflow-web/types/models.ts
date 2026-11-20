@@ -152,6 +152,9 @@ export interface MatchRules {
   freeHitEnabled: boolean;
   /** Wickets that end an innings (app default 10). */
   maxWickets?: number;
+  superOverEnabled?: boolean;
+  powerplayOvers?: number;
+  powerplaySlots?: number[][];
 }
 
 export interface Match {
@@ -241,6 +244,26 @@ export interface BallEvent {
   wagonWheel?: { enabled?: boolean; x?: number; y?: number; shotType?: string };
   dismissalText?: string;
   isHighlight?: boolean;
+  countsToBowler?: boolean;
+  wicketType?: string;
+  fielderId?: string;
+  primaryFielderId?: string;
+  wicketKeeperId?: string;
+  wicketKeeperName?: string;
+  fielderName?: string;
+  primaryFielderName?: string;
+  dismissalType?: string;
+  dismissalSubType?: string;
+  retiredHurt?: boolean;
+  isMankad?: boolean;
+  countsAsBallFaced?: boolean;
+  countsInOver?: boolean;
+  bowlerGetsWicket?: boolean;
+  isBoundary?: boolean;
+  boundaryType?: string;
+  dismissedPlayerId?: string;
+  nonStrikerId?: string;
+  fielders?: Array<{ playerId: string }>;
 }
 
 export interface Team {

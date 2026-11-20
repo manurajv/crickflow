@@ -1,5 +1,11 @@
 import { format, formatDistanceToNow } from "date-fns";
 
+export function calculateOvers(legalBalls: number, ballsPerOver = 6): number {
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  if (legalBalls <= 0) return 0;
+  return legalBalls / bpo;
+}
+
 export function formatOvers(legalBalls: number, ballsPerOver = 6): string {
   const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
   const overs = Math.floor(legalBalls / bpo);

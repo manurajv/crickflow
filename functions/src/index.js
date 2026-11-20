@@ -40,6 +40,7 @@ const {
   adminReprocessMatchStats,
 } = require('./admin/scoringAdmin');
 const { onNotificationCreated } = require('./notifications/onNotificationCreated');
+const { onSupportMessageCreated } = require('./support/onSupportMessageCreated');
 const { onTeamJoinRequestCreated } = require('./notifications/onTeamJoinRequestCreated');
 const {
   onTeamJoinRequestResolved,
@@ -128,6 +129,7 @@ exports.adminVerifyMatchIntegrity = adminVerifyMatchIntegrity;
 exports.adminPreviewMatchStatsFromEvents = adminPreviewMatchStatsFromEvents;
 exports.adminReprocessMatchStats = adminReprocessMatchStats;
 exports.onNotificationCreated = onNotificationCreated;
+exports.onSupportMessageCreated = onSupportMessageCreated;
 exports.onTeamJoinRequestCreated = onTeamJoinRequestCreated;
 exports.onTeamJoinRequestResolved = onTeamJoinRequestResolved;
 exports.onTournamentTeamRequestResolved = onTournamentTeamRequestResolved;

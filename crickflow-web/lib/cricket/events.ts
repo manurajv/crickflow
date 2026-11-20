@@ -42,6 +42,7 @@ export function notificationHref(item: {
   clubId?: string;
 }): string | null {
   const type = item.type ?? "";
+  if (type === "support_reply") return "/help";
   if (
     type === "series_approval_pending" ||
     type === "series_approval_approved" ||

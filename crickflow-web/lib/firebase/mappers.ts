@@ -248,6 +248,13 @@ export function mapMatch(id: string, data: Record<string, unknown>): Match {
       ballsPerOver: asNumber(rules.ballsPerOver, 6),
       freeHitEnabled: asBoolean(rules.freeHitEnabled, true),
       maxWickets: asNumber(rules.maxWickets, 10),
+      superOverEnabled: asBoolean(rules.superOverEnabled),
+      powerplayOvers: typeof rules.powerplayOvers === "number" ? rules.powerplayOvers : undefined,
+      powerplaySlots: Array.isArray(rules.powerplaySlots)
+        ? (rules.powerplaySlots as unknown[]).map((slot) =>
+            Array.isArray(slot) ? slot.filter((n): n is number => typeof n === "number") : [],
+          )
+        : undefined,
     },
     seriesId: asString(data.seriesId) || undefined,
     seriesOfficialStatus: asString(data.seriesOfficialStatus) || undefined,
@@ -351,6 +358,34 @@ export function mapBallEvent(id: string, data: Record<string, unknown>): BallEve
       : undefined,
     dismissalText: asString(data.dismissalText) || undefined,
     isHighlight: asBoolean(data.isHighlight),
+    countsToBowler: data.countsToBowler === undefined ? true : asBoolean(data.countsToBowler, true),
+    wicketType: asString(data.wicketType) || undefined,
+    fielderId: asString(data.fielderId) || undefined,
+    primaryFielderId: asString(data.primaryFielderId) || asString(data.fielderId) || undefined,
+    wicketKeeperId: asString(data.wicketKeeperId) || undefined,
+    wicketKeeperName: asString(data.wicketKeeperName) || undefined,
+    fielderName: asString(data.fielderName) || undefined,
+    primaryFielderName: asString(data.primaryFielderName) || undefined,
+    dismissalType: asString(data.dismissalType) || undefined,
+    dismissalSubType: asString(data.dismissalSubType) || undefined,
+    retiredHurt: asBoolean(data.retiredHurt),
+    isMankad: asBoolean(data.isMankad),
+    countsAsBallFaced: asBoolean(data.countsAsBallFaced),
+    countsInOver: data.countsInOver === undefined ? true : asBoolean(data.countsInOver, true),
+    bowlerGetsWicket: asBoolean(data.bowlerGetsWicket),
+    isBoundary: asBoolean(data.isBoundary),
+    boundaryType: asString(data.boundaryType) || undefined,
+    dismissedPlayerId: asString(data.dismissedPlayerId) || undefined,
+    nonStrikerId: asString(data.nonStrikerId) || undefined,
+    fielders: Array.isArray(data.fielders)
+      ? data.fielders
+          .map((item) => {
+            if (!item || typeof item !== "object") return null;
+            const id = asString((item as Record<string, unknown>).playerId) || asString((item as Record<string, unknown>).id);
+            return id ? { playerId: id } : null;
+          })
+          .filter((item): item is { playerId: string } => Boolean(item))
+      : undefined,
   };
 }
 

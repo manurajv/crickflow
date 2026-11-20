@@ -34,6 +34,7 @@ export const SIGN_IN_PROMPTS = {
   propose_tournament: "Sign in to propose a tournament in this organization.",
   org_manage: "Sign in to manage this organization.",
   edit_profile: "Sign in to edit your profile.",
+  support_chat: "Sign in to chat with CrickFlow staff.",
 } as const;
 
 export type SignInPromptKey = keyof typeof SIGN_IN_PROMPTS;

@@ -241,7 +241,7 @@ export function PlayerProfileView(props: ProfileViewProps) {
               </Button>
               {playerDocId ? (
                 <Button variant="outline" asChild>
-                  <Link href={`/players/${playerDocId}`}>Cricket profile</Link>
+                  <Link href={`/players/${playerDocId}/cricket`}>Cricket profile</Link>
                 </Button>
               ) : null}
             </>
@@ -260,6 +260,11 @@ export function PlayerProfileView(props: ProfileViewProps) {
                 otherPhotoUrl={photoUrl ?? undefined}
                 otherPlayerId={playerId ?? undefined}
               />
+              {playerDocId ? (
+                <Button variant="outline" asChild>
+                  <Link href={`/players/${playerDocId}/cricket`}>Cricket profile</Link>
+                </Button>
+              ) : null}
             </>
           )}
         </div>
