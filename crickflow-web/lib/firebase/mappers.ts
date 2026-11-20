@@ -467,6 +467,8 @@ export function mapTournament(id: string, data: Record<string, unknown>): Tourna
     organizerName: asString(data.organizerName) || asString(data.organizer) || undefined,
     organizerId: asString(data.organizerId) || asString(data.organizerUserId) || asString(data.createdBy) || undefined,
     createdBy: asString(data.createdBy) || undefined,
+    seriesId: asString(data.seriesId) || undefined,
+    seriesOfficialStatus: asString(data.seriesOfficialStatus) || undefined,
     startDate: parseDate(data.startDate),
     endDate: parseDate(data.endDate),
     createdAt: parseDate(data.createdAt),

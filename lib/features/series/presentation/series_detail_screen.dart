@@ -11,6 +11,7 @@ import '../../../data/models/series/series.dart';
 import '../../../domain/services/series/org_competition_access.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
+import '../../../domain/services/series/org_competition_lists.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../../shared/widgets/removed_content_view.dart';
 import 'tabs/org_leaderboard_tab.dart';
@@ -590,7 +591,36 @@ class _Overview extends ConsumerWidget {
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: AppDimens.spaceLg),
-        OrgOverviewStatTiles(series: series, onOpenTab: onOpenTab),
+        OrgOverviewStatTiles(
+          series: series,
+          onOpenTab: onOpenTab,
+          matchCount: () {
+            final matches =
+                ref.watch(seriesMatchesProvider(series.id)).valueOrNull;
+            if (matches == null) return series.matchCount;
+            final access = ref.watch(orgCompetitionAccessProvider(series.id));
+            final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+            return listedOrgMatches(
+              visibleOrgMatches(
+                matches,
+                isAdmin: access.canViewStaffTools,
+                uid: uid,
+              ),
+            ).length;
+          }(),
+          tournamentCount: () {
+            final tours =
+                ref.watch(seriesTournamentsProvider(series.id)).valueOrNull;
+            if (tours == null) return series.tournamentCount;
+            final access = ref.watch(orgCompetitionAccessProvider(series.id));
+            final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+            return visibleOrgTournaments(
+              tours,
+              isAdmin: access.canViewStaffTools,
+              uid: uid,
+            ).length;
+          }(),
+        ),
         const SizedBox(height: AppDimens.spaceLg),
         Row(
           children: [
@@ -867,10 +897,14 @@ class OrgOverviewStatTiles extends StatelessWidget {
     super.key,
     required this.series,
     required this.onOpenTab,
+    this.matchCount,
+    this.tournamentCount,
   });
 
   final SeriesModel series;
   final void Function(String tabSlug) onOpenTab;
+  final int? matchCount;
+  final int? tournamentCount;
 
   @override
   Widget build(BuildContext context) {
@@ -892,14 +926,14 @@ class OrgOverviewStatTiles extends StatelessWidget {
         Row(
           children: [
             SeriesStat(
-              series.matchCount,
+              matchCount ?? series.matchCount,
               'Matches',
               key: const Key('org_overview_stat_matches'),
               onTap: () => onOpenTab('matches'),
             ),
             const SizedBox(width: AppDimens.spaceSm),
             SeriesStat(
-              series.tournamentCount,
+              tournamentCount ?? series.tournamentCount,
               'Tournaments',
               key: const Key('org_overview_stat_tournaments'),
               onTap: () => onOpenTab('tournaments'),

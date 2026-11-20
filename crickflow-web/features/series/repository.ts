@@ -14,6 +14,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { collections } from "@/config/site";
+import { mapMatch, mapTournament } from "@/lib/firebase/mappers";
 import { getDb } from "@/lib/firebase/client";
 import { getFirebaseFunctions } from "@/lib/firebase/client";
 import {
@@ -626,6 +627,20 @@ export async function listSeriesCompetitions(seriesId: string) {
       tournamentId: text(x, "tournamentId") || undefined,
     };
   });
+}
+
+export async function listSeriesMatches(seriesId: string) {
+  const snap = await getDocs(
+    query(collection(getDb(), collections.matches), where("seriesId", "==", seriesId)),
+  );
+  return snap.docs.map((d) => mapMatch(d.id, d.data()));
+}
+
+export async function listSeriesTournaments(seriesId: string) {
+  const snap = await getDocs(
+    query(collection(getDb(), collections.tournaments), where("seriesId", "==", seriesId)),
+  );
+  return snap.docs.map((d) => mapTournament(d.id, d.data()));
 }
 
 export async function listSeriesAdmins(seriesId: string) {

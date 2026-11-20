@@ -15,12 +15,18 @@ import {
   useMyLinkableTournaments,
   useSeriesAnnouncements,
   useSeriesAuditLogs,
-  useSeriesCompetitions,
+  useSeriesMatches,
+  useSeriesTournaments,
   useSeriesDetail,
 } from "@/features/series/hooks";
 import { seriesAuditActionLabel } from "@/features/series/repository";
 import { usePathParam } from "@/lib/use-path-param";
 import { OrgLeaderboard } from "@/features/series/org-leaderboard";
+import {
+  OrgMatchesPanel,
+  OrgTournamentsPanel,
+  orgOverviewCounts,
+} from "@/features/series/org-competition-panels";
 import { SIGN_IN_PROMPTS, loginUrl } from "@/lib/auth/guest-access";
 import {
   matchTeamsError,
@@ -44,7 +50,8 @@ export function SeriesDetailPage() {
   const search = useSearchParams();
   const { user } = useAuth();
   const { data, isLoading } = useSeriesDetail(seriesId, user?.uid);
-  const competitions = useSeriesCompetitions(seriesId);
+  const seriesMatches = useSeriesMatches(seriesId);
+  const seriesTournaments = useSeriesTournaments(seriesId);
   const announcements = useSeriesAnnouncements(seriesId);
   const audit = useSeriesAuditLogs(seriesId, Boolean(data?.canViewStaff));
   const createClub = useCreateSeriesClub(seriesId);
@@ -92,11 +99,10 @@ export function SeriesDetailPage() {
   const showTournamentFab = tournamentMode !== "none" && activeTab === "tournaments";
   const showTeamFab = activeTab === "teams";
 
-  const matchComps = (competitions.data ?? []).filter(
-    (c) => c.type === "singleMatch" || c.type === "match",
-  );
-  const tournamentComps = (competitions.data ?? []).filter(
-    (c) => c.type === "tournament",
+  const liveCounts = orgOverviewCounts(
+    seriesMatches.data ?? [],
+    seriesTournaments.data ?? [],
+    { isAdmin: Boolean(data?.canViewStaff), uid: user?.uid },
   );
 
   async function dismissWelcome(goSettings: boolean) {
@@ -148,8 +154,8 @@ export function SeriesDetailPage() {
             {([
               { n: series.clubCount, label: "Teams", tab: "teams" as const },
               { n: series.playerCount, label: "Players" },
-              { n: series.matchCount, label: "Matches", tab: "matches" as const },
-              { n: series.tournamentCount, label: "Tournaments", tab: "tournaments" as const },
+              { n: seriesMatches.data ? liveCounts.matchCount : series.matchCount, label: "Matches", tab: "matches" as const },
+              { n: seriesTournaments.data ? liveCounts.tournamentCount : series.tournamentCount, label: "Tournaments", tab: "tournaments" as const },
             ]).map((tile) => {
               const body = (
                 <>
@@ -267,27 +273,12 @@ export function SeriesDetailPage() {
       ) : null}
 
       {activeTab === "matches" ? (
-        <div className="space-y-4">
-          {!matchComps.length ? (
-            <EmptyState title="No matches yet" />
-          ) : (
-            matchComps.map((c) => (
-              <Card key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
-                <div>
-                  <p className="font-bold">{c.title || "Match"}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {c.status === "pendingApproval" ? "Pending approval" : c.status}
-                  </p>
-                </div>
-                {c.matchId ? (
-                  <Link href={`/matches/${c.matchId}`} className="text-sm text-primary">
-                    Open
-                  </Link>
-                ) : null}
-              </Card>
-            ))
-          )}
-          {showMatchFab ? (
+        <OrgMatchesPanel
+          matches={seriesMatches.data ?? []}
+          tournaments={seriesTournaments.data ?? []}
+          isAdmin={Boolean(data?.canViewStaff)}
+          uid={user?.uid}
+          startForm={showMatchFab ? (
             <Card className="space-y-3 p-4">
               <h3 className="font-semibold">{orgActionLabel(matchMode, false)}</h3>
               <form
@@ -340,29 +331,15 @@ export function SeriesDetailPage() {
               </form>
             </Card>
           ) : null}
-        </div>
+        />
       ) : null}
 
       {activeTab === "tournaments" ? (
-        <div className="space-y-4">
-          {!tournamentComps.length ? (
-            <EmptyState title="No tournaments yet" />
-          ) : (
-            tournamentComps.map((c) => (
-              <Card key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
-                <div>
-                  <p className="font-bold">{c.title || "Tournament"}</p>
-                  <p className="text-sm text-muted-foreground">{c.status}</p>
-                </div>
-                {c.tournamentId ? (
-                  <Link href={`/tournaments/${c.tournamentId}`} className="text-sm text-primary">
-                    Open
-                  </Link>
-                ) : null}
-              </Card>
-            ))
-          )}
-          {showTournamentFab ? (
+        <OrgTournamentsPanel
+          tournaments={seriesTournaments.data ?? []}
+          isAdmin={Boolean(data?.canViewStaff)}
+          uid={user?.uid}
+          startForm={showTournamentFab ? (
             <Card className="space-y-3 p-4">
               <h3 className="font-semibold">{orgActionLabel(tournamentMode, true)}</h3>
               <form
@@ -404,7 +381,7 @@ export function SeriesDetailPage() {
               </form>
             </Card>
           ) : null}
-        </div>
+        />
       ) : null}
 
       {activeTab === "teams" ? (

@@ -365,6 +365,20 @@ function competitionCoversMatch(comp, match) {
   return !!comp.tournamentId && comp.tournamentId === match.tournamentId;
 }
 
+
+/** Fields written after an org admin approves or rejects a match / tournament.
+ *  seriesId is always kept, including on rejection, so the item stays
+ *  attributable to the org (lists still hide rejected items).
+ */
+function officialDecisionFields(decision, seriesId, extra = {}) {
+  const approved = decision === 'approved';
+  return {
+    seriesOfficialStatus: approved ? 'approved' : 'rejected',
+    seriesId,
+    ...extra,
+  };
+}
+
 module.exports = {
   isQuickMatch,
   assertNotQuick,
@@ -389,4 +403,5 @@ module.exports = {
   canRegisterMatch,
   resolveTournamentTeams,
   tournamentTeamsPatch,
+  officialDecisionFields,
 };

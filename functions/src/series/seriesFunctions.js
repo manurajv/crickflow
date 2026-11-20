@@ -3389,9 +3389,7 @@ async function applyTournamentDecision(firestore, { seriesId, compId, tournament
   const tRef = firestore.collection(COLLECTIONS.tournaments).doc(tournamentId);
   if (decision !== 'approved') {
     await tRef.set({
-      seriesOfficialStatus: 'rejected',
-      seriesId: FieldValue.delete(),
-      seriesCompetitionId: FieldValue.delete(),
+      ...competitionOps.officialDecisionFields(decision, seriesId),
       updatedAt: ts,
     }, { merge: true });
   }
@@ -3406,9 +3404,7 @@ async function applyTournamentDecision(firestore, { seriesId, compId, tournament
     if (decision !== 'approved') {
       if (m.seriesId === seriesId) {
         await d.ref.set({
-          seriesOfficialStatus: 'rejected',
-          seriesId: FieldValue.delete(),
-          seriesCompetitionId: FieldValue.delete(),
+          ...competitionOps.officialDecisionFields(decision, seriesId),
           updatedAt: ts,
         }, { merge: true });
       }
@@ -3436,9 +3432,7 @@ async function applyMatchDecision(firestore, { seriesId, matchId, decision, ts }
   const mRef = firestore.collection(COLLECTIONS.matches).doc(matchId);
   if (decision !== 'approved') {
     await mRef.set({
-      seriesOfficialStatus: 'rejected',
-      seriesId: FieldValue.delete(),
-      seriesCompetitionId: FieldValue.delete(),
+      ...competitionOps.officialDecisionFields(decision, seriesId),
       updatedAt: ts,
     }, { merge: true });
     return;

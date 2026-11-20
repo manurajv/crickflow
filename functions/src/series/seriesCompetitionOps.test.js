@@ -229,3 +229,16 @@ console.log('seriesCompetitionOps tests passed');
     true,
   );
 }
+
+{
+  const assert = require('assert');
+  const ops = require('./seriesCompetitionOps');
+  const approved = ops.officialDecisionFields('approved', 's1', { seriesCompetitionId: 'c1' });
+  assert.equal(approved.seriesOfficialStatus, 'approved');
+  assert.equal(approved.seriesId, 's1');
+  assert.equal(approved.seriesCompetitionId, 'c1');
+  const rejected = ops.officialDecisionFields('rejected', 's1');
+  assert.equal(rejected.seriesOfficialStatus, 'rejected');
+  assert.equal(rejected.seriesId, 's1');
+  assert.ok(!Object.prototype.hasOwnProperty.call(rejected, 'seriesCompetitionId'));
+}

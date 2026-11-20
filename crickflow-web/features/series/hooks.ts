@@ -11,6 +11,8 @@ import {
   listActiveSeries,
   listSeriesAdmins,
   listSeriesCompetitions,
+  listSeriesMatches,
+  listSeriesTournaments,
   addSeriesAdmin,
   updateSeriesAdminRole,
   proposeSeriesMatch,
@@ -190,6 +192,23 @@ export function useProposeSeriesTournament(seriesId: string) {
     mutationFn: (input: { tournamentId: string; title?: string }) =>
       linkSeriesTournament({ seriesId, ...input }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
+
+export function useSeriesMatches(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "matches"],
+    queryFn: () => listSeriesMatches(seriesId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+export function useSeriesTournaments(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "tournaments"],
+    queryFn: () => listSeriesTournaments(seriesId),
+    enabled: Boolean(seriesId),
   });
 }
 

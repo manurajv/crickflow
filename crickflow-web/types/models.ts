@@ -336,6 +336,8 @@ export interface Tournament {
   organizerName?: string;
   organizerId?: string;
   createdBy?: string;
+  seriesId?: string;
+  seriesOfficialStatus?: string;
   startDate?: Date | null;
   endDate?: Date | null;
   createdAt?: Date | null;
