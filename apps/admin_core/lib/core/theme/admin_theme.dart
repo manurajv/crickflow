@@ -7,11 +7,47 @@ import 'admin_typography.dart';
 
 /// Material 3 premium SaaS theme (CrickFlow blue / gold / white / dark gray).
 abstract final class AdminTheme {
-  static ThemeData light() => _build(Brightness.light, AdminColors.light);
+  static ThemeData light({
+    Color? primary,
+    Color? secondary,
+    Color? accent,
+  }) =>
+      _build(
+        Brightness.light,
+        AdminColors.light.copyWith(
+          focusRing: primary,
+          info: primary,
+          sidebarSelected: accent,
+        ),
+        primary: primary,
+        secondary: secondary,
+        accent: accent,
+      );
 
-  static ThemeData dark() => _build(Brightness.dark, AdminColors.dark);
+  static ThemeData dark({
+    Color? primary,
+    Color? secondary,
+    Color? accent,
+  }) =>
+      _build(
+        Brightness.dark,
+        AdminColors.dark.copyWith(
+          focusRing: primary,
+          info: primary,
+          sidebarSelected: accent,
+        ),
+        primary: primary,
+        secondary: secondary,
+        accent: accent,
+      );
 
-  static ThemeData _build(Brightness brightness, AdminColors colors) {
+  static ThemeData _build(
+    Brightness brightness,
+    AdminColors colors, {
+    Color? primary,
+    Color? secondary,
+    Color? accent,
+  }) {
     final isDark = brightness == Brightness.dark;
     const dimens = AdminDimens.standard;
     final base = ThemeData(
@@ -21,14 +57,16 @@ abstract final class AdminTheme {
       materialTapTargetSize: MaterialTapTargetSize.padded,
     );
 
+    final seed = primary ?? AdminColors.primaryBlue;
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: AdminColors.primaryBlue,
+      seedColor: seed,
       brightness: brightness,
-      primary: AdminColors.primaryBlue,
-      secondary: AdminColors.gold,
+      primary: seed,
+      secondary: secondary ?? AdminColors.gold,
       onSecondary: AdminColors.darkGray,
       surface: colors.surface,
       error: colors.error,
+      tertiary: accent,
     );
 
     final textTheme = AdminTypography.textTheme(base.textTheme, colors);

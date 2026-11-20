@@ -21,6 +21,8 @@ export 'core/theme/admin_motion.dart';
 export 'core/theme/admin_typography.dart';
 export 'core/theme/admin_theme.dart';
 export 'core/theme/theme_mode_provider.dart';
+export 'core/theme/branding_colors.dart';
+export 'core/theme/branding_theme_provider.dart';
 export 'core/extensions/context_extensions.dart';
 export 'core/cache/admin_cache.dart';
 export 'core/logging/admin_logger.dart';

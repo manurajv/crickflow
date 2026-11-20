@@ -12,7 +12,7 @@ class RevenueSummary extends Equatable {
     this.activeCampaigns = 0,
     this.currency = 'USD',
     this.readinessNote =
-        'Architecture ready — no payment gateway. Figures are estimates from admin ads metadata.',
+        'No AdMob, Stripe, or store billing is connected. Figures are in-app campaign or ledger metadata only — not reported earnings.',
   });
 
   final double estimatedTotal;

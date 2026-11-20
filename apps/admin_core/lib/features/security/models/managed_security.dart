@@ -423,7 +423,7 @@ class ManagedBackupRecord extends Equatable {
     required this.id,
     required this.kind,
     this.status = SocBackupStatus.planned,
-    this.note = 'Architecture ready — no automatic Firebase backup',
+    this.note = 'No automatic Firebase backup is configured from this panel',
     this.scheduledAt,
     this.completedAt,
   });

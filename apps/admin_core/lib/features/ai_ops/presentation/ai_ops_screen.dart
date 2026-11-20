@@ -116,8 +116,6 @@ class _AiOpsScreenState extends ConsumerState<AiOpsScreen> {
               onRefresh: () => controller.refresh(force: true),
               onManualScan: () => controller.runManualScan(),
               onScheduleScan: () => controller.scheduleScan(),
-              onSeedDemo:
-                  isSuperAdmin ? () => controller.seedDemoRecommendations() : null,
             ),
             const SizedBox(height: 16),
             if (state.error != null)

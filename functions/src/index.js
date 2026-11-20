@@ -189,4 +189,6 @@ exports.onAdminNotificationCampaignWritten =
   require('./admin/adminSendNotificationCampaign').onAdminNotificationCampaignWritten;
 exports.processScheduledNotificationCampaigns =
   require('./admin/adminSendNotificationCampaign').processScheduledNotificationCampaigns;
+exports.writeDailyPlatformStats =
+  require('./admin/writeDailyPlatformStats').writeDailyPlatformStats;
 

@@ -211,7 +211,55 @@ class AiOpsRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) async {
-    return _provider.generateInsights();
+    final fromProvider = await _provider.generateInsights();
+    if (fromProvider.isNotEmpty) return fromProvider;
+
+    Future<int> countOf(String name) async {
+      try {
+        final agg = await _db.collection(name).count().get();
+        return agg.count ?? 0;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    final users = await countOf(AdminCollections.users);
+    final teams = await countOf(AdminCollections.teams);
+    final matches = await countOf(AdminCollections.matches);
+    final reports = await countOf(AdminCollections.communityPostReports);
+    final pendingRecs = await countOf(AdminCollections.adminAiRecommendations);
+    return [
+      AiInsightCard(
+        id: 'users',
+        title: 'Registered users',
+        value: '$users',
+        subtitle: 'Live Firestore count — no ML provider is connected',
+      ),
+      AiInsightCard(
+        id: 'teams',
+        title: 'Teams',
+        value: '$teams',
+        subtitle: 'Live Firestore count — no ML provider is connected',
+      ),
+      AiInsightCard(
+        id: 'matches',
+        title: 'Matches',
+        value: '$matches',
+        subtitle: 'Live Firestore count — no ML provider is connected',
+      ),
+      AiInsightCard(
+        id: 'reports',
+        title: 'Community post reports',
+        value: '$reports',
+        subtitle: 'Live Firestore count of community_post_reports',
+      ),
+      AiInsightCard(
+        id: 'ai_queue',
+        title: 'AI recommendation docs',
+        value: '$pendingRecs',
+        subtitle: 'Documents in admin_ai_recommendations, including resolved',
+      ),
+    ];
   }
 
   Future<void> resolveRecommendation({

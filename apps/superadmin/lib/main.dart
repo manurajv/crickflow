@@ -25,14 +25,25 @@ class SuperAdminApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final branding = ref.watch(platformBrandingProvider).valueOrNull;
+    final lightColors = brandingColorsFor(branding, isDark: false);
+    final darkColors = brandingColorsFor(branding, isDark: true);
     final locale = ref.watch(adminLocaleProvider);
     final router = ref.watch(_routerProvider);
 
     return MaterialApp.router(
       onGenerateTitle: (context) => context.l10n.appTitleSuperAdmin,
       debugShowCheckedModeBanner: false,
-      theme: AdminTheme.light(),
-      darkTheme: AdminTheme.dark(),
+      theme: AdminTheme.light(
+        primary: lightColors.primary,
+        secondary: lightColors.secondary,
+        accent: lightColors.accent,
+      ),
+      darkTheme: AdminTheme.dark(
+        primary: darkColors.primary,
+        secondary: darkColors.secondary,
+        accent: darkColors.accent,
+      ),
       themeMode: themeMode,
       // Null used to mean "system", but empty browser locales crash Flutter web.
       locale: locale ?? AdminLocaleCatalog.safeDeviceLocale(),

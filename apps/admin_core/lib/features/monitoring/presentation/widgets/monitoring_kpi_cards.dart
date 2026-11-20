@@ -274,10 +274,13 @@ class MonitoringGrowthChart extends StatelessWidget {
     super.key,
     required this.title,
     required this.points,
+    this.subtitle =
+        'Daily Firestore collection counts (Asia/Colombo). Today is a live count.',
   });
 
   final String title;
   final List<double> points;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +302,7 @@ class MonitoringGrowthChart extends StatelessWidget {
               child: points.isEmpty
                   ? Center(
                       child: Text(
-                        'No growth series yet',
+                        'No daily snapshots yet',
                         style: TextStyle(color: colors.textMuted),
                       ),
                     )
@@ -336,7 +339,9 @@ class MonitoringGrowthChart extends StatelessWidget {
                     ),
             ),
             Text(
-              'Placeholder series — ready for Cloud Monitoring / BigQuery',
+              points.isEmpty
+                  ? 'A scheduled job writes counts once a day.'
+                  : subtitle,
               style: TextStyle(fontSize: 10, color: colors.textMuted),
             ),
           ],

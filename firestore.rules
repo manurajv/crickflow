@@ -2225,6 +2225,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    /// Daily platform counts for monitoring growth charts. Written only by
+    /// Cloud Functions (Admin SDK). Staff with health access may read.
+    match /admin_platform_daily_stats/{id} {
+      allow read: if hasAdminPermission('canViewSystemHealth');
+      allow write: if false;
+    }
+
     /// Support Center (help desk) — additive; never community/private chats.
     match /admin_support_tickets/{id} {
       allow read, create, update, delete: if hasAdminPermission('canManageSupport');

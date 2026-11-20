@@ -295,7 +295,7 @@ class _BrandingPanelState extends ConsumerState<_BrandingPanel> {
     return SettingsSectionCard(
       title: 'Branding',
       subtitle:
-          'Configurable theme colors and asset URLs only — does not change mobile hard-coded themes.',
+          'These colors apply to the Super Admin panel after you save. They do not change the CrickFlow mobile app theme.',
       trailing: widget.canWrite
           ? CfButton(label: 'Save', icon: Icons.save_outlined, onPressed: _save)
           : null,
@@ -909,7 +909,10 @@ class _CmsPagesPanel extends ConsumerWidget {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Published'),
+                  title: const Text('Ready in admin'),
+                  subtitle: const Text(
+                    'Not published to the app or public site — those surfaces are not connected.',
+                  ),
                   value: published,
                   onChanged: (v) => setLocal(() => published = v),
                 ),
@@ -952,7 +955,8 @@ class _CmsPagesPanel extends ConsumerWidget {
     final colors = context.adminColors;
     return SettingsSectionCard(
       title: 'CMS Pages',
-      subtitle: 'Home, onboarding, FAQ, help center, and support content.',
+      subtitle:
+          'Saved to admin_cms_pages only. The CrickFlow app and public site do not read these pages. A Published flag does not go live.',
       child: Column(
         children: [
           if (!canWrite) ...[
@@ -1038,7 +1042,10 @@ class _LegalPagesPanel extends ConsumerWidget {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Published'),
+                  title: const Text('Ready in admin'),
+                  subtitle: const Text(
+                    'Not published to the app or public site — those surfaces are not connected.',
+                  ),
                   value: published,
                   onChanged: (v) => setLocal(() => published = v),
                 ),

@@ -170,34 +170,34 @@ class RevenueRepository {
           id: 'admob',
           name: 'Google AdMob',
           description:
-              'Import mediated network earnings. Configure reporting API later.',
-          statusLabel: 'Architecture ready',
+              'Connect the AdMob reporting API to show live network earnings. Until then this page only shows in-app campaign metadata.',
+          statusLabel: 'Not connected',
         ),
         RevenueIntegrationCard(
           id: 'stripe',
           name: 'Stripe',
           description:
               'Subscriptions and one-time charges. Never store card data in Firestore.',
-          statusLabel: 'Architecture ready',
+          statusLabel: 'Not connected',
         ),
         RevenueIntegrationCard(
           id: 'play_billing',
           name: 'Google Play Billing',
           description: 'In-app purchases and subscriptions from Play Console.',
-          statusLabel: 'Future',
+          statusLabel: 'Not connected',
         ),
         RevenueIntegrationCard(
           id: 'app_store',
           name: 'App Store Connect',
           description: 'iOS IAP / subscription reporting.',
-          statusLabel: 'Future',
+          statusLabel: 'Not connected',
         ),
         RevenueIntegrationCard(
           id: 'manual_sponsorship',
           name: 'Manual sponsorship ledger',
           description:
-              'Record board/sponsor contracts as metadata-only ledger rows.',
-          statusLabel: 'Ledger collection ready',
+              'Record board/sponsor contracts as metadata-only ledger rows in admin_revenue_ledger.',
+          statusLabel: 'Ledger available (in-app)',
           ready: true,
         ),
       ];

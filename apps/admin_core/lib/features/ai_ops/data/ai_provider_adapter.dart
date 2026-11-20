@@ -32,46 +32,8 @@ class RulesEngineAiAdapter implements AiProviderAdapter {
 
   @override
   Future<List<AiInsightCard>> generateInsights({String? organizationId}) async {
-    // Heuristic placeholders until a Cloud Function wires a real provider.
-    return const [
-      AiInsightCard(
-        id: 'growth',
-        title: 'User growth trends',
-        value: 'Rules sample',
-        subtitle: 'Wire Cloud Function + provider later',
-        trend: '—',
-      ),
-      AiInsightCard(
-        id: 'inactive_orgs',
-        title: 'Inactive organizations',
-        value: 'Scan pending',
-        subtitle: 'Scheduled job architecture ready',
-      ),
-      AiInsightCard(
-        id: 'peak_stream',
-        title: 'Peak streaming hours',
-        value: 'Future AI',
-        subtitle: 'Analytics warehouse integration',
-      ),
-      AiInsightCard(
-        id: 'formats',
-        title: 'Popular match formats',
-        value: 'Future AI',
-        subtitle: 'Derived from match samples',
-      ),
-      AiInsightCard(
-        id: 'cities',
-        title: 'Popular cities',
-        value: 'Future AI',
-        subtitle: 'Geo aggregates later',
-      ),
-      AiInsightCard(
-        id: 'trending',
-        title: 'Trending teams / players',
-        value: 'Future AI',
-        subtitle: 'Recommendation model later',
-      ),
-    ];
+    // No external provider is connected. The repository adds live Firestore counts.
+    return const [];
   }
 
   @override

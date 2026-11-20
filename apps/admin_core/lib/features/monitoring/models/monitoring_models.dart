@@ -304,7 +304,7 @@ class ScheduledJobItem extends Equatable {
     required this.kind,
     this.status = BackgroundTaskStatus.pending,
     this.lastRun,
-    this.note = 'Architecture ready — not implemented',
+    this.note = 'No Cloud Scheduler job is configured for this.',
   });
 
   final ScheduledJobKind kind;
@@ -374,6 +374,77 @@ class LiveStatusBarSnapshot extends Equatable {
       [platformHealth, liveMatches, liveStreams, onlineUsers, errors];
 }
 
+/// One calendar day of real Firestore collection counts (Asia/Colombo).
+class PlatformDailyStat extends Equatable {
+  const PlatformDailyStat({
+    required this.date,
+    this.users = 0,
+    this.teams = 0,
+    this.matches = 0,
+    this.players = 0,
+    this.tournaments = 0,
+    this.grounds = 0,
+    this.series = 0,
+    this.liveMatches = 0,
+    this.isLiveToday = false,
+  });
+
+  final String date;
+  final int users;
+  final int teams;
+  final int matches;
+  final int players;
+  final int tournaments;
+  final int grounds;
+  final int series;
+  final int liveMatches;
+  final bool isLiveToday;
+
+  int get trackedDocuments =>
+      users + teams + matches + players + tournaments + grounds + series;
+
+  /// Asia/Colombo (IST, UTC+5:30, no DST) calendar date as YYYY-MM-DD.
+  static String colomboDateId([DateTime? utcNow]) {
+    final ist = (utcNow ?? DateTime.now().toUtc())
+        .add(const Duration(hours: 5, minutes: 30));
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${ist.year}-${two(ist.month)}-${two(ist.day)}';
+  }
+
+  factory PlatformDailyStat.fromMap(String id, Map<String, dynamic> map) {
+    return PlatformDailyStat(
+      date: (map['date'] as String?)?.trim().isNotEmpty == true
+          ? map['date'] as String
+          : id,
+      users: (map['users'] as num?)?.toInt() ?? 0,
+      teams: (map['teams'] as num?)?.toInt() ?? 0,
+      matches: (map['matches'] as num?)?.toInt() ?? 0,
+      players: (map['players'] as num?)?.toInt() ?? 0,
+      tournaments: (map['tournaments'] as num?)?.toInt() ?? 0,
+      grounds: (map['grounds'] as num?)?.toInt() ?? 0,
+      series: (map['series'] as num?)?.toInt() ?? 0,
+      liveMatches: (map['liveMatches'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  /// History plus today's live counts (replaces a same-day stored row).
+  static List<PlatformDailyStat> mergeLiveToday({
+    required List<PlatformDailyStat> history,
+    required PlatformDailyStat today,
+  }) {
+    final merged = [
+      for (final row in history)
+        if (row.date != today.date) row,
+      today,
+    ];
+    merged.sort((a, b) => a.date.compareTo(b.date));
+    return merged;
+  }
+
+  @override
+  List<Object?> get props => [date, users, teams, matches, isLiveToday];
+}
+
 /// Full monitoring hub payload. Designed so Firebase Performance, Crashlytics,
 /// BigQuery, Grafana, Datadog, and Sentry can replace repository internals later.
 class MonitoringSnapshot extends Equatable {
@@ -397,6 +468,7 @@ class MonitoringSnapshot extends Equatable {
     this.scheduledJobs = const [],
     this.backgroundTasks = const [],
     this.timeline = const [],
+    this.growth = const [],
   });
 
   final DateTime? generatedAt;
@@ -418,7 +490,8 @@ class MonitoringSnapshot extends Equatable {
   final List<ScheduledJobItem> scheduledJobs;
   final List<BackgroundTaskItem> backgroundTasks;
   final List<HealthTimelineEvent> timeline;
+  final List<PlatformDailyStat> growth;
 
   @override
-  List<Object?> get props => [generatedAt, platformHealth, overview.length];
+  List<Object?> get props => [generatedAt, platformHealth, overview.length, growth.length];
 }

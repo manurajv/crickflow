@@ -254,9 +254,9 @@ class _ContinuityScreenState extends ConsumerState<ContinuityScreen> {
               ),
               SizedBox(height: 8),
               Text(
-                'Architecture ready for JSON, CSV, Excel, configuration files, '
-                'and settings. No importer runs from this UI yet. Future workers '
-                'must require Super Admin confirmation and validation before write.',
+                'No importer is connected. This panel is read-only and will not '
+                'write production data. A future importer would require Super Admin '
+                'confirmation and validation before any write.',
               ),
             ],
           ),
@@ -272,9 +272,8 @@ class _ContinuityScreenState extends ConsumerState<ContinuityScreen> {
               ),
               SizedBox(height: 8),
               Text(
-                'Architecture ready for Firestore metadata, settings, '
-                'configurations, users, organizations, teams, grounds, matches, '
-                'audit logs, and analytics. Exports must never include API keys, '
+                'No exporter is connected. This panel is read-only and does not '
+                'download data. A future exporter must never include API keys, '
                 'OAuth tokens, or Firebase secrets.',
               ),
             ],

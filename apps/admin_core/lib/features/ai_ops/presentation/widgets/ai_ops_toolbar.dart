@@ -51,7 +51,6 @@ class AiOpsToolbar extends StatelessWidget {
     required this.onScheduleScan,
     required this.filterActive,
     required this.refreshing,
-    this.onSeedDemo,
   });
 
   final TextEditingController? searchController;
@@ -62,7 +61,6 @@ class AiOpsToolbar extends StatelessWidget {
   final VoidCallback onScheduleScan;
   final bool filterActive;
   final bool refreshing;
-  final VoidCallback? onSeedDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -110,11 +108,6 @@ class AiOpsToolbar extends StatelessWidget {
               onPressed: onScheduleScan,
               child: const Text('Schedule Scan'),
             ),
-            if (onSeedDemo != null)
-              TextButton(
-                onPressed: onSeedDemo,
-                child: const Text('Seed demo queue'),
-              ),
             Text(
               'No continuous Firestore scans · batch jobs only',
               style: TextStyle(

@@ -77,6 +77,9 @@ abstract final class AdminCollections {
   /// Platform settings singleton (`global` doc) — Super Admin writes.
   static const adminPlatformSettings = 'admin_platform_settings';
 
+  /// Daily platform document counts for monitoring growth charts.
+  static const adminPlatformDailyStats = 'admin_platform_daily_stats';
+
   /// Feature flag documents keyed by flag name.
   static const adminFeatureFlags = 'admin_feature_flags';
 
