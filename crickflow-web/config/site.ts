@@ -1,10 +1,21 @@
+/** Bump this when replacing favicon or logo files so browsers fetch the new assets. */
+export const assetVersion = "20261120";
+
 export const siteConfig = {
   name: "CrickFlow",
   tagline: "Score. Stream. Connect.",
   description:
     "Live cricket scores, tournaments, teams, players, and community — the web home of CrickFlow.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://crickflow.web.app",
-  logoUrl: "https://crickflow-b06bc.web.app/assets/crickflow-logo.png",
+  logoUrl: `/icons/crickflow-logo.png?v=${assetVersion}`,
+  icons: {
+    ico: `/favicon.ico?v=${assetVersion}`,
+    png16: `/icons/favicon-16.png?v=${assetVersion}`,
+    png32: `/icons/favicon-32.png?v=${assetVersion}`,
+    apple: `/icons/apple-touch-icon.png?v=${assetVersion}`,
+    icon192: `/icons/icon-192.png?v=${assetVersion}`,
+    icon512: `/icons/icon-512.png?v=${assetVersion}`,
+  },
   playStoreUrl: "https://play.google.com/store/apps/details?id=com.mavixas.crickflow",
 } as const;
 

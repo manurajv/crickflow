@@ -13,24 +13,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/auth-provider";
 import { InboxBadges } from "@/features/layout/inbox-badges";
 import { SearchDialog } from "@/features/search/search-dialog";
+import { PRIMARY_NAV, SECONDARY_NAV } from "@/lib/layout/site-nav";
 
-const NAV = [
-  { href: "/", label: "Home" },
-  { href: "/matches", label: "Matches" },
-  { href: "/series", label: "Orgs" },
-  { href: "/tournaments", label: "Tournaments" },
-  { href: "/teams", label: "Teams" },
-  { href: "/community", label: "Community" },
-  { href: "/discover", label: "Discover" },
-  { href: "/my-cricket", label: "My Cricket" },
-];
-
-const SECONDARY_NAV = [
-  { href: "/players", label: "Players" },
-  { href: "/rankings", label: "Rankings" },
-  { href: "/grounds", label: "Grounds" },
-  { href: "/statistics", label: "Statistics" },
-];
 
 function pathMatches(pathname: string, href: string) {
   const current = pathname.replace(/\/+$/, "") || "/";
@@ -61,27 +45,28 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-chrome/95 backdrop-blur-md">
       <div className="h-1 bg-gradient-to-r from-cricket via-primary to-gold" aria-hidden />
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">
-        <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-3 sm:gap-3 sm:px-4">
+        <Link href="/" className="flex shrink-0 items-center gap-2 font-bold tracking-tight">
           <Image
             src={siteConfig.logoUrl}
-            alt=""
+            alt={siteConfig.name}
             width={36}
             height={36}
-            className="rounded-lg"
+            className="h-9 w-9 rounded-lg bg-white"
             priority
           />
-          <span className="hidden sm:inline">{siteConfig.name}</span>
+          {/* Wordmark shows beside the logo on tablet (nav is in the menu) and again at 2xl when there is room. */}
+          <span className="hidden truncate sm:inline lg:hidden 2xl:inline">{siteConfig.name}</span>
         </Link>
-        <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary">
-          {NAV.map((item) => {
+        <nav className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-hidden lg:flex" aria-label="Primary">
+          {PRIMARY_NAV.map((item) => {
             const active = pathMatches(pathname, item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground xl:px-3",
+                  "shrink-0 rounded-lg px-2 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground xl:px-2.5 2xl:px-3",
                   active && "bg-accent-soft text-[color:var(--nav-selected)] font-semibold dark:bg-accent-soft dark:text-[color:var(--nav-selected)]",
                 )}
               >
@@ -90,7 +75,7 @@ export function SiteHeader() {
             );
           })}
           <details className="relative">
-            <summary className="cursor-pointer list-none rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground xl:px-3">
+            <summary className="cursor-pointer list-none rounded-lg px-2 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground xl:px-2.5 2xl:px-3">
               More
             </summary>
             <div className="absolute left-0 top-full z-50 mt-1 min-w-[10rem] rounded-xl border border-border bg-card p-1 shadow-lg">
@@ -109,17 +94,17 @@ export function SiteHeader() {
             </div>
           </details>
         </nav>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <Button
             variant="outline"
-            className="hidden h-9 w-56 justify-start text-muted-foreground md:flex"
+            className="hidden h-9 w-44 justify-start text-muted-foreground xl:flex xl:w-56"
             onClick={() => setSearchOpen(true)}
           >
             <Search className="h-4 w-4" />
             Search cricket…
             <kbd className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">Ctrl K</kbd>
           </Button>
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSearchOpen(true)} aria-label="Search">
+          <Button variant="ghost" size="icon" className="xl:hidden" onClick={() => setSearchOpen(true)} aria-label="Search">
             <Search className="h-5 w-5" />
           </Button>
           <ThemeToggle />
@@ -155,7 +140,7 @@ export function SiteHeader() {
       </div>
       {open ? (
         <nav className="grid gap-1 border-t border-border px-4 py-3 lg:hidden">
-          {[...NAV, ...SECONDARY_NAV].map((item) => (
+          {[...PRIMARY_NAV, ...SECONDARY_NAV].map((item) => (
             <Link
               key={item.href}
               href={item.href}

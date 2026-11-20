@@ -10,6 +10,33 @@
     ],
     "headers": [
       {
+        "source": "/favicon.ico",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/icons/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/assets/crickflow-logo.png",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ]
+      },
+      {
         "source": "/.well-known/apple-app-site-association",
         "headers": [
           {
@@ -297,6 +324,28 @@
       {
         "source": "**",
         "destination": "/404.html"
+      }
+    ],
+    "redirects": [
+      {
+        "source": "/my-cricket",
+        "destination": "/profile/",
+        "type": 301
+      },
+      {
+        "source": "/my-cricket/",
+        "destination": "/profile/",
+        "type": 301
+      },
+      {
+        "source": "/my-cricket-profile",
+        "destination": "/profile/",
+        "type": 301
+      },
+      {
+        "source": "/my-cricket-profile/",
+        "destination": "/profile/",
+        "type": 301
       }
     ]
   }

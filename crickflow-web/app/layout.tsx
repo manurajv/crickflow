@@ -33,8 +33,12 @@ export const metadata: Metadata = {
   applicationName: siteConfig.name,
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/favicon.ico",
-    apple: siteConfig.logoUrl,
+    icon: [
+      { url: siteConfig.icons.ico, sizes: "any" },
+      { url: siteConfig.icons.png16, sizes: "16x16", type: "image/png" },
+      { url: siteConfig.icons.png32, sizes: "32x32", type: "image/png" },
+    ],
+    apple: siteConfig.icons.apple,
   },
   appleWebApp: {
     capable: true,

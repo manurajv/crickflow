@@ -3,11 +3,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-/** Alias for mobile "My Cricket" entry → web profile hub. */
-export default function MyCricketAlias() {
+/** Legacy mobile alias — the website profile is the destination. */
+export default function MyCricketProfileAlias() {
   const router = useRouter();
   useEffect(() => {
     router.replace("/profile/");
   }, [router]);
-  return <p>Opening My Cricket…</p>;
+  return <p>Taking you to your profile…</p>;
 }
