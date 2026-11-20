@@ -193,9 +193,9 @@ class StreamAudioSection extends ConsumerWidget {
               title: const Text('Gain'),
               subtitle: Slider(
                 value: config.micGain,
-                min: 0.5,
+                min: 0,
                 max: 2,
-                divisions: 6,
+                divisions: 8,
                 label: config.micGain.toStringAsFixed(1),
                 onChanged: (v) =>
                     notifier.update((c) => c.copyWith(micGain: v)),

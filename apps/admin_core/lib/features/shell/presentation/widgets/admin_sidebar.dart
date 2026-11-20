@@ -10,6 +10,7 @@ import '../../../../core/theme/admin_colors.dart';
 import '../../../../core/theme/admin_motion.dart';
 import '../../../../models/nav_models.dart';
 import '../../../../shared/widgets/cf_dialog.dart';
+import '../../../../shared/widgets/powered_by_mavixas.dart';
 import '../../../auth/providers/auth_providers.dart';
 import '../../providers/shell_providers.dart';
 
@@ -72,6 +73,11 @@ class AdminSidebar extends ConsumerWidget {
                 ),
               ),
               _LogoutTile(compact: compact),
+              PoweredByMavixas(
+                compact: compact,
+                mutedColor: context.adminColors.sidebarFgMuted,
+                linkColor: context.adminColors.sidebarFg,
+              ),
               SizedBox(height: dimens.spaceMd),
             ],
           );

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/auth_gate.dart';
 import '../../core/constants/app_constants.dart';
@@ -11,6 +10,7 @@ import '../../core/constants/enums.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
 import '../../core/utils/cf_player_id_format.dart';
+import 'powered_by_mavixas.dart';
 import '../../data/models/user_model.dart';
 import '../providers/my_cricket_ui_provider.dart';
 import '../providers/providers.dart';
@@ -259,40 +259,9 @@ class CfAppDrawer extends ConsumerWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppDimens.spaceXs),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Powered by ',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: context.cf.textMuted,
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () async {
-                          final uri = Uri.parse('https://mavixas.com');
-                          if (!await launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          )) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Could not open $uri')),
-                              );
-                            }
-                          }
-                        },
-                        child: Text(
-                          'Mavixas',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: context.cf.link,
-                                decoration: TextDecoration.underline,
-                                decorationColor: context.cf.link,
-                              ),
-                        ),
-                      ),
-                    ],
+                  PoweredByMavixas(
+                    mutedColor: context.cf.textMuted,
+                    linkColor: context.cf.link,
                   ),
                 ],
               ),

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { AppLink as Link } from "@/components/shared/app-link";
+import { PoweredByMavixas } from "@/components/shared/powered-by-mavixas";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, Search } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -256,6 +257,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-white/10 py-4 text-center text-xs text-white/50">
         <p suppressHydrationWarning>© {new Date().getFullYear()} CrickFlow · {siteConfig.tagline}</p>
+        <PoweredByMavixas className="mt-2" />
       </div>
     </footer>
   );
