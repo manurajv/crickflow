@@ -67,13 +67,11 @@ abstract final class AdminA11y {
 
 /// Extension for quick l10n access.
 extension AdminL10nContext on BuildContext {
-  AdminLocalizations get l10n => AdminLocalizations.of(this);
+  /// Falls back to English when no localizations are in scope (for example
+  /// while the app is still starting), instead of a null-check crash.
+  AdminLocalizations get l10n =>
+      l10nOrNull ?? lookupAdminLocalizations(const Locale('en'));
 
-  AdminLocalizations? get l10nOrNull {
-    try {
-      return AdminLocalizations.of(this);
-    } catch (_) {
-      return null;
-    }
-  }
+  AdminLocalizations? get l10nOrNull =>
+      Localizations.of<AdminLocalizations>(this, AdminLocalizations);
 }

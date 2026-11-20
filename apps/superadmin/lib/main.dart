@@ -32,7 +32,7 @@ class SuperAdminApp extends ConsumerWidget {
     final router = ref.watch(_routerProvider);
 
     return MaterialApp.router(
-      onGenerateTitle: (context) => context.l10n.appTitleSuperAdmin,
+      onGenerateTitle: (context) => context.l10nOrNull?.appTitleSuperAdmin ?? 'CrickFlow Super Admin',
       debugShowCheckedModeBanner: false,
       theme: AdminTheme.light(
         primary: lightColors.primary,

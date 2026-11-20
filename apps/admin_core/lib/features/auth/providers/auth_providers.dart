@@ -170,11 +170,10 @@ final adminSessionProvider = Provider<AdminSession>((ref) {
     );
   }
 
+  final fallbackRole = AdminRole.tryParse(admin.roleId);
   final role =
       roleAsync.asData?.value ??
-      (AdminRole.tryParse(admin.roleId) != null
-          ? RoleDefinition.fallback(AdminRole.tryParse(admin.roleId)!)
-          : null);
+      (fallbackRole == null ? null : RoleDefinition.fallback(fallbackRole));
 
   if (role == null || !role.canAccessAnyAdminPanel) {
     return AdminSession(

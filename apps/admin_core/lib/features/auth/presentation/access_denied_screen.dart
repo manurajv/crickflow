@@ -105,10 +105,10 @@ class AccessDeniedScreen extends ConsumerWidget {
                         ),
                       ),
                     ],
-                    if (session.firebaseUser?.email != null) ...[
+                    if (session.firebaseUser?.email case final email?) ...[
                       const SizedBox(height: 8),
                       Text(
-                        session.firebaseUser!.email!,
+                        email,
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               color: AdminColors.primaryBlue,
@@ -116,11 +116,11 @@ class AccessDeniedScreen extends ConsumerWidget {
                             ),
                       ),
                     ],
-                    if (session.firebaseUser != null) ...[
+                    if (session.firebaseUser case final user?) ...[
                       const SizedBox(height: 4),
                       // Lets the person send their UID to a Super Admin.
                       SelectableText(
-                        'UID: ${session.firebaseUser!.uid}',
+                        'UID: ${user.uid}',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: colors.textMuted,
