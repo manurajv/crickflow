@@ -29,6 +29,11 @@ GoRouter createSuperAdminRouter(Ref ref) {
         path: AdminRoutePaths.forbidden,
         builder: (context, state) => const ForbiddenScreen(),
       ),
+      // Common bookmark / deep link; dashboard lives at `/`.
+      GoRoute(
+        path: AdminRoutePaths.dashboardAlias,
+        redirect: (context, state) => AdminRoutePaths.dashboard,
+      ),
       ShellRoute(
         builder: (context, state, child) => AdminShell(child: child),
         routes: [
@@ -53,14 +58,28 @@ GoRouter createSuperAdminRouter(Ref ref) {
                 const NoTransitionPage(child: UsersScreen()),
           ),
           GoRoute(
+            path: AdminRoutePaths.admins,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AdminsScreen()),
+          ),
+          GoRoute(
             path: AdminRoutePaths.tournaments,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: TournamentsScreen()),
           ),
           GoRoute(
-            path: AdminRoutePaths.series,
+            path: AdminRoutePaths.orgs,
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: SeriesInvestigationScreen()),
+                const NoTransitionPage(child: OrgsSeriesScreen()),
+          ),
+          // Old bookmarks for the retired Organizations / Series pages.
+          GoRoute(
+            path: '/organizations',
+            redirect: (context, state) => AdminRoutePaths.orgs,
+          ),
+          GoRoute(
+            path: '/series',
+            redirect: (context, state) => AdminRoutePaths.orgs,
           ),
           GoRoute(
             path: AdminRoutePaths.matches,
@@ -127,11 +146,6 @@ GoRouter createSuperAdminRouter(Ref ref) {
             path: AdminRoutePaths.ads,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: AdsScreen()),
-          ),
-          GoRoute(
-            path: AdminRoutePaths.organizations,
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: OrganizationsScreen()),
           ),
           GoRoute(
             path: AdminRoutePaths.analytics,

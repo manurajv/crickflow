@@ -233,6 +233,7 @@ class MatchModel extends Equatable {
     this.seriesClubBId,
     this.seriesOfficialStatus,
     this.seriesRankingsProcessed = false,
+    this.orgRequestSeriesId,
   });
 
   final String id;
@@ -290,6 +291,10 @@ class MatchModel extends Equatable {
   final String? seriesOfficialStatus;
   final bool seriesRankingsProcessed;
 
+  /// Org the match was started in (client intent). The server registers it
+  /// (callable, or at completion as a fallback) with the usual checks.
+  final String? orgRequestSeriesId;
+
   /// Squad, roles, officials, and toss captured at match start.
   final MatchSetupData? setup;
   final List<OverNoteModel> overNotes;
@@ -307,6 +312,14 @@ class MatchModel extends Equatable {
       (tournamentId != null && tournamentId!.isNotEmpty);
 
   bool get isQuickMatch => matchMode == MatchMode.quick;
+
+  /// Belongs to an org (series) and was not rejected by it. Pending requests
+  /// count too so the org badge can say "Pending".
+  bool get isOrgMatch =>
+      (seriesId ?? '').isNotEmpty && seriesOfficialStatus != 'rejected';
+
+  /// Org match the org approved (counts for the org's tables).
+  bool get isOrgApproved => isOrgMatch && seriesOfficialStatus == 'approved';
 
   /// Quick Match always plays two innings (chase), even if rules say indoor/1.
   int get effectiveMaxInnings {
@@ -409,6 +422,7 @@ class MatchModel extends Equatable {
       seriesClubBId: map['seriesClubBId'] as String?,
       seriesOfficialStatus: map['seriesOfficialStatus'] as String?,
       seriesRankingsProcessed: map['seriesRankingsProcessed'] as bool? ?? false,
+      orgRequestSeriesId: map['orgRequestSeriesId'] as String?,
     );
   }
 
@@ -487,6 +501,7 @@ class MatchModel extends Equatable {
     if (seriesOfficialStatus != null)
       'seriesOfficialStatus': seriesOfficialStatus,
     if (seriesRankingsProcessed) 'seriesRankingsProcessed': true,
+    if (orgRequestSeriesId != null) 'orgRequestSeriesId': orgRequestSeriesId,
   };
 
   MatchModel copyWith({
@@ -535,6 +550,7 @@ class MatchModel extends Equatable {
     String? seriesClubBId,
     String? seriesOfficialStatus,
     bool? seriesRankingsProcessed,
+    String? orgRequestSeriesId,
   }) {
     return MatchModel(
       id: id,
@@ -596,6 +612,7 @@ class MatchModel extends Equatable {
       seriesOfficialStatus: seriesOfficialStatus ?? this.seriesOfficialStatus,
       seriesRankingsProcessed:
           seriesRankingsProcessed ?? this.seriesRankingsProcessed,
+      orgRequestSeriesId: orgRequestSeriesId ?? this.orgRequestSeriesId,
     );
   }
 

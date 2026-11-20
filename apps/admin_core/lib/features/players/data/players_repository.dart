@@ -22,9 +22,6 @@ class PlayersRepository {
   CollectionReference<Map<String, dynamic>> get _players =>
       _db.collection(AdminCollections.players);
 
-  CollectionReference<Map<String, dynamic>> get _teams =>
-      _db.collection(AdminCollections.teams);
-
   CollectionReference<Map<String, dynamic>> get _audit =>
       _db.collection(AdminCollections.adminAuditLogs);
 
@@ -36,14 +33,6 @@ class PlayersRepository {
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
     int limit = 25,
   }) async {
-    if (appType == AdminAppType.organizationAdmin) {
-      return _fetchOrgScopedPage(
-        actor: actor,
-        filters: filters,
-        sort: sort,
-        limit: limit,
-      );
-    }
 
     Query<Map<String, dynamic>> query = _players;
     final q = filters.query.trim();
@@ -102,55 +91,6 @@ class PlayersRepository {
       players: players,
       hasMore: hasMore,
       cursor: pageDocs.isEmpty ? null : pageDocs.last,
-    );
-  }
-
-  /// Org Admin: players linked to teams that belong to the actor's organization.
-  Future<PlayerPageResult> _fetchOrgScopedPage({
-    required AdminUser? actor,
-    required PlayerListFilters filters,
-    required PlayerSort sort,
-    required int limit,
-  }) async {
-    final orgId = actor?.organizationId;
-    if (orgId == null || orgId.isEmpty) {
-      return const PlayerPageResult(players: [], hasMore: false);
-    }
-
-    final teamSnap = await _teams
-        .where('organizationId', isEqualTo: orgId)
-        .limit(AdminQueryLimits.summaryScanMax)
-        .get();
-
-    final playerIds = <String>{};
-    for (final doc in teamSnap.docs) {
-      final ids = List<String>.from(doc.data()['playerIds'] as List? ?? const []);
-      playerIds.addAll(ids.where((id) => id.isNotEmpty));
-    }
-
-    if (playerIds.isEmpty) {
-      return const PlayerPageResult(players: [], hasMore: false);
-    }
-
-    final players = <ManagedPlayer>[];
-    final idList = playerIds.toList();
-    for (var i = 0; i < idList.length; i += 10) {
-      final chunk = idList.sublist(i, i + 10 > idList.length ? idList.length : i + 10);
-      final snaps = await Future.wait(chunk.map((id) => _players.doc(id).get()));
-      for (final s in snaps) {
-        if (s.exists && s.data() != null) {
-          players.add(ManagedPlayer.fromFirestore(id: s.id, map: s.data()!));
-        }
-      }
-    }
-
-    var filtered = _applyClientFilters(players, filters);
-    filtered = _sortClient(filtered, sort);
-    final page = filtered.take(limit).toList();
-
-    return PlayerPageResult(
-      players: page,
-      hasMore: filtered.length > limit,
     );
   }
 
@@ -245,12 +185,7 @@ class PlayersRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) {
-    if (appType != AdminAppType.organizationAdmin) return true;
-    final orgId = actor?.organizationId;
-    if (orgId == null || orgId.isEmpty) return false;
-    if (player.organizationId == orgId) return true;
-    // Org visibility for players without organizationId is enforced at list
-    // time via team membership; detail allows if already selected from list.
+    // Single platform panel: every record is in scope.
     return true;
   }
 

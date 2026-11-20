@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/theme/app_dimens.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 /// Shared loading / error / empty wrapper for tournament dashboard tabs.
 class TournamentAsyncTab<T> extends StatelessWidget {
@@ -35,7 +36,7 @@ class TournamentAsyncTab<T> extends StatelessWidget {
             Center(
               child: Padding(
                 padding: AppDimens.screenPadding,
-                child: Text('$e', textAlign: TextAlign.center),
+                child: Text(friendlyError(e), textAlign: TextAlign.center),
               ),
             ),
           ],

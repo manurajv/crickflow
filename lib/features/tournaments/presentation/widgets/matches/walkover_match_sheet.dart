@@ -5,6 +5,7 @@ import '../../../../../core/theme/app_dimens.dart';
 import '../../../../../data/models/match_model.dart';
 import '../../../../../shared/providers/providers.dart';
 import '../../../../../shared/widgets/cf_button.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 Future<void> showWalkoverMatchSheet(
   BuildContext context,
@@ -130,7 +131,7 @@ class _WalkoverMatchSheetState extends ConsumerState<_WalkoverMatchSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {

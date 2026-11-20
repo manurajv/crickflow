@@ -5,7 +5,7 @@ import '../data/dashboard_repository.dart';
 import '../models/dashboard_models.dart';
 
 final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
-  return const DashboardRepository();
+  return DashboardRepository();
 });
 
 /// Live clock for welcome header / health strip.

@@ -57,13 +57,7 @@ class AiOpsRepository {
   }) async {
     Query<Map<String, dynamic>> query = _recs;
 
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const AiOpsPageResult(items: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    } else if (filters.organizationId?.isNotEmpty == true) {
+    if (filters.organizationId?.isNotEmpty == true) {
       query = query.where(
         'organizationId',
         isEqualTo: filters.organizationId,
@@ -217,10 +211,55 @@ class AiOpsRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) async {
-    final orgId = appType == AdminAppType.organizationAdmin
-        ? actor?.organizationId
-        : null;
-    return _provider.generateInsights(organizationId: orgId);
+    final fromProvider = await _provider.generateInsights();
+    if (fromProvider.isNotEmpty) return fromProvider;
+
+    Future<int> countOf(String name) async {
+      try {
+        final agg = await _db.collection(name).count().get();
+        return agg.count ?? 0;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    final users = await countOf(AdminCollections.users);
+    final teams = await countOf(AdminCollections.teams);
+    final matches = await countOf(AdminCollections.matches);
+    final reports = await countOf(AdminCollections.communityPostReports);
+    final pendingRecs = await countOf(AdminCollections.adminAiRecommendations);
+    return [
+      AiInsightCard(
+        id: 'users',
+        title: 'Registered users',
+        value: '$users',
+        subtitle: 'Live Firestore count — no ML provider is connected',
+      ),
+      AiInsightCard(
+        id: 'teams',
+        title: 'Teams',
+        value: '$teams',
+        subtitle: 'Live Firestore count — no ML provider is connected',
+      ),
+      AiInsightCard(
+        id: 'matches',
+        title: 'Matches',
+        value: '$matches',
+        subtitle: 'Live Firestore count — no ML provider is connected',
+      ),
+      AiInsightCard(
+        id: 'reports',
+        title: 'Community post reports',
+        value: '$reports',
+        subtitle: 'Live Firestore count of community_post_reports',
+      ),
+      AiInsightCard(
+        id: 'ai_queue',
+        title: 'AI recommendation docs',
+        value: '$pendingRecs',
+        subtitle: 'Documents in admin_ai_recommendations, including resolved',
+      ),
+    ];
   }
 
   Future<void> resolveRecommendation({
@@ -314,11 +353,6 @@ class AiOpsRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> query = _rules;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap =
           await query.orderBy('updatedAt', descending: true).limit(100).get();
@@ -331,10 +365,6 @@ class AiOpsRepository {
         var items = snap.docs
             .map((d) => AiAutomationRule.fromMap(d.id, d.data()))
             .toList();
-        if (appType == AdminAppType.organizationAdmin) {
-          final orgId = actor?.organizationId;
-          items = items.where((r) => r.organizationId == orgId).toList();
-        }
         return items;
       } catch (_) {
         return const [];
@@ -513,11 +543,6 @@ class AiOpsRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> query = _jobs;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap = await query
           .orderBy('scheduledAt', descending: true)
@@ -568,11 +593,6 @@ class AiOpsRepository {
     int limit = 80,
   }) async {
     Query<Map<String, dynamic>> query = _logs;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap =
           await query.orderBy('timestamp', descending: true).limit(limit).get();

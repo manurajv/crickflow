@@ -13,6 +13,7 @@ import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/report_reason_dialog.dart';
 import '../../../community/presentation/chat/open_chat.dart';
 import 'player_follow_button.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class ProfileActionsBar extends ConsumerWidget {
   const ProfileActionsBar({
@@ -128,7 +129,7 @@ class ProfileActionsBar extends ConsumerWidget {
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Could not report: $e')),
+                      SnackBar(content: Text('Could not report: ${friendlyError(e)}')),
                     );
                   }
                 }

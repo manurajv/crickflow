@@ -20,6 +20,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/team_join_request_provider.dart';
 
 import '../../../../shared/providers/team_players_provider.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 
 
@@ -185,7 +186,7 @@ class TeamJoinRequestsPanel extends ConsumerWidget {
 
         child: Text(
 
-          'Could not load join requests: $e',
+          'Could not load join requests: ${friendlyError(e)}',
 
           style: const TextStyle(color: AppColors.accentRed, fontSize: 13),
 
@@ -375,7 +376,7 @@ class _JoinRequestRowState extends ConsumerState<_JoinRequestRow> {
 
         ScaffoldMessenger.of(context).showSnackBar(
 
-          SnackBar(content: Text('Could not update request: $e')),
+          SnackBar(content: Text('Could not update request: ${friendlyError(e)}')),
 
         );
 

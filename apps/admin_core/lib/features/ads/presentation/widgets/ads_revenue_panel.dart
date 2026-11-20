@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/extensions/context_extensions.dart';
 import '../../../../core/theme/admin_colors.dart';
 import '../../../../shared/widgets/cf_card.dart';
+import '../../../../shared/widgets/cf_empty_state.dart';
 import '../../../../shared/widgets/cf_stat_tile.dart';
 import '../../models/managed_ads.dart';
 
@@ -45,13 +46,21 @@ class AdsRevenuePanel extends StatelessWidget {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Placeholder analytics — connect AdMob / campaign reporting for live revenue data.',
+                  'Connect AdMob reporting for live earnings. Numbers below are in-app campaign metadata only — not AdMob reported revenue.',
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
+        if (!_hasInAppMetrics(summary, campaigns))
+          const CfEmptyState(
+            title: 'Connect AdMob reporting',
+            message:
+                'No in-app impression or estimated-revenue metadata is stored on these campaigns yet. This panel will not invent earnings. Connect AdMob reporting for live network numbers, or record estimates on the campaign documents.',
+            icon: Icons.link_off,
+          )
+        else
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
@@ -151,6 +160,13 @@ class AdsRevenuePanel extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  bool _hasInAppMetrics(AdsSummaryStats summary, List<ManagedAdCampaign> campaigns) {
+    if (summary.totalImpressions > 0 || summary.estimatedRevenue > 0) {
+      return true;
+    }
+    return campaigns.any((c) => c.impressions > 0 || c.estimatedRevenue > 0);
   }
 
   double _averageCtr(List<ManagedAdCampaign> campaigns) {

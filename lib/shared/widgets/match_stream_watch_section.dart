@@ -14,6 +14,7 @@ import '../../features/streaming/presentation/providers/streaming_studio_provide
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/cf_button.dart';
 import 'match_stream_player.dart';
+import '../../core/utils/friendly_error.dart';
 
 /// Watch panel pinned below the app bar with a stream picker when multiple URLs exist.
 class MatchStreamWatchSection extends ConsumerStatefulWidget {
@@ -530,7 +531,7 @@ class _StreamWatchUrlSheetState extends ConsumerState<_StreamWatchUrlSheet> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = '$e';
+          _error = friendlyError(e);
         });
       }
     }

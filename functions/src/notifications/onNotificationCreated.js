@@ -1,6 +1,7 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { getFirestore } = require('firebase-admin/firestore');
 const { sendPushToUser } = require('./pushUtils');
+const { isPriorityType } = require('./notificationPriority');
 
 /** Types that already send FCM inside fanOut / notifySingleUser. */
 const PUSH_ALREADY_SENT_TYPES = new Set([
@@ -37,6 +38,15 @@ exports.onNotificationCreated = onDocumentCreated(
   async (event) => {
     const data = event.data?.data();
     if (!data) return;
+
+    // Tab flag for every new notification (server- or client-created).
+    if (typeof data.priority !== 'boolean') {
+      try {
+        await event.data.ref.update({ priority: isPriorityType(data.type) });
+      } catch (err) {
+        console.warn('notification priority stamp failed', err.message);
+      }
+    }
 
     if (data.type === 'team_join_request' || data.type === 'team_invitation') {
       return;

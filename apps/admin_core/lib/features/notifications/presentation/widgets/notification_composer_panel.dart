@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -51,8 +52,8 @@ class _NotificationComposerPanelState
   @override
   void initState() {
     super.initState();
-    final i = widget.initial ??
-        const ManagedNotificationCampaign(id: '', title: '');
+    final i =
+        widget.initial ?? const ManagedNotificationCampaign(id: '', title: '');
     _title = TextEditingController(text: i.title);
     _subtitle = TextEditingController(text: i.subtitle);
     _body = TextEditingController(text: i.body);
@@ -62,9 +63,7 @@ class _NotificationComposerPanelState
     _deepLink = TextEditingController(text: i.deepLink);
     _timezone = TextEditingController(text: i.timezone);
     _campaignName = TextEditingController(text: i.campaignName);
-    _specificUserIds = TextEditingController(
-      text: i.audienceIds.join(', '),
-    );
+    _specificUserIds = TextEditingController(text: i.audienceIds.join(', '));
     _type = i.type;
     _priority = i.priority;
     _sound = i.sound;
@@ -94,10 +93,10 @@ class _NotificationComposerPanelState
     final initial = widget.initial;
     final audienceIds = _audience == ManagedNotificationAudience.specificUsers
         ? _specificUserIds.text
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList()
+              .split(',')
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList()
         : <String>[];
 
     return ManagedNotificationCampaign(
@@ -137,24 +136,54 @@ class _NotificationComposerPanelState
       }
       if (mounted) {
         widget.onClose();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Draft saved')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Draft saved')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _sendNow() async {
+  Future<void> _sendNow({bool dryRun = false}) async {
     setState(() => _busy = true);
     try {
-      await _controller.sendNow(_buildCampaign());
-      if (mounted) {
-        widget.onClose();
+      final result = await _controller.sendNow(
+        _buildCampaign(),
+        dryRun: dryRun,
+      );
+      if (!mounted) return;
+      final note = result['deliveryNote'] as String?;
+      if (dryRun) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notification queued for delivery')),
+          SnackBar(
+            content: Text(note ?? 'Dry run complete — nothing was sent'),
+          ),
         );
+      } else {
+        widget.onClose();
+        final done = result['done'] == true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              done
+                  ? (note ?? 'Notification sent')
+                  : (note ?? 'Send started; progress is on the Delivery tab'),
+            ),
+          ),
+        );
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message ?? e.code)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -173,9 +202,9 @@ class _NotificationComposerPanelState
       );
       if (mounted) {
         widget.onClose();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notification scheduled')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Notification scheduled')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -196,7 +225,13 @@ class _NotificationComposerPanelState
     );
     if (time == null || !mounted) return;
     setState(() {
-      _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _scheduledAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -221,10 +256,9 @@ class _NotificationComposerPanelState
                       widget.initial?.id.isEmpty ?? true
                           ? 'Create notification'
                           : 'Edit notification',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -294,8 +328,9 @@ class _NotificationComposerPanelState
                   const SizedBox(height: 12),
                   TextField(
                     controller: _actionButton,
-                    decoration:
-                        const InputDecoration(labelText: 'Action button text'),
+                    decoration: const InputDecoration(
+                      labelText: 'Action button text',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -350,7 +385,8 @@ class _NotificationComposerPanelState
                       if (v != null) setState(() => _audience = v);
                     },
                   ),
-                  if (_audience == ManagedNotificationAudience.specificUsers) ...[
+                  if (_audience ==
+                      ManagedNotificationAudience.specificUsers) ...[
                     const SizedBox(height: 12),
                     TextField(
                       controller: _specificUserIds,
@@ -361,8 +397,10 @@ class _NotificationComposerPanelState
                     ),
                   ],
                   const SizedBox(height: 16),
-                  Text('Schedule mode',
-                      style: Theme.of(context).textTheme.titleSmall),
+                  Text(
+                    'Schedule mode',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 8),
                   SegmentedButton<ManagedScheduleMode>(
                     segments: [
@@ -381,14 +419,18 @@ class _NotificationComposerPanelState
                       label: Text(
                         _scheduledAt == null
                             ? 'Pick date & time'
-                            : _scheduledAt!.toLocal().toString().substring(0, 16),
+                            : _scheduledAt!.toLocal().toString().substring(
+                                0,
+                                16,
+                              ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<ManagedRecurrence>(
                       value: _recurrence,
-                      decoration:
-                          const InputDecoration(labelText: 'Recurrence'),
+                      decoration: const InputDecoration(
+                        labelText: 'Recurrence',
+                      ),
                       items: [
                         for (final r in ManagedRecurrence.values)
                           DropdownMenuItem(value: r, child: Text(r.label)),
@@ -417,8 +459,9 @@ class _NotificationComposerPanelState
                     const SizedBox(height: 8),
                     TextField(
                       controller: _campaignName,
-                      decoration:
-                          const InputDecoration(labelText: 'Campaign name'),
+                      decoration: const InputDecoration(
+                        labelText: 'Campaign name',
+                      ),
                     ),
                   ],
                 ],
@@ -437,14 +480,22 @@ class _NotificationComposerPanelState
                     expanded: true,
                   ),
                   const SizedBox(height: 8),
-                  if (_scheduleMode == ManagedScheduleMode.immediate)
+                  if (_scheduleMode == ManagedScheduleMode.immediate) ...[
                     CfButton(
-                      label: 'Send Now / Queue',
+                      label: 'Dry run (no send)',
+                      variant: CfButtonVariant.secondary,
                       isLoading: _busy,
-                      onPressed: _busy ? null : _sendNow,
+                      onPressed: _busy ? null : () => _sendNow(dryRun: true),
                       expanded: true,
-                    )
-                  else
+                    ),
+                    const SizedBox(height: 8),
+                    CfButton(
+                      label: 'Send now',
+                      isLoading: _busy,
+                      onPressed: _busy ? null : () => _sendNow(),
+                      expanded: true,
+                    ),
+                  ] else
                     CfButton(
                       label: 'Schedule',
                       isLoading: _busy,

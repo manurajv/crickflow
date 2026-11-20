@@ -14,6 +14,7 @@ import '../../../teams/presentation/widgets/team_list_tile.dart';
 import '../../../teams/presentation/widgets/teams_list_toolbar.dart';
 import '../widgets/my_cricket_action_banner.dart';
 import '../widgets/my_cricket_guest_sign_in_prompt.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class MyCricketTeamsTab extends ConsumerStatefulWidget {
   const MyCricketTeamsTab({super.key});
@@ -135,7 +136,7 @@ class _MyCricketTeamsTabState extends ConsumerState<MyCricketTeamsTab> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   SizedBox(height: MediaQuery.sizeOf(context).height * 0.2),
-                  Center(child: Text('$e')),
+                  Center(child: Text(friendlyError(e))),
                 ],
               ),
             ),

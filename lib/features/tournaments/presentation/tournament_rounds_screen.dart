@@ -10,6 +10,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import 'widgets/rounds/create_round_dialog.dart';
 import 'widgets/tournament_module_empty_state.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TournamentRoundsScreen extends ConsumerWidget {
   const TournamentRoundsScreen({
@@ -38,7 +39,7 @@ class TournamentRoundsScreen extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }
@@ -56,7 +57,7 @@ class TournamentRoundsScreen extends ConsumerWidget {
       ),
       body: roundsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (rounds) {
           if (rounds.isEmpty) {
             return TournamentModuleEmptyState(

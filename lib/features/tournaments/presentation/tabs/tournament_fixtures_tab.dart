@@ -11,6 +11,7 @@ import '../widgets/fixtures/tournament_fixtures_schedule.dart';
 import '../widgets/matches/schedule_matches_bottom_sheet.dart';
 import '../widgets/tournament_bracket_widget.dart';
 import '../widgets/tournament_module_empty_state.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class TournamentFixturesTab extends ConsumerWidget {
   const TournamentFixturesTab({
@@ -34,7 +35,7 @@ class TournamentFixturesTab extends ConsumerWidget {
 
     return matchesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
       data: (matches) {
         final formatLabel = tournamentFormatLabel(liveTournament.format);
         final knockoutMatches =

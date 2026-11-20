@@ -7,6 +7,7 @@ import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../domain/services/team_profile/team_profile_models.dart';
 import '../../../../../shared/providers/team_profile_provider.dart';
 import '../widgets/team_profile_empty_state.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 class TeamTrophiesTab extends ConsumerWidget {
   const TeamTrophiesTab({super.key, required this.teamId});
@@ -22,7 +23,7 @@ class TeamTrophiesTab extends ConsumerWidget {
       error: (e, _) => TeamProfileEmptyState(
         icon: Icons.error_outline,
         title: 'Unable to load trophies',
-        subtitle: '$e',
+        subtitle: friendlyError(e),
       ),
       data: (snap) {
         final trophies = snap.trophies;

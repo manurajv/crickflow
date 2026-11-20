@@ -142,8 +142,15 @@ class TeamSquadUtils {
   static bool isTeamViceCaptain(String? uid, TeamModel team) =>
       TeamLeadershipUtils.isTeamViceCaptain(uid, team);
 
+  /// Team-screen roster management (add players, join requests).
+  /// Org-locked teams change their roster only through the org.
   static bool canManageJoinRequests(String? uid, TeamModel team) =>
+      !team.isOrgLocked &&
       TeamLeadershipUtils.canManageJoinRequests(uid, team);
+
+  /// Team details can be edited here (owner, and not org-locked).
+  static bool canEditTeam(String? uid, TeamModel team) =>
+      !team.isOrgLocked && isTeamOwner(uid, team);
 
   static bool isLeadership(String? uid, TeamModel team) =>
       canManageJoinRequests(uid, team);
@@ -154,6 +161,7 @@ class TeamSquadUtils {
     required PlayerModel target,
     required List<PlayerModel> squad,
   }) =>
+      !team.isOrgLocked &&
       TeamLeadershipUtils.canRemoveMember(
         actorUid: actorUid,
         team: team,

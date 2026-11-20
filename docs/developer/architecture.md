@@ -1,5 +1,13 @@
 # Architecture Overview
 
+> **Update (2026-10-08): the Organization Admin panel (`apps/admin`, hosting site
+> `crickflow-admin`) was retired.** `apps/superadmin` is the only web admin panel
+> and is for CrickFlow platform staff (super admins, moderators, tournament admins,
+> support, viewers); each role sees only what its permissions allow, and
+> `firestore.rules` enforces the same permissions. Organization, club and series
+> administration lives in the mobile app (`lib/features/series`). References to
+> the Org Admin panel below are historical. See `docs/PLATFORM_ADMIN_SCOPE_PLAN.md`.
+
 ## Purpose
 
 Explain how CrickFlow Admin is structured so new engineers can navigate code, data, and permissions safely.
@@ -11,7 +19,6 @@ CrickFlow Admin is a **multi-app Flutter Web** system sharing one package:
 ```mermaid
 flowchart LR
   SA[apps/superadmin] --> CORE[apps/admin_core]
-  OA[apps/admin] --> CORE
   CORE --> FB[(Firebase Auth + Firestore)]
   MOBILE[Mobile app lib/] -.-> FB
 ```

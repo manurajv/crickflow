@@ -21,6 +21,8 @@ import 'widgets/ads_table.dart';
 import 'widgets/ads_toolbar.dart';
 import 'widgets/advertisers_panel.dart';
 import 'widgets/sponsored_panel.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class AdsScreen extends ConsumerStatefulWidget {
   const AdsScreen({super.key});
@@ -79,12 +81,51 @@ class _AdsScreenState extends ConsumerState<AdsScreen> {
     return _usesCampaignTable(section);
   }
 
-  void _exportStub() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Export (CSV / Excel / PDF) coming soon'),
-      ),
-    );
+  void _export() {
+    final state = ref.read(adsHubControllerProvider);
+    switch (state.section) {
+      case AdsHubSection.advertisers:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-advertisers',
+          headers: AdminListExports.advertiserHeaders,
+          rows: [
+            for (final a in state.advertisers)
+              AdminListExports.advertiserRow(a),
+          ],
+          hasMore: state.hasMore,
+        );
+      case AdsHubSection.sponsored:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-sponsored',
+          headers: AdminListExports.sponsoredHeaders,
+          rows: [
+            for (final s in state.sponsored) AdminListExports.sponsoredRow(s),
+          ],
+          hasMore: state.hasMore,
+        );
+      case AdsHubSection.admobConfig:
+      case AdsHubSection.revenue:
+      case AdsHubSection.placements:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'This section has no list of rows to export. Use the campaign list for stored ad records.',
+            ),
+          ),
+        );
+      default:
+        showAdminListExport(
+          context: context,
+          filenameBase: 'crickflow-ad-campaigns',
+          headers: AdminListExports.adCampaignHeaders,
+          rows: [
+            for (final c in state.campaigns) AdminListExports.adCampaignRow(c),
+          ],
+          hasMore: state.hasMore,
+        );
+    }
   }
 
   @override
@@ -113,8 +154,8 @@ class _AdsScreenState extends ConsumerState<AdsScreen> {
                   Text(
                     'Advertisements',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -165,7 +206,7 @@ class _AdsScreenState extends ConsumerState<AdsScreen> {
                         }
                       },
                       onRefresh: controller.refresh,
-                      onExport: _exportStub,
+                      onExport: _export,
                     )
                   else
                     AdsToolbar(
@@ -174,14 +215,15 @@ class _AdsScreenState extends ConsumerState<AdsScreen> {
                       onSearchSubmitted: () {},
                       filterActive: false,
                       refreshing: state.isLoading,
-                      showCreate: state.section == AdsHubSection.customAds ||
+                      showCreate:
+                          state.section == AdsHubSection.customAds ||
                           state.section == AdsHubSection.dashboard ||
                           state.section == AdsHubSection.campaigns,
                       showFilter: false,
                       onCreate: () => controller.openComposer(),
                       onFilter: () {},
                       onRefresh: controller.refresh,
-                      onExport: _exportStub,
+                      onExport: _export,
                       hintText: _sectionSearchHint(state.section),
                     ),
                   const SizedBox(height: 16),
@@ -258,16 +300,16 @@ class _AdsScreenState extends ConsumerState<AdsScreen> {
                 child: Text(
                   '${state.summary.scheduledCampaigns} campaign(s) scheduled',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: context.adminColors.info,
-                      ),
+                    fontWeight: FontWeight.w700,
+                    color: context.adminColors.info,
+                  ),
                 ),
               ),
             Text(
               'Recent advertisements',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             AdsTable(
@@ -314,9 +356,9 @@ class _AdsScreenState extends ConsumerState<AdsScreen> {
                 child: Text(
                   '${state.campaigns.length} pending approval',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: context.adminColors.warning,
-                      ),
+                    fontWeight: FontWeight.w700,
+                    color: context.adminColors.warning,
+                  ),
                 ),
               ),
             AdsTable(

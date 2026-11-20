@@ -7,6 +7,7 @@ import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/location_model.dart';
 import '../../../../data/services/google_maps_location_service.dart';
 import '../../../../domain/services/player_rankings/player_rankings_models.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 Future<PlayerRankingsFilter?> showPlayerRankingsFilterSheet(
   BuildContext context, {
@@ -168,7 +169,7 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
         if (!mounted) return;
         setState(() {
           _suggestions = [];
-          _statusMessage = '$e';
+          _statusMessage = friendlyError(e);
         });
       }
     });
@@ -204,7 +205,7 @@ class _PlayerRankingsFilterSheetState extends State<_PlayerRankingsFilterSheet> 
       });
     } catch (e) {
       if (mounted) {
-        setState(() => _statusMessage = 'Could not load place: $e');
+        setState(() => _statusMessage = 'Could not load place: ${friendlyError(e)}');
       }
     } finally {
       if (mounted) setState(() => _resolvingPlace = false);

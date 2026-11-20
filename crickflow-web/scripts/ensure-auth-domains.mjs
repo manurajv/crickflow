@@ -3,8 +3,9 @@ import path from "node:path";
 
 const PROJECT_ID = "crickflow-b06bc";
 const FIREBASE_OAUTH_CLIENT_ID =
+  process.env.FIREBASE_OAUTH_CLIENT_ID ||
   "563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com";
-const FIREBASE_OAUTH_CLIENT_SECRET = "jEQC95AvqxBhJcEJgfUfghi7";
+const FIREBASE_OAUTH_CLIENT_SECRET = process.env.FIREBASE_OAUTH_CLIENT_SECRET || "";
 const REQUIRED_DOMAINS = [
   "localhost",
   "crickflow-b06bc.firebaseapp.com",
@@ -25,9 +26,13 @@ async function getAccessToken() {
   if (tokens.access_token && tokens.expires_at && Date.now() < tokens.expires_at - 60_000) {
     return tokens.access_token;
   }
+  const clientSecret = tokens.client_secret || FIREBASE_OAUTH_CLIENT_SECRET;
+  if (!clientSecret) {
+    throw new Error("Missing OAuth client secret. Run firebase login or set FIREBASE_OAUTH_CLIENT_SECRET.");
+  }
   const body = new URLSearchParams({
     client_id: tokens.client_id || FIREBASE_OAUTH_CLIENT_ID,
-    client_secret: tokens.client_secret || FIREBASE_OAUTH_CLIENT_SECRET,
+    client_secret: clientSecret,
     refresh_token: tokens.refresh_token,
     grant_type: "refresh_token",
   });

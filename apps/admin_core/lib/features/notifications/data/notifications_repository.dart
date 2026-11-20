@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../core/config/admin_app_type.dart';
 import '../../../core/constants/admin_collections.dart';
@@ -15,15 +16,17 @@ import '../models/notification_filters.dart';
 /// - Announcements: `home_promotions` (existing mobile carousel)
 /// - Auto notifications: read-only monitor of `notifications` (no FCM tokens)
 ///
-/// Does not modify mobile notification generation or FCM bridge logic.
-/// Mass fan-out for large audiences is queued for a future delivery worker.
+/// Does not modify mobile notification generation or FCM token storage.
+/// Mass send goes through the `adminSendNotificationCampaign` callable.
 class NotificationsRepository {
-  NotificationsRepository({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+  NotificationsRepository({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  }) : _db = firestore ?? FirebaseFirestore.instance,
+       _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _db;
-
-  static const _specificUserSendLimit = 50;
+  final FirebaseFunctions _functions;
 
   CollectionReference<Map<String, dynamic>> get _campaigns =>
       _db.collection(AdminCollections.adminNotificationCampaigns);
@@ -49,13 +52,6 @@ class NotificationsRepository {
     bool scheduledOnly = false,
   }) async {
     Query<Map<String, dynamic>> query = _campaigns;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const NotificationPageResult(items: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
 
     query = query.orderBy('createdAt', descending: sort.descending);
     if (startAfter != null) query = query.startAfterDocument(startAfter);
@@ -68,8 +64,10 @@ class NotificationsRepository {
         return const NotificationPageResult(items: [], hasMore: false);
       }
       try {
-        snap =
-            await _campaigns.orderBy(FieldPath.documentId).limit(limit + 1).get();
+        snap = await _campaigns
+            .orderBy(FieldPath.documentId)
+            .limit(limit + 1)
+            .get();
       } on FirebaseException catch (e2) {
         if (e2.code == 'permission-denied') {
           return const NotificationPageResult(items: [], hasMore: false);
@@ -111,7 +109,9 @@ class NotificationsRepository {
   }) {
     Iterable<ManagedNotificationCampaign> items = list;
     if (!filters.includeArchived) {
-      items = items.where((c) => c.status != ManagedNotificationStatus.archived);
+      items = items.where(
+        (c) => c.status != ManagedNotificationStatus.archived,
+      );
     }
     if (campaignsOnly) {
       items = items.where((c) => c.isCampaign);
@@ -134,9 +134,7 @@ class NotificationsRepository {
       items = items.where((c) => filters.audiences.contains(c.audience));
     }
     if (filters.platforms.isNotEmpty) {
-      items = items.where(
-        (c) => c.platforms.any(filters.platforms.contains),
-      );
+      items = items.where((c) => c.platforms.any(filters.platforms.contains));
     }
     final q = filters.query.trim().toLowerCase();
     if (q.isNotEmpty) {
@@ -170,13 +168,17 @@ class NotificationsRepository {
     list.sort((a, b) {
       final r = switch (sort.field) {
         NotificationSortField.createdAt =>
-          (a.createdAt ?? DateTime(1970)).compareTo(b.createdAt ?? DateTime(1970)),
-        NotificationSortField.title =>
-          a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase()),
-        NotificationSortField.status =>
-          a.status.name.compareTo(b.status.name),
-        NotificationSortField.scheduledAt => (a.scheduledAt ?? DateTime(1970))
-            .compareTo(b.scheduledAt ?? DateTime(1970)),
+          (a.createdAt ?? DateTime(1970)).compareTo(
+            b.createdAt ?? DateTime(1970),
+          ),
+        NotificationSortField.title => a.displayTitle.toLowerCase().compareTo(
+          b.displayTitle.toLowerCase(),
+        ),
+        NotificationSortField.status => a.status.name.compareTo(b.status.name),
+        NotificationSortField.scheduledAt =>
+          (a.scheduledAt ?? DateTime(1970)).compareTo(
+            b.scheduledAt ?? DateTime(1970),
+          ),
       };
       return sort.descending ? -r : r;
     });
@@ -207,13 +209,6 @@ class NotificationsRepository {
   }) async {
     try {
       Query<Map<String, dynamic>> query = _campaigns;
-      if (appType == AdminAppType.organizationAdmin) {
-        final orgId = actor?.organizationId;
-        if (orgId == null || orgId.isEmpty) {
-          return const NotificationSummaryStats();
-        }
-        query = query.where('organizationId', isEqualTo: orgId);
-      }
       final snap = await query.limit(AdminQueryLimits.summaryScanMax).get();
       final items = snap.docs
           .map(
@@ -299,10 +294,9 @@ class NotificationsRepository {
     required AdminUser actor,
     String? reason,
   }) async {
-    await _campaigns.doc(campaign.id).set(
-          campaign.toFirestoreMap(),
-          SetOptions(merge: true),
-        );
+    await _campaigns
+        .doc(campaign.id)
+        .set(campaign.toFirestoreMap(), SetOptions(merge: true));
     await _writeAudit(
       action: AdminAuditActions.notificationEdited,
       actor: actor,
@@ -388,6 +382,7 @@ class NotificationsRepository {
   }) async {
     await _campaigns.doc(campaign.id).set({
       'status': ManagedNotificationStatus.scheduled.wireValue,
+      'deliveryEngine': 'v1',
       'scheduleMode': recurrence == ManagedRecurrence.none
           ? ManagedScheduleMode.later.wireValue
           : ManagedScheduleMode.recurring.wireValue,
@@ -428,88 +423,34 @@ class NotificationsRepository {
     );
   }
 
-  /// Send / queue delivery without modifying FCM implementation.
+  /// Starts a server-side campaign send or a dry-run estimate.
   ///
-  /// - [ManagedNotificationAudience.specificUsers]: writes inbox docs for up
-  ///   to [_specificUserSendLimit] UIDs (existing `onNotificationCreated` may
-  ///   push). Never reads or writes FCM tokens.
-  /// - Larger audiences: status → `queued` for a future delivery worker.
-  Future<void> sendOrQueue({
+  /// The callable checks staff permission, writes the audit log, fans out
+  /// inbox docs, and sends FCM from `users/{uid}/private/fcm` (legacy
+  /// `fcmToken` as fallback), respecting notification prefs. The client
+  /// never reads FCM tokens. Pass [dryRun] to count the audience without
+  /// sending.
+  Future<Map<String, dynamic>> sendOrQueue({
     required ManagedNotificationCampaign campaign,
     required AdminUser actor,
     String? reason,
+    bool dryRun = false,
   }) async {
-    final now = DateTime.now().toIso8601String();
-    if (campaign.audience == ManagedNotificationAudience.specificUsers &&
-        campaign.audienceIds.isNotEmpty) {
-      final ids = campaign.audienceIds.take(_specificUserSendLimit).toList();
-      var sent = 0;
-      var failed = 0;
-      final batch = _db.batch();
-      for (final uid in ids) {
-        if (uid.trim().isEmpty) continue;
-        final ref = _inbox.doc();
-        batch.set(ref, {
-          'userId': uid.trim(),
-          'title': campaign.title,
-          'body': campaign.body,
-          'type': 'admin_${campaign.type.wireValue}',
-          'category': campaign.type.wireValue,
-          'tab': campaign.deepLink.isNotEmpty ? campaign.deepLink : null,
-          'addedByUserId': actor.uid,
-          'read': false,
-          'createdAt': now,
-          'adminCampaignId': campaign.id,
-          if (campaign.tournamentId != null)
-            'tournamentId': campaign.tournamentId,
-          if (campaign.matchId != null) 'matchId': campaign.matchId,
-          if (campaign.teamId != null) 'teamId': campaign.teamId,
-        });
-        sent++;
-      }
-      try {
-        await batch.commit();
-      } catch (_) {
-        failed = sent;
-        sent = 0;
-      }
-      await _campaigns.doc(campaign.id).set({
-        'status': failed > 0 && sent == 0
-            ? ManagedNotificationStatus.failed.wireValue
-            : ManagedNotificationStatus.sent.wireValue,
-        'sentCount': sent,
-        'deliveredCount': sent,
-        'failedCount': failed,
-        'recipientCount': ids.length,
-        'sentAt': now,
-        'updatedAt': now,
-        'deliveryNote':
-            'Delivered via in-app inbox for specific users (max $_specificUserSendLimit). FCM tokens never accessed by admin.',
-      }, SetOptions(merge: true));
-      await _writeAudit(
-        action: AdminAuditActions.notificationSent,
-        actor: actor,
-        targetId: campaign.id,
-        targetLabel: campaign.displayTitle,
-        reason: reason,
-        metadata: {'sent': sent, 'failed': failed},
-      );
-      return;
+    if (campaign.id.isEmpty) {
+      throw StateError('Save the campaign before sending');
     }
-
-    await _campaigns.doc(campaign.id).set({
-      'status': ManagedNotificationStatus.queued.wireValue,
-      'updatedAt': now,
-      'deliveryNote':
-          'Queued for delivery worker. Mass FCM fan-out is not executed from the admin panel.',
-    }, SetOptions(merge: true));
-    await _writeAudit(
-      action: AdminAuditActions.notificationQueued,
-      actor: actor,
-      targetId: campaign.id,
-      targetLabel: campaign.displayTitle,
-      reason: reason,
-    );
+    final res = await _functions
+        .httpsCallable(
+          'adminSendNotificationCampaign',
+          options: HttpsCallableOptions(timeout: const Duration(minutes: 5)),
+        )
+        .call<Map<String, dynamic>>({
+          'campaignId': campaign.id,
+          'dryRun': dryRun,
+          if (reason != null && reason.trim().isNotEmpty)
+            'reason': reason.trim(),
+        });
+    return Map<String, dynamic>.from(res.data);
   }
 
   // --- Announcements (home_promotions) ---
@@ -588,11 +529,6 @@ class NotificationsRepository {
     int limit = 80,
   }) async {
     Query<Map<String, dynamic>> query = _templates;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap = await query.limit(limit).get();
       return snap.docs
@@ -663,11 +599,6 @@ class NotificationsRepository {
     int limit = 80,
   }) async {
     Query<Map<String, dynamic>> query = _segments;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap = await query.limit(limit).get();
       return snap.docs
@@ -735,11 +666,14 @@ class NotificationsRepository {
     int limit = 40,
   }) async {
     try {
-      final snap =
-          await _inbox.orderBy('createdAt', descending: true).limit(limit).get();
+      final snap = await _inbox
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
       return snap.docs
           .map(
-            (d) => ManagedAutoNotification.fromFirestore(id: d.id, map: d.data()),
+            (d) =>
+                ManagedAutoNotification.fromFirestore(id: d.id, map: d.data()),
           )
           .toList();
     } catch (_) {
@@ -752,8 +686,10 @@ class NotificationsRepository {
     int limit = 40,
   }) async {
     try {
-      Query<Map<String, dynamic>> q =
-          _audit.orderBy('timestamp', descending: true);
+      Query<Map<String, dynamic>> q = _audit.orderBy(
+        'timestamp',
+        descending: true,
+      );
       if (targetId != null && targetId.isNotEmpty) {
         q = _audit
             .where('targetUid', isEqualTo: targetId)

@@ -127,6 +127,45 @@ class PlayerRankingsRepository {
     );
   }
 
+  /// Ranks players from an explicit list of completed matches (an org's
+  /// official matches) with exactly the same stat definitions, categories,
+  /// minimums and filters as the app-wide rankings.
+  Future<List<PlayerRankingEntry>> rankFromMatches({
+    required List<MatchModel> matches,
+    required PlayerRankingsFilter filter,
+  }) async {
+    Map<String, List<BallEventModel>>? ballEventsByMatchId;
+    if (filter.section == PlayerRankingsSection.fielding ||
+        filter.category.requiresMatchReplay) {
+      ballEventsByMatchId = await _loadBallEvents(
+        matches: matches,
+        filter: filter,
+      );
+    }
+    final bowlingInnings = <String, int>{};
+    final replay = <String, PlayerRankingReplayStats>{};
+    final stats = _rankings.aggregateFromMatches(
+      matches: matches,
+      filter: filter,
+      bowlingInningsOut: bowlingInnings,
+      ballEventsByMatchId: ballEventsByMatchId,
+      replayStatsOut: replay,
+    );
+    final players = await _playersForIds(stats.keys.toList());
+    final teamNames = await _teamNames({
+      for (final p in players) ...p.effectiveTeamIds,
+    });
+    final ranked = _rankings.rank(
+      players: players,
+      filter: filter,
+      teamNamesById: teamNames,
+      statsByPlayerId: stats,
+      bowlingInningsByPlayerId: bowlingInnings,
+      replayStatsByPlayerId: replay,
+    );
+    return _applySearch(ranked, filter.searchQuery);
+  }
+
   List<PlayerRankingEntry> _applySearch(
     List<PlayerRankingEntry> ranked,
     String searchQuery,

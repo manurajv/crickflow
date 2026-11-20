@@ -12,6 +12,7 @@ import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/cf_underlined_field.dart';
 import 'widgets/tournament_create/tournament_media_picker.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TournamentEditScreen extends ConsumerStatefulWidget {
   const TournamentEditScreen({super.key, required this.tournamentId});
@@ -75,7 +76,7 @@ class _TournamentEditScreenState extends ConsumerState<TournamentEditScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {
@@ -176,7 +177,7 @@ class _TournamentEditScreenState extends ConsumerState<TournamentEditScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

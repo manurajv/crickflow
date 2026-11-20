@@ -3,14 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/feature_flags.dart';
 import '../../core/auth/auth_gate.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/cf_colors.dart';
 import '../../core/utils/cf_player_id_format.dart';
+import 'powered_by_mavixas.dart';
 import '../../data/models/user_model.dart';
 import '../providers/my_cricket_ui_provider.dart';
 import '../providers/providers.dart';
@@ -43,7 +44,11 @@ class CfAppDrawer extends ConsumerWidget {
               onOpenProfile: () => _goShell(context, '/profile'),
               onSignIn: () {
                 Navigator.pop(context);
-                context.push('/login');
+                openLoginForGuest(
+                  context: context,
+                  prompt: SignInPrompt.general,
+                  returnPath: '/home',
+                );
               },
             ),
             Expanded(
@@ -61,6 +66,7 @@ class CfAppDrawer extends ConsumerWidget {
                         requireAuthVoid(
                           context: context,
                           ref: ref,
+                          prompt: SignInPrompt.startMatch,
                           returnPath: '/match/start',
                           action: () async {
                             if (context.mounted) {
@@ -79,6 +85,7 @@ class CfAppDrawer extends ConsumerWidget {
                         requireAuthVoid(
                           context: context,
                           ref: ref,
+                          prompt: SignInPrompt.createTournament,
                           returnPath: '/tournaments/create',
                           action: () async {
                             if (context.mounted) {
@@ -97,6 +104,7 @@ class CfAppDrawer extends ConsumerWidget {
                         requireAuthVoid(
                           context: context,
                           ref: ref,
+                          prompt: SignInPrompt.invitePlayer,
                           returnPath: '/register-player',
                           action: () async {
                             if (context.mounted) {
@@ -139,6 +147,8 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Associations',
                     onTap: () {
                       Navigator.pop(context);
+                      // push keeps a stack entry so AppBar back works; guest
+                      // redirect uses uri.path so this no longer misclassifies.
                       context.push('/associations');
                     },
                   ),
@@ -147,6 +157,8 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Clubs',
                     onTap: () {
                       Navigator.pop(context);
+                      // push keeps a stack entry so AppBar back works; guest
+                      // redirect uses uri.path so this no longer misclassifies.
                       context.push('/clubs');
                     },
                   ),
@@ -155,6 +167,8 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Series',
                     onTap: () {
                       Navigator.pop(context);
+                      // push keeps a stack entry so AppBar back works; guest
+                      // redirect uses uri.path so this no longer misclassifies.
                       context.push('/series');
                     },
                   ),
@@ -182,16 +196,7 @@ class CfAppDrawer extends ConsumerWidget {
                     label: 'Find cricketers',
                     onTap: () {
                       Navigator.pop(context);
-                      requireAuthVoid(
-                        context: context,
-                        ref: ref,
-                        returnPath: '/find-cricketers',
-                        action: () async {
-                          if (context.mounted) {
-                            context.push('/find-cricketers');
-                          }
-                        },
-                      );
+                      context.push('/find-cricketers');
                     },
                   ),
                   const _DrawerSectionHeader('Account'),
@@ -203,6 +208,7 @@ class CfAppDrawer extends ConsumerWidget {
                       requireAuthVoid(
                         context: context,
                         ref: ref,
+                        prompt: SignInPrompt.notifications,
                         returnPath: '/notifications',
                         action: () async {
                           if (context.mounted) {
@@ -220,13 +226,23 @@ class CfAppDrawer extends ConsumerWidget {
                       context.push('/settings');
                     },
                   ),
+                  if (FeatureFlags.showCrickFlowProNav)
+                    _DrawerTile(
+                      icon: Icons.workspace_premium_outlined,
+                      label: 'CrickFlow PRO',
+                      subtitle: 'Premium tools',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/store');
+                      },
+                    ),
                   _DrawerTile(
-                    icon: Icons.workspace_premium_outlined,
-                    label: 'CrickFlow PRO',
-                    subtitle: 'Premium tools',
+                    icon: Icons.help_outline,
+                    label: 'CrickFlow Help',
+                    subtitle: 'Contact and support',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/store');
+                      context.push('/help');
                     },
                   ),
                   _DrawerTile(
@@ -249,45 +265,14 @@ class CfAppDrawer extends ConsumerWidget {
                   Text(
                     '${AppConstants.appName} v${AppConstants.appVersion}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: context.cf.textMuted,
-                        ),
+                      color: context.cf.textMuted,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppDimens.spaceXs),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Powered by ',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: context.cf.textMuted,
-                            ),
-                      ),
-                      InkWell(
-                        onTap: () async {
-                          final uri = Uri.parse('https://mavixas.com');
-                          if (!await launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          )) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Could not open $uri')),
-                              );
-                            }
-                          }
-                        },
-                        child: Text(
-                          'Mavixas',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: context.cf.link,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: context.cf.link,
-                                  ),
-                        ),
-                      ),
-                    ],
+                  PoweredByMavixas(
+                    mutedColor: context.cf.textMuted,
+                    linkColor: context.cf.link,
                   ),
                 ],
               ),
@@ -332,10 +317,10 @@ class _DrawerSectionHeader extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: cf.textMuted,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.1,
-            ),
+          color: cf.textMuted,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+        ),
       ),
     );
   }
@@ -384,18 +369,18 @@ class _DrawerHeader extends StatelessWidget {
                     children: [
                       Text(
                         'Guest',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: cf.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: cf.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Sign in to sync your cricket',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: cf.textSecondary,
-                            ),
+                          color: cf.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -453,9 +438,7 @@ class _DrawerHeader extends StatelessWidget {
                       children: [
                         Text(
                           name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: cf.textPrimary,
                                 fontWeight: FontWeight.w700,
@@ -467,11 +450,11 @@ class _DrawerHeader extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             CfPlayerIdFormat.displayLabel(playerId),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: cf.textSecondary,
-                                      letterSpacing: 0.3,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: cf.textSecondary,
+                                  letterSpacing: 0.3,
+                                ),
                           ),
                         ],
                         const SizedBox(height: 6),
@@ -489,11 +472,11 @@ class _DrawerHeader extends StatelessWidget {
                           ),
                           child: Text(
                             isViewer ? 'Viewer' : 'Member',
-                            style:
-                                Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: cf.accent,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: cf.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                         ),
                       ],
@@ -561,9 +544,9 @@ class _HeaderAction extends StatelessWidget {
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: cf.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: cf.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -601,16 +584,16 @@ class _DrawerTile extends StatelessWidget {
       title: Text(
         label,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: cf.textPrimary,
-              fontWeight: FontWeight.w500,
-            ),
+          color: cf.textPrimary,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       subtitle: subtitle != null
           ? Text(
               subtitle!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cf.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: cf.textSecondary),
             )
           : null,
       onTap: onTap,

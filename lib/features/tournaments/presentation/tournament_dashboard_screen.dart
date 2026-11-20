@@ -11,6 +11,7 @@ import '../../../core/navigation/tournament_join_navigation.dart';
 import '../../../data/models/tournament_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
+import '../../../shared/widgets/removed_content_view.dart';
 import '../../../shared/providers/tournament_lifecycle_provider.dart';
 import 'tournament_teams_screen.dart';
 import 'tournament_matches_screen.dart';
@@ -24,6 +25,7 @@ import 'tabs/tournament_summary_tab.dart';
 import 'tournament_dashboard_sections.dart';
 import 'tournament_overview_screen.dart';
 import 'widgets/tournament_share_sheet.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TournamentDashboardScreen extends ConsumerStatefulWidget {
   const TournamentDashboardScreen({
@@ -200,7 +202,7 @@ class _TournamentDashboardScreenState
         if (tournament == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Tournament')),
-            body: const Center(child: Text('Tournament not found')),
+            body: const RemovedContentView(kind: 'tournament'),
           );
         }
 
@@ -339,7 +341,7 @@ class _TournamentDashboardScreenState
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Tournament')),
-        body: Center(child: Text('$e', style: TextStyle(color: cf.error))),
+        body: Center(child: Text(friendlyError(e), style: TextStyle(color: cf.error))),
       ),
     );
   }

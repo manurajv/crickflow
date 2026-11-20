@@ -4,6 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
 import '../../core/constants/tournament_notification_types.dart';
 import '../../core/utils/team_leadership_utils.dart';
+import '../../domain/notifications/notification_priority.dart';
 import '../models/team_model.dart';
 import '../models/tournament/tournament_member_model.dart';
 import '../models/tournament/tournament_team_request_model.dart';
@@ -256,6 +257,9 @@ class TournamentTeamRequestRepository {
       teamId: team.id,
       requestId: request.id,
     );
+    await _notifications.markRelatedRead(
+      NotificationRelation.tournamentRequest(requestId: request.id),
+    );
   }
 
   Future<void> rejectInvitation({
@@ -284,6 +288,9 @@ class TournamentTeamRequestRepository {
       type: TournamentNotificationTypes.invitationRejected,
       teamId: team.id,
       requestId: request.id,
+    );
+    await _notifications.markRelatedRead(
+      NotificationRelation.tournamentRequest(requestId: request.id),
     );
   }
 
@@ -317,6 +324,9 @@ class TournamentTeamRequestRepository {
       tournamentId: tournament.id,
       requestId: request.id,
     );
+    await _notifications.markRelatedRead(
+      NotificationRelation.tournamentRequest(requestId: request.id),
+    );
   }
 
   Future<void> rejectJoinRequest({
@@ -344,6 +354,9 @@ class TournamentTeamRequestRepository {
       type: TournamentNotificationTypes.joinRejected,
       tournamentId: tournament.id,
       requestId: request.id,
+    );
+    await _notifications.markRelatedRead(
+      NotificationRelation.tournamentRequest(requestId: request.id),
     );
   }
 

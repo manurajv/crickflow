@@ -7,6 +7,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
 import '../../../../data/models/location_model.dart';
 import '../../../../data/services/google_maps_location_service.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Location picker with search, GPS detect, and editable country/province/city fields.
 class OnboardingLocationSection extends StatefulWidget {
@@ -169,7 +170,7 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
 
       _applyResolvedPlace(resolved, userRequested: userRequested);
     } catch (e) {
-      if (mounted) _showStatus('Location error: $e');
+      if (mounted) _showStatus('Location error: ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _resolving = false);
     }
@@ -198,7 +199,7 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
       } catch (e) {
         if (mounted) {
           setState(() => _suggestions = []);
-          _showStatus('$e');
+          _showStatus(friendlyError(e));
         }
       }
     });
@@ -220,7 +221,7 @@ class _OnboardingLocationSectionState extends State<OnboardingLocationSection> {
       if (!mounted) return;
       _applyResolvedPlace(resolved, userRequested: true);
     } catch (e) {
-      _showStatus('Could not load place: $e');
+      _showStatus('Could not load place: ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _resolving = false);
     }

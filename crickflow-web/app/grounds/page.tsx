@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/shared/app-link";
 import { EmptyState } from "@/components/shared/states";
 import { PageHeader, LoadingGrid } from "@/components/shared/page-shell";
 import { Input } from "@/components/ui/input";

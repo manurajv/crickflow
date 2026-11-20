@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/admin_app_type.dart';
@@ -9,10 +8,11 @@ import '../../../shared/widgets/cf_button.dart';
 import '../../../shared/widgets/cf_loading_state.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../shell/providers/shell_providers.dart';
-import '../models/analytics_enums.dart';
 import '../providers/analytics_providers.dart';
 import 'widgets/analytics_section_body.dart';
 import 'widgets/analytics_toolbar.dart';
+import '../../../core/export/admin_csv.dart';
+import '../../../core/export/admin_export_sheet.dart';
 
 class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
@@ -27,39 +27,30 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(breadcrumbProvider.notifier).state = [
-        'System',
-        'Analytics',
-      ];
+      ref.read(breadcrumbProvider.notifier).state = ['System', 'Analytics'];
       ref.read(analyticsHubControllerProvider.notifier).ensureBootstrapped();
     });
   }
 
-  Future<void> _exportCsv() async {
-    final csv =
-        ref.read(analyticsHubControllerProvider.notifier).exportCsv();
-    if (csv.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nothing to export yet')),
-      );
+  Future<void> _exportCsv({bool excelCompatible = false}) async {
+    final csv = ref.read(analyticsHubControllerProvider.notifier).exportCsv();
+    if (csv.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Nothing to export yet')));
       return;
     }
-    await Clipboard.setData(ClipboardData(text: csv));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('CSV copied to clipboard — paste into Sheets / Excel'),
-      ),
-    );
-  }
-
-  void _exportStub(AnalyticsExportFormat format) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${format.label} export is prepared for later — use CSV for now',
-        ),
-      ),
+    final stamp = DateTime.now().toIso8601String().split('T').first;
+    final filename = excelCompatible
+        ? 'crickflow-analytics_${stamp}_excel.csv'
+        : 'crickflow-analytics_$stamp.csv';
+    final content = excelCompatible && !csv.startsWith(AdminCsv.bom)
+        ? '${AdminCsv.bom}$csv'
+        : csv;
+    await downloadAdminTextFile(
+      context: context,
+      filename: filename,
+      content: content,
     );
   }
 
@@ -79,9 +70,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           children: [
             Text(
               'Analytics & Reports',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
             Text(
@@ -150,8 +141,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 snapshot: state.snapshot!,
                 reportKind: state.reportKind,
                 onReportKindChanged: controller.setReportKind,
-                onExportCsv: _exportCsv,
-                onExportStub: _exportStub,
+                onExportCsv: () => _exportCsv(),
+                onExportExcelCsv: () => _exportCsv(excelCompatible: true),
               )
             else
               const SizedBox(

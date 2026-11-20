@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
@@ -9,10 +11,44 @@ class AuthService {
 
   final FirebaseAuth _auth;
 
-  Stream<User?> authStateChanges() => _auth.authStateChanges();
+  /// Auth state with a short web grace so IndexedDB/session restore can finish
+  /// before the first event. Without this, Flutter web often emits `null` first
+  /// and GoRouter bounces deep links to /login.
+  Stream<User?> authStateChanges() => _gatedAuthStream(_auth.authStateChanges());
 
   /// Fires when ID tokens refresh — useful for claims-aware sessions later.
-  Stream<User?> idTokenChanges() => _auth.idTokenChanges();
+  Stream<User?> idTokenChanges() => _gatedAuthStream(_auth.idTokenChanges());
+
+  Stream<User?> _gatedAuthStream(Stream<User?> source) {
+    if (!kIsWeb) return source;
+    late final StreamController<User?> controller;
+    StreamSubscription<User?>? sub;
+    var open = false;
+    User? latest;
+    controller = StreamController<User?>(
+      onListen: () {
+        sub = source.listen(
+          (user) {
+            latest = user;
+            if (open) controller.add(user);
+          },
+          onError: controller.addError,
+          onDone: controller.close,
+        );
+        Future<void>.delayed(const Duration(milliseconds: 400), () {
+          open = true;
+          if (!controller.isClosed) {
+            controller.add(latest ?? _auth.currentUser);
+          }
+        });
+      },
+      onCancel: () async {
+        await sub?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
 
   User? get currentUser => _auth.currentUser;
 

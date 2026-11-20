@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../../../core/auth/auth_gate.dart';
 
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/cf_colors.dart';
@@ -52,7 +52,8 @@ class MyCricketGuestSignInPrompt extends StatelessWidget {
           child: CfButton(
             label: 'Sign in',
             isGold: true,
-            onPressed: () => context.push('/login'),
+            onPressed: () => openLoginForGuest(context: context,
+      prompt: SignInPrompt.myCricket, returnPath: '/matches'),
           ),
         ),
       ],
@@ -99,7 +100,8 @@ class _CompactGuestSignInBanner extends StatelessWidget {
               ),
         ),
         trailing: TextButton(
-          onPressed: () => context.push('/login'),
+          onPressed: () => openLoginForGuest(context: context,
+      prompt: SignInPrompt.myCricket, returnPath: '/matches'),
           child: const Text('Sign in'),
         ),
       ),

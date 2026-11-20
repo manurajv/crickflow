@@ -54,8 +54,6 @@ class RoleDefinition extends Equatable {
     final panelRaw = map['allowedPanel'] as String?;
     if (panelRaw == 'superAdmin') {
       panel = AdminAppType.superAdmin;
-    } else if (panelRaw == 'organizationAdmin' || panelRaw == 'admin') {
-      panel = AdminAppType.organizationAdmin;
     } else if (panelRaw == null && known != null) {
       panel = known.allowedPanel;
     }
@@ -118,7 +116,6 @@ class RoleDefinition extends Equatable {
         'description': description,
         'allowedPanel': switch (allowedPanel) {
           AdminAppType.superAdmin => 'superAdmin',
-          AdminAppType.organizationAdmin => 'organizationAdmin',
           null => 'none',
         },
         'permissions': permissions,

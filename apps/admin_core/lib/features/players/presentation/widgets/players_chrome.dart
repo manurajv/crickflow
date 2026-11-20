@@ -17,18 +17,42 @@ class PlayersSummaryCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cards = [
-      _card(Icons.sports_cricket_outlined, 'Total', '${summary.total}',
-          AdminColors.primaryBlue),
-      _card(Icons.person_outline, 'Registered', '${summary.registered}',
-          context.adminColors.info),
-      _card(Icons.person_add_alt_outlined, 'Walk-in', '${summary.walkIn}',
-          AdminColors.goldDark),
-      _card(Icons.verified_outlined, 'Verified', '${summary.verified}',
-          context.adminColors.success),
-      _card(Icons.check_circle_outline, 'Active', '${summary.active}',
-          const Color(0xFF26A69A)),
-      _card(Icons.block_outlined, 'Suspended', '${summary.suspended}',
-          context.adminColors.error),
+      _card(
+        Icons.sports_cricket_outlined,
+        'Total',
+        '${summary.total}',
+        AdminColors.primaryBlue,
+      ),
+      _card(
+        Icons.person_outline,
+        'Registered',
+        '${summary.registered}',
+        context.adminColors.info,
+      ),
+      _card(
+        Icons.person_add_alt_outlined,
+        'Walk-in',
+        '${summary.walkIn}',
+        AdminColors.goldDark,
+      ),
+      _card(
+        Icons.verified_outlined,
+        'Verified',
+        '${summary.verified}',
+        context.adminColors.success,
+      ),
+      _card(
+        Icons.check_circle_outline,
+        'Active',
+        '${summary.active}',
+        const Color(0xFF26A69A),
+      ),
+      _card(
+        Icons.block_outlined,
+        'Suspended',
+        '${summary.suspended}',
+        context.adminColors.error,
+      ),
     ];
 
     return LayoutBuilder(
@@ -37,8 +61,8 @@ class PlayersSummaryCards extends StatelessWidget {
         final cols = width >= 1200
             ? 3
             : width >= 700
-                ? 2
-                : 1;
+            ? 2
+            : 1;
         const spacing = 12.0;
         final itemWidth = (width - spacing * (cols - 1)) / cols;
         return Wrap(
@@ -71,6 +95,7 @@ class PlayersToolbar extends StatelessWidget {
     required this.onSearchSubmitted,
     required this.onFilter,
     required this.onRefresh,
+    required this.onExport,
     this.filterActive = false,
     this.refreshing = false,
   });
@@ -80,6 +105,7 @@ class PlayersToolbar extends StatelessWidget {
   final VoidCallback onSearchSubmitted;
   final VoidCallback onFilter;
   final VoidCallback onRefresh;
+  final VoidCallback onExport;
   final bool filterActive;
   final bool refreshing;
 
@@ -107,6 +133,12 @@ class PlayersToolbar extends StatelessWidget {
               label: refreshing ? 'Refreshing…' : 'Refresh',
               variant: CfButtonVariant.ghost,
               onPressed: refreshing ? null : onRefresh,
+            ),
+            const SizedBox(width: 8),
+            CfButton(
+              label: 'Export',
+              variant: CfButtonVariant.ghost,
+              onPressed: onExport,
             ),
           ],
         ),
@@ -178,8 +210,9 @@ Future<PlayerListFilters?> showPlayersFilterDrawer({
                               onChanged: (v) => setLocal(() {
                                 draft = draft.copyWith(
                                   walkInOnly: v,
-                                  registeredOnly:
-                                      v ? false : draft.registeredOnly,
+                                  registeredOnly: v
+                                      ? false
+                                      : draft.registeredOnly,
                                 );
                               }),
                             ),
@@ -200,7 +233,10 @@ Future<PlayerListFilters?> showPlayersFilterDrawer({
                               }),
                             ),
                             const SizedBox(height: 8),
-                            Text('Status', style: Theme.of(ctx).textTheme.titleSmall),
+                            Text(
+                              'Status',
+                              style: Theme.of(ctx).textTheme.titleSmall,
+                            ),
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 8,
@@ -227,8 +263,9 @@ Future<PlayerListFilters?> showPlayersFilterDrawer({
                               decoration: const InputDecoration(
                                 labelText: 'Country',
                               ),
-                              controller:
-                                  TextEditingController(text: draft.country ?? ''),
+                              controller: TextEditingController(
+                                text: draft.country ?? '',
+                              ),
                               onChanged: (v) => setLocal(() {
                                 draft = v.trim().isEmpty
                                     ? draft.copyWith(clearCountry: true)
@@ -240,8 +277,9 @@ Future<PlayerListFilters?> showPlayersFilterDrawer({
                               decoration: const InputDecoration(
                                 labelText: 'City',
                               ),
-                              controller:
-                                  TextEditingController(text: draft.city ?? ''),
+                              controller: TextEditingController(
+                                text: draft.city ?? '',
+                              ),
                               onChanged: (v) => setLocal(() {
                                 draft = v.trim().isEmpty
                                     ? draft.copyWith(clearCity: true)

@@ -9,6 +9,7 @@ import '../../../data/models/player_model.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
 import '../../../shared/widgets/cf_button.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class FantasySquadScreen extends ConsumerStatefulWidget {
   const FantasySquadScreen({super.key, required this.leagueId});
@@ -139,20 +140,20 @@ class _FantasySquadScreenState extends ConsumerState<FantasySquadScreen> {
                 },
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('$e')),
+                error: (e, _) => Center(child: Text(friendlyError(e))),
               ),
             );
           },
           loading: () => const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           ),
-          error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+          error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
         );
       },
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
     );
   }
 
@@ -199,7 +200,7 @@ class _FantasySquadScreenState extends ConsumerState<FantasySquadScreen> {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(friendlyError(e))),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -261,7 +262,7 @@ class _TeamPlayerSection extends ConsumerWidget {
         );
       },
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => Text('$e'),
+      error: (e, _) => Text(friendlyError(e)),
     );
   }
 

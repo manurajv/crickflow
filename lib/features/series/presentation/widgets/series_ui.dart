@@ -20,14 +20,19 @@ class SeriesEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.all(AppDimens.spaceXl),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 52, color: cf.accent),
           const SizedBox(height: AppDimens.spaceMd),
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           if (message != null) ...[
             const SizedBox(height: AppDimens.spaceSm),
             Text(
@@ -43,39 +48,63 @@ class SeriesEmptyState extends StatelessWidget {
         ],
       ),
     );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bounded =
+            constraints.hasBoundedHeight &&
+            constraints.maxHeight.isFinite &&
+            constraints.maxHeight > 0;
+        if (!bounded) {
+          return Center(child: content);
+        }
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: Center(child: content),
+        );
+      },
+    );
   }
 }
 
 class SeriesStat extends StatelessWidget {
-  const SeriesStat(this.value, this.label, {super.key});
+  const SeriesStat(this.value, this.label, {super.key, this.onTap});
   final int value;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final cf = context.cf;
+    final radius = BorderRadius.circular(12);
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(AppDimens.spaceMd),
-        decoration: BoxDecoration(
-          color: cf.surface,
-          border: Border.all(color: cf.border),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: cf.isLight
-              ? [BoxShadow(color: cf.cardShadow, blurRadius: 8, offset: const Offset(0, 2))]
-              : null,
+      child: Material(
+        color: cf.surface,
+        elevation: cf.isLight ? 1 : 0,
+        shadowColor: cf.cardShadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: cf.border),
         ),
-        child: Column(
-          children: [
-            Text(
-              '$value',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: cf.accent,
-                fontWeight: FontWeight.bold,
-              ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Padding(
+            padding: const EdgeInsets.all(AppDimens.spaceMd),
+            child: Column(
+              children: [
+                Text(
+                  '$value',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: cf.accent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(label, style: TextStyle(color: cf.textSecondary)),
+              ],
             ),
-            Text(label, style: TextStyle(color: cf.textSecondary)),
-          ],
+          ),
         ),
       ),
     );
@@ -83,7 +112,10 @@ class SeriesStat extends StatelessWidget {
 }
 
 /// Shared search field styling for Orgs screens.
-InputDecoration orgSearchDecoration(BuildContext context, {String hint = 'Quick search'}) {
+InputDecoration orgSearchDecoration(
+  BuildContext context, {
+  String hint = 'Quick search',
+}) {
   final cf = context.cf;
   return InputDecoration(
     hintText: hint,
@@ -125,4 +157,83 @@ FilterChip orgFilterChip(
       fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
     ),
   );
+}
+
+/// Asks for a rejection reason (required). Returns null when cancelled.
+Future<String?> askRejectionReason(BuildContext context) async {
+  final controller = TextEditingController();
+  try {
+    return await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Reject request'),
+          content: TextField(
+            key: const Key('reject_reason_field'),
+            controller: controller,
+            autofocus: true,
+            maxLength: 300,
+            maxLines: 3,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Reason',
+              hintText: 'Shared with the requester',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('reject_reason_confirm'),
+              onPressed: controller.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Reject'),
+            ),
+          ],
+        ),
+      ),
+    );
+  } finally {
+    // Dispose after the dialog route finishes tearing down so the field
+    // is not used during the close animation.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+  }
+}
+
+
+/// Who may approve or reject a player join / add request at this stage.
+class SeriesRequestActionScope {
+  const SeriesRequestActionScope({
+    required this.clubScope,
+    required this.orgScope,
+  });
+
+  final bool clubScope;
+  final bool orgScope;
+  bool get canAct => clubScope || orgScope;
+
+  factory SeriesRequestActionScope.resolve({
+    required bool pending,
+    required bool isClubAdmin,
+    required bool isOrgAdmin,
+    required bool isSuperAdmin,
+    required String targetType,
+    required String clubReviewStatus,
+  }) {
+    final isAdd =
+        targetType == 'playerAdd' || targetType == 'playerRegistration';
+    final clubScope = pending &&
+        isClubAdmin &&
+        !isAdd &&
+        (clubReviewStatus.isEmpty || clubReviewStatus == 'pending');
+    final orgScope = pending &&
+        isOrgAdmin &&
+        (isAdd || clubReviewStatus == 'approved' || isSuperAdmin);
+    return SeriesRequestActionScope(clubScope: clubScope, orgScope: orgScope);
+  }
 }

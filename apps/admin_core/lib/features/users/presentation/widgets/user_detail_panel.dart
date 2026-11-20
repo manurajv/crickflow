@@ -14,6 +14,9 @@ import '../../models/managed_user.dart';
 import '../../models/user_account_status.dart';
 import '../../providers/users_providers.dart';
 import 'user_status_badge.dart';
+import '../../../../core/data/related_records.dart';
+import '../../../../core/data/related_records_providers.dart';
+import '../../../../shared/widgets/related_records_section.dart';
 
 class UserDetailPanel extends ConsumerWidget {
   const UserDetailPanel({super.key, required this.onClose});
@@ -24,8 +27,9 @@ class UserDetailPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(selectedManagedUserProvider);
     final colors = context.adminColors;
-    final canManage =
-        ref.watch(permissionCheckerProvider).can(AdminPermission.canManageUsers);
+    final canManage = ref
+        .watch(permissionCheckerProvider)
+        .can(AdminPermission.canManageUsers);
 
     return Material(
       color: colors.surface,
@@ -60,20 +64,9 @@ class UserDetailPanel extends ConsumerWidget {
                       const SizedBox(height: 8),
                       const _ActivityList(),
                       const SizedBox(height: 16),
-                      const _SectionTitle('Related (placeholders)'),
+                      const _SectionTitle('Related'),
                       const SizedBox(height: 8),
-                      const _PlaceholderList(
-                        items: [
-                          'Recent matches',
-                          'Recent tournaments',
-                          'Recent reports',
-                          'Community posts',
-                          'Discover posts',
-                          'Notifications',
-                          'Login history',
-                          'Devices',
-                        ],
-                      ),
+                      _UserRelated(user: user),
                     ],
                   ),
                 ),
@@ -101,9 +94,9 @@ class _Header extends StatelessWidget {
           Expanded(
             child: Text(
               'User details',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
           IconButton(onPressed: onClose, icon: const Icon(Icons.close)),
@@ -145,19 +138,18 @@ class _ProfileBlock extends StatelessWidget {
           offset: const Offset(0, -28),
           child: Column(
             children: [
-              CfAvatar(
-                url: user.photoUrl,
-                radius: 36,
-                label: user.initials,
-              ),
+              CfAvatar(url: user.photoUrl, radius: 36, label: user.initials),
               const SizedBox(height: 8),
               Text(
                 user.effectiveName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
-              Text('@${user.username}', style: TextStyle(color: colors.textMuted)),
+              Text(
+                '@${user.username}',
+                style: TextStyle(color: colors.textMuted),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -198,10 +190,7 @@ class _InfoGrid extends StatelessWidget {
             : DateFormat('yyyy-MM-dd').format(user.dateOfBirth!),
       ),
       MapEntry('Country', user.country.isEmpty ? '—' : user.country),
-      MapEntry(
-        'State',
-        user.stateProvince.isEmpty ? '—' : user.stateProvince,
-      ),
+      MapEntry('State', user.stateProvince.isEmpty ? '—' : user.stateProvince),
       MapEntry('City', user.city.isEmpty ? '—' : user.city),
       MapEntry('Team', user.currentTeamName ?? user.currentTeamId ?? '—'),
       MapEntry('Followers', '${user.followers}'),
@@ -303,7 +292,10 @@ class _StatsRow extends StatelessWidget {
         child: Column(
           children: [
             Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
-            Text(label, style: TextStyle(color: colors.textMuted, fontSize: 11)),
+            Text(
+              label,
+              style: TextStyle(color: colors.textMuted, fontSize: 11),
+            ),
           ],
         ),
       ),
@@ -321,7 +313,7 @@ class _ActionsSection extends ConsumerWidget {
     final controller = ref.read(usersListControllerProvider.notifier);
     final isSuper =
         AdminRole.tryParse(ref.watch(adminSessionProvider).adminUser?.roleId) ==
-            AdminRole.superAdmin;
+        AdminRole.superAdmin;
 
     Future<void> confirmAction({
       required String title,
@@ -355,7 +347,9 @@ class _ActionsSection extends ConsumerWidget {
             ),
             CfButton(
               label: 'Confirm',
-              variant: danger ? CfButtonVariant.danger : CfButtonVariant.primary,
+              variant: danger
+                  ? CfButtonVariant.danger
+                  : CfButtonVariant.primary,
               onPressed: () => Navigator.pop(context, true),
             ),
           ],
@@ -369,15 +363,15 @@ class _ActionsSection extends ConsumerWidget {
                 : reasonController.text.trim(),
           );
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$title completed')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('$title completed')));
           }
         } catch (e) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('$e')));
           }
         }
       }
@@ -410,14 +404,15 @@ class _ActionsSection extends ConsumerWidget {
               onPressed: () => confirmAction(
                 title: 'Reset password',
                 message: 'Send a password reset email to ${user.email}?',
-                run: (reason) =>
-                    controller.resetPassword(user, reason: reason),
+                run: (reason) => controller.resetPassword(user, reason: reason),
               ),
               child: const Text('Reset password'),
             ),
             OutlinedButton(
               onPressed: () => confirmAction(
-                title: user.adminVerified ? 'Remove verification' : 'Verify user',
+                title: user.adminVerified
+                    ? 'Remove verification'
+                    : 'Verify user',
                 message: user.adminVerified
                     ? 'Remove admin verification from this account?'
                     : 'Mark this user as verified?',
@@ -427,7 +422,9 @@ class _ActionsSection extends ConsumerWidget {
                   reason: reason,
                 ),
               ),
-              child: Text(user.adminVerified ? 'Remove verification' : 'Verify'),
+              child: Text(
+                user.adminVerified ? 'Remove verification' : 'Verify',
+              ),
             ),
             if (user.accountStatus != UserAccountStatus.suspended)
               OutlinedButton(
@@ -593,7 +590,9 @@ class _ActionsSection extends ConsumerWidget {
     );
 
     if (ok == true) {
-      await ref.read(usersListControllerProvider.notifier).saveBasicInfo(
+      await ref
+          .read(usersListControllerProvider.notifier)
+          .saveBasicInfo(
             user,
             displayName: name.text.trim(),
             phoneNumber: phone.text.trim(),
@@ -645,10 +644,9 @@ class _ActionsSection extends ConsumerWidget {
       ),
     );
     if (ok == true) {
-      await ref.read(usersListControllerProvider.notifier).setAdminRole(
-            user,
-            selected,
-          );
+      await ref
+          .read(usersListControllerProvider.notifier)
+          .setAdminRole(user, selected);
     }
   }
 }
@@ -693,33 +691,6 @@ class _ActivityList extends ConsumerWidget {
   }
 }
 
-class _PlaceholderList extends StatelessWidget {
-  const _PlaceholderList({required this.items});
-
-  final List<String> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.adminColors;
-    return Column(
-      children: [
-        for (final item in items)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(item),
-            subtitle: Text(
-              'Coming soon',
-              style: TextStyle(color: colors.textMuted, fontSize: 12),
-            ),
-            trailing:
-                Icon(Icons.lock_outline, size: 16, color: colors.textMuted),
-          ),
-      ],
-    );
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
 
@@ -729,9 +700,70 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
+      style: Theme.of(
+        context,
+      ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    );
+  }
+}
+
+class _UserRelated extends ConsumerWidget {
+  const _UserRelated({required this.user});
+
+  final ManagedUser user;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RelatedRecordsAsync<UserRelatedSnapshot>(
+      async: ref.watch(userRelatedRecordsProvider(user)),
+      builder: (data) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RelatedRecordsSection(
+            title: 'Teams',
+            section: data.teams,
+            emptyMessage: 'This user is not on any teams we can list.',
           ),
+          RelatedRecordsSection(
+            title: 'Matches',
+            section: data.matches,
+            emptyMessage:
+                'No matches found where this user created, scored, or played for a listed team.',
+          ),
+          RelatedRecordsSection(
+            title: 'Tournaments',
+            section: data.tournaments,
+            emptyMessage:
+                'No tournaments found where this user organized or their teams took part.',
+          ),
+          RelatedRecordsSection(
+            title: 'Reports',
+            section: data.reports,
+            emptyMessage: 'No reports filed by or about this user.',
+          ),
+          RelatedRecordsSection(
+            title: 'Community posts',
+            section: data.communityPosts,
+            emptyMessage: 'No community posts by this user.',
+          ),
+          RelatedRecordsSection(
+            title: 'Discover posts',
+            section: data.opportunityPosts,
+            emptyMessage: 'No Discover posts by this user.',
+          ),
+          RelatedRecordsSection(
+            title: 'Notifications',
+            section: data.notifications,
+            emptyMessage:
+                'No inbox notifications listed for this user (the list is empty or not readable).',
+          ),
+          RelatedNote(
+            data.lastLoginAt == null
+                ? 'No login-history or device records are stored. Last login is not set on this profile.'
+                : 'No login-history or device records are stored. Last login on this profile is shown in Activity.',
+          ),
+        ],
+      ),
     );
   }
 }

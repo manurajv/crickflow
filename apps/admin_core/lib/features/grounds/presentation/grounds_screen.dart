@@ -15,6 +15,8 @@ import 'widgets/grounds_filter_drawer.dart';
 import 'widgets/grounds_map_preview.dart';
 import 'widgets/grounds_table.dart';
 import 'widgets/grounds_toolbar.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class GroundsScreen extends ConsumerStatefulWidget {
   const GroundsScreen({super.key});
@@ -31,10 +33,7 @@ class _GroundsScreenState extends ConsumerState<GroundsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(breadcrumbProvider.notifier).state = [
-        'Management',
-        'Grounds',
-      ];
+      ref.read(breadcrumbProvider.notifier).state = ['Management', 'Grounds'];
     });
   }
 
@@ -89,14 +88,16 @@ class _GroundsScreenState extends ConsumerState<GroundsScreen> {
                     ),
                     TextField(
                       controller: contact,
-                      decoration:
-                          const InputDecoration(labelText: 'Contact number'),
+                      decoration: const InputDecoration(
+                        labelText: 'Contact number',
+                      ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<ManagedGroundType?>(
                       initialValue: groundType,
-                      decoration:
-                          const InputDecoration(labelText: 'Ground type'),
+                      decoration: const InputDecoration(
+                        labelText: 'Ground type',
+                      ),
                       items: [
                         for (final t in ManagedGroundType.values)
                           DropdownMenuItem(value: t, child: Text(t.label)),
@@ -125,7 +126,9 @@ class _GroundsScreenState extends ConsumerState<GroundsScreen> {
 
     if (ok != true || name.text.trim().isEmpty) return;
 
-    final id = await ref.read(groundsListControllerProvider.notifier).createGround(
+    final id = await ref
+        .read(groundsListControllerProvider.notifier)
+        .createGround(
           ManagedGround(
             id: '',
             name: name.text.trim(),
@@ -140,9 +143,9 @@ class _GroundsScreenState extends ConsumerState<GroundsScreen> {
     if (!mounted) return;
     if (id != null) {
       ref.read(groundsListControllerProvider.notifier).selectGround(id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ground created')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ground created')));
     }
   }
 
@@ -160,18 +163,13 @@ class _GroundsScreenState extends ConsumerState<GroundsScreen> {
             child: RefreshIndicator(
               onRefresh: controller.refresh,
               child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  showPanel ? 460 : 20,
-                  32,
-                ),
+                padding: EdgeInsets.fromLTRB(20, 20, showPanel ? 460 : 20, 32),
                 children: [
                   Text(
                     'Grounds',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -203,15 +201,16 @@ class _GroundsScreenState extends ConsumerState<GroundsScreen> {
                       }
                     },
                     onRefresh: controller.refresh,
-                    onExport: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Export (CSV / Excel / PDF) coming soon',
-                          ),
-                        ),
-                      );
-                    },
+                    onExport: () => showAdminListExport(
+                      context: context,
+                      filenameBase: 'crickflow-grounds',
+                      headers: AdminListExports.groundHeaders,
+                      rows: [
+                        for (final g in state.grounds)
+                          AdminListExports.groundRow(g),
+                      ],
+                      hasMore: state.hasMore,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (state.error != null)

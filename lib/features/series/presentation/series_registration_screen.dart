@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/series/series.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_registration_fields.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Collects Series registration fields from [SeriesSettingsModel], then optionally
 /// submits a club join request.
@@ -41,10 +43,15 @@ class _SeriesRegistrationScreenState
   String? _profilePhotoUrl;
   String? _nationalIdDocUrl;
   String? _passportDocUrl;
+  Map<String, String> _customFields = {};
+  final _uploads = SeriesRegistrationUploadSession();
   bool _saving = false;
 
   @override
   void dispose() {
+    if (!_uploads.committed) {
+      _uploads.rollback();
+    }
     _fullName.dispose();
     _playerId.dispose();
     _phone.dispose();
@@ -60,14 +67,10 @@ class _SeriesRegistrationScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(currentUserProfileProvider).valueOrNull;
       if (user == null) return;
-      if (_fullName.text.isEmpty) {
-        _fullName.text = user.displayName.isNotEmpty
-            ? user.displayName
-            : user.name;
-      }
-      if (_playerId.text.isEmpty && (user.playerId?.isNotEmpty ?? false)) {
-        _playerId.text = user.playerId!;
-      }
+      _fullName.text = user.displayName.isNotEmpty
+          ? user.displayName
+          : user.name;
+      _playerId.text = user.playerId ?? '';
       if (_phone.text.isEmpty && user.effectiveMobile.isNotEmpty) {
         _phone.text = user.effectiveMobile;
       }
@@ -90,33 +93,47 @@ class _SeriesRegistrationScreenState
       );
       return;
     }
+    if (settings.requireNationalIdDocument &&
+        (_nationalIdDocUrl == null || _nationalIdDocUrl!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('National ID document photo is required')),
+      );
+      return;
+    }
+    if (settings.requirePassportDocument &&
+        (_passportDocUrl == null || _passportDocUrl!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passport document photo is required')),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
-      final result = await ref
-          .read(seriesFunctionsServiceProvider)
-          .submitSeriesRegistration({
-            'seriesId': widget.seriesId,
-            if (widget.clubId != null) 'clubId': widget.clubId,
-            'fullName': _fullName.text.trim(),
-            'crickFlowPlayerId': _playerId.text.trim(),
-            'phoneNumber': _phone.text.trim(),
-            'address': _address.text.trim(),
-            if (_dob != null) 'dateOfBirth': _dob!.toIso8601String(),
-            if (_nationalId.text.trim().isNotEmpty)
-              'nationalId': _nationalId.text.trim(),
-            if (_passport.text.trim().isNotEmpty)
-              'passportNumber': _passport.text.trim(),
-            if (_profilePhotoUrl != null) 'profilePhotoUrl': _profilePhotoUrl,
-            if (_nationalIdDocUrl != null) 'nationalIdDocUrl': _nationalIdDocUrl,
-            if (_passportDocUrl != null) 'passportDocUrl': _passportDocUrl,
-          });
+      final payload = {
+        'seriesId': widget.seriesId,
+        if (widget.clubId != null) 'clubId': widget.clubId,
+        'fullName': _fullName.text.trim(),
+        'crickFlowPlayerId': _playerId.text.trim(),
+        'phoneNumber': _phone.text.trim(),
+        'address': _address.text.trim(),
+        if (_dob != null) 'dateOfBirth': _dob!.toIso8601String(),
+        if (_nationalId.text.trim().isNotEmpty)
+          'nationalId': _nationalId.text.trim(),
+        if (_passport.text.trim().isNotEmpty)
+          'passportNumber': _passport.text.trim(),
+        if (_profilePhotoUrl != null) 'profilePhotoUrl': _profilePhotoUrl,
+        if (_nationalIdDocUrl != null) 'nationalIdDocUrl': _nationalIdDocUrl,
+        if (_passportDocUrl != null) 'passportDocUrl': _passportDocUrl,
+        if (_customFields.isNotEmpty) 'customFields': _customFields,
+      };
       if (widget.afterJoin && widget.clubId != null) {
-        await ref.read(seriesFunctionsServiceProvider).submitPlayerJoinRequest({
-          'seriesId': widget.seriesId,
-          'clubId': widget.clubId,
-          'registrationId': result['registrationId'],
-          'displayName': _fullName.text.trim(),
-        });
+        await ref
+            .read(seriesFunctionsServiceProvider)
+            .submitPlayerJoinRequest(payload);
+      } else {
+        await ref
+            .read(seriesFunctionsServiceProvider)
+            .submitSeriesRegistration(payload);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,12 +145,14 @@ class _SeriesRegistrationScreenState
           ),
         ),
       );
+      _uploads.markCommitted();
       context.pop();
     } catch (e) {
+      await _uploads.rollback();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not submit: ${friendlyError(e)}')),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -148,19 +167,51 @@ class _SeriesRegistrationScreenState
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: const CfChromeAppBar(title: Text('Registration')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
       data: (series) {
         if (series == null) {
-          return const Scaffold(
-            body: Center(child: Text('Series not found')),
+          return const Scaffold(body: Center(child: Text('Series not found')));
+        }
+        final user = ref.watch(currentUserProfileProvider).valueOrNull;
+        if (user == null) {
+          final prompt = widget.afterJoin
+              ? SignInPrompt.joinOrgTeam
+              : SignInPrompt.registerOrgPlayer;
+          return Scaffold(
+            appBar: CfChromeAppBar(
+              title: Text(
+                widget.afterJoin ? 'Request to join' : 'Series registration',
+              ),
+            ),
+            body: Padding(
+              padding: const EdgeInsets.all(AppDimens.spaceLg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(prompt.message),
+                  const SizedBox(height: AppDimens.spaceLg),
+                  FilledButton(
+                    onPressed: () => openLoginForGuest(
+                      context: context,
+                      prompt: prompt,
+                      returnPath:
+                          '/series/${widget.seriesId}/register'
+                          '${widget.clubId != null ? '?clubId=${widget.clubId}' : ''}'
+                          '${widget.afterJoin ? '&join=1' : ''}',
+                    ),
+                    child: const Text('Sign in'),
+                  ),
+                ],
+              ),
+            ),
           );
         }
         final s = series.settings;
         return Scaffold(
           appBar: CfChromeAppBar(
             title: Text(
-              widget.afterJoin ? 'Register & join' : 'Series registration',
+              widget.afterJoin ? 'Request to join' : 'Series registration',
             ),
           ),
           body: Form(
@@ -170,13 +221,16 @@ class _SeriesRegistrationScreenState
               children: [
                 Text(
                   'Fill the details required by ${series.name}. '
-                  'ID numbers and document photos stay private to organization admins.',
+                  'ID numbers and document photos stay private to you, team admins, and organization admins.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppDimens.spaceLg),
                 SeriesRegistrationFields(
                   settings: s,
                   seriesId: widget.seriesId,
+                  clubId: widget.clubId,
+                  uploadSession: _uploads,
+                  lockIdentity: true,
                   fullName: _fullName,
                   playerId: _playerId,
                   phone: _phone,
@@ -193,6 +247,8 @@ class _SeriesRegistrationScreenState
                   onNationalIdDocUrl: (u) =>
                       setState(() => _nationalIdDocUrl = u),
                   onPassportDocUrl: (u) => setState(() => _passportDocUrl = u),
+                  customFieldValues: _customFields,
+                  onCustomFieldsChanged: (m) => _customFields = m,
                 ),
                 const SizedBox(height: AppDimens.spaceLg),
                 FilledButton.icon(
@@ -203,7 +259,7 @@ class _SeriesRegistrationScreenState
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check),
-                  label: Text(_saving ? 'Submitting…' : 'Submit'),
+                  label: Text(_saving ? 'Sending request…' : 'Submit'),
                 ),
               ],
             ),

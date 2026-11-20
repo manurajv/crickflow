@@ -205,21 +205,33 @@ class CommunityRepository {
     }
   }
 
+  /// Deletes a post (author or moderator). Likes, comments and comment likes
+  /// are cleaned up first, best-effort. Saves are private to each saver, so
+  /// they are left behind and hidden because the post no longer exists.
   Future<void> deletePost(String postId) async {
-    final likes = await _col.doc(postId).collection('likes').limit(200).get();
-    for (final d in likes.docs) {
-      await d.reference.delete();
+    final postRef = _col.doc(postId);
+    Future<void> deleteAll(Query<Map<String, dynamic>> q) async {
+      try {
+        final snap = await q.limit(200).get();
+        for (final d in snap.docs) {
+          try {
+            await d.reference.delete();
+          } catch (_) {}
+        }
+      } catch (_) {}
     }
-    final comments =
-        await _col.doc(postId).collection('comments').limit(200).get();
-    for (final d in comments.docs) {
-      await d.reference.delete();
-    }
-    final saves = await _col.doc(postId).collection('saves').limit(200).get();
-    for (final d in saves.docs) {
-      await d.reference.delete();
-    }
-    await _col.doc(postId).delete();
+
+    await deleteAll(postRef.collection('likes'));
+    try {
+      final comments = await postRef.collection('comments').limit(200).get();
+      for (final c in comments.docs) {
+        await deleteAll(c.reference.collection('likes'));
+        try {
+          await c.reference.delete();
+        } catch (_) {}
+      }
+    } catch (_) {}
+    await postRef.delete();
   }
 
   // ── Likes ──────────────────────────────────────────────────────────────

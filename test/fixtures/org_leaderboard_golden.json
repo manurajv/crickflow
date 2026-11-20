@@ -1,0 +1,7098 @@
+{
+ "series": {
+  "rankingRules": {
+   "winPoints": 2,
+   "tiePoints": 1,
+   "lossPoints": 0,
+   "noResultPoints": 1,
+   "useNetRunRate": true
+  }
+ },
+ "teams": [
+  {
+   "id": "c1",
+   "seriesId": "s1",
+   "name": "Alpha XI",
+   "linkedTeamId": "t1",
+   "status": "approved"
+  },
+  {
+   "id": "c2",
+   "seriesId": "s1",
+   "name": "Bravo XI",
+   "linkedTeamId": "t2",
+   "status": "approved"
+  },
+  {
+   "id": "c3",
+   "seriesId": "s1",
+   "name": "Charlie XI",
+   "linkedTeamId": "t3",
+   "status": "approved"
+  },
+  {
+   "id": "c4",
+   "seriesId": "s1",
+   "name": "Delta XI (pending)",
+   "linkedTeamId": "t4",
+   "status": "pending"
+  }
+ ],
+ "tournaments": [
+  {
+   "id": "tn1",
+   "teamIds": [
+    "t2",
+    "t3"
+   ]
+  }
+ ],
+ "players": [
+  {
+   "id": "p1",
+   "name": "Alpha 1",
+   "userId": "u_p1"
+  },
+  {
+   "id": "p2",
+   "name": "Alpha 2",
+   "userId": "u_p2"
+  },
+  {
+   "id": "p3",
+   "name": "Alpha 3",
+   "userId": "u_p3"
+  },
+  {
+   "id": "p4",
+   "name": "Alpha 4",
+   "userId": "u_p4"
+  },
+  {
+   "id": "p5",
+   "name": "Bravo 1",
+   "userId": "u_p5"
+  },
+  {
+   "id": "p6",
+   "name": "Bravo 2",
+   "userId": "u_p6"
+  },
+  {
+   "id": "p7",
+   "name": "Bravo 3",
+   "userId": "u_p7"
+  },
+  {
+   "id": "p8",
+   "name": "Bravo 4",
+   "userId": "u_p8"
+  },
+  {
+   "id": "p9",
+   "name": "Charlie 1",
+   "userId": "u_p9"
+  },
+  {
+   "id": "p10",
+   "name": "Charlie 2",
+   "userId": "u_p10"
+  },
+  {
+   "id": "w1",
+   "name": "Walk-in Roster Wally",
+   "userId": ""
+  }
+ ],
+ "matches": [
+  {
+   "matchType": "single",
+   "matchMode": "normal",
+   "seriesId": "s1",
+   "seriesOfficialStatus": "approved",
+   "id": "m1",
+   "title": "Alpha XI vs Bravo XI",
+   "status": "completed",
+   "teamAId": "t1",
+   "teamBId": "t2",
+   "teamAName": "Alpha XI",
+   "teamBName": "Bravo XI",
+   "seriesClubAId": "c1",
+   "seriesClubBId": "c2",
+   "rules": {
+    "cricketMatchType": "limitedOvers",
+    "format": "standard",
+    "ballType": "leather",
+    "totalOvers": 20,
+    "ballsPerOver": 6,
+    "maxWickets": 10
+   },
+   "winnerTeamId": "t1",
+   "resultSummary": "Alpha XI won by 10 runs",
+   "completedAt": "2026-03-01T12:00:00.000Z",
+   "innings": [
+    {
+     "inningsNumber": 1,
+     "battingTeamId": "t1",
+     "bowlingTeamId": "t2",
+     "status": "completed",
+     "totalRuns": 150,
+     "totalWickets": 6,
+     "legalBalls": 120,
+     "batsmen": [
+      {
+       "playerId": "p1",
+       "playerName": "p1",
+       "runs": 52,
+       "balls": 11,
+       "fours": 4,
+       "sixes": 6,
+       "isOut": true
+      },
+      {
+       "playerId": "p2",
+       "playerName": "p2",
+       "runs": 2,
+       "balls": 9,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": true
+      },
+      {
+       "playerId": "p3",
+       "playerName": "p3",
+       "runs": 0,
+       "balls": 2,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": true
+      },
+      {
+       "playerId": "p4",
+       "playerName": "p4",
+       "runs": 1,
+       "balls": 2,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": true
+      }
+     ],
+     "bowlers": [
+      {
+       "playerId": "p5",
+       "playerName": "p5",
+       "oversBowledBalls": 12,
+       "runsConceded": 53,
+       "wickets": 2
+      },
+      {
+       "playerId": "p6",
+       "playerName": "p6",
+       "oversBowledBalls": 12,
+       "runsConceded": 3,
+       "wickets": 2
+      }
+     ],
+     "fielders": []
+    },
+    {
+     "inningsNumber": 2,
+     "battingTeamId": "t2",
+     "bowlingTeamId": "t1",
+     "status": "completed",
+     "totalRuns": 140,
+     "totalWickets": 10,
+     "legalBalls": 118,
+     "batsmen": [
+      {
+       "playerId": "p5",
+       "playerName": "p5",
+       "runs": 1,
+       "balls": 9,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": false
+      },
+      {
+       "playerId": "p6",
+       "playerName": "p6",
+       "runs": 22,
+       "balls": 8,
+       "fours": 4,
+       "sixes": 1,
+       "isOut": false
+      },
+      {
+       "playerId": "p7",
+       "playerName": "p7",
+       "runs": 0,
+       "balls": 1,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": true
+      }
+     ],
+     "bowlers": [
+      {
+       "playerId": "p1",
+       "playerName": "p1",
+       "oversBowledBalls": 12,
+       "runsConceded": 23,
+       "wickets": 1
+      },
+      {
+       "playerId": "p2",
+       "playerName": "p2",
+       "oversBowledBalls": 6,
+       "runsConceded": 0,
+       "wickets": 0
+      }
+     ],
+     "fielders": []
+    }
+   ]
+  },
+  {
+   "matchType": "single",
+   "matchMode": "normal",
+   "seriesId": "s1",
+   "seriesOfficialStatus": "approved",
+   "id": "m2",
+   "title": "Charlie XI vs Bravo XI",
+   "status": "completed",
+   "tournamentId": "tn1",
+   "teamAId": "t3",
+   "teamBId": "t2",
+   "teamAName": "Charlie XI",
+   "teamBName": "Bravo XI",
+   "seriesClubAId": "c3",
+   "seriesClubBId": "c2",
+   "rules": {
+    "cricketMatchType": "limitedOvers",
+    "format": "standard",
+    "ballType": "leather",
+    "totalOvers": 10,
+    "ballsPerOver": 6,
+    "maxWickets": 10
+   },
+   "winnerTeamId": "t3",
+   "resultSummary": "Charlie XI won by 60 runs",
+   "completedAt": "2026-03-05T12:00:00.000Z",
+   "innings": [
+    {
+     "inningsNumber": 1,
+     "battingTeamId": "t3",
+     "bowlingTeamId": "t2",
+     "status": "completed",
+     "totalRuns": 110,
+     "totalWickets": 2,
+     "legalBalls": 62,
+     "batsmen": [
+      {
+       "playerId": "p9",
+       "playerName": "p9",
+       "runs": 100,
+       "balls": 17,
+       "fours": 1,
+       "sixes": 16,
+       "isOut": false
+      },
+      {
+       "playerId": "p10",
+       "playerName": "p10",
+       "runs": 0,
+       "balls": 2,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": true
+      }
+     ],
+     "bowlers": [
+      {
+       "playerId": "p5",
+       "playerName": "p5",
+       "oversBowledBalls": 13,
+       "runsConceded": 64,
+       "wickets": 2
+      },
+      {
+       "playerId": "p6",
+       "playerName": "p6",
+       "oversBowledBalls": 6,
+       "runsConceded": 36,
+       "wickets": 0
+      }
+     ],
+     "fielders": []
+    },
+    {
+     "inningsNumber": 2,
+     "battingTeamId": "t2",
+     "bowlingTeamId": "t3",
+     "status": "completed",
+     "totalRuns": 50,
+     "totalWickets": 10,
+     "legalBalls": 45,
+     "batsmen": [
+      {
+       "playerId": "p5",
+       "playerName": "p5",
+       "runs": 3,
+       "balls": 4,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": true
+      },
+      {
+       "playerId": "p6",
+       "playerName": "p6",
+       "runs": 0,
+       "balls": 1,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": true
+      }
+     ],
+     "bowlers": [
+      {
+       "playerId": "p9",
+       "playerName": "p9",
+       "oversBowledBalls": 5,
+       "runsConceded": 3,
+       "wickets": 2
+      }
+     ],
+     "fielders": []
+    }
+   ]
+  },
+  {
+   "matchType": "single",
+   "matchMode": "normal",
+   "seriesId": "s1",
+   "seriesOfficialStatus": "approved",
+   "id": "m3",
+   "title": "Alpha XI vs Charlie XI",
+   "status": "completed",
+   "teamAId": "t1",
+   "teamBId": "t3",
+   "teamAName": "Alpha XI",
+   "teamBName": "Charlie XI",
+   "seriesClubAId": "c1",
+   "seriesClubBId": "c3",
+   "rules": {
+    "cricketMatchType": "limitedOvers",
+    "format": "tennis",
+    "ballType": "tennis",
+    "totalOvers": 6,
+    "ballsPerOver": 6,
+    "maxWickets": 10
+   },
+   "resultSummary": "Match tied",
+   "completedAt": "2026-03-09T12:00:00.000Z",
+   "innings": [
+    {
+     "inningsNumber": 1,
+     "battingTeamId": "t1",
+     "bowlingTeamId": "t3",
+     "status": "completed",
+     "totalRuns": 60,
+     "totalWickets": 4,
+     "legalBalls": 36,
+     "batsmen": [
+      {
+       "playerId": "p1",
+       "playerName": "Alpha 1",
+       "runs": 31,
+       "balls": 14,
+       "fours": 2,
+       "sixes": 3,
+       "isOut": true
+      },
+      {
+       "playerId": "p2",
+       "playerName": "Alpha 2",
+       "runs": 20,
+       "balls": 15,
+       "fours": 1,
+       "sixes": 2,
+       "isOut": false
+      },
+      {
+       "playerId": "guest_g1",
+       "playerName": "Guest Gary",
+       "runs": 9,
+       "balls": 7,
+       "fours": 1,
+       "sixes": 0,
+       "isOut": true
+      }
+     ],
+     "bowlers": [
+      {
+       "playerId": "p9",
+       "playerName": "Charlie 1",
+       "oversBowledBalls": 12,
+       "runsConceded": 20,
+       "wickets": 2
+      },
+      {
+       "playerId": "w1",
+       "playerName": "Wally",
+       "oversBowledBalls": 12,
+       "runsConceded": 18,
+       "wickets": 1
+      },
+      {
+       "playerId": "p10",
+       "playerName": "Charlie 2",
+       "oversBowledBalls": 12,
+       "runsConceded": 22,
+       "wickets": 1
+      }
+     ],
+     "fielders": [
+      {
+       "playerId": "p10",
+       "playerName": "Charlie 2",
+       "catches": 2,
+       "runOuts": 0,
+       "stumpings": 0
+      },
+      {
+       "playerId": "w1",
+       "playerName": "Wally",
+       "catches": 1,
+       "runOuts": 1,
+       "stumpings": 0
+      }
+     ]
+    },
+    {
+     "inningsNumber": 2,
+     "battingTeamId": "t3",
+     "bowlingTeamId": "t1",
+     "status": "completed",
+     "totalRuns": 60,
+     "totalWickets": 3,
+     "legalBalls": 36,
+     "batsmen": [
+      {
+       "playerId": "p9",
+       "playerName": "Charlie 1",
+       "runs": 28,
+       "balls": 18,
+       "fours": 3,
+       "sixes": 1,
+       "isOut": true
+      },
+      {
+       "playerId": "p10",
+       "playerName": "Charlie 2",
+       "runs": 0,
+       "balls": 3,
+       "fours": 0,
+       "sixes": 0,
+       "isOut": true
+      }
+     ],
+     "bowlers": [
+      {
+       "playerId": "p3",
+       "playerName": "Alpha 3",
+       "oversBowledBalls": 12,
+       "runsConceded": 26,
+       "wickets": 3
+      },
+      {
+       "playerId": "p4",
+       "playerName": "Alpha 4",
+       "oversBowledBalls": 6,
+       "runsConceded": 9,
+       "wickets": 0
+      }
+     ],
+     "fielders": [
+      {
+       "playerId": "p1",
+       "playerName": "Alpha 1",
+       "catches": 0,
+       "runOuts": 0,
+       "stumpings": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "matchType": "single",
+   "matchMode": "normal",
+   "seriesId": "s1",
+   "seriesOfficialStatus": "approved",
+   "id": "m4",
+   "title": "Alpha XI vs Bravo XI (rain)",
+   "status": "abandoned",
+   "teamAId": "t1",
+   "teamBId": "t2",
+   "teamAName": "Alpha XI",
+   "teamBName": "Bravo XI",
+   "seriesClubAId": "c1",
+   "seriesClubBId": "c2",
+   "rules": {
+    "cricketMatchType": "limitedOvers",
+    "format": "standard",
+    "ballType": "leather",
+    "totalOvers": 20,
+    "ballsPerOver": 6,
+    "maxWickets": 10
+   },
+   "resultSummary": "Match abandoned",
+   "completedAt": "2026-03-12T12:00:00.000Z",
+   "innings": []
+  },
+  {
+   "matchType": "single",
+   "matchMode": "normal",
+   "seriesId": "s1",
+   "seriesOfficialStatus": "pendingApproval",
+   "id": "x_pending",
+   "title": "x_pending",
+   "status": "completed",
+   "teamAId": "t1",
+   "teamBId": "t2",
+   "teamAName": "Alpha XI",
+   "teamBName": "Bravo XI",
+   "seriesClubAId": "c1",
+   "seriesClubBId": "c2",
+   "rules": {
+    "cricketMatchType": "limitedOvers",
+    "format": "standard",
+    "ballType": "leather",
+    "totalOvers": 20,
+    "ballsPerOver": 6,
+    "maxWickets": 10
+   },
+   "winnerTeamId": "t1",
+   "resultSummary": "Alpha XI won",
+   "completedAt": "2026-03-15T12:00:00.000Z",
+   "innings": [
+    {
+     "inningsNumber": 1,
+     "battingTeamId": "t1",
+     "bowlingTeamId": "t2",
+     "status": "completed",
+     "totalRuns": 300,
+     "totalWickets": 1,
+     "legalBalls": 120,
+     "batsmen": [
+      {
+       "playerId": "p1",
+       "playerName": "Alpha 1",
+       "runs": 250,
+       "balls": 100,
+       "fours": 20,
+       "sixes": 20,
+       "isOut": false
+      }
+     ],
+     "bowlers": [],
+     "fielders": []
+    }
+   ]
+  },
+  {
+   "matchType": "single",
+   "matchMode": "quick",
+   "seriesId": "s1",
+   "seriesOfficialStatus": "approved",
+   "id": "x_quick",
+   "title": "x_quick",
+   "status": "completed",
+   "teamAId": "t1",
+   "teamBId": "t2",
+   "teamAName": "Alpha XI",
+   "teamBName": "Bravo XI",
+   "seriesClubAId": "c1",
+   "seriesClubBId": "c2",
+   "rules": {
+    "cricketMatchType": "limitedOvers",
+    "format": "standard",
+    "ballType": "leather",
+    "totalOvers": 20,
+    "ballsPerOver": 6,
+    "maxWickets": 10
+   },
+   "winnerTeamId": "t1",
+   "resultSummary": "Alpha XI won",
+   "completedAt": "2026-03-15T12:00:00.000Z",
+   "innings": [
+    {
+     "inningsNumber": 1,
+     "battingTeamId": "t1",
+     "bowlingTeamId": "t2",
+     "status": "completed",
+     "totalRuns": 300,
+     "totalWickets": 1,
+     "legalBalls": 120,
+     "batsmen": [
+      {
+       "playerId": "p1",
+       "playerName": "Alpha 1",
+       "runs": 250,
+       "balls": 100,
+       "fours": 20,
+       "sixes": 20,
+       "isOut": false
+      }
+     ],
+     "bowlers": [],
+     "fielders": []
+    }
+   ]
+  },
+  {
+   "matchType": "single",
+   "matchMode": "normal",
+   "seriesId": "s1",
+   "seriesOfficialStatus": "approved",
+   "id": "x_noclub",
+   "title": "x_noclub",
+   "status": "completed",
+   "teamAId": "t1",
+   "teamBId": "t2",
+   "teamAName": "Alpha XI",
+   "teamBName": "Bravo XI",
+   "seriesClubAId": "c1",
+   "rules": {
+    "cricketMatchType": "limitedOvers",
+    "format": "standard",
+    "ballType": "leather",
+    "totalOvers": 20,
+    "ballsPerOver": 6,
+    "maxWickets": 10
+   },
+   "winnerTeamId": "t1",
+   "resultSummary": "Alpha XI won",
+   "completedAt": "2026-03-15T12:00:00.000Z",
+   "innings": [
+    {
+     "inningsNumber": 1,
+     "battingTeamId": "t1",
+     "bowlingTeamId": "t2",
+     "status": "completed",
+     "totalRuns": 300,
+     "totalWickets": 1,
+     "legalBalls": 120,
+     "batsmen": [
+      {
+       "playerId": "p1",
+       "playerName": "Alpha 1",
+       "runs": 250,
+       "balls": 100,
+       "fours": 20,
+       "sixes": 20,
+       "isOut": false
+      }
+     ],
+     "bowlers": [],
+     "fielders": []
+    }
+   ]
+  },
+  {
+   "matchType": "single",
+   "matchMode": "normal",
+   "seriesId": "s1",
+   "seriesOfficialStatus": "approved",
+   "id": "x_live",
+   "title": "x_live",
+   "status": "live",
+   "teamAId": "t1",
+   "teamBId": "t2",
+   "teamAName": "Alpha XI",
+   "teamBName": "Bravo XI",
+   "seriesClubAId": "c1",
+   "seriesClubBId": "c2",
+   "rules": {
+    "cricketMatchType": "limitedOvers",
+    "format": "standard",
+    "ballType": "leather",
+    "totalOvers": 20,
+    "ballsPerOver": 6,
+    "maxWickets": 10
+   },
+   "winnerTeamId": "t1",
+   "resultSummary": "Alpha XI won",
+   "completedAt": "2026-03-15T12:00:00.000Z",
+   "innings": [
+    {
+     "inningsNumber": 1,
+     "battingTeamId": "t1",
+     "bowlingTeamId": "t2",
+     "status": "completed",
+     "totalRuns": 300,
+     "totalWickets": 1,
+     "legalBalls": 120,
+     "batsmen": [
+      {
+       "playerId": "p1",
+       "playerName": "Alpha 1",
+       "runs": 250,
+       "balls": 100,
+       "fours": 20,
+       "sixes": 20,
+       "isOut": false
+      }
+     ],
+     "bowlers": [],
+     "fielders": []
+    }
+   ]
+  }
+ ],
+ "ballEvents": {
+  "m1": [
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 1,
+    "sequence": 1,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 2,
+    "sequence": 2,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 3,
+    "sequence": 3,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 4,
+    "sequence": 4,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 5,
+    "sequence": 5,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 6,
+    "sequence": 6,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 1,
+    "sequence": 7,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p2",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 2,
+    "sequence": 8,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p2",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 3,
+    "sequence": 9,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p2",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 4,
+    "sequence": 10,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p2",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 5,
+    "sequence": 11,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p2",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 6,
+    "sequence": 12,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p2",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 1,
+    "sequence": 13,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 2,
+    "sequence": 14,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 3,
+    "sequence": 15,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 4,
+    "sequence": 16,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p1",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 5,
+    "sequence": 17,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p1",
+    "bowlerId": "p5",
+    "wicketType": "caught",
+    "dismissedPlayerId": "p1",
+    "primaryFielderId": "p7"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 5,
+    "sequence": 18,
+    "eventType": "wide",
+    "runs": 1,
+    "batsmanRuns": 0,
+    "extraRuns": 1,
+    "isLegalDelivery": false,
+    "countsAsBallFaced": false,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p3",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 6,
+    "sequence": 19,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p3",
+    "bowlerId": "p5",
+    "wicketType": "stumped",
+    "dismissedPlayerId": "p3",
+    "primaryFielderId": "p8",
+    "wicketKeeperId": "p8"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 3,
+    "ballInOver": 1,
+    "sequence": 20,
+    "eventType": "runs",
+    "runs": 1,
+    "batsmanRuns": 1,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p4",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 3,
+    "ballInOver": 2,
+    "sequence": 21,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": false,
+    "strikerId": "p4",
+    "bowlerId": "p6",
+    "wicketType": "runOut",
+    "dismissedPlayerId": "p4",
+    "primaryFielderId": "p7"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 3,
+    "ballInOver": 3,
+    "sequence": 22,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p2",
+    "bowlerId": "p6",
+    "wicketType": "caughtBehind",
+    "dismissedPlayerId": "p2",
+    "primaryFielderId": "p8",
+    "wicketKeeperId": "p8",
+    "dismissalSubType": "caught_behind"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 3,
+    "ballInOver": 4,
+    "sequence": 23,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p3",
+    "bowlerId": "p6",
+    "wicketType": "caughtAndBowled",
+    "dismissedPlayerId": "p3",
+    "primaryFielderId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 3,
+    "ballInOver": 5,
+    "sequence": 24,
+    "eventType": "runs",
+    "runs": 2,
+    "batsmanRuns": 2,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p2",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 1,
+    "overNumber": 3,
+    "ballInOver": 6,
+    "sequence": 25,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p2",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 1,
+    "sequence": 1,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 2,
+    "sequence": 2,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 3,
+    "sequence": 3,
+    "eventType": "runs",
+    "runs": 1,
+    "batsmanRuns": 1,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 4,
+    "sequence": 4,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p6",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 5,
+    "sequence": 5,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p6",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 6,
+    "sequence": 6,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p6",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 1,
+    "ballInOver": 1,
+    "sequence": 7,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p2"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 1,
+    "ballInOver": 2,
+    "sequence": 8,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p2"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 1,
+    "ballInOver": 3,
+    "sequence": 9,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p2"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 1,
+    "ballInOver": 4,
+    "sequence": 10,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p2"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 1,
+    "ballInOver": 5,
+    "sequence": 11,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p2"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 1,
+    "ballInOver": 6,
+    "sequence": 12,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p2"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 2,
+    "ballInOver": 1,
+    "sequence": 13,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p7",
+    "bowlerId": "p1",
+    "wicketType": "bowled",
+    "dismissedPlayerId": "p7"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 2,
+    "ballInOver": 2,
+    "sequence": 14,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p6",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 2,
+    "ballInOver": 3,
+    "sequence": 15,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p6",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 2,
+    "ballInOver": 4,
+    "sequence": 16,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p6",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 2,
+    "ballInOver": 5,
+    "sequence": 17,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p6",
+    "bowlerId": "p1"
+   },
+   {
+    "matchId": "m1",
+    "inningsNumber": 2,
+    "overNumber": 2,
+    "ballInOver": 6,
+    "sequence": 18,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p6",
+    "bowlerId": "p1"
+   }
+  ],
+  "m2": [
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 1,
+    "sequence": 1,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 2,
+    "sequence": 2,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 3,
+    "sequence": 3,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 4,
+    "sequence": 4,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 5,
+    "sequence": 5,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 0,
+    "ballInOver": 6,
+    "sequence": 6,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 1,
+    "sequence": 7,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 2,
+    "sequence": 8,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 3,
+    "sequence": 9,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 4,
+    "sequence": 10,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 5,
+    "sequence": 11,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 1,
+    "ballInOver": 6,
+    "sequence": 12,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p6"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 1,
+    "sequence": 13,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 2,
+    "sequence": 14,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 3,
+    "sequence": 15,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 4,
+    "sequence": 16,
+    "eventType": "runs",
+    "runs": 6,
+    "batsmanRuns": 6,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 2,
+    "ballInOver": 5,
+    "sequence": 17,
+    "eventType": "runs",
+    "runs": 4,
+    "batsmanRuns": 4,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p9",
+    "bowlerId": "p5"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 3,
+    "ballInOver": 1,
+    "sequence": 18,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p10",
+    "bowlerId": "p5",
+    "wicketType": "lbw",
+    "dismissedPlayerId": "p10"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 1,
+    "overNumber": 3,
+    "ballInOver": 2,
+    "sequence": 19,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p10",
+    "bowlerId": "p5",
+    "wicketType": "bowled",
+    "dismissedPlayerId": "p10"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 1,
+    "sequence": 1,
+    "eventType": "runs",
+    "runs": 2,
+    "batsmanRuns": 2,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p9"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 2,
+    "sequence": 2,
+    "eventType": "runs",
+    "runs": 1,
+    "batsmanRuns": 1,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p9"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 3,
+    "sequence": 3,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p6",
+    "bowlerId": "p9",
+    "wicketType": "caught",
+    "dismissedPlayerId": "p6",
+    "primaryFielderId": "p10"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 4,
+    "sequence": 4,
+    "eventType": "runs",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": false,
+    "bowlerGetsWicket": false,
+    "strikerId": "p5",
+    "bowlerId": "p9"
+   },
+   {
+    "matchId": "m2",
+    "inningsNumber": 2,
+    "overNumber": 0,
+    "ballInOver": 5,
+    "sequence": 5,
+    "eventType": "wicket",
+    "runs": 0,
+    "batsmanRuns": 0,
+    "extraRuns": 0,
+    "isLegalDelivery": true,
+    "countsAsBallFaced": true,
+    "countsInOver": true,
+    "countsToBowler": true,
+    "isWicket": true,
+    "bowlerGetsWicket": true,
+    "strikerId": "p5",
+    "bowlerId": "p9",
+    "wicketType": "caught",
+    "dismissedPlayerId": "p5",
+    "primaryFielderId": "p10"
+   }
+  ]
+ },
+ "expected": {
+  "table": {
+   "all": [
+    {
+     "teamId": "t1",
+     "teamName": "Alpha XI",
+     "played": 3,
+     "won": 1,
+     "lost": 0,
+     "tied": 1,
+     "noResult": 1,
+     "points": 4,
+     "netRunRate": 0.385,
+     "position": 1
+    },
+    {
+     "teamId": "t3",
+     "teamName": "Charlie XI",
+     "played": 2,
+     "won": 1,
+     "lost": 0,
+     "tied": 1,
+     "noResult": 0,
+     "points": 3,
+     "netRunRate": 3.533,
+     "position": 2
+    },
+    {
+     "teamId": "t2",
+     "teamName": "Bravo XI",
+     "played": 3,
+     "won": 0,
+     "lost": 2,
+     "tied": 0,
+     "noResult": 1,
+     "points": 1,
+     "netRunRate": -2.238,
+     "position": 3
+    }
+   ],
+   "__standalone__": [
+    {
+     "teamId": "t1",
+     "teamName": "Alpha XI",
+     "played": 3,
+     "won": 1,
+     "lost": 0,
+     "tied": 1,
+     "noResult": 1,
+     "points": 4,
+     "netRunRate": 0.385,
+     "position": 1
+    },
+    {
+     "teamId": "t3",
+     "teamName": "Charlie XI",
+     "played": 1,
+     "won": 0,
+     "lost": 0,
+     "tied": 1,
+     "noResult": 0,
+     "points": 1,
+     "netRunRate": 0.0,
+     "position": 2
+    },
+    {
+     "teamId": "t2",
+     "teamName": "Bravo XI",
+     "played": 2,
+     "won": 0,
+     "lost": 1,
+     "tied": 0,
+     "noResult": 1,
+     "points": 1,
+     "netRunRate": -0.5,
+     "position": 3
+    }
+   ],
+   "tn1": [
+    {
+     "teamId": "t3",
+     "teamName": "Charlie XI",
+     "played": 1,
+     "won": 1,
+     "lost": 0,
+     "tied": 0,
+     "noResult": 0,
+     "points": 2,
+     "netRunRate": 5.645,
+     "position": 1
+    },
+    {
+     "teamId": "t2",
+     "teamName": "Bravo XI",
+     "played": 1,
+     "won": 0,
+     "lost": 1,
+     "tied": 0,
+     "noResult": 0,
+     "points": 0,
+     "netRunRate": -5.645,
+     "position": 2
+    }
+   ]
+  },
+  "digests": {
+   "m1": {
+    "p1": {
+     "catches": 0,
+     "runOuts": 0,
+     "stumpings": 0,
+     "dotBalls": 6,
+     "maidens": 0,
+     "fastestFiftyBalls": 10,
+     "fastestHundredBalls": null
+    },
+    "p2": {
+     "catches": 0,
+     "runOuts": 0,
+     "stumpings": 0,
+     "dotBalls": 6,
+     "maidens": 1,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    },
+    "p5": {
+     "catches": 0,
+     "runOuts": 0,
+     "stumpings": 0,
+     "dotBalls": 2,
+     "maidens": 0,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    },
+    "p6": {
+     "catches": 1,
+     "runOuts": 0,
+     "stumpings": 0,
+     "dotBalls": 10,
+     "maidens": 1,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    },
+    "p7": {
+     "catches": 1,
+     "runOuts": 1,
+     "stumpings": 0,
+     "dotBalls": 0,
+     "maidens": 0,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    },
+    "p8": {
+     "catches": 1,
+     "runOuts": 0,
+     "stumpings": 1,
+     "dotBalls": 0,
+     "maidens": 0,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    }
+   },
+   "m2": {
+    "p10": {
+     "catches": 2,
+     "runOuts": 0,
+     "stumpings": 0,
+     "dotBalls": 0,
+     "maidens": 0,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    },
+    "p5": {
+     "catches": 0,
+     "runOuts": 0,
+     "stumpings": 0,
+     "dotBalls": 2,
+     "maidens": 0,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    },
+    "p9": {
+     "catches": 0,
+     "runOuts": 0,
+     "stumpings": 0,
+     "dotBalls": 3,
+     "maidens": 0,
+     "fastestFiftyBalls": 9,
+     "fastestHundredBalls": 17
+    }
+   },
+   "m3": {
+    "p1": {
+     "catches": 0,
+     "runOuts": 0,
+     "stumpings": 1,
+     "dotBalls": 0,
+     "maidens": 0,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    },
+    "p10": {
+     "catches": 2,
+     "runOuts": 0,
+     "stumpings": 0,
+     "dotBalls": 0,
+     "maidens": 0,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    },
+    "w1": {
+     "catches": 1,
+     "runOuts": 1,
+     "stumpings": 0,
+     "dotBalls": 0,
+     "maidens": 0,
+     "fastestFiftyBalls": null,
+     "fastestHundredBalls": null
+    }
+   },
+   "m4": {}
+  },
+  "rankings": {
+   "leather|all|mostRuns": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 100,
+     "valueLabel": "100",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 52,
+     "valueLabel": "52",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 3,
+     "value": 22,
+     "valueLabel": "22",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "244.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 4,
+     "value": 4,
+     "valueLabel": "4",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "4"
+      ],
+      [
+       "Avg",
+       "4.0"
+      ],
+      [
+       "SR",
+       "30.8"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 5,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "2"
+      ],
+      [
+       "Avg",
+       "2.0"
+      ],
+      [
+       "SR",
+       "22.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p4",
+     "rank": 6,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "50.0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|highestScore": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 100,
+     "valueLabel": "100",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 52,
+     "valueLabel": "52",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 3,
+     "value": 22,
+     "valueLabel": "22",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "244.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 4,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "4"
+      ],
+      [
+       "Avg",
+       "4.0"
+      ],
+      [
+       "SR",
+       "30.8"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 5,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "2"
+      ],
+      [
+       "Avg",
+       "2.0"
+      ],
+      [
+       "SR",
+       "22.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p4",
+     "rank": 6,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "50.0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|bestAverage": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 100.0,
+     "valueLabel": "100.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 52.0,
+     "valueLabel": "52.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 3,
+     "value": 22.0,
+     "valueLabel": "22.0",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "244.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 4,
+     "value": 4.0,
+     "valueLabel": "4.0",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "4"
+      ],
+      [
+       "Avg",
+       "4.0"
+      ],
+      [
+       "SR",
+       "30.8"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 5,
+     "value": 2.0,
+     "valueLabel": "2.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "2"
+      ],
+      [
+       "Avg",
+       "2.0"
+      ],
+      [
+       "SR",
+       "22.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p4",
+     "rank": 6,
+     "value": 1.0,
+     "valueLabel": "1.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "50.0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|strikeRate": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 588.2352941176471,
+     "valueLabel": "588.2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 472.72727272727275,
+     "valueLabel": "472.7",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 3,
+     "value": 30.76923076923077,
+     "valueLabel": "30.8",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "4"
+      ],
+      [
+       "Avg",
+       "4.0"
+      ],
+      [
+       "SR",
+       "30.8"
+      ]
+     ]
+    }
+   ],
+   "leather|all|mostFifties": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    }
+   ],
+   "leather|all|mostHundreds": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|all|mostSixes": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 16,
+     "valueLabel": "16",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 6,
+     "valueLabel": "6",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "244.4"
+      ]
+     ]
+    }
+   ],
+   "leather|all|mostFours": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 4,
+     "valueLabel": "4",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 4,
+     "valueLabel": "4",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "244.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|all|fastestFifty": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 9,
+     "valueLabel": "9 balls",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 10,
+     "valueLabel": "10 balls",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    }
+   ],
+   "leather|all|fastestHundred": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 17,
+     "valueLabel": "17 balls",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|all|mostWickets": [
+    {
+     "playerId": "p5",
+     "rank": 1,
+     "value": 4,
+     "valueLabel": "4",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "4"
+      ],
+      [
+       "Eco",
+       "28.08"
+      ],
+      [
+       "SR",
+       "6.3"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "9.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 3,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "3.60"
+      ],
+      [
+       "SR",
+       "2.5"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 4,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.50"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|bestBowlingFigures": [
+    {
+     "playerId": "p6",
+     "rank": 1,
+     "value": 199997,
+     "valueLabel": "2/3",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "9.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 199997,
+     "valueLabel": "2/3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "3.60"
+      ],
+      [
+       "SR",
+       "2.5"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 3,
+     "value": 199947,
+     "valueLabel": "2/53",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "4"
+      ],
+      [
+       "Eco",
+       "28.08"
+      ],
+      [
+       "SR",
+       "6.3"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 4,
+     "value": 99977,
+     "valueLabel": "1/23",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.50"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|economy": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 11.5,
+     "valueLabel": "11.50",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.50"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 13.0,
+     "valueLabel": "13.00",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "9.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 3,
+     "value": 28.08,
+     "valueLabel": "28.08",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "4"
+      ],
+      [
+       "Eco",
+       "28.08"
+      ],
+      [
+       "SR",
+       "6.3"
+      ]
+     ]
+    }
+   ],
+   "leather|all|bowlingStrikeRate": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 2.5,
+     "valueLabel": "2.5",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "3.60"
+      ],
+      [
+       "SR",
+       "2.5"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 2,
+     "value": 6.25,
+     "valueLabel": "6.3",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "4"
+      ],
+      [
+       "Eco",
+       "28.08"
+      ],
+      [
+       "SR",
+       "6.3"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 3,
+     "value": 9.0,
+     "valueLabel": "9.0",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "9.0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|maidens": [
+    {
+     "playerId": "p2",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "0"
+      ],
+      [
+       "Eco",
+       "0.00"
+      ],
+      [
+       "SR",
+       "—"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "9.0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|dotBalls": [
+    {
+     "playerId": "p6",
+     "rank": 1,
+     "value": 10,
+     "valueLabel": "10",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "9.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 6,
+     "valueLabel": "6",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.50"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 6,
+     "valueLabel": "6",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "0"
+      ],
+      [
+       "Eco",
+       "0.00"
+      ],
+      [
+       "SR",
+       "—"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 4,
+     "value": 4,
+     "valueLabel": "4",
+     "detail": [
+      [
+       "Inn",
+       "2"
+      ],
+      [
+       "W",
+       "4"
+      ],
+      [
+       "Eco",
+       "28.08"
+      ],
+      [
+       "SR",
+       "6.3"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 5,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "3.60"
+      ],
+      [
+       "SR",
+       "2.5"
+      ]
+     ]
+    }
+   ],
+   "leather|all|fiveWicketHauls": [],
+   "leather|all|mostCatches": [
+    {
+     "playerId": "p10",
+     "rank": 1,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "2"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "2"
+      ],
+      [
+       "Dis",
+       "1"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p7",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "1"
+      ]
+     ]
+    },
+    {
+     "playerId": "p8",
+     "rank": 4,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "1"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|mostRunOuts": [
+    {
+     "playerId": "p7",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "1"
+      ]
+     ]
+    }
+   ],
+   "leather|all|mostStumpings": [
+    {
+     "playerId": "p8",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "1"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "leather|all|mostDirectHits": [
+    {
+     "playerId": "p7",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "1"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|mostRuns": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 52,
+     "valueLabel": "52",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 22,
+     "valueLabel": "22",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "275.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "2"
+      ],
+      [
+       "Avg",
+       "2.0"
+      ],
+      [
+       "SR",
+       "22.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p4",
+     "rank": 4,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "50.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 5,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "11.1"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|highestScore": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 52,
+     "valueLabel": "52",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 22,
+     "valueLabel": "22",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "275.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "2"
+      ],
+      [
+       "Avg",
+       "2.0"
+      ],
+      [
+       "SR",
+       "22.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p4",
+     "rank": 4,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "50.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 5,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "11.1"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|bestAverage": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 52.0,
+     "valueLabel": "52.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 22.0,
+     "valueLabel": "22.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "275.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 2.0,
+     "valueLabel": "2.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "2"
+      ],
+      [
+       "Avg",
+       "2.0"
+      ],
+      [
+       "SR",
+       "22.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p4",
+     "rank": 4,
+     "value": 1.0,
+     "valueLabel": "1.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "50.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 5,
+     "value": 1.0,
+     "valueLabel": "1.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "1"
+      ],
+      [
+       "Avg",
+       "1.0"
+      ],
+      [
+       "SR",
+       "11.1"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|strikeRate": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 472.72727272727275,
+     "valueLabel": "472.7",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|mostFifties": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|mostHundreds": [],
+   "leather|__standalone__|mostSixes": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 6,
+     "valueLabel": "6",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "275.0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|mostFours": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 4,
+     "valueLabel": "4",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 4,
+     "valueLabel": "4",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "22"
+      ],
+      [
+       "Avg",
+       "22.0"
+      ],
+      [
+       "SR",
+       "275.0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|fastestFifty": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 10,
+     "valueLabel": "10 balls",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "52"
+      ],
+      [
+       "Avg",
+       "52.0"
+      ],
+      [
+       "SR",
+       "472.7"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|fastestHundred": [],
+   "leather|__standalone__|mostWickets": [
+    {
+     "playerId": "p5",
+     "rank": 1,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "26.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "1.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.50"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|bestBowlingFigures": [
+    {
+     "playerId": "p6",
+     "rank": 1,
+     "value": 199997,
+     "valueLabel": "2/3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "1.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 2,
+     "value": 199947,
+     "valueLabel": "2/53",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "26.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 3,
+     "value": 99977,
+     "valueLabel": "1/23",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.50"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|economy": [
+    {
+     "playerId": "p6",
+     "rank": 1,
+     "value": 1.5,
+     "valueLabel": "1.50",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "1.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 11.5,
+     "valueLabel": "11.50",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.50"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 3,
+     "value": 26.5,
+     "valueLabel": "26.50",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "26.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|bowlingStrikeRate": [
+    {
+     "playerId": "p5",
+     "rank": 1,
+     "value": 6.0,
+     "valueLabel": "6.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "26.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 6.0,
+     "valueLabel": "6.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "1.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|maidens": [
+    {
+     "playerId": "p2",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "0"
+      ],
+      [
+       "Eco",
+       "0.00"
+      ],
+      [
+       "SR",
+       "—"
+      ]
+     ]
+    },
+    {
+     "playerId": "p6",
+     "rank": 2,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "1.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|dotBalls": [
+    {
+     "playerId": "p6",
+     "rank": 1,
+     "value": 10,
+     "valueLabel": "10",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "1.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 6,
+     "valueLabel": "6",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.50"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 6,
+     "valueLabel": "6",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "0"
+      ],
+      [
+       "Eco",
+       "0.00"
+      ],
+      [
+       "SR",
+       "—"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 4,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "26.50"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|fiveWicketHauls": [],
+   "leather|__standalone__|mostCatches": [
+    {
+     "playerId": "p6",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "1"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p7",
+     "rank": 2,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "1"
+      ]
+     ]
+    },
+    {
+     "playerId": "p8",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "1"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|mostRunOuts": [
+    {
+     "playerId": "p7",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "1"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|mostStumpings": [
+    {
+     "playerId": "p8",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "1"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "leather|__standalone__|mostDirectHits": [
+    {
+     "playerId": "p7",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "1"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "1"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|mostRuns": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 100,
+     "valueLabel": "100",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 2,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "3"
+      ],
+      [
+       "Avg",
+       "3.0"
+      ],
+      [
+       "SR",
+       "75.0"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|highestScore": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 100,
+     "valueLabel": "100",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 2,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "3"
+      ],
+      [
+       "Avg",
+       "3.0"
+      ],
+      [
+       "SR",
+       "75.0"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|bestAverage": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 100.0,
+     "valueLabel": "100.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 2,
+     "value": 3.0,
+     "valueLabel": "3.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "3"
+      ],
+      [
+       "Avg",
+       "3.0"
+      ],
+      [
+       "SR",
+       "75.0"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|strikeRate": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 588.2352941176471,
+     "valueLabel": "588.2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|mostFifties": [],
+   "leather|tn1|mostHundreds": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|mostSixes": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 16,
+     "valueLabel": "16",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|mostFours": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|fastestFifty": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 9,
+     "valueLabel": "9 balls",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|fastestHundred": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 17,
+     "valueLabel": "17 balls",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "100"
+      ],
+      [
+       "Avg",
+       "100.0"
+      ],
+      [
+       "SR",
+       "588.2"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|mostWickets": [
+    {
+     "playerId": "p5",
+     "rank": 1,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "29.54"
+      ],
+      [
+       "SR",
+       "6.5"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "3.60"
+      ],
+      [
+       "SR",
+       "2.5"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|bestBowlingFigures": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 199997,
+     "valueLabel": "2/3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "3.60"
+      ],
+      [
+       "SR",
+       "2.5"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 2,
+     "value": 199936,
+     "valueLabel": "2/64",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "29.54"
+      ],
+      [
+       "SR",
+       "6.5"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|economy": [
+    {
+     "playerId": "p5",
+     "rank": 1,
+     "value": 29.53846153846154,
+     "valueLabel": "29.54",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "29.54"
+      ],
+      [
+       "SR",
+       "6.5"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|bowlingStrikeRate": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 2.5,
+     "valueLabel": "2.5",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "3.60"
+      ],
+      [
+       "SR",
+       "2.5"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 2,
+     "value": 6.5,
+     "valueLabel": "6.5",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "29.54"
+      ],
+      [
+       "SR",
+       "6.5"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|maidens": [],
+   "leather|tn1|dotBalls": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "3.60"
+      ],
+      [
+       "SR",
+       "2.5"
+      ]
+     ]
+    },
+    {
+     "playerId": "p5",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "29.54"
+      ],
+      [
+       "SR",
+       "6.5"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|fiveWicketHauls": [],
+   "leather|tn1|mostCatches": [
+    {
+     "playerId": "p10",
+     "rank": 1,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "2"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "leather|tn1|mostRunOuts": [],
+   "leather|tn1|mostStumpings": [],
+   "leather|tn1|mostDirectHits": [],
+   "tennis|all|mostRuns": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 31,
+     "valueLabel": "31",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 28,
+     "valueLabel": "28",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 20,
+     "valueLabel": "20",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|highestScore": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 31,
+     "valueLabel": "31",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 28,
+     "valueLabel": "28",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 20,
+     "valueLabel": "20",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|bestAverage": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 31.0,
+     "valueLabel": "31.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 28.0,
+     "valueLabel": "28.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 20.0,
+     "valueLabel": "20.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|strikeRate": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 221.42857142857144,
+     "valueLabel": "221.4",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 155.55555555555557,
+     "valueLabel": "155.6",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 133.33333333333331,
+     "valueLabel": "133.3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|mostFifties": [],
+   "tennis|all|mostHundreds": [],
+   "tennis|all|mostSixes": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|mostFours": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|fastestFifty": [],
+   "tennis|all|fastestHundred": [],
+   "tennis|all|mostWickets": [
+    {
+     "playerId": "p3",
+     "rank": 1,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "3"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "4.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "10.00"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p10",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.00"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|bestBowlingFigures": [
+    {
+     "playerId": "p3",
+     "rank": 1,
+     "value": 299974,
+     "valueLabel": "3/26",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "3"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "4.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 199980,
+     "valueLabel": "2/20",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "10.00"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p10",
+     "rank": 3,
+     "value": 99978,
+     "valueLabel": "1/22",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.00"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|economy": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 10.0,
+     "valueLabel": "10.00",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "10.00"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p10",
+     "rank": 2,
+     "value": 11.0,
+     "valueLabel": "11.00",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.00"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p3",
+     "rank": 3,
+     "value": 13.0,
+     "valueLabel": "13.00",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "3"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "4.0"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|bowlingStrikeRate": [
+    {
+     "playerId": "p3",
+     "rank": 1,
+     "value": 4.0,
+     "valueLabel": "4.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "3"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "4.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 6.0,
+     "valueLabel": "6.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "10.00"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|maidens": [],
+   "tennis|all|dotBalls": [],
+   "tennis|all|fiveWicketHauls": [],
+   "tennis|all|mostCatches": [
+    {
+     "playerId": "p10",
+     "rank": 1,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "2"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|mostRunOuts": [],
+   "tennis|all|mostStumpings": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "1"
+      ],
+      [
+       "Ct",
+       "0"
+      ],
+      [
+       "St",
+       "1"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "tennis|all|mostDirectHits": [],
+   "tennis|__standalone__|mostRuns": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 31,
+     "valueLabel": "31",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 28,
+     "valueLabel": "28",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 20,
+     "valueLabel": "20",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|highestScore": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 31,
+     "valueLabel": "31",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 28,
+     "valueLabel": "28",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 20,
+     "valueLabel": "20",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|bestAverage": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 31.0,
+     "valueLabel": "31.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 28.0,
+     "valueLabel": "28.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 20.0,
+     "valueLabel": "20.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|strikeRate": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 221.42857142857144,
+     "valueLabel": "221.4",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 155.55555555555557,
+     "valueLabel": "155.6",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 133.33333333333331,
+     "valueLabel": "133.3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|mostFifties": [],
+   "tennis|__standalone__|mostHundreds": [],
+   "tennis|__standalone__|mostSixes": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|mostFours": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "28"
+      ],
+      [
+       "Avg",
+       "28.0"
+      ],
+      [
+       "SR",
+       "155.6"
+      ]
+     ]
+    },
+    {
+     "playerId": "p1",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "31"
+      ],
+      [
+       "Avg",
+       "31.0"
+      ],
+      [
+       "SR",
+       "221.4"
+      ]
+     ]
+    },
+    {
+     "playerId": "p2",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "R",
+       "20"
+      ],
+      [
+       "Avg",
+       "20.0"
+      ],
+      [
+       "SR",
+       "133.3"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|fastestFifty": [],
+   "tennis|__standalone__|fastestHundred": [],
+   "tennis|__standalone__|mostWickets": [
+    {
+     "playerId": "p3",
+     "rank": 1,
+     "value": 3,
+     "valueLabel": "3",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "3"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "4.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "10.00"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p10",
+     "rank": 3,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.00"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|bestBowlingFigures": [
+    {
+     "playerId": "p3",
+     "rank": 1,
+     "value": 299974,
+     "valueLabel": "3/26",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "3"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "4.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 199980,
+     "valueLabel": "2/20",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "10.00"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p10",
+     "rank": 3,
+     "value": 99978,
+     "valueLabel": "1/22",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.00"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|economy": [
+    {
+     "playerId": "p9",
+     "rank": 1,
+     "value": 10.0,
+     "valueLabel": "10.00",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "10.00"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p10",
+     "rank": 2,
+     "value": 11.0,
+     "valueLabel": "11.00",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "1"
+      ],
+      [
+       "Eco",
+       "11.00"
+      ],
+      [
+       "SR",
+       "12.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p3",
+     "rank": 3,
+     "value": 13.0,
+     "valueLabel": "13.00",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "3"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "4.0"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|bowlingStrikeRate": [
+    {
+     "playerId": "p3",
+     "rank": 1,
+     "value": 4.0,
+     "valueLabel": "4.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "3"
+      ],
+      [
+       "Eco",
+       "13.00"
+      ],
+      [
+       "SR",
+       "4.0"
+      ]
+     ]
+    },
+    {
+     "playerId": "p9",
+     "rank": 2,
+     "value": 6.0,
+     "valueLabel": "6.0",
+     "detail": [
+      [
+       "Inn",
+       "1"
+      ],
+      [
+       "W",
+       "2"
+      ],
+      [
+       "Eco",
+       "10.00"
+      ],
+      [
+       "SR",
+       "6.0"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|maidens": [],
+   "tennis|__standalone__|dotBalls": [],
+   "tennis|__standalone__|fiveWicketHauls": [],
+   "tennis|__standalone__|mostCatches": [
+    {
+     "playerId": "p10",
+     "rank": 1,
+     "value": 2,
+     "valueLabel": "2",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "2"
+      ],
+      [
+       "Ct",
+       "2"
+      ],
+      [
+       "St",
+       "0"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|mostRunOuts": [],
+   "tennis|__standalone__|mostStumpings": [
+    {
+     "playerId": "p1",
+     "rank": 1,
+     "value": 1,
+     "valueLabel": "1",
+     "detail": [
+      [
+       "Mat",
+       "1"
+      ],
+      [
+       "Dis",
+       "1"
+      ],
+      [
+       "Ct",
+       "0"
+      ],
+      [
+       "St",
+       "1"
+      ],
+      [
+       "RO",
+       "0"
+      ]
+     ]
+    }
+   ],
+   "tennis|__standalone__|mostDirectHits": [],
+   "tennis|tn1|mostRuns": [],
+   "tennis|tn1|highestScore": [],
+   "tennis|tn1|bestAverage": [],
+   "tennis|tn1|strikeRate": [],
+   "tennis|tn1|mostFifties": [],
+   "tennis|tn1|mostHundreds": [],
+   "tennis|tn1|mostSixes": [],
+   "tennis|tn1|mostFours": [],
+   "tennis|tn1|fastestFifty": [],
+   "tennis|tn1|fastestHundred": [],
+   "tennis|tn1|mostWickets": [],
+   "tennis|tn1|bestBowlingFigures": [],
+   "tennis|tn1|economy": [],
+   "tennis|tn1|bowlingStrikeRate": [],
+   "tennis|tn1|maidens": [],
+   "tennis|tn1|dotBalls": [],
+   "tennis|tn1|fiveWicketHauls": [],
+   "tennis|tn1|mostCatches": [],
+   "tennis|tn1|mostRunOuts": [],
+   "tennis|tn1|mostStumpings": [],
+   "tennis|tn1|mostDirectHits": []
+  }
+ }
+}

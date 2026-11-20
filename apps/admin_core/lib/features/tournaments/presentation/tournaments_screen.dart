@@ -12,6 +12,8 @@ import 'widgets/tournament_detail_panel.dart';
 import 'widgets/tournaments_filter_drawer.dart';
 import 'widgets/tournaments_table.dart';
 import 'widgets/tournaments_toolbar.dart';
+import '../../../core/export/admin_export_sheet.dart';
+import '../../../core/export/admin_list_exports.dart';
 
 class TournamentsScreen extends ConsumerStatefulWidget {
   const TournamentsScreen({super.key});
@@ -65,18 +67,13 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
             child: RefreshIndicator(
               onRefresh: controller.refresh,
               child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  showPanel ? 460 : 20,
-                  32,
-                ),
+                padding: EdgeInsets.fromLTRB(20, 20, showPanel ? 460 : 20, 32),
                 children: [
                   Text(
                     'Tournaments',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -105,15 +102,16 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
                       }
                     },
                     onRefresh: controller.refresh,
-                    onExport: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Export (CSV / Excel / PDF) coming soon',
-                          ),
-                        ),
-                      );
-                    },
+                    onExport: () => showAdminListExport(
+                      context: context,
+                      filenameBase: 'crickflow-tournaments',
+                      headers: AdminListExports.tournamentHeaders,
+                      rows: [
+                        for (final t in state.tournaments)
+                          AdminListExports.tournamentRow(t),
+                      ],
+                      hasMore: state.hasMore,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (state.error != null)

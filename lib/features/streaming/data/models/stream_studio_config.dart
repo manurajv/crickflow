@@ -37,7 +37,7 @@ class StreamStudioConfig extends Equatable {
     this.micEnabled = true,
     this.noiseSuppression = true,
     this.echoCancellation = true,
-    this.micGain = 1.0,
+    this.micGain = 0.0,
     this.overlayLayout = StreamOverlayLayout.full,
     this.overlayPrimaryColor = 0xFF0D47A1,
     this.overlaySecondaryColor = 0xFFFFC107,

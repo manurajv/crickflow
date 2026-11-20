@@ -51,8 +51,9 @@ class _ModerationChatsTableState extends State<ModerationChatsTable> {
           height: 240,
           child: CfEmptyState(
             icon: Icons.chat_outlined,
-            title: 'No chats found',
-            message: 'Chat threads will appear here for metadata review.',
+            title: 'Private chats are hidden',
+            message:
+                'Conversation list stays fail-closed. Message bodies are never shown. Threads only appear if you are a participant; everyone else sees this empty state.',
           ),
         ),
       );

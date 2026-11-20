@@ -112,7 +112,7 @@ class DashboardSystemStatusSection extends StatelessWidget {
       children: [
         const DashboardSectionHeader(
           title: 'System status',
-          subtitle: 'Service health indicators (placeholder probes)',
+          subtitle: 'Probed from this session (Firestore and Auth)',
         ),
         LayoutBuilder(
           builder: (context, constraints) {

@@ -5,32 +5,6 @@
   },
   "hosting": [
     {
-      "target": "admin",
-      "public": "apps/admin/build/web",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        {
-          "source": "**",
-          "destination": "/index.html"
-        }
-      ],
-      "headers": [
-        {
-          "source": "/index.html",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache, no-store, must-revalidate"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "target": "superadmin",
       "public": "apps/superadmin/build/web",
       "ignore": [
@@ -46,11 +20,11 @@
       ],
       "headers": [
         {
-          "source": "/index.html",
+          "source": "**",
           "headers": [
             {
               "key": "Cache-Control",
-              "value": "no-cache, no-store, must-revalidate"
+              "value": "no-cache"
             }
           ]
         }

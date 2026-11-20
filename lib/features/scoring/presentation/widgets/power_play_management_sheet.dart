@@ -7,6 +7,7 @@ import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../utils/scoring_display_utils.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Live-scoring powerplay editor — same over-grid UX as match-start setup.
 class PowerPlayManagementSheet extends ConsumerStatefulWidget {
@@ -78,7 +79,7 @@ class _PowerPlayManagementSheetState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
+          SnackBar(content: Text('Save failed: ${friendlyError(e)}')),
         );
       }
     } finally {

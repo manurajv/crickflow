@@ -19,6 +19,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
 import 'widgets/onboarding_location_section.dart';
 import 'widgets/onboarding_widgets.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class PlayerOnboardingScreen extends ConsumerStatefulWidget {
   const PlayerOnboardingScreen({
@@ -449,7 +450,7 @@ class _PlayerOnboardingScreenState extends ConsumerState<PlayerOnboardingScreen>
       context.go('/home');
     } catch (e) {
       if (mounted) {
-        _showValidationError('Could not save profile: $e');
+        _showValidationError('Could not save profile: ${friendlyError(e)}');
       }
     } finally {
       if (mounted) setState(() => _saving = false);

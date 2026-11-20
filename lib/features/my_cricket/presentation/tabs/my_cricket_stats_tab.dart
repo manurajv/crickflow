@@ -19,6 +19,7 @@ import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
 import '../widgets/my_cricket_action_banner.dart';
 import '../widgets/my_cricket_guest_sign_in_prompt.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class MyCricketStatsTab extends ConsumerStatefulWidget {
   const MyCricketStatsTab({super.key});
@@ -162,18 +163,18 @@ class _MyCricketStatsTabState extends ConsumerState<MyCricketStatsTab> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     SizedBox(height: 120),
-                    Center(child: Text('$e')),
+                    Center(child: Text(friendlyError(e))),
                   ],
                 ),
               ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => Center(child: Text(friendlyError(e))),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 

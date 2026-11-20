@@ -1,23 +1,35 @@
 import {
   collection,
   doc,
+  endAt,
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
+  startAt,
   where,
+  type QuerySnapshot,
+  type Unsubscribe,
 } from "firebase/firestore";
 import { collections } from "@/config/site";
+import { mapMatch, mapTournament } from "@/lib/firebase/mappers";
 import { getDb } from "@/lib/firebase/client";
 import { getFirebaseFunctions } from "@/lib/firebase/client";
+import {
+  canScoreSeriesTier,
+  isFullSeriesAdminTier,
+  parseSeriesAdminTier,
+} from "@/lib/cricket/series-admin-tier";
 import { httpsCallable } from "firebase/functions";
 import type {
   Series,
+  SeriesApproval,
   SeriesClub,
-  SeriesClubRanking,
   SeriesDetailData,
-  SeriesPlayerRanking,
+  SeriesAnnouncement,
+  SeriesAuditLog,
 } from "./types";
 
 type Data = Record<string, unknown>;
@@ -38,14 +50,20 @@ function mapSettings(data: Data): Series["settings"] {
     requireDateOfBirth: Boolean(raw.requireDateOfBirth),
     requireNationalId: Boolean(raw.requireNationalId),
     requirePassport: Boolean(raw.requirePassport),
+    requireNationalIdDocument: Boolean(raw.requireNationalIdDocument),
+    requirePassportDocument: Boolean(raw.requirePassportDocument),
     requirePhoneNumber: Boolean(raw.requirePhoneNumber),
     requireAddress: Boolean(raw.requireAddress),
     requireProfilePhoto: Boolean(raw.requireProfilePhoto),
+    customRequiredFields: Array.isArray(raw.customRequiredFields)
+      ? raw.customRequiredFields.filter((v): v is string => typeof v === "string" && v.trim().length >= 2)
+      : [],
     rankingRules: {
-      winPoints: number(rankingRaw, "winPoints") || 2,
+      // 0 is a valid value (e.g. no-result worth nothing); only absent means default.
+      winPoints: typeof rankingRaw.winPoints === "number" ? rankingRaw.winPoints : 2,
       lossPoints: number(rankingRaw, "lossPoints"),
-      tiePoints: number(rankingRaw, "tiePoints") || 1,
-      noResultPoints: number(rankingRaw, "noResultPoints") || 1,
+      tiePoints: typeof rankingRaw.tiePoints === "number" ? rankingRaw.tiePoints : 1,
+      noResultPoints: typeof rankingRaw.noResultPoints === "number" ? rankingRaw.noResultPoints : 1,
       useNetRunRate: rankingRaw.useNetRunRate !== false,
     },
   };
@@ -67,15 +85,26 @@ function mapSeries(id: string, data: Data): Series {
     matchCount: number(data, "matchCount"),
     tournamentCount: number(data, "tournamentCount"),
     settings: mapSettings(data),
+    competitionPolicy:
+      data.competitionPolicy && typeof data.competitionPolicy === "object"
+        ? (data.competitionPolicy as Record<string, unknown>)
+        : undefined,
   };
 }
 
 function mapClub(id: string, d: Data): SeriesClub {
   return {
-    id, seriesId: text(d, "seriesId"), name: text(d, "name") || "Club",
+    id, seriesId: text(d, "seriesId"), name: text(d, "name") || "Team",
     description: text(d, "description"), logoUrl: text(d, "logoUrl") || undefined,
     status: text(d, "status"), squadCount: number(d, "squadCount"),
+    linkedTeamId: text(d, "linkedTeamId") || undefined,
   };
+}
+
+export async function rebuildSeriesStandings(seriesId: string) {
+  const callable = httpsCallable(getFirebaseFunctions(), "rebuildSeriesStandings");
+  const result = await callable({ seriesId });
+  return (result.data ?? {}) as { written?: number; removed?: number; skipped?: number };
 }
 
 export async function listActiveSeries(take = 40): Promise<Series[]> {
@@ -93,13 +122,184 @@ export async function listActiveSeries(take = 40): Promise<Series[]> {
   }
 }
 
+
+export const PENDING_APPROVALS_LIMIT = 100;
+
+export function mapSeriesApproval(id: string, data: Data): SeriesApproval {
+  return {
+    id,
+    targetType: text(data, "targetType"),
+    targetId: text(data, "targetId"),
+    requestedBy: text(data, "requestedBy"),
+    clubId: text(data, "clubId") || undefined,
+    status: text(data, "status") || undefined,
+    reason: text(data, "reason") || undefined,
+    metadata: (data.metadata && typeof data.metadata === "object"
+      ? data.metadata
+      : {}) as Record<string, unknown>,
+  };
+}
+
+/** Unions pending queues by id; later lists win. Does not wait on a missing source. */
+export function mergePendingApprovalLists(
+  ...sources: Array<SeriesApproval[] | null | undefined>
+): SeriesApproval[] {
+  const byId = new Map<string, SeriesApproval>();
+  for (const list of sources) {
+    if (!list) continue;
+    for (const item of list) byId.set(item.id, item);
+  }
+  return [...byId.values()];
+}
+
+function pendingNestedQuery(seriesId: string) {
+  return query(
+    collection(getDb(), collections.series, seriesId, "approvals"),
+    where("status", "==", "pending"),
+    orderBy("requestedAt", "desc"),
+    limit(PENDING_APPROVALS_LIMIT),
+  );
+}
+
+function pendingLegacyQuery(seriesId: string) {
+  return query(
+    collection(getDb(), collections.seriesApprovals),
+    where("seriesId", "==", seriesId),
+    where("status", "==", "pending"),
+    orderBy("requestedAt", "desc"),
+    limit(PENDING_APPROVALS_LIMIT),
+  );
+}
+
+function mapApprovalSnap(snap: QuerySnapshot): SeriesApproval[] {
+  return snap.docs.map((d) => mapSeriesApproval(d.id, d.data() as Data));
+}
+
+function syncApprovalMirrorsInBackground(seriesId: string) {
+  const callable = httpsCallable(getFirebaseFunctions(), "syncSeriesApprovalMirrors");
+  void callable({ seriesId }).catch(() => undefined);
+}
+
+/**
+ * Live pending approvals. Nested and legacy queues run in parallel; the
+ * first snapshot paints immediately. Mirror sync is not awaited.
+ */
+export function watchPendingSeriesApprovals(
+  seriesId: string,
+  onData: (items: SeriesApproval[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  syncApprovalMirrorsInBackground(seriesId);
+  let nested: SeriesApproval[] | undefined;
+  let legacy: SeriesApproval[] | undefined;
+  let nestedErr: Error | undefined;
+  let legacyErr: Error | undefined;
+
+  const emit = () => {
+    if (nested === undefined && legacy === undefined) {
+      if (nestedErr && legacyErr) onError?.(nestedErr);
+      return;
+    }
+    onData(mergePendingApprovalLists(legacy, nested));
+  };
+
+  const unsubNested = onSnapshot(
+    pendingNestedQuery(seriesId),
+    (snap) => {
+      nested = mapApprovalSnap(snap);
+      nestedErr = undefined;
+      emit();
+    },
+    (error) => {
+      nestedErr = error;
+      nested = undefined;
+      emit();
+    },
+  );
+  const unsubLegacy = onSnapshot(
+    pendingLegacyQuery(seriesId),
+    (snap) => {
+      legacy = mapApprovalSnap(snap);
+      legacyErr = undefined;
+      emit();
+    },
+    (error) => {
+      legacyErr = error;
+      legacy = undefined;
+      emit();
+    },
+  );
+  return () => {
+    unsubNested();
+    unsubLegacy();
+  };
+}
+
+export async function getSeriesApprovalsAccess(
+  seriesId: string,
+  userId?: string,
+): Promise<{
+  canManage: boolean;
+  canViewStaff: boolean;
+  isSuperAdmin: boolean;
+  myAdminClubIds: string[];
+} | null> {
+  const seriesSnap = await getDoc(doc(getDb(), collections.series, seriesId));
+  if (!seriesSnap.exists()) return null;
+  const series = mapSeries(seriesSnap.id, seriesSnap.data() as Data);
+  if (!userId) {
+    return { canManage: false, canViewStaff: false, isSuperAdmin: false, myAdminClubIds: [] };
+  }
+  const [admins, clubAdmins] = await Promise.all([
+    getDocs(
+      query(
+        collection(getDb(), collections.seriesAdmins),
+        where("seriesId", "==", seriesId),
+        where("userId", "==", userId),
+        limit(1),
+      ),
+    ),
+    getDocs(
+      query(
+        collection(getDb(), collections.seriesClubAdmins),
+        where("seriesId", "==", seriesId),
+        where("userId", "==", userId),
+        limit(50),
+      ),
+    ).catch(() => null),
+  ]);
+  const isSuperAdmin = series.superAdminUserId === userId;
+  const adminActive = Boolean(
+    admins.docs.some((d) => (d.data().status as string | undefined) === "active"),
+  );
+  const canManage = Boolean(
+    isSuperAdmin ||
+      admins.docs.some((d) => {
+        const x = d.data();
+        return x.status === "active" && isFullSeriesAdminTier(text(x as Data, "role"));
+      }),
+  );
+  const myAdminClubIds: string[] = [];
+  for (const d of clubAdmins?.docs ?? []) {
+    const st = d.data().status;
+    if (st === "active" || st == null) {
+      const clubId = typeof d.data().clubId === "string" ? d.data().clubId : "";
+      if (clubId) myAdminClubIds.push(clubId);
+    }
+  }
+  return {
+    canManage,
+    canViewStaff: Boolean(isSuperAdmin || adminActive || myAdminClubIds.length > 0),
+    isSuperAdmin,
+    myAdminClubIds,
+  };
+}
+
 export async function getSeriesDetail(seriesId: string, userId?: string): Promise<SeriesDetailData | null> {
   const seriesSnap = await getDoc(doc(getDb(), collections.series, seriesId));
   if (!seriesSnap.exists()) return null;
-  const [clubs, clubRanks, playerRanks, admins, approvalsNested, approvalsLegacy, competitions, allAdmins] = await Promise.all([
+  const [clubs, admins, approvalsNested, approvalsLegacy, competitions, allAdmins, clubAdmins, memberships] = await Promise.all([
     getDocs(query(collection(getDb(), collections.seriesClubs), where("seriesId", "==", seriesId))),
-    getDocs(query(collection(getDb(), collections.seriesClubRankings), where("seriesId", "==", seriesId))),
-    getDocs(query(collection(getDb(), collections.seriesPlayerRankings), where("seriesId", "==", seriesId), limit(100))),
     userId ? getDocs(query(collection(getDb(), collections.seriesAdmins), where("seriesId", "==", seriesId), where("userId", "==", userId), limit(1))) : null,
     userId
       ? getDocs(
@@ -122,25 +322,33 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
       : null,
     getDocs(query(collection(getDb(), collections.seriesCompetitions), where("seriesId", "==", seriesId), limit(100))),
     getDocs(query(collection(getDb(), collections.seriesAdmins), where("seriesId", "==", seriesId), limit(50))),
+    userId
+      ? getDocs(
+          query(
+            collection(getDb(), collections.seriesClubAdmins),
+            where("seriesId", "==", seriesId),
+            where("userId", "==", userId),
+            limit(50),
+          ),
+        ).catch(() => null)
+      : null,
+    userId
+      ? getDocs(
+          query(
+            collection(getDb(), collections.seriesMemberships),
+            where("seriesId", "==", seriesId),
+            where("userId", "==", userId),
+            limit(50),
+          ),
+        ).catch(() => null)
+      : null,
   ]);
   const approvals =
     approvalsNested && approvalsNested.size > 0 ? approvalsNested : approvalsLegacy;
   const series = mapSeries(seriesSnap.id, seriesSnap.data());
-  const clubRankings: SeriesClubRanking[] = clubRanks.docs.map((d) => {
-    const x = d.data(); return { id: d.id, seriesId: text(x, "seriesId"), clubId: text(x, "clubId"),
-      clubName: text(x, "clubName"), played: number(x, "played"), won: number(x, "won"),
-      lost: number(x, "lost"), points: number(x, "points"), netRunRate: number(x, "netRunRate") };
-  }).sort((a, b) => b.points - a.points || b.netRunRate - a.netRunRate);
-  const playerRankings: SeriesPlayerRanking[] = playerRanks.docs.map((d) => {
-    const x = d.data(); return { id: d.id, seriesId: text(x, "seriesId"), userId: text(x, "userId"),
-      displayName: text(x, "displayName"), matches: number(x, "matches"),
-      runs: number(x, "runs"), wickets: number(x, "wickets") };
-  }).sort((a, b) => b.runs - a.runs);
   return {
     series,
     clubs: clubs.docs.map((d) => mapClub(d.id, d.data())),
-    clubRankings,
-    playerRankings,
     competitions: competitions.docs.map((d) => {
       const x = d.data();
       return {
@@ -164,21 +372,77 @@ export async function getSeriesDetail(seriesId: string, userId?: string): Promis
         };
       })
       .filter((a) => a.status === "active"),
-    canManage: Boolean(userId && (series.superAdminUserId === userId || admins?.size)),
+    canManage: Boolean(userId && (series.superAdminUserId === userId || (
+      admins?.docs.some((d) => {
+        const x = d.data();
+        return x.status === "active" && isFullSeriesAdminTier(text(x, "role"));
+      })
+    ))),
+    canScore: Boolean(userId && (series.superAdminUserId === userId || (
+      admins?.docs.some((d) => {
+        const x = d.data();
+        return x.status === "active" && canScoreSeriesTier(text(x, "role"));
+      })
+    ))),
+    canViewStaff: Boolean(userId && (series.superAdminUserId === userId || (
+      admins?.docs.some((d) => (d.data().status as string | undefined) === "active")
+    ))),
     isSuperAdmin: Boolean(userId && series.superAdminUserId === userId),
+    myRole: ((): SeriesDetailData["myRole"] => {
+      if (!userId) return "viewer";
+      if (series.superAdminUserId === userId) return "superAdmin";
+      const myAdmin = admins?.docs.find((d) => (d.data().status as string | undefined) === "active");
+      if (myAdmin) {
+        const tier = parseSeriesAdminTier(text(myAdmin.data(), "role"));
+        if (tier === "scorer") return "scorer";
+        if (tier === "viewer") return "staffViewer";
+        return "seriesAdmin";
+      }
+      const clubAdminActive = Boolean(
+        clubAdmins?.docs.some((d) => {
+          const st = d.data().status;
+          return st === "active" || st == null;
+        }),
+      );
+      if (clubAdminActive) return "clubAdmin";
+      const memberActive = Boolean(
+        memberships?.docs.some((d) => d.data().status === "active"),
+      );
+      if (memberActive) return "seriesPlayer";
+      return "viewer";
+    })(),
+    myAdminClubIds: (() => {
+      if (!userId) return [] as string[];
+      const ids = new Set<string>();
+      for (const d of clubAdmins?.docs ?? []) {
+        const st = d.data().status;
+        if (st === "active" || st == null) {
+          const clubId = typeof d.data().clubId === "string" ? d.data().clubId : "";
+          if (clubId) ids.add(clubId);
+        }
+      }
+      return [...ids];
+    })(),
+    myTeamIds: (() => {
+      if (!userId) return [] as string[];
+      const ids = new Set<string>();
+      for (const d of clubAdmins?.docs ?? []) {
+        const st = d.data().status;
+        if (st === "active" || st == null) {
+          const clubId = typeof d.data().clubId === "string" ? d.data().clubId : "";
+          if (clubId) ids.add(clubId);
+        }
+      }
+      for (const d of memberships?.docs ?? []) {
+        if (d.data().status === "active") {
+          const clubId = typeof d.data().clubId === "string" ? d.data().clubId : "";
+          if (clubId) ids.add(clubId);
+        }
+      }
+      return [...ids];
+    })(),
     pendingApprovalCount: approvals?.size ?? 0,
-    approvals: approvals?.docs.map((d) => {
-      const x = d.data();
-      return {
-        id: d.id,
-        targetType: text(x, "targetType"),
-        targetId: text(x, "targetId"),
-        requestedBy: text(x, "requestedBy"),
-        metadata: (x.metadata && typeof x.metadata === "object"
-          ? x.metadata
-          : {}) as Record<string, unknown>,
-      };
-    }) ?? [],
+    approvals: approvals?.docs.map((d) => mapSeriesApproval(d.id, d.data() as Data)) ?? [],
   };
 }
 
@@ -186,9 +450,35 @@ export async function reviewSeriesApproval(
   seriesId: string,
   approvalId: string,
   decision: "approved" | "rejected",
+  reason = "",
 ) {
   const callable = httpsCallable(getFirebaseFunctions(), "reviewSeriesApproval");
-  await callable({ seriesId, approvalId, decision });
+  await callable({ seriesId, approvalId, decision, reason });
+}
+
+/** Tournaments the user organizes that are not already in an org. */
+export async function listMyLinkableTournaments(uid: string) {
+  const snap = await getDocs(
+    query(collection(getDb(), collections.tournaments), where("createdBy", "==", uid), limit(50)),
+  );
+  return snap.docs
+    .map((d) => ({ id: d.id, data: d.data() as Record<string, unknown> }))
+    .filter(({ data }) => !data.seriesId || data.seriesOfficialStatus === "rejected")
+    .map(({ id, data }) => ({
+      id,
+      name: typeof data.name === "string" && data.name ? data.name : "Tournament",
+    }));
+}
+
+/** Org admins: add one of their own tournaments to the org. */
+export async function linkSeriesTournament(input: {
+  seriesId: string;
+  tournamentId: string;
+  title?: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "startSeriesTournament");
+  const result = await callable({ ...input, mode: "link", teamClubIds: [] });
+  return result.data as { autoApproved?: boolean; status?: string };
 }
 
 export async function createSeriesClub(input: {
@@ -209,18 +499,24 @@ export async function updateSeriesSettings(
   await callable({ seriesId, settings });
 }
 
+export async function updateSeriesCompetitionPolicy(
+  seriesId: string,
+  policy: Record<string, unknown>,
+) {
+  const callable = httpsCallable(
+    getFirebaseFunctions(),
+    "updateSeriesCompetitionPolicy",
+  );
+  await callable({ seriesId, policy });
+}
+
 export async function submitSeriesRegistration(input: Record<string, unknown>) {
   const callable = httpsCallable(getFirebaseFunctions(), "submitSeriesRegistration");
   const result = await callable(input);
   return (result.data ?? {}) as { registrationId?: string };
 }
 
-export async function submitPlayerJoinRequest(input: {
-  seriesId: string;
-  clubId: string;
-  registrationId?: string;
-  displayName?: string;
-}) {
+export async function submitPlayerJoinRequest(input: Record<string, unknown>) {
   const callable = httpsCallable(getFirebaseFunctions(), "submitPlayerJoinRequest");
   await callable(input);
 }
@@ -245,13 +541,19 @@ export async function createSeries(input: {
 
 export async function getSeriesRegistrationIdentity(
   seriesId: string,
-  registrationId: string,
+  input: { registrationId?: string; approvalId?: string },
 ) {
   const callable = httpsCallable(getFirebaseFunctions(), "getSeriesRegistrationIdentity");
-  const result = await callable({ seriesId, registrationId });
+  const result = await callable({
+    seriesId,
+    registrationId: input.registrationId,
+    approvalId: input.approvalId,
+  });
   return (result.data ?? {}) as {
-    registrationId?: string;
+    public?: Record<string, unknown> | null;
     identity?: Record<string, unknown> | null;
+    media?: Record<string, unknown> | null;
+    request?: Record<string, unknown> | null;
   };
 }
 
@@ -291,8 +593,18 @@ export async function addSeriesAdmin(input: {
   seriesId: string;
   userId: string;
   displayName?: string;
+  role?: "admin" | "scorer" | "viewer";
 }) {
   const callable = httpsCallable(getFirebaseFunctions(), "addSeriesAdmin");
+  await callable(input);
+}
+
+export async function updateSeriesAdminRole(input: {
+  seriesId: string;
+  userId: string;
+  role: "admin" | "scorer" | "viewer";
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "updateSeriesAdminRole");
   await callable(input);
 }
 
@@ -317,6 +629,20 @@ export async function listSeriesCompetitions(seriesId: string) {
   });
 }
 
+export async function listSeriesMatches(seriesId: string) {
+  const snap = await getDocs(
+    query(collection(getDb(), collections.matches), where("seriesId", "==", seriesId)),
+  );
+  return snap.docs.map((d) => mapMatch(d.id, d.data()));
+}
+
+export async function listSeriesTournaments(seriesId: string) {
+  const snap = await getDocs(
+    query(collection(getDb(), collections.tournaments), where("seriesId", "==", seriesId)),
+  );
+  return snap.docs.map((d) => mapTournament(d.id, d.data()));
+}
+
 export async function listSeriesAdmins(seriesId: string) {
   const snap = await getDocs(
     query(
@@ -335,4 +661,288 @@ export async function listSeriesAdmins(seriesId: string) {
       role: text(x, "role"),
     };
   });
+}
+
+
+export async function sendSeriesAnnouncement(input: {
+  seriesId: string;
+  title: string;
+  body: string;
+  audience: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "sendSeriesAnnouncement");
+  const result = await callable(input);
+  return (result.data ?? {}) as { ok?: boolean; announcementId?: string; recipientCount?: number };
+}
+
+export async function listSeriesAnnouncements(
+  seriesId: string,
+  take = 20,
+): Promise<SeriesAnnouncement[]> {
+  try {
+    const snap = await getDocs(
+      query(
+        collection(getDb(), collections.series, seriesId, "announcements"),
+        orderBy("createdAt", "desc"),
+        limit(take),
+      ),
+    );
+    return snap.docs.map((d) => {
+      const x = d.data();
+      const createdAt = x.createdAt;
+      let createdAtStr: string | null = null;
+      if (createdAt && typeof createdAt.toDate === "function") {
+        createdAtStr = createdAt.toDate().toISOString();
+      } else if (typeof createdAt === "string") {
+        createdAtStr = createdAt;
+      }
+      return {
+        id: d.id,
+        title: text(x, "title"),
+        body: text(x, "body"),
+        createdBy: text(x, "createdBy"),
+        createdByName: text(x, "createdByName"),
+        createdAt: createdAtStr,
+        audience: text(x, "audience") || undefined,
+        recipientCount: number(x, "recipientCount") || undefined,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function listSeriesAuditLogs(
+  seriesId: string,
+  take = 20,
+): Promise<SeriesAuditLog[]> {
+  try {
+    const snap = await getDocs(
+      query(
+        collection(getDb(), collections.seriesAuditLogs),
+        where("seriesId", "==", seriesId),
+        orderBy("timestamp", "desc"),
+        limit(take),
+      ),
+    );
+    return snap.docs.map((d) => {
+      const x = d.data();
+      const ts = x.timestamp;
+      let timestamp: string | null = null;
+      if (ts && typeof ts.toDate === "function") {
+        timestamp = ts.toDate().toISOString();
+      } else if (typeof ts === "string") {
+        timestamp = ts;
+      }
+      return {
+        id: d.id,
+        action: text(x, "action"),
+        actorUserId: text(x, "actorUserId"),
+        timestamp,
+      };
+    });
+  } catch {
+    // Fallback without orderBy if index missing
+    try {
+      const snap = await getDocs(
+        query(
+          collection(getDb(), collections.seriesAuditLogs),
+          where("seriesId", "==", seriesId),
+          limit(take),
+        ),
+      );
+      return snap.docs.map((d) => {
+        const x = d.data();
+        return {
+          id: d.id,
+          action: text(x, "action"),
+          actorUserId: text(x, "actorUserId"),
+          timestamp: typeof x.timestamp === "string" ? x.timestamp : null,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+}
+
+export async function listActiveSeriesByKind(
+  kind?: string,
+  take = 40,
+): Promise<Series[]> {
+  const all = await listActiveSeries(Math.max(take, 80));
+  if (!kind || kind === "all") return all.slice(0, take);
+  return all.filter((s) => s.kind === kind).slice(0, take);
+}
+
+export function seriesAuditActionLabel(action: string): string {
+  const map: Record<string, string> = {
+    APPROVAL_APPROVED: "Approved a request",
+    APPROVAL_REJECTED: "Rejected a request",
+    CLUB_APPROVED: "Approved a team",
+    CLUB_REJECTED: "Rejected a team",
+    PLAYER_APPROVED: "Approved a player",
+    PLAYER_REJECTED: "Rejected a player",
+    MATCH_APPROVED: "Approved a match",
+    MATCH_REJECTED: "Rejected a match",
+    TOURNAMENT_APPROVED: "Approved a tournament",
+    TOURNAMENT_REJECTED: "Rejected a tournament",
+    SETTINGS_UPDATED: "Updated settings",
+    POLICY_UPDATED: "Updated permissions",
+    ANNOUNCEMENT_SENT: "Posted an announcement",
+  };
+  return map[action] || action.replace(/_/g, " ").toLowerCase();
+}
+
+export type ClubMember = {
+  id: string;
+  userId: string;
+  displayName: string;
+  status: string;
+};
+
+export async function listClubSquad(seriesId: string, clubId: string): Promise<ClubMember[]> {
+  const snap = await getDocs(
+    query(
+      collection(getDb(), collections.seriesMemberships),
+      where("seriesId", "==", seriesId),
+      where("clubId", "==", clubId),
+      limit(200),
+    ),
+  );
+  return snap.docs.map((d) => {
+    const x = d.data() as Data;
+    return {
+      id: d.id,
+      userId: text(x, "userId"),
+      displayName: text(x, "displayName"),
+      status: text(x, "status") || "active",
+    };
+  });
+}
+
+export async function listClubAdmins(seriesId: string, clubId: string): Promise<ClubMember[]> {
+  const snap = await getDocs(
+    query(
+      collection(getDb(), collections.seriesClubAdmins),
+      where("seriesId", "==", seriesId),
+      where("clubId", "==", clubId),
+      limit(50),
+    ),
+  );
+  return snap.docs.map((d) => {
+    const x = d.data() as Data;
+    return {
+      id: d.id,
+      userId: text(x, "userId"),
+      displayName: text(x, "displayName"),
+      status: text(x, "status") || "active",
+    };
+  });
+}
+
+export type PlayerSearchHit = {
+  id: string;
+  displayName: string;
+  name: string;
+  playerId: string;
+  photoUrl?: string;
+};
+
+export async function searchPlayersForOrg(
+  queryText: string,
+  currentUserId?: string,
+  options?: { includeSelf?: boolean; excludeUserIds?: string[] },
+): Promise<PlayerSearchHit[]> {
+  const q = queryText.trim();
+  if (q.length < 2) return [];
+  const includeSelf = options?.includeSelf ?? true;
+  const excluded = new Set(options?.excludeUserIds ?? []);
+  const users = collection(getDb(), collections.users);
+  const hits: PlayerSearchHit[] = [];
+  const seen = new Set<string>();
+  const add = (id: string, data: Data) => {
+    if (excluded.has(id)) return;
+    if (currentUserId && id === currentUserId && !includeSelf) return;
+    if (seen.has(id)) return;
+    seen.add(id);
+    const displayName = text(data, "displayName") || text(data, "name");
+    hits.push({
+      id,
+      displayName,
+      name: text(data, "name"),
+      playerId: text(data, "playerId") || text(data, "cfPlayerId"),
+      photoUrl: text(data, "photoUrl") || undefined,
+    });
+  };
+  const normalizedId = q.toUpperCase();
+  const looksLikeId = /^CF[-_]?[A-Z0-9]+$/i.test(q);
+  try {
+    if (looksLikeId) {
+      const byId = await getDocs(query(users, where("playerId", "==", normalizedId), limit(5)));
+      byId.docs.forEach((d) => add(d.id, d.data() as Data));
+    }
+    const prefixSnap = await getDocs(
+      query(users, orderBy("displayName"), startAt(q), endAt(`${q}\uf8ff`), limit(20)),
+    );
+    prefixSnap.docs.forEach((d) => add(d.id, d.data() as Data));
+  } catch {
+    // Listing users can be denied by rules; exact ID lookup may still have succeeded.
+  }
+  return hits.slice(0, 20);
+}
+
+export async function submitPlayerAddRequest(input: Record<string, unknown>) {
+  const callable = httpsCallable(getFirebaseFunctions(), "submitPlayerAddRequest");
+  const result = await callable(input);
+  return (result.data ?? {}) as { ok?: boolean; approvalId?: string; membershipId?: string };
+}
+
+export async function addSeriesClubAdmin(input: {
+  seriesId: string;
+  clubId: string;
+  userId: string;
+  displayName?: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "addSeriesClubAdmin");
+  await callable(input);
+}
+
+export async function removeSeriesClubAdmin(input: {
+  seriesId: string;
+  clubId: string;
+  userId: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "removeSeriesClubAdmin");
+  await callable(input);
+}
+
+export async function respondSeriesClubAdminInvite(input: {
+  seriesId: string;
+  clubId: string;
+  decision: "accepted" | "declined";
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "respondSeriesClubAdminInvite");
+  const result = await callable(input);
+  return (result.data ?? {}) as { ok?: boolean; status?: string };
+}
+
+export async function cancelSeriesClubAdminInvite(input: {
+  seriesId: string;
+  clubId: string;
+  userId: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "cancelSeriesClubAdminInvite");
+  await callable(input);
+}
+
+export async function submitPlayerRemovalRequest(input: {
+  seriesId: string;
+  clubId: string;
+  userId: string;
+  reason: string;
+}) {
+  const callable = httpsCallable(getFirebaseFunctions(), "submitPlayerRemovalRequest");
+  const result = await callable(input);
+  return (result.data ?? {}) as { ok?: boolean; direct?: boolean; approvalId?: string; status?: string };
 }

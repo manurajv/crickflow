@@ -6,13 +6,14 @@ import '../../../data/models/match_model.dart';
 import '../../../data/models/player_model.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/services/google_maps_location_service.dart';
-import '../../../domain/scoring/match_lifecycle.dart';
+import '../../../domain/scoring/match_staleness.dart';
 import '../../../features/my_cricket/my_cricket_filters.dart';
 import '../../../shared/providers/my_player_provider.dart';
 import '../../../shared/providers/player_social_provider.dart';
 import '../../../shared/providers/providers.dart';
 import '../domain/nearby_match_item.dart';
 import 'nearby_anchor_location_provider.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Home "Matches Near You" / "Matches in {region}".
 ///
@@ -40,7 +41,7 @@ final nearbyMatchesProvider =
   } catch (e) {
     return NearbyMatchesState(
       status: NearbyMatchesStatus.error,
-      message: 'Could not load matches: $e',
+      message: 'Could not load matches: ${friendlyError(e)}',
     );
   }
 
@@ -111,7 +112,7 @@ final nearbyMatchesProvider =
 });
 
 bool _isLiveOrUpcoming(MatchModel m) {
-  return MatchLifecycle.isEffectivelyLive(m) || MatchLifecycle.isUpcoming(m);
+  return isListedLive(m) || isListedUpcoming(m);
 }
 
 Future<PlayerModel?> _nearbyPlayer(Ref ref) async {
@@ -198,8 +199,8 @@ NearbyMatchesState _buildFromRegionFilter({
 
   // Live first, then Network (visible), then other matches in the region.
   items.sort((a, b) {
-    final aLive = MatchLifecycle.isEffectivelyLive(a.match) ? 0 : 1;
-    final bLive = MatchLifecycle.isEffectivelyLive(b.match) ? 0 : 1;
+    final aLive = isListedLive(a.match) ? 0 : 1;
+    final bLive = isListedLive(b.match) ? 0 : 1;
     if (aLive != bLive) return aLive.compareTo(bLive);
     if (a.fromNetwork != b.fromNetwork) {
       return a.fromNetwork ? -1 : 1;
@@ -240,10 +241,10 @@ List<NearbyMatchItem> _takeWithNetworkAndOthers(
   if (sorted.length <= limit) return List<NearbyMatchItem>.from(sorted);
 
   final live = sorted
-      .where((i) => MatchLifecycle.isEffectivelyLive(i.match))
+      .where((i) => isListedLive(i.match))
       .toList();
   final rest = sorted
-      .where((i) => !MatchLifecycle.isEffectivelyLive(i.match))
+      .where((i) => !isListedLive(i.match))
       .toList();
 
   final selected = <NearbyMatchItem>[];

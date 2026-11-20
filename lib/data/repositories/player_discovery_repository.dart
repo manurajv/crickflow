@@ -49,12 +49,13 @@ class PlayerDiscoveryRepository {
     FindCricketersFilter filter = FindCricketersFilter.all,
     UserModel? currentUser,
     int limit = 40,
+    bool includeSelf = false,
   }) async {
     final trimmed = query.trim();
     if (trimmed.isNotEmpty && CfPlayerIdFormat.looksLikeCfPlayerId(trimmed)) {
       final user = await _lookupByPlayerId(trimmed);
       if (user == null) return [];
-      if (user.id == currentUserId) return [];
+      if (user.id == currentUserId && !includeSelf) return [];
       return [user];
     }
 
@@ -64,6 +65,7 @@ class PlayerDiscoveryRepository {
         trimmed,
         currentUserId: currentUserId,
         limit: limit,
+        includeSelf: includeSelf,
       );
     }
 
@@ -98,6 +100,7 @@ class PlayerDiscoveryRepository {
     String query, {
     required String? currentUserId,
     required int limit,
+    bool includeSelf = false,
   }) async {
     final q = query.toLowerCase();
     final idUpper = CfPlayerIdFormat.normalize(query);
@@ -105,7 +108,7 @@ class PlayerDiscoveryRepository {
     final seen = <String>{};
 
     void add(UserModel u) {
-      if (u.id == currentUserId) return;
+      if (u.id == currentUserId && !includeSelf) return;
       if (!seen.add(u.id)) return;
       results.add(u);
     }

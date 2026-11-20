@@ -16,7 +16,7 @@ final supportRepositoryProvider = Provider<SupportRepository>((ref) {
 
 class SupportHubState {
   const SupportHubState({
-    this.section = SupportHubSection.dashboard,
+    this.section = SupportHubSection.inbox,
     this.tickets = const [],
     this.kbArticles = const [],
     this.faqs = const [],
@@ -217,6 +217,9 @@ class SupportHubController extends StateNotifier<SupportHubState> {
     );
 
     switch (section) {
+      case SupportHubSection.inbox:
+        state = state.copyWith(summary: summary, isLoading: false);
+        return;
       case SupportHubSection.knowledgeBase:
         final kb = await _repo.fetchKbArticles();
         state = state.copyWith(kbArticles: kb, summary: summary);

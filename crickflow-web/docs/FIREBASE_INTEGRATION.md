@@ -11,7 +11,7 @@ The values in `.env.example` are the **existing public web client** identifiers 
 ## What this app will never do
 
 - Modify `lib/config/firebase_options.dart` (mobile)
-- Modify `apps/admin` or `apps/superadmin` options
+- Modify `apps/superadmin` options
 - Deploy root `firebase.json` Hosting
 - Deploy Firestore rules / indexes / Cloud Functions
 - Use the Admin SDK

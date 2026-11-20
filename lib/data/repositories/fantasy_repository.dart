@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/fantasy_join_code.dart';
@@ -219,19 +220,29 @@ class FantasyRepository {
     await _entries(league.id).doc(entry.id).update(updated.toMap());
   }
 
+  /// Recomputes points. The league creator refreshes every entry; other
+  /// players can only refresh their own (server function refreshes all).
   Future<void> refreshLeaguePoints({
     required FantasyLeagueModel league,
     required List<BallEventModel> ballEvents,
+    String? requesterId,
   }) async {
-    final snap = await _entries(league.id).get();
+    final uid = requesterId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final isCreator = league.createdBy == uid;
+    final snap = isCreator
+        ? await _entries(league.id).get()
+        : await _entries(league.id).where('userId', isEqualTo: uid).get();
     if (snap.docs.isEmpty) return;
 
     final batch = _firestore.batch();
     final now = DateTime.now().toIso8601String();
+    var writes = 0;
 
     for (final doc in snap.docs) {
       final entry = FantasyEntryModel.fromMap(doc.id, doc.data());
       if (entry.playerIds.isEmpty) continue;
+      if (!isCreator && entry.userId != uid) continue;
 
       final total = _points.totalForEntry(
         entry: entry,
@@ -243,9 +254,10 @@ class FantasyRepository {
         'totalPoints': total,
         'updatedAt': now,
       });
+      writes++;
     }
 
-    await batch.commit();
+    if (writes > 0) await batch.commit();
   }
 
   Future<void> setLeagueStatus({

@@ -6,6 +6,7 @@ import '../../../../data/repositories/scoring_issue_report_repository.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class FacingProblemSheet extends ConsumerStatefulWidget {
   const FacingProblemSheet({super.key, required this.matchId});
@@ -55,7 +56,7 @@ class _FacingProblemSheetState extends ConsumerState<FacingProblemSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not submit: $e')),
+          SnackBar(content: Text('Could not submit: ${friendlyError(e)}')),
         );
       }
     } finally {

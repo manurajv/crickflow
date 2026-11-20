@@ -1,6 +1,7 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/ball_event_model.dart';
 import '../../data/models/match_model.dart';
+import 'badge_service.dart';
 import 'match_mvp_service.dart';
 import 'match_mvp_models.dart';
 import 'player_cricket_profile_models.dart';
@@ -86,7 +87,7 @@ class PlayerTrophyService {
     required String playerId,
     required MatchModel match,
   }) {
-    if (match.playerOfMatchId == playerId) {
+    if (BadgeService.isEligibleManOfTheMatch(match, playerId)) {
       trophies.add(
         _trophy(
           playerId: playerId,

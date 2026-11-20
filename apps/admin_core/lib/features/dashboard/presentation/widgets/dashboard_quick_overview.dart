@@ -55,7 +55,7 @@ class DashboardOverviewSection extends StatelessWidget {
       children: [
         const DashboardSectionHeader(
           title: 'Overview',
-          subtitle: 'Key metrics · placeholders until aggregates are wired',
+          subtitle: 'Live Firestore counts',
         ),
         LayoutBuilder(
           builder: (context, constraints) {

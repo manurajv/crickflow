@@ -14,6 +14,7 @@ import '../../../../shared/widgets/player_stat_cells.dart';
 import '../../../../shared/widgets/stat_grid.dart';
 import '../../../my_cricket/presentation/widgets/my_cricket_action_banner.dart';
 import '../widgets/captain_stats_section.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class ProfileStatsTab extends ConsumerStatefulWidget {
   const ProfileStatsTab({
@@ -123,7 +124,7 @@ class _ProfileStatsTabState extends ConsumerState<ProfileStatsTab> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             SizedBox(height: 120),
-            Center(child: Text('$e')),
+            Center(child: Text(friendlyError(e))),
           ],
         ),
       ),

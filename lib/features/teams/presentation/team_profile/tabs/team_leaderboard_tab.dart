@@ -8,6 +8,7 @@ import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../domain/services/team_profile/team_profile_models.dart';
 import '../../../../../shared/providers/team_profile_provider.dart';
 import '../../../../../shared/widgets/lineup_player_avatar.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 class TeamLeaderboardTab extends ConsumerStatefulWidget {
   const TeamLeaderboardTab({super.key, required this.teamId});
@@ -124,7 +125,7 @@ class _TeamLeaderboardTabState extends ConsumerState<TeamLeaderboardTab> {
         Padding(
           padding: const EdgeInsets.only(top: 48),
           child: Text(
-            'Unable to load leaderboard: $e',
+            'Unable to load leaderboard: ${friendlyError(e)}',
             textAlign: TextAlign.center,
             style: TextStyle(color: cf.textSecondary),
           ),
@@ -159,7 +160,7 @@ class _TeamLeaderboardTabState extends ConsumerState<TeamLeaderboardTab> {
         Padding(
           padding: const EdgeInsets.only(top: 48),
           child: Text(
-            'Unable to load partnerships: $e',
+            'Unable to load partnerships: ${friendlyError(e)}',
             textAlign: TextAlign.center,
             style: TextStyle(color: cf.textSecondary),
           ),

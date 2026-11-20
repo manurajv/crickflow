@@ -9,6 +9,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../data/models/match_model.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_slide_to_confirm.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Active break banner with live timer and slide-to-resume.
 class MatchBreakBanner extends ConsumerStatefulWidget {
@@ -58,7 +59,7 @@ class _MatchBreakBannerState extends ConsumerState<MatchBreakBanner> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not resume: $e')),
+          SnackBar(content: Text('Could not resume: ${friendlyError(e)}')),
         );
       }
     }

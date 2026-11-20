@@ -6,6 +6,7 @@ import '../../core/theme/app_dimens.dart';
 import '../../shared/providers/notification_provider.dart';
 import '../../shared/providers/providers.dart';
 import 'match_quick_action_button.dart';
+import '../../core/utils/friendly_error.dart';
 
 /// Follow / Following toggle for match spectators.
 class MatchFollowButton extends ConsumerWidget {
@@ -63,7 +64,7 @@ class MatchFollowButton extends ConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not update follow: $e')),
+            SnackBar(content: Text('Could not update follow: ${friendlyError(e)}')),
           );
         }
       }

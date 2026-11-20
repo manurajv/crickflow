@@ -64,6 +64,9 @@ abstract final class SyncActionType {
   static const matchOverlay = 'match_overlay';
   static const matchUpdate = 'match_update';
   static const firestoreBatch = 'firestore_batch';
+
+  /// Register a match started inside an org (callable `startSeriesMatch`).
+  static const seriesMatchRegistration = 'series_match_registration';
 }
 
 /// A single Firestore batch operation stored in [SyncActionType.firestoreBatch].

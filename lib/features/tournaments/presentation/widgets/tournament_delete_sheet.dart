@@ -10,6 +10,7 @@ import '../../../../shared/providers/my_cricket_ui_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/providers/tournament_providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Shows delete confirmation. On success, goes straight to My Cricket.
 Future<bool> showTournamentDeleteSheet({
@@ -92,7 +93,7 @@ class _TournamentDeleteSheetState extends ConsumerState<_TournamentDeleteSheet> 
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
         setState(() => _busy = false);
       }

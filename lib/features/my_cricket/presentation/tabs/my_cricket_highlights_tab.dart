@@ -8,6 +8,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/match_list_card.dart';
 import '../widgets/my_cricket_action_banner.dart';
 import '../widgets/my_cricket_guest_sign_in_prompt.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Recent completed matches with quick links to highlights timeline.
 class MyCricketHighlightsTab extends ConsumerWidget {
@@ -79,7 +80,7 @@ class MyCricketHighlightsTab extends ConsumerWidget {
             },
             loading: () =>
                 const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
+            error: (e, _) => Center(child: Text(friendlyError(e))),
           ),
         ),
       ],

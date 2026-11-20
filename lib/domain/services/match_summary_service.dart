@@ -515,7 +515,7 @@ class MatchSummaryService {
         _looksLikeMatchResult(match.resultSummary)) {
       return match.resultSummary;
     }
-    return match.resultSummary.isNotEmpty ? match.resultSummary : null;
+    return null;
   }
 
   static bool _looksLikeMatchResult(String value) {

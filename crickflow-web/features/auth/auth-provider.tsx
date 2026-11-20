@@ -6,6 +6,7 @@ import {
   getRedirectResult,
   initializeRecaptchaConfig,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -16,21 +17,23 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase/client";
 import {
   confirmPhoneVerificationCode,
-  normalizePhoneE164,
   sendPhoneVerificationCode,
 } from "@/lib/firebase/phone-auth";
 import { getUserProfile, upsertUserProfile } from "@/repositories";
 import type { UserProfile } from "@/types/models";
+import { getPlatformAdminInfo } from "@/lib/auth/platform-admin";
 
 export { normalizePhoneE164 } from "@/lib/firebase/phone-auth";
 
 interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
+  isPlatformAdmin: boolean;
   loading: boolean;
   signInGoogle: () => Promise<void>;
   signInEmail: (email: string, password: string) => Promise<void>;
   registerEmail: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   sendPhoneCode: (phone: string, recaptchaId: string) => Promise<string>;
   confirmPhoneCode: (verificationId: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -42,6 +45,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [loading, setLoading] = useState(() => isFirebaseConfigured());
 
   useEffect(() => {
@@ -53,13 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(next);
       if (!next) {
         setProfile(null);
+        setIsPlatformAdmin(false);
         setLoading(false);
         return;
       }
       try {
+        const adminInfo = await getPlatformAdminInfo(next.uid);
+        setIsPlatformAdmin(adminInfo.isPlatformAdmin);
         let existing = await getUserProfile(next.uid);
         if (!existing) {
-          await upsertUserProfile({
+          const stub = {
             id: next.uid,
             email: next.email ?? "",
             name: next.displayName ?? "",
@@ -75,9 +82,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               city: "",
               placeName: "",
             },
-            onboardingCompleted: false,
-          });
-          existing = await getUserProfile(next.uid);
+            // Platform staff use the admin panels; skip forcing player onboarding.
+            onboardingCompleted: adminInfo.isPlatformAdmin,
+          };
+          try {
+            await upsertUserProfile(stub);
+            existing = (await getUserProfile(next.uid)) ?? stub;
+          } catch {
+            existing = stub;
+          }
+        } else if (
+          adminInfo.isPlatformAdmin &&
+          !existing.onboardingCompleted
+        ) {
+          // Staff account with incomplete player profile — do not block the website.
+          existing = { ...existing, onboardingCompleted: true };
         }
         setProfile(existing);
       } finally {
@@ -91,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       profile,
+      isPlatformAdmin,
       loading,
       signInGoogle: async () => {
         const auth = getFirebaseAuth();
@@ -112,6 +132,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       registerEmail: async (email, password) => {
         await createUserWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
       },
+      resetPassword: async (email) => {
+        await sendPasswordResetEmail(getFirebaseAuth(), email.trim());
+      },
       sendPhoneCode: async (phone, recaptchaId) => {
         return sendPhoneVerificationCode(getFirebaseAuth(), phone, recaptchaId);
       },
@@ -125,12 +148,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const current = getFirebaseAuth().currentUser;
         if (!current) {
           setProfile(null);
+          setIsPlatformAdmin(false);
           return;
         }
-        setProfile(await getUserProfile(current.uid));
+        const adminInfo = await getPlatformAdminInfo(current.uid);
+        setIsPlatformAdmin(adminInfo.isPlatformAdmin);
+        let nextProfile = await getUserProfile(current.uid);
+        if (adminInfo.isPlatformAdmin && nextProfile && !nextProfile.onboardingCompleted) {
+          nextProfile = { ...nextProfile, onboardingCompleted: true };
+        }
+        setProfile(nextProfile);
       },
     }),
-    [user, profile, loading],
+    [user, profile, isPlatformAdmin, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

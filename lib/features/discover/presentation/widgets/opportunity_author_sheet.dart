@@ -14,6 +14,7 @@ import '../../../../shared/providers/player_social_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/venue_location_sheet.dart';
 import '../../domain/opportunity_category.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 Future<void> showOpportunityAuthorSheet(
   BuildContext context,
@@ -54,7 +55,7 @@ class OpportunityAuthorSheet extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(AppDimens.spaceLg),
-            child: Text('Could not load profile: $e'),
+            child: Text('Could not load profile: ${friendlyError(e)}'),
           ),
           data: (user) {
             if (user == null) {
@@ -180,6 +181,7 @@ class OpportunityAuthorSheet extends ConsumerWidget {
                           onPressed: () => requireAuthVoid(
                             context: context,
                             ref: ref,
+                            prompt: SignInPrompt.follow,
                             action: () async {
                               final profile = me ??
                                   await ref.read(
@@ -249,7 +251,7 @@ class OpportunityAuthorSheet extends ConsumerWidget {
                     padding: EdgeInsets.all(AppDimens.spaceLg),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                  error: (e, _) => Text('Could not load posts: $e'),
+                  error: (e, _) => Text('Could not load posts: ${friendlyError(e)}'),
                   data: (posts) {
                     if (posts.isEmpty) {
                       return Text(
@@ -286,6 +288,7 @@ class OpportunityAuthorSheet extends ConsumerWidget {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.chat,
       action: () async {
         final me = ref.read(currentUserProfileProvider).valueOrNull;
         if (me == null) return;
@@ -302,7 +305,7 @@ class OpportunityAuthorSheet extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$e')),
+              SnackBar(content: Text(friendlyError(e))),
             );
           }
         }

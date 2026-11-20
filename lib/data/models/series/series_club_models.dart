@@ -10,6 +10,7 @@ class SeriesAdminModel extends Equatable {
     this.displayName = '',
     this.permissions = const <String>[],
     this.status = 'active',
+    this.role = 'admin',
     this.createdBy,
     this.createdAt,
   });
@@ -20,8 +21,11 @@ class SeriesAdminModel extends Equatable {
   final String displayName;
   final List<String> permissions;
   final String status;
+  final String role;
   final String? createdBy;
   final DateTime? createdAt;
+
+  SeriesAdminTier get tier => SeriesAdminTier.parse(role);
 
   factory SeriesAdminModel.fromMap(String id, Map<String, dynamic> map) {
     return SeriesAdminModel(
@@ -31,6 +35,7 @@ class SeriesAdminModel extends Equatable {
       displayName: map['displayName'] as String? ?? '',
       permissions: List<String>.from(map['permissions'] as List? ?? const []),
       status: map['status'] as String? ?? 'active',
+      role: map['role'] as String? ?? 'admin',
       createdBy: map['createdBy'] as String?,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
     );
@@ -42,12 +47,13 @@ class SeriesAdminModel extends Equatable {
         'displayName': displayName,
         'permissions': permissions,
         'status': status,
+        'role': SeriesAdminTier.parse(role).name,
         if (createdBy != null) 'createdBy': createdBy,
         if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
       };
 
   @override
-  List<Object?> get props => [id, seriesId, userId, status];
+  List<Object?> get props => [id, seriesId, userId, status, role];
 }
 
 class SeriesClubModel extends Equatable {
@@ -83,7 +89,7 @@ class SeriesClubModel extends Equatable {
     return SeriesClubModel(
       id: id,
       seriesId: map['seriesId'] as String? ?? '',
-      name: map['name'] as String? ?? 'Club',
+      name: map['name'] as String? ?? 'Team',
       description: map['description'] as String? ?? '',
       logoUrl: map['logoUrl'] as String?,
       linkedTeamId: map['linkedTeamId'] as String?,

@@ -10,6 +10,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_underlined_field.dart';
 import '../models/ground_pick_result.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Ground name search with Places autocomplete + link to map picker.
 class GroundSearchField extends ConsumerStatefulWidget {
@@ -64,7 +65,7 @@ class _GroundSearchFieldState extends ConsumerState<GroundSearchField> {
       } catch (e) {
         if (mounted) {
           setState(() => _suggestions = []);
-          _statusMessage = '$e';
+          _statusMessage = friendlyError(e);
         }
       }
     });
@@ -87,7 +88,7 @@ class _GroundSearchFieldState extends ConsumerState<GroundSearchField> {
       widget.onVenueChanged(widget.controller.text);
       widget.onLocationResolved(resolved.location);
     } catch (e) {
-      if (mounted) setState(() => _statusMessage = 'Could not load place: $e');
+      if (mounted) setState(() => _statusMessage = 'Could not load place: ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _resolving = false);
     }

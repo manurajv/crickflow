@@ -1,528 +1,521 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/config/admin_app_type.dart';
+import '../../../core/constants/admin_collections.dart';
 import '../../../core/router/admin_route_paths.dart';
 import '../../../core/theme/admin_colors.dart';
 import '../models/dashboard_models.dart';
+import 'dashboard_metrics.dart';
 
-/// Builds dashboard snapshots.
-///
-/// Today: deterministic placeholders.
-/// Later: replace method bodies with Firestore aggregate / query reads.
-/// Organization scope must always filter by [organizationId].
+/// Builds dashboard snapshots from live Firestore [count] queries and
+/// capped recent-document reads. Never returns hardcoded sample rows.
 class DashboardRepository {
-  const DashboardRepository();
+  DashboardRepository({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
+
+  final FirebaseFirestore _db;
+  final FirebaseAuth _auth;
+
+  static const _recentLimit = 8;
 
   Future<DashboardSnapshot> fetch({
     required AdminAppType appType,
     String? organizationId,
     String? organizationName,
   }) async {
-    // Simulate network latency for skeleton UX.
-    await Future<void>.delayed(const Duration(milliseconds: 650));
-
-    final scoped = appType == AdminAppType.organizationAdmin;
+    final scoped = organizationId != null && organizationId.isNotEmpty;
     final scopeLabel = scoped
-        ? (organizationName?.isNotEmpty == true
-            ? organizationName!
-            : 'Your organization')
+        ? (organizationName?.trim().isNotEmpty == true
+            ? organizationName!.trim()
+            : 'Organization')
         : 'All of CrickFlow';
+
+    final todayStart = DateTime.now().toUtc();
+    final today = DateTime.utc(todayStart.year, todayStart.month, todayStart.day);
+    final weekAgo = today.subtract(const Duration(days: 7));
+    final todayTs = Timestamp.fromDate(today);
+    final weekTs = Timestamp.fromDate(weekAgo);
+
+    var firestoreOk = true;
+    Future<int> count(Query<Map<String, dynamic>> q) async {
+      try {
+        final agg = await q.count().get();
+        return agg.count ?? 0;
+      } catch (_) {
+        firestoreOk = false;
+        try {
+          final snap = await q.limit(300).get();
+          return snap.docs.length;
+        } catch (_) {
+          firestoreOk = false;
+          return -1;
+        }
+      }
+    }
+
+    Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> recent(
+      Query<Map<String, dynamic>> query, {
+      required String orderField,
+      int limit = _recentLimit,
+    }) async {
+      try {
+        final snap =
+            await query.orderBy(orderField, descending: true).limit(limit).get();
+        return snap.docs;
+      } on FirebaseException {
+        try {
+          final snap = await query.limit(limit).get();
+          return snap.docs;
+        } catch (_) {
+          return const [];
+        }
+      } catch (_) {
+        return const [];
+      }
+    }
+
+    CollectionReference<Map<String, dynamic>> col(String name) =>
+        _db.collection(name);
+
+    Query<Map<String, dynamic>> maybeSeries(
+      Query<Map<String, dynamic>> q,
+    ) {
+      if (!scoped) return q;
+      return q.where('seriesId', isEqualTo: organizationId);
+    }
+
+    final usersQ = col(AdminCollections.users);
+    final teamsQ = maybeSeries(col(AdminCollections.teams));
+    final playersQ = maybeSeries(col(AdminCollections.players));
+    final matchesQ = maybeSeries(col(AdminCollections.matches));
+    final tournamentsQ = maybeSeries(col(AdminCollections.tournaments));
+    final groundsQ = col(AdminCollections.grounds);
+    final communityQ = col(AdminCollections.communityPosts);
+    final discoverQ = col(AdminCollections.opportunityPosts);
+    final communityReportsQ = col(AdminCollections.communityPostReports);
+    final discoverReportsQ = col(AdminCollections.opportunityPostReports);
+    final notificationsQ = col(AdminCollections.notifications);
+    final seriesQ = col('series');
+
+    final counts = await Future.wait<int>([
+      count(usersQ),
+      count(teamsQ),
+      count(playersQ),
+      count(matchesQ),
+      count(matchesQ.where('status', isEqualTo: 'live')),
+      count(matchesQ.where('status', isEqualTo: 'inningsBreak')),
+      count(matchesQ.where('stream.status', isEqualTo: 'live')),
+      count(tournamentsQ),
+      count(groundsQ),
+      count(communityQ),
+      count(discoverQ),
+      count(communityReportsQ),
+      count(discoverReportsQ),
+      count(notificationsQ),
+      count(seriesQ),
+      count(usersQ.where('createdAt', isGreaterThanOrEqualTo: todayTs)),
+      count(usersQ.where('createdAt', isGreaterThanOrEqualTo: weekTs)),
+      count(matchesQ.where('createdAt', isGreaterThanOrEqualTo: weekTs)),
+      count(communityQ.where('createdAt', isGreaterThanOrEqualTo: weekTs)),
+    ]);
+
+    final users = counts[0];
+    final teams = counts[1];
+    final players = counts[2];
+    final matches = counts[3];
+    final liveMatches = _sumNonNegative([counts[4], counts[5]]);
+    final liveStreams = counts[6];
+    final tournaments = counts[7];
+    final grounds = counts[8];
+    final community = counts[9];
+    final discover = counts[10];
+    final reports = _sumNonNegative([counts[11], counts[12]]);
+    final notifications = counts[13];
+    final orgs = counts[14];
+    final usersToday = counts[15];
+    final usersWeek = counts[16];
+    final matchesWeek = counts[17];
+    final communityWeek = counts[18];
+
+    final recents = await Future.wait([
+      recent(col(AdminCollections.matches), orderField: 'createdAt', limit: 6),
+      recent(col(AdminCollections.communityPostReports),
+          orderField: 'createdAt', limit: 6),
+      recent(col(AdminCollections.opportunityPostReports),
+          orderField: 'createdAt', limit: 4),
+      recent(col(AdminCollections.users), orderField: 'createdAt', limit: 6),
+      recent(col(AdminCollections.tournaments), orderField: 'createdAt', limit: 6),
+      recent(col(AdminCollections.communityPosts),
+          orderField: 'createdAt', limit: 6),
+    ]);
+
+    final recentMatchDocs = recents[0];
+    final recentCommunityReportDocs = recents[1];
+    final recentDiscoverReportDocs = recents[2];
+    final recentUserDocs = recents[3];
+    final recentTournamentDocs = recents[4];
+    final recentPostDocs = recents[5];
+
+    final recentMatches = recentMatchDocs
+        .map((d) => recentMatchFromMap(d.id, d.data()))
+        .toList();
+
+    final reportDocs = [
+      ...recentCommunityReportDocs,
+      ...recentDiscoverReportDocs,
+    ];
+    reportDocs.sort((a, b) {
+      final at = parseDashboardDate(a.data()['createdAt']) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bt = parseDashboardDate(b.data()['createdAt']) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return bt.compareTo(at);
+    });
+    final recentReports = reportDocs
+        .take(6)
+        .map((d) => recentReportFromMap(d.id, d.data()))
+        .toList();
+
+    final now = DateTime.now();
+    final recentUsers = recentUserDocs
+        .map((d) => recentUserFromMap(d.id, d.data(), now: now))
+        .toList();
+    final recentTournaments = recentTournamentDocs
+        .map((d) => recentTournamentFromMap(d.id, d.data()))
+        .toList();
+
+    final activity = <ActivityItem>[
+      for (final d in recentUserDocs) ?activityFromUser(d.id, d.data()),
+      for (final d in recentMatchDocs) ?activityFromMatch(d.id, d.data()),
+      for (final d in recentTournamentDocs)
+        ?activityFromTournament(d.id, d.data()),
+      for (final d in recentPostDocs) ?activityFromCommunityPost(d.id, d.data()),
+      for (final d in reportDocs.take(6)) ?activityFromReport(d.id, d.data()),
+    ]..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
 
     return DashboardSnapshot(
       generatedAt: DateTime.now(),
       scopeLabel: scopeLabel,
       isOrganizationScoped: scoped,
-      overview: _overview(scoped),
-      quickActions: _quickActions(scoped),
-      activity: _activity(scoped),
-      systemStatus: _systemStatus(scoped),
-      platformHealth: _platformHealth(scoped),
-      recentMatches: _matches(scoped),
-      recentReports: _reports(scoped),
-      recentUsers: _users(scoped),
-      recentTournaments: _tournaments(scoped),
-      analyticsPlaceholders: _analytics(scoped),
+      overview: _overview(
+        users: users,
+        teams: teams,
+        players: players,
+        matches: matches,
+        liveMatches: liveMatches,
+        liveStreams: liveStreams,
+        tournaments: tournaments,
+        grounds: grounds,
+        community: community,
+        discover: discover,
+        reports: reports,
+        notifications: notifications,
+        orgs: orgs,
+      ),
+      quickActions: _quickActions(),
+      activity: activity.take(12).toList(),
+      systemStatus: _systemStatus(
+        firestoreOk: firestoreOk,
+        signedIn: _auth.currentUser != null,
+      ),
+      platformHealth: _platformHealth(
+        usersToday: usersToday,
+        liveMatches: liveMatches,
+        liveStreams: liveStreams,
+      ),
+      recentMatches: recentMatches,
+      recentReports: recentReports,
+      recentUsers: recentUsers,
+      recentTournaments: recentTournaments,
+      analyticsPlaceholders: [
+        AnalyticsPlaceholderItem(
+          id: 'users_week',
+          title: 'New users (7 days)',
+          subtitle: 'Registrations with createdAt in the last 7 days',
+          value: formatDashboardCount(usersWeek),
+        ),
+        AnalyticsPlaceholderItem(
+          id: 'matches_week',
+          title: 'New matches (7 days)',
+          subtitle: 'Matches created in the last 7 days',
+          value: formatDashboardCount(matchesWeek),
+        ),
+        AnalyticsPlaceholderItem(
+          id: 'community_week',
+          title: 'Community posts (7 days)',
+          subtitle: 'Posts created in the last 7 days',
+          value: formatDashboardCount(communityWeek),
+        ),
+        AnalyticsPlaceholderItem(
+          id: 'orgs',
+          title: 'Orgs & series',
+          subtitle: 'Documents in the mobile series collection',
+          value: formatDashboardCount(orgs),
+        ),
+      ],
     );
   }
 
-  List<OverviewMetric> _overview(bool scoped) {
-    String v(String global, String org) => scoped ? org : global;
+  static int _sumNonNegative(List<int> values) {
+    if (values.every((v) => v < 0)) return -1;
+    return values.fold<int>(0, (s, v) => s + (v < 0 ? 0 : v));
+  }
+
+  List<OverviewMetric> _overview({
+    required int users,
+    required int teams,
+    required int players,
+    required int matches,
+    required int liveMatches,
+    required int liveStreams,
+    required int tournaments,
+    required int grounds,
+    required int community,
+    required int discover,
+    required int reports,
+    required int notifications,
+    required int orgs,
+  }) {
+    OverviewMetric tile({
+      required String id,
+      required String title,
+      required int value,
+      required IconData icon,
+      required Color accent,
+      String growthLabel = 'Total',
+    }) {
+      return OverviewMetric(
+        id: id,
+        title: title,
+        value: formatDashboardCount(value),
+        growthLabel: value < 0 ? 'Unavailable' : growthLabel,
+        growthPositive: null,
+        icon: icon,
+        accent: accent,
+        sparkline: const [],
+      );
+    }
+
     return [
-      OverviewMetric(
+      tile(
         id: 'users',
         title: 'Users',
-        value: v('12,480', '186'),
-        growthLabel: '+2.4%',
-        growthPositive: true,
+        value: users,
         icon: Icons.people_outline,
         accent: AdminColors.primaryBlue,
-        sparkline: const [0.3, 0.4, 0.35, 0.5, 0.55, 0.7, 0.8],
       ),
-      OverviewMetric(
+      tile(
+        id: 'orgs',
+        title: 'Orgs & series',
+        value: orgs,
+        icon: Icons.hub_outlined,
+        accent: const Color(0xFF5C6BC0),
+      ),
+      tile(
         id: 'teams',
         title: 'Teams',
-        value: v('1,942', '24'),
-        growthLabel: '+1.1%',
-        growthPositive: true,
+        value: teams,
         icon: Icons.groups_outlined,
         accent: const Color(0xFF7E57C2),
       ),
-      OverviewMetric(
+      tile(
         id: 'players',
         title: 'Players',
-        value: v('28,310', '412'),
-        growthLabel: '+3.0%',
-        growthPositive: true,
+        value: players,
         icon: Icons.person_outline,
         accent: const Color(0xFF26A69A),
       ),
-      OverviewMetric(
+      tile(
         id: 'matches',
         title: 'Matches',
-        value: v('9,874', '138'),
-        growthLabel: '+4.2%',
-        growthPositive: true,
+        value: matches,
         icon: Icons.sports_cricket_outlined,
         accent: AdminColors.goldDark,
       ),
-      OverviewMetric(
+      tile(
         id: 'live_matches',
-        title: 'Live Matches',
-        value: v('18', '2'),
-        growthLabel: '+3',
-        growthPositive: true,
+        title: 'Live matches',
+        value: liveMatches,
         icon: Icons.sensors,
         accent: const Color(0xFFE53935),
-        sparkline: const [0.2, 0.3, 0.5, 0.4, 0.6, 0.7, 0.9],
+        growthLabel: 'Now',
       ),
-      OverviewMetric(
+      tile(
         id: 'streams',
-        title: 'Active Streams',
-        value: v('11', '1'),
-        growthLabel: '+2',
-        growthPositive: true,
+        title: 'Active streams',
+        value: liveStreams,
         icon: Icons.live_tv_outlined,
         accent: const Color(0xFFEF5350),
+        growthLabel: 'Now',
       ),
-      OverviewMetric(
+      tile(
         id: 'tournaments',
         title: 'Tournaments',
-        value: v('640', '7'),
-        growthLabel: '+0.8%',
-        growthPositive: true,
+        value: tournaments,
         icon: Icons.emoji_events_outlined,
         accent: const Color(0xFFFB8C00),
       ),
-      OverviewMetric(
+      tile(
         id: 'grounds',
         title: 'Grounds',
-        value: v('1,120', '9'),
-        growthLabel: '+0.3%',
-        growthPositive: true,
+        value: grounds,
         icon: Icons.stadium_outlined,
         accent: const Color(0xFF5C6BC0),
       ),
-      OverviewMetric(
+      tile(
         id: 'community',
-        title: 'Community Posts',
-        value: v('4,210', '56'),
-        growthLabel: '+5.1%',
-        growthPositive: true,
+        title: 'Community posts',
+        value: community,
         icon: Icons.forum_outlined,
         accent: const Color(0xFF00897B),
       ),
-      OverviewMetric(
+      tile(
         id: 'discover',
-        title: 'Discover Posts',
-        value: v('890', '12'),
-        growthLabel: '+1.4%',
-        growthPositive: true,
+        title: 'Discover posts',
+        value: discover,
         icon: Icons.explore_outlined,
         accent: const Color(0xFF42A5F5),
       ),
-      OverviewMetric(
+      tile(
         id: 'reports',
         title: 'Reports',
-        value: v('47', '3'),
-        growthLabel: '-12%',
-        growthPositive: false,
+        value: reports,
         icon: Icons.flag_outlined,
         accent: const Color(0xFFFF7043),
       ),
-      OverviewMetric(
+      tile(
         id: 'notifications',
-        title: 'Notifications Sent',
-        value: v('22.4k', '840'),
-        growthLabel: '+6.0%',
-        growthPositive: true,
+        title: 'Notifications',
+        value: notifications,
         icon: Icons.notifications_outlined,
         accent: AdminColors.primaryBlueLight,
       ),
     ];
   }
 
-  List<QuickActionItem> _quickActions(bool scoped) {
-    return [
-      const QuickActionItem(
+  List<QuickActionItem> _quickActions() {
+    return const [
+      QuickActionItem(
         id: 'tournament',
         label: 'Create Tournament',
         icon: Icons.emoji_events_outlined,
         route: AdminRoutePaths.tournaments,
         accent: Color(0xFFFB8C00),
       ),
-      const QuickActionItem(
+      QuickActionItem(
         id: 'notification',
         label: 'Send Notification',
         icon: Icons.campaign_outlined,
         route: AdminRoutePaths.notifications,
         accent: AdminColors.primaryBlue,
       ),
-      const QuickActionItem(
+      QuickActionItem(
         id: 'users',
         label: 'Manage Users',
         icon: Icons.manage_accounts_outlined,
         route: AdminRoutePaths.users,
         accent: Color(0xFF7E57C2),
       ),
-      const QuickActionItem(
+      QuickActionItem(
         id: 'reports',
         label: 'Reports',
         icon: Icons.flag_outlined,
         route: AdminRoutePaths.reports,
         accent: Color(0xFFE53935),
       ),
-      if (!scoped)
-        const QuickActionItem(
-          id: 'ads',
-          label: 'Advertisements',
-          icon: Icons.ads_click_outlined,
-          route: AdminRoutePaths.ads,
-          accent: Color(0xFF00897B),
-        ),
-      const QuickActionItem(
+      QuickActionItem(
+        id: 'ads',
+        label: 'Advertisements',
+        icon: Icons.ads_click_outlined,
+        route: AdminRoutePaths.ads,
+        accent: Color(0xFF00897B),
+      ),
+      QuickActionItem(
         id: 'community',
         label: 'Community',
         icon: Icons.forum_outlined,
         route: AdminRoutePaths.community,
         accent: Color(0xFF26A69A),
       ),
-      const QuickActionItem(
+      QuickActionItem(
         id: 'broadcast',
         label: 'Broadcasts',
         icon: Icons.live_tv_outlined,
         route: AdminRoutePaths.broadcast,
         accent: Color(0xFFEF5350),
       ),
+      QuickActionItem(
+        id: 'orgs',
+        label: 'Orgs & Series',
+        icon: Icons.hub_outlined,
+        route: AdminRoutePaths.orgs,
+        accent: Color(0xFF5C6BC0),
+      ),
     ];
   }
 
-  List<ActivityItem> _activity(bool scoped) {
-    final now = DateTime.now();
-    final prefix = scoped ? 'Org · ' : '';
+  List<SystemStatusItem> _systemStatus({
+    required bool firestoreOk,
+    required bool signedIn,
+  }) {
     return [
-      ActivityItem(
-        id: 'a1',
-        kind: ActivityKind.userRegistered,
-        title: '${prefix}New User Registered',
-        subtitle: scoped ? 'Kasun Perera joined your org' : 'Nimali Silva joined CrickFlow',
-        occurredAt: now.subtract(const Duration(minutes: 4)),
-      ),
-      ActivityItem(
-        id: 'a2',
-        kind: ActivityKind.tournamentCreated,
-        title: '${prefix}Tournament Created',
-        subtitle: 'Colombo Night Cup 2026',
-        occurredAt: now.subtract(const Duration(minutes: 18)),
-      ),
-      ActivityItem(
-        id: 'a3',
-        kind: ActivityKind.matchStarted,
-        title: '${prefix}Match Started',
-        subtitle: 'Titans vs Strikers · Live',
-        occurredAt: now.subtract(const Duration(minutes: 32)),
-      ),
-      ActivityItem(
-        id: 'a4',
-        kind: ActivityKind.streamStarted,
-        title: '${prefix}Live Stream Started',
-        subtitle: 'Ground A camera 1',
-        occurredAt: now.subtract(const Duration(minutes: 35)),
-      ),
-      ActivityItem(
-        id: 'a5',
-        kind: ActivityKind.matchCompleted,
-        title: '${prefix}Match Completed',
-        subtitle: 'Riverside XI won by 24 runs',
-        occurredAt: now.subtract(const Duration(hours: 1, minutes: 10)),
-      ),
-      ActivityItem(
-        id: 'a6',
-        kind: ActivityKind.communityPost,
-        title: '${prefix}Community Post Created',
-        subtitle: 'Looking for an umpire · Galle',
-        occurredAt: now.subtract(const Duration(hours: 2)),
-      ),
-      ActivityItem(
-        id: 'a7',
-        kind: ActivityKind.reportSubmitted,
-        title: '${prefix}Report Submitted',
-        subtitle: 'Spam content flagged',
-        occurredAt: now.subtract(const Duration(hours: 3)),
-      ),
-      ActivityItem(
-        id: 'a8',
-        kind: ActivityKind.streamEnded,
-        title: '${prefix}Live Stream Ended',
-        subtitle: 'Average viewers 214',
-        occurredAt: now.subtract(const Duration(hours: 4)),
-      ),
-    ];
-  }
-
-  List<SystemStatusItem> _systemStatus(bool scoped) {
-    // Org admins see a simplified “services affecting your org” strip.
-    final items = <SystemStatusItem>[
-      const SystemStatusItem(
+      SystemStatusItem(
         id: 'firestore',
         name: 'Firestore',
-        status: ServiceHealth.healthy,
-        detail: 'Operational',
+        status: firestoreOk ? ServiceHealth.healthy : ServiceHealth.offline,
+        detail: firestoreOk
+            ? 'Reachable — counts and recent docs loaded'
+            : 'A count or recent-doc query failed',
       ),
-      const SystemStatusItem(
+      SystemStatusItem(
         id: 'auth',
         name: 'Authentication',
-        status: ServiceHealth.healthy,
-        detail: 'Operational',
+        status: signedIn ? ServiceHealth.healthy : ServiceHealth.warning,
+        detail: signedIn
+            ? 'Signed in for this session'
+            : 'No signed-in user on this session',
       ),
-      const SystemStatusItem(
-        id: 'storage',
-        name: 'Storage',
-        status: ServiceHealth.healthy,
-        detail: 'Operational',
-      ),
-      const SystemStatusItem(
-        id: 'functions',
-        name: 'Cloud Functions',
-        status: ServiceHealth.healthy,
-        detail: 'Operational',
-      ),
-      if (!scoped)
-        const SystemStatusItem(
-          id: 'hosting',
-          name: 'Hosting',
-          status: ServiceHealth.healthy,
-          detail: 'Operational',
-        ),
-      const SystemStatusItem(
-        id: 'fcm',
-        name: 'FCM',
-        status: ServiceHealth.warning,
-        detail: 'Elevated latency (placeholder)',
-      ),
-      if (!scoped)
-        const SystemStatusItem(
-          id: 'analytics',
-          name: 'Analytics',
-          status: ServiceHealth.healthy,
-          detail: 'Operational',
-        ),
-      if (!scoped)
-        const SystemStatusItem(
-          id: 'remote_config',
-          name: 'Remote Config',
-          status: ServiceHealth.healthy,
-          detail: 'Operational',
-        ),
     ];
-    return items;
   }
 
-  List<HealthMetric> _platformHealth(bool scoped) {
-    String v(String global, String org) => scoped ? org : global;
+  List<HealthMetric> _platformHealth({
+    required int usersToday,
+    required int liveMatches,
+    required int liveStreams,
+  }) {
+    final now = DateTime.now().toUtc();
+    String n(int v) => formatDashboardCount(v);
     return [
       HealthMetric(
-        id: 'active_today',
-        label: scoped ? 'Active members today' : 'Active users today',
-        value: v('3,842', '64'),
+        id: 'new_today',
+        label: 'New users today',
+        value: n(usersToday),
         icon: Icons.person_search_outlined,
       ),
       HealthMetric(
         id: 'concurrent_live',
         label: 'Concurrent live matches',
-        value: v('18', '2'),
+        value: n(liveMatches),
         icon: Icons.sports_cricket_outlined,
       ),
       HealthMetric(
         id: 'streams',
         label: 'Streams running',
-        value: v('11', '1'),
+        value: n(liveStreams),
         icon: Icons.videocam_outlined,
       ),
       HealthMetric(
         id: 'server_time',
         label: 'Server time',
-        value: '${_formatTime(DateTime.now().toUtc())} UTC',
+        value:
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} UTC',
         icon: Icons.schedule_outlined,
       ),
-      HealthMetric(
-        id: 'reads',
-        label: 'Database reads',
-        value: v('—', '—'),
-        icon: Icons.download_outlined,
-      ),
-      HealthMetric(
-        id: 'writes',
-        label: 'Database writes',
-        value: v('—', '—'),
-        icon: Icons.upload_outlined,
-      ),
-      HealthMetric(
-        id: 'storage',
-        label: 'Storage usage',
-        value: v('—', '—'),
-        icon: Icons.cloud_outlined,
-      ),
-      HealthMetric(
-        id: 'bandwidth',
-        label: 'Bandwidth',
-        value: v('—', '—'),
-        icon: Icons.speed_outlined,
-      ),
     ];
-  }
-
-  List<RecentMatchItem> _matches(bool scoped) => [
-        RecentMatchItem(
-          id: 'm1',
-          title: scoped ? 'Org League · Match 12' : 'Sunday Super League',
-          teamA: 'Titans',
-          teamB: 'Strikers',
-          status: 'Live',
-          score: '148/4 (16.2)',
-          isLive: true,
-        ),
-        const RecentMatchItem(
-          id: 'm2',
-          title: 'Corporate Cup Final',
-          teamA: 'Aces',
-          teamB: 'Blazers',
-          status: 'Completed',
-          score: '172/7 · 168/9',
-          isLive: false,
-        ),
-        const RecentMatchItem(
-          id: 'm3',
-          title: 'Indoor Challenge',
-          teamA: 'Falcons',
-          teamB: 'Riders',
-          status: 'Upcoming',
-          score: '—',
-          isLive: false,
-        ),
-      ];
-
-  List<RecentReportItem> _reports(bool scoped) => [
-        RecentReportItem(
-          id: 'r1',
-          userName: scoped ? 'Member #4821' : 'guest_user_92',
-          reason: 'Spam in community',
-          status: 'Open',
-        ),
-        const RecentReportItem(
-          id: 'r2',
-          userName: 'team_captain_lk',
-          reason: 'Inappropriate content',
-          status: 'Reviewing',
-        ),
-        const RecentReportItem(
-          id: 'r3',
-          userName: 'scorer_01',
-          reason: 'Harassment',
-          status: 'Resolved',
-        ),
-      ];
-
-  List<RecentUserItem> _users(bool scoped) => [
-        RecentUserItem(
-          id: 'u1',
-          name: 'Kasun Perera',
-          country: 'Sri Lanka',
-          joinedLabel: '2h ago',
-          status: scoped ? 'Member' : 'Active',
-        ),
-        const RecentUserItem(
-          id: 'u2',
-          name: 'Ayesha Fernando',
-          country: 'Sri Lanka',
-          joinedLabel: '5h ago',
-          status: 'Active',
-        ),
-        const RecentUserItem(
-          id: 'u3',
-          name: 'Rahul Mehta',
-          country: 'India',
-          joinedLabel: 'Yesterday',
-          status: 'Pending',
-        ),
-      ];
-
-  List<RecentTournamentItem> _tournaments(bool scoped) => [
-        RecentTournamentItem(
-          id: 't1',
-          title: scoped ? 'Inter-Faculty Cricket 2026' : 'Colombo Night Cup',
-          organizer: scoped ? 'Your organization' : 'CF Events',
-          status: 'Open',
-        ),
-        const RecentTournamentItem(
-          id: 't2',
-          title: 'Beach Bash T10',
-          organizer: 'Coastal Cricket',
-          status: 'Ongoing',
-        ),
-        const RecentTournamentItem(
-          id: 't3',
-          title: 'School League Phase 2',
-          organizer: 'District Assoc.',
-          status: 'Draft',
-        ),
-      ];
-
-  List<AnalyticsPlaceholderItem> _analytics(bool scoped) => [
-        AnalyticsPlaceholderItem(
-          id: 'user_growth',
-          title: 'User Growth',
-          subtitle: scoped
-              ? 'Member growth for your organization'
-              : 'Platform-wide registrations over time',
-        ),
-        AnalyticsPlaceholderItem(
-          id: 'match_growth',
-          title: 'Match Growth',
-          subtitle: scoped
-              ? 'Matches created in your organization'
-              : 'Matches created across CrickFlow',
-        ),
-        const AnalyticsPlaceholderItem(
-          id: 'streaming',
-          title: 'Streaming Activity',
-          subtitle: 'Concurrent viewers and stream minutes',
-        ),
-        const AnalyticsPlaceholderItem(
-          id: 'community',
-          title: 'Community Activity',
-          subtitle: 'Posts, comments, and engagement',
-        ),
-        if (!scoped)
-          const AnalyticsPlaceholderItem(
-            id: 'revenue',
-            title: 'Revenue',
-            subtitle: 'Platform monetization overview',
-          ),
-      ];
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
   }
 }

@@ -67,6 +67,7 @@ import 'live_change_squad_screen.dart';
 import '../../../data/models/wagon_wheel_data.dart';
 import '../../../domain/wagon_wheel/wagon_wheel_eligibility.dart';
 import '../../wagon_wheel/presentation/wagon_wheel_selection_sheet.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class LiveScoringScreen extends ConsumerStatefulWidget {
   const LiveScoringScreen({super.key, required this.matchId});
@@ -91,6 +92,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
   /// Blocks stale `inningsBreak` snapshots from re-opening the slide sheet
   /// (Quick Match race: overlay/stream can still show completed innings 1).
   final Set<int> _dismissedInningsBreakNumbers = {};
+
+  /// Innings-break slides the scorer cancelled, keyed by innings state so the
+  /// listener does not reopen it until the score changes (e.g. after undo).
+  final Set<String> _cancelledInningsBreakKeys = {};
+
+  static String _inningsBreakKey(InningsModel inn) =>
+      '${inn.inningsNumber}:${inn.totalRuns}:${inn.totalWickets}:${inn.legalBalls}';
   bool _bowlerPickerOpen = false;
   BowlingSide _bowlingSide = BowlingSide.over;
   /// After "Continue over", skip re-prompt until this over ends.
@@ -326,7 +334,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Scoring error: $e')),
+          SnackBar(content: Text('Scoring error: ${friendlyError(e)}')),
         );
       }
       return null;
@@ -398,7 +406,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
                   ? ScoringDisplayUtils.wicketKeeperCannotBowlReason
                   : previousBowlerId != null
                       ? 'Unable to change bowler. Please try again.'
-                      : 'Lineup error: $e',
+                      : 'Lineup error: ${friendlyError(e)}',
             ),
           ),
         );
@@ -507,7 +515,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not end over: $e')),
+          SnackBar(content: Text('Could not end over: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -1442,7 +1450,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
       return null;
@@ -1538,14 +1546,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     }
     setState(() => _inningsBreakDialogOpen = true);
 
+    var cancelled = false;
     try {
-      await InningsBreakDialog.show(
+      cancelled = await InningsBreakDialog.show(
         context,
         match: match,
         innings: innings,
         allowUndo: allowUndo,
         onUndo: () async {
-          Navigator.pop(context);
+          Navigator.pop(context, false);
           await _performUndo(showConfirm: false);
           if (!mounted) return;
           final fresh = ref.read(matchProvider(widget.matchId)).valueOrNull;
@@ -1562,9 +1571,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           // listener cannot reopen another slide while we end/start innings.
           _inningsBreakConfirmInFlight = true;
           await _confirmInningsBreak(match, innings);
-          if (mounted) Navigator.pop(context);
+          if (mounted) Navigator.pop(context, false);
         },
       );
+      if (cancelled && !_inningsBreakConfirmInFlight) {
+        _cancelledInningsBreakKeys.add(_inningsBreakKey(innings));
+      } else {
+        cancelled = false;
+      }
     } finally {
       _inningsBreakConfirmInFlight = false;
       if (mounted) setState(() => _inningsBreakDialogOpen = false);
@@ -1656,7 +1670,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
       if (mounted) {
         setState(() => _suppressInningsBreakCheck = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not continue: $e')),
+          SnackBar(content: Text('Could not continue: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -1687,6 +1701,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     if (nextAlreadyStarted) return;
     if (MatchLifecycle.currentInningsNeedsOpeningLineup(match)) return;
     if (_dismissedInningsBreakNumbers.contains(inn.inningsNumber)) return;
+    if (_cancelledInningsBreakKeys.contains(_inningsBreakKey(inn))) return;
 
     if (match.status == MatchStatus.inningsBreak &&
         inn.status == InningsStatus.completed) {
@@ -1745,7 +1760,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Undo failed: $e')),
+          SnackBar(content: Text('Undo failed: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -2277,7 +2292,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Keeper change error: $e')),
+          SnackBar(content: Text('Keeper change error: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -2372,7 +2387,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not end innings: $e')),
+              SnackBar(content: Text('Could not end innings: ${friendlyError(e)}')),
             );
           }
           rethrow;
@@ -2404,7 +2419,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share: $e')),
+          SnackBar(content: Text('Could not share: ${friendlyError(e)}')),
         );
       }
     }
@@ -2825,7 +2840,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

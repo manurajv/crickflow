@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/providers/notification_provider.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Notification preference toggles for team and follower alerts.
 class NotificationSettingsScreen extends ConsumerWidget {
@@ -67,7 +68,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

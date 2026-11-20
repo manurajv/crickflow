@@ -15,6 +15,7 @@ import '../../../../shared/providers/match_live_provider.dart';
 import '../../../../shared/providers/providers.dart';
 
 import '../widgets/live/match_live_sections.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 
 
@@ -174,7 +175,7 @@ class _MatchLiveTabState extends ConsumerState<MatchLiveTab>
 
       loading: () => const Center(child: CircularProgressIndicator()),
 
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
 
     );
 

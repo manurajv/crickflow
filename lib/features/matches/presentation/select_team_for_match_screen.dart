@@ -15,6 +15,7 @@ import '../../teams/presentation/widgets/team_list_scope.dart';
 import '../../teams/presentation/widgets/teams_list_toolbar.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Pick a team for Team A or Team B during start-match flow.
 class SelectTeamForMatchScreen extends ConsumerStatefulWidget {
@@ -320,7 +321,7 @@ class _TeamList extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
     );
   }
 }

@@ -162,7 +162,7 @@ class _SeriesClubCreateScreenState
             content: Text(
               e.message?.trim().isNotEmpty == true
                   ? e.message!
-                  : 'Could not create club. Try again.',
+                  : 'Could not create team. Try again.',
             ),
           ),
         );
@@ -170,7 +170,7 @@ class _SeriesClubCreateScreenState
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not create club. Try again.')),
+          const SnackBar(content: Text('Could not create team. Try again.')),
         );
       }
     } finally {
@@ -183,7 +183,7 @@ class _SeriesClubCreateScreenState
     final cf = context.cf;
     final org = ref.watch(seriesByIdProvider(widget.seriesId)).valueOrNull;
     final orgLabel = org?.kind.label ?? 'Organization';
-    final unitLabel = org?.memberUnitsSingular ?? 'Club';
+    final unitLabel = org?.memberUnitsSingular ?? 'Team';
     final teamsAsync = ref.watch(teamsProvider);
     final role = ref.watch(mySeriesRoleProvider(widget.seriesId));
     final isManager =
@@ -230,7 +230,7 @@ class _SeriesClubCreateScreenState
               maxLines: 5,
               decoration: const InputDecoration(
                 labelText: 'Description (optional)',
-                hintText: 'About this club, home ground, age group…',
+                hintText: 'About this team, home ground, age group…',
                 alignLabelWithHint: true,
               ),
             ),

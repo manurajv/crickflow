@@ -21,6 +21,7 @@ class AdminUser extends Equatable {
     this.permissionOverrides = const {},
     this.isActive = true,
     this.claimsVersion = 0,
+    this.accessStatus,
   });
 
   final String uid;
@@ -42,6 +43,12 @@ class AdminUser extends Equatable {
   /// Bumped when custom claims should be re-synced (Cloud Function later).
   final int claimsVersion;
 
+  /// `active` / `suspended` / `revoked` (set by Admins & Access). Enforcement
+  /// is [isActive]; this explains why access is off.
+  final String? accessStatus;
+
+  bool get isRevoked => !isActive && accessStatus == 'revoked';
+
   AdminRole? get knownRole => AdminRole.tryParse(roleId);
 
   String get roleLabel => knownRole?.label ?? roleId;
@@ -49,8 +56,9 @@ class AdminUser extends Equatable {
   bool get isSuperAdmin => knownRole == AdminRole.superAdmin;
 
   String get initials {
-    final source =
-        (displayName?.trim().isNotEmpty == true) ? displayName! : email;
+    final source = (displayName?.trim().isNotEmpty == true)
+        ? displayName!
+        : email;
     final parts = source.split(RegExp(r'\s+|@')).where((e) => e.isNotEmpty);
     if (parts.isEmpty) return '?';
     final list = parts.take(2).toList();
@@ -65,7 +73,8 @@ class AdminUser extends Equatable {
   }
 
   factory AdminUser.fromMap(String uid, Map<String, dynamic> map) {
-    final roleId = (map['roleId'] as String?) ??
+    final roleId =
+        (map['roleId'] as String?) ??
         (map['platformRole'] as String?) ??
         (map['role'] as String?);
     if (roleId == null || roleId.isEmpty) {
@@ -99,28 +108,32 @@ class AdminUser extends Equatable {
       permissionOverrides: overrides,
       isActive: map['isActive'] as bool? ?? true,
       claimsVersion: (map['claimsVersion'] as num?)?.toInt() ?? 0,
+      accessStatus: map['accessStatus'] as String?,
     );
   }
 
   Map<String, dynamic> toMap() => {
-        'email': email,
-        'roleId': roleId,
-        'displayName': displayName,
-        'photoUrl': photoUrl,
-        'organizationId': organizationId,
-        'organizationName': organizationName,
-        'permissionOverrides': permissionOverrides,
-        'isActive': isActive,
-        'claimsVersion': claimsVersion,
-      };
+    'email': email,
+    'roleId': roleId,
+    'displayName': displayName,
+    'photoUrl': photoUrl,
+    'organizationId': organizationId,
+    'organizationName': organizationName,
+    'permissionOverrides': permissionOverrides,
+    'isActive': isActive,
+    'claimsVersion': claimsVersion,
+  };
 
   @override
   List<Object?> get props => [
-        uid,
-        email,
-        roleId,
-        organizationId,
-        isActive,
-        claimsVersion,
-      ];
+    uid,
+    email,
+    roleId,
+    organizationId,
+    isActive,
+    claimsVersion,
+    accessStatus,
+    organizationName,
+    permissionOverrides,
+  ];
 }

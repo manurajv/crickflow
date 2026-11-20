@@ -163,6 +163,7 @@ class _MyCricketScreenState extends ConsumerState<MyCricketScreen>
                   onPressed: () => requireAuthVoid(
                     context: context,
                     ref: ref,
+                    prompt: SignInPrompt.startMatch,
                     returnPath: '/matches',
                     action: () => context.push('/tournaments/create'),
                   ),

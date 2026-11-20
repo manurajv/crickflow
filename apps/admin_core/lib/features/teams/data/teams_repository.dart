@@ -35,13 +35,6 @@ class TeamsRepository {
   }) async {
     Query<Map<String, dynamic>> query = _teams;
 
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const TeamPageResult(teams: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
 
     if (filters.statuses.length == 1) {
       final status = filters.statuses.first;
@@ -96,12 +89,6 @@ class TeamsRepository {
       snap = await query.limit(limit + 1).get();
     } on FirebaseException {
       var fallback = _teams.orderBy(FieldPath.documentId).limit(limit + 1);
-      if (appType == AdminAppType.organizationAdmin &&
-          actor?.organizationId != null) {
-        fallback = _teams
-            .where('organizationId', isEqualTo: actor!.organizationId)
-            .limit(limit + 1);
-      }
       snap = await fallback.get();
     }
 
@@ -215,10 +202,8 @@ class TeamsRepository {
     required AdminAppType appType,
     required AdminUser? actor,
   }) {
-    if (appType != AdminAppType.organizationAdmin) return true;
-    final orgId = actor?.organizationId;
-    if (orgId == null || orgId.isEmpty) return false;
-    return t.organizationId == orgId;
+    // Single platform panel: every record is in scope.
+    return true;
   }
 
   Stream<ManagedTeam?> watchById(
@@ -252,11 +237,6 @@ class TeamsRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> base = _teams;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const TeamSummaryStats();
-      base = base.where('organizationId', isEqualTo: orgId);
-    }
 
     try {
       final snap = await base.limit(AdminQueryLimits.summaryScanMax).get();

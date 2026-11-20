@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/utils/youtube_utils.dart';
 import '../../../services/stream_platform_service.dart';
 import '../../providers/streaming_studio_providers.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 /// Read-only YouTube live chat panel (polls Cloud Function every 8s).
 class StreamLiveChatPanel extends ConsumerStatefulWidget {
@@ -59,7 +60,7 @@ class _StreamLiveChatPanelState extends ConsumerState<StreamLiveChatPanel> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = friendlyError(e));
     }
   }
 

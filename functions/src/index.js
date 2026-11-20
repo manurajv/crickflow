@@ -21,6 +21,8 @@ setGlobalOptions({
 
 const { onMatchCompleted } = require('./match/onMatchCompleted');
 const { onMatchLive } = require('./match/onMatchLive');
+const { onOrgMatchSquad } = require('./match/onOrgMatchSquad');
+const { onOrgMatchDigest } = require('./match/onOrgMatchDigest');
 const { onBallEventCreated } = require('./match/onBallEventCreated');
 const { onMatchRevisionCreated } = require('./match/onMatchRevisionCreated');
 const { onMatchBreak } = require('./match/onMatchBreak');
@@ -38,7 +40,14 @@ const {
   adminReprocessMatchStats,
 } = require('./admin/scoringAdmin');
 const { onNotificationCreated } = require('./notifications/onNotificationCreated');
+const { onSupportMessageCreated } = require('./support/onSupportMessageCreated');
 const { onTeamJoinRequestCreated } = require('./notifications/onTeamJoinRequestCreated');
+const {
+  onTeamJoinRequestResolved,
+  onTournamentTeamRequestResolved,
+  onSeriesClubAdminResolved,
+  onSeriesApprovalResolved,
+} = require('./notifications/onRequestResolved');
 const { onTeamRosterReportCreated } = require('./notifications/onTeamRosterReportCreated');
 const {
   onPlayerFollowWritten,
@@ -73,6 +82,7 @@ const {
   createSeries,
   addSeriesAdmin,
   removeSeriesAdmin,
+  updateSeriesAdminRole,
   updateSeriesSettings,
   createSeriesClub,
   reviewSeriesApproval,
@@ -86,12 +96,27 @@ const {
   getSeriesRegistrationIdentity,
   reviewClubJoinRequest,
   addSeriesClubAdmin,
+  respondSeriesClubAdminInvite,
+  cancelSeriesClubAdminInvite,
   removeSeriesClubAdmin,
   syncSeriesApprovalMirrors,
+  transferSeriesOwnership,
+  setSeriesLifecycle,
+  sendSeriesAnnouncement,
+  startSeriesTournament,
+  startSeriesMatch,
+  updateSeriesCompetitionPolicy,
+  migrateSeriesTeamLinks,
+  rebuildSeriesStandings,
 } = require('./series/seriesFunctions');
 
 exports.onMatchCompleted = onMatchCompleted;
+exports.linkMatchToTournament =
+  require('./tournament/linkMatchToTournament').linkMatchToTournament;
 exports.onMatchLive = onMatchLive;
+exports.onOrgMatchSquad = onOrgMatchSquad;
+exports.onOrgMatchDigest = onOrgMatchDigest;
+exports.rebuildSeriesStandings = rebuildSeriesStandings;
 exports.onBallEventCreated = onBallEventCreated;
 exports.onMatchRevisionCreated = onMatchRevisionCreated;
 exports.onMatchBreak = onMatchBreak;
@@ -104,7 +129,12 @@ exports.adminVerifyMatchIntegrity = adminVerifyMatchIntegrity;
 exports.adminPreviewMatchStatsFromEvents = adminPreviewMatchStatsFromEvents;
 exports.adminReprocessMatchStats = adminReprocessMatchStats;
 exports.onNotificationCreated = onNotificationCreated;
+exports.onSupportMessageCreated = onSupportMessageCreated;
 exports.onTeamJoinRequestCreated = onTeamJoinRequestCreated;
+exports.onTeamJoinRequestResolved = onTeamJoinRequestResolved;
+exports.onTournamentTeamRequestResolved = onTournamentTeamRequestResolved;
+exports.onSeriesClubAdminResolved = onSeriesClubAdminResolved;
+exports.onSeriesApprovalResolved = onSeriesApprovalResolved;
 exports.onTeamRosterReportCreated = onTeamRosterReportCreated;
 exports.onPlayerFollowWritten = onPlayerFollowWritten;
 exports.onProfileViewWritten = onProfileViewWritten;
@@ -128,6 +158,7 @@ exports.acceptPlayerInvite = acceptPlayerInvite;
 exports.createSeries = createSeries;
 exports.addSeriesAdmin = addSeriesAdmin;
 exports.removeSeriesAdmin = removeSeriesAdmin;
+exports.updateSeriesAdminRole = updateSeriesAdminRole;
 exports.updateSeriesSettings = updateSeriesSettings;
 exports.createSeriesClub = createSeriesClub;
 exports.reviewSeriesApproval = reviewSeriesApproval;
@@ -138,8 +169,28 @@ exports.submitPlayerRemovalRequest = submitPlayerRemovalRequest;
 exports.proposeSeriesMatch = proposeSeriesMatch;
 exports.proposeSeriesTournament = proposeSeriesTournament;
 exports.suspendSeriesEntity = suspendSeriesEntity;
+exports.transferSeriesOwnership = transferSeriesOwnership;
+exports.setSeriesLifecycle = setSeriesLifecycle;
+exports.sendSeriesAnnouncement = sendSeriesAnnouncement;
+exports.startSeriesTournament = startSeriesTournament;
+exports.startSeriesMatch = startSeriesMatch;
+exports.updateSeriesCompetitionPolicy = updateSeriesCompetitionPolicy;
+exports.migrateSeriesTeamLinks = migrateSeriesTeamLinks;
 exports.getSeriesRegistrationIdentity = getSeriesRegistrationIdentity;
 exports.reviewClubJoinRequest = reviewClubJoinRequest;
 exports.addSeriesClubAdmin = addSeriesClubAdmin;
+exports.respondSeriesClubAdminInvite = respondSeriesClubAdminInvite;
+exports.cancelSeriesClubAdminInvite = cancelSeriesClubAdminInvite;
 exports.removeSeriesClubAdmin = removeSeriesClubAdmin;
 exports.syncSeriesApprovalMirrors = syncSeriesApprovalMirrors;
+// Admin panel: permanent cascading delete (team / tournament / org / match).
+exports.adminDeleteEntity = require('./admin/adminDeleteEntity').adminDeleteEntity;
+exports.adminSendNotificationCampaign =
+  require('./admin/adminSendNotificationCampaign').adminSendNotificationCampaign;
+exports.onAdminNotificationCampaignWritten =
+  require('./admin/adminSendNotificationCampaign').onAdminNotificationCampaignWritten;
+exports.processScheduledNotificationCampaigns =
+  require('./admin/adminSendNotificationCampaign').processScheduledNotificationCampaigns;
+exports.writeDailyPlatformStats =
+  require('./admin/writeDailyPlatformStats').writeDailyPlatformStats;
+

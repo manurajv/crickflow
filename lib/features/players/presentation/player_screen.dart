@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/team_players_provider.dart';
 import '../../teams/presentation/utils/team_squad_utils.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class PlayerScreen extends ConsumerWidget {
   const PlayerScreen({super.key});
@@ -76,13 +77,13 @@ class PlayerScreen extends ConsumerWidget {
                   ),
                 ),
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Error: $e'),
+                error: (e, _) => Text(friendlyError(e)),
               );
             }).toList(),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

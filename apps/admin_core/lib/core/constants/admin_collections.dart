@@ -2,7 +2,7 @@
 ///
 /// These do **not** replace or alter mobile collections (`users`, `matches`, …).
 abstract final class AdminCollections {
-  /// Platform / org admin accounts keyed by Firebase Auth uid.
+  /// Platform admin / staff accounts keyed by Firebase Auth uid.
   static const adminUsers = 'admin_users';
 
   /// Role definitions with permission maps. Change once → all assignees update.
@@ -68,7 +68,7 @@ abstract final class AdminCollections {
   /// Advertiser company profiles (additive).
   static const adminAdvertisers = 'admin_advertisers';
 
-  /// AdMob unit / placement config mirror (admin only — mobile AdMob unchanged).
+  /// AdMob unit / placement config (`settings.testMode` is read by the mobile app).
   static const adminAdmobConfig = 'admin_admob_config';
 
   /// Sponsored entity promotions (tournament/team/post links).
@@ -76,6 +76,9 @@ abstract final class AdminCollections {
 
   /// Platform settings singleton (`global` doc) — Super Admin writes.
   static const adminPlatformSettings = 'admin_platform_settings';
+
+  /// Daily platform document counts for monitoring growth charts.
+  static const adminPlatformDailyStats = 'admin_platform_daily_stats';
 
   /// Feature flag documents keyed by flag name.
   static const adminFeatureFlags = 'admin_feature_flags';

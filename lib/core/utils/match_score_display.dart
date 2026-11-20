@@ -102,7 +102,8 @@ class MatchScoreDisplay {
     if (!MatchLifecycle.isCompleted(match)) return null;
     final stored = match.resultSummary.trim();
     final useStored = stored.isNotEmpty &&
-        stored.toLowerCase() != 'match completed';
+        stored.toLowerCase() != 'match completed' &&
+        looksLikeMatchResult(stored);
     String base;
     if (useStored) {
       base = stored;
@@ -121,6 +122,16 @@ class MatchScoreDisplay {
       }
     }
     return MatchRevisionDisplay.completedResultWithDlsNote(match, base);
+  }
+
+  static bool looksLikeMatchResult(String value) {
+    final lower = value.toLowerCase();
+    return lower.contains(' won ') ||
+        lower.contains('won by') ||
+        lower.contains('tie') ||
+        lower.contains('draw') ||
+        lower.contains('abandon') ||
+        lower.contains('no result');
   }
 
   static bool isFirstInningsComplete(MatchModel match) {

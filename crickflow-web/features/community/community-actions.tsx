@@ -21,6 +21,7 @@ import {
   watchCommunitySaved,
 } from "@/repositories";
 import type { CommunityComment } from "@/types/models";
+import { friendlyError } from "@/lib/friendly-error";
 
 export function CommunityActions({
   postId,
@@ -64,7 +65,7 @@ export function CommunityActions({
             try {
               await toggleCommunityLike(postId, user.uid, !liked);
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Could not update like");
+              toast.error(friendlyError(error, "Could not update like"));
             }
           }}
         >
@@ -78,7 +79,7 @@ export function CommunityActions({
             try {
               await toggleCommunitySave(postId, user.uid, !saved);
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Could not save post");
+              toast.error(friendlyError(error, "Could not save post"));
             }
           }}
         >
@@ -107,7 +108,7 @@ export function CommunityActions({
                 toast.success("Post deleted");
                 onDeleted?.();
               } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not delete");
+                toast.error(friendlyError(error, "Could not delete"));
               }
             }}
           >
@@ -132,7 +133,7 @@ export function CommunityActions({
                     try {
                       await deleteCommunityComment(postId, item.id);
                     } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Could not delete comment");
+                      toast.error(friendlyError(error, "Could not delete comment"));
                     }
                   }}
                 >

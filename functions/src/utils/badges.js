@@ -61,30 +61,73 @@ function evaluateInningsBadges(matchId, innings) {
   return badges;
 }
 
+/** Winning team id when the result is decided between the two sides. */
+function decidedWinnerTeamId(match) {
+  const w = (match.winnerTeamId || '').trim();
+  if (!w) return null;
+  if (w !== match.teamAId && w !== match.teamBId) return null;
+  return w;
+}
+
+/** Team ids [playerId] appeared for in the match innings cards. */
+function playerTeamIds(match, playerId) {
+  const teams = new Set();
+  for (const inn of match.innings || []) {
+    if ((inn.batsmen || []).some((b) => b.playerId === playerId)) {
+      if (inn.battingTeamId) teams.add(inn.battingTeamId);
+    }
+    if ((inn.bowlers || []).some((b) => b.playerId === playerId)) {
+      if (inn.bowlingTeamId) teams.add(inn.bowlingTeamId);
+    }
+  }
+  return teams;
+}
+
+/** True when [hero] may be Man of the Match (winning side on decided results). */
+function isEligibleHero(match, hero) {
+  if (!hero || !hero.playerId) return false;
+  const winner = decidedWinnerTeamId(match);
+  if (!winner) return true;
+  const teams = playerTeamIds(match, hero.playerId);
+  if (teams.size === 0) return true;
+  return teams.has(winner);
+}
+
+/**
+ * Man of the Match. On decided results only winning-team players are
+ * eligible (mirrors BadgeService.pickMatchHero in the app). Ties / no
+ * results consider both teams.
+ */
 function pickMatchHero(match) {
+  const winner = decidedWinnerTeamId(match);
+  const eligible = (teamId) => !winner || teamId === winner;
   let bestScore = 0;
   let hero = null;
 
   for (const inn of match.innings || []) {
-    for (const b of inn.batsmen || []) {
-      if ((b.runs || 0) > bestScore) {
-        bestScore = b.runs;
-        hero = {
-          playerId: b.playerId,
-          playerName: b.playerName || 'Player',
-          reason: `Top scorer with ${b.runs} runs`,
-        };
+    if (eligible(inn.battingTeamId)) {
+      for (const b of inn.batsmen || []) {
+        if ((b.runs || 0) > bestScore) {
+          bestScore = b.runs;
+          hero = {
+            playerId: b.playerId,
+            playerName: b.playerName || 'Player',
+            reason: `Top scorer with ${b.runs} runs`,
+          };
+        }
       }
     }
-    for (const bowler of inn.bowlers || []) {
-      const score = (bowler.wickets || 0) * 25;
-      if (score > bestScore) {
-        bestScore = score;
-        hero = {
-          playerId: bowler.playerId,
-          playerName: bowler.playerName || 'Player',
-          reason: `Match-winning ${bowler.wickets} wicket haul`,
-        };
+    if (eligible(inn.bowlingTeamId)) {
+      for (const bowler of inn.bowlers || []) {
+        const score = (bowler.wickets || 0) * 25;
+        if (score > bestScore) {
+          bestScore = score;
+          hero = {
+            playerId: bowler.playerId,
+            playerName: bowler.playerName || 'Player',
+            reason: `Match-winning ${bowler.wickets} wicket haul`,
+          };
+        }
       }
     }
   }
@@ -96,4 +139,9 @@ function makeBadge({ id, title, type, description, playerId, matchId, earnedAt }
   return { id, title, type, description, playerId, matchId, earnedAt, iconName: 'star' };
 }
 
-module.exports = { evaluateInningsBadges, pickMatchHero };
+module.exports = {
+  evaluateInningsBadges,
+  pickMatchHero,
+  isEligibleHero,
+  decidedWinnerTeamId,
+};

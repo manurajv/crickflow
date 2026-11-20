@@ -125,7 +125,9 @@ class _TournamentMatchesScreenState extends ConsumerState<TournamentMatchesScree
                     secondaryAction: canManage
                         ? (
                             label: 'Start Match',
-                            onPressed: () => context.push('/match/start'),
+                            onPressed: () => context.push(
+                              '/match/start?tournamentId=${widget.tournament.id}',
+                            ),
                           )
                         : null,
                   ),

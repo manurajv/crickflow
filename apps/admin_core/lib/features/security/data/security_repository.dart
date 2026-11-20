@@ -273,17 +273,13 @@ class SecurityRepository {
   // Sessions (audit-derived + optional registry)
   // ---------------------------------------------------------------------------
 
-  /// Org Admin must only see sessions tied to their organization.
-  /// Platform / unscoped rows (`organizationId` null) are Super Admin only.
+  /// Single platform panel: no organization scoping.
   List<ManagedSecuritySession> _scopeSessionsForOrg(
     List<ManagedSecuritySession> items, {
     required AdminAppType appType,
     required AdminUser? actor,
   }) {
-    if (appType != AdminAppType.organizationAdmin) return items;
-    final orgId = actor?.organizationId?.trim();
-    if (orgId == null || orgId.isEmpty) return const [];
-    return items.where((s) => s.organizationId == orgId).toList();
+    return items;
   }
 
   Future<List<ManagedSecuritySession>> fetchSessionsFromAudit({
@@ -370,11 +366,6 @@ class SecurityRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> q = _devices;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      q = q.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap =
           await q.orderBy('lastActive', descending: true).limit(80).get();
@@ -393,11 +384,6 @@ class SecurityRepository {
     SecurityFilters filters = SecurityFilters.empty,
   }) async {
     Query<Map<String, dynamic>> q = _alerts;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      q = q.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap =
           await q.orderBy('createdAt', descending: true).limit(limit).get();
@@ -530,11 +516,6 @@ class SecurityRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> q = _blocks;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      q = q.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap =
           await q.orderBy('createdAt', descending: true).limit(100).get();
@@ -612,11 +593,6 @@ class SecurityRepository {
     required AdminUser? actor,
   }) async {
     Query<Map<String, dynamic>> q = _grants;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      q = q.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap =
           await q.orderBy('createdAt', descending: true).limit(80).get();

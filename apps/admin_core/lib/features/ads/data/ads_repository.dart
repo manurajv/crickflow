@@ -11,7 +11,8 @@ import '../models/managed_ads.dart';
 
 /// Admin advertisement management.
 ///
-/// Does not modify mobile AdMob (`AdMobConfig` / `google_mobile_ads`).
+/// Writes `admin_admob_config/settings`, which release builds of the
+/// mobile app read for `testMode` (debug builds always use test units).
 /// Custom home carousel creatives may sync to existing `home_promotions`
 /// (kind=advertisement) so the mobile carousel can show approved ads.
 class AdsRepository {
@@ -43,13 +44,6 @@ class AdsRepository {
     bool pendingOnly = false,
   }) async {
     Query<Map<String, dynamic>> query = _campaigns;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const AdsPageResult(items: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     query = query.orderBy('createdAt', descending: sort.descending);
     if (startAfter != null) query = query.startAfterDocument(startAfter);
 
@@ -176,11 +170,6 @@ class AdsRepository {
   }) async {
     try {
       Query<Map<String, dynamic>> query = _campaigns;
-      if (appType == AdminAppType.organizationAdmin) {
-        final orgId = actor?.organizationId;
-        if (orgId == null || orgId.isEmpty) return const AdsSummaryStats();
-        query = query.where('organizationId', isEqualTo: orgId);
-      }
       final snap = await query.limit(AdminQueryLimits.summaryScanMax).get();
       final items = snap.docs
           .map((d) => ManagedAdCampaign.fromFirestore(id: d.id, map: d.data()))
@@ -414,11 +403,6 @@ class AdsRepository {
     int limit = 80,
   }) async {
     Query<Map<String, dynamic>> query = _advertisers;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const [];
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap = await query.limit(limit).get();
       return snap.docs
@@ -538,7 +522,7 @@ class AdsRepository {
     );
   }
 
-  // --- AdMob config (admin mirror only) ---
+  // --- AdMob config (read by mobile release builds) ---
 
   Future<ManagedAdmobConfig> fetchAdmobConfig() async {
     try {

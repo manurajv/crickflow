@@ -9,6 +9,7 @@ import '../../../data/models/register_player_models.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/widgets/cf_button.dart';
 import 'register_player_flow_screen.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class PlayerInviteAcceptScreen extends ConsumerStatefulWidget {
   const PlayerInviteAcceptScreen({super.key, required this.token});
@@ -51,7 +52,7 @@ class _PlayerInviteAcceptScreenState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e.toString();
+        _error = friendlyError(e);
       });
     }
   }
@@ -84,7 +85,7 @@ class _PlayerInviteAcceptScreenState
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e.toString();
+        _error = friendlyError(e);
       });
     }
   }

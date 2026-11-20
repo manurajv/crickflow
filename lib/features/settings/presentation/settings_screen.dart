@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:crickflow/core/theme/app_dimens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../shared/providers/offline_sync_provider.dart';
 import '../../../shared/providers/providers.dart';
 import 'widgets/appearance_theme_section.dart';
+import '../../../core/utils/friendly_error.dart';
+import '../../../shared/widgets/powered_by_mavixas.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -104,7 +105,7 @@ class SettingsScreen extends ConsumerWidget {
       if (!context.mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete account: $e')),
+        SnackBar(content: Text('Could not delete account: ${friendlyError(e)}')),
       );
     }
   }
@@ -132,6 +133,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.notifications,
               returnPath: '/notifications',
               action: () async {
                 if (context.mounted) context.push('/notifications');
@@ -145,6 +147,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => requireAuthVoid(
               context: context,
               ref: ref,
+              prompt: SignInPrompt.notificationSettings,
               returnPath: '/settings/notifications',
               action: () async {
                 if (context.mounted) {
@@ -222,39 +225,9 @@ class SettingsScreen extends ConsumerWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: AppDimens.spaceXs),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Powered by ',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: context.cf.textMuted,
-                          ),
-                    ),
-                    InkWell(
-                      onTap: () async {
-                        final uri = Uri.parse('https://mavixas.com');
-                        if (!await launchUrl(
-                          uri,
-                          mode: LaunchMode.externalApplication,
-                        )) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Could not open $uri')),
-                            );
-                          }
-                        }
-                      },
-                      child: Text(
-                        'Mavixas',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: context.cf.link,
-                              decoration: TextDecoration.underline,
-                              decorationColor: context.cf.link,
-                            ),
-                      ),
-                    ),
-                  ],
+                PoweredByMavixas(
+                  mutedColor: context.cf.textMuted,
+                  linkColor: context.cf.link,
                 ),
               ],
             ),

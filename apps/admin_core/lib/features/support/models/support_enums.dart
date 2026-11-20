@@ -1,5 +1,6 @@
 /// Support Center hub sections and ticket domain enums.
 enum SupportHubSection {
+  inbox,
   dashboard,
   tickets,
   conversations,
@@ -14,6 +15,7 @@ enum SupportHubSection {
   reports;
 
   String get label => switch (this) {
+        SupportHubSection.inbox => 'Inbox',
         SupportHubSection.dashboard => 'Dashboard',
         SupportHubSection.tickets => 'Support Tickets',
         SupportHubSection.conversations => 'Live Conversations',

@@ -81,7 +81,7 @@ class _AdmobConfigPanelState extends ConsumerState<AdmobConfigPanel> {
       if (mounted) {
         setState(() => _dirty = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('AdMob config saved (admin mirror)')),
+          const SnackBar(content: Text('AdMob config saved. Release builds will use this Test mode setting.')),
         );
       }
     } finally {
@@ -118,7 +118,7 @@ class _AdmobConfigPanelState extends ConsumerState<AdmobConfigPanel> {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Admin mirror only — mobile AdMobConfig is unchanged until a future sync.',
+                  'Release builds of the CrickFlow app read this Test mode flag from admin_admob_config/settings. Debug builds always use Google test ad units. If the document is missing, release builds keep production units.',
                 ),
               ),
             ],

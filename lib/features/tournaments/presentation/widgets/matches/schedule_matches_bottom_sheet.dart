@@ -1,3 +1,4 @@
+import '../../../../../domain/services/tournament/tournament_match_link_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +7,7 @@ import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../data/models/tournament_model.dart';
 import '../../utils/tournament_display_utils.dart';
 import 'auto_fixture_sheet.dart';
+import 'link_existing_match_sheet.dart';
 import 'manual_match_schedule_sheet.dart';
 
 Future<void> showScheduleMatchesBottomSheet({
@@ -92,6 +94,38 @@ class _ScheduleMatchesSheet extends StatelessWidget {
                 ? () {
                     Navigator.pop(context);
                     showAutoFixtureSheet(
+                      context: context,
+                      tournament: tournament,
+                    );
+                  }
+                : null,
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          _OptionTile(
+            icon: Icons.sports_cricket_outlined,
+            title: 'Start a Match Now',
+            subtitle: isOrgTournament(tournament)
+                ? 'Normal match, linked to this org tournament.'
+                : 'Normal or quick match, linked to this tournament.',
+            onTap: canManage
+                ? () {
+                    Navigator.pop(context);
+                    context.push('/match/start?tournamentId=${tournament.id}');
+                  }
+                : null,
+          ),
+          const SizedBox(height: AppDimens.spaceSm),
+          _OptionTile(
+            icon: Icons.playlist_add_outlined,
+            title: 'Add Existing Match',
+            subtitle:
+                isOrgTournament(tournament)
+                    ? 'Link a normal match between tournament teams.'
+                    : 'Link a normal or quick match between tournament teams.',
+            onTap: canManage
+                ? () {
+                    Navigator.pop(context);
+                    showLinkExistingMatchSheet(
                       context: context,
                       tournament: tournament,
                     );

@@ -12,6 +12,7 @@ import 'models/ground_pick_result.dart';
 import 'widgets/ground_map_web_view.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../core/theme/cf_colors.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Full-screen map to search and pin a ground location.
 class GroundMapPickerScreen extends ConsumerStatefulWidget {
@@ -97,7 +98,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
       );
     } catch (e) {
       if (mounted) {
-        setState(() => _statusMessage = 'Could not load map: $e');
+        setState(() => _statusMessage = 'Could not load map: ${friendlyError(e)}');
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -127,7 +128,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
     } catch (e) {
       if (mounted) {
         setState(
-          () => _statusMessage = 'Could not resolve address for pin: $e',
+          () => _statusMessage = 'Could not resolve address for pin: ${friendlyError(e)}',
         );
       }
     } finally {
@@ -153,7 +154,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
       } catch (e) {
         if (mounted) {
           setState(() => _suggestions = []);
-          _statusMessage = '$e';
+          _statusMessage = friendlyError(e);
         }
       }
     });
@@ -180,7 +181,7 @@ class _GroundMapPickerScreenState extends ConsumerState<GroundMapPickerScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _statusMessage = 'Could not load place: $e');
+        setState(() => _statusMessage = 'Could not load place: ${friendlyError(e)}');
       }
     } finally {
       if (mounted) setState(() => _resolving = false);

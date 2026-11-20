@@ -54,7 +54,7 @@ lib/features/streaming/
 ├── rtmp/                          # CustomRtmpDestinationProvider
 ├── obs/
 │   ├── obs_encoder_utils.dart
-│   └── presentation/obs_setup_section.dart
+│   └── presentation/obs_broadcast_screen.dart
 ├── chat/                          # YouTube live chat panel
 ├── analytics/
 │   └── broadcast_analytics_service.dart

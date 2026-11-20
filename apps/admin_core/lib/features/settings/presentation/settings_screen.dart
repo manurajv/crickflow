@@ -10,7 +10,7 @@ import '../providers/settings_providers.dart';
 import 'widgets/settings_chrome.dart';
 import 'widgets/settings_section_body.dart';
 
-/// Platform Settings hub — Super Admin writes; Org Admin read-only.
+/// Platform Settings hub — Super Admin writes; other staff read-only.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({
     super.key,
@@ -76,7 +76,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const SizedBox(height: 4),
                       Text(
                         widget.cmsMode
-                            ? 'Manage CMS pages, legal content, contact and social links'
+                            ? 'Draft CMS and legal copy stored in Firestore. Not published to the app or public site.'
                             : 'Central control panel for CrickFlow platform configuration',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),

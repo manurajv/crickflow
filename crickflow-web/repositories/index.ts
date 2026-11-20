@@ -26,6 +26,12 @@ import {
 import { collections, queryLimits } from "@/config/site";
 import { getDb } from "@/lib/firebase/client";
 import {
+  USER_PRIVATE_COLLECTION,
+  USER_PRIVATE_PROFILE_DOC,
+  mergePrivateUserProfile,
+  privateUserProfilePayload,
+} from "@/lib/firebase/user-private-profile";
+import {
   mapBallEvent,
   mapChat,
   mapCommunityComment,
@@ -57,6 +63,7 @@ import { chatIdFor, chatBlockId } from "@/lib/chat";
 import { followCollection, followDocId, followPayload, type FollowKind } from "@/lib/follow";
 import type { MatchStatus } from "@/types/enums";
 import { LIVE_STATUSES } from "@/types/enums";
+import { withoutStaleMatches } from "@/lib/cricket/match-staleness";
 import type {
   AppNotification,
   BallEvent,
@@ -127,10 +134,33 @@ export async function listMatches(options?: {
   constraints.push(orderBy("createdAt", "desc"), limit(take));
   try {
     const snap = await getDocsTimed(query(collection(getDb(), collections.matches), ...constraints));
-    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+    const list = snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+    // Live / Upcoming lists drop unfinished matches older than 30 days.
+    return options?.status ? withoutStaleMatches(list) : list;
   } catch (error) {
     if (!isIndexError(error)) return [];
     const snap = await getDocsOrEmpty(query(collection(getDb(), collections.matches), limit(take)));
+    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+  }
+}
+
+export async function listMatchesCreatedBy(uid: string, take = 40): Promise<Match[]> {
+  if (!uid) return [];
+  try {
+    const snap = await getDocsTimed(
+      query(
+        collection(getDb(), collections.matches),
+        where("createdBy", "==", uid),
+        orderBy("createdAt", "desc"),
+        limit(take),
+      ),
+    );
+    return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
+  } catch (error) {
+    if (!isIndexError(error)) return [];
+    const snap = await getDocsOrEmpty(
+      query(collection(getDb(), collections.matches), where("createdBy", "==", uid), limit(take)),
+    );
     return snap.docs.map((d) => mapMatch(d.id, dataOf(d)));
   }
 }
@@ -156,7 +186,7 @@ export function watchLiveMatches(
       limit(take),
     ),
     (snap) => {
-      onData(snap.docs.map((d) => mapMatch(d.id, dataOf(d))));
+      onData(withoutStaleMatches(snap.docs.map((d) => mapMatch(d.id, dataOf(d)))));
     },
     () => onData([]),
   );
@@ -270,6 +300,22 @@ export async function listFollowedPlayers(userId: string): Promise<Player[]> {
     ...new Set(snap.docs.map((d) => String(dataOf(d).followedUserId ?? "")).filter(Boolean)),
   ];
   const players = await Promise.all(followedUserIds.map((id) => getPlayerByUserId(id)));
+  return players.filter((player): player is Player => Boolean(player));
+}
+
+export async function listPlayerFollowers(userId: string): Promise<Player[]> {
+  if (!userId) return [];
+  const snap = await getDocsOrEmpty(
+    query(
+      collection(getDb(), collections.playerFollows),
+      where("followedUserId", "==", userId),
+      limit(24),
+    ),
+  );
+  const followerUserIds = [
+    ...new Set(snap.docs.map((d) => String(dataOf(d).followerUserId ?? "")).filter(Boolean)),
+  ];
+  const players = await Promise.all(followerUserIds.map((id) => getPlayerByUserId(id)));
   return players.filter((player): player is Player => Boolean(player));
 }
 
@@ -407,10 +453,22 @@ export async function listPromotions(): Promise<HomePromotion[]> {
   }
 }
 
+async function readPrivateUserProfile(uid: string): Promise<Record<string, unknown> | null> {
+  try {
+    const snap = await getDoc(
+      doc(getDb(), collections.users, uid, USER_PRIVATE_COLLECTION, USER_PRIVATE_PROFILE_DOC),
+    );
+    return snap.exists() ? (snap.data() as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(getDb(), collections.users, uid));
   if (!snap.exists()) return null;
-  return mapUser(snap.id, dataOf(snap));
+  const merged = mergePrivateUserProfile(dataOf(snap) as Record<string, unknown>, await readPrivateUserProfile(uid));
+  return mapUser(snap.id, merged);
 }
 
 export async function upsertUserProfile(profile: Partial<UserProfile> & { id: string }) {
@@ -431,8 +489,32 @@ export async function upsertUserProfile(profile: Partial<UserProfile> & { id: st
   if (profile.battingStyle !== undefined) payload.battingStyle = profile.battingStyle || null;
   if (profile.bowlingStyle !== undefined) payload.bowlingStyle = profile.bowlingStyle || null;
   if (profile.jerseyNumber !== undefined) payload.jerseyNumber = profile.jerseyNumber ?? null;
+  if (profile.dateOfBirth !== undefined) {
+    payload.dob = profile.dateOfBirth || null;
+    payload.dateOfBirth = profile.dateOfBirth || null;
+  }
+  if (profile.gender !== undefined) payload.gender = profile.gender || null;
   if (profile.onboardingCompleted !== undefined) payload.onboardingCompleted = profile.onboardingCompleted;
   await setDoc(doc(getDb(), collections.users, profile.id), payload, { merge: true });
+  if (
+    profile.email !== undefined ||
+    profile.phoneNumber !== undefined ||
+    profile.dateOfBirth !== undefined
+  ) {
+    try {
+      await setDoc(
+        doc(getDb(), collections.users, profile.id, USER_PRIVATE_COLLECTION, USER_PRIVATE_PROFILE_DOC),
+        privateUserProfilePayload({
+          email: profile.email,
+          phoneNumber: profile.phoneNumber,
+          dateOfBirth: profile.dateOfBirth,
+        }),
+        { merge: true },
+      );
+    } catch {
+      // Parent write already succeeded; private copy is best-effort for older rules.
+    }
+  }
 }
 
 export async function allocatePlayerId(): Promise<string> {
@@ -975,8 +1057,33 @@ export async function reportPost(
   });
 }
 
+/** Author/moderator delete. Likes, comments and comment likes are removed
+ * best-effort first (same as the app). Saves are private and stay hidden. */
 export async function deleteCommunityPost(postId: string) {
-  await deleteDoc(doc(getDb(), collections.communityPosts, postId));
+  const db = getDb();
+  const deleteAll = async (path: string[]) => {
+    try {
+      const snap = await getDocs(query(collection(db, collections.communityPosts, postId, ...path), limit(200)));
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref).catch(() => undefined)));
+      return snap.docs.map((d) => d.id);
+    } catch {
+      return [] as string[];
+    }
+  };
+  await deleteAll(["likes"]);
+  const commentIds = await (async () => {
+    try {
+      const snap = await getDocs(query(collection(db, collections.communityPosts, postId, "comments"), limit(200)));
+      return snap.docs.map((d) => d.id);
+    } catch {
+      return [] as string[];
+    }
+  })();
+  for (const id of commentIds) {
+    await deleteAll(["comments", id, "likes"]);
+    await deleteDoc(doc(db, collections.communityPosts, postId, "comments", id)).catch(() => undefined);
+  }
+  await deleteDoc(doc(db, collections.communityPosts, postId));
 }
 
 export async function deleteOpportunityPost(postId: string) {

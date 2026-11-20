@@ -417,16 +417,8 @@ class DevOpsRepository {
     // Seed defaults as view models only (not written unless Super Admin saves).
     return const [
       ManagedDomain(
-        id: 'admin',
-        host: 'admin.crickflow.app',
-        status: DevOpsDomainStatus.unknown,
-        ssl: 'Monitor only',
-        dns: 'Monitor only',
-        note: 'Organization Admin Hosting target',
-      ),
-      ManagedDomain(
         id: 'superadmin',
-        host: 'superadmin.crickflow.app',
+        host: 'crickflow-superadmin.web.app',
         status: DevOpsDomainStatus.unknown,
         ssl: 'Monitor only',
         dns: 'Monitor only',

@@ -17,6 +17,7 @@ import '../../../services/stream_platform_service.dart';
 import '../../providers/streaming_studio_providers.dart';
 import '../dashboard/stream_youtube_link_section.dart';
 import 'stream_setup_checklist.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 /// Opens broadcast destination setup (YouTube, Facebook, or custom RTMP) without going live.
 Future<void> showStreamBroadcastSetupSheet(
@@ -836,7 +837,7 @@ class _YouTubeAutomaticSetup extends ConsumerWidget {
             child: Text(
               error is StreamPlatformException
                   ? error.message
-                  : 'Could not load channels: $error',
+                  : 'Could not load channels: ${friendlyError(error)}',
               style: TextStyle(color: cf.error, fontSize: 11),
             ),
           ),

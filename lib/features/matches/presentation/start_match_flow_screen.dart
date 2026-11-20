@@ -19,6 +19,7 @@ import 'widgets/start_match_setup_form.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../shared/widgets/start_match_ui.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Start match: select teams → setup → create.
 class StartMatchFlowScreen extends ConsumerStatefulWidget {
@@ -211,7 +212,13 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
     final match = MatchModel(
       id: draft.matchId,
       title: '${draft.resolvedTeamAName} vs ${draft.resolvedTeamBName}',
-      matchType: MatchType.single,
+      matchType: draft.tournamentId?.isNotEmpty == true
+          ? MatchType.tournament
+          : MatchType.single,
+      tournamentId: draft.tournamentId?.isNotEmpty == true
+          ? draft.tournamentId
+          : null,
+      orgRequestSeriesId: draft.seriesId,
       status: MatchStatus.scheduled,
       teamAId: draft.teamA?.id,
       teamBId: draft.teamB?.id,
@@ -230,18 +237,27 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
         if (mounted) context.pop();
       } else {
         await ref.read(matchRepositoryProvider).createMatch(match);
+        registerTournamentMatchInBackground(ref, match);
+        registerSeriesMatchInBackground(ref, draft.seriesId, match.id);
         ref.read(startMatchDraftProvider.notifier).reset();
         if (mounted) context.go('/match/${draft.matchId}');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create match: $e')),
+          SnackBar(content: Text('Failed to create match: ${friendlyError(e)}')),
         );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// Tournament team ids, or null when not a tournament draft / not loaded.
+  List<String>? _tournamentTeamIds(StartMatchDraft draft) {
+    final tid = draft.tournamentId;
+    if (tid == null || tid.isEmpty) return null;
+    return ref.read(tournamentProvider(tid)).valueOrNull?.teamIds;
   }
 
   Future<void> _goToSquadFlow() async {
@@ -263,7 +279,7 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save setup: $e')),
+            SnackBar(content: Text('Could not save setup: ${friendlyError(e)}')),
           );
         }
         return;
@@ -461,6 +477,17 @@ class _StartMatchFlowScreenState extends ConsumerState<StartMatchFlowScreen> {
             ? FilledButton(
                 onPressed: draft.hasBothTeams
                     ? () {
+                        final teamIds = _tournamentTeamIds(draft);
+                        final teamsError = (teamIds == null
+                                ? null
+                                : tournamentTeamsError(draft, teamIds)) ??
+                            seriesTeamsError(draft);
+                        if (teamsError != null && !draft.isExistingMatch) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(teamsError)),
+                          );
+                          return;
+                        }
                         _syncOversFromRules(draft.rules);
                         setState(() => _step = 1);
                       }

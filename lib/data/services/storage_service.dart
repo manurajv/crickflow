@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/utils/atomic_create.dart';
 import '../../core/utils/match_media_naming.dart';
+import '../../features/teams/presentation/utils/team_image_crop_config.dart';
 
 class StorageService {
   StorageService({FirebaseStorage? storage})
@@ -33,6 +35,31 @@ class StorageService {
     final ref = _storage.ref().child('teams/$teamId/profile_$uid.jpg');
     await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
     return ref.getDownloadURL();
+  }
+
+  /// Team logo upload that can be undone when the create fails.
+  Future<UploadedAsset> uploadTeamLogoAsset(String teamId, File file) async {
+    final url = await uploadTeamProfileImage(teamId, file);
+    return UploadedAsset(url: url, delete: () => deleteByUrl(url));
+  }
+
+  /// Deletes an uploaded file by its download URL (create-failure cleanup).
+  Future<void> deleteByUrl(String url) async {
+    if (url.isEmpty) return;
+    await _storage.refFromURL(url).delete();
+  }
+
+  Future<UploadedAsset> uploadTournamentImageAsset(
+    String tournamentId,
+    File file, {
+    required String kind,
+  }) async {
+    final url = switch (kind) {
+      'banner' => await uploadTournamentBanner(tournamentId, file),
+      'logo' => await uploadTournamentLogo(tournamentId, file),
+      _ => await uploadTournamentThumbnail(tournamentId, file),
+    };
+    return UploadedAsset(url: url, delete: () => deleteByUrl(url));
   }
 
   Future<String> uploadTeamCoverImage(String teamId, File file) async {
@@ -105,20 +132,60 @@ class StorageService {
     return ref.getDownloadURL();
   }
 
-  /// Profile / ID document photo for Series registration (private metadata may reference URL).
+  /// Profile / ID document photo for Series registration (private path).
   Future<String> uploadSeriesRegistrationImage(
     String seriesId,
     File file, {
     String kind = 'photo',
+    String? clubId,
+    String? subjectUserId,
+  }) async {
+    final asset = await uploadSeriesRegistrationImageAsset(
+      seriesId,
+      file,
+      kind: kind,
+      clubId: clubId,
+      subjectUserId: subjectUserId,
+    );
+    return asset.url;
+  }
+
+  /// Upload that can be deleted if the registration submit fails.
+  Future<UploadedAsset> uploadSeriesRegistrationImageAsset(
+    String seriesId,
+    File file, {
+    String kind = 'photo',
+    String? clubId,
+    String? subjectUserId,
+    void Function(double progress)? onProgress,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    final subject =
+        (subjectUserId != null && subjectUserId.isNotEmpty) ? subjectUserId : uid;
     final safeKind = kind == 'doc' ? 'doc' : 'photo';
+    final isDocument = safeKind == 'doc';
+    final maxBytes = registrationMaxBytes(isDocument: isDocument);
+    if (!file.existsSync() || file.lengthSync() == 0) {
+      throw Exception('The cropped photo is empty. Please try again.');
+    }
+    if (file.lengthSync() > maxBytes) {
+      throw Exception(registrationTooLargeMessage(isDocument: isDocument));
+    }
     final stamp = DateTime.now().millisecondsSinceEpoch;
-    final ref = _storage
-        .ref()
-        .child('series/$seriesId/${safeKind}_${uid}_$stamp.jpg');
-    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
-    return ref.getDownloadURL();
+    final path = (clubId != null && clubId.isNotEmpty)
+        ? 'series/$seriesId/clubs/$clubId/registrations/$subject/${safeKind}_${uid}_$stamp.jpg'
+        : 'series/$seriesId/registrations/$subject/${safeKind}_${uid}_$stamp.jpg';
+    final ref = _storage.ref().child(path);
+    final task = ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    if (onProgress != null) {
+      task.snapshotEvents.listen((snap) {
+        final total = snap.totalBytes;
+        if (total > 0) onProgress(snap.bytesTransferred / total);
+      });
+    }
+    await task;
+    final url = await ref.getDownloadURL();
+    return UploadedAsset(url: url, delete: () => deleteByUrl(url));
   }
 
   Future<String> uploadTournamentThumbnail(String tournamentId, File file) async {

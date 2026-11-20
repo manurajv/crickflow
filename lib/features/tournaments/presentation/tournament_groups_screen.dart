@@ -15,6 +15,7 @@ import 'widgets/groups/create_group_dialog.dart';
 import 'widgets/groups/select_group_team_sheet.dart';
 import 'widgets/teams/tournament_team_confirm_sheet.dart';
 import 'widgets/tournament_module_empty_state.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class TournamentGroupsScreen extends ConsumerWidget {
   const TournamentGroupsScreen({
@@ -56,7 +57,7 @@ class TournamentGroupsScreen extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }
@@ -105,7 +106,7 @@ class TournamentGroupsScreen extends ConsumerWidget {
 
     return groupsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
       data: (groups) {
         if (groups.isEmpty) {
           return RefreshIndicator(
@@ -358,7 +359,7 @@ class _GroupCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }
@@ -378,7 +379,7 @@ class _GroupCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }

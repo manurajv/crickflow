@@ -3,13 +3,17 @@ abstract final class AdminRoutePaths {
   static const login = '/login';
   static const accessDenied = '/access-denied';
   static const dashboard = '/';
+  /// Alias that redirects to [dashboard].
+  static const dashboardAlias = '/dashboard';
 
   static const users = '/users';
+
+  /// Super Admin: administrator accounts and access control.
+  static const admins = '/admins';
   static const teams = '/teams';
   static const players = '/players';
   static const matches = '/matches';
   static const tournaments = '/tournaments';
-  static const series = '/series';
   static const grounds = '/grounds';
   static const community = '/community';
   static const discover = '/discover';
@@ -31,7 +35,8 @@ abstract final class AdminRoutePaths {
   static const cms = '/cms';
   static const settings = '/settings';
   static const logs = '/logs';
-  static const organizations = '/organizations';
+  /// Orgs & Series oversight (mobile associations / clubs / series).
+  static const orgs = '/orgs';
   static const revenue = '/revenue';
   static const profile = '/profile';
   static const accountSettings = '/account-settings';

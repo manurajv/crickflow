@@ -5,6 +5,7 @@ import '../../../../../core/theme/cf_colors.dart';
 import '../../../../../shared/providers/providers.dart';
 import '../../../../../shared/providers/team_profile_provider.dart';
 import '../../../../../shared/widgets/cf_button.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 class TeamFollowButton extends ConsumerStatefulWidget {
   const TeamFollowButton({
@@ -114,7 +115,7 @@ class _TeamFollowButtonState extends ConsumerState<TeamFollowButton> {
             _busy = false;
           });
           messenger.showSnackBar(
-            SnackBar(content: Text('Could not update follow: $e')),
+            SnackBar(content: Text('Could not update follow: ${friendlyError(e)}')),
           );
         }
       }

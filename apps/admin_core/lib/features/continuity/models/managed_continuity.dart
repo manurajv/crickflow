@@ -17,7 +17,7 @@ class ContinuitySummary {
     this.storageStatus = 'Monitor only',
     this.configStatus = 'Monitor only',
     this.estimatedSizeLabel = '—',
-    this.recoveryReadiness = 'Architecture ready',
+    this.recoveryReadiness = 'Not assessed from this panel',
     this.recoveryScore = 0,
     this.environment = 'production',
     this.openRestores = 0,

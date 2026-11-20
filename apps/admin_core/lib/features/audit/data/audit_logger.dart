@@ -170,7 +170,7 @@ class AuditLogger {
   }
 
   static final String _sessionId =
-      'sess_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1 << 32)}';
+      'sess_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(0x7fffffff)}';
 
   static String get currentSessionId => _sessionId;
 }

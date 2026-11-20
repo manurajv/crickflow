@@ -10,6 +10,7 @@ import '../../../../data/models/location_model.dart';
 import '../../../../data/services/google_maps_location_service.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../matches/presentation/models/ground_pick_result.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Exact place / ground picker (Discover opportunities, team home ground, etc.).
 class OpportunityLocationField extends ConsumerStatefulWidget {
@@ -103,7 +104,7 @@ class _OpportunityLocationFieldState
         if (mounted) {
           setState(() {
             _suggestions = [];
-            _statusMessage = '$e';
+            _statusMessage = friendlyError(e);
           });
         }
       }
@@ -131,7 +132,7 @@ class _OpportunityLocationFieldState
       );
     } catch (e) {
       if (mounted) {
-        setState(() => _statusMessage = 'Could not load place: $e');
+        setState(() => _statusMessage = 'Could not load place: ${friendlyError(e)}');
       }
     } finally {
       if (mounted) setState(() => _resolving = false);

@@ -19,11 +19,6 @@ class MatchesRepository {
 
   Future<MatchPageResult> fetchPage({required AdminAppType appType, required AdminUser? actor, required MatchListFilters filters, required MatchSort sort, DocumentSnapshot<Map<String, dynamic>>? startAfter, int limit = 25}) async {
     Query<Map<String, dynamic>> query = _matches;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const MatchPageResult(matches: [], hasMore: false);
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     if (filters.statuses.length == 1) {
       final status = filters.statuses.first;
       query = query.where(status == ManagedMatchStatus.cancelled || status == ManagedMatchStatus.delayed ? 'adminStatus' : 'status', isEqualTo: status.wireValue);
@@ -62,9 +57,6 @@ class MatchesRepository {
       snap = await query.limit(limit + 1).get();
     } on FirebaseException {
       var fallback = _matches.orderBy(FieldPath.documentId).limit(limit + 1);
-      if (appType == AdminAppType.organizationAdmin && actor?.organizationId != null) {
-        fallback = _matches.where('organizationId', isEqualTo: actor!.organizationId).limit(limit + 1);
-      }
       snap = await fallback.get();
     }
     final docs = snap.docs;
@@ -98,10 +90,8 @@ class MatchesRepository {
   }
 
   bool _visibleToActor(ManagedMatch m, {required AdminAppType appType, required AdminUser? actor}) {
-    if (appType != AdminAppType.organizationAdmin) return true;
-    final orgId = actor?.organizationId;
-    if (orgId == null || orgId.isEmpty) return false;
-    return m.organizationId == orgId;
+    // Single platform panel: every record is in scope.
+    return true;
   }
 
   Stream<ManagedMatch?> watchById(String id, {required AdminAppType appType, required AdminUser? actor}) {
@@ -115,11 +105,6 @@ class MatchesRepository {
 
   Future<MatchSummaryStats> fetchSummary({required AdminAppType appType, required AdminUser? actor}) async {
     Query<Map<String, dynamic>> base = _matches;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) return const MatchSummaryStats();
-      base = base.where('organizationId', isEqualTo: orgId);
-    }
     try {
       final snap = await base.limit(AdminQueryLimits.summaryScanMax).get();
       final list = snap.docs.map((d) => ManagedMatch.fromFirestore(id: d.id, map: d.data())).where((m) => !m.isSoftDeleted).toList();

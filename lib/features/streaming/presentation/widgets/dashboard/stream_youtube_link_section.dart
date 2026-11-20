@@ -7,6 +7,7 @@ import '../../../../../shared/providers/providers.dart';
 import '../../../../../shared/widgets/cf_button.dart';
 import '../../../services/stream_platform_service.dart';
 import '../../providers/streaming_studio_providers.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 /// Connects the user's Google account for YouTube Live API (server-side token).
 class StreamYouTubeLinkSection extends ConsumerStatefulWidget {
@@ -77,7 +78,7 @@ class _StreamYouTubeLinkSectionState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('YouTube link failed: $e')),
+          SnackBar(content: Text('YouTube link failed: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -154,7 +155,7 @@ class _StreamYouTubeLinkSectionState
           error: (error, _) => Text(
             error is StreamPlatformException
                 ? error.message
-                : 'Could not load YouTube channels: $error',
+                : 'Could not load YouTube channels: ${friendlyError(error)}',
             style: TextStyle(color: cf.error, fontSize: 11),
           ),
         ),

@@ -23,6 +23,7 @@ import 'utils/tournament_display_utils.dart';
 import 'widgets/overview/tournament_overview_widgets.dart';
 import 'widgets/tournament_join_banner.dart';
 import 'widgets/tournament_qr_view.dart';
+import '../../../core/utils/friendly_error.dart';
 
 typedef TournamentSectionNavigator = void Function(
   TournamentDashboardSection section,
@@ -634,7 +635,7 @@ class _QrSharingSectionState extends ConsumerState<_QrSharingSection> {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not prepare QR: $e')),
+        SnackBar(content: Text('Could not prepare QR: ${friendlyError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _downloading = false);

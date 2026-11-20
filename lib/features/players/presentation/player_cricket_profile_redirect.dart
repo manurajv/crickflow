@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/providers/badge_provider.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../teams/presentation/utils/team_squad_utils.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Legacy `/players/:id` entry — redirects to the user (social) profile when possible.
 class PlayerCricketProfileRedirect extends ConsumerStatefulWidget {
@@ -32,7 +33,7 @@ class _PlayerCricketProfileRedirectState
       ),
       error: (e, _) => Scaffold(
         appBar: const CfChromeAppBar(title: Text('Player')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
       data: (player) {
         final path =

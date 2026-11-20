@@ -14,6 +14,8 @@ function playerRankingDocId(seriesId, userId) {
 function isOfficialSeriesMatch(match) {
   if (!match?.seriesId) return false;
   if (match.seriesOfficialStatus !== 'approved') return false;
+  // Orgs do not allow quick matches; legacy linked ones no longer count.
+  if (match.matchMode === 'quick') return false;
   if (match.seriesRankingsProcessed === true) return false;
   // Must be completed (caller already checks).
   return true;

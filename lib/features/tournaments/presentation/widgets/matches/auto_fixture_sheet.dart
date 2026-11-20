@@ -10,6 +10,7 @@ import '../../../../../shared/providers/tournament_match_providers.dart';
 import '../../../../../shared/widgets/cf_button.dart';
 import '../../utils/tournament_display_utils.dart';
 import '../../utils/tournament_format_utils.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 Future<void> showAutoFixtureSheet({
   required BuildContext context,
@@ -82,7 +83,7 @@ class _AutoFixtureSheetState extends ConsumerState<_AutoFixtureSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     } finally {
       if (mounted) setState(() => _busy = false);

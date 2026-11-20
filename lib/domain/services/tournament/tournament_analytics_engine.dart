@@ -5,6 +5,7 @@ import '../../../data/models/ball_event_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/models/match_player_snapshot.dart';
 import '../../scoring/match_lifecycle.dart';
+import '../../scoring/match_staleness.dart';
 import '../match_analytics_service.dart';
 import 'tournament_analytics_models.dart';
 import 'tournament_hero_ranking_engine.dart';
@@ -509,6 +510,7 @@ class TournamentAnalyticsEngine {
     var cancelled = 0;
 
     for (final m in matches) {
+      if (isStaleUnfinishedMatch(m)) continue;
       if (MatchLifecycle.isEffectivelyLive(m)) {
         live++;
       } else if (MatchLifecycle.isCompleted(m)) {

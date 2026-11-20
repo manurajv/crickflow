@@ -12,6 +12,7 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../data/models/series/series.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
+import '../../../core/utils/friendly_error.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import '../../player_onboarding/presentation/widgets/country_picker_sheet.dart';
 import '../../teams/presentation/utils/team_image_upload.dart';
@@ -145,7 +146,7 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_maxSquad < 1 || _maxSquad > 50) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Max players per club must be between 1 and 50')),
+        const SnackBar(content: Text('Max players per team must be between 1 and 50')),
       );
       return;
     }
@@ -207,15 +208,18 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
       }
 
       var mediaWarning = false;
+      final storage = ref.read(storageServiceProvider);
+      final uploaded = <String>[];
       try {
         String? logoUrl;
         String? coverUrl;
-        final storage = ref.read(storageServiceProvider);
         if (_logoFile != null) {
           logoUrl = await storage.uploadSeriesLogo(id, _logoFile!);
+          uploaded.add(logoUrl);
         }
         if (_coverFile != null) {
           coverUrl = await storage.uploadSeriesCover(id, _coverFile!);
+          uploaded.add(coverUrl);
         }
         if (logoUrl != null || coverUrl != null) {
           await FirebaseFirestore.instance
@@ -228,7 +232,14 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
               });
         }
       } catch (_) {
-        // Org already exists — don't fail create because branding upload failed.
+        // The org itself was created atomically by the server; only branding
+        // failed. Remove any image that never got attached so nothing is left
+        // half-saved, and tell the admin to add it from settings.
+        for (final url in uploaded) {
+          try {
+            await storage.deleteByUrl(url);
+          } catch (_) {}
+        }
         mediaWarning = true;
       }
 
@@ -242,11 +253,11 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
           ),
         ),
       );
-      context.go('/series/$id');
+      context.go('/series/$id?welcome=1');
     } on FirebaseFunctionsException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create $typeLabel: ${e.message}')),
+          SnackBar(content: Text('Could not create $typeLabel: ${friendlyError(e)}')),
         );
       }
     } catch (error) {
@@ -484,7 +495,7 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
             _sectionTitle('Squad'),
             Row(
               children: [
-                const Expanded(child: Text('Max players per club')),
+                const Expanded(child: Text('Max players per team')),
                 IconButton(
                   onPressed: _maxSquad > 1
                       ? () => setState(() => _maxSquad--)
@@ -549,7 +560,7 @@ class _SeriesCreateScreenState extends ConsumerState<SeriesCreateScreen> {
               value: _requirePhoto,
               onChanged: (v) => setState(() => _requirePhoto = v),
             ),
-            _sectionTitle('Club ranking points'),
+            _sectionTitle('Team ranking points'),
             _pointsRow('Win', _winPoints, (v) => setState(() => _winPoints = v)),
             _pointsRow(
               'Loss',

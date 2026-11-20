@@ -1,17 +1,19 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_gate.dart';
 
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../data/models/series/series.dart';
-import '../../../data/models/user_model.dart';
-import '../../../data/repositories/player_discovery_repository.dart';
+import '../../../domain/services/series/org_competition_access.dart';
+import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/series_providers.dart';
 import '../../../shared/widgets/cf_chrome_app_bar.dart';
+import 'widgets/series_player_search_screen.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class SeriesClubDetailScreen extends ConsumerStatefulWidget {
   const SeriesClubDetailScreen({
@@ -30,71 +32,161 @@ class SeriesClubDetailScreen extends ConsumerStatefulWidget {
 class _SeriesClubDetailScreenState
     extends ConsumerState<SeriesClubDetailScreen> {
   bool _busy = false;
+  String? _busyMessage;
+
+  Future<void> _runBusy(String message, Future<void> Function() action) async {
+    setState(() {
+      _busy = true;
+      _busyMessage = message;
+    });
+    try {
+      await action();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _busyMessage = null;
+        });
+      }
+    }
+  }
 
   Future<void> _requestJoin() async {
-    if (FirebaseAuth.instance.currentUser == null) {
-      context.push('/login');
-      return;
-    }
-    context.push(
-      '/series/${widget.seriesId}/register'
-      '?clubId=${widget.clubId}&join=1',
+    final path =
+        '/series/${widget.seriesId}/register?clubId=${widget.clubId}&join=1';
+    await requireLogin(
+      context: context,
+      ref: ref,
+      prompt: SignInPrompt.joinOrgTeam,
+      returnPath: path,
+      action: () async {
+        if (context.mounted) context.push(path);
+      },
     );
   }
 
   Future<void> _requestRemoval(SeriesMembershipModel member) async {
+    final role = ref.read(mySeriesRoleProvider(widget.seriesId));
+    final isOrgAdmin =
+        role == SeriesRole.superAdmin || role == SeriesRole.seriesAdmin;
+    final name = seriesPersonLabel(
+      displayName: member.displayName,
+      userId: member.userId,
+      fallback: 'this player',
+    );
     final reasonController = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Request player removal'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(labelText: 'Reason'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Submit'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            final canSubmit = reasonController.text.trim().isNotEmpty;
+            return AlertDialog(
+              title: Text(
+                isOrgAdmin ? 'Remove player?' : 'Request player removal?',
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isOrgAdmin
+                        ? 'Remove $name from the squad? This is final.'
+                        : 'Ask organization admins to remove $name from the squad. They stay on the squad, marked Removal pending, until the request is reviewed.',
+                  ),
+                  const SizedBox(height: AppDimens.spaceMd),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 3,
+                    onChanged: (_) => setLocal(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Reason (required)',
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: canSubmit ? () => Navigator.pop(ctx, true) : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(ctx).colorScheme.error,
+                    foregroundColor: Theme.of(ctx).colorScheme.onError,
+                  ),
+                  child: Text(isOrgAdmin ? 'Remove player' : 'Request removal'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-    if (ok != true) return;
-    setState(() => _busy = true);
+    final reason = reasonController.text.trim();
+    if (ok != true || reason.isEmpty) {
+      reasonController.dispose();
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _busyMessage = isOrgAdmin ? 'Removing player…' : 'Sending request…';
+    });
     try {
-      await ref.read(seriesFunctionsServiceProvider).submitPlayerRemovalRequest({
-        'seriesId': widget.seriesId,
-        'clubId': widget.clubId,
-        'userId': member.userId,
-        'reason': reasonController.text.trim(),
-      });
+      await ref
+          .read(seriesFunctionsServiceProvider)
+          .submitPlayerRemovalRequest({
+            'seriesId': widget.seriesId,
+            'clubId': widget.clubId,
+            'userId': member.userId,
+            'reason': reason,
+          });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Removal request submitted')),
+          SnackBar(
+            content: Text(
+              isOrgAdmin ? 'Player removed' : 'Removal request submitted',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not submit: ${friendlyError(e)}')),
+        );
       }
     } finally {
       reasonController.dispose();
-      if (mounted) setState(() => _busy = false);
+      if (mounted)
+        setState(() {
+          _busy = false;
+          _busyMessage = null;
+        });
     }
   }
 
   Future<void> _addPlayerSearch() async {
-    final selected = await showModalBottomSheet<UserModel>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => const _PlayerSearchSheet(),
+    final members =
+        ref
+            .read(
+              seriesClubSquadProvider((
+                seriesId: widget.seriesId,
+                clubId: widget.clubId,
+              )),
+            )
+            .valueOrNull ??
+        const [];
+    final exclude = {
+      for (final m in members)
+        if (m.isListedOnSquad) m.userId,
+    };
+    final selected = await SeriesPlayerSearchScreen.open(
+      context,
+      title: 'Search & add player',
+      includeSelf: true,
+      excludeUserIds: exclude,
     );
     if (selected == null || !mounted) return;
     await context.push<bool>(
@@ -107,13 +199,50 @@ class _SeriesClubDetailScreenState
     SeriesApprovalModel approval,
     String decision,
   ) async {
-    setState(() => _busy = true);
-    try {
-      await ref.read(seriesFunctionsServiceProvider).reviewClubJoinRequest(
-        seriesId: widget.seriesId,
-        approvalId: approval.id,
-        decision: decision,
+    var reason = '';
+    if (decision == 'rejected') {
+      final controller = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Reject registration'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(labelText: 'Reason (required)'),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(ctx, controller.text.trim().isNotEmpty),
+              child: const Text('Reject'),
+            ),
+          ],
+        ),
       );
+      reason = controller.text.trim();
+      controller.dispose();
+      if (ok != true || reason.isEmpty) return;
+    }
+    setState(() {
+      _busy = true;
+      _busyMessage = decision == 'approved'
+          ? 'Approving request…'
+          : 'Rejecting request…';
+    });
+    try {
+      await ref
+          .read(seriesFunctionsServiceProvider)
+          .reviewClubJoinRequest(
+            seriesId: widget.seriesId,
+            approvalId: approval.id,
+            decision: decision,
+            reason: reason,
+          );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -127,69 +256,286 @@ class _SeriesClubDetailScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Review failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Review failed: ${friendlyError(e)}')),
+        );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted)
+        setState(() {
+          _busy = false;
+          _busyMessage = null;
+        });
     }
   }
 
   Future<void> _addClubAdmin() async {
-    final selected = await showModalBottomSheet<UserModel>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => const _PlayerSearchSheet(),
+    final admins =
+        ref
+            .read(
+              seriesClubAdminsProvider((
+                seriesId: widget.seriesId,
+                clubId: widget.clubId,
+              )),
+            )
+            .valueOrNull ??
+        const [];
+    final exclude = {
+      for (final a in admins)
+        if (a.status == 'invited' || a.status == 'active') a.userId,
+    };
+    final selected = await SeriesPlayerSearchScreen.open(
+      context,
+      title: 'Add team admin',
+      includeSelf: true,
+      excludeUserIds: exclude,
     );
     if (selected == null) return;
-    setState(() => _busy = true);
     try {
-      await ref.read(seriesFunctionsServiceProvider).addSeriesClubAdmin(
-        seriesId: widget.seriesId,
-        clubId: widget.clubId,
-        userId: selected.id,
-        displayName: selected.displayName.isNotEmpty
-            ? selected.displayName
-            : selected.name,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Club admin added')),
-        );
-      }
-    } catch (e) {
+      await _runBusy('Adding admin…', () async {
+        await ref
+            .read(seriesFunctionsServiceProvider)
+            .addSeriesClubAdmin(
+              seriesId: widget.seriesId,
+              clubId: widget.clubId,
+              userId: selected.id,
+              displayName: selected.displayName.isNotEmpty
+                  ? selected.displayName
+                  : selected.name,
+            );
+      });
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not add admin: $e')));
+        ).showSnackBar(const SnackBar(content: Text('Invitation sent')));
       }
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not add admin: ${friendlyError(e)}')),
+        );
+      }
     }
   }
 
   Future<void> _removeClubAdmin(SeriesClubAdminModel admin) async {
-    setState(() => _busy = true);
+    final name = seriesPersonLabel(
+      displayName: admin.displayName,
+      userId: admin.userId,
+      fallback: 'this admin',
+    );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove admin?'),
+        content: Text(
+          'Remove $name as a team admin? They will lose admin access immediately.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            child: const Text('Remove admin'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() {
+      _busy = true;
+      _busyMessage = 'Removing admin…';
+    });
     try {
-      await ref.read(seriesFunctionsServiceProvider).removeSeriesClubAdmin(
-        seriesId: widget.seriesId,
-        clubId: widget.clubId,
-        userId: admin.userId,
-      );
+      await ref
+          .read(seriesFunctionsServiceProvider)
+          .removeSeriesClubAdmin(
+            seriesId: widget.seriesId,
+            clubId: widget.clubId,
+            userId: admin.userId,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Team admin removed')));
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Club admin removed')),
+          SnackBar(content: Text('Could not remove: ${friendlyError(e)}')),
+        );
+      }
+    } finally {
+      if (mounted)
+        setState(() {
+          _busy = false;
+          _busyMessage = null;
+        });
+    }
+  }
+
+  Future<void> _cancelAdminInvite(SeriesClubAdminModel admin) async {
+    setState(() {
+      _busy = true;
+      _busyMessage = 'Cancelling invitation…';
+    });
+    try {
+      await ref
+          .read(seriesFunctionsServiceProvider)
+          .cancelSeriesClubAdminInvite(
+            seriesId: widget.seriesId,
+            clubId: widget.clubId,
+            userId: admin.userId,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invitation cancelled')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not cancel: ${friendlyError(e)}')),
+        );
+      }
+    } finally {
+      if (mounted)
+        setState(() {
+          _busy = false;
+          _busyMessage = null;
+        });
+    }
+  }
+
+  Future<void> _respondOwnInvite(String decision) async {
+    setState(() {
+      _busy = true;
+      _busyMessage = decision == 'accepted'
+          ? 'Accepting invitation…'
+          : 'Declining invitation…';
+    });
+    try {
+      await ref
+          .read(seriesFunctionsServiceProvider)
+          .respondSeriesClubAdminInvite(
+            seriesId: widget.seriesId,
+            clubId: widget.clubId,
+            decision: decision,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              decision == 'accepted'
+                  ? 'Invitation accepted'
+                  : 'Invitation declined',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not remove: $e')));
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted)
+        setState(() {
+          _busy = false;
+          _busyMessage = null;
+        });
+    }
+  }
+
+  Future<void> _reviewRemoval(
+    SeriesApprovalModel approval,
+    String decision,
+  ) async {
+    var reason = approval.reason;
+    if (decision == 'rejected') {
+      final controller = TextEditingController(text: reason);
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) {
+          return StatefulBuilder(
+            builder: (ctx, setLocal) {
+              final canSubmit = controller.text.trim().isNotEmpty;
+              return AlertDialog(
+                title: const Text('Decline removal?'),
+                content: TextField(
+                  controller: controller,
+                  maxLines: 3,
+                  onChanged: (_) => setLocal(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Reason (required)',
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: canSubmit
+                        ? () => Navigator.pop(ctx, true)
+                        : null,
+                    child: const Text('Decline'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+      reason = controller.text.trim();
+      controller.dispose();
+      if (ok != true || reason.isEmpty) return;
+    }
+    setState(() {
+      _busy = true;
+      _busyMessage = decision == 'approved'
+          ? 'Approving request…'
+          : 'Rejecting request…';
+    });
+    try {
+      await ref
+          .read(seriesFunctionsServiceProvider)
+          .reviewSeriesApproval(
+            seriesId: widget.seriesId,
+            approvalId: approval.id,
+            decision: decision,
+            reason: reason,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              decision == 'approved'
+                  ? 'Player removed'
+                  : 'Removal request declined',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Review failed: ${friendlyError(e)}')),
+        );
+      }
+    } finally {
+      if (mounted)
+        setState(() {
+          _busy = false;
+          _busyMessage = null;
+        });
     }
   }
 
@@ -210,152 +556,292 @@ class _SeriesClubDetailScreenState
         clubId: widget.clubId,
       )),
     );
-    final joinPending = ref.watch(
-      pendingClubJoinApprovalsProvider((
-        seriesId: widget.seriesId,
-        clubId: widget.clubId,
-      )),
-    );
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final profileAsync = ref.watch(currentUserProfileProvider);
+    final uid = profileAsync.valueOrNull?.id;
     final isClubAdminForThis = clubAdminsAsync.maybeWhen(
       data: (admins) =>
           admins.any((a) => a.userId == uid && a.status == 'active'),
+      orElse: () => false,
+    );
+    final onThisSquad = squad.maybeWhen(
+      data: (members) =>
+          uid != null &&
+          members.any((m) => m.isListedOnSquad && m.userId == uid),
       orElse: () => false,
     );
     final canManage =
         role == SeriesRole.superAdmin ||
         role == SeriesRole.seriesAdmin ||
         isClubAdminForThis;
+    // Only org staff and this team's admins may read its join queue.
+    final joinPending = canManage
+        ? ref.watch(
+            pendingClubJoinApprovalsProvider((
+              seriesId: widget.seriesId,
+              clubId: widget.clubId,
+            )),
+          )
+        : const AsyncValue<List<SeriesApprovalModel>>.data([]);
+    final clubReviews = canManage
+        ? ref.watch(
+            pendingClubReviewApprovalsProvider((
+              seriesId: widget.seriesId,
+              clubId: widget.clubId,
+            )),
+          )
+        : const AsyncValue<List<SeriesApprovalModel>>.data([]);
+    final access = ref.watch(orgCompetitionAccessProvider(widget.seriesId));
     final canManageAdmins =
         role == SeriesRole.superAdmin ||
         role == SeriesRole.seriesAdmin ||
         isClubAdminForThis;
+    final isOrgAdmin =
+        role == SeriesRole.superAdmin || role == SeriesRole.seriesAdmin;
+    final myInvite = clubAdminsAsync.maybeWhen(
+      data: (admins) {
+        if (uid == null) return null;
+        for (final a in admins) {
+          if (a.userId == uid && a.status == 'invited') return a;
+        }
+        return null;
+      },
+      orElse: () => null,
+    );
     return Scaffold(
       backgroundColor: cf.background,
-      appBar: const CfChromeAppBar(title: Text('Club')),
-      body: club.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
-        data: (item) {
-          if (item == null) return const Center(child: Text('Club not found'));
-          return ListView(
-            padding: const EdgeInsets.all(AppDimens.spaceMd),
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 34,
-                    backgroundColor:
-                        cf.accent.withValues(alpha: cf.isLight ? 0.1 : 0.15),
-                    backgroundImage: item.logoUrl == null
-                        ? null
-                        : NetworkImage(item.logoUrl!),
-                    child: item.logoUrl == null
-                        ? Icon(Icons.shield_outlined, size: 34, color: cf.accent)
-                        : null,
-                  ),
-                  const SizedBox(width: AppDimens.spaceMd),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.name,
-                          style: Theme.of(context).textTheme.headlineSmall,
+      appBar: const CfChromeAppBar(title: Text('Team')),
+      body: Column(
+        children: [
+          if (_busy)
+            Material(
+              color: cf.surfaceElevated,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.spaceMd,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: AppDimens.spaceMd),
+                    Expanded(
+                      child: Text(
+                        _busyMessage ?? 'Working…',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
-                        Text(
-                          item.status.label,
-                          style: TextStyle(
-                            color: cf.accent,
-                            fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Expanded(
+            child: club.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text(friendlyError(e))),
+              data: (item) {
+                if (item == null)
+                  return const Center(child: Text('Team not found'));
+                return ListView(
+                  padding: const EdgeInsets.all(AppDimens.spaceMd),
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundColor: cf.accent.withValues(
+                            alpha: cf.isLight ? 0.1 : 0.15,
+                          ),
+                          backgroundImage: item.logoUrl == null
+                              ? null
+                              : NetworkImage(item.logoUrl!),
+                          child: item.logoUrl == null
+                              ? Icon(
+                                  Icons.shield_outlined,
+                                  size: 34,
+                                  color: cf.accent,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: AppDimens.spaceMd),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.name,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              ),
+                              Text(
+                                item.status.label,
+                                style: TextStyle(
+                                  color: cf.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              if (item.description.isNotEmpty) ...[
-                const SizedBox(height: AppDimens.spaceMd),
-                Text(item.description),
-              ],
-              const SizedBox(height: AppDimens.spaceLg),
-              if (item.isApproved)
-                FilledButton.icon(
-                  onPressed: _busy ? null : _requestJoin,
-                  icon: const Icon(Icons.person_add_alt_1),
-                  label: const Text('Register & request to join'),
-                ),
-              if (canManage) ...[
-                const SizedBox(height: AppDimens.spaceSm),
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _addPlayerSearch,
-                  icon: const Icon(Icons.person_search_outlined),
-                  label: Text(
-                    role == SeriesRole.superAdmin ||
-                            role == SeriesRole.seriesAdmin
-                        ? 'Search & add player'
-                        : 'Search & request add player',
-                  ),
-                ),
-                const SizedBox(height: AppDimens.spaceSm),
-                OutlinedButton.icon(
-                  onPressed: () => context.push(
-                    '/series/${widget.seriesId}/propose-match'
-                    '?clubId=${widget.clubId}',
-                  ),
-                  icon: const Icon(Icons.sports_cricket_outlined),
-                  label: const Text('Propose match'),
-                ),
-                const SizedBox(height: AppDimens.spaceSm),
-                OutlinedButton.icon(
-                  onPressed: () => context.push(
-                    '/series/${widget.seriesId}/propose-tournament'
-                    '?clubId=${widget.clubId}',
-                  ),
-                  icon: const Icon(Icons.emoji_events_outlined),
-                  label: const Text('Propose tournament'),
-                ),
-                if (role == SeriesRole.superAdmin ||
-                    role == SeriesRole.seriesAdmin) ...[
-                  const SizedBox(height: AppDimens.spaceSm),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        context.push('/series/${widget.seriesId}/approvals'),
-                    icon: const Icon(Icons.manage_accounts_outlined),
-                    label: const Text('Pending approvals'),
-                  ),
-                ],
-              ],
-              if (canManage) ...[
-                const SizedBox(height: AppDimens.spaceLg),
-                Text(
-                  'Join requests',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: AppDimens.spaceSm),
-                joinPending.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                  data: (items) {
-                    if (items.isEmpty) {
-                      return Text(
-                        'No pending join reviews.',
-                        style: TextStyle(color: cf.textSecondary),
-                      );
-                    }
-                    return Column(
-                      children: items
-                          .map(
-                            (a) {
+                    if ((item.linkedTeamId ?? '').isNotEmpty) ...[
+                      const SizedBox(height: AppDimens.spaceSm),
+                      ListTile(
+                        key: const Key('org_team_open_crickflow_team'),
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.groups_outlined, color: cf.accent),
+                        title: const Text('CrickFlow team'),
+                        subtitle: const Text(
+                          'Plays matches anywhere in CrickFlow. Name and squad are '
+                          'managed here in the org.',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () =>
+                            context.push('/teams/${item.linkedTeamId}'),
+                      ),
+                    ],
+                    if (item.description.isNotEmpty) ...[
+                      const SizedBox(height: AppDimens.spaceMd),
+                      Text(item.description),
+                    ],
+                    const SizedBox(height: AppDimens.spaceLg),
+                    if (myInvite != null) ...[
+                      Card(
+                        key: const Key('org_team_admin_invite_banner'),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppDimens.spaceMd),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'You have been invited to be a team admin.',
+                              ),
+                              const SizedBox(height: AppDimens.spaceSm),
+                              Row(
+                                children: [
+                                  FilledButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _respondOwnInvite('accepted'),
+                                    child: const Text('Accept'),
+                                  ),
+                                  const SizedBox(width: AppDimens.spaceSm),
+                                  OutlinedButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _respondOwnInvite('declined'),
+                                    child: const Text('Decline'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppDimens.spaceSm),
+                    ],
+                    if (item.isApproved &&
+                        !profileAsync.isLoading &&
+                        !isClubAdminForThis &&
+                        !onThisSquad &&
+                        !(uid != null && squad.isLoading)) ...[
+                      FilledButton.icon(
+                        key: const Key('org_team_request_to_join'),
+                        onPressed: _busy ? null : _requestJoin,
+                        icon: const Icon(Icons.person_add_alt_1),
+                        label: const Text('Request to join'),
+                      ),
+                      const SizedBox(height: AppDimens.spaceSm),
+                    ],
+                    if (canManage) ...[
+                      FilledButton.icon(
+                        key: const Key('org_team_search_add_player'),
+                        onPressed: _busy ? null : _addPlayerSearch,
+                        icon: const Icon(Icons.person_search_outlined),
+                        label: const Text('Search & add player'),
+                      ),
+                      if (access.match != OrgStartMode.none) ...[
+                        const SizedBox(height: AppDimens.spaceSm),
+                        OutlinedButton.icon(
+                          onPressed: () => context.push(
+                            '/series/${widget.seriesId}/propose-match'
+                            '?clubId=${widget.clubId}',
+                          ),
+                          icon: const Icon(Icons.sports_cricket_outlined),
+                          label: Text(
+                            OrgCompetitionAccess.actionLabel(
+                              access.match,
+                              tournament: false,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (access.tournament != OrgStartMode.none) ...[
+                        const SizedBox(height: AppDimens.spaceSm),
+                        OutlinedButton.icon(
+                          onPressed: () => context.push(
+                            '/series/${widget.seriesId}/propose-tournament'
+                            '?clubId=${widget.clubId}',
+                          ),
+                          icon: const Icon(Icons.emoji_events_outlined),
+                          label: Text(
+                            OrgCompetitionAccess.actionLabel(
+                              access.tournament,
+                              tournament: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (role == SeriesRole.superAdmin ||
+                          role == SeriesRole.seriesAdmin) ...[
+                        const SizedBox(height: AppDimens.spaceSm),
+                        OutlinedButton.icon(
+                          onPressed: () => context.push(
+                            '/series/${widget.seriesId}/approvals',
+                          ),
+                          icon: const Icon(Icons.manage_accounts_outlined),
+                          label: const Text('Pending approvals'),
+                        ),
+                      ],
+                    ],
+                    if (canManage) ...[
+                      const SizedBox(height: AppDimens.spaceLg),
+                      Text(
+                        'Join requests',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: AppDimens.spaceSm),
+                      joinPending.when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text(friendlyError(e)),
+                        data: (items) {
+                          if (items.isEmpty) {
+                            return Text(
+                              'No pending join reviews.',
+                              style: TextStyle(color: cf.textSecondary),
+                            );
+                          }
+                          return Column(
+                            children: items.map((a) {
                               final name = seriesPersonLabel(
-                                displayName:
-                                    a.metadata['displayName']?.toString(),
+                                displayName: a.metadata['displayName']
+                                    ?.toString(),
                                 userId: a.requestedBy,
                               );
                               return Card(
                                 color: cf.surface,
                                 child: ListTile(
+                                  onTap: _busy
+                                      ? null
+                                      : () => context.push(
+                                          '/series/${widget.seriesId}/approvals/${a.id}',
+                                        ),
                                   title: name == 'Member'
                                       ? SeriesUserName(a.requestedBy)
                                       : Text(name),
@@ -369,13 +855,22 @@ class _SeriesClubDetailScreenState
                                     spacing: 4,
                                     children: [
                                       IconButton(
+                                        tooltip: 'View documents',
+                                        onPressed: _busy
+                                            ? null
+                                            : () => context.push(
+                                                '/series/${widget.seriesId}/approvals/${a.id}',
+                                              ),
+                                        icon: const Icon(Icons.badge_outlined),
+                                      ),
+                                      IconButton(
                                         tooltip: 'Decline',
                                         onPressed: _busy
                                             ? null
                                             : () => _clubReviewJoin(
-                                                  a,
-                                                  'rejected',
-                                                ),
+                                                a,
+                                                'rejected',
+                                              ),
                                         icon: const Icon(Icons.close),
                                       ),
                                       IconButton(
@@ -383,55 +878,129 @@ class _SeriesClubDetailScreenState
                                         onPressed: _busy
                                             ? null
                                             : () => _clubReviewJoin(
-                                                  a,
-                                                  'approved',
-                                                ),
+                                                a,
+                                                'approved',
+                                              ),
                                         icon: const Icon(Icons.check),
                                       ),
                                     ],
                                   ),
                                 ),
                               );
-                            },
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
-              ],
-              if (canManageAdmins) ...[
-                const SizedBox(height: AppDimens.spaceLg),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Club admins',
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ],
+                    if (canManage) ...[
+                      const SizedBox(height: AppDimens.spaceLg),
+                      Text(
+                        'Removal requests',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
-                    ),
-                    TextButton.icon(
-                      onPressed: _busy ? null : _addClubAdmin,
-                      icon: const Icon(Icons.person_add_outlined),
-                      label: const Text('Add'),
-                    ),
-                  ],
-                ),
-                clubAdminsAsync.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                  data: (admins) {
-                    final active =
-                        admins.where((a) => a.status != 'removed').toList();
-                    if (active.isEmpty) {
-                      return Text(
-                        'No club admins yet.',
-                        style: TextStyle(color: cf.textSecondary),
-                      );
-                    }
-                    return Column(
-                      children: active
-                          .map(
-                            (a) {
+                      const SizedBox(height: AppDimens.spaceSm),
+                      clubReviews.when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text(friendlyError(e)),
+                        data: (items) {
+                          final removals = items
+                              .where(
+                                (a) =>
+                                    a.targetType ==
+                                    SeriesApprovalTargetType.playerRemoval,
+                              )
+                              .toList();
+                          if (removals.isEmpty) {
+                            return Text(
+                              'No pending removal reviews.',
+                              style: TextStyle(color: cf.textSecondary),
+                            );
+                          }
+                          return Column(
+                            children: removals
+                                .map(
+                                  (a) => ListTile(
+                                    title: Text(
+                                      seriesPersonLabel(
+                                        displayName:
+                                            (a.metadata['displayName'] ?? '')
+                                                .toString(),
+                                        userId: (a.metadata['userId'] ?? '')
+                                            .toString(),
+                                        fallback: 'Player',
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      a.reason.isEmpty
+                                          ? 'Removal pending'
+                                          : a.reason,
+                                    ),
+                                    trailing: isOrgAdmin
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                tooltip: 'Decline',
+                                                onPressed: _busy
+                                                    ? null
+                                                    : () => _reviewRemoval(
+                                                        a,
+                                                        'rejected',
+                                                      ),
+                                                icon: const Icon(Icons.close),
+                                              ),
+                                              IconButton(
+                                                tooltip: 'Approve removal',
+                                                onPressed: _busy
+                                                    ? null
+                                                    : () => _reviewRemoval(
+                                                        a,
+                                                        'approved',
+                                                      ),
+                                                icon: const Icon(Icons.check),
+                                              ),
+                                            ],
+                                          )
+                                        : const Text('Pending'),
+                                  ),
+                                )
+                                .toList(),
+                          );
+                        },
+                      ),
+                    ],
+                    if (canManageAdmins) ...[
+                      const SizedBox(height: AppDimens.spaceLg),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Team admins',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _busy ? null : _addClubAdmin,
+                            icon: const Icon(Icons.person_add_outlined),
+                            label: const Text('Add'),
+                          ),
+                        ],
+                      ),
+                      clubAdminsAsync.when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text(friendlyError(e)),
+                        data: (admins) {
+                          final active = admins
+                              .where((a) => a.status != 'removed')
+                              .toList();
+                          if (active.isEmpty) {
+                            return Text(
+                              'No team admins yet.',
+                              style: TextStyle(color: cf.textSecondary),
+                            );
+                          }
+                          return Column(
+                            children: active.map((a) {
                               final name = seriesPersonLabel(
                                 displayName: a.displayName,
                                 userId: a.userId,
@@ -453,175 +1022,108 @@ class _SeriesClubDetailScreenState
                                   seriesAdminStatusLabel(a.status),
                                 ),
                                 trailing:
-                                    role == SeriesRole.superAdmin ||
-                                            role == SeriesRole.seriesAdmin
-                                        ? IconButton(
-                                            tooltip: 'Remove',
-                                            onPressed: _busy
-                                                ? null
-                                                : () => _removeClubAdmin(a),
-                                            icon: const Icon(
-                                              Icons.person_remove_outlined,
-                                            ),
-                                          )
-                                        : null,
+                                    a.status == 'invited' && canManageAdmins
+                                    ? TextButton(
+                                        onPressed: _busy
+                                            ? null
+                                            : () => _cancelAdminInvite(a),
+                                        child: const Text('Cancel'),
+                                      )
+                                    : (isOrgAdmin && a.status == 'active'
+                                          ? IconButton(
+                                              tooltip: 'Remove',
+                                              onPressed: _busy
+                                                  ? null
+                                                  : () => _removeClubAdmin(a),
+                                              icon: const Icon(
+                                                Icons.person_remove_outlined,
+                                              ),
+                                            )
+                                          : null),
                               );
-                            },
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
-              ],
-              const SizedBox(height: AppDimens.spaceLg),
-              Text('Squad', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: AppDimens.spaceSm),
-              squad.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Text('$e'),
-                data: (members) {
-                  final active = members.where((m) => m.isActive).toList();
-                  return active.isEmpty
-                      ? const SeriesEmptyState(
-                          icon: Icons.groups_outlined,
-                          title: 'Squad not published',
-                        )
-                      : Column(
-                          children: active
-                              .map(
-                                (m) => ListTile(
-                                  leading: const CircleAvatar(
-                                    child: Icon(Icons.person_outline),
-                                  ),
-                                  title: Text(
-                                    seriesPersonLabel(
-                                      displayName: m.displayName,
-                                      userId: m.userId,
-                                      fallback: 'Player',
-                                    ),
-                                  ),
-                                  subtitle: Text(m.status.label),
-                                  trailing: canManage
-                                      ? IconButton(
-                                          tooltip: 'Request removal',
-                                          onPressed: _busy
-                                              ? null
-                                              : () => _requestRemoval(m),
-                                          icon: const Icon(
-                                            Icons.person_remove_outlined,
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                              )
-                              .toList(),
-                        );
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _PlayerSearchSheet extends StatefulWidget {
-  const _PlayerSearchSheet();
-
-  @override
-  State<_PlayerSearchSheet> createState() => _PlayerSearchSheetState();
-}
-
-class _PlayerSearchSheetState extends State<_PlayerSearchSheet> {
-  final _query = TextEditingController();
-  final _repo = PlayerDiscoveryRepository();
-  List<UserModel> _results = const [];
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _query.dispose();
-    super.dispose();
-  }
-
-  Future<void> _search(String q) async {
-    if (q.trim().length < 2) {
-      setState(() => _results = const []);
-      return;
-    }
-    setState(() => _loading = true);
-    try {
-      final list = await _repo.searchPlayers(
-        query: q,
-        currentUserId: FirebaseAuth.instance.currentUser?.uid,
-      );
-      if (mounted) setState(() => _results = list);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppDimens.spaceMd,
-        AppDimens.spaceMd,
-        AppDimens.spaceMd,
-        AppDimens.spaceMd + bottom,
-      ),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.65,
-        child: Column(
-          children: [
-            TextField(
-              controller: _query,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Search by name or CrickFlow Player ID',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onChanged: _search,
-            ),
-            const SizedBox(height: AppDimens.spaceSm),
-            if (_loading) const LinearProgressIndicator(),
-            Expanded(
-              child: _results.isEmpty
-                  ? const Center(child: Text('Type a name to find players'))
-                  : ListView.builder(
-                      itemCount: _results.length,
-                      itemBuilder: (_, i) {
-                        final u = _results[i];
-                        final name = u.displayName.isNotEmpty
-                            ? u.displayName
-                            : u.name;
-                        final subtitle = (u.playerId != null &&
-                                u.playerId!.trim().isNotEmpty)
-                            ? u.playerId!
-                            : (u.location.displayLabel.isNotEmpty
-                                ? u.location.displayLabel
-                                : null);
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: u.photoUrl == null
-                                ? null
-                                : NetworkImage(u.photoUrl!),
-                            child: u.photoUrl == null
-                                ? const Icon(Icons.person_outline)
-                                : null,
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: AppDimens.spaceLg),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Squad',
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          title: Text(name),
-                          subtitle:
-                              subtitle == null ? null : Text(subtitle),
-                          onTap: () => Navigator.pop(context, u),
-                        );
+                        ),
+                        if (canManage)
+                          TextButton.icon(
+                            key: const Key('org_team_squad_add'),
+                            onPressed: _busy ? null : _addPlayerSearch,
+                            icon: const Icon(Icons.person_add_outlined),
+                            label: const Text('Add'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppDimens.spaceSm),
+                    squad.when(
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text(friendlyError(e)),
+                      data: (members) {
+                        // Team admins and squad are independent lists. A person who
+                        // is both an admin and a player appears in both sections.
+                        final listed = members
+                            .where((m) => m.isListedOnSquad)
+                            .toList();
+                        return listed.isEmpty
+                            ? const SeriesEmptyState(
+                                icon: Icons.groups_outlined,
+                                title: 'Squad not published',
+                              )
+                            : Column(
+                                children: listed
+                                    .map(
+                                      (m) => ListTile(
+                                        leading: const CircleAvatar(
+                                          child: Icon(Icons.person_outline),
+                                        ),
+                                        title: Text(
+                                          seriesPersonLabel(
+                                            displayName: m.displayName,
+                                            userId: m.userId,
+                                            fallback: 'Player',
+                                          ),
+                                        ),
+                                        subtitle: Text(m.status.label),
+                                        trailing:
+                                            canManage &&
+                                                m.status !=
+                                                    SeriesMembershipStatus
+                                                        .pendingRemoval
+                                            ? IconButton(
+                                                tooltip: isOrgAdmin
+                                                    ? 'Remove player'
+                                                    : 'Request removal',
+                                                onPressed: _busy
+                                                    ? null
+                                                    : () => _requestRemoval(m),
+                                                icon: const Icon(
+                                                  Icons.person_remove_outlined,
+                                                ),
+                                              )
+                                            : null,
+                                      ),
+                                    )
+                                    .toList(),
+                              );
                       },
                     ),
+                  ],
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/extensions/context_extensions.dart';
 import '../../../../core/router/admin_route_paths.dart';
 import '../../../../shared/widgets/cf_card.dart';
-import '../../../../shared/widgets/cf_chart_placeholder.dart';
 import '../../../../shared/widgets/cf_empty_state.dart';
 import '../../../../shared/widgets/cf_network_image.dart';
 import '../../models/dashboard_models.dart';
@@ -295,36 +294,51 @@ class DashboardAnalyticsPlaceholdersSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const DashboardSectionHeader(
-          title: 'Analytics',
-          subtitle: 'Chart placeholders — wire real series later',
+        DashboardSectionHeader(
+          title: 'Last 7 days',
+          subtitle: 'Firestore counts for the current week',
+          trailing: TextButton(
+            onPressed: () => context.go(AdminRoutePaths.analytics),
+            child: const Text('Open Analytics'),
+          ),
         ),
         LayoutBuilder(
           builder: (context, constraints) {
+            const spacing = 14.0;
             final wide = constraints.maxWidth >= 1000;
-            if (!wide) {
-              return Column(
-                children: [
-                  for (final item in items) ...[
-                    CfChartPlaceholder(
-                      title: item.title,
-                      height: 200,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ],
-              );
-            }
+            final cols = wide ? 2 : 1;
+            final itemWidth =
+                (constraints.maxWidth - spacing * (cols - 1)) / cols;
             return Wrap(
-              spacing: 14,
-              runSpacing: 14,
+              spacing: spacing,
+              runSpacing: spacing,
               children: [
                 for (final item in items)
                   SizedBox(
-                    width: (constraints.maxWidth - 14) / 2,
-                    child: CfChartPlaceholder(
-                      title: item.title,
-                      height: 210,
+                    width: itemWidth,
+                    child: CfCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.subtitle,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            item.value ?? '—',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],

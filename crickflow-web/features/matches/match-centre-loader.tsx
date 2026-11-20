@@ -6,6 +6,7 @@ import { MatchCentre } from "@/features/matches/match-centre";
 import { usePathParam } from "@/lib/use-path-param";
 import { getMatch, listBallEvents } from "@/repositories";
 import type { BallEvent, Match } from "@/types/models";
+import { friendlyError } from "@/lib/friendly-error";
 
 type Tab =
   | "scorecard"
@@ -28,6 +29,7 @@ export function MatchCentreLoader({
   const [match, setMatch] = useState<Match | null>(null);
   const [events, setEvents] = useState<BallEvent[]>([]);
   const [missing, setMissing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!matchId) return;
@@ -41,17 +43,38 @@ export function MatchCentreLoader({
         }
         setMatch(nextMatch);
         setEvents(nextEvents);
+        setError(null);
       })
-      .catch(() => {
-        if (!cancelled) setMissing(true);
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("Match load error:", err);
+          setError(friendlyError(err, "Failed to load match"));
+          setMissing(true);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [matchId]);
 
-  if (!matchId) return <EmptyState title="Match not found" />;
-  if (missing) return <EmptyState title="Match not found" />;
+  if (!matchId) return <EmptyState title="Match not found" description="Invalid match ID" />;
+  if (error) {
+    return (
+      <EmptyState
+        title="Failed to load match"
+        description={error}
+        action={
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Retry
+          </button>
+        }
+      />
+    );
+  }
+  if (missing) return <EmptyState title="This match was removed" description="It was deleted or does not exist." />;
   if (!match) return <p>Loading match…</p>;
   return (
     <MatchCentre

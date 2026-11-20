@@ -41,13 +41,6 @@ class ModerationRepository {
     int limit = 25,
   }) async {
     Query<Map<String, dynamic>> query = _community;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const ModerationPageResult(posts: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     if (filters.tournamentOnly) {
       // Client filter — not all docs have tournamentId indexed the same way.
     }
@@ -88,13 +81,6 @@ class ModerationRepository {
     int limit = 25,
   }) async {
     Query<Map<String, dynamic>> query = _discover;
-    if (appType == AdminAppType.organizationAdmin) {
-      final orgId = actor?.organizationId;
-      if (orgId == null || orgId.isEmpty) {
-        return const ModerationPageResult(posts: [], hasMore: false);
-      }
-      query = query.where('organizationId', isEqualTo: orgId);
-    }
     query = query.orderBy('createdAt', descending: sort.descending);
     if (startAfter != null) query = query.startAfterDocument(startAfter);
 
@@ -310,14 +296,6 @@ class ModerationRepository {
       );
       Query<Map<String, dynamic>> cQuery = _community;
       Query<Map<String, dynamic>> dQuery = _discover;
-      if (appType == AdminAppType.organizationAdmin) {
-        final orgId = actor?.organizationId;
-        if (orgId == null || orgId.isEmpty) {
-          return const ModerationSummaryStats();
-        }
-        cQuery = cQuery.where('organizationId', isEqualTo: orgId);
-        dQuery = dQuery.where('organizationId', isEqualTo: orgId);
-      }
 
       final cSnap = await cQuery.limit(AdminQueryLimits.summaryScanMax).get();
       final dSnap = await dQuery.limit(AdminQueryLimits.summaryScanMax).get();

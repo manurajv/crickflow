@@ -7,9 +7,12 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/match_player_snapshot.dart';
 import '../../../../data/models/player_model.dart';
 import '../../../../shared/providers/lineup_providers.dart';
+import '../../../../domain/services/series/org_walk_ins.dart';
 import '../../../../shared/providers/providers.dart';
+import '../../../../shared/providers/series_providers.dart';
 import '../../matches/presentation/widgets/add_match_squad_player_sheet.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../core/utils/friendly_error.dart';
 
 enum _SquadSlot { playing, substitute, none }
 
@@ -114,7 +117,7 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
+          SnackBar(content: Text('Save failed: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -143,7 +146,22 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
     return result ?? false;
   }
 
+  bool get _walkInsAllowed => ref.read(walkInsAllowedProvider((
+        seriesId: _match?.seriesId,
+        tournamentId: _match?.tournamentId,
+      )));
+
+  /// Orgs can switch walk-ins off; the server enforces it too.
+  bool _blockedWalkIn(MatchPlayerSnapshot snapshot) {
+    if (_walkInsAllowed || !isWalkInSnapshot(snapshot)) return false;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(kOrgNoWalkInsMessage)),
+    );
+    return true;
+  }
+
   Future<void> _tryAddPlaying(MatchPlayerSnapshot snapshot) async {
+    if (_blockedWalkIn(snapshot)) return;
     if (_playing.length >= _limit) {
       final addSub = await _confirmAddAsSubstitute();
       if (!addSub || !mounted) return;
@@ -158,6 +176,7 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
   }
 
   Future<void> _addSubstitute(MatchPlayerSnapshot snapshot) async {
+    if (_blockedWalkIn(snapshot)) return;
     setState(() {
       _removeFromSquads(snapshot.id);
       _substitutes.add(snapshot);
@@ -265,7 +284,11 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
   Future<void> _openAddPlayer() async {
     final teamId = _teamId;
     if (teamId == null) return;
-    final guest = await showAddMatchSquadPlayerSheet(context, teamId: teamId);
+    final guest = await showAddMatchSquadPlayerSheet(
+      context,
+      teamId: teamId,
+      allowGuests: _walkInsAllowed,
+    );
     if (guest == null || !mounted) return;
     setState(() {
       if (!_localGuests.any((g) => g.id == guest.id)) {
@@ -487,7 +510,7 @@ class _LiveChangeSquadScreenState extends ConsumerState<LiveChangeSquadScreen> {
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Change Squad')),
-        body: Center(child: Text('$e')),
+        body: Center(child: Text(friendlyError(e))),
       ),
     );
   }

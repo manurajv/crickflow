@@ -328,7 +328,7 @@ class SecurityHubController extends StateNotifier<SecurityHubState> {
       id: id,
       label: label,
       description: description,
-      panel: AdminAppType.organizationAdmin,
+      panel: AdminAppType.superAdmin,
     );
     await refresh();
   }

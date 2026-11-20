@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/series_notification_types.dart';
 import '../../../core/constants/team_notification_types.dart';
 import '../../../core/constants/tournament_notification_types.dart';
 import '../../../core/navigation/notification_navigation.dart';
@@ -9,12 +12,15 @@ import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/cf_colors.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../data/models/notification_model.dart';
+import '../../../domain/notifications/notification_priority.dart';
 import '../../../shared/providers/notification_provider.dart';
+import '../../../shared/providers/series_providers.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/providers/tournament_providers.dart';
 import '../../../shared/providers/tournament_team_request_provider.dart';
 import '../../teams/domain/team_notification_actions.dart';
 import '../../tournaments/domain/tournament_notification_actions.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -25,6 +31,92 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final feed = ref.watch(notificationsFeedProvider);
+    final unread = ref.watch(notificationUnreadByTabProvider).valueOrNull ??
+        const {NotificationTab.priority: 0, NotificationTab.general: 0};
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Notifications'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final uid = ref.read(authStateProvider).value?.uid;
+                if (uid != null) {
+                  await ref
+                      .read(notificationRepositoryProvider)
+                      .markAllRead(uid);
+                }
+              },
+              child: const Text('Mark all read'),
+            ),
+          ],
+          bottom: TabBar(
+            tabs: [
+              _TabLabel(
+                key: const Key('notifications_tab_priority'),
+                label: 'Priority',
+                count: unread[NotificationTab.priority] ?? 0,
+              ),
+              _TabLabel(
+                key: const Key('notifications_tab_general'),
+                label: 'General',
+                count: unread[NotificationTab.general] ?? 0,
+              ),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _NotificationsTabList(feed: feed, tab: NotificationTab.priority),
+            _NotificationsTabList(feed: feed, tab: NotificationTab.general),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TabLabel extends StatelessWidget {
+  const _TabLabel({super.key, required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            Badge(label: Text(count > 99 ? '99+' : '$count')),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One tab: the shared paginated feed filtered to [tab].
+class _NotificationsTabList extends ConsumerStatefulWidget {
+  const _NotificationsTabList({required this.feed, required this.tab});
+
+  final NotificationsFeedState feed;
+  final NotificationTab tab;
+
+  @override
+  ConsumerState<_NotificationsTabList> createState() =>
+      _NotificationsTabListState();
+}
+
+class _NotificationsTabListState extends ConsumerState<_NotificationsTabList> {
   final _scrollController = ScrollController();
 
   @override
@@ -40,83 +132,44 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     super.dispose();
   }
 
+  void _loadMore() {
+    final feed = ref.read(notificationsFeedProvider);
+    if (feed.loading || feed.loadingMore || !feed.hasMore) return;
+    ref.read(notificationsFeedProvider.notifier).loadMore();
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     if (pos.pixels < pos.maxScrollExtent - 240) return;
-
-    final feed = ref.read(notificationsFeedProvider);
-    if (feed.loadingMore || !feed.hasMore) return;
-    ref.read(notificationsFeedProvider.notifier).loadMore();
+    _loadMore();
   }
 
   @override
   Widget build(BuildContext context) {
-    final feed = ref.watch(notificationsFeedProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final uid = ref.read(authStateProvider).value?.uid;
-              if (uid != null) {
-                await ref
-                    .read(notificationRepositoryProvider)
-                    .markAllRead(uid);
-              }
-            },
-            child: const Text('Mark all read'),
-          ),
-        ],
-      ),
-      body: _buildBody(context, feed),
-    );
-  }
-
-  Widget _buildBody(BuildContext context, NotificationsFeedState feed) {
+    final feed = widget.feed;
     if (feed.loading && feed.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
     if (feed.error != null && feed.items.isEmpty) {
       return Center(child: Text('${feed.error}'));
     }
-    if (feed.items.isEmpty) {
-      final cf = context.cf;
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppDimens.spaceXl),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.notifications_none_outlined,
-                size: 56,
-                color: cf.textMuted.withValues(alpha: 0.4),
-              ),
-              const SizedBox(height: AppDimens.spaceMd),
-              Text(
-                'All caught up',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: AppDimens.spaceSm),
-              Text(
-                'Match updates, invites, and achievements will appear here.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: cf.textSecondary,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      );
+    final list = NotificationPriority.filter(feed.items, widget.tab);
+
+    // A sparse tab can't scroll, so pull older pages until it fills a bit.
+    if (list.length < 12 && feed.hasMore && !feed.loadingMore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadMore();
+      });
     }
 
-    final list = feed.items;
+    if (list.isEmpty) {
+      if (feed.hasMore || feed.loadingMore) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      return _EmptyTab(tab: widget.tab);
+    }
+
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
@@ -144,18 +197,86 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 }
 
-class _NotificationCard extends ConsumerWidget {
+class _EmptyTab extends StatelessWidget {
+  const _EmptyTab({required this.tab});
+
+  final NotificationTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    final cf = context.cf;
+    final priority = tab == NotificationTab.priority;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.spaceXl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              priority
+                  ? Icons.task_alt_outlined
+                  : Icons.notifications_none_outlined,
+              size: 56,
+              color: cf.textMuted.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: AppDimens.spaceMd),
+            Text(
+              'All caught up',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: AppDimens.spaceSm),
+            Text(
+              priority
+                  ? 'Requests, invites and approvals that need you will appear here.'
+                  : 'Match updates, results and achievements will appear here.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: cf.textSecondary,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationCard extends ConsumerStatefulWidget {
   const _NotificationCard({super.key, required this.notification});
 
   final NotificationModel notification;
 
+  @override
+  ConsumerState<_NotificationCard> createState() => _NotificationCardState();
+}
+
+class _NotificationCardState extends ConsumerState<_NotificationCard> {
+  String? _localStatus;
+  bool _acting = false;
+
+  NotificationModel get notification => widget.notification;
+
+  String? get _resolvedStatus =>
+      notification.hasActionStatus ? notification.actionStatus : _localStatus;
+
+  bool get _showActions =>
+      notification.isActionable &&
+      (_resolvedStatus == null || _resolvedStatus!.isEmpty) &&
+      !_acting;
+
   Future<void> _onTap(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(notificationRepositoryProvider);
     if (!notification.read) {
-      await ref.read(notificationRepositoryProvider).markRead(notification.id);
+      await repo.markRead(notification.id);
     }
     if (!context.mounted) return;
 
     if (notification.isActionable) return;
+
+    // Tapping through (e.g. to the match) reads its duplicates too.
+    unawaited(repo.markRelatedRead(NotificationRelation.of(notification)));
 
     final route = NotificationNavigation.routeForNotification(notification);
     if (route != null) {
@@ -175,8 +296,102 @@ class _NotificationCard extends ConsumerWidget {
     WidgetRef ref, {
     required bool accept,
   }) async {
-    if (notification.hasActionStatus) return;
+    if ((_resolvedStatus != null && _resolvedStatus!.isNotEmpty) || _acting) {
+      return;
+    }
+    setState(() => _acting = true);
     try {
+      if (notification.isSeriesApprovalActionable) {
+        final seriesId = notification.seriesId ?? '';
+        final approvalId = notification.requestId ?? '';
+        if (seriesId.isEmpty || approvalId.isEmpty) {
+          throw StateError('This request is missing approval details');
+        }
+        var reason = '';
+        if (!accept) {
+          final controller = TextEditingController();
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Reject request'),
+              content: TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Reason (required)',
+                ),
+                maxLines: 3,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.pop(ctx, controller.text.trim().isNotEmpty),
+                  child: const Text('Reject'),
+                ),
+              ],
+            ),
+          );
+          reason = controller.text.trim();
+          controller.dispose();
+          if (ok != true || reason.isEmpty) return;
+        }
+        if (notification.reviewScope == 'club') {
+          await ref.read(seriesFunctionsServiceProvider).reviewClubJoinRequest(
+                seriesId: seriesId,
+                approvalId: approvalId,
+                decision: accept ? 'approved' : 'rejected',
+                reason: reason,
+              );
+        } else {
+          await ref.read(seriesFunctionsServiceProvider).reviewSeriesApproval(
+                seriesId: seriesId,
+                approvalId: approvalId,
+                decision: accept ? 'approved' : 'rejected',
+                reason: reason,
+              );
+        }
+        if (mounted) setState(() => _localStatus = accept ? 'approved' : 'rejected');
+        await ref.read(notificationRepositoryProvider).markRelatedRead(
+              NotificationRelation.of(notification),
+            );
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(accept ? 'Request approved' : 'Request rejected'),
+          ),
+        );
+        return;
+      }
+
+      if (notification.type == SeriesNotificationTypes.clubAdminInvite) {
+        final seriesId = notification.seriesId ?? '';
+        final clubId = notification.clubId ?? '';
+        if (seriesId.isEmpty || clubId.isEmpty) {
+          throw StateError('This invitation is missing team details');
+        }
+        await ref.read(seriesFunctionsServiceProvider).respondSeriesClubAdminInvite(
+              seriesId: seriesId,
+              clubId: clubId,
+              decision: accept ? 'accepted' : 'declined',
+            );
+        if (mounted) setState(() => _localStatus = accept ? 'accepted' : 'declined');
+        await ref
+            .read(notificationRepositoryProvider)
+            .markRelatedRead(NotificationRelation.of(notification));
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              accept ? 'Invitation accepted' : 'Invitation declined',
+            ),
+          ),
+        );
+        return;
+      }
+
       if (notification.type == TeamNotificationTypes.invitation) {
         if (accept) {
           await TeamNotificationActions.accept(
@@ -189,10 +404,10 @@ class _NotificationCard extends ConsumerWidget {
             notification: notification,
           );
         }
-        await ref.read(notificationRepositoryProvider).setActionStatus(
-              notification.id,
-              accept ? 'accepted' : 'rejected',
-            );
+        if (mounted) setState(() => _localStatus = accept ? 'accepted' : 'declined');
+        await ref
+            .read(notificationRepositoryProvider)
+            .markRelatedRead(NotificationRelation.of(notification));
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -215,10 +430,10 @@ class _NotificationCard extends ConsumerWidget {
           notification: notification,
         );
       }
-      await ref.read(notificationRepositoryProvider).setActionStatus(
-            notification.id,
-            accept ? 'accepted' : 'rejected',
-          );
+      if (mounted) setState(() => _localStatus = accept ? 'accepted' : 'declined');
+      await ref
+          .read(notificationRepositoryProvider)
+          .markRelatedRead(NotificationRelation.of(notification));
       final tournamentId = notification.tournamentId;
       if (tournamentId != null && tournamentId.isNotEmpty) {
         ref.invalidate(tournamentTeamRequestsProvider(tournamentId));
@@ -244,8 +459,10 @@ class _NotificationCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
+    } finally {
+      if (mounted) setState(() => _acting = false);
     }
   }
 
@@ -325,13 +542,13 @@ class _NotificationCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(content: Text(friendlyError(e))),
       );
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cf = context.cf;
     final n = notification;
     final theme = Theme.of(context);
@@ -447,14 +664,22 @@ class _NotificationCard extends ConsumerWidget {
                               ),
                             ),
                           const Spacer(),
-                          if (n.hasActionStatus)
+                          if (_resolvedStatus != null &&
+                              _resolvedStatus!.isNotEmpty)
                             _StatusChip(
-                              label: n.actionStatusLabel ?? '',
+                              label:
+                                  notificationActionStatusLabel(_resolvedStatus) ??
+                                      '',
                               color: accent,
+                            ),
+                          if (_acting)
+                            const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                         ],
                       ),
-                      if (n.isActionable) ...[
+                      if (_showActions) ...[
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -474,7 +699,11 @@ class _NotificationCard extends ConsumerWidget {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  child: const Text('Accept'),
+                                  child: Text(
+                                    n.usesApproveRejectActions
+                                        ? 'Approve'
+                                        : 'Accept',
+                                  ),
                                 ),
                               ),
                             ),
@@ -495,7 +724,11 @@ class _NotificationCard extends ConsumerWidget {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  child: const Text('Decline'),
+                                  child: Text(
+                                    n.usesApproveRejectActions
+                                        ? 'Reject'
+                                        : 'Decline',
+                                  ),
                                 ),
                               ),
                             ),

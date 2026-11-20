@@ -237,9 +237,6 @@ class DevOpsHubController extends StateNotifier<DevOpsHubState> {
         );
         return;
       case DevOpsHubSection.domains:
-        if (actor != null) {
-          await _repo.ensureDefaultDomains(actor);
-        }
         final domains = await _repo.fetchDomains();
         state = state.copyWith(
           settings: settings,

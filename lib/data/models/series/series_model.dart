@@ -11,6 +11,8 @@ class SeriesSettingsModel extends Equatable {
     this.requireDateOfBirth = false,
     this.requireNationalId = false,
     this.requirePassport = false,
+    this.requireNationalIdDocument = false,
+    this.requirePassportDocument = false,
     this.requirePhoneNumber = false,
     this.requireAddress = false,
     this.requireProfilePhoto = false,
@@ -24,6 +26,8 @@ class SeriesSettingsModel extends Equatable {
   final bool requireDateOfBirth;
   final bool requireNationalId;
   final bool requirePassport;
+  final bool requireNationalIdDocument;
+  final bool requirePassportDocument;
   final bool requirePhoneNumber;
   final bool requireAddress;
   final bool requireProfilePhoto;
@@ -34,14 +38,17 @@ class SeriesSettingsModel extends Equatable {
     if (map == null) return const SeriesSettingsModel();
     return SeriesSettingsModel(
       maxSquadSize: (map['maxSquadSize'] as num?)?.toInt() ?? 20,
-      requireFullName: map['requireFullName'] as bool? ?? true,
-      requireCrickFlowPlayerId: map['requireCrickFlowPlayerId'] as bool? ?? true,
-      requireDateOfBirth: map['requireDateOfBirth'] as bool? ?? false,
-      requireNationalId: map['requireNationalId'] as bool? ?? false,
-      requirePassport: map['requirePassport'] as bool? ?? false,
-      requirePhoneNumber: map['requirePhoneNumber'] as bool? ?? false,
-      requireAddress: map['requireAddress'] as bool? ?? false,
-      requireProfilePhoto: map['requireProfilePhoto'] as bool? ?? false,
+      requireFullName: _flag(map, 'requireFullName', fallback: true),
+      requireCrickFlowPlayerId:
+          _flag(map, 'requireCrickFlowPlayerId', fallback: true),
+      requireDateOfBirth: _flag(map, 'requireDateOfBirth'),
+      requireNationalId: _flag(map, 'requireNationalId'),
+      requirePassport: _flag(map, 'requirePassport'),
+      requireNationalIdDocument: _flag(map, 'requireNationalIdDocument'),
+      requirePassportDocument: _flag(map, 'requirePassportDocument'),
+      requirePhoneNumber: _flag(map, 'requirePhoneNumber'),
+      requireAddress: _flag(map, 'requireAddress'),
+      requireProfilePhoto: _flag(map, 'requireProfilePhoto'),
       customRequiredFields: List<String>.from(
         map['customRequiredFields'] as List? ?? const [],
       ),
@@ -60,6 +67,8 @@ class SeriesSettingsModel extends Equatable {
         'requireDateOfBirth': requireDateOfBirth,
         'requireNationalId': requireNationalId,
         'requirePassport': requirePassport,
+        'requireNationalIdDocument': requireNationalIdDocument,
+        'requirePassportDocument': requirePassportDocument,
         'requirePhoneNumber': requirePhoneNumber,
         'requireAddress': requireAddress,
         'requireProfilePhoto': requireProfilePhoto,
@@ -75,6 +84,8 @@ class SeriesSettingsModel extends Equatable {
         requireDateOfBirth,
         requireNationalId,
         requirePassport,
+        requireNationalIdDocument,
+        requirePassportDocument,
         requirePhoneNumber,
         requireAddress,
         requireProfilePhoto,
@@ -147,6 +158,7 @@ class SeriesModel extends Equatable {
     this.kind = SeriesKind.series,
     this.status = SeriesStatus.draft,
     this.superAdminUserId,
+    this.platformHold = false,
     this.coverImageUrl,
     this.logoUrl,
     this.region = '',
@@ -171,6 +183,10 @@ class SeriesModel extends Equatable {
   final SeriesKind kind;
   final SeriesStatus status;
   final String? superAdminUserId;
+
+  /// Set by CrickFlow platform staff when they suspend or archive an org.
+  /// Owners cannot reactivate until staff lift the hold.
+  final bool platformHold;
   final String? coverImageUrl;
   final String? logoUrl;
   /// Zone / region label (e.g. North, West).
@@ -201,21 +217,18 @@ class SeriesModel extends Equatable {
 
   /// Affiliated [series_clubs] tab — not My cricket Teams.
   String get memberUnitsTabLabel => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squads',
-        OrgFamily.associations => 'Member clubs',
-        OrgFamily.series => 'Participating clubs',
+        OrgFamily.clubs => 'Teams',
+        OrgFamily.associations => 'Member teams',
+        OrgFamily.series => 'Teams',
       };
 
   String get memberUnitsStatLabel => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squads',
-        OrgFamily.associations => 'Member clubs',
-        OrgFamily.series => 'Clubs',
+        OrgFamily.clubs => 'Teams',
+        OrgFamily.associations => 'Member teams',
+        OrgFamily.series => 'Teams',
       };
 
-  String get memberUnitsSingular => switch (OrgFamily.forKind(kind)) {
-        OrgFamily.clubs => 'Squad',
-        _ => 'Club',
-      };
+  String get memberUnitsSingular => 'Team';
 
   factory SeriesModel.fromMap(String id, Map<String, dynamic> map) {
     return SeriesModel(
@@ -226,6 +239,7 @@ class SeriesModel extends Equatable {
       kind: SeriesKind.parse(map['kind'] as String?),
       status: SeriesStatus.parse(map['status'] as String?),
       superAdminUserId: map['superAdminUserId'] as String?,
+      platformHold: map['platformHold'] == true,
       coverImageUrl: map['coverImageUrl'] as String?,
       logoUrl: map['logoUrl'] as String?,
       region: map['region'] as String? ?? '',
@@ -271,5 +285,19 @@ class SeriesModel extends Equatable {
       };
 
   @override
-  List<Object?> get props => [id, name, status, superAdminUserId, updatedAt];
+  List<Object?> get props =>
+      [id, name, status, superAdminUserId, platformHold, updatedAt];
+}
+
+bool _flag(Map<String, dynamic> map, String key, {bool fallback = false}) {
+  final v = map[key];
+  if (v == null) return fallback;
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  if (v is String) {
+    final s = v.toLowerCase().trim();
+    if (s == 'true' || s == '1' || s == 'yes') return true;
+    if (s == 'false' || s == '0' || s == 'no' || s.isEmpty) return false;
+  }
+  return fallback;
 }

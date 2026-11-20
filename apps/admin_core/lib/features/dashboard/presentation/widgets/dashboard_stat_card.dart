@@ -95,25 +95,27 @@ class _DashboardOverviewStatCardState extends State<DashboardOverviewStatCard> {
                       color: colors.textSecondary,
                     ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 28,
-                width: double.infinity,
-                child: CustomPaint(
-                  painter: _SparklinePainter(
-                    values: m.sparkline,
-                    color: m.accent,
-                    fill: m.accent.withValues(alpha: 0.12),
+              if (m.sparkline.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 28,
+                  width: double.infinity,
+                  child: CustomPaint(
+                    painter: _SparklinePainter(
+                      values: m.sparkline,
+                      color: m.accent,
+                      fill: m.accent.withValues(alpha: 0.12),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                "Today's growth",
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colors.textMuted,
-                    ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  "Today's growth",
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.textMuted,
+                      ),
+                ),
+              ],
             ],
           ),
         ),

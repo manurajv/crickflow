@@ -12,6 +12,7 @@ import '../../../../data/models/user_model.dart';
 import '../../../../shared/providers/chat_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_chrome_app_bar.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class ChatListScreen extends ConsumerStatefulWidget {
   const ChatListScreen({super.key});
@@ -59,6 +60,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     requireAuthVoid(
       context: context,
       ref: ref,
+      prompt: SignInPrompt.chat,
       action: () async {
         final me = ref.read(currentUserProfileProvider).valueOrNull;
         if (me == null) return;
@@ -71,7 +73,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$e')),
+              SnackBar(content: Text(friendlyError(e))),
             );
           }
         }
@@ -238,7 +240,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                 },
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('$e')),
+                error: (e, _) => Center(child: Text(friendlyError(e))),
               ),
             ),
         ],

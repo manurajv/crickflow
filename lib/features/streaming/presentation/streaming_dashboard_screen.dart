@@ -41,6 +41,7 @@ import '../services/stream_lifecycle_log.dart';
 import '../services/stream_platform_service.dart';
 import '../../../domain/streaming/replay_marker_constants.dart';
 import 'providers/post_match_controller.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Pre-live streaming dashboard + live broadcast studio for a match.
 class StreamingDashboardScreen extends ConsumerStatefulWidget {
@@ -291,7 +292,7 @@ class _StreamingDashboardScreenState
       if (mounted) {
         setState(() {
           _cameraLoading = false;
-          _cameraError = '$e';
+          _cameraError = friendlyError(e);
         });
       }
     }
@@ -352,7 +353,7 @@ class _StreamingDashboardScreenState
       if (mounted) {
         setState(() {
           _cameraLoading = false;
-          _cameraError = '$e';
+          _cameraError = friendlyError(e);
         });
       }
     }
@@ -647,10 +648,10 @@ class _StreamingDashboardScreenState
       if (mounted) {
         setState(() {
           if (!_isLive) _previewSession++;
-          _cameraError = '$e';
+          _cameraError = friendlyError(e);
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Camera switch failed: $e')),
+          SnackBar(content: Text('Camera switch failed: ${friendlyError(e)}')),
         );
       }
     }
@@ -1328,7 +1329,7 @@ class _StreamingDashboardScreenState
       },
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
     );
   }
 

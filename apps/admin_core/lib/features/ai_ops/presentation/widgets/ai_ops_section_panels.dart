@@ -23,7 +23,7 @@ class AiInsightsGrid extends StatelessWidget {
           child: CfEmptyState(
             icon: Icons.insights_outlined,
             title: 'No insights yet',
-            message: 'Future AI will generate growth, inactivity, and trend cards.',
+            message: 'No AI provider is connected and no live Firestore counts were available.',
           ),
         ),
       );

@@ -12,6 +12,7 @@ import '../../../../shared/providers/player_analysis_provider.dart';
 import '../../../../shared/providers/providers.dart';
 import 'widgets/profile_match_filter_button.dart';
 import 'widgets/analysis/analysis_sections.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Professional player analytics dashboard for My Cricket Profile.
 class PlayerAnalysisScreen extends ConsumerWidget {
@@ -114,7 +115,7 @@ class PlayerAnalysisScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
       ),
     );
   }

@@ -97,6 +97,20 @@ class _Overview extends StatelessWidget {
         MonitoringLiveStatusBar(bar: snapshot.liveBar),
         const SizedBox(height: 16),
         MonitoringKpiGrid(kpis: snapshot.overview),
+        const SizedBox(height: 12),
+        MonitoringGrowthChart(
+          title: 'Users over time',
+          points: [
+            for (final row in snapshot.growth) row.users.toDouble(),
+          ],
+        ),
+        const SizedBox(height: 12),
+        MonitoringGrowthChart(
+          title: 'Matches over time',
+          points: [
+            for (final row in snapshot.growth) row.matches.toDouble(),
+          ],
+        ),
         const SizedBox(height: 16),
         MonitoringSectionCard(
           title: 'Firebase services at a glance',
@@ -202,20 +216,20 @@ class _Firestore extends StatelessWidget {
       children: [
         MonitoringMetricGrid(
           items: [
-            ('Reads (est.)', '${m.reads}', 'Sample-based'),
-            ('Writes', '${m.writes}', 'Usage API future'),
-            ('Deletes', '${m.deletes}', null),
-            ('Queries', '${m.queries}', null),
-            ('Active connections', '${m.activeConnections}', 'Future'),
+            ('Reads', '—', 'Usage API not connected'),
+            ('Writes', '—', 'Usage API not connected'),
+            ('Deletes', '—', 'Usage API not connected'),
+            ('Collections sampled', '${m.queries}', null),
+            ('Active connections', '—', 'Not available'),
             ('Avg response', '${m.avgResponseMs}ms', 'Probe latency'),
-            ('Slow queries', '—', 'Future'),
-            ('Realtime', 'OK', 'Listener-light design'),
+            ('Slow queries', '—', 'Not available'),
+            ('Realtime', m.avgResponseMs < 5000 ? 'Reachable' : 'Slow', 'Probe only'),
           ],
         ),
         const SizedBox(height: 12),
         MonitoringSectionCard(
           title: 'Top collections',
-          subtitle: 'Storage growth wiring prepared for Cloud Monitoring',
+          subtitle: 'Live document counts from Firestore count() — not storage bytes',
           child: m.topCollections.isEmpty
               ? const Text('No collection samples')
               : Column(
@@ -246,14 +260,14 @@ class _Auth extends StatelessWidget {
   Widget build(BuildContext context) {
     return MonitoringMetricGrid(
       items: [
-        ('Logged-in (est.)', '${m.loggedInEstimate}', 'From today logins'),
-        ("Today's logins", '${m.loginsToday}', null),
-        ('Failed logins', '${m.failedLogins}', null),
-        ('Password resets', '${m.passwordResets}', null),
-        ('Google sign-ins', '${m.googleSignIns}', 'Future Identity Toolkit'),
-        ('Email sign-ins', '${m.emailSignIns}', null),
-        ('Blocked logins', '${m.blockedLogins}', null),
-        ('Suspicious logins', '${m.suspiciousLogins}', null),
+        ('Logged-in users', '—', 'Auth user sessions are not counted here'),
+        ('Admin logins today', '${m.loginsToday}', 'adminLoginSuccess audit rows'),
+        ('Failed admin logins', '${m.failedLogins}', 'Audit logs'),
+        ('Password reset requests', '${m.passwordResets}', 'Audit logs'),
+        ('Google sign-ins', '—', 'Identity Toolkit is not connected'),
+        ('Email sign-ins', '—', 'Identity Toolkit is not connected'),
+        ('Blocked logins', '—', 'Not available'),
+        ('Suspicious logins', '${m.suspiciousLogins}', 'Audit logs'),
       ],
     );
   }
@@ -273,13 +287,13 @@ class _Functions extends StatelessWidget {
     if (list.isEmpty) {
       return const CfEmptyState(
         title: 'No functions matched',
-        message: 'Architecture ready for Cloud Functions metrics.',
+        message: 'Cloud Function execution metrics are not connected. This panel does not invent statuses.',
         icon: Icons.functions,
       );
     }
     return MonitoringSectionCard(
       title: 'Cloud Functions',
-      subtitle: 'Execution metrics reserved for future GCP Monitoring',
+      subtitle: 'Cloud Monitoring is not connected — no execution numbers are shown',
       child: Column(
         children: [
           for (final f in list)
@@ -311,21 +325,23 @@ class _Storage extends StatelessWidget {
       children: [
         MonitoringMetricGrid(
           items: [
-            ('Total storage', m.totalLabel, null),
-            ('Images', '${m.images}', null),
-            ('Videos', '${m.videos}', null),
-            ('Documents', '${m.documents}', null),
-            ('Broadcast assets', '${m.broadcastAssets}', null),
-            ('Profile pictures', '${m.profilePictures}', null),
-            ('Tournament posters', '${m.tournamentPosters}', null),
-            ('Ground images', '${m.groundImages}', null),
+            ('Total storage', m.totalLabel, 'Firebase Usage API is not connected'),
+            ('Images', '—', 'Not counted in this panel'),
+            ('Videos', '—', 'Not counted in this panel'),
+            ('Documents', '—', 'Not counted in this panel'),
+            ('Broadcast assets', '—', 'Not counted in this panel'),
+            ('Profile pictures', '—', 'Not counted in this panel'),
+            ('Tournament posters', '—', 'Not counted in this panel'),
+            ('Ground images', '—', 'Not counted in this panel'),
             ('Available space', m.availableLabel, null),
           ],
         ),
         const SizedBox(height: 12),
         MonitoringGrowthChart(
-          title: 'Storage growth (placeholder)',
-          points: m.growthPoints,
+          title: 'Storage growth',
+          points: const [],
+          subtitle:
+              'Storage byte growth is not available. Firebase Usage API is not connected.',
         ),
       ],
     );
@@ -343,16 +359,16 @@ class _Hosting extends StatelessWidget {
       children: [
         MonitoringMetricGrid(
           items: [
-            ('Hosting status', m.status.label, null),
+            ('Hosting status', 'Not polled', 'This panel does not probe Hosting'),
             ('Current deployment', m.currentDeployment, 'Read-only'),
-            ('Environment', m.environment.name, null),
+            ('Environment', m.environment.name, 'This production project'),
             (
               'Last deployment',
               m.lastDeployment?.toIso8601String() ?? '—',
               'Never modified by this module',
             ),
-            ('Firebase Hosting', 'Healthy', 'Status mirror'),
-            ('SSL', 'Healthy', null),
+            ('Firebase Hosting', 'Not polled', null),
+            ('SSL', 'Not polled', null),
           ],
         ),
         const SizedBox(height: 12),
@@ -384,13 +400,6 @@ class _Hosting extends StatelessWidget {
                     ),
                   ),
                 ),
-              Material(
-                child: ListTile(
-                  leading: HealthDot(health: PlatformServiceHealth.unknown),
-                  title: const Text('Future domains'),
-                  subtitle: const Text('Reserved for additional hostnames'),
-                ),
-              ),
             ],
           ),
         ),
@@ -407,11 +416,11 @@ class _Fcm extends StatelessWidget {
   Widget build(BuildContext context) {
     return MonitoringMetricGrid(
       items: [
-        ('Notifications sent', '${m.sentToday}', 'Campaigns sample'),
-        ('Delivery rate', '${m.deliveryRate.toStringAsFixed(0)}%', 'Future FCM'),
-        ('Failures', '${m.failures}', null),
-        ('Pending', '${m.pending}', null),
-        ('Avg delivery time', '${m.avgDeliveryMs}ms', 'Future'),
+        ('Campaign documents', '${m.sentToday}', 'Not FCM delivery receipts'),
+        ('Delivery rate', '—', 'FCM delivery stats are not connected'),
+        ('Failures', '—', 'FCM delivery stats are not connected'),
+        ('Pending', '—', 'FCM delivery stats are not connected'),
+        ('Avg delivery time', '—', 'FCM delivery stats are not connected'),
       ],
     );
   }
@@ -433,14 +442,14 @@ class _Streaming extends StatelessWidget {
         const SizedBox(height: 12),
         MonitoringMetricGrid(
           items: [
-            ('Current live streams', '${m.liveStreams}', null),
-            ('YouTube streams', '${m.youtube}', 'Estimated mix'),
-            ('Facebook streams', '${m.facebook}', 'Estimated mix'),
-            ('External RTMP', '${m.externalRtmp}', 'Estimated mix'),
-            ('Broadcast sessions', '${m.broadcastSessions}', null),
-            ('Reconnect events', '${m.reconnectEvents}', 'Future'),
-            ('Avg stream duration', '${m.avgDurationMin} min', 'Future'),
-            ('Connection failures', '${m.connectionFailures}', null),
+            ('Current live streams', '${m.liveStreams}', 'matches.stream.status == live'),
+            ('YouTube streams', '—', 'Provider breakdown is not stored'),
+            ('Facebook streams', '—', 'Provider breakdown is not stored'),
+            ('External RTMP', '—', 'Provider breakdown is not stored'),
+            ('Broadcast sessions', '${m.broadcastSessions}', 'Same as live stream count'),
+            ('Reconnect events', '—', 'Not recorded in this panel'),
+            ('Avg stream duration', '—', 'Not recorded in this panel'),
+            ('Connection failures', '—', 'Not recorded in this panel'),
           ],
         ),
       ],
@@ -458,18 +467,20 @@ class _Database extends StatelessWidget {
       children: [
         MonitoringMetricGrid(
           items: [
-            ('Collections', '${m.collections}', null),
-            ('Documents (est.)', '${m.documentsEstimate}', null),
-            ('Estimated size', m.estimatedSizeLabel, null),
-            ('Read usage', '${m.readUsage}', null),
-            ('Write usage', '${m.writeUsage}', null),
-            ('Delete usage', '${m.deleteUsage}', null),
+            ('Collections sampled', '${m.collections}', null),
+            ('Documents (sum of samples)', '${m.documentsEstimate}', 'count() totals, not usage'),
+            ('Estimated size', '—', 'Storage size is not available'),
+            ('Read usage', '—', 'Usage API is not connected'),
+            ('Write usage', '—', 'Usage API is not connected'),
+            ('Delete usage', '—', 'Usage API is not connected'),
           ],
         ),
         const SizedBox(height: 12),
         MonitoringGrowthChart(
-          title: 'Database growth (placeholder)',
+          title: 'Tracked collection document counts',
           points: m.growthPoints,
+          subtitle:
+              'Sum of users, teams, matches, players, tournaments, grounds, and series. Not storage bytes.',
         ),
       ],
     );
@@ -554,7 +565,7 @@ class _Scheduled extends StatelessWidget {
             .toList();
     return MonitoringSectionCard(
       title: 'Scheduled tasks',
-      subtitle: 'Architecture only — jobs are not implemented',
+      subtitle: 'Documented job types — run state is not instrumented from this panel',
       child: Column(
         children: [
           for (final j in list)
@@ -587,7 +598,7 @@ class _Background extends StatelessWidget {
         MonitoringMetricGrid(
           items: [
             for (final e in counts.entries)
-              (e.key.name, '${e.value}', 'Queue monitoring future'),
+              (e.key.name, '${e.value}', 'No background task queue is connected'),
           ],
         ),
         const SizedBox(height: 12),

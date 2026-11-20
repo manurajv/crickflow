@@ -85,12 +85,12 @@ class MonitoringRepository {
     final timeline = await _fetchTimeline(organizationId);
     final errors = await _fetchErrors(organizationId);
     final authMetrics = AuthMetrics(
-      loggedInEstimate: usersToday, // estimate from today's logins
+      loggedInEstimate: 0,
       loginsToday: usersToday,
       failedLogins: failedLogins,
       passwordResets: passwordResets,
       googleSignIns: 0,
-      emailSignIns: usersToday,
+      emailSignIns: 0,
       blockedLogins: 0,
       suspiciousLogins: await _countAuditAction(
         AdminAuditActions.securitySuspiciousLogin,
@@ -102,16 +102,41 @@ class MonitoringRepository {
     final docEstimate =
         topCollections.fold<int>(0, (acc, c) => acc + c.count);
 
+    final usersCount = await _count(_db.collection(AdminCollections.users));
+    final teamsCount = await _count(_db.collection(AdminCollections.teams));
+    final matchesCount = await _count(_db.collection(AdminCollections.matches));
+    final playersCount = await _count(_db.collection(AdminCollections.players));
+    final tournamentsCount =
+        await _count(_db.collection(AdminCollections.tournaments));
+    final groundsCount = await _count(_db.collection(AdminCollections.grounds));
+    final seriesCount = await _count(_db.collection('series'));
+    final growth = await _fetchGrowthSeries(
+      today: PlatformDailyStat(
+        date: PlatformDailyStat.colomboDateId(),
+        users: usersCount,
+        teams: teamsCount,
+        matches: matchesCount,
+        players: playersCount,
+        tournaments: tournamentsCount,
+        grounds: groundsCount,
+        series: seriesCount,
+        liveMatches: liveMatches,
+        isLiveToday: true,
+      ),
+    );
+
     final streaming = StreamingHealthMetrics(
       liveStreams: liveStreamsAlt,
-      youtube: liveStreamsAlt > 0 ? (liveStreamsAlt * 0.6).round() : 0,
-      facebook: liveStreamsAlt > 0 ? (liveStreamsAlt * 0.25).round() : 0,
-      externalRtmp: liveStreamsAlt > 0 ? (liveStreamsAlt * 0.15).round() : 0,
+      youtube: 0,
+      facebook: 0,
+      externalRtmp: 0,
       broadcastSessions: liveStreamsAlt,
       reconnectEvents: 0,
       avgDurationMin: 0,
       connectionFailures: 0,
-      health: liveStreamsAlt > 20 ? PlatformServiceHealth.warning : PlatformServiceHealth.healthy,
+      health: liveStreamsAlt > 0
+          ? PlatformServiceHealth.healthy
+          : PlatformServiceHealth.unknown,
     );
 
     final overview = <MonitoringKpi>[
@@ -123,9 +148,9 @@ class MonitoringRepository {
       ),
       MonitoringKpi(
         id: 'users',
-        label: 'Logins Today',
+        label: 'Admin logins today',
         value: '$usersToday',
-        subtitle: scoped ? 'Org scope' : 'Platform',
+        subtitle: scoped ? 'Org-scoped audit' : 'From admin audit logs',
       ),
       MonitoringKpi(
         id: 'live_matches',
@@ -140,8 +165,8 @@ class MonitoringRepository {
       const MonitoringKpi(
         id: 'functions',
         label: 'Cloud Functions',
-        value: 'Ready',
-        subtitle: 'Monitoring architecture',
+        value: 'Not instrumented',
+        subtitle: 'Cloud Monitoring is not connected',
         health: PlatformServiceHealth.unknown,
       ),
       MonitoringKpi(
@@ -160,14 +185,15 @@ class MonitoringRepository {
       const MonitoringKpi(
         id: 'hosting',
         label: 'Hosting',
-        value: 'Healthy',
-        health: PlatformServiceHealth.healthy,
+        value: 'Not polled',
+        subtitle: 'This panel does not probe Hosting',
+        health: PlatformServiceHealth.unknown,
       ),
       MonitoringKpi(
         id: 'notifications',
         label: 'Notifications',
         value: '$notifSent',
-        subtitle: 'Campaigns (sample)',
+        subtitle: 'Campaign documents, not FCM receipts',
       ),
       MonitoringKpi(
         id: 'realtime',
@@ -191,7 +217,7 @@ class MonitoringRepository {
         errors: errors.length,
       ),
       firestore: FirestoreMetrics(
-        reads: docEstimate,
+        reads: 0,
         writes: 0,
         deletes: 0,
         queries: topCollections.length,
@@ -200,31 +226,35 @@ class MonitoringRepository {
         topCollections: topCollections,
       ),
       auth: authMetrics,
-      functions: _defaultFunctions(),
+      functions: const [],
       storage: const StorageMetrics(
         totalLabel: 'Not available',
-        availableLabel: 'Firebase Console',
-        growthPoints: [0.2, 0.25, 0.3, 0.35, 0.4, 0.42, 0.45],
+        availableLabel: 'Not available from this panel',
+        growthPoints: [],
       ),
       hosting: HostingMetrics(
-        status: PlatformServiceHealth.healthy,
-        currentDeployment: 'Read-only status',
+        status: PlatformServiceHealth.unknown,
+        currentDeployment: 'Not polled',
         environment: MonitoringEnvironment.production,
         lastDeployment: null,
-        domains: const [
+        domains: [
           HostingDomainStatus(
-            domain: 'admin.crickflow.app',
-            note: 'Status mirror only — deployment never modified',
+            domain: 'crickflow-superadmin.web.app',
+            status: PlatformServiceHealth.unknown,
+            ssl: PlatformServiceHealth.unknown,
+            note: 'Known Hosting site — status is not polled from this panel',
           ),
           HostingDomainStatus(
-            domain: 'superadmin.crickflow.app',
-            note: 'Status mirror only — deployment never modified',
+            domain: 'crickflow.web.app',
+            status: PlatformServiceHealth.unknown,
+            ssl: PlatformServiceHealth.unknown,
+            note: 'Known Hosting site — status is not polled from this panel',
           ),
         ],
       ),
       fcm: FcmMetrics(
         sentToday: notifSent,
-        deliveryRate: notifSent == 0 ? 0 : 98,
+        deliveryRate: 0,
         failures: 0,
         pending: 0,
         avgDeliveryMs: 0,
@@ -233,11 +263,13 @@ class MonitoringRepository {
       database: DatabaseMetrics(
         collections: topCollections.length,
         documentsEstimate: docEstimate,
-        estimatedSizeLabel: 'Sample-based',
-        readUsage: docEstimate,
+        estimatedSizeLabel: 'Not available',
+        readUsage: 0,
         writeUsage: 0,
         deleteUsage: 0,
-        growthPoints: const [0.3, 0.35, 0.4, 0.5, 0.55, 0.6, 0.65],
+        growthPoints: [
+          for (final row in growth) row.trackedDocuments.toDouble(),
+        ],
       ),
       performance: PerformanceMetrics(
         avgApiResponseMs: probeMs,
@@ -248,17 +280,32 @@ class MonitoringRepository {
       ),
       errors: errors,
       scheduledJobs: [
-        for (final k in ScheduledJobKind.values)
-          ScheduledJobItem(kind: k),
-      ],
-      backgroundTasks: const [
-        BackgroundTaskItem(
-          id: 'queue',
-          name: 'Queue monitoring',
-          status: BackgroundTaskStatus.pending,
+        const ScheduledJobItem(
+          kind: ScheduledJobKind.scheduledNotifications,
+          note:
+              'processScheduledNotificationCampaigns is a Cloud Scheduler worker. Last run is not read from this panel.',
         ),
+        ScheduledJobItem(
+          kind: ScheduledJobKind.analyticsJobs,
+          status: growth.any((g) => !g.isLiveToday)
+              ? BackgroundTaskStatus.completed
+              : BackgroundTaskStatus.pending,
+          lastRun: () {
+            final historic = growth.where((g) => !g.isLiveToday).toList();
+            if (historic.isEmpty) return null;
+            return DateTime.tryParse(historic.last.date);
+          }(),
+          note:
+              'writeDailyPlatformStats writes platform counts at 01:00 Asia/Colombo. Growth charts use those documents when present.',
+        ),
+        for (final k in ScheduledJobKind.values)
+          if (k != ScheduledJobKind.scheduledNotifications &&
+              k != ScheduledJobKind.analyticsJobs)
+            ScheduledJobItem(kind: k),
       ],
+      backgroundTasks: const [],
       timeline: timeline,
+      growth: growth,
     );
 
     _cache = snap;
@@ -518,9 +565,8 @@ class MonitoringRepository {
           health: switch (id) {
             FirebaseServiceId.firestore =>
               firestoreOk ? PlatformServiceHealth.healthy : PlatformServiceHealth.warning,
-            FirebaseServiceId.authentication => PlatformServiceHealth.healthy,
-            FirebaseServiceId.hosting =>
-              scoped ? PlatformServiceHealth.unknown : PlatformServiceHealth.healthy,
+            FirebaseServiceId.authentication => PlatformServiceHealth.unknown,
+            FirebaseServiceId.hosting => PlatformServiceHealth.unknown,
             FirebaseServiceId.cloudFunctions ||
             FirebaseServiceId.storage ||
             FirebaseServiceId.messaging ||
@@ -534,7 +580,7 @@ class MonitoringRepository {
             FirebaseServiceId.firestore =>
               'Probe via count() — no secrets exposed',
             FirebaseServiceId.hosting =>
-              'Domain status mirror only — never deploys',
+              'Hosting health is not polled from this panel',
             FirebaseServiceId.cloudFunctions ||
             FirebaseServiceId.performance ||
             FirebaseServiceId.analytics =>
@@ -562,22 +608,23 @@ class MonitoringRepository {
     return PlatformServiceHealth.unknown;
   }
 
-  List<CloudFunctionStatus> _defaultFunctions() => const [
-        CloudFunctionStatus(
-          name: 'onMatchUpdate',
-          status: PlatformServiceHealth.unknown,
-        ),
-        CloudFunctionStatus(
-          name: 'sendPushNotification',
-          status: PlatformServiceHealth.unknown,
-        ),
-        CloudFunctionStatus(
-          name: 'streamHealthCheck',
-          status: PlatformServiceHealth.unknown,
-        ),
-        CloudFunctionStatus(
-          name: 'scheduledCleanup',
-          status: PlatformServiceHealth.unknown,
-        ),
+
+  Future<List<PlatformDailyStat>> _fetchGrowthSeries({
+    required PlatformDailyStat today,
+  }) async {
+    try {
+      final snap = await _db
+          .collection(AdminCollections.adminPlatformDailyStats)
+          .orderBy('date')
+          .limitToLast(30)
+          .get();
+      final history = [
+        for (final d in snap.docs) PlatformDailyStat.fromMap(d.id, d.data()),
       ];
+      return PlatformDailyStat.mergeLiveToday(history: history, today: today);
+    } catch (_) {
+      return [today];
+    }
+  }
 }
+

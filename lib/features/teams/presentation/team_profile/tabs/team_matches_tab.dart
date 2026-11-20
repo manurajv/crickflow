@@ -6,6 +6,7 @@ import '../../../../../shared/providers/team_players_provider.dart';
 import '../../../../../shared/providers/team_profile_provider.dart';
 import '../../../../../shared/widgets/match_list_card.dart';
 import '../widgets/team_profile_empty_state.dart';
+import '../../../../../core/utils/friendly_error.dart';
 
 class TeamMatchesTab extends ConsumerWidget {
   const TeamMatchesTab({super.key, required this.teamId});
@@ -22,7 +23,7 @@ class TeamMatchesTab extends ConsumerWidget {
       error: (e, _) => TeamProfileEmptyState(
         icon: Icons.error_outline,
         title: 'Unable to load matches',
-        subtitle: '$e',
+        subtitle: friendlyError(e),
       ),
       data: (matches) {
         return RefreshIndicator(

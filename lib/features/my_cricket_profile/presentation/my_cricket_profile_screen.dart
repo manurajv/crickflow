@@ -17,6 +17,7 @@ import 'tabs/profile_teams_tab.dart';
 import 'tabs/profile_trophies_tab.dart';
 import 'widgets/cricket_profile_header.dart';
 import 'widgets/profile_match_filter_button.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// CricHeroes-style cricket profile hub: Matches · Stats · Trophies · Badges · Teams · Connections.
 class MyCricketProfileScreen extends ConsumerStatefulWidget {
@@ -156,7 +157,7 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
         ),
         loading: () =>
             const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+        error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
       );
     }
 
@@ -173,7 +174,7 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
       ),
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text(friendlyError(e)))),
     );
   }
 
@@ -339,7 +340,7 @@ class _MyCricketProfileScreenState extends ConsumerState<MyCricketProfileScreen>
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => Center(child: Text(friendlyError(e))),
         ),
       ),
     );

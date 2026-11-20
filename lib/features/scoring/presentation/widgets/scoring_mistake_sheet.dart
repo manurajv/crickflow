@@ -8,6 +8,7 @@ import '../../../../shared/providers/providers.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/scoring_ui_kit.dart';
 import '../../../../core/theme/cf_colors.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 /// Recent ball events for scorer corrections (undo via existing flow).
 class ScoringMistakeSheet extends ConsumerStatefulWidget {
@@ -45,7 +46,7 @@ class _ScoringMistakeSheetState extends ConsumerState<ScoringMistakeSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Undo failed: $e')),
+          SnackBar(content: Text('Undo failed: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -117,7 +118,7 @@ class _ScoringMistakeSheetState extends ConsumerState<ScoringMistakeSheet> {
                 },
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                error: (e, _) => Center(child: Text(friendlyError(e))),
               ),
             ),
           ],

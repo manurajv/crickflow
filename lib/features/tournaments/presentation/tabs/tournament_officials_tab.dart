@@ -13,6 +13,7 @@ import '../widgets/officials/add_tournament_official_sheet.dart';
 import '../widgets/overview/tournament_overview_widgets.dart';
 import '../widgets/tournament_module_empty_state.dart';
 import '../widgets/teams/tournament_team_confirm_sheet.dart';
+import '../../../../core/utils/friendly_error.dart';
 
 class TournamentOfficialsTab extends ConsumerWidget {
   const TournamentOfficialsTab({
@@ -39,7 +40,7 @@ class TournamentOfficialsTab extends ConsumerWidget {
 
     return officialsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(child: Text(friendlyError(e))),
       data: (list) {
         final visible = list
             .where((o) => o.status != TournamentOfficialStatus.declined)

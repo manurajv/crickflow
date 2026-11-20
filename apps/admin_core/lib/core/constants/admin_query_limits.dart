@@ -27,6 +27,9 @@ abstract final class AdminQueryLimits {
   /// Cap for role usage count fallback sample.
   static const int roleUsageFallbackMax = 50;
 
+  /// Cap for related-entity lists on detail panels.
+  static const int relatedRecordsMax = 20;
+
   /// Soft clamp helper.
   static int clamp(int requested, int max) =>
       requested < 1 ? 1 : (requested > max ? max : requested);

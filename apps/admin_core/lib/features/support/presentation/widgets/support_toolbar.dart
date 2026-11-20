@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../../core/extensions/context_extensions.dart';
 import '../../../../shared/widgets/cf_button.dart';
 import '../../../../shared/widgets/cf_search_bar.dart';
 import '../../models/support_enums.dart';
 import '../../models/support_filters.dart';
+import '../../../../core/export/admin_csv.dart';
+import '../../../../core/export/admin_export_sheet.dart';
 
 class SupportSectionChips extends StatelessWidget {
   const SupportSectionChips({
     super.key,
     required this.section,
     required this.onChanged,
+    this.inboxUnreadCount = 0,
   });
 
   final SupportHubSection section;
   final ValueChanged<SupportHubSection> onChanged;
+  final int inboxUnreadCount;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +30,11 @@ class SupportSectionChips extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(s.label),
+                label: Text(
+                  s == SupportHubSection.inbox && inboxUnreadCount > 0
+                      ? '${s.label} ($inboxUnreadCount)'
+                      : s.label,
+                ),
                 selected: section == s,
                 onSelected: (_) => onChanged(s),
               ),
@@ -129,10 +136,8 @@ Future<SupportListFilters?> showSupportFilterDrawer({
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (ctx) => _SupportFilterSheet(
-      initial: initial,
-      isSuperAdmin: isSuperAdmin,
-    ),
+    builder: (ctx) =>
+        _SupportFilterSheet(initial: initial, isSuperAdmin: isSuperAdmin),
   );
 }
 
@@ -205,8 +210,8 @@ class _SupportFilterSheetState extends State<_SupportFilterSheet> {
                     child: Text(
                       'Support filters',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -239,7 +244,10 @@ class _SupportFilterSheetState extends State<_SupportFilterSheet> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text('Priority', style: Theme.of(context).textTheme.titleSmall),
+                  Text(
+                    'Priority',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                   Wrap(
                     spacing: 8,
                     children: [
@@ -258,7 +266,10 @@ class _SupportFilterSheetState extends State<_SupportFilterSheet> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text('Category', style: Theme.of(context).textTheme.titleSmall),
+                  Text(
+                    'Category',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                   Wrap(
                     spacing: 8,
                     children: [
@@ -421,7 +432,8 @@ Future<void> showCreateTicketDialog({
     String stepsToReproduce,
     String logs,
     int? rating,
-  }) onSubmit,
+  })
+  onSubmit,
 }) async {
   final subject = TextEditingController();
   final description = TextEditingController();
@@ -454,8 +466,9 @@ Future<void> showCreateTicketDialog({
                       controller: description,
                       minLines: 3,
                       maxLines: 5,
-                      decoration:
-                          const InputDecoration(labelText: 'Description'),
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                      ),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<SupportTicketKind>(
@@ -559,6 +572,13 @@ Future<void> showCreateTicketDialog({
 }
 
 Future<void> showSupportExportSheet(BuildContext context, String csv) async {
+  if (csv.trim().isEmpty) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Nothing to export')));
+    return;
+  }
+  final stamp = DateTime.now().toIso8601String().split('T').first;
   await showModalBottomSheet<void>(
     context: context,
     builder: (ctx) => SafeArea(
@@ -570,34 +590,38 @@ Future<void> showSupportExportSheet(BuildContext context, String csv) async {
           children: [
             Text(
               'Export',
-              style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                ctx,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             ListTile(
               leading: const Icon(Icons.table_chart_outlined),
               title: const Text('CSV'),
-              subtitle: const Text('Copy to clipboard'),
               onTap: () async {
-                await Clipboard.setData(ClipboardData(text: csv));
-                if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('CSV copied')),
-                  );
-                }
+                Navigator.pop(ctx);
+                await downloadAdminTextFile(
+                  context: context,
+                  filename: 'crickflow-support_$stamp.csv',
+                  content: csv,
+                );
               },
             ),
-            const ListTile(
-              leading: Icon(Icons.grid_on_outlined),
-              title: Text('Excel'),
-              subtitle: Text('Prepared for later'),
-            ),
-            const ListTile(
-              leading: Icon(Icons.picture_as_pdf_outlined),
-              title: Text('PDF'),
-              subtitle: Text('Prepared for later'),
+            ListTile(
+              leading: const Icon(Icons.grid_on_outlined),
+              title: const Text('Excel-compatible CSV'),
+              subtitle: const Text('UTF-8 BOM so Excel opens it correctly'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final content = csv.startsWith(AdminCsv.bom)
+                    ? csv
+                    : '${AdminCsv.bom}$csv';
+                await downloadAdminTextFile(
+                  context: context,
+                  filename: 'crickflow-support_${stamp}_excel.csv',
+                  content: content,
+                );
+              },
             ),
           ],
         ),

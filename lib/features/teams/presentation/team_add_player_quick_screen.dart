@@ -12,6 +12,7 @@ import '../../../data/models/player_model.dart';
 import '../../../data/models/register_player_models.dart';
 import '../../../data/models/team_model.dart';
 import '../../../shared/providers/providers.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Search registered players and send a team invitation (accept required).
 class TeamAddPlayerQuickScreen extends ConsumerStatefulWidget {
@@ -127,7 +128,7 @@ class _TeamAddPlayerQuickScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {

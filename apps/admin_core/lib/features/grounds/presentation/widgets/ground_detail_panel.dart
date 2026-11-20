@@ -13,6 +13,9 @@ import '../../models/ground_enums.dart';
 import '../../models/managed_ground.dart';
 import '../../providers/grounds_providers.dart';
 import 'ground_status_badge.dart';
+import '../../../../core/data/related_records.dart';
+import '../../../../core/data/related_records_providers.dart';
+import '../../../../shared/widgets/related_records_section.dart';
 
 class GroundDetailPanel extends ConsumerWidget {
   const GroundDetailPanel({super.key, required this.onClose});
@@ -49,10 +52,8 @@ class GroundDetailPanel extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           'Ground details',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
                       IconButton(
@@ -78,18 +79,9 @@ class GroundDetailPanel extends ConsumerWidget {
                       ],
                       _AuditSection(),
                       const SizedBox(height: 16),
-                      const _SectionTitle('Related (placeholders)'),
+                      const _SectionTitle('Related'),
                       const SizedBox(height: 8),
-                      const _PlaceholderList(
-                        items: [
-                          'Matches hosted',
-                          'Bookings',
-                          'Photo gallery',
-                          'Reviews & ratings',
-                          'Reports',
-                          'Nearby grounds / clustering map',
-                        ],
-                      ),
+                      _GroundRelated(ground: ground),
                     ],
                   ),
                 ),
@@ -136,9 +128,9 @@ class _Hero extends StatelessWidget {
         Text(
           ground.name,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         Text(ground.shortLabel, style: TextStyle(color: colors.textMuted)),
         const SizedBox(height: 8),
@@ -179,9 +171,7 @@ class _Overview extends StatelessWidget {
       MapEntry('Location', g.locationLabel),
       MapEntry(
         'Tournaments',
-        g.tournamentIds.isEmpty
-            ? '—'
-            : '${g.tournamentIds.length}',
+        g.tournamentIds.isEmpty ? '—' : '${g.tournamentIds.length}',
       ),
       MapEntry('PIN', g.pinCode.isEmpty ? '—' : g.pinCode),
       MapEntry(
@@ -194,28 +184,17 @@ class _Overview extends StatelessWidget {
         'Contact person',
         g.contactPerson.isEmpty ? '—' : g.contactPerson,
       ),
-      MapEntry(
-        'Contact',
-        g.contactNumber.isEmpty ? '—' : g.contactNumber,
-      ),
+      MapEntry('Contact', g.contactNumber.isEmpty ? '—' : g.contactNumber),
       MapEntry('Email', g.email.isEmpty ? '—' : g.email),
       MapEntry('Website', g.website.isEmpty ? '—' : g.website),
-      MapEntry(
-        'Owner',
-        g.ownerName.isEmpty ? (g.ownerId ?? '—') : g.ownerName,
-      ),
-      MapEntry(
-        'Established',
-        g.establishedYear?.toString() ?? '—',
-      ),
+      MapEntry('Owner', g.ownerName.isEmpty ? (g.ownerId ?? '—') : g.ownerName),
+      MapEntry('Established', g.establishedYear?.toString() ?? '—'),
       MapEntry('Capacity', g.capacity?.toString() ?? '—'),
       MapEntry('Boundary', g.boundarySize ?? '—'),
       MapEntry('Pitch', g.pitchType?.label ?? '—'),
       MapEntry(
         'Ball types',
-        g.ballTypes.isEmpty
-            ? '—'
-            : g.ballTypes.map((e) => e.label).join(', '),
+        g.ballTypes.isEmpty ? '—' : g.ballTypes.map((e) => e.label).join(', '),
       ),
       MapEntry('Floodlights', g.floodlights ? 'Yes' : 'No'),
       MapEntry('Parking', g.parking ? 'Yes' : 'No'),
@@ -296,7 +275,10 @@ class _Facilities extends StatelessWidget {
         const _SectionTitle('Facilities'),
         const SizedBox(height: 8),
         if (facilities.isEmpty)
-          Text('No facilities listed', style: TextStyle(color: colors.textMuted))
+          Text(
+            'No facilities listed',
+            style: TextStyle(color: colors.textMuted),
+          )
         else
           Wrap(
             spacing: 8,
@@ -310,10 +292,7 @@ class _Facilities extends StatelessWidget {
                   ),
               for (final key in facilities)
                 if (!GroundFacilityKeys.all.contains(key))
-                  Chip(
-                    label: Text(key),
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  Chip(label: Text(key), visualDensity: VisualDensity.compact),
             ],
           ),
       ],
@@ -369,7 +348,7 @@ class _Actions extends ConsumerWidget {
     final controller = ref.read(groundsListControllerProvider.notifier);
     final isSuper =
         AdminRole.tryParse(ref.watch(adminSessionProvider).adminUser?.roleId) ==
-            AdminRole.superAdmin;
+        AdminRole.superAdmin;
 
     Future<void> confirmAction({
       required String title,
@@ -403,8 +382,9 @@ class _Actions extends ConsumerWidget {
             ),
             CfButton(
               label: 'Confirm',
-              variant:
-                  danger ? CfButtonVariant.danger : CfButtonVariant.primary,
+              variant: danger
+                  ? CfButtonVariant.danger
+                  : CfButtonVariant.primary,
               onPressed: () => Navigator.pop(context, true),
             ),
           ],
@@ -417,9 +397,9 @@ class _Actions extends ConsumerWidget {
               : reasonController.text.trim(),
         );
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$title completed')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$title completed')));
         }
       }
     }
@@ -459,12 +439,10 @@ class _Actions extends ConsumerWidget {
                   title: ground.displayStatus == ManagedGroundStatus.suspended
                       ? 'Unsuspend Ground'
                       : 'Suspend Ground',
-                  message:
-                      ground.displayStatus == ManagedGroundStatus.suspended
-                          ? 'Restore ground to active status?'
-                          : 'Suspend this ground?',
-                  danger:
-                      ground.displayStatus != ManagedGroundStatus.suspended,
+                  message: ground.displayStatus == ManagedGroundStatus.suspended
+                      ? 'Restore ground to active status?'
+                      : 'Suspend this ground?',
+                  danger: ground.displayStatus != ManagedGroundStatus.suspended,
                   run: (r) => controller.setStatus(
                     ground,
                     ground.displayStatus == ManagedGroundStatus.suspended
@@ -569,8 +547,9 @@ class _Actions extends ConsumerWidget {
                       TextField(
                         controller: description,
                         maxLines: 2,
-                        decoration:
-                            const InputDecoration(labelText: 'Description'),
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                        ),
                       ),
                       TextField(
                         controller: address,
@@ -582,8 +561,9 @@ class _Actions extends ConsumerWidget {
                       ),
                       TextField(
                         controller: state,
-                        decoration:
-                            const InputDecoration(labelText: 'State / Province'),
+                        decoration: const InputDecoration(
+                          labelText: 'State / Province',
+                        ),
                       ),
                       TextField(
                         controller: country,
@@ -595,13 +575,15 @@ class _Actions extends ConsumerWidget {
                       ),
                       TextField(
                         controller: contactPerson,
-                        decoration:
-                            const InputDecoration(labelText: 'Contact person'),
+                        decoration: const InputDecoration(
+                          labelText: 'Contact person',
+                        ),
                       ),
                       TextField(
                         controller: contact,
-                        decoration:
-                            const InputDecoration(labelText: 'Contact number'),
+                        decoration: const InputDecoration(
+                          labelText: 'Contact number',
+                        ),
                       ),
                       TextField(
                         controller: email,
@@ -610,8 +592,9 @@ class _Actions extends ConsumerWidget {
                       const SizedBox(height: 12),
                       DropdownButtonFormField<ManagedGroundType?>(
                         initialValue: groundType,
-                        decoration:
-                            const InputDecoration(labelText: 'Ground type'),
+                        decoration: const InputDecoration(
+                          labelText: 'Ground type',
+                        ),
                         items: [
                           const DropdownMenuItem(
                             value: null,
@@ -625,8 +608,9 @@ class _Actions extends ConsumerWidget {
                       const SizedBox(height: 12),
                       DropdownButtonFormField<ManagedGroundPitchType?>(
                         initialValue: pitchType,
-                        decoration:
-                            const InputDecoration(labelText: 'Pitch type'),
+                        decoration: const InputDecoration(
+                          labelText: 'Pitch type',
+                        ),
                         items: [
                           const DropdownMenuItem(
                             value: null,
@@ -640,8 +624,9 @@ class _Actions extends ConsumerWidget {
                       const SizedBox(height: 12),
                       DropdownButtonFormField<ManagedGroundAvailability>(
                         initialValue: availability,
-                        decoration:
-                            const InputDecoration(labelText: 'Availability'),
+                        decoration: const InputDecoration(
+                          labelText: 'Availability',
+                        ),
                         items: [
                           for (final a in ManagedGroundAvailability.values)
                             DropdownMenuItem(value: a, child: Text(a.label)),
@@ -671,7 +656,9 @@ class _Actions extends ConsumerWidget {
     );
 
     if (ok == true) {
-      await ref.read(groundsListControllerProvider.notifier).saveBasicInfo(
+      await ref
+          .read(groundsListControllerProvider.notifier)
+          .saveBasicInfo(
             ground,
             name: name.text.trim(),
             description: description.text.trim(),
@@ -691,36 +678,6 @@ class _Actions extends ConsumerWidget {
   }
 }
 
-class _PlaceholderList extends StatelessWidget {
-  const _PlaceholderList({required this.items});
-
-  final List<String> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.adminColors;
-    return Column(
-      children: [
-        for (final item in items)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(item),
-            subtitle: Text(
-              'Coming soon',
-              style: TextStyle(color: colors.textMuted, fontSize: 12),
-            ),
-            trailing: Icon(
-              Icons.lock_outline,
-              size: 16,
-              color: colors.textMuted,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
 
@@ -730,9 +687,56 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
+      style: Theme.of(
+        context,
+      ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    );
+  }
+}
+
+class _GroundRelated extends ConsumerWidget {
+  const _GroundRelated({required this.ground});
+
+  final ManagedGround ground;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RelatedRecordsAsync<GroundRelatedSnapshot>(
+      async: ref.watch(groundRelatedRecordsProvider(ground)),
+      builder: (data) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RelatedRecordsSection(
+            title: 'Matches',
+            section: data.matches,
+            emptyMessage: data.matchesHosted == 0
+                ? 'No matches list this ground as their venue.'
+                : 'The ground document records ${data.matchesHosted} hosted matches, but none of the loaded match documents use this venue name or ground id.',
           ),
+          RelatedRecordsSection(
+            title: 'Tournaments',
+            section: data.tournaments,
+            emptyMessage: 'No tournaments list this ground.',
+          ),
+          RelatedRecordsSection(
+            title: 'Photos',
+            section: RelatedSection(
+              items: [
+                for (var i = 0; i < data.photoUrls.length; i++)
+                  RelatedRecord(
+                    id: 'photo-$i',
+                    title: data.photoUrls[i],
+                    subtitle: 'Photo',
+                  ),
+              ],
+            ),
+            emptyMessage: 'No photos are stored on this ground record.',
+          ),
+          const RelatedNote(
+            'No booking or review collections are stored in Firestore for grounds.',
+          ),
+        ],
+      ),
     );
   }
 }

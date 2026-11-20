@@ -1,23 +1,47 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createSeries,
   createSeriesClub,
+  getSeriesApprovalsAccess,
   getSeriesDetail,
   getSeriesRegistrationIdentity,
   listActiveSeries,
   listSeriesAdmins,
   listSeriesCompetitions,
+  listSeriesMatches,
+  listSeriesTournaments,
   addSeriesAdmin,
+  updateSeriesAdminRole,
   proposeSeriesMatch,
-  proposeSeriesTournament,
+  linkSeriesTournament,
+  listMyLinkableTournaments,
+  rebuildSeriesStandings,
   reviewClubJoinRequest,
   reviewSeriesApproval,
   submitPlayerJoinRequest,
+  submitPlayerAddRequest,
   submitSeriesRegistration,
+  addSeriesClubAdmin,
+  removeSeriesClubAdmin,
+  respondSeriesClubAdminInvite,
+  cancelSeriesClubAdminInvite,
+  submitPlayerRemovalRequest,
+  listClubAdmins,
+  listClubSquad,
+  searchPlayersForOrg,
   updateSeriesSettings,
+  updateSeriesCompetitionPolicy,
+  listSeriesAnnouncements,
+  sendSeriesAnnouncement,
+  listSeriesAuditLogs,
+  listActiveSeriesByKind,
+  watchPendingSeriesApprovals,
 } from "./repository";
+import type { SeriesApproval } from "./types";
+import { getOrgLeaderboardData } from "./leaderboard-repository";
 
 export function useActiveSeries() {
   return useQuery({ queryKey: ["series", "active"], queryFn: () => listActiveSeries() });
@@ -43,9 +67,12 @@ export function useCreateSeries() {
 export function useReviewSeriesApproval(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { approvalId: string; decision: "approved" | "rejected" }) =>
-      reviewSeriesApproval(seriesId, input.approvalId, input.decision),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+    mutationFn: (input: { approvalId: string; decision: "approved" | "rejected"; reason?: string }) =>
+      reviewSeriesApproval(seriesId, input.approvalId, input.decision, input.reason ?? ""),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "pending-approvals"] });
+    },
   });
 }
 
@@ -57,14 +84,20 @@ export function useReviewClubJoinRequest(seriesId: string) {
       decision: "approved" | "rejected";
       reason?: string;
     }) => reviewClubJoinRequest({ seriesId, ...input }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "pending-approvals"] });
+    },
   });
 }
 
 export function useSeriesRegistrationIdentity(seriesId: string) {
   return useMutation({
-    mutationFn: (registrationId: string) =>
-      getSeriesRegistrationIdentity(seriesId, registrationId),
+    mutationFn: (input: { registrationId?: string; approvalId?: string } | string) =>
+      getSeriesRegistrationIdentity(
+        seriesId,
+        typeof input === "string" ? { registrationId: input } : input,
+      ),
   });
 }
 
@@ -86,6 +119,15 @@ export function useUpdateSeriesSettings(seriesId: string) {
   });
 }
 
+export function useUpdateSeriesCompetitionPolicy(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (policy: Record<string, unknown>) =>
+      updateSeriesCompetitionPolicy(seriesId, policy),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
 export function useJoinClub(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -94,19 +136,29 @@ export function useJoinClub(seriesId: string) {
       fullName: string;
       crickFlowPlayerId?: string;
       phoneNumber?: string;
+      address?: string;
+      dateOfBirth?: string;
+      nationalId?: string;
+      passportNumber?: string;
+      profilePhotoUrl?: string;
+      nationalIdDocUrl?: string;
+      passportDocUrl?: string;
+      customFields?: Record<string, string>;
     }) => {
-      const reg = await submitSeriesRegistration({
+      await submitPlayerJoinRequest({
         seriesId,
         clubId: input.clubId,
         fullName: input.fullName,
         crickFlowPlayerId: input.crickFlowPlayerId,
         phoneNumber: input.phoneNumber,
-      });
-      await submitPlayerJoinRequest({
-        seriesId,
-        clubId: input.clubId,
-        registrationId: reg.registrationId,
-        displayName: input.fullName,
+        address: input.address,
+        dateOfBirth: input.dateOfBirth,
+        nationalId: input.nationalId,
+        passportNumber: input.passportNumber,
+        profilePhotoUrl: input.profilePhotoUrl,
+        nationalIdDocUrl: input.nationalIdDocUrl,
+        passportDocUrl: input.passportDocUrl,
+        customFields: input.customFields,
       });
     },
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
@@ -126,12 +178,37 @@ export function useProposeSeriesMatch(seriesId: string) {
   });
 }
 
+export function useMyLinkableTournaments(uid?: string) {
+  return useQuery({
+    queryKey: ["series", "linkable-tournaments", uid],
+    queryFn: () => listMyLinkableTournaments(uid as string),
+    enabled: Boolean(uid),
+  });
+}
+
 export function useProposeSeriesTournament(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { tournamentId: string; title?: string; clubId?: string }) =>
-      proposeSeriesTournament({ seriesId, ...input }),
+    mutationFn: (input: { tournamentId: string; title?: string }) =>
+      linkSeriesTournament({ seriesId, ...input }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
+
+export function useSeriesMatches(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "matches"],
+    queryFn: () => listSeriesMatches(seriesId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+export function useSeriesTournaments(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "tournaments"],
+    queryFn: () => listSeriesTournaments(seriesId),
+    enabled: Boolean(seriesId),
   });
 }
 
@@ -154,10 +231,76 @@ export function useSeriesAdmins(seriesId: string) {
 export function useAddSeriesAdmin(seriesId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { userId: string; displayName?: string }) =>
+    mutationFn: (input: { userId: string; displayName?: string; role?: "admin" | "scorer" | "viewer" }) =>
       addSeriesAdmin({ seriesId, ...input }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
   });
+}
+
+export function useUpdateSeriesAdminRole(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; role: "admin" | "scorer" | "viewer" }) =>
+      updateSeriesAdminRole({ seriesId, ...input }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),
+  });
+}
+
+export function useOrgLeaderboard(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "leaderboard"],
+    queryFn: () => getOrgLeaderboardData(seriesId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+export function useRebuildSeriesStandings(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => rebuildSeriesStandings(seriesId),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId, "leaderboard"] }),
+  });
+}
+
+
+export function useSeriesApprovalsAccess(seriesId: string, userId?: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, userId ?? "public", "approvals-access"],
+    queryFn: () => getSeriesApprovalsAccess(seriesId, userId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+/** Live pending approvals; first snapshot paints without waiting on the other queue. */
+export function usePendingSeriesApprovals(seriesId: string, enabled: boolean) {
+  const [data, setData] = useState<SeriesApproval[] | undefined>(undefined);
+  const [error, setError] = useState<Error | null>(null);
+  const [generation, setGeneration] = useState(0);
+
+  useEffect(() => {
+    if (!seriesId || !enabled) {
+      setData(undefined);
+      setError(null);
+      return;
+    }
+    setData(undefined);
+    setError(null);
+    return watchPendingSeriesApprovals(
+      seriesId,
+      (items) => {
+        setData(items);
+        setError(null);
+      },
+      (err) => setError(err),
+    );
+  }, [seriesId, enabled, generation]);
+
+  return {
+    data,
+    isLoading: enabled && data === undefined && !error,
+    error,
+    refetch: () => setGeneration((g) => g + 1),
+  };
 }
 
 export function useSeriesDetail(seriesId: string, userId?: string) {
@@ -165,5 +308,141 @@ export function useSeriesDetail(seriesId: string, userId?: string) {
     queryKey: ["series", seriesId, userId ?? "public"],
     queryFn: () => getSeriesDetail(seriesId, userId),
     enabled: Boolean(seriesId),
+  });
+}
+
+
+export function useSendSeriesAnnouncement(seriesId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { title: string; body: string; audience: string }) =>
+      sendSeriesAnnouncement({ seriesId, ...input }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId, "announcements"] }),
+  });
+}
+
+export function useSeriesAnnouncements(seriesId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "announcements"],
+    queryFn: () => listSeriesAnnouncements(seriesId),
+    enabled: Boolean(seriesId),
+  });
+}
+
+export function useSeriesAuditLogs(seriesId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["series", seriesId, "audit"],
+    queryFn: () => listSeriesAuditLogs(seriesId),
+    enabled: Boolean(seriesId) && enabled,
+  });
+}
+
+export function useActiveSeriesByKind(kind?: string) {
+  return useQuery({
+    queryKey: ["series", "active", kind || "all"],
+    queryFn: () => listActiveSeriesByKind(kind),
+  });
+}
+
+export function useClubSquad(seriesId: string, clubId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "club", clubId, "squad"],
+    queryFn: () => listClubSquad(seriesId, clubId),
+    enabled: Boolean(seriesId && clubId),
+  });
+}
+
+export function useClubAdmins(seriesId: string, clubId: string) {
+  return useQuery({
+    queryKey: ["series", seriesId, "club", clubId, "admins"],
+    queryFn: () => listClubAdmins(seriesId, clubId),
+    enabled: Boolean(seriesId && clubId),
+  });
+}
+
+export function useSearchPlayersForOrg() {
+  return useMutation({
+    mutationFn: (input: {
+      query: string;
+      currentUserId?: string;
+      includeSelf?: boolean;
+      excludeUserIds?: string[];
+    }) =>
+      searchPlayersForOrg(input.query, input.currentUserId, {
+        includeSelf: input.includeSelf,
+        excludeUserIds: input.excludeUserIds,
+      }),
+  });
+}
+
+export function useAddPlayerToClub(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Record<string, unknown>) =>
+      submitPlayerAddRequest({ seriesId, clubId, ...input }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useAddClubAdmin(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; displayName?: string }) =>
+      addSeriesClubAdmin({ seriesId, clubId, ...input }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useRemoveClubAdmin(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      removeSeriesClubAdmin({ seriesId, clubId, userId }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useRespondClubAdminInvite(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (decision: "accepted" | "declined") =>
+      respondSeriesClubAdminInvite({ seriesId, clubId, decision }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useCancelClubAdminInvite(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      cancelSeriesClubAdminInvite({ seriesId, clubId, userId }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
+  });
+}
+
+export function useRemovePlayerFromClub(seriesId: string, clubId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; reason: string }) =>
+      submitPlayerRemovalRequest({ seriesId, clubId, ...input }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["series", seriesId] });
+      client.invalidateQueries({ queryKey: ["series", seriesId, "club", clubId] });
+    },
   });
 }

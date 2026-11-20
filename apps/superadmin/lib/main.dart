@@ -7,10 +7,9 @@ import 'config/nav_config.dart';
 import 'config/router.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await bootstrapFirebase(DefaultFirebaseOptions.currentPlatform);
-  runApp(
-    ProviderScope(
+  await runAdminPanel(
+    options: DefaultFirebaseOptions.currentPlatform,
+    buildApp: () => ProviderScope(
       overrides: [
         adminAppTypeProvider.overrideWithValue(AdminAppType.superAdmin),
         navSectionsProvider.overrideWithValue(buildSuperAdminNav()),
@@ -26,16 +25,28 @@ class SuperAdminApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final branding = ref.watch(platformBrandingProvider).valueOrNull;
+    final lightColors = brandingColorsFor(branding, isDark: false);
+    final darkColors = brandingColorsFor(branding, isDark: true);
     final locale = ref.watch(adminLocaleProvider);
     final router = ref.watch(_routerProvider);
 
     return MaterialApp.router(
-      onGenerateTitle: (context) => context.l10n.appTitleSuperAdmin,
+      onGenerateTitle: (context) => context.l10nOrNull?.appTitleSuperAdmin ?? 'CrickFlow Super Admin',
       debugShowCheckedModeBanner: false,
-      theme: AdminTheme.light(),
-      darkTheme: AdminTheme.dark(),
+      theme: AdminTheme.light(
+        primary: lightColors.primary,
+        secondary: lightColors.secondary,
+        accent: lightColors.accent,
+      ),
+      darkTheme: AdminTheme.dark(
+        primary: darkColors.primary,
+        secondary: darkColors.secondary,
+        accent: darkColors.accent,
+      ),
       themeMode: themeMode,
-      locale: locale,
+      // Null used to mean "system", but empty browser locales crash Flutter web.
+      locale: locale ?? AdminLocaleCatalog.safeDeviceLocale(),
       supportedLocales: AdminL10nConfig.supportedLocales,
       localizationsDelegates: AdminL10nConfig.localizationsDelegates,
       localeResolutionCallback: AdminL10nConfig.resolutionCallback,

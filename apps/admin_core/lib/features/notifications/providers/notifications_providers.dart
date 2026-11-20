@@ -10,7 +10,9 @@ import '../models/managed_notification.dart';
 import '../models/notification_enums.dart';
 import '../models/notification_filters.dart';
 
-final notificationsRepositoryProvider = Provider<NotificationsRepository>((ref) {
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((
+  ref,
+) {
   return NotificationsRepository();
 });
 
@@ -99,7 +101,7 @@ class NotificationsHubState {
 
 class NotificationsHubController extends StateNotifier<NotificationsHubState> {
   NotificationsHubController(this._ref)
-      : super(const NotificationsHubState(isLoading: true)) {
+    : super(const NotificationsHubState(isLoading: true)) {
     Future(() {
       if (mounted) refresh();
     });
@@ -306,8 +308,10 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
     state = state.copyWith(composerOpen: open, clearSelection: open);
   }
 
-  Future<String?> saveDraft(ManagedNotificationCampaign draft,
-      {String? reason}) async {
+  Future<String?> saveDraft(
+    ManagedNotificationCampaign draft, {
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return null;
     final id = await _repo.createCampaign(
@@ -319,8 +323,10 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
     return id;
   }
 
-  Future<void> updateDraft(ManagedNotificationCampaign campaign,
-      {String? reason}) async {
+  Future<void> updateDraft(
+    ManagedNotificationCampaign campaign, {
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.updateCampaign(
@@ -331,22 +337,27 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
     await refresh();
   }
 
-  Future<void> sendNow(ManagedNotificationCampaign campaign,
-      {String? reason}) async {
+  Future<Map<String, dynamic>> sendNow(
+    ManagedNotificationCampaign campaign, {
+    String? reason,
+    bool dryRun = false,
+  }) async {
     final actor = _actor;
-    if (actor == null) return;
+    if (actor == null) return const {};
     var c = campaign;
     if (c.id.isEmpty) {
       final id = await _repo.createCampaign(draft: c, actor: actor);
       c = c.copyWith(id: id);
     }
-    await _repo.sendOrQueue(
+    final result = await _repo.sendOrQueue(
       campaign: c,
       actor: actor,
       reason: reason,
+      dryRun: dryRun,
     );
-    state = state.copyWith(composerOpen: false);
+    state = state.copyWith(composerOpen: false, selectedId: c.id);
     await refresh();
+    return result;
   }
 
   Future<void> schedule(
@@ -389,24 +400,31 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
     await refresh();
   }
 
-  Future<void> duplicate(ManagedNotificationCampaign c,
-      {String? reason}) async {
+  Future<void> duplicate(
+    ManagedNotificationCampaign c, {
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.duplicateCampaign(source: c, actor: actor, reason: reason);
     await refresh();
   }
 
-  Future<void> deleteDraft(ManagedNotificationCampaign c,
-      {String? reason}) async {
+  Future<void> deleteDraft(
+    ManagedNotificationCampaign c, {
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.deleteDraft(campaign: c, actor: actor, reason: reason);
     await refresh();
   }
 
-  Future<void> saveAnnouncement(ManagedAnnouncement a,
-      {required bool create, String? reason}) async {
+  Future<void> saveAnnouncement(
+    ManagedAnnouncement a, {
+    required bool create,
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.upsertAnnouncement(
@@ -418,8 +436,10 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
     await refresh();
   }
 
-  Future<void> deleteAnnouncement(ManagedAnnouncement a,
-      {String? reason}) async {
+  Future<void> deleteAnnouncement(
+    ManagedAnnouncement a, {
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.deleteAnnouncement(
@@ -430,8 +450,11 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
     await refresh();
   }
 
-  Future<void> saveTemplate(ManagedNotificationTemplate t,
-      {required bool create, String? reason}) async {
+  Future<void> saveTemplate(
+    ManagedNotificationTemplate t, {
+    required bool create,
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.upsertTemplate(
@@ -443,16 +466,21 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
     await refresh();
   }
 
-  Future<void> deleteTemplate(ManagedNotificationTemplate t,
-      {String? reason}) async {
+  Future<void> deleteTemplate(
+    ManagedNotificationTemplate t, {
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.deleteTemplate(template: t, actor: actor, reason: reason);
     await refresh();
   }
 
-  Future<void> saveSegment(ManagedNotificationSegment s,
-      {required bool create, String? reason}) async {
+  Future<void> saveSegment(
+    ManagedNotificationSegment s, {
+    required bool create,
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.upsertSegment(
@@ -464,8 +492,10 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
     await refresh();
   }
 
-  Future<void> deleteSegment(ManagedNotificationSegment s,
-      {String? reason}) async {
+  Future<void> deleteSegment(
+    ManagedNotificationSegment s, {
+    String? reason,
+  }) async {
     final actor = _actor;
     if (actor == null) return;
     await _repo.deleteSegment(segment: s, actor: actor, reason: reason);
@@ -473,22 +503,27 @@ class NotificationsHubController extends StateNotifier<NotificationsHubState> {
   }
 }
 
-final notificationsHubControllerProvider = StateNotifierProvider.autoDispose<
-    NotificationsHubController, NotificationsHubState>((ref) {
-  return NotificationsHubController(ref);
-});
+final notificationsHubControllerProvider =
+    StateNotifierProvider.autoDispose<
+      NotificationsHubController,
+      NotificationsHubState
+    >((ref) {
+      return NotificationsHubController(ref);
+    });
 
 final selectedNotificationCampaignProvider =
-    FutureProvider.autoDispose<ManagedNotificationCampaign?>((ref) async {
-  final id = ref.watch(notificationsHubControllerProvider).selectedId;
-  if (id == null) return null;
-  return ref.watch(notificationsRepositoryProvider).fetchCampaign(id);
-});
+    StreamProvider.autoDispose<ManagedNotificationCampaign?>((ref) {
+      final id = ref.watch(notificationsHubControllerProvider).selectedId;
+      if (id == null) return Stream.value(null);
+      return ref.watch(notificationsRepositoryProvider).watchCampaign(id);
+    });
 
 final notificationAuditProvider =
     FutureProvider.autoDispose<List<AdminAuditLogEntry>>((ref) async {
-  final selected = await ref.watch(selectedNotificationCampaignProvider.future);
-  return ref
-      .watch(notificationsRepositoryProvider)
-      .fetchAudit(targetId: selected?.id);
-});
+      final selected = await ref.watch(
+        selectedNotificationCampaignProvider.future,
+      );
+      return ref
+          .watch(notificationsRepositoryProvider)
+          .fetchAudit(targetId: selected?.id);
+    });
