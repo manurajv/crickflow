@@ -140,6 +140,21 @@ class SeriesApprovalRepository {
         : null;
   }
 
+  /// Nested path — team admins can read their club's requests here.
+  Stream<SeriesApprovalModel?> watchApproval({
+    required String seriesId,
+    required String approvalId,
+  }) {
+    if (seriesId.isEmpty || approvalId.isEmpty) {
+      return Stream.value(null);
+    }
+    return _seriesApprovals(seriesId).doc(approvalId).snapshots().map((doc) {
+      final data = doc.data();
+      if (!doc.exists || data == null) return null;
+      return SeriesApprovalModel.fromMap(doc.id, data);
+    });
+  }
+
   /// Creates only a pending request; review fields are server-owned.
   /// Prefer callables for production writes; this path is for local/tests.
   Future<SeriesApprovalModel> createPendingApproval(

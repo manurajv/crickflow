@@ -67,6 +67,7 @@ import '../../features/series/presentation/series_add_player_screen.dart';
 import '../../features/series/presentation/series_admins_screen.dart';
 import '../../features/series/presentation/series_announcements_screen.dart';
 import '../../features/series/presentation/series_approvals_screen.dart';
+import '../../features/series/presentation/series_join_request_detail_screen.dart';
 import '../../features/series/presentation/series_audit_screen.dart';
 import '../../features/series/presentation/series_club_detail_screen.dart';
 import '../../features/series/presentation/series_create_screen.dart';
@@ -674,6 +675,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'approvals',
                 builder: (_, state) => SeriesApprovalsScreen(
                   seriesId: state.pathParameters['seriesId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'approvals/:approvalId',
+                builder: (_, state) => SeriesJoinRequestDetailScreen(
+                  seriesId: state.pathParameters['seriesId']!,
+                  approvalId: state.pathParameters['approvalId']!,
                 ),
               ),
               GoRoute(

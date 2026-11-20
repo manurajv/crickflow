@@ -1,3 +1,4 @@
+import { useRouter } from "next/navigation";
 "use client";
 
 import { AppLink as Link } from "@/components/shared/app-link";
@@ -92,27 +93,8 @@ export function SeriesApprovalsPage() {
     return "";
   }
 
-  async function onViewDocs(a: (typeof items)[number]) {
-    const registrationId = registrationIdOf(a);
-    if (!registrationId) {
-      window.alert("No registration is linked to this request.");
-      return;
-    }
-    try {
-      const result = await identity.mutateAsync(registrationId);
-      const identityMap = (result as { identity?: Record<string, unknown>; public?: Record<string, unknown> }).identity || {};
-      const pub = (result as { public?: Record<string, unknown> }).public || {};
-      const lines = [
-        ...Object.entries(pub),
-        ...Object.entries(identityMap),
-      ]
-        .filter(([, v]) => v != null && String(v).trim())
-        .map(([k, v]) => `${k}: ${v}`)
-        .join("\n");
-      window.alert(lines || "No private details on file.");
-    } catch {
-      window.alert("Could not load registration details.");
-    }
+  function onViewDocs(a: (typeof items)[number]) {
+    window.location.assign(`/series/${seriesId}/approvals/${a.id}`);
   }
 
   if (!seriesId) return <p>Loading…</p>;

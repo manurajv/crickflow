@@ -15,13 +15,9 @@ describe("notification inbox actions", () => {
     expect(notificationActionStatusLabel("expired")).toBe("Expired");
   });
 
-  it("only shows reviewer actions on pending org approvals", () => {
+  it("sends join-request reviews to the detail screen instead of inbox buttons", () => {
     expect(isActionableNotification({ type: "series_club_admin_invite" })).toBe(true);
-    expect(isActionableNotification({ type: "series_approval_pending", reviewScope: "org" })).toBe(true);
-    expect(isActionableNotification({ type: "series_approval_pending", reviewScope: "none" })).toBe(false);
-    expect(
-      isActionableNotification({ type: "series_approval_pending", reviewScope: "org", actionStatus: "approved" }),
-    ).toBe(false);
-    expect(usesApproveRejectActions({ type: "series_approval_pending", reviewScope: "club" })).toBe(true);
+    expect(isActionableNotification({ type: "series_approval_pending", reviewScope: "org" })).toBe(false);
+    expect(usesApproveRejectActions({ type: "series_approval_pending", reviewScope: "club" })).toBe(false);
   });
 });

@@ -14,6 +14,7 @@ class SeriesApprovalModel extends Equatable {
     this.status = SeriesApprovalStatus.pending,
     this.reviewedBy,
     this.requestedAt,
+    this.submittedAt,
     this.reviewedAt,
     this.reason = '',
     this.metadata = const <String, dynamic>{},
@@ -28,6 +29,7 @@ class SeriesApprovalModel extends Equatable {
   final String requestedBy;
   final String? reviewedBy;
   final DateTime? requestedAt;
+  final DateTime? submittedAt;
   final DateTime? reviewedAt;
   final String reason;
   final Map<String, dynamic> metadata;
@@ -45,6 +47,7 @@ class SeriesApprovalModel extends Equatable {
       requestedBy: map['requestedBy'] as String? ?? '',
       reviewedBy: map['reviewedBy'] as String?,
       requestedAt: DateTime.tryParse(map['requestedAt']?.toString() ?? ''),
+      submittedAt: DateTime.tryParse(map['submittedAt']?.toString() ?? ''),
       reviewedAt: DateTime.tryParse(map['reviewedAt']?.toString() ?? ''),
       reason: map['reason'] as String? ?? '',
       metadata: Map<String, dynamic>.from(
@@ -54,18 +57,19 @@ class SeriesApprovalModel extends Equatable {
   }
 
   Map<String, dynamic> toMap() => {
-        'seriesId': seriesId,
-        if (clubId != null) 'clubId': clubId,
-        'targetType': targetType.name,
-        'targetId': targetId,
-        'status': status.name,
-        'requestedBy': requestedBy,
-        if (reviewedBy != null) 'reviewedBy': reviewedBy,
-        if (requestedAt != null) 'requestedAt': requestedAt!.toIso8601String(),
-        if (reviewedAt != null) 'reviewedAt': reviewedAt!.toIso8601String(),
-        'reason': reason,
-        'metadata': metadata,
-      };
+    'seriesId': seriesId,
+    if (clubId != null) 'clubId': clubId,
+    'targetType': targetType.name,
+    'targetId': targetId,
+    'status': status.name,
+    'requestedBy': requestedBy,
+    if (reviewedBy != null) 'reviewedBy': reviewedBy,
+    if (requestedAt != null) 'requestedAt': requestedAt!.toIso8601String(),
+    if (submittedAt != null) 'submittedAt': submittedAt!.toIso8601String(),
+    if (reviewedAt != null) 'reviewedAt': reviewedAt!.toIso8601String(),
+    'reason': reason,
+    'metadata': metadata,
+  };
 
   @override
   List<Object?> get props => [id, seriesId, targetType, targetId, status];

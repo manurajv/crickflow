@@ -158,3 +158,41 @@ FilterChip orgFilterChip(
     ),
   );
 }
+
+/// Asks for a rejection reason (required). Returns null when cancelled.
+Future<String?> askRejectionReason(BuildContext context) {
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('Reject request'),
+        content: TextField(
+          key: const Key('reject_reason_field'),
+          controller: controller,
+          autofocus: true,
+          maxLength: 300,
+          maxLines: 3,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Reason',
+            hintText: 'Shared with the requester',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('reject_reason_confirm'),
+            onPressed: controller.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    ),
+  ).whenComplete(controller.dispose);
+}

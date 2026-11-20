@@ -26,9 +26,16 @@ void main() {
           reviewScope: reviewScope,
           actionStatus: actionStatus,
         );
-    expect(n(reviewScope: 'org').isActionable, isTrue);
-    expect(n(reviewScope: 'club').usesApproveRejectActions, isTrue);
+    expect(n(reviewScope: 'org').isActionable, isFalse);
+    expect(n(reviewScope: 'club').usesApproveRejectActions, isFalse);
     expect(n(reviewScope: 'none').isActionable, isFalse);
-    expect(n(reviewScope: 'org', actionStatus: 'approved').isActionable, isFalse);
+    expect(
+      n(reviewScope: 'org', actionStatus: 'approved').isActionable,
+      isFalse,
+    );
+    expect(
+      NotificationNavigation.routeForNotification(n(reviewScope: 'club')),
+      '/series/s1/approvals/a1',
+    );
   });
 }

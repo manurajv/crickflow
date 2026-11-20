@@ -2733,6 +2733,10 @@ service cloud.firestore {
     match /series_approvals/{id} {
       allow read: if isSignedIn() && resource.data.requestedBy == request.auth.uid;
       allow read: if isSignedIn() && canViewSeriesStaff(resource.data.seriesId);
+      allow read: if isSignedIn() && isSeriesClubAdmin(
+        resource.data.seriesId,
+        resource.data.get('clubId', '')
+      );
       allow read: if hasAdminPermission('canManageOrganizations');
       allow create: if isSignedIn()
         && request.resource.data.requestedBy == request.auth.uid

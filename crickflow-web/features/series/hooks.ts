@@ -91,8 +91,11 @@ export function useReviewClubJoinRequest(seriesId: string) {
 
 export function useSeriesRegistrationIdentity(seriesId: string) {
   return useMutation({
-    mutationFn: (registrationId: string) =>
-      getSeriesRegistrationIdentity(seriesId, registrationId),
+    mutationFn: (input: { registrationId?: string; approvalId?: string } | string) =>
+      getSeriesRegistrationIdentity(
+        seriesId,
+        typeof input === "string" ? { registrationId: input } : input,
+      ),
   });
 }
 
@@ -140,7 +143,7 @@ export function useJoinClub(seriesId: string) {
       passportDocUrl?: string;
       customFields?: Record<string, string>;
     }) => {
-      const reg = await submitSeriesRegistration({
+      await submitPlayerJoinRequest({
         seriesId,
         clubId: input.clubId,
         fullName: input.fullName,
@@ -154,12 +157,6 @@ export function useJoinClub(seriesId: string) {
         nationalIdDocUrl: input.nationalIdDocUrl,
         passportDocUrl: input.passportDocUrl,
         customFields: input.customFields,
-      });
-      await submitPlayerJoinRequest({
-        seriesId,
-        clubId: input.clubId,
-        registrationId: reg.registrationId,
-        displayName: input.fullName,
       });
     },
     onSuccess: () => client.invalidateQueries({ queryKey: ["series", seriesId] }),

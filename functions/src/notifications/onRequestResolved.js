@@ -117,6 +117,7 @@ exports.onSeriesApprovalResolved = onDocumentUpdated(
     }
 
     if (before.status === 'pending' && after.status !== 'pending') {
+      if (after.status === 'merged' || after.status === 'superseded') return;
       const status = actionStatusFromRequestStatus(after.status);
       if (!status) return;
       await resolveActionableNotifications(db, {

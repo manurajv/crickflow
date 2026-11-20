@@ -515,12 +515,7 @@ export async function submitSeriesRegistration(input: Record<string, unknown>) {
   return (result.data ?? {}) as { registrationId?: string };
 }
 
-export async function submitPlayerJoinRequest(input: {
-  seriesId: string;
-  clubId: string;
-  registrationId?: string;
-  displayName?: string;
-}) {
+export async function submitPlayerJoinRequest(input: Record<string, unknown>) {
   const callable = httpsCallable(getFirebaseFunctions(), "submitPlayerJoinRequest");
   await callable(input);
 }
@@ -545,14 +540,19 @@ export async function createSeries(input: {
 
 export async function getSeriesRegistrationIdentity(
   seriesId: string,
-  registrationId: string,
+  input: { registrationId?: string; approvalId?: string },
 ) {
   const callable = httpsCallable(getFirebaseFunctions(), "getSeriesRegistrationIdentity");
-  const result = await callable({ seriesId, registrationId });
+  const result = await callable({
+    seriesId,
+    registrationId: input.registrationId,
+    approvalId: input.approvalId,
+  });
   return (result.data ?? {}) as {
-    registrationId?: string;
     public?: Record<string, unknown> | null;
     identity?: Record<string, unknown> | null;
+    media?: Record<string, unknown> | null;
+    request?: Record<string, unknown> | null;
   };
 }
 

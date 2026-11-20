@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_dimens.dart';
@@ -86,76 +87,6 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
       );
     } finally {
       if (mounted) setState(() => _busyIds.remove(approval.id));
-    }
-  }
-
-  Future<void> _viewIdentity(SeriesApprovalModel approval) async {
-    final registrationId =
-        approval.metadata['registrationId']?.toString() ??
-        (approval.targetType == SeriesApprovalTargetType.playerRegistration
-            ? approval.targetId
-            : null);
-    if (registrationId == null || registrationId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No registration linked to this request')),
-      );
-      return;
-    }
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-    try {
-      final result = await ref
-          .read(seriesFunctionsServiceProvider)
-          .getSeriesRegistrationIdentity(
-            seriesId: widget.seriesId,
-            registrationId: registrationId,
-          );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      final identity = result['identity'];
-      final map = identity is Map
-          ? Map<String, dynamic>.from(identity)
-          : <String, dynamic>{};
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Registration details'),
-          content: map.isEmpty
-              ? const Text('No private details on file.')
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final e in map.entries)
-                        if ((e.value?.toString().trim() ?? '').isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              '${seriesIdentityFieldLabel(e.key)}: ${e.value}',
-                            ),
-                          ),
-                    ],
-                  ),
-                ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
-    } catch (_) {
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not load registration details')),
-        );
-      }
     }
   }
 
@@ -307,7 +238,9 @@ class _SeriesApprovalsScreenState extends ConsumerState<SeriesApprovalsScreen> {
                                     item,
                                     SeriesApprovalStatus.rejected,
                                   ),
-                                  onViewDetails: () => _viewIdentity(item),
+                                  onViewDetails: () => context.push(
+                                    '/series/${widget.seriesId}/approvals/${item.id}',
+                                  ),
                                 );
                               },
                             ),
@@ -559,42 +492,4 @@ class _ApprovalSubjectTitle extends ConsumerWidget {
     }
     return Text(fallback, style: style);
   }
-}
-
-/// Asks for a rejection reason (required). Returns null when cancelled.
-Future<String?> askRejectionReason(BuildContext context) {
-  final controller = TextEditingController();
-  return showDialog<String>(
-    context: context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => AlertDialog(
-        title: const Text('Reject request'),
-        content: TextField(
-          key: const Key('reject_reason_field'),
-          controller: controller,
-          autofocus: true,
-          maxLength: 300,
-          maxLines: 3,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            labelText: 'Reason',
-            hintText: 'Shared with the requester',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('reject_reason_confirm'),
-            onPressed: controller.text.trim().isEmpty
-                ? null
-                : () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
-    ),
-  );
 }

@@ -13,15 +13,15 @@ enum SeriesKind {
 
   /// UI label (Title Case). Stored value remains [name] (lowercase).
   String get label => switch (this) {
-        SeriesKind.series => 'Series',
-        SeriesKind.league => 'League',
-        SeriesKind.association => 'Association',
-        SeriesKind.federation => 'Federation',
-        SeriesKind.club => 'Club',
-        SeriesKind.company => 'Company',
-        SeriesKind.cup => 'Cup',
-        SeriesKind.other => 'Other',
-      };
+    SeriesKind.series => 'Series',
+    SeriesKind.league => 'League',
+    SeriesKind.association => 'Association',
+    SeriesKind.federation => 'Federation',
+    SeriesKind.club => 'Club',
+    SeriesKind.company => 'Company',
+    SeriesKind.cup => 'Cup',
+    SeriesKind.other => 'Other',
+  };
 
   static SeriesKind parse(String? raw) {
     if (raw == null || raw.isEmpty) return SeriesKind.series;
@@ -39,39 +39,36 @@ enum OrgFamily {
   series;
 
   String get title => switch (this) {
-        OrgFamily.associations => 'Associations',
-        OrgFamily.clubs => 'Clubs',
-        OrgFamily.series => 'Series',
-      };
+    OrgFamily.associations => 'Associations',
+    OrgFamily.clubs => 'Clubs',
+    OrgFamily.series => 'Series',
+  };
 
   String get singular => switch (this) {
-        OrgFamily.associations => 'Association',
-        OrgFamily.clubs => 'Club',
-        OrgFamily.series => 'Series',
-      };
+    OrgFamily.associations => 'Association',
+    OrgFamily.clubs => 'Club',
+    OrgFamily.series => 'Series',
+  };
 
   String get routePath => switch (this) {
-        OrgFamily.associations => '/associations',
-        OrgFamily.clubs => '/clubs',
-        OrgFamily.series => '/series',
-      };
+    OrgFamily.associations => '/associations',
+    OrgFamily.clubs => '/clubs',
+    OrgFamily.series => '/series',
+  };
 
   List<SeriesKind> get kinds => switch (this) {
-        OrgFamily.associations => const [
-          SeriesKind.association,
-          SeriesKind.federation,
-        ],
-        OrgFamily.clubs => const [
-          SeriesKind.club,
-          SeriesKind.company,
-        ],
-        OrgFamily.series => const [
-          SeriesKind.series,
-          SeriesKind.league,
-          SeriesKind.cup,
-          SeriesKind.other,
-        ],
-      };
+    OrgFamily.associations => const [
+      SeriesKind.association,
+      SeriesKind.federation,
+    ],
+    OrgFamily.clubs => const [SeriesKind.club, SeriesKind.company],
+    OrgFamily.series => const [
+      SeriesKind.series,
+      SeriesKind.league,
+      SeriesKind.cup,
+      SeriesKind.other,
+    ],
+  };
 
   SeriesKind get defaultKind => kinds.first;
 
@@ -115,11 +112,11 @@ enum SeriesClubStatus {
 
   /// User-facing label (not the backend enum name).
   String get label => switch (this) {
-        SeriesClubStatus.pending => 'Pending approval',
-        SeriesClubStatus.approved => 'Approved',
-        SeriesClubStatus.rejected => 'Rejected',
-        SeriesClubStatus.suspended => 'Suspended',
-      };
+    SeriesClubStatus.pending => 'Pending approval',
+    SeriesClubStatus.approved => 'Approved',
+    SeriesClubStatus.rejected => 'Rejected',
+    SeriesClubStatus.suspended => 'Suspended',
+  };
 
   static SeriesClubStatus parse(String? raw) {
     if (raw == null || raw.isEmpty) return SeriesClubStatus.pending;
@@ -134,14 +131,16 @@ enum SeriesApprovalStatus {
   pending,
   approved,
   rejected,
-  cancelled;
+  cancelled,
+  merged;
 
   String get label => switch (this) {
-        SeriesApprovalStatus.pending => 'Pending',
-        SeriesApprovalStatus.approved => 'Approved',
-        SeriesApprovalStatus.rejected => 'Rejected',
-        SeriesApprovalStatus.cancelled => 'Cancelled',
-      };
+    SeriesApprovalStatus.pending => 'Pending',
+    SeriesApprovalStatus.approved => 'Approved',
+    SeriesApprovalStatus.rejected => 'Rejected',
+    SeriesApprovalStatus.cancelled => 'Cancelled',
+    SeriesApprovalStatus.merged => 'Updated',
+  };
 
   static SeriesApprovalStatus parse(String? raw) {
     if (raw == null || raw.isEmpty) return SeriesApprovalStatus.pending;
@@ -164,16 +163,16 @@ enum SeriesApprovalTargetType {
   other;
 
   String get label => switch (this) {
-        SeriesApprovalTargetType.clubRegistration => 'Team registration',
-        SeriesApprovalTargetType.playerRegistration => 'Player registration',
-        SeriesApprovalTargetType.playerJoin => 'Join request',
-        SeriesApprovalTargetType.playerAdd => 'Add player',
-        SeriesApprovalTargetType.playerRemoval => 'Remove player',
-        SeriesApprovalTargetType.match => 'Match proposal',
-        SeriesApprovalTargetType.tournament => 'Tournament proposal',
-        SeriesApprovalTargetType.squadChange => 'Squad change',
-        SeriesApprovalTargetType.other => 'Request',
-      };
+    SeriesApprovalTargetType.clubRegistration => 'Team registration',
+    SeriesApprovalTargetType.playerRegistration => 'Player registration',
+    SeriesApprovalTargetType.playerJoin => 'Join request',
+    SeriesApprovalTargetType.playerAdd => 'Add player',
+    SeriesApprovalTargetType.playerRemoval => 'Remove player',
+    SeriesApprovalTargetType.match => 'Match proposal',
+    SeriesApprovalTargetType.tournament => 'Tournament proposal',
+    SeriesApprovalTargetType.squadChange => 'Squad change',
+    SeriesApprovalTargetType.other => 'Request',
+  };
 
   static SeriesApprovalTargetType parse(String? raw) {
     if (raw == null || raw.isEmpty) return SeriesApprovalTargetType.other;
@@ -189,9 +188,9 @@ enum SeriesCompetitionType {
   tournament;
 
   String get label => switch (this) {
-        SeriesCompetitionType.singleMatch => 'Match',
-        SeriesCompetitionType.tournament => 'Tournament',
-      };
+    SeriesCompetitionType.singleMatch => 'Match',
+    SeriesCompetitionType.tournament => 'Tournament',
+  };
 
   static SeriesCompetitionType parse(String? raw) {
     if (raw == null || raw.isEmpty) return SeriesCompetitionType.singleMatch;
@@ -209,11 +208,11 @@ enum SeriesMembershipStatus {
   suspended;
 
   String get label => switch (this) {
-        SeriesMembershipStatus.active => 'Active',
-        SeriesMembershipStatus.pendingRemoval => 'Removal pending',
-        SeriesMembershipStatus.removed => 'Removed',
-        SeriesMembershipStatus.suspended => 'Suspended',
-      };
+    SeriesMembershipStatus.active => 'Active',
+    SeriesMembershipStatus.pendingRemoval => 'Removal pending',
+    SeriesMembershipStatus.removed => 'Removed',
+    SeriesMembershipStatus.suspended => 'Suspended',
+  };
 
   static SeriesMembershipStatus parse(String? raw) {
     if (raw == null || raw.isEmpty) return SeriesMembershipStatus.active;
@@ -231,18 +230,18 @@ enum SeriesAdminTier {
   viewer;
 
   String get label => switch (this) {
-        SeriesAdminTier.admin => 'Admin',
-        SeriesAdminTier.scorer => 'Scorer',
-        SeriesAdminTier.viewer => 'Viewer',
-      };
+    SeriesAdminTier.admin => 'Admin',
+    SeriesAdminTier.scorer => 'Scorer',
+    SeriesAdminTier.viewer => 'Viewer',
+  };
 
   String get description => switch (this) {
-        SeriesAdminTier.admin =>
-          'Manage settings, approvals, teams, and announcements',
-        SeriesAdminTier.scorer =>
-          'Start and score official matches and tournaments',
-        SeriesAdminTier.viewer => 'View staff tools without making changes',
-      };
+    SeriesAdminTier.admin =>
+      'Manage settings, approvals, teams, and announcements',
+    SeriesAdminTier.scorer =>
+      'Start and score official matches and tournaments',
+    SeriesAdminTier.viewer => 'View staff tools without making changes',
+  };
 
   static SeriesAdminTier parse(String? raw) {
     final c = (raw ?? '').trim();
@@ -262,14 +261,14 @@ enum SeriesRole {
   viewer;
 
   String get label => switch (this) {
-        SeriesRole.superAdmin => 'Owner',
-        SeriesRole.seriesAdmin => 'Admin',
-        SeriesRole.scorer => 'Scorer',
-        SeriesRole.staffViewer => 'Viewer (staff)',
-        SeriesRole.clubAdmin => 'Team admin',
-        SeriesRole.seriesPlayer => 'Player',
-        SeriesRole.viewer => 'Viewer',
-      };
+    SeriesRole.superAdmin => 'Owner',
+    SeriesRole.seriesAdmin => 'Admin',
+    SeriesRole.scorer => 'Scorer',
+    SeriesRole.staffViewer => 'Viewer (staff)',
+    SeriesRole.clubAdmin => 'Team admin',
+    SeriesRole.seriesPlayer => 'Player',
+    SeriesRole.viewer => 'Viewer',
+  };
 
   bool get isFullOrgAdmin =>
       this == SeriesRole.superAdmin || this == SeriesRole.seriesAdmin;
@@ -301,13 +300,13 @@ enum SeriesOfficialStatus {
   cancelled;
 
   String get label => switch (this) {
-        SeriesOfficialStatus.none => 'Not linked',
-        SeriesOfficialStatus.draft => 'Draft',
-        SeriesOfficialStatus.pendingApproval => 'Pending approval',
-        SeriesOfficialStatus.approved => 'Approved',
-        SeriesOfficialStatus.rejected => 'Rejected',
-        SeriesOfficialStatus.cancelled => 'Cancelled',
-      };
+    SeriesOfficialStatus.none => 'Not linked',
+    SeriesOfficialStatus.draft => 'Draft',
+    SeriesOfficialStatus.pendingApproval => 'Pending approval',
+    SeriesOfficialStatus.approved => 'Approved',
+    SeriesOfficialStatus.rejected => 'Rejected',
+    SeriesOfficialStatus.cancelled => 'Cancelled',
+  };
 
   static SeriesOfficialStatus parse(String? raw) {
     if (raw == null || raw.isEmpty) return SeriesOfficialStatus.none;

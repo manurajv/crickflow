@@ -38,8 +38,21 @@ export function notificationHref(item: {
   chatId?: string;
   tab?: string;
   type?: string;
+  seriesId?: string;
+  clubId?: string;
 }): string | null {
   const type = item.type ?? "";
+  if (
+    type === "series_approval_pending" ||
+    type === "series_approval_approved" ||
+    type === "series_approval_rejected" ||
+    type === "series_club_join_request"
+  ) {
+    if (item.seriesId && item.requestId) {
+      return `/series/${item.seriesId}/approvals/${item.requestId}`;
+    }
+    if (item.seriesId) return `/series/${item.seriesId}/approvals`;
+  }
   if (type === "community_like" || type === "community_comment" || type === "community_mention") {
     return item.requestId ? `/community/${item.requestId}` : "/community";
   }

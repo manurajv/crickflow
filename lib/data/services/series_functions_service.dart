@@ -5,11 +5,12 @@ import 'package:firebase_core/firebase_core.dart';
 /// Typed gateway for privileged Series operations enforced by Cloud Functions.
 class SeriesFunctionsService {
   SeriesFunctionsService({FirebaseFunctions? functions})
-      : _functions = functions ??
-            FirebaseFunctions.instanceFor(
-              app: Firebase.app(),
-              region: 'us-central1',
-            );
+    : _functions =
+          functions ??
+          FirebaseFunctions.instanceFor(
+            app: Firebase.app(),
+            region: 'us-central1',
+          );
 
   final FirebaseFunctions _functions;
 
@@ -22,31 +23,28 @@ class SeriesFunctionsService {
     String displayName = '',
     List<String> permissions = const [],
     String role = 'admin',
-  }) =>
-      _call('addSeriesAdmin', {
-        'seriesId': seriesId,
-        'userId': userId,
-        'displayName': displayName,
-        'permissions': permissions,
-        'role': role,
-      });
+  }) => _call('addSeriesAdmin', {
+    'seriesId': seriesId,
+    'userId': userId,
+    'displayName': displayName,
+    'permissions': permissions,
+    'role': role,
+  });
 
   Future<Map<String, dynamic>> updateSeriesAdminRole({
     required String seriesId,
     required String userId,
     required String role,
-  }) =>
-      _call('updateSeriesAdminRole', {
-        'seriesId': seriesId,
-        'userId': userId,
-        'role': role,
-      });
+  }) => _call('updateSeriesAdminRole', {
+    'seriesId': seriesId,
+    'userId': userId,
+    'role': role,
+  });
 
   Future<Map<String, dynamic>> removeSeriesAdmin({
     required String seriesId,
     required String userId,
-  }) =>
-      _call('removeSeriesAdmin', {'seriesId': seriesId, 'userId': userId});
+  }) => _call('removeSeriesAdmin', {'seriesId': seriesId, 'userId': userId});
 
   Future<Map<String, dynamic>> createSeriesClub(Map<String, dynamic> data) =>
       _call('createSeriesClub', data);
@@ -56,33 +54,28 @@ class SeriesFunctionsService {
     required String approvalId,
     required String decision,
     String reason = '',
-  }) =>
-      _call('reviewSeriesApproval', {
-        'seriesId': seriesId,
-        'approvalId': approvalId,
-        'decision': decision,
-        'reason': reason,
-      });
+  }) => _call('reviewSeriesApproval', {
+    'seriesId': seriesId,
+    'approvalId': approvalId,
+    'decision': decision,
+    'reason': reason,
+  });
 
   Future<Map<String, dynamic>> submitSeriesRegistration(
     Map<String, dynamic> data,
-  ) =>
-      _call('submitSeriesRegistration', data);
+  ) => _call('submitSeriesRegistration', data);
 
   Future<Map<String, dynamic>> submitPlayerJoinRequest(
     Map<String, dynamic> data,
-  ) =>
-      _call('submitPlayerJoinRequest', data);
+  ) => _call('submitPlayerJoinRequest', data);
 
   Future<Map<String, dynamic>> submitPlayerAddRequest(
     Map<String, dynamic> data,
-  ) =>
-      _call('submitPlayerAddRequest', data);
+  ) => _call('submitPlayerAddRequest', data);
 
   Future<Map<String, dynamic>> submitPlayerRemovalRequest(
     Map<String, dynamic> data,
-  ) =>
-      _call('submitPlayerRemovalRequest', data);
+  ) => _call('submitPlayerRemovalRequest', data);
 
   /// Link a tournament created in the org wizard (`mode: create`) or an
   /// existing tournament the caller organizes (`mode: link`, admins only).
@@ -92,30 +85,27 @@ class SeriesFunctionsService {
     List<String> teamClubIds = const [],
     String title = '',
     bool linkExisting = false,
-  }) =>
-      _call('startSeriesTournament', {
-        'seriesId': seriesId,
-        'tournamentId': tournamentId,
-        'teamClubIds': teamClubIds,
-        'title': title,
-        'mode': linkExisting ? 'link' : 'create',
-      });
+  }) => _call('startSeriesTournament', {
+    'seriesId': seriesId,
+    'tournamentId': tournamentId,
+    'teamClubIds': teamClubIds,
+    'title': title,
+    'mode': linkExisting ? 'link' : 'create',
+  });
 
   /// Register a match started from inside the org.
   Future<Map<String, dynamic>> startSeriesMatch({
     required String seriesId,
     required String matchId,
-  }) =>
-      _call('startSeriesMatch', {'seriesId': seriesId, 'matchId': matchId});
+  }) => _call('startSeriesMatch', {'seriesId': seriesId, 'matchId': matchId});
 
   Future<Map<String, dynamic>> updateSeriesCompetitionPolicy({
     required String seriesId,
     required Map<String, dynamic> policy,
-  }) =>
-      _call('updateSeriesCompetitionPolicy', {
-        'seriesId': seriesId,
-        'policy': policy,
-      });
+  }) => _call('updateSeriesCompetitionPolicy', {
+    'seriesId': seriesId,
+    'policy': policy,
+  });
 
   /// Org admins: back every org team with a locked CrickFlow team (idempotent).
   Future<Map<String, dynamic>> migrateSeriesTeamLinks(String seriesId) =>
@@ -126,126 +116,115 @@ class SeriesFunctionsService {
 
   Future<Map<String, dynamic>> proposeSeriesTournament(
     Map<String, dynamic> data,
-  ) =>
-      _call('proposeSeriesTournament', data);
+  ) => _call('proposeSeriesTournament', data);
 
   Future<Map<String, dynamic>> updateSeriesSettings({
     required String seriesId,
     required Map<String, dynamic> settings,
-  }) =>
-      _call('updateSeriesSettings', {
-        'seriesId': seriesId,
-        'settings': settings,
-      });
+  }) => _call('updateSeriesSettings', {
+    'seriesId': seriesId,
+    'settings': settings,
+  });
 
   Future<Map<String, dynamic>> suspendSeriesEntity({
     required String seriesId,
     required String entityType,
     required String entityId,
     String reason = '',
-  }) =>
-      _call('suspendSeriesEntity', {
-        'seriesId': seriesId,
-        'entityType': entityType,
-        'entityId': entityId,
-        'reason': reason,
-      });
+  }) => _call('suspendSeriesEntity', {
+    'seriesId': seriesId,
+    'entityType': entityType,
+    'entityId': entityId,
+    'reason': reason,
+  });
 
   Future<Map<String, dynamic>> getSeriesRegistrationIdentity({
     required String seriesId,
-    required String registrationId,
-  }) =>
-      _call('getSeriesRegistrationIdentity', {
-        'seriesId': seriesId,
-        'registrationId': registrationId,
-      });
+    String? registrationId,
+    String? approvalId,
+  }) => _call('getSeriesRegistrationIdentity', {
+    'seriesId': seriesId,
+    if (registrationId != null && registrationId.trim().isNotEmpty)
+      'registrationId': registrationId.trim(),
+    if (approvalId != null && approvalId.trim().isNotEmpty)
+      'approvalId': approvalId.trim(),
+  });
 
   Future<Map<String, dynamic>> reviewClubJoinRequest({
     required String seriesId,
     required String approvalId,
     required String decision,
     String reason = '',
-  }) =>
-      _call('reviewClubJoinRequest', {
-        'seriesId': seriesId,
-        'approvalId': approvalId,
-        'decision': decision,
-        'reason': reason,
-      });
+  }) => _call('reviewClubJoinRequest', {
+    'seriesId': seriesId,
+    'approvalId': approvalId,
+    'decision': decision,
+    'reason': reason,
+  });
 
   Future<Map<String, dynamic>> addSeriesClubAdmin({
     required String seriesId,
     required String clubId,
     required String userId,
     String displayName = '',
-  }) =>
-      _call('addSeriesClubAdmin', {
-        'seriesId': seriesId,
-        'clubId': clubId,
-        'userId': userId,
-        'displayName': displayName,
-      });
+  }) => _call('addSeriesClubAdmin', {
+    'seriesId': seriesId,
+    'clubId': clubId,
+    'userId': userId,
+    'displayName': displayName,
+  });
 
   Future<Map<String, dynamic>> respondSeriesClubAdminInvite({
     required String seriesId,
     required String clubId,
     required String decision,
-  }) =>
-      _call('respondSeriesClubAdminInvite', {
-        'seriesId': seriesId,
-        'clubId': clubId,
-        'decision': decision,
-      });
+  }) => _call('respondSeriesClubAdminInvite', {
+    'seriesId': seriesId,
+    'clubId': clubId,
+    'decision': decision,
+  });
 
   Future<Map<String, dynamic>> cancelSeriesClubAdminInvite({
     required String seriesId,
     required String clubId,
     required String userId,
-  }) =>
-      _call('cancelSeriesClubAdminInvite', {
-        'seriesId': seriesId,
-        'clubId': clubId,
-        'userId': userId,
-      });
+  }) => _call('cancelSeriesClubAdminInvite', {
+    'seriesId': seriesId,
+    'clubId': clubId,
+    'userId': userId,
+  });
 
   Future<Map<String, dynamic>> removeSeriesClubAdmin({
     required String seriesId,
     required String clubId,
     required String userId,
-  }) =>
-      _call('removeSeriesClubAdmin', {
-        'seriesId': seriesId,
-        'clubId': clubId,
-        'userId': userId,
-      });
+  }) => _call('removeSeriesClubAdmin', {
+    'seriesId': seriesId,
+    'clubId': clubId,
+    'userId': userId,
+  });
 
   /// Owner-only: hand the organization to an existing active admin.
   Future<Map<String, dynamic>> transferSeriesOwnership({
     required String seriesId,
     required String newOwnerUserId,
     String reason = '',
-  }) =>
-      _call(
-        'transferSeriesOwnership',
-        {
-          'seriesId': seriesId,
-          'newOwnerUserId': newOwnerUserId,
-          'reason': reason,
-        },
-        maxAttempts: 1,
-      );
+  }) => _call('transferSeriesOwnership', {
+    'seriesId': seriesId,
+    'newOwnerUserId': newOwnerUserId,
+    'reason': reason,
+  }, maxAttempts: 1);
 
   /// Owner-only archive / reactivate (`action`: archive | reactivate).
   Future<Map<String, dynamic>> setSeriesLifecycle({
     required String seriesId,
     required String action,
     String reason = '',
-  }) =>
-      _call(
-        'setSeriesLifecycle',
-        {'seriesId': seriesId, 'action': action, 'reason': reason},
-        maxAttempts: 1,
-      );
+  }) => _call('setSeriesLifecycle', {
+    'seriesId': seriesId,
+    'action': action,
+    'reason': reason,
+  }, maxAttempts: 1);
 
   /// Series admins post an announcement (audience: all | admins | clubAdmins | members).
   Future<Map<String, dynamic>> sendSeriesAnnouncement({
@@ -253,23 +232,19 @@ class SeriesFunctionsService {
     required String title,
     required String body,
     String audience = 'all',
-  }) =>
-      _call(
-        'sendSeriesAnnouncement',
-        {
-          'seriesId': seriesId,
-          'title': title,
-          'body': body,
-          'audience': audience,
-        },
-        maxAttempts: 1,
-      );
+  }) => _call('sendSeriesAnnouncement', {
+    'seriesId': seriesId,
+    'title': title,
+    'body': body,
+    'audience': audience,
+  }, maxAttempts: 1);
 
   /// Copies legacy top-level approvals into series/{id}/approvals for list rules.
   Future<Map<String, dynamic>> syncSeriesApprovalMirrors({
     required String seriesId,
-  }) =>
-      _call('syncSeriesApprovalMirrors', {'seriesId': seriesId}, maxAttempts: 1);
+  }) => _call('syncSeriesApprovalMirrors', {
+    'seriesId': seriesId,
+  }, maxAttempts: 1);
 
   Future<Map<String, dynamic>> _call(
     String name,
@@ -292,7 +267,8 @@ class SeriesFunctionsService {
         throw StateError('$name returned an invalid response');
       } on FirebaseFunctionsException catch (e) {
         lastError = e;
-        final retryable = e.code == 'unavailable' ||
+        final retryable =
+            e.code == 'unavailable' ||
             e.code == 'deadline-exceeded' ||
             e.code == 'resource-exhausted';
         if (!retryable || attempt == maxAttempts) {

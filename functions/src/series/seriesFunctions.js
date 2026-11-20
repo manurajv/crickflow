@@ -31,6 +31,7 @@ const {
   canScoreTier,
   isActiveAdminDoc,
 } = require('./seriesAdminAccess');
+const { getStorage } = require('firebase-admin/storage');
 const {
   normalizeSeriesSettings,
   missingRegistrationFields,
@@ -38,6 +39,7 @@ const {
   applyOfficialIdentity,
   registrationFieldLabel,
 } = require('./seriesRegistration');
+const playerJoin = require('./playerJoinRequest');
 const {
   CLUB_ADMIN_STATUS,
   isOpenClubAdminInvite,
@@ -234,10 +236,23 @@ async function createApproval(firestore, data) {
     const audience = data.notifyAudience || (
       data.targetType === 'playerJoin' ? 'clubAdmins' : 'orgAdmins'
     );
-    const title = audience === 'clubAdmins'
+    const clubName = (data.metadata && data.metadata.clubName) || '';
+    const playerName = (data.metadata && data.metadata.displayName) || '';
+    const orgName = series.name || 'the organization';
+    let title = audience === 'clubAdmins'
       ? 'Team approval needed'
-      : 'Series approval needed';
-    const body = `${data.targetType || 'Request'} pending in ${series.name || 'Series'}`;
+      : 'Organization approval needed';
+    let body = `A request is waiting in ${orgName}`;
+    if (data.targetType === 'playerJoin') {
+      title = audience === 'clubAdmins'
+        ? 'Join request needs team review'
+        : 'Join request needs organization approval';
+      const who = playerName || 'A player';
+      const team = clubName || 'the team';
+      body = audience === 'clubAdmins'
+        ? `${who} requested to join ${team}`
+        : `${who} was cleared by ${team} and needs organization approval`;
+    }
     const recipients = audience === 'clubAdmins'
       ? await listActiveClubAdminUids(firestore, data.seriesId, data.clubId)
       : await listFullSeriesAdminUids(firestore, series, data.seriesId);
@@ -786,9 +801,7 @@ exports.reviewSeriesApproval = onCall(async (request) => {
   const seriesId = String(request.data?.seriesId || '');
   const approvalId = String(request.data?.approvalId || '');
   const decision = String(request.data?.decision || '').toLowerCase();
-  // New clients require a reason in the UI; older builds send none.
-  const reason = String(request.data?.reason || '').trim().slice(0, 500) ||
-    (String(request.data?.decision || '').toLowerCase() === 'rejected' ? 'No reason given' : '');
+  const reason = String(request.data?.reason || '').trim().slice(0, 500);
   if (!seriesId || !approvalId || !['approved', 'rejected'].includes(decision)) {
     throw new HttpsError('invalid-argument', 'Invalid review payload');
   }
@@ -810,6 +823,10 @@ exports.reviewSeriesApproval = onCall(async (request) => {
   if (approval.status !== 'pending') {
     throw new HttpsError('failed-precondition', 'Approval already reviewed');
   }
+  if (decision === 'rejected' && approval.targetType === 'playerJoin' && !reason) {
+    throw new HttpsError('invalid-argument', 'A reason is required to reject this request');
+  }
+  const reviewReason = reason || (decision === 'rejected' ? 'No reason given' : '');
   if (decision === 'approved' && approval.targetType === 'match') {
     const compSnap = await firestore.collection(COLLECTIONS.competitions).doc(approval.targetId).get();
     const mid = compSnap.data()?.matchId;
@@ -827,7 +844,7 @@ exports.reviewSeriesApproval = onCall(async (request) => {
     status: decision,
     reviewedBy: uid,
     reviewedAt: ts,
-    reason,
+    reason: reviewReason,
   });
 
   // Every admin's "approval needed" notification for this request is done.
@@ -927,7 +944,7 @@ exports.reviewSeriesApproval = onCall(async (request) => {
           targetUserId: userId,
           actorUid: uid,
           actorRole,
-          reason,
+          reason: reviewReason,
           previousStatus: prev.status || 'pendingRemoval',
         });
         auditAction = 'PLAYER_REMOVED';
@@ -940,7 +957,7 @@ exports.reviewSeriesApproval = onCall(async (request) => {
         ];
         await notifyMany(firestore, [userId, ...staff], {
           title: `Removed from ${clubName}`,
-          body: `${approval.metadata?.displayName || 'A player'} was removed from ${clubName}. Reason: ${reason}`,
+          body: `${approval.metadata?.displayName || 'A player'} was removed from ${clubName}. Reason: ${reviewReason}`,
           type: 'series_member_removed',
           seriesId,
           extra: { clubId, requestId: approvalId },
@@ -963,7 +980,7 @@ exports.reviewSeriesApproval = onCall(async (request) => {
         ];
         await notifyMany(firestore, [userId, ...staff], {
           title: `Removal request declined`,
-          body: `The request to remove ${approval.metadata?.displayName || 'a player'} from ${clubName} was declined. Reason: ${reason}`,
+          body: `The request to remove ${approval.metadata?.displayName || 'a player'} from ${clubName} was declined. Reason: ${reviewReason}`,
           type: 'series_approval_rejected',
           seriesId,
           extra: { clubId, requestId: approvalId },
@@ -1039,7 +1056,7 @@ exports.reviewSeriesApproval = onCall(async (request) => {
     targetId,
     previousState: { status: 'pending' },
     newState: { status: decision },
-    reason,
+    reason: reviewReason,
   });
 
   // Notify requester and (for player flows) the player of the decision.
@@ -1059,8 +1076,8 @@ exports.reviewSeriesApproval = onCall(async (request) => {
     const recipients = [approval.requestedBy, approval.metadata?.userId]
       .filter(Boolean);
     await notifyMany(firestore, recipients, {
-      title: decision === 'approved' ? 'Series request approved' : 'Series request rejected',
-      body: `${typeLabel} ${decision}${reason ? `: ${reason}` : ''}`,
+      title: decision === 'approved' ? 'Request approved' : 'Request rejected',
+      body: `${typeLabel} ${decision}${reviewReason ? `: ${reviewReason}` : ''}`,
       type: decision === 'approved'
         ? 'series_approval_approved'
         : 'series_approval_rejected',
@@ -1222,6 +1239,92 @@ exports.submitSeriesRegistration = onCall(async (request) => {
   return { registrationId: registration.id, approvalId: approval.id, status: 'pending' };
 });
 
+
+async function findPlayerJoinApprovals(firestore, seriesId, userId, clubId) {
+  const snap = await firestore.collection(COLLECTIONS.approvals)
+    .where('seriesId', '==', seriesId)
+    .where('requestedBy', '==', userId)
+    .get();
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((a) => playerJoin.isPlayerJoinFor(a, { seriesId, userId, clubId }));
+}
+
+async function loadRegistrationMedia(firestore, registrationId) {
+  if (!registrationId) return {};
+  const snap = await firestore.collection(COLLECTIONS.registrations).doc(registrationId).get();
+  if (!snap.exists) return {};
+  const pub = snap.data() || {};
+  const idSnap = await snap.ref.collection('private').doc('identity').get();
+  const priv = idSnap.exists ? idSnap.data() : {};
+  return {
+    profilePhotoUrl: pub.profilePhotoUrl || '',
+    nationalIdDocUrl: priv.nationalIdDocUrl || '',
+    passportDocUrl: priv.passportDocUrl || '',
+  };
+}
+
+async function signStorageReadUrl(url, expiresMs = 60 * 60 * 1000) {
+  const original = String(url || '').trim();
+  if (!original) return '';
+  const path = playerJoin.storagePathFromUrl(original);
+  if (!path) return original;
+  try {
+    const [signed] = await getStorage().bucket().file(path).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + expiresMs,
+      version: 'v4',
+      responseType: 'image/jpeg',
+    });
+    return signed || original;
+  } catch (err) {
+    console.warn('sign registration media failed', err && err.message);
+    return original;
+  }
+}
+
+async function signRegistrationMedia(map) {
+  const src = map && typeof map === 'object' ? map : {};
+  const keys = ['profilePhotoUrl', 'nationalIdDocUrl', 'passportDocUrl'];
+  const out = { ...src };
+  for (const key of keys) {
+    const url = String(src[key] || '').trim();
+    if (!url) continue;
+    out[key] = await signStorageReadUrl(url);
+  }
+  return out;
+}
+
+async function deleteRegistrationMediaUrls(urls) {
+  const bucket = getStorage().bucket();
+  for (const url of urls || []) {
+    const path = playerJoin.storagePathFromUrl(url);
+    if (!path || !path.includes('/registrations/')) continue;
+    try {
+      await bucket.file(path).delete({ ignoreNotFound: true });
+    } catch (err) {
+      console.warn('old registration media delete failed', path, err && err.message);
+    }
+  }
+}
+
+async function markApprovalsMerged(firestore, seriesId, duplicates, keepId, ts) {
+  for (const dup of duplicates || []) {
+    if (!dup.id || dup.id === keepId) continue;
+    if (dup.status === 'merged') continue;
+    await updateApprovalDocs(firestore, seriesId, dup.id, {
+      status: 'merged',
+      reviewedAt: ts,
+      reason: 'Combined with a newer request from the same player for this team',
+      metadata: {
+        ...(dup.metadata || {}),
+        mergedIntoApproval: keepId,
+        clubReviewStatus: dup.metadata?.clubReviewStatus || 'pending',
+      },
+    });
+  }
+}
+
 exports.submitPlayerJoinRequest = onCall(async (request) => {
   const uid = requireAuth(request);
   const seriesId = String(request.data?.seriesId || '');
@@ -1238,72 +1341,161 @@ exports.submitPlayerJoinRequest = onCall(async (request) => {
   if (clubSnap.data().status !== 'approved') {
     throw new HttpsError('failed-precondition', 'Team is not approved');
   }
-
+  const clubName = String(clubSnap.data().name || clubSnap.data().displayName || '').trim();
+  const orgName = String(series.name || '').trim();
   const settings = series.settings || {};
   const profile = await loadUserProfile(firestore, uid);
   const mediaCtx = { seriesId, subjectUserId: uid, clubId, profile };
   const official = applyOfficialIdentity(request.data || {}, profile);
-  let registrationId = String(request.data?.registrationId || '').trim() || null;
-  let displayName = official.fullName;
+  const registrationIdIn = String(request.data?.registrationId || '').trim();
 
-  const existingPending = await findPendingPlayerRequest(
-    firestore, seriesId, uid, clubId, 'playerJoin',
-  );
-  if (existingPending) {
-    throw new HttpsError(
-      'already-exists',
-      'A join request is already pending for this team',
-    );
+  let fields = { ...official, clubId };
+  if (!playerJoin.hasClientRegistrationPayload(request.data) && registrationIdIn) {
+    const loaded = await loadRegistrationFields(firestore, seriesId, registrationIdIn, uid);
+    fields = applyOfficialIdentity({ ...loaded, clubId }, profile);
+  }
+  validateRegistrationFields(settings, fields, mediaCtx);
+
+  const existing = await findPlayerJoinApprovals(firestore, seriesId, uid, clubId);
+  const plan = playerJoin.mergeDuplicateJoinPlan(existing);
+  const now = Date.now();
+  const cooldown = playerJoin.cooldownFrom(playerJoin.latestSubmitTime(plan.keep), now);
+  if (cooldown.blocked) {
+    throw new HttpsError('resource-exhausted', cooldown.message, cooldown.details);
   }
 
-  if (registrationId && !requestHasRegistrationFields(official)) {
-    const combined = applyOfficialIdentity(
-      await loadRegistrationFields(firestore, seriesId, registrationId, uid),
-      profile,
-    );
-    validateRegistrationFields(settings, combined, mediaCtx);
-    displayName = official.fullName || String(combined.fullName || '').trim();
-  } else {
-    const regInput = {
-      ...official,
-      clubId,
-      fullName: official.fullName,
-      displayName: official.fullName,
-      crickFlowPlayerId: official.crickFlowPlayerId,
-    };
-    validateRegistrationFields(settings, regInput, mediaCtx);
-    const registration = await writeRegistration(firestore, {
+  const approvalId = (plan.keep && plan.keep.id) || playerJoin.playerJoinApprovalId(clubId, uid);
+  const previousRegId = (plan.keep && plan.keep.metadata && plan.keep.metadata.registrationId)
+    || registrationIdIn
+    || '';
+  const previousMedia = await loadRegistrationMedia(firestore, previousRegId);
+  const ts = nowIso();
+
+  const result = await firestore.runTransaction(async (tx) => {
+    const rootRef = firestore.collection(COLLECTIONS.approvals).doc(approvalId);
+    const nestedRef = seriesApprovalRef(firestore, seriesId, approvalId);
+    const snap = await tx.get(rootRef);
+    const current = snap.exists ? snap.data() : null;
+    const again = playerJoin.cooldownFrom(playerJoin.latestSubmitTime(current), now);
+    if (again.blocked) {
+      throw new HttpsError('resource-exhausted', again.message, again.details);
+    }
+
+    let existingRegId = '';
+    if (current && current.metadata && current.metadata.registrationId) {
+      existingRegId = String(current.metadata.registrationId);
+    } else if (previousRegId) {
+      existingRegId = previousRegId;
+    }
+    const regRef = existingRegId
+      ? firestore.collection(COLLECTIONS.registrations).doc(existingRegId)
+      : firestore.collection(COLLECTIONS.registrations).doc();
+    let createdAt = ts;
+    if (existingRegId) {
+      const regSnap = await tx.get(regRef);
+      if (regSnap.exists) {
+        const reg = regSnap.data() || {};
+        if (reg.seriesId && reg.seriesId !== seriesId) {
+          throw new HttpsError('failed-precondition', 'Registration does not belong to this organization');
+        }
+        if (reg.userId && reg.userId !== uid && reg.createdBy && reg.createdBy !== uid) {
+          throw new HttpsError('permission-denied', 'Registration does not belong to this player');
+        }
+        createdAt = reg.createdAt || ts;
+      }
+    }
+    const { publicDoc, privateDoc } = registrationPayloadFromRequest(fields, {
       seriesId,
       userId: uid,
       createdBy: uid,
-      data: regInput,
+      ts,
       status: 'pending',
     });
-    registrationId = registration.id;
-    displayName = official.fullName || registration.fullName;
+    tx.set(regRef, { ...publicDoc, createdAt, updatedAt: ts }, { merge: true });
+    if (privateDoc) {
+      tx.set(regRef.collection('private').doc('identity'), privateDoc, { merge: true });
+    }
+
+    const payload = {
+      seriesId,
+      clubId,
+      targetType: 'playerJoin',
+      targetId: `${clubId}_${uid}`,
+      requestedBy: uid,
+      status: 'pending',
+      requestedAt: (current && current.requestedAt) || ts,
+      submittedAt: ts,
+      reason: '',
+      reviewedBy: null,
+      reviewedAt: null,
+      metadata: {
+        userId: uid,
+        displayName: official.fullName || String(fields.fullName || '').trim(),
+        registrationId: regRef.id,
+        playerDocId: request.data?.playerDocId || uid,
+        clubReviewStatus: 'pending',
+        clubName,
+        seriesName: orgName,
+        resubmitted: Boolean(current),
+      },
+    };
+    tx.set(rootRef, payload);
+    tx.set(nestedRef, payload);
+    return {
+      approvalId,
+      registrationId: regRef.id,
+      status: 'pending',
+      clubReviewStatus: 'pending',
+      renewed: Boolean(current),
+      submittedAt: ts,
+    };
+  });
+
+  if (plan.duplicates.length) {
+    try {
+      await markApprovalsMerged(firestore, seriesId, plan.duplicates, approvalId, ts);
+    } catch (err) {
+      console.warn('merge duplicate join requests failed', err && err.message);
+    }
   }
 
-  const approval = await createApproval(firestore, {
-    seriesId,
-    clubId,
-    targetType: 'playerJoin',
-    targetId: `${clubId}_${uid}`,
-    requestedBy: uid,
-    metadata: {
-      userId: uid,
-      displayName,
-      registrationId,
-      playerDocId: request.data?.playerDocId || uid,
-      clubReviewStatus: 'pending',
-      resubmitted: request.data?.resubmitted === true,
-    },
+  const unused = playerJoin.unusedMediaUrls(previousMedia, {
+    profilePhotoUrl: fields.profilePhotoUrl,
+    nationalIdDocUrl: fields.nationalIdDocUrl,
+    passportDocUrl: fields.passportDocUrl,
   });
-  return {
-    approvalId: approval.id,
-    registrationId,
-    status: 'pending',
-    clubReviewStatus: 'pending',
-  };
+  if (unused.length) {
+    try { await deleteRegistrationMediaUrls(unused); } catch (err) {
+      console.warn('cleanup old join documents failed', err && err.message);
+    }
+  }
+
+  try {
+    const displayName = official.fullName || 'A player';
+    await notifyMany(
+      firestore,
+      await listActiveClubAdminUids(firestore, seriesId, clubId),
+      {
+        title: result.renewed ? 'Join request updated' : 'Join request needs team review',
+        body: result.renewed
+          ? `${displayName} updated their request to join ${clubName || 'the team'}`
+          : `${displayName} requested to join ${clubName || 'the team'}`,
+        type: 'series_approval_pending',
+        seriesId,
+        extra: {
+          priority: true,
+          requestId: result.approvalId,
+          clubId,
+          reviewScope: 'club',
+        },
+        from: uid,
+      },
+    );
+  } catch (err) {
+    console.error('player join notify failed', err);
+  }
+
+  return result;
 });
 
 function requestHasRegistrationFields(data) {
@@ -1356,7 +1548,7 @@ exports.reviewClubJoinRequest = onCall(async (request) => {
   const seriesId = String(request.data?.seriesId || '');
   const approvalId = String(request.data?.approvalId || '');
   const decision = String(request.data?.decision || '').toLowerCase();
-  const reason = String(request.data?.reason || '');
+  const reason = String(request.data?.reason || '').trim().slice(0, 500);
   if (!seriesId || !approvalId || !['approved', 'rejected'].includes(decision)) {
     throw new HttpsError('invalid-argument', 'Invalid club review payload');
   }
@@ -1370,6 +1562,9 @@ exports.reviewClubJoinRequest = onCall(async (request) => {
   }
   if (approval.status !== 'pending') {
     throw new HttpsError('failed-precondition', 'Already finalized');
+  }
+  if (decision === 'rejected' && !reason) {
+    throw new HttpsError('invalid-argument', 'A reason is required to reject this request');
   }
   const clubId = approval.clubId;
   if (!clubId || !(await isClubAdmin(firestore, seriesId, clubId, uid))) {
@@ -2400,12 +2595,30 @@ exports.sendSeriesAnnouncement = onCall(async (request) => {
 exports.getSeriesRegistrationIdentity = onCall(async (request) => {
   const uid = requireAuth(request);
   const seriesId = String(request.data?.seriesId || '');
-  const registrationId = String(request.data?.registrationId || '');
-  if (!seriesId || !registrationId) {
-    throw new HttpsError('invalid-argument', 'seriesId and registrationId required');
+  let registrationId = String(request.data?.registrationId || '').trim();
+  const approvalId = String(request.data?.approvalId || '').trim();
+  if (!seriesId || (!registrationId && !approvalId)) {
+    throw new HttpsError('invalid-argument', 'seriesId and registrationId or approvalId required');
   }
   const firestore = db();
   const series = await getSeriesOrThrow(firestore, seriesId);
+  let approval = null;
+  if (approvalId) {
+    const approvalSnap = await firestore.collection(COLLECTIONS.approvals).doc(approvalId).get();
+    if (!approvalSnap.exists || approvalSnap.data().seriesId !== seriesId) {
+      throw new HttpsError('not-found', 'Request not found');
+    }
+    approval = { id: approvalSnap.id, ...approvalSnap.data() };
+    if (!registrationId) {
+      registrationId = String((approval.metadata || {}).registrationId || '').trim();
+      if (!registrationId && approval.targetType === 'playerRegistration') {
+        registrationId = String(approval.targetId || '').trim();
+      }
+    }
+  }
+  if (!registrationId) {
+    throw new HttpsError('not-found', 'No registration is linked to this request');
+  }
   const regSnap = await firestore.collection(COLLECTIONS.registrations).doc(registrationId).get();
   if (!regSnap.exists || regSnap.data().seriesId !== seriesId) {
     throw new HttpsError('not-found', 'Registration not found');
@@ -2421,20 +2634,50 @@ exports.getSeriesRegistrationIdentity = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Not allowed to view this registration');
   }
   const idSnap = await regSnap.ref.collection('private').doc('identity').get();
+  const identity = idSnap.exists ? (idSnap.data() || {}) : {};
+  const clubSnap = clubId
+    ? await firestore.collection(COLLECTIONS.clubs).doc(clubId).get()
+    : null;
+  const teamName = clubSnap && clubSnap.exists
+    ? String(clubSnap.data().name || clubSnap.data().displayName || '').trim()
+    : '';
+  const orgName = String(series.name || '').trim();
+  const media = await signRegistrationMedia({
+    profilePhotoUrl: reg.profilePhotoUrl || '',
+    nationalIdDocUrl: identity.nationalIdDocUrl || '',
+    passportDocUrl: identity.passportDocUrl || '',
+  });
+  const safeIdentity = {
+    nationalId: identity.nationalId || null,
+    passportNumber: identity.passportNumber || identity.passport || null,
+  };
+  const meta = approval && approval.metadata && typeof approval.metadata === 'object'
+    ? approval.metadata
+    : {};
   return {
-    registrationId,
     public: {
-      fullName: reg.fullName || '',
+      fullName: reg.fullName || meta.displayName || '',
       crickFlowPlayerId: reg.crickFlowPlayerId || null,
       phoneNumber: reg.phoneNumber || null,
       address: reg.address || null,
       dateOfBirth: reg.dateOfBirth || null,
-      profilePhotoUrl: reg.profilePhotoUrl || null,
       customFields: reg.customFields || {},
-      status: reg.status || 'pending',
-      clubId: clubId || null,
+      status: (approval && approval.status) || reg.status || 'pending',
+      teamName: teamName || meta.clubName || null,
+      orgName: orgName || meta.seriesName || null,
+      submittedAt: (approval && (approval.submittedAt || approval.requestedAt))
+        || reg.updatedAt || reg.createdAt || null,
     },
-    identity: idSnap.exists ? idSnap.data() : null,
+    identity: safeIdentity,
+    media,
+    request: approval ? {
+      status: approval.status || 'pending',
+      clubReviewStatus: meta.clubReviewStatus || null,
+      submittedAt: approval.submittedAt || approval.requestedAt || null,
+      reason: approval.reason || '',
+      targetType: approval.targetType || '',
+      clubId: approval.clubId || null,
+    } : null,
   };
 });
 

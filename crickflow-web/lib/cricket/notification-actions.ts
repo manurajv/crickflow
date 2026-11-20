@@ -32,18 +32,12 @@ export function isActionableNotification(item: {
 }) {
   if (item.actionStatus) return false;
   if (item.type === "series_club_admin_invite") return true;
-  if (
-    item.type === "series_approval_pending" &&
-    (item.reviewScope === "org" || item.reviewScope === "club")
-  ) {
-    return true;
-  }
+  // Join / approval reviews happen on the request detail screen.
   return false;
 }
 
 export function usesApproveRejectActions(item: { type?: string; reviewScope?: string }) {
-  return item.type === "series_approval_pending" &&
-    (item.reviewScope === "org" || item.reviewScope === "club");
+  return false;
 }
 
 /** Respond to an inbox action. Team/tournament invites are still completed

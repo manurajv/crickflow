@@ -581,6 +581,37 @@ test('series registration identity is limited to player, team admins, and org ad
   await assertSucceeds(getDoc(doc(as('player1'), 'series_registrations/regDocs')));
 });
 
+
+test('team admins can read join requests for their team only', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'series_club_admins/s1_c1_cadm'), {
+      seriesId: 's1', clubId: 'c1', userId: 'cadm', status: 'active',
+    });
+    await setDoc(doc(db, 'series_club_admins/s1_otherClub_othercadm'), {
+      seriesId: 's1', clubId: 'otherClub', userId: 'othercadm', status: 'active',
+    });
+    await setDoc(doc(db, 'series_approvals/join1'), {
+      seriesId: 's1', clubId: 'c1', requestedBy: 'player1', status: 'pending',
+      targetType: 'playerJoin', targetId: 'c1_player1',
+    });
+    await setDoc(doc(db, 'series/s1/approvals/join1'), {
+      seriesId: 's1', clubId: 'c1', requestedBy: 'player1', status: 'pending',
+      targetType: 'playerJoin', targetId: 'c1_player1',
+    });
+  });
+
+  await assertSucceeds(getDoc(doc(as('cadm'), 'series/s1/approvals/join1')));
+  await assertSucceeds(getDoc(doc(as('cadm'), 'series_approvals/join1')));
+  await assertSucceeds(getDoc(doc(as('player1'), 'series_approvals/join1')));
+  await assertSucceeds(getDoc(doc(as('owner'), 'series_approvals/join1')));
+  await assertFails(getDoc(doc(as('othercadm'), 'series_approvals/join1')));
+  await assertFails(getDoc(doc(as('u2'), 'series_approvals/join1')));
+  await assertFails(updateDoc(doc(as('cadm'), 'series_approvals/join1'), { status: 'approved' }));
+  await assertFails(updateDoc(doc(as('cadm'), 'series/s1/approvals/join1'), { status: 'approved' }));
+});
+
+
 // Team-admin documents are callable-only. A client cannot create an active
 // admin or promote a pending invitation.
 test('series club admins cannot be written directly by clients', async () => {

@@ -135,6 +135,22 @@ final pendingClubReviewApprovalsProvider = StreamProvider.autoDispose
           );
     });
 
+final seriesApprovalByIdProvider = StreamProvider.autoDispose
+    .family<SeriesApprovalModel?, ({String seriesId, String approvalId})>((
+      ref,
+      params,
+    ) {
+      if (params.seriesId.isEmpty || params.approvalId.isEmpty) {
+        return Stream.value(null);
+      }
+      return ref
+          .watch(seriesApprovalRepositoryProvider)
+          .watchApproval(
+            seriesId: params.seriesId,
+            approvalId: params.approvalId,
+          );
+    });
+
 final seriesClubRankingsProvider =
     StreamProvider.family<List<SeriesClubRankingModel>, String>((
       ref,

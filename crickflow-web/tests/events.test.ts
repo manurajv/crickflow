@@ -56,6 +56,13 @@ describe("notification deep links", () => {
     expect(notificationHref({ type: "community_like", requestId: "p1" })).toBe("/community/p1");
     expect(notificationHref({ type: "stream_started", matchId: "m1" })).toBe("/matches/m1/watch");
     expect(notificationHref({ type: "wicket", matchId: "m1" })).toBe("/matches/m1/live");
+    expect(
+      notificationHref({
+        type: "series_approval_pending",
+        seriesId: "s1",
+        requestId: "a9",
+      }),
+    ).toBe("/series/s1/approvals/a9");
   });
 
   it("labels notification categories", () => {

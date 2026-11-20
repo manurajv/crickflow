@@ -109,32 +109,31 @@ class _SeriesRegistrationScreenState
     }
     setState(() => _saving = true);
     try {
-      final result = await ref
-          .read(seriesFunctionsServiceProvider)
-          .submitSeriesRegistration({
-            'seriesId': widget.seriesId,
-            if (widget.clubId != null) 'clubId': widget.clubId,
-            'fullName': _fullName.text.trim(),
-            'crickFlowPlayerId': _playerId.text.trim(),
-            'phoneNumber': _phone.text.trim(),
-            'address': _address.text.trim(),
-            if (_dob != null) 'dateOfBirth': _dob!.toIso8601String(),
-            if (_nationalId.text.trim().isNotEmpty)
-              'nationalId': _nationalId.text.trim(),
-            if (_passport.text.trim().isNotEmpty)
-              'passportNumber': _passport.text.trim(),
-            if (_profilePhotoUrl != null) 'profilePhotoUrl': _profilePhotoUrl,
-            if (_nationalIdDocUrl != null) 'nationalIdDocUrl': _nationalIdDocUrl,
-            if (_passportDocUrl != null) 'passportDocUrl': _passportDocUrl,
-            if (_customFields.isNotEmpty) 'customFields': _customFields,
-          });
+      final payload = {
+        'seriesId': widget.seriesId,
+        if (widget.clubId != null) 'clubId': widget.clubId,
+        'fullName': _fullName.text.trim(),
+        'crickFlowPlayerId': _playerId.text.trim(),
+        'phoneNumber': _phone.text.trim(),
+        'address': _address.text.trim(),
+        if (_dob != null) 'dateOfBirth': _dob!.toIso8601String(),
+        if (_nationalId.text.trim().isNotEmpty)
+          'nationalId': _nationalId.text.trim(),
+        if (_passport.text.trim().isNotEmpty)
+          'passportNumber': _passport.text.trim(),
+        if (_profilePhotoUrl != null) 'profilePhotoUrl': _profilePhotoUrl,
+        if (_nationalIdDocUrl != null) 'nationalIdDocUrl': _nationalIdDocUrl,
+        if (_passportDocUrl != null) 'passportDocUrl': _passportDocUrl,
+        if (_customFields.isNotEmpty) 'customFields': _customFields,
+      };
       if (widget.afterJoin && widget.clubId != null) {
-        await ref.read(seriesFunctionsServiceProvider).submitPlayerJoinRequest({
-          'seriesId': widget.seriesId,
-          'clubId': widget.clubId,
-          'registrationId': result['registrationId'],
-          'displayName': _fullName.text.trim(),
-        });
+        await ref
+            .read(seriesFunctionsServiceProvider)
+            .submitPlayerJoinRequest(payload);
+      } else {
+        await ref
+            .read(seriesFunctionsServiceProvider)
+            .submitSeriesRegistration(payload);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -151,9 +150,9 @@ class _SeriesRegistrationScreenState
     } catch (e) {
       await _uploads.rollback();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not submit: ${friendlyError(e)}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not submit: ${friendlyError(e)}')),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -172,9 +171,7 @@ class _SeriesRegistrationScreenState
       ),
       data: (series) {
         if (series == null) {
-          return const Scaffold(
-            body: Center(child: Text('Series not found')),
-          );
+          return const Scaffold(body: Center(child: Text('Series not found')));
         }
         final user = ref.watch(currentUserProfileProvider).valueOrNull;
         if (user == null) {
@@ -198,7 +195,8 @@ class _SeriesRegistrationScreenState
                     onPressed: () => openLoginForGuest(
                       context: context,
                       prompt: prompt,
-                      returnPath: '/series/${widget.seriesId}/register'
+                      returnPath:
+                          '/series/${widget.seriesId}/register'
                           '${widget.clubId != null ? '?clubId=${widget.clubId}' : ''}'
                           '${widget.afterJoin ? '&join=1' : ''}',
                     ),

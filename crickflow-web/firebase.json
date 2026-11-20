@@ -173,6 +173,14 @@
         "destination": "/tournaments/_/index.html"
       },
       {
+        "source": "/series/*/approvals/*",
+        "destination": "/series/_/approvals/_/index.html"
+      },
+      {
+        "source": "/series/*/approvals/*/",
+        "destination": "/series/_/approvals/_/index.html"
+      },
+      {
         "source": "/series/*/approvals",
         "destination": "/series/_/approvals/index.html"
       },
