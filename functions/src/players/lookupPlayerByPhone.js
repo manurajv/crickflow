@@ -1,6 +1,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
+const { mergeUserDataWithPrivateProfile } = require('../users/privateProfile');
 
 const E164 = /^\+[1-9]\d{6,14}$/;
 
@@ -37,8 +38,12 @@ async function loadUserAndPlayer(db, uid) {
     db.collection('users').doc(uid).get(),
     db.collection('players').doc(uid).get(),
   ]);
+  const rawUser = userSnap.exists ? userSnap.data() : null;
+  const userData = rawUser
+    ? await mergeUserDataWithPrivateProfile(db, uid, rawUser)
+    : null;
   return {
-    userData: userSnap.exists ? userSnap.data() : null,
+    userData,
     playerData: playerSnap.exists ? playerSnap.data() : null,
     playerDocId: playerSnap.exists ? playerSnap.id : uid,
   };

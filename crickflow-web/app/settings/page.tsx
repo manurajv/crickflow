@@ -15,6 +15,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { loginUrl } from "@/lib/auth/guest-access";
 import { storageUploadHint, uploadUserProfilePhoto } from "@/lib/media-upload";
 import { upsertUserProfile } from "@/repositories";
+import { NotificationPreferencesCard } from "@/features/settings/notification-preferences-card";
 import type { UserProfile } from "@/types/models";
 import type { User } from "firebase/auth";
 
@@ -58,15 +59,7 @@ export default function SettingsPage() {
         <LocationOptIn />
       </section>
       {profile ? <ProfileForm key={profile.id} user={user} profile={profile} /> : <p>Loading profile…</p>}
-      <section>
-        <h2 className="font-semibold">Notifications</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Open your inbox to review alerts. Detailed push categories are managed in the CrickFlow mobile app (Settings → Notification Settings).
-        </p>
-        <Button className="mt-3" variant="outline" asChild>
-          <Link href="/notifications">Open notifications</Link>
-        </Button>
-      </section>
+      <NotificationPreferencesCard uid={user.uid} />
       <section>
         <h2 className="font-semibold">Legal</h2>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">

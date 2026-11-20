@@ -6,6 +6,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/utils/cf_player_id_format.dart';
 import '../models/user_model.dart';
 import '../services/user_profile_cache_service.dart';
+import '../user_private_profile.dart';
 
 class UserRepository {
   UserRepository({
@@ -41,7 +42,7 @@ class UserRepository {
           return UserModel.fromMap(cached.id, data);
         }
       } catch (_) {}
-      return _profileCache.readCachedProfile(id);
+      return await _profileCache.readCachedProfile(id);
     }
   }
 
@@ -49,9 +50,9 @@ class UserRepository {
     try {
       final doc = await _col.doc(id).get();
       if (!doc.exists) {
-        return _profileCache.readCachedProfile(id);
+        return await _profileCache.readCachedProfile(id);
       }
-      final user = UserModel.fromMap(doc.id, doc.data()!);
+      final user = await _userWithPrivateProfile(doc.id, doc.data()!);
       await _syncLocalCache(user);
       return user;
     } on FirebaseException catch (e) {
@@ -68,7 +69,7 @@ class UserRepository {
         } catch (_) {
           // Fall through to SharedPreferences cache.
         }
-        return _readOfflineProfile(id);
+        return await _readOfflineProfile(id);
       }
       rethrow;
     }
@@ -97,16 +98,19 @@ class UserRepository {
 
   Future<void> createUser(UserModel user) async {
     await _col.doc(user.id).set(user.toMap());
+    await _writePrivateProfile(user);
     await _profileCache.cacheProfile(user);
   }
 
   Future<void> upsertUser(UserModel user) async {
     await _col.doc(user.id).set(user.toMap(), SetOptions(merge: true));
+    await _writePrivateProfile(user);
     await _profileCache.cacheProfile(user);
   }
 
   Future<void> updateUser(UserModel user) async {
     await _col.doc(user.id).update(user.toMap());
+    await _writePrivateProfile(user);
     await _profileCache.cacheProfile(user);
   }
 
@@ -116,12 +120,55 @@ class UserRepository {
   }
 
   Stream<UserModel?> watchUser(String id) {
-    return _col.doc(id).snapshots().map((doc) {
+    return _col.doc(id).snapshots().asyncMap((doc) async {
       if (!doc.exists) return null;
-      final user = UserModel.fromMap(doc.id, doc.data()!);
+      final user = await _userWithPrivateProfile(doc.id, doc.data()!);
       _profileCache.cacheProfile(user);
       return user;
     });
+  }
+
+
+  DocumentReference<Map<String, dynamic>> _privateProfileRef(String userId) =>
+      _col.doc(userId).collection(kUserPrivateCollection).doc(kUserPrivateProfileDocId);
+
+  Future<UserModel> _userWithPrivateProfile(
+    String id,
+    Map<String, dynamic> parent,
+  ) async {
+    try {
+      final snap = await _privateProfileRef(id).get();
+      if (!snap.exists || snap.data() == null) {
+        return UserModel.fromMap(id, parent);
+      }
+      return UserModel.fromMap(id, mergePrivateUserProfile(parent, snap.data()));
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied' ||
+          e.code == 'unavailable' ||
+          e.code == 'not-found') {
+        return UserModel.fromMap(id, parent);
+      }
+      rethrow;
+    } catch (_) {
+      return UserModel.fromMap(id, parent);
+    }
+  }
+
+  Future<void> _writePrivateProfile(UserModel user) async {
+    try {
+      await _privateProfileRef(user.id).set(
+        privateUserProfilePayload(
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          mobile: user.mobile,
+          dateOfBirth: user.dateOfBirth,
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+        SetOptions(merge: true),
+      );
+    } on FirebaseException catch (e) {
+      debugPrint('private profile write skipped: ${e.code}');
+    }
   }
 
   /// Allocates the next CF-prefixed public player ID (transaction-safe).

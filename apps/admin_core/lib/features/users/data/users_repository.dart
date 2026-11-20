@@ -10,6 +10,7 @@ import '../models/admin_audit_log.dart';
 import '../models/managed_user.dart';
 import '../models/user_account_status.dart';
 import '../models/user_filters.dart';
+import 'user_private_profile.dart';
 
 /// Reads / updates CrickFlow `users` with additive admin fields only.
 ///
@@ -226,9 +227,10 @@ class UsersRepository {
       return null;
     }
     final roles = await _loadAdminRoles([uid]);
+    final map = await _mapWithPrivateProfile(uid, snap.data()!);
     return ManagedUser.fromFirestore(
       id: uid,
-      map: snap.data()!,
+      map: map,
       adminRole: roles[uid],
     );
   }
@@ -244,12 +246,64 @@ class UsersRepository {
         return null;
       }
       final roles = await _loadAdminRoles([uid]);
+      final map = await _mapWithPrivateProfile(uid, snap.data()!);
       return ManagedUser.fromFirestore(
         id: uid,
-        map: snap.data()!,
+        map: map,
         adminRole: roles[uid],
       );
     });
+  }
+
+
+  DocumentReference<Map<String, dynamic>> _privateProfileRef(String uid) =>
+      _users.doc(uid).collection(kUserPrivateCollection).doc(kUserPrivateProfileDocId);
+
+  Future<Map<String, dynamic>> _mapWithPrivateProfile(
+    String uid,
+    Map<String, dynamic> parent,
+  ) async {
+    try {
+      final snap = await _privateProfileRef(uid).get();
+      if (!snap.exists) return parent;
+      return mergePrivateUserProfile(parent, snap.data());
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied' ||
+          e.code == 'unavailable' ||
+          e.code == 'not-found') {
+        return parent;
+      }
+      rethrow;
+    } catch (_) {
+      return parent;
+    }
+  }
+
+  Future<void> _writePrivateProfile(
+    String uid, {
+    required String email,
+    String? phoneNumber,
+    DateTime? dateOfBirth,
+    required String updatedAt,
+  }) async {
+    try {
+      await _privateProfileRef(uid).set(
+        privateUserProfilePayload(
+          email: email,
+          phoneNumber: phoneNumber,
+          dateOfBirth: dateOfBirth,
+          updatedAt: updatedAt,
+        ),
+        SetOptions(merge: true),
+      );
+    } on FirebaseException catch (e) {
+      // Dual-write is best-effort so an admin edit still updates the parent.
+      assert(() {
+        // ignore: avoid_print
+        print('private profile write skipped: ${e.code}');
+        return true;
+      }());
+    }
   }
 
   bool _visibleToActor(
@@ -430,6 +484,7 @@ class UsersRepository {
     if (stateProvince != null) location['stateProvince'] = stateProvince;
     if (city != null) location['city'] = city;
 
+    final updatedAt = DateTime.now().toIso8601String();
     await _users.doc(target.id).set({
       'displayName': ?displayName,
       'mobile': ?phoneNumber,
@@ -437,8 +492,17 @@ class UsersRepository {
       'bio': ?bio,
       'country': ?country,
       if (location.isNotEmpty) 'location': location,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'updatedAt': updatedAt,
     }, SetOptions(merge: true));
+    if (phoneNumber != null) {
+      await _writePrivateProfile(
+        target.id,
+        email: target.email,
+        phoneNumber: phoneNumber,
+        dateOfBirth: target.dateOfBirth,
+        updatedAt: updatedAt,
+      );
+    }
 
     await _writeAudit(
       action: AdminAuditActions.userEdited,

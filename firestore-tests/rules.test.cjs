@@ -854,3 +854,37 @@ test('notifications: clients cannot create support_reply', async () => {
   await assertFails(setDoc(doc(staff, 'notifications/sr1'), payload));
   await assertFails(setDoc(doc(u1, 'notifications/sr2'), { ...payload, addedByUserId: 'u1', userId: 'u2' }));
 });
+
+test('users private/profile: owner and canManageUsers only; fcm stays unreadable', async () => {
+  const u1 = as('u1');
+  const u2 = as('u2');
+  const staff = as('sa');
+  const viewer = as('viewer');
+  const viewerUsers = as('viewerUsers');
+  const payload = {
+    email: 'u1@example.com',
+    phoneNumber: '+94711111111',
+    mobile: '+94711111111',
+    dob: '1990-01-01',
+    dateOfBirth: '1990-01-01',
+    updatedAt: NOW,
+  };
+
+  await assertSucceeds(setDoc(doc(u1, 'users/u1/private/profile'), payload));
+  await assertSucceeds(getDoc(doc(u1, 'users/u1/private/profile')));
+  await assertSucceeds(getDoc(doc(staff, 'users/u1/private/profile')));
+  await assertSucceeds(getDoc(doc(viewerUsers, 'users/u1/private/profile')));
+  await assertFails(getDoc(doc(u2, 'users/u1/private/profile')));
+  await assertFails(getDoc(doc(viewer, 'users/u1/private/profile')));
+  await assertFails(setDoc(doc(u2, 'users/u1/private/profile'), payload));
+  await assertFails(setDoc(doc(u1, 'users/u1/private/profile'), { ...payload, extra: 'nope' }));
+  await assertFails(setDoc(doc(u1, 'users/u2/private/profile'), payload));
+
+  await assertSucceeds(setDoc(doc(u1, 'users/u1/private/fcm'), {
+    fcmToken: 'token-1',
+    fcmUpdatedAt: NOW,
+  }));
+  await assertFails(getDoc(doc(u1, 'users/u1/private/fcm')));
+  await assertFails(getDoc(doc(staff, 'users/u1/private/fcm')));
+  await assertFails(setDoc(doc(u1, 'users/u1/private/other'), payload));
+});

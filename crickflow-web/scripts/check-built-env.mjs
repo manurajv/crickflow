@@ -39,4 +39,21 @@ if (!foundKey || !foundAuthDomain || leftoverEnvRef) {
   );
   process.exit(1);
 }
-console.log("Built-env gate OK — Firebase web API key and auth domain are inlined.");
+const generated = path.join(webRoot, ".firebase-hosting.generated.json");
+if (!fs.existsSync(generated)) {
+  console.error("Built-env gate failed: missing .firebase-hosting.generated.json (run npm run build so CSP hashes are applied).");
+  process.exit(1);
+}
+const hosting = JSON.parse(fs.readFileSync(generated, "utf8"));
+const global = (hosting.hosting?.headers || []).find((h) => h.source === "**");
+const csp = global?.headers?.find((h) => h.key === "Content-Security-Policy")?.value || "";
+const scriptSrc = csp.match(/script-src [^;]+/)?.[0] || "";
+if (!scriptSrc || scriptSrc.includes("'unsafe-inline'") || scriptSrc.includes("'unsafe-eval'")) {
+  console.error("Built-env gate failed: default script-src still allows unsafe-inline or unsafe-eval.");
+  process.exit(1);
+}
+if (!/'sha256-/.test(scriptSrc) && !scriptSrc.includes("sha256-")) {
+  // hashes may be absent only if the export has no inline scripts
+  console.warn("Built-env gate: default CSP has no script hashes (no inline scripts in the export).");
+}
+console.log("Built-env gate OK — Firebase web API key and auth domain are inlined; default CSP has no script unsafe-inline/unsafe-eval.");

@@ -915,14 +915,41 @@ service cloud.firestore {
         && userHasNoClientFcmOnParent();
       allow delete: if isOwner(userId);
 
-      // FCM device tokens — owner write only; Cloud Functions read via Admin SDK.
+      // FCM tokens stay client-unreadable. PII lives at private/profile.
+      // Owner and staff with canManageUsers may read/write profile only.
+      function validPrivateUserProfile() {
+        let d = request.resource.data;
+        return d.keys().hasOnly([
+            'email',
+            'phoneNumber',
+            'mobile',
+            'dob',
+            'dateOfBirth',
+            'updatedAt'
+          ])
+          && (!('email' in d) || d.email == null || (d.email is string && d.email.size() <= 320))
+          && (!('phoneNumber' in d) || d.phoneNumber == null || (d.phoneNumber is string && d.phoneNumber.size() <= 32))
+          && (!('mobile' in d) || d.mobile == null || (d.mobile is string && d.mobile.size() <= 32))
+          && (!('dob' in d) || d.dob == null || (d.dob is string && d.dob.size() <= 40) || d.dob is timestamp)
+          && (!('dateOfBirth' in d) || d.dateOfBirth == null || (d.dateOfBirth is string && d.dateOfBirth.size() <= 40) || d.dateOfBirth is timestamp)
+          && (!('updatedAt' in d) || d.updatedAt is string || d.updatedAt is timestamp);
+      }
+
       match /private/{docId} {
-        allow read: if false;
-        allow create, update: if isOwner(userId)
-          && docId == 'fcm'
-          && request.resource.data.keys().hasOnly(['fcmToken', 'fcmUpdatedAt'])
-          && request.resource.data.fcmToken is string
-          && request.resource.data.fcmToken.size() > 0;
+        allow read: if docId == 'profile'
+          && (isOwner(userId) || hasAdminPermission('canManageUsers'));
+        allow create, update: if (
+            isOwner(userId)
+            && docId == 'fcm'
+            && request.resource.data.keys().hasOnly(['fcmToken', 'fcmUpdatedAt'])
+            && request.resource.data.fcmToken is string
+            && request.resource.data.fcmToken.size() > 0
+          )
+          || (
+            docId == 'profile'
+            && validPrivateUserProfile()
+            && (isOwner(userId) || hasAdminPermission('canManageUsers'))
+          );
         allow delete: if isOwner(userId);
       }
 

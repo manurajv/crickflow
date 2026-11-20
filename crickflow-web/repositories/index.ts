@@ -26,6 +26,12 @@ import {
 import { collections, queryLimits } from "@/config/site";
 import { getDb } from "@/lib/firebase/client";
 import {
+  USER_PRIVATE_COLLECTION,
+  USER_PRIVATE_PROFILE_DOC,
+  mergePrivateUserProfile,
+  privateUserProfilePayload,
+} from "@/lib/firebase/user-private-profile";
+import {
   mapBallEvent,
   mapChat,
   mapCommunityComment,
@@ -447,10 +453,22 @@ export async function listPromotions(): Promise<HomePromotion[]> {
   }
 }
 
+async function readPrivateUserProfile(uid: string): Promise<Record<string, unknown> | null> {
+  try {
+    const snap = await getDoc(
+      doc(getDb(), collections.users, uid, USER_PRIVATE_COLLECTION, USER_PRIVATE_PROFILE_DOC),
+    );
+    return snap.exists() ? (snap.data() as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(getDb(), collections.users, uid));
   if (!snap.exists()) return null;
-  return mapUser(snap.id, dataOf(snap));
+  const merged = mergePrivateUserProfile(dataOf(snap) as Record<string, unknown>, await readPrivateUserProfile(uid));
+  return mapUser(snap.id, merged);
 }
 
 export async function upsertUserProfile(profile: Partial<UserProfile> & { id: string }) {
@@ -478,6 +496,25 @@ export async function upsertUserProfile(profile: Partial<UserProfile> & { id: st
   if (profile.gender !== undefined) payload.gender = profile.gender || null;
   if (profile.onboardingCompleted !== undefined) payload.onboardingCompleted = profile.onboardingCompleted;
   await setDoc(doc(getDb(), collections.users, profile.id), payload, { merge: true });
+  if (
+    profile.email !== undefined ||
+    profile.phoneNumber !== undefined ||
+    profile.dateOfBirth !== undefined
+  ) {
+    try {
+      await setDoc(
+        doc(getDb(), collections.users, profile.id, USER_PRIVATE_COLLECTION, USER_PRIVATE_PROFILE_DOC),
+        privateUserProfilePayload({
+          email: profile.email,
+          phoneNumber: profile.phoneNumber,
+          dateOfBirth: profile.dateOfBirth,
+        }),
+        { merge: true },
+      );
+    } catch {
+      // Parent write already succeeded; private copy is best-effort for older rules.
+    }
+  }
 }
 
 export async function allocatePlayerId(): Promise<string> {

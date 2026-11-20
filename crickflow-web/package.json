@@ -2,10 +2,10 @@
   "name": "crickflow-web",
   "version": "1.0.0",
   "private": true,
-  "description": "CrickFlow consumer web platform — independent of mobile and admin apps.",
+  "description": "CrickFlow consumer web platform \u2014 independent of mobile and admin apps.",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build && node scripts/apply-csp-hashes.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
