@@ -206,19 +206,30 @@ class _SeriesJoinRequestDetailScreenState
               .any((a) => a.userId == uid && a.status == 'active');
     final isOrgAdmin =
         role == SeriesRole.superAdmin || role == SeriesRole.seriesAdmin;
+    final targetTypeName =
+        approval?.targetType.name ?? _str(request, 'targetType');
+    final isAdd = targetTypeName == 'playerAdd' ||
+        targetTypeName == 'playerRegistration';
     final pending = status == SeriesApprovalStatus.pending;
-    final clubScope =
-        pending &&
-        isClubAdmin &&
-        (clubReview.isEmpty || clubReview == 'pending');
-    final orgScope =
-        pending &&
-        isOrgAdmin &&
-        (clubReview == 'approved' || role == SeriesRole.superAdmin);
-    final canAct = !_acting && (clubScope || orgScope);
+    final scope = SeriesRequestActionScope.resolve(
+      pending: pending,
+      isClubAdmin: isClubAdmin,
+      isOrgAdmin: isOrgAdmin,
+      isSuperAdmin: role == SeriesRole.superAdmin,
+      targetType: targetTypeName,
+      clubReviewStatus: clubReview,
+    );
+    final clubScope = scope.clubScope;
+    final canAct = !_acting && scope.canAct;
+    final playerUserId = approval?.metadata['userId']?.toString().trim() ??
+        (isAdd ? '' : (approval?.requestedBy ?? ''));
+    final addedBy = approval?.metadata['addedByName']?.toString().trim() ??
+        _str(request, 'addedByName');
 
     return Scaffold(
-      appBar: const CfChromeAppBar(title: Text('Join request')),
+      appBar: CfChromeAppBar(
+        title: Text(isAdd ? 'Add player request' : 'Join request'),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _loadError != null && _payload == null
@@ -262,9 +273,9 @@ class _SeriesJoinRequestDetailScreenState
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             )
-                          else if (approval != null)
+                          else if (playerUserId.isNotEmpty)
                             SeriesUserName(
-                              approval.requestedBy,
+                              playerUserId,
                               fallback: 'Player',
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.w700),
@@ -290,6 +301,7 @@ class _SeriesJoinRequestDetailScreenState
                 ),
                 if (teamName.isNotEmpty) _line(context, 'Team', teamName),
                 if (orgName.isNotEmpty) _line(context, 'Organization', orgName),
+                if (addedBy.isNotEmpty) _line(context, 'Added by', addedBy),
                 if (submitted != null)
                   _line(context, 'Submitted', _formatSubmitted(submitted)),
                 if (nationalId.isNotEmpty)

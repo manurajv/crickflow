@@ -97,10 +97,15 @@ export function JoinRequestDetailPage() {
   const isOrgAdmin = Boolean(access.data?.canManage);
   const status = field(request.status) || field(pub.status) || "pending";
   const clubReviewStatus = field(request.clubReviewStatus);
+  const targetType = field(request.targetType);
+  const isAdd = targetType === "playerAdd" || targetType === "playerRegistration";
   const pending = status === "pending";
-  const clubScope = pending && isClubAdmin && (!clubReviewStatus || clubReviewStatus === "pending");
-  const orgScope = pending && isOrgAdmin && (clubReviewStatus === "approved" || Boolean(access.data?.isSuperAdmin));
+  const clubScope =
+    pending && isClubAdmin && !isAdd && (!clubReviewStatus || clubReviewStatus === "pending");
+  const orgScope =
+    pending && isOrgAdmin && (isAdd || clubReviewStatus === "approved" || Boolean(access.data?.isSuperAdmin));
   const canAct = clubScope || orgScope;
+  const addedBy = field(request.addedByName);
 
   async function onReview(event: FormEvent, decision: "approved" | "rejected") {
     event.preventDefault();
@@ -152,6 +157,7 @@ export function JoinRequestDetailPage() {
           )}
           <div>
             <h1 className="text-2xl font-semibold">{field(pub.fullName) || "Player"}</h1>
+            <p className="text-sm text-muted-foreground">{isAdd ? "Add player request" : "Join request"}</p>
             {field(pub.crickFlowPlayerId) ? (
               <p className="text-sm text-muted-foreground">CrickFlow ID: {field(pub.crickFlowPlayerId)}</p>
             ) : null}
@@ -165,6 +171,7 @@ export function JoinRequestDetailPage() {
         </div>
         {field(pub.teamName) ? <p><span className="font-medium">Team:</span> {field(pub.teamName)}</p> : null}
         {field(pub.orgName) ? <p><span className="font-medium">Organization:</span> {field(pub.orgName)}</p> : null}
+        {addedBy ? <p><span className="font-medium">Added by:</span> {addedBy}</p> : null}
         {field(pub.submittedAt) || field(request.submittedAt) ? (
           <p>
             <span className="font-medium">Submitted:</span>{" "}

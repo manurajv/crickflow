@@ -51,7 +51,7 @@ export function SeriesAdminsPage() {
       <div className="space-y-2">
         {(admins.data ?? data.admins).map((a) => (
           <Card key={a.id} className="p-4 text-sm">
-            <p className="font-semibold">{a.displayName || a.userId}</p>
+            <p className="font-semibold">{a.displayName || "Admin"}</p>
             <p className="text-muted-foreground">{seriesAdminTierLabel(a.role)}</p>
             {data.isSuperAdmin && a.userId !== data.series.superAdminUserId ? (
               <select

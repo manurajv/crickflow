@@ -13,21 +13,28 @@ const playerJoin = require('../src/series/playerJoinRequest');
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'crickflow-b06bc';
 
 function groupKey(doc) {
-  const userId = doc.requestedBy || (doc.metadata && doc.metadata.userId) || '';
+  const userId = playerJoin.requestPlayerUserId(doc);
   return `${doc.seriesId}::${doc.clubId}::${userId}`;
 }
 
 async function mergeDuplicatePlayerJoinRequests(firestore, { nowIso } = {}) {
-  const snap = await firestore.collection('series_approvals')
-    .where('targetType', '==', 'playerJoin')
-    .get();
+  const snaps = await Promise.all([
+    firestore.collection('series_approvals').where('targetType', '==', 'playerJoin').get(),
+    firestore.collection('series_approvals').where('targetType', '==', 'playerAdd').get(),
+  ]);
   const groups = new Map();
-  for (const d of snap.docs) {
-    const data = { id: d.id, ...d.data() };
-    if (!data.seriesId || !data.clubId) continue;
-    const key = groupKey(data);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(data);
+  let scanned = 0;
+  for (const snap of snaps) {
+    scanned += snap.size;
+    for (const d of snap.docs) {
+      const data = { id: d.id, ...d.data() };
+      if (!data.seriesId || !data.clubId) continue;
+      const key = groupKey(data);
+      if (!key.endsWith('::')) {
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(data);
+      }
+    }
   }
   const merged = [];
   const ts = nowIso || new Date().toISOString();
@@ -63,7 +70,7 @@ async function mergeDuplicatePlayerJoinRequests(firestore, { nowIso } = {}) {
       merged.push({
         seriesId: dup.seriesId,
         clubId: dup.clubId,
-        playerUserId: dup.requestedBy,
+        playerUserId: playerJoin.requestPlayerUserId(dup),
         keptApprovalId: plan.keep.id,
         mergedApprovalId: dup.id,
         keptSubmittedAt: dup && plan.keep.submittedAt || plan.keep.requestedAt || null,
@@ -72,7 +79,7 @@ async function mergeDuplicatePlayerJoinRequests(firestore, { nowIso } = {}) {
       });
     }
   }
-  return { scanned: snap.size, groups: groups.size, merged };
+  return { scanned, groups: groups.size, merged };
 }
 
 async function main() {

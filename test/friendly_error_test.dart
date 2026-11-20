@@ -104,4 +104,24 @@ void main() {
       'No internet connection. Check your connection and try again.',
     );
   });
+
+  test('join cooldown keeps the remaining-time message', () {
+    final e = FirebaseException(
+      plugin: 'firebase_functions',
+      code: 'resource-exhausted',
+      message: 'You can submit another request to this team in 6 hours and 12 minutes.',
+    );
+    expect(
+      friendlyError(e),
+      'You can submit another request to this team in 6 hours and 12 minutes.',
+    );
+    expect(
+      friendlyError(FirebaseException(
+        plugin: 'cloud_functions',
+        code: 'resource-exhausted',
+        message: 'You can submit another request to this team in 2 minutes.',
+      )),
+      'You can submit another request to this team in 2 minutes.',
+    );
+  });
 }

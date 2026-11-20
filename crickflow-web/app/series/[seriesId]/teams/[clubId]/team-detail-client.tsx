@@ -521,7 +521,7 @@ export function OrgTeamDetailPage() {
           ) : (
             joinRequests.map((a) => (
               <Card key={a.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-                <p className="text-sm">{String(a.metadata.displayName || a.requestedBy)}</p>
+                <p className="text-sm">{String(a.metadata.displayName || "Player")}</p>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -552,7 +552,7 @@ export function OrgTeamDetailPage() {
             <p className="text-sm text-muted-foreground">No pending removal reviews.</p>
           ) : (
             removalRequests.map((a) => {
-              const name = String(a.metadata.displayName || a.metadata.userId || a.requestedBy);
+              const name = String(a.metadata.displayName || a.metadata.addedByName || "Player");
               return (
                 <Card key={a.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
                   <div>
@@ -647,7 +647,7 @@ export function OrgTeamDetailPage() {
           <p className="text-sm text-muted-foreground">No team admins yet.</p>
         ) : (
           visibleAdmins.map((a) => {
-            const name = a.displayName || a.userId;
+            const name = a.displayName || "Team admin";
             const invited = isOpenClubAdminInvite(a.status);
             return (
               <Card key={a.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
@@ -754,7 +754,7 @@ export function OrgTeamDetailPage() {
           <p className="text-sm text-muted-foreground">Squad not published</p>
         ) : (
           listedSquad.map((m) => {
-            const name = m.displayName || m.userId;
+            const name = m.displayName || "Player";
             const pendingRemoval = m.status === "pendingRemoval";
             return (
               <Card key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">

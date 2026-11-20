@@ -196,3 +196,36 @@ Future<String?> askRejectionReason(BuildContext context) {
     ),
   ).whenComplete(controller.dispose);
 }
+
+
+/// Who may approve or reject a player join / add request at this stage.
+class SeriesRequestActionScope {
+  const SeriesRequestActionScope({
+    required this.clubScope,
+    required this.orgScope,
+  });
+
+  final bool clubScope;
+  final bool orgScope;
+  bool get canAct => clubScope || orgScope;
+
+  factory SeriesRequestActionScope.resolve({
+    required bool pending,
+    required bool isClubAdmin,
+    required bool isOrgAdmin,
+    required bool isSuperAdmin,
+    required String targetType,
+    required String clubReviewStatus,
+  }) {
+    final isAdd =
+        targetType == 'playerAdd' || targetType == 'playerRegistration';
+    final clubScope = pending &&
+        isClubAdmin &&
+        !isAdd &&
+        (clubReviewStatus.isEmpty || clubReviewStatus == 'pending');
+    final orgScope = pending &&
+        isOrgAdmin &&
+        (isAdd || clubReviewStatus == 'approved' || isSuperAdmin);
+    return SeriesRequestActionScope(clubScope: clubScope, orgScope: orgScope);
+  }
+}

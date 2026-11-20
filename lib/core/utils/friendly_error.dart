@@ -14,7 +14,8 @@ String friendlyError(Object? error) {
       return _offline;
     }
     // Callable functions send messages written for users.
-    if (error.plugin == 'firebase_functions' &&
+    if ((error.plugin == 'firebase_functions' ||
+            error.plugin == 'cloud_functions') &&
         message.isNotEmpty &&
         !_looksTechnical(message)) {
       return _withFieldLabels(message);

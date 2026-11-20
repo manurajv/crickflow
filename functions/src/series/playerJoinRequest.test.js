@@ -10,6 +10,9 @@ const {
   mergeDuplicateJoinPlan,
   storagePathFromUrl,
   unusedMediaUrls,
+  requestPlayerUserId,
+  isPlayerTeamRequest,
+  profileDisplayName,
 } = require('./playerJoinRequest');
 
 test('playerJoinApprovalId is stable and path-safe', () => {
@@ -89,4 +92,33 @@ test('unusedMediaUrls returns previous documents that were replaced', () => {
     { nationalIdDocUrl: 'https://x/new.jpg', passportDocUrl: 'https://x/keep.jpg' },
   );
   assert.deepEqual(unused, ['https://x/old.jpg']);
+});
+
+test('requestPlayerUserId uses the player, not the adding admin', () => {
+  assert.equal(requestPlayerUserId({
+    targetType: 'playerAdd',
+    requestedBy: 'admin1',
+    metadata: { userId: 'player9' },
+  }), 'player9');
+  assert.equal(requestPlayerUserId({
+    targetType: 'playerJoin',
+    requestedBy: 'player9',
+    metadata: { userId: 'player9' },
+  }), 'player9');
+  assert.equal(profileDisplayName({ fullName: 'Ada Lovelace', name: 'Ada' }), 'Ada Lovelace');
+});
+
+test('isPlayerTeamRequest matches join and admin-add for the same player and team', () => {
+  const add = {
+    targetType: 'playerAdd',
+    seriesId: 's1',
+    clubId: 'c1',
+    requestedBy: 'admin1',
+    metadata: { userId: 'player9' },
+  };
+  assert.equal(isPlayerTeamRequest(add, { seriesId: 's1', userId: 'player9', clubId: 'c1' }), true);
+  assert.equal(isPlayerTeamRequest(add, { seriesId: 's1', userId: 'other', clubId: 'c1' }), false);
+  assert.equal(isPlayerTeamRequest({ ...add, targetType: 'playerJoin', requestedBy: 'player9' }, {
+    seriesId: 's1', userId: 'player9', clubId: 'c1',
+  }), true);
 });

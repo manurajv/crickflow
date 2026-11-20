@@ -2,6 +2,7 @@ import 'package:crickflow/core/navigation/notification_navigation.dart';
 import 'package:crickflow/core/constants/series_notification_types.dart';
 import 'package:crickflow/data/models/series/series.dart';
 import 'package:crickflow/features/series/presentation/widgets/series_document_image.dart';
+import 'package:crickflow/features/series/presentation/widgets/series_ui.dart';
 import 'package:crickflow/features/series/presentation/widgets/series_user_name.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -59,5 +60,39 @@ void main() {
     );
     expect(find.text('National ID document'), findsOneWidget);
     expect(find.text('No document uploaded'), findsOneWidget);
+  });
+
+  test('team admin add requests are reviewed by org admins, not as a team first pass', () {
+    final add = SeriesRequestActionScope.resolve(
+      pending: true,
+      isClubAdmin: true,
+      isOrgAdmin: true,
+      isSuperAdmin: false,
+      targetType: 'playerAdd',
+      clubReviewStatus: '',
+    );
+    expect(add.clubScope, isFalse);
+    expect(add.orgScope, isTrue);
+
+    final join = SeriesRequestActionScope.resolve(
+      pending: true,
+      isClubAdmin: true,
+      isOrgAdmin: false,
+      isSuperAdmin: false,
+      targetType: 'playerJoin',
+      clubReviewStatus: 'pending',
+    );
+    expect(join.clubScope, isTrue);
+    expect(join.orgScope, isFalse);
+
+    final joinForOrg = SeriesRequestActionScope.resolve(
+      pending: true,
+      isClubAdmin: false,
+      isOrgAdmin: true,
+      isSuperAdmin: false,
+      targetType: 'playerJoin',
+      clubReviewStatus: 'approved',
+    );
+    expect(joinForOrg.orgScope, isTrue);
   });
 }

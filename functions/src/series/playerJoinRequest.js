@@ -90,14 +90,38 @@ function cooldownFrom(lastSubmitMs, nowMs = Date.now()) {
   };
 }
 
-function isPlayerJoinFor(approval, { seriesId, userId, clubId } = {}) {
+const PLAYER_TEAM_REQUEST_TYPES = ['playerJoin', 'playerAdd', 'playerRegistration'];
+
+function requestPlayerUserId(approval) {
+  if (!approval || typeof approval !== 'object') return '';
+  const meta = approval.metadata && typeof approval.metadata === 'object'
+    ? approval.metadata
+    : {};
+  if (approval.targetType === 'playerAdd' || approval.targetType === 'playerRegistration') {
+    return String(meta.userId || '').trim();
+  }
+  return String(approval.requestedBy || meta.userId || '').trim();
+}
+
+function isPlayerTeamRequest(approval, { seriesId, userId, clubId } = {}) {
   if (!approval) return false;
-  if (approval.targetType !== 'playerJoin') return false;
+  if (!PLAYER_TEAM_REQUEST_TYPES.includes(approval.targetType)) return false;
   if (seriesId && approval.seriesId !== seriesId) return false;
   if (clubId && approval.clubId !== clubId) return false;
-  const requestedBy = approval.requestedBy || (approval.metadata && approval.metadata.userId);
-  if (userId && requestedBy !== userId) return false;
+  if (userId && requestPlayerUserId(approval) !== userId) return false;
   return true;
+}
+
+function isPlayerJoinFor(approval, { seriesId, userId, clubId } = {}) {
+  if (!approval || approval.targetType !== 'playerJoin') return false;
+  return isPlayerTeamRequest(approval, { seriesId, userId, clubId });
+}
+
+function profileDisplayName(profile) {
+  if (!profile || typeof profile !== 'object') return '';
+  return String(
+    profile.fullName || profile.displayName || profile.name || '',
+  ).trim();
 }
 
 /**
@@ -159,13 +183,17 @@ function unusedMediaUrls(previous, next) {
 module.exports = {
   JOIN_COOLDOWN_MS,
   CLIENT_REGISTRATION_KEYS,
+  PLAYER_TEAM_REQUEST_TYPES,
   playerJoinApprovalId,
   hasClientRegistrationPayload,
   parseTimeMs,
   latestSubmitTime,
   formatCooldownMessage,
   cooldownFrom,
+  requestPlayerUserId,
+  isPlayerTeamRequest,
   isPlayerJoinFor,
+  profileDisplayName,
   mergeDuplicateJoinPlan,
   storagePathFromUrl,
   mediaUrlFields,

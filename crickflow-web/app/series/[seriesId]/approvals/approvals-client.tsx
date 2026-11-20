@@ -193,8 +193,7 @@ export function SeriesApprovalsPage() {
           {clubPending.map((a) => {
             const name =
               (typeof a.metadata.displayName === "string" && a.metadata.displayName) ||
-              a.requestedBy ||
-              "Someone";
+              "Player";
             const busy = busyId === a.id;
             return (
               <Card key={`club-${a.id}`} className="space-y-3 p-4">
@@ -283,8 +282,7 @@ export function SeriesApprovalsPage() {
             const name =
               (typeof a.metadata.displayName === "string" && a.metadata.displayName) ||
               (typeof a.metadata.name === "string" && a.metadata.name) ||
-              a.requestedBy ||
-              "Someone";
+              "Player";
             const teamA = typeof a.metadata.clubAName === "string" ? a.metadata.clubAName : "";
             const teamB = typeof a.metadata.clubBName === "string" ? a.metadata.clubBName : "";
             const when =

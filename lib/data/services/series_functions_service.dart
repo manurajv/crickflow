@@ -267,10 +267,11 @@ class SeriesFunctionsService {
         throw StateError('$name returned an invalid response');
       } on FirebaseFunctionsException catch (e) {
         lastError = e;
+        final cooldown = _isJoinCooldown(e);
         final retryable =
             e.code == 'unavailable' ||
             e.code == 'deadline-exceeded' ||
-            e.code == 'resource-exhausted';
+            (e.code == 'resource-exhausted' && !cooldown);
         if (!retryable || attempt == maxAttempts) {
           throw FirebaseFunctionsException(
             code: e.code,
@@ -307,5 +308,12 @@ class SeriesFunctionsService {
             ? e.message!
             : 'Something went wrong. Try again.';
     }
+  }
+
+  bool _isJoinCooldown(FirebaseFunctionsException e) {
+    final details = e.details;
+    if (details is Map && details['code'] == 'join-cooldown') return true;
+    final message = e.message ?? '';
+    return message.contains('submit another request to this team');
   }
 }
