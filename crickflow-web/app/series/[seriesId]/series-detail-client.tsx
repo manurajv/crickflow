@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/states";
+import { AnnouncementBody } from "@/components/shared/announcement-body";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
   useCreateSeriesClub,
@@ -201,7 +202,7 @@ export function SeriesDetailPage() {
                 {announcements.data.slice(0, 2).map((a) => (
                   <Card key={a.id} className="space-y-1 p-4">
                     <p className="font-semibold">{a.title}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-3">{a.body}</p>
+                    <div className="line-clamp-3 text-sm text-muted-foreground"><AnnouncementBody body={a.body} /></div>
                     <p className="text-xs text-muted-foreground">
                       {a.createdByName || "Organizer"}
                       {a.createdAt ? ` · ${new Date(a.createdAt).toLocaleDateString()}` : ""}

@@ -10,6 +10,7 @@ import '../../../shared/widgets/cf_chrome_app_bar.dart';
 import 'widgets/series_ui.dart';
 import 'widgets/series_user_name.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../shared/widgets/announcement_body.dart';
 
 /// Org announcements: everyone signed in can read; owner + admins can post.
 class SeriesAnnouncementsScreen extends ConsumerWidget {
@@ -123,7 +124,7 @@ class SeriesAnnouncementCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppDimens.spaceSm),
-          Text(a.body),
+          AnnouncementBody(body: a.body),
           const SizedBox(height: AppDimens.spaceSm),
           Row(
             children: [
